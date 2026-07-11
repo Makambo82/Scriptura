@@ -366,6 +366,17 @@ footer strong{color:var(--gold)}
   .out-header{padding:20px 20px}
   .out-body{padding:0 20px 24px}
 }
+
+/* CHIPS TON */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.chip{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;
+  padding:8px 16px;border-radius:999px;
+  border:1px solid var(--border-soft);background:transparent;color:var(--muted);
+  cursor:pointer;transition:all 0.2s;user-select:none;
+}
+.chip:hover{border-color:var(--gold);color:var(--gold)}
+.chip.active{background:var(--gold-pale);border-color:var(--gold);color:var(--gold)}
 </style>
 </head>
 <body>
@@ -582,7 +593,27 @@ footer strong{color:var(--gold)}
     <div class="context-card">
       <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
-        <input class="ctx-input" id="niche" placeholder="Ex : finance personnelle, développement personnel, cuisine africaine…"/>
+        <select class="ctx-input" id="niche">
+          <option value="">Choisir ta niche…</option>
+          <option>Finance personnelle</option>
+          <option>Business & entrepreneuriat</option>
+          <option>Développement personnel</option>
+          <option>Motivation & mindset</option>
+          <option>Bien-être & santé</option>
+          <option>Cuisine & gastronomie</option>
+          <option>Mode & beauté</option>
+          <option>Éducation & parentalité</option>
+          <option>Histoire & culture</option>
+          <option>Géopolitique & actualité</option>
+          <option>Tech & numérique</option>
+          <option>Sport & fitness</option>
+          <option>Voyage & lifestyle</option>
+          <option>Amour & relations</option>
+          <option>Spiritualité & philosophie</option>
+          <option>Immobilier & investissement</option>
+          <option>Art & créativité</option>
+          <option>Autre</option>
+        </select>
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Ton sujet ou idée</label>
@@ -590,11 +621,49 @@ footer strong{color:var(--gold)}
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Ton audience (optionnel)</label>
-        <input class="ctx-input" id="audience" placeholder="Ex : femmes 25-40 ans, France et Belgique, intéressées par l'indépendance financière…"/>
+        <select class="ctx-input" id="audience">
+          <option value="">Choisir ton audience…</option>
+          <option>Jeunes adultes 18-25 ans</option>
+          <option>Adultes 25-35 ans</option>
+          <option>Adultes 35-50 ans</option>
+          <option>Femmes francophones</option>
+          <option>Hommes francophones</option>
+          <option>Entrepreneurs & freelances</option>
+          <option>Étudiants & jeunes diplômés</option>
+          <option>Parents & familles</option>
+          <option>Créateurs de contenu</option>
+          <option>Professionnels & cadres</option>
+          <option>Grand public francophone</option>
+        </select>
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Ton style de contenu (optionnel)</label>
-        <input class="ctx-input" id="style" placeholder="Ex : faceless, storytelling, éducatif, provocateur, humoristique…"/>
+        <select class="ctx-input" id="style">
+          <option value="">Choisir ton style…</option>
+          <option>Faceless (sans visage)</option>
+          <option>Avec visage — talking head</option>
+          <option>Storytelling narratif</option>
+          <option>Éducatif & pédagogue</option>
+          <option>Provocateur & direct</option>
+          <option>Humoristique & décalé</option>
+          <option>Inspirant & motivationnel</option>
+          <option>Documentaire & analytique</option>
+          <option>Réaction & commentaire</option>
+          <option>Tutoriel & how-to</option>
+        </select>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton & voix</label>
+        <select class="ctx-input" id="toneSelect">
+          <option value="">Choisir ton ton…</option>
+          <option value="analytique et froid, comme un documentaire">Analytique</option>
+          <option value="inspirant et chaleureux, qui touche l'émotion">Inspirant</option>
+          <option value="provocateur et direct, qui choque et interpelle">Provocateur</option>
+          <option value="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</option>
+          <option value="humoristique et décalé, avec légèreté">Humoristique</option>
+          <option value="storytelling narratif, qui raconte une histoire captivante">Storytelling</option>
+        </select>
       </div>
 
       <div class="error-box" id="errorBox"></div>
@@ -624,6 +693,7 @@ footer strong{color:var(--gold)}
 
 <script>
 // ── STATE ──
+let selectedTone = '';
 const state = { objectif:'', depart:'', plateforme:'' };
 
 // ── NAVIGATION ──
@@ -683,6 +753,7 @@ CONTEXTE DU CRÉATEUR :
 - Sujet / Idée : ${sujet}
 ${audience ? `- Audience : ${audience}` : ''}
 ${style ? `- Style : ${style}` : ''}
+${document.getElementById('toneSelect')?.value ? `- Ton & voix : ${document.getElementById('toneSelect').value}` : ''}
 
 MISSION : Génère un package de contenu COMPLET et PREMIUM qui comprend :
 
