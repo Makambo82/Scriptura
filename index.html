@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scriptura — L'OS du créateur francophone</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Tenor+Sans&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --burgundy:#1A0A0E;
+  --burgundy-mid:#240F14;
+  --burgundy-card:#2E1219;
+  --burgundy-soft:#3A1820;
+  --gold:#C9A84C;
+  --gold-light:#E2C87A;
+  --gold-pale:rgba(201,168,76,0.09);
+  --border:rgba(201,168,76,0.2);
+  --border-soft:rgba(201,168,76,0.1);
+  --muted:rgba(255,255,255,0.38);
+  --text:rgba(255,255,255,0.80);
+  --white:#FFFFFF;
+}
+html{scroll-behavior:smooth}
+body{background:var(--burgundy);color:var(--white);font-family:'Tenor Sans',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--gold);opacity:0.4}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 36px;
+  background:rgba(26,10,14,0.92);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border-soft);
+}
+.logo{font-family:'Cinzel',serif;font-weight:500;font-size:1.15rem;letter-spacing:0.18em;color:var(--white)}
+.logo em{color:var(--gold);font-style:normal}
+.nav-tag{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;color:var(--gold);opacity:0.6;text-transform:uppercase}
+
+/* HERO */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:120px 24px 80px;
+  position:relative;overflow:hidden;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 30%,rgba(201,168,76,0.06) 0%,transparent 65%),
+    radial-gradient(ellipse 40% 40% at 20% 80%,rgba(201,168,76,0.03) 0%,transparent 60%);
+  pointer-events:none;
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(201,168,76,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(201,168,76,0.025) 1px,transparent 1px);
+  background-size:80px 80px;pointer-events:none;
+}
+.hero-eyebrow{
+  font-family:'Cinzel',serif;font-size:0.65rem;font-weight:400;
+  letter-spacing:0.26em;text-transform:uppercase;
+  color:var(--gold);opacity:0.75;margin-bottom:32px;
+}
+.hero h1{
+  font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
+  font-size:clamp(3rem,8vw,6rem);
+  line-height:1.05;letter-spacing:-0.02em;
+  margin-bottom:14px;max-width:900px;
+}
+.hero h1 strong{font-style:normal;font-weight:700;color:var(--gold-light);display:block}
+.hero-rule{
+  width:1px;height:56px;background:linear-gradient(to bottom,transparent,var(--gold),transparent);
+  margin:28px auto;opacity:0.5;
+}
+.hero-sub{
+  font-size:1rem;font-weight:300;color:var(--muted);
+  max-width:420px;line-height:1.9;margin-bottom:52px;letter-spacing:0.02em;
+}
+.hero-btn{
+  display:inline-flex;align-items:center;gap:12px;
+  background:var(--gold);color:var(--burgundy);
+  font-family:'Cinzel',serif;font-weight:500;font-size:0.75rem;
+  padding:17px 48px;border-radius:999px;
+  letter-spacing:0.18em;text-transform:uppercase;
+  border:none;cursor:pointer;
+  transition:all 0.3s;
+}
+.hero-btn:hover{background:var(--gold-light);transform:translateY(-2px);box-shadow:0 16px 48px rgba(201,168,76,0.2)}
+.hero-free{margin-top:16px;font-size:0.7rem;color:var(--muted);letter-spacing:0.1em}
+
+/* TICKER */
+.ticker-wrap{overflow:hidden;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);background:var(--burgundy-mid);padding:14px 0}
+.ticker{display:flex;gap:56px;width:max-content;animation:ticker 38s linear infinite;white-space:nowrap}
+.ticker-item{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:14px}
+.gem{color:var(--gold);font-size:0.45rem}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* FLOW SECTION */
+#flow{padding:100px 24px 120px;max-width:780px;margin:0 auto}
+
+/* STEP */
+.step{display:none}
+.step.active{display:block}
+
+.step-header{text-align:center;margin-bottom:52px}
+.step-indicator{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;
+  color:var(--gold);opacity:0.6;margin-bottom:20px;
+  display:flex;align-items:center;justify-content:center;gap:16px;
+}
+.step-dots{display:flex;gap:8px;align-items:center}
+.sdot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:all 0.3s}
+.sdot.active{background:var(--gold);width:20px;border-radius:3px}
+.sdot.done{background:rgba(201,168,76,0.4)}
+.step-title{
+  font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
+  font-size:clamp(1.8rem,4vw,2.8rem);line-height:1.2;margin-bottom:12px;
+}
+.step-title strong{font-style:normal;font-weight:700;color:var(--gold-light)}
+.step-sub{font-size:0.88rem;color:var(--muted);line-height:1.8}
+
+/* CHOICE CARDS */
+.choices{display:flex;flex-direction:column;gap:12px}
+.choice{
+  display:flex;align-items:center;gap:20px;
+  background:var(--burgundy-card);border:1px solid var(--border-soft);
+  border-radius:4px;padding:22px 26px;cursor:pointer;
+  transition:all 0.25s;position:relative;overflow:hidden;
+}
+.choice::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:var(--gold);transform:scaleY(0);transition:transform 0.25s;
+}
+.choice:hover{border-color:var(--border);background:rgba(201,168,76,0.04)}
+.choice:hover::before{transform:scaleY(1)}
+.choice-icon{font-size:1.4rem;flex-shrink:0;width:36px;text-align:center;opacity:0.8}
+.choice-body{flex:1}
+.choice-label{
+  font-family:'Playfair Display',serif;font-weight:500;font-size:1.05rem;
+  margin-bottom:4px;line-height:1.3;
+}
+.choice-desc{font-size:0.82rem;color:var(--muted);line-height:1.6}
+.choice-arrow{font-size:0.9rem;color:var(--gold);opacity:0;transition:opacity 0.25s;flex-shrink:0}
+.choice:hover .choice-arrow{opacity:1}
+
+/* GRID CHOICES (plateformes) */
+.choices-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:480px){.choices-grid{grid-template-columns:1fr}}
+.choice-tile{
+  background:var(--burgundy-card);border:1px solid var(--border-soft);
+  border-radius:4px;padding:24px 20px;cursor:pointer;
+  transition:all 0.25s;text-align:center;position:relative;overflow:hidden;
+}
+.choice-tile::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  transform:scaleX(0);transition:transform 0.3s;
+}
+.choice-tile:hover{border-color:var(--border)}
+.choice-tile:hover::before{transform:scaleX(1)}
+.tile-icon{font-size:1.8rem;margin-bottom:10px;display:block}
+.tile-name{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--text)}
+
+/* CONTEXT STEP */
+.context-card{
+  background:var(--burgundy-card);border:1px solid var(--border);
+  border-radius:4px;padding:36px 36px;position:relative;
+}
+.context-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+}
+.ctx-field{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+.ctx-label{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;
+  text-transform:uppercase;color:var(--gold);opacity:0.65;
+}
+.ctx-input,.ctx-textarea{
+  font-family:'Tenor Sans',sans-serif;font-size:0.92rem;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border-soft);border-radius:2px;
+  padding:13px 16px;color:var(--white);outline:none;
+  transition:border-color 0.2s;width:100%;
+}
+.ctx-input:focus,.ctx-textarea:focus{border-color:rgba(201,168,76,0.45)}
+.ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.2);font-size:0.88rem}
+.ctx-textarea{resize:vertical;min-height:90px;line-height:1.7}
+
+/* SUMMARY ROW */
+.summary{
+  display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;
+}
+.summary-tag{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--gold);
+  background:var(--gold-pale);border:1px solid var(--border-soft);
+  padding:5px 14px;border-radius:999px;
+}
+
+/* GENERATE BTN */
+.btn-generate{
+  width:100%;padding:17px;
+  background:var(--gold);color:var(--burgundy);
+  font-family:'Cinzel',serif;font-weight:500;font-size:0.78rem;
+  letter-spacing:0.18em;text-transform:uppercase;
+  border:none;border-radius:999px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:all 0.25s;
+}
+.btn-generate:hover{background:var(--gold-light);transform:translateY(-1px);box-shadow:0 12px 36px rgba(201,168,76,0.2)}
+.btn-generate:disabled{background:rgba(201,168,76,0.25);color:rgba(26,10,14,0.5);cursor:not-allowed;transform:none;box-shadow:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:16px;height:16px;border:2px solid rgba(26,10,14,0.25);border-top-color:var(--burgundy);border-radius:50%;animation:spin 0.7s linear infinite;display:none;flex-shrink:0}
+
+/* BACK BTN */
+.btn-back{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--muted);
+  background:transparent;border:none;cursor:pointer;
+  margin-bottom:32px;transition:color 0.2s;
+}
+.btn-back:hover{color:var(--gold)}
+
+/* ERROR */
+.error-box{
+  background:rgba(160,40,30,0.12);border:1px solid rgba(160,40,30,0.3);
+  border-radius:2px;padding:12px 16px;color:#e87a6a;
+  font-size:0.83rem;margin-bottom:16px;display:none;line-height:1.6;
+}
+
+/* RESULTS */
+#results{margin-top:56px;display:none}
+.results-top{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  margin-bottom:32px;padding-bottom:24px;
+  border-bottom:1px solid var(--border-soft);
+}
+.results-heading{font-family:'Playfair Display',serif;font-weight:400;font-style:italic;font-size:1.6rem}
+.results-meta{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;color:var(--gold);opacity:0.6;text-transform:uppercase}
+
+/* OUTPUT CARD */
+.out-card{
+  background:var(--burgundy-card);border:1px solid var(--border-soft);
+  border-radius:4px;margin-bottom:14px;overflow:hidden;
+  transition:border-color 0.25s;
+}
+.out-card:hover{border-color:rgba(201,168,76,0.3)}
+.out-header{
+  display:flex;align-items:flex-start;gap:16px;
+  padding:24px 28px;cursor:pointer;
+}
+.out-num{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;
+  color:var(--gold);opacity:0.45;flex-shrink:0;padding-top:4px;
+  min-width:28px;
+}
+.out-title{
+  font-family:'Playfair Display',serif;font-weight:500;font-size:1.05rem;
+  line-height:1.4;flex:1;
+}
+.out-toggle{
+  width:26px;height:26px;border-radius:50%;
+  border:1px solid var(--border-soft);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.75rem;color:var(--gold);flex-shrink:0;
+  transition:all 0.25s;margin-left:12px;
+}
+.out-card.open .out-toggle{background:var(--gold-pale);transform:rotate(45deg)}
+.out-body{display:none;padding:0 28px 28px;border-top:1px solid var(--border-soft)}
+.out-card.open .out-body{display:block}
+
+/* SECTIONS DANS LE CARD */
+.out-section{margin-top:22px}
+.out-section-label{
+  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;
+  text-transform:uppercase;color:var(--gold);opacity:0.55;margin-bottom:12px;
+}
+.hook-block{
+  font-family:'Playfair Display',serif;font-style:italic;font-size:0.97rem;
+  color:var(--gold-light);line-height:1.75;
+  border-left:1px solid var(--gold);padding-left:18px;opacity:0.9;
+}
+.script-block{
+  background:rgba(0,0,0,0.2);border:1px solid var(--border-soft);
+  border-radius:2px;padding:20px 22px;
+}
+.script-row{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border-soft)}
+.script-row:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.script-time{
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.14em;
+  color:var(--gold);opacity:0.5;display:block;margin-bottom:6px;
+}
+.script-text{font-size:0.88rem;color:var(--text);line-height:1.8}
+.script-visual{font-size:0.78rem;color:var(--gold);opacity:0.45;margin-top:5px;font-style:italic}
+.legende-block{
+  background:rgba(0,0,0,0.2);border:1px solid var(--border-soft);
+  border-radius:2px;padding:16px 20px;
+  font-size:0.88rem;color:var(--text);line-height:1.75;
+}
+.hooks-list{display:flex;flex-direction:column;gap:10px}
+.hook-item{
+  background:rgba(0,0,0,0.15);border:1px solid var(--border-soft);
+  border-radius:2px;padding:14px 18px;
+  font-size:0.88rem;color:var(--text);line-height:1.7;
+  position:relative;
+}
+.hook-style{
+  font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.14em;
+  color:var(--gold);opacity:0.5;display:block;margin-bottom:5px;
+  text-transform:uppercase;
+}
+.hashtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.ht{
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.06em;
+  padding:4px 12px;border-radius:999px;
+  background:var(--gold-pale);color:var(--gold);border:1px solid var(--border-soft);
+}
+.prompts-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.prompt-item{
+  background:rgba(0,0,0,0.2);border:1px solid var(--border-soft);
+  border-radius:2px;padding:14px 18px;font-size:0.85rem;color:var(--text);line-height:1.7;
+}
+.prompt-type{
+  font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.14em;
+  color:var(--gold);opacity:0.5;display:block;margin-bottom:6px;text-transform:uppercase;
+}
+.copy-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:14px;
+  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--muted);background:transparent;
+  border:1px solid var(--border-soft);
+  padding:7px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+}
+.copy-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* RESTART */
+.btn-restart{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;margin-top:40px;padding:14px;
+  background:transparent;color:var(--muted);
+  font-family:'Cinzel',serif;font-size:0.65rem;
+  letter-spacing:0.16em;text-transform:uppercase;
+  border:1px solid var(--border-soft);border-radius:999px;cursor:pointer;
+  transition:all 0.25s;
+}
+.btn-restart:hover{border-color:var(--gold);color:var(--gold)}
+
+/* FOOTER */
+footer{
+  text-align:center;padding:40px 24px;
+  border-top:1px solid var(--border-soft);
+  font-family:'Cinzel',serif;font-size:0.6rem;
+  color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;
+}
+footer strong{color:var(--gold)}
+
+@media(max-width:600px){
+  nav{padding:16px 20px}
+  #flow{padding:80px 20px 100px}
+  .context-card{padding:24px 20px}
+  .out-header{padding:20px 20px}
+  .out-body{padding:0 20px 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">SCRIPT<em>URA</em></div>
+  <div class="nav-tag">L'OS du créateur francophone</div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-eyebrow">Pour les créateurs francophones du monde entier</div>
+  <h1>
+    Ton contenu,<br/>
+    <strong>réinventé.</strong>
+  </h1>
+  <div class="hero-rule"></div>
+  <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
+  <button class="hero-btn" onclick="document.getElementById('flow').scrollIntoView({behavior:'smooth'})">
+    Commencer maintenant
+    <span>↓</span>
+  </button>
+  <p class="hero-free">Entièrement gratuit · Aucun compte requis</p>
+</section>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <span class="ticker-item"><span class="gem">◆</span>TikTok</span>
+    <span class="ticker-item"><span class="gem">◆</span>Instagram Reels</span>
+    <span class="ticker-item"><span class="gem">◆</span>YouTube Shorts</span>
+    <span class="ticker-item"><span class="gem">◆</span>Facebook</span>
+    <span class="ticker-item"><span class="gem">◆</span>Scripts viraux</span>
+    <span class="ticker-item"><span class="gem">◆</span>Hooks irrésistibles</span>
+    <span class="ticker-item"><span class="gem">◆</span>Contenu faceless</span>
+    <span class="ticker-item"><span class="gem">◆</span>Finance</span>
+    <span class="ticker-item"><span class="gem">◆</span>Bien-être</span>
+    <span class="ticker-item"><span class="gem">◆</span>Business</span>
+    <span class="ticker-item"><span class="gem">◆</span>Histoire</span>
+    <span class="ticker-item"><span class="gem">◆</span>Géopolitique</span>
+    <span class="ticker-item"><span class="gem">◆</span>Développement personnel</span>
+    <span class="ticker-item"><span class="gem">◆</span>TikTok</span>
+    <span class="ticker-item"><span class="gem">◆</span>Instagram Reels</span>
+    <span class="ticker-item"><span class="gem">◆</span>YouTube Shorts</span>
+    <span class="ticker-item"><span class="gem">◆</span>Facebook</span>
+    <span class="ticker-item"><span class="gem">◆</span>Scripts viraux</span>
+    <span class="ticker-item"><span class="gem">◆</span>Hooks irrésistibles</span>
+    <span class="ticker-item"><span class="gem">◆</span>Contenu faceless</span>
+    <span class="ticker-item"><span class="gem">◆</span>Finance</span>
+    <span class="ticker-item"><span class="gem">◆</span>Bien-être</span>
+    <span class="ticker-item"><span class="gem">◆</span>Business</span>
+    <span class="ticker-item"><span class="gem">◆</span>Histoire</span>
+    <span class="ticker-item"><span class="gem">◆</span>Géopolitique</span>
+    <span class="ticker-item"><span class="gem">◆</span>Développement personnel</span>
+  </div>
+</div>
+
+<!-- FLOW -->
+<section id="flow">
+
+  <!-- ÉTAPE 1 — OBJECTIF -->
+  <div class="step active" id="step1">
+    <div class="step-header">
+      <div class="step-indicator">
+        <span>Étape 1 sur 4</span>
+        <div class="step-dots">
+          <div class="sdot active"></div>
+          <div class="sdot"></div>
+          <div class="sdot"></div>
+          <div class="sdot"></div>
+        </div>
+      </div>
+      <h2 class="step-title">Qu'est-ce que tu veux<br/><strong>accomplir ?</strong></h2>
+      <p class="step-sub">Ton objectif détermine tout ce que Scriptura va générer pour toi.</p>
+    </div>
+    <div class="choices">
+      <div class="choice" onclick="choose('objectif','Exploser mes vues et ma portée',1)">
+        <div class="choice-icon">🚀</div>
+        <div class="choice-body">
+          <div class="choice-label">Exploser mes vues</div>
+          <div class="choice-desc">Je veux que mes vidéos atteignent un maximum de personnes — viralité et portée.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+      <div class="choice" onclick="choose('objectif','Gagner des abonnés qualifiés rapidement',1)">
+        <div class="choice-icon">📈</div>
+        <div class="choice-body">
+          <div class="choice-label">Gagner des abonnés</div>
+          <div class="choice-desc">Je veux convertir les spectateurs en abonnés fidèles à mon compte.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+      <div class="choice" onclick="choose('objectif','Vendre un produit ou service via mon contenu',1)">
+        <div class="choice-icon">💰</div>
+        <div class="choice-body">
+          <div class="choice-label">Vendre un produit ou service</div>
+          <div class="choice-desc">Je veux que mon contenu génère des ventes — ebook, formation, prestation…</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+      <div class="choice" onclick="choose('objectif','Construire mon autorité et ma crédibilité',1)">
+        <div class="choice-icon">🎯</div>
+        <div class="choice-body">
+          <div class="choice-label">Construire mon autorité</div>
+          <div class="choice-desc">Je veux être reconnu comme une référence dans ma niche.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 2 — POINT DE DÉPART -->
+  <div class="step" id="step2">
+    <div class="step-header">
+      <button class="btn-back" onclick="goBack(1)">← Retour</button>
+      <div class="step-indicator">
+        <span>Étape 2 sur 4</span>
+        <div class="step-dots">
+          <div class="sdot done"></div>
+          <div class="sdot active"></div>
+          <div class="sdot"></div>
+          <div class="sdot"></div>
+        </div>
+      </div>
+      <h2 class="step-title">Tu pars de<br/><strong>quoi ?</strong></h2>
+      <p class="step-sub">Scriptura s'adapte à ton point de départ pour générer exactement ce dont tu as besoin.</p>
+    </div>
+    <div class="choices">
+      <div class="choice" onclick="choose('depart','une idée vague ou un thème général',2)">
+        <div class="choice-icon">💡</div>
+        <div class="choice-body">
+          <div class="choice-label">Une idée vague</div>
+          <div class="choice-desc">J'ai un thème ou une direction, mais pas encore de sujet précis.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+      <div class="choice" onclick="choose('depart','un sujet précis et défini',2)">
+        <div class="choice-icon">📌</div>
+        <div class="choice-body">
+          <div class="choice-label">Un sujet précis</div>
+          <div class="choice-desc">Je sais exactement de quoi je veux parler — j'ai besoin du hook et du script.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+      <div class="choice" onclick="choose('depart','une vidéo existante que je veux améliorer ou adapter',2)">
+        <div class="choice-icon">🎬</div>
+        <div class="choice-body">
+          <div class="choice-label">Une vidéo existante à améliorer</div>
+          <div class="choice-desc">J'ai déjà du contenu — je veux l'analyser, le réécrire ou l'adapter à ma niche.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 3 — PLATEFORME -->
+  <div class="step" id="step3">
+    <div class="step-header">
+      <button class="btn-back" onclick="goBack(2)">← Retour</button>
+      <div class="step-indicator">
+        <span>Étape 3 sur 4</span>
+        <div class="step-dots">
+          <div class="sdot done"></div>
+          <div class="sdot done"></div>
+          <div class="sdot active"></div>
+          <div class="sdot"></div>
+        </div>
+      </div>
+      <h2 class="step-title">Sur quelle<br/><strong>plateforme ?</strong></h2>
+      <p class="step-sub">Chaque plateforme a ses codes. Scriptura adapte le format, la durée et le style automatiquement.</p>
+    </div>
+    <div class="choices-grid">
+      <div class="choice-tile" onclick="choose('plateforme','TikTok',3)">
+        <span class="tile-icon">🎵</span>
+        <div class="tile-name">TikTok</div>
+      </div>
+      <div class="choice-tile" onclick="choose('plateforme','Instagram Reels',3)">
+        <span class="tile-icon">📸</span>
+        <div class="tile-name">Instagram Reels</div>
+      </div>
+      <div class="choice-tile" onclick="choose('plateforme','YouTube Shorts',3)">
+        <span class="tile-icon">▶️</span>
+        <div class="tile-name">YouTube Shorts</div>
+      </div>
+      <div class="choice-tile" onclick="choose('plateforme','Facebook',3)">
+        <span class="tile-icon">👥</span>
+        <div class="tile-name">Facebook</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 4 — CONTEXTE -->
+  <div class="step" id="step4">
+    <div class="step-header">
+      <button class="btn-back" onclick="goBack(3)">← Retour</button>
+      <div class="step-indicator">
+        <span>Étape 4 sur 4</span>
+        <div class="step-dots">
+          <div class="sdot done"></div>
+          <div class="sdot done"></div>
+          <div class="sdot done"></div>
+          <div class="sdot active"></div>
+        </div>
+      </div>
+      <h2 class="step-title">Parle-moi de<br/><strong>ton contenu.</strong></h2>
+      <p class="step-sub">Plus tu es précis, plus Scriptura génère du contenu qui ressemble à ta voix.</p>
+    </div>
+
+    <div class="summary" id="summaryTags"></div>
+
+    <div class="context-card">
+      <div class="ctx-field">
+        <label class="ctx-label">Ta niche</label>
+        <input class="ctx-input" id="niche" placeholder="Ex : finance personnelle, développement personnel, cuisine africaine…"/>
+      </div>
+      <div class="ctx-field">
+        <label class="ctx-label">Ton sujet ou idée</label>
+        <textarea class="ctx-textarea" id="sujet" placeholder="Ex : pourquoi les gens n'arrivent pas à épargner, les 5 erreurs du débutant en bourse, l'histoire du roi Béhanzin…"></textarea>
+      </div>
+      <div class="ctx-field">
+        <label class="ctx-label">Ton audience (optionnel)</label>
+        <input class="ctx-input" id="audience" placeholder="Ex : femmes 25-40 ans, France et Belgique, intéressées par l'indépendance financière…"/>
+      </div>
+      <div class="ctx-field">
+        <label class="ctx-label">Ton style de contenu (optionnel)</label>
+        <input class="ctx-input" id="style" placeholder="Ex : faceless, storytelling, éducatif, provocateur, humoristique…"/>
+      </div>
+
+      <div class="error-box" id="errorBox"></div>
+
+      <button class="btn-generate" id="generateBtn" onclick="generate()">
+        <div class="spinner" id="spinner"></div>
+        <span id="btnText">Générer mon contenu Scriptura</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- RÉSULTATS -->
+  <div id="results">
+    <div class="results-top">
+      <div class="results-heading">Ton contenu est prêt.</div>
+      <div class="results-meta" id="resultsMeta"></div>
+    </div>
+    <div id="outputList"></div>
+    <button class="btn-restart" onclick="restart()">↺ Générer un nouveau contenu</button>
+  </div>
+
+</section>
+
+<footer>
+  <strong>SCRIPTURA</strong> &nbsp;·&nbsp; L'OS du créateur francophone &nbsp;·&nbsp; © 2026
+</footer>
+
+<script>
+// ── STATE ──
+const state = { objectif:'', depart:'', plateforme:'' };
+
+// ── NAVIGATION ──
+function choose(key, val, nextStep) {
+  state[key] = val;
+  if (nextStep === 3 && key === 'plateforme') {
+    showStep(4);
+    renderSummary();
+  } else {
+    showStep(nextStep + 1);
+  }
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step' + n).classList.add('active');
+  document.getElementById('flow').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function goBack(n) {
+  showStep(n);
+}
+
+function renderSummary() {
+  const el = document.getElementById('summaryTags');
+  el.innerHTML = [state.objectif, state.depart, state.plateforme]
+    .filter(Boolean)
+    .map(v => `<span class="summary-tag">${v}</span>`)
+    .join('');
+}
+
+// ── GÉNÉRATION ──
+async function generate() {
+  const niche    = document.getElementById('niche').value.trim();
+  const sujet    = document.getElementById('sujet').value.trim();
+  const audience = document.getElementById('audience').value.trim();
+  const style    = document.getElementById('style').value.trim();
+  const errorBox = document.getElementById('errorBox');
+
+  errorBox.style.display = 'none';
+
+  if (!niche || !sujet) {
+    errorBox.textContent = 'Renseigne au minimum ta niche et ton sujet pour continuer.';
+    errorBox.style.display = 'block'; return;
+  }
+
+  setLoading(true);
+  document.getElementById('results').style.display = 'none';
+
+  const prompt = `Tu es Scriptura, le meilleur expert en contenu viral pour les créateurs francophones (France, Belgique, Suisse, Canada, Afrique francophone, Maghreb).
+
+CONTEXTE DU CRÉATEUR :
+- Objectif : ${state.objectif}
+- Point de départ : ${state.depart}
+- Plateforme : ${state.plateforme}
+- Niche : ${niche}
+- Sujet / Idée : ${sujet}
+${audience ? `- Audience : ${audience}` : ''}
+${style ? `- Style : ${style}` : ''}
+
+MISSION : Génère un package de contenu COMPLET et PREMIUM qui comprend :
+
+1. ANALYSE DU SUJET : Pourquoi ce sujet peut devenir viral (2-3 phrases percutantes)
+
+2. HOOKS (5 variations) : Chaque hook doit stopper le scroll dans les 2 premières secondes. Styles : suspense, statistique choc, question provocatrice, storytelling, contre-intuition.
+
+3. SCRIPT COMPLET : Structuré seconde par seconde, adapté à ${state.plateforme}. Inclure ce qu'on voit à l'écran si format faceless.
+
+4. LÉGENDE : Prête à copier-coller, avec appel à l'action fort.
+
+5. HASHTAGS : 8 hashtags optimisés — mélange niche + tendance + francophone.
+
+6. PROMPTS VISUELS : 3 prompts d'images (pour Midjourney ou Flux) adaptés au contenu.
+
+7. VARIANTES A/B : 2 titres alternatifs pour tester.
+
+RÈGLES QUALITÉ :
+- Niveau professionnel — rivalise avec les créateurs à 500K+ abonnés
+- Français naturel et fluide — jamais robotique
+- Références culturelles et exemples concrets selon la zone francophone
+- Hooks qui créent une tension émotionnelle immédiate
+- Scripts avec montée dramatique, révélation et CTA irrésistible
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."},{"temps":"4-20 sec","texte":"...","visuel":"..."},{"temps":"21-45 sec","texte":"...","visuel":"..."},{"temps":"46-55 sec","texte":"...","visuel":"..."},{"temps":"56-60 sec","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"prompts_visuels":[{"type":"Scène principale","prompt":"..."},{"type":"Illustration clé","prompt":"..."},{"type":"Miniature","prompt":"..."}],"variantes_titre":["titre A","titre B"]}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Erreur API ' + res.status);
+
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Réponse inattendue de l\'IA');
+    const parsed = JSON.parse(match[0]);
+
+    renderResults(parsed, niche, sujet);
+
+  } catch(e) {
+    errorBox.textContent = 'Erreur : ' + e.message;
+    errorBox.style.display = 'block';
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = on;
+  document.getElementById('spinner').style.display = on ? 'block' : 'none';
+  document.getElementById('btnText').textContent = on ? 'Scriptura génère ton contenu…' : 'Générer mon contenu Scriptura';
+}
+
+// ── RENDER ──
+function renderResults(d, niche, sujet) {
+  const list = document.getElementById('outputList');
+  const section = document.getElementById('results');
+  document.getElementById('resultsMeta').textContent = niche + ' · ' + state.plateforme;
+
+  list.innerHTML = '';
+
+  const sections = [
+    {
+      titre: "Pourquoi ce sujet peut exploser",
+      num: "01",
+      content: `<div class="out-section">
+        <div class="out-section-label">Analyse virale</div>
+        <div class="legende-block">${d.analyse || ''}</div>
+      </div>`
+    },
+    {
+      titre: "5 Hooks — Arrêter le scroll en 2 secondes",
+      num: "02",
+      content: `<div class="out-section">
+        <div class="out-section-label">Hooks · Plusieurs styles</div>
+        <div class="hooks-list">${(d.hooks || []).map(h => `
+          <div class="hook-item">
+            <span class="hook-style">${h.style}</span>
+            ${h.texte}
+          </div>`).join('')}
+        </div>
+      </div>`
+    },
+    {
+      titre: "Script complet — Seconde par seconde",
+      num: "03",
+      content: `<div class="out-section">
+        <div class="out-section-label">Script · ${state.plateforme}</div>
+        <div class="script-block">${(d.script || []).map(s => `
+          <div class="script-row">
+            <span class="script-time">⏱ ${s.temps}</span>
+            <div class="script-text">${s.texte}</div>
+            ${s.visuel ? `<div class="script-visual">📹 ${s.visuel}</div>` : ''}
+          </div>`).join('')}
+        </div>
+      </div>`
+    },
+    {
+      titre: "Légende & Hashtags",
+      num: "04",
+      content: `<div class="out-section">
+        <div class="out-section-label">Légende</div>
+        <div class="legende-block">${d.legende || ''}</div>
+        <div class="hashtags">${(d.hashtags || []).map(h => `<span class="ht">${h}</span>`).join('')}</div>
+        <button class="copy-btn" onclick="copyText(\`${(d.legende || '').replace(/`/g,"'")} ${(d.hashtags||[]).join(' ')}\`, this)">◆ Copier légende + hashtags</button>
+      </div>`
+    },
+    {
+      titre: "Prompts visuels — Images & Miniatures",
+      num: "05",
+      content: `<div class="out-section">
+        <div class="out-section-label">Prompts · Midjourney / Flux</div>
+        <div class="prompts-grid">${(d.prompts_visuels || []).map(p => `
+          <div class="prompt-item">
+            <span class="prompt-type">${p.type}</span>
+            ${p.prompt}
+          </div>`).join('')}
+        </div>
+      </div>`
+    },
+    {
+      titre: "Variantes A/B du titre",
+      num: "06",
+      content: `<div class="out-section">
+        <div class="out-section-label">Titres alternatifs à tester</div>
+        <div class="hooks-list">${(d.variantes_titre || []).map((t, i) => `
+          <div class="hook-item">
+            <span class="hook-style">Version ${i === 0 ? 'A' : 'B'}</span>
+            ${t}
+          </div>`).join('')}
+        </div>
+      </div>`
+    }
+  ];
+
+  sections.forEach((sec, i) => {
+    const card = document.createElement('div');
+    card.className = 'out-card' + (i === 0 ? ' open' : '');
+    card.innerHTML = `
+      <div class="out-header" onclick="toggleCard(this.parentElement)">
+        <span class="out-num">№ ${sec.num}</span>
+        <div class="out-title">${sec.titre}</div>
+        <div class="out-toggle">+</div>
+      </div>
+      <div class="out-body">${sec.content}</div>
+    `;
+    list.appendChild(card);
+  });
+
+  section.style.display = 'block';
+  setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+function toggleCard(card) { card.classList.toggle('open'); }
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = '◆ Copier légende + hashtags', 2000);
+  });
+}
+
+function restart() {
+  Object.keys(state).forEach(k => state[k] = '');
+  document.getElementById('niche').value = '';
+  document.getElementById('sujet').value = '';
+  document.getElementById('audience').value = '';
+  document.getElementById('style').value = '';
+  document.getElementById('results').style.display = 'none';
+  showStep(1);
+}
+</script>
+</body>
+</html>
