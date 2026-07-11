@@ -711,20 +711,19 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."},{"temps":"4-20 sec","texte":"...","visuel":"..."},{"temps":"21-45 sec","texte":"...","visuel":"..."},{"temps":"46-55 sec","texte":"...","visuel":"..."},{"temps":"56-60 sec","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"prompts_visuels":[{"type":"Scène principale","prompt":"..."},{"type":"Illustration clé","prompt":"..."},{"type":"Miniature","prompt":"..."}],"variantes_titre":["titre A","titre B"]}`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyAb8RN6L3Oqze6nJj_k-qz82tvhc4I8UGfO3MwZ1u9yOlsZGf9w", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }]
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 4000 }
       })
     });
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.error?.message || 'Erreur API ' + res.status);
 
-    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Réponse inattendue de l\'IA');
     const parsed = JSON.parse(match[0]);
