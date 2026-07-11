@@ -1009,6 +1009,25 @@ function restart() {
   document.getElementById('results').style.display = 'none';
   showStep(1);
 }
+
+// ── BOUTONS TON & DURÉE — GROUPES INDÉPENDANTS ──
+let selectedDuree = '';
+
+document.querySelectorAll('#toneGrid .grid-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#toneGrid .grid-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    selectedTone = btn.dataset.val;
+  });
+});
+
+document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    selectedDuree = btn.dataset.val;
+  });
+});
 </script>
 </body>
 </html>
