@@ -711,49 +711,29 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."},{"temps":"4-20 sec","texte":"...","visuel":"..."},{"temps":"21-45 sec","texte":"...","visuel":"..."},{"temps":"46-55 sec","texte":"...","visuel":"..."},{"temps":"56-60 sec","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"prompts_visuels":[{"type":"Scène principale","prompt":"..."},{"type":"Illustration clé","prompt":"..."},{"type":"Miniature","prompt":"..."}],"variantes_titre":["titre A","titre B"]}`;
 
   try {
-    const MODELS = [
-      "meta-llama/llama-3.1-8b-instruct:free",
-      "mistralai/mistral-7b-instruct:free",
-      "google/gemma-2-9b-it:free"
-    ];
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer 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",
+        "HTTP-Referer": "https://scriptura-pi.vercel.app",
+        "X-Title": "Scriptura"
+      },
+      body: JSON.stringify({
+        model: "openrouter/auto",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 4000,
+        temperature: 0.9
+      })
+    });
 
-    let parsed = null;
-    let lastError = '';
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Erreur ' + res.status);
 
-    for (const model of MODELS) {
-      try {
-        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer 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",
-            "HTTP-Referer": "https://scriptura-pi.vercel.app",
-            "X-Title": "Scriptura"
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 4000,
-            temperature: 0.9
-          })
-        });
-
-        const data = await res.json();
-        if (!res.ok) { lastError = data.error?.message || 'Erreur ' + res.status; continue; }
-
-        const raw = data.choices?.[0]?.message?.content || '';
-        const match = raw.match(/\{[\s\S]*\}/);
-        if (!match) { lastError = 'Réponse mal formatée'; continue; }
-
-        parsed = JSON.parse(match[0]);
-        break;
-      } catch(e) {
-        lastError = e.message;
-        continue;
-      }
-    }
-
-    if (!parsed) throw new Error('Tous les modèles ont échoué : ' + lastError);
+    const raw = data.choices?.[0]?.message?.content || '';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('Réponse mal formatée');
+    const parsed = JSON.parse(match[0]);
 
     renderResults(parsed, niche, sujet);
 
