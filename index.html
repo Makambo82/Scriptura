@@ -973,16 +973,30 @@ function renderResults(d, niche, sujet) {
     }
   ];
 
+  // Textes pour les boutons copier
+  copyTexts = [
+    d.analyse || '',
+    (d.hooks || []).map(h => h.style + ' :\n' + h.texte).join('\n\n'),
+    (d.script || []).map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n'),
+    (d.legende || '') + '\n\n' + (d.hashtags || []).join(' '),
+    (d.prompts_visuels || []).map(p => p.type + ' :\n' + p.prompt).join('\n\n'),
+    (d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n')
+  ];
+
   sections.forEach((sec, i) => {
     const card = document.createElement('div');
     card.className = 'out-card' + (i === 0 ? ' open' : '');
+    const btnId = 'copybtn_' + i;
     card.innerHTML = `
       <div class="out-header" onclick="toggleCard(this.parentElement)">
         <span class="out-num">№ ${sec.num}</span>
         <div class="out-title">${sec.titre}</div>
         <div class="out-toggle">+</div>
       </div>
-      <div class="out-body">${sec.content}</div>
+      <div class="out-body">
+        ${sec.content}
+        <button class="copy-btn" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">◆ Copier cette section</button>
+      </div>
     `;
     list.appendChild(card);
   });
@@ -993,11 +1007,41 @@ function renderResults(d, niche, sujet) {
 
 function toggleCard(card) { card.classList.toggle('open'); }
 
+// Variable globale pour les textes à copier
+let copyTexts = [];
+
 function copyText(text, btn) {
   navigator.clipboard.writeText(text).then(() => {
     btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = '◆ Copier légende + hashtags', 2000);
+    setTimeout(() => btn.innerHTML = '◆ Copier', 2000);
   });
+}
+
+function copySection(id, text) {
+  const btn = document.getElementById(id);
+  const copy = (txt) => {
+    navigator.clipboard.writeText(txt).then(() => {
+      btn.textContent = '✓ Copié !';
+      btn.style.borderColor = 'var(--gold)';
+      btn.style.color = 'var(--gold)';
+      setTimeout(() => {
+        btn.innerHTML = '◆ Copier cette section';
+        btn.style.borderColor = '';
+        btn.style.color = '';
+      }, 2000);
+    }).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = '✓ Copié !';
+      setTimeout(() => btn.innerHTML = '◆ Copier cette section', 2000);
+    });
+  };
+  copy(text);
 }
 
 function restart() {
