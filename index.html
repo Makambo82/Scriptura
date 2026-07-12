@@ -19,6 +19,7 @@
   --border-soft:rgba(201,168,76,0.16);
   --muted:rgba(255,255,255,0.62);
   --text:#FFFFFF;
+  --text-secondary:rgba(255,255,255,0.75);
   --white:#FFFFFF;
 }
 html{scroll-behavior:smooth}
@@ -627,6 +628,46 @@ footer strong{color:var(--gold)}
 }
 .footer-wa-btn:hover{background:rgba(37,211,102,0.2);border-color:#25D366}
 .footer-wa-btn svg{width:15px;height:15px;fill:currentColor}
+
+/* ── STORYBOARD SEGMENTÉ ── */
+.storyboard-list{display:flex;flex-direction:column;gap:14px}
+.sb-segment{
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+  border-radius:8px;padding:18px 20px;
+  border-left:2px solid var(--gold);
+}
+.sb-head{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+}
+.sb-time{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--gold-light);
+  background:var(--gold-pale);padding:4px 12px;border-radius:999px;
+}
+.sb-index{
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.1em;
+  text-transform:uppercase;color:rgba(255,255,255,0.4);
+}
+.sb-dit{
+  font-family:'Playfair Display',serif;font-style:italic;font-size:0.95rem;
+  color:#FFFFFF;line-height:1.6;margin-bottom:14px;
+  padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);
+}
+.sb-visual-label{
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--gold);opacity:0.7;margin-bottom:8px;
+}
+.sb-visual{
+  font-size:0.88rem;color:rgba(255,255,255,0.85);line-height:1.7;
+  background:rgba(0,0,0,0.2);border-radius:6px;padding:12px 14px;
+}
+.sb-copy{
+  display:inline-flex;align-items:center;gap:6px;margin-top:12px;
+  font-family:'Cinzel',serif;font-size:0.54rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:rgba(255,255,255,0.55);background:transparent;border:1px solid rgba(255,255,255,0.15);
+  padding:6px 14px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+}
+.sb-copy:hover{border-color:var(--gold);color:var(--gold)}
 </style>
 </head>
 <body>
@@ -1189,7 +1230,14 @@ ${selectedDuree ? (
       selectedDuree === '5 minutes'   ? '- DUREE 5 MIN : 7 blocs script. TOTAL 650-750 mots minimum.' : ''
     ) : ''}
 
-MISSION : Génère un package de contenu COMPLET et PREMIUM qui comprend :
+AVANT DE GENERER, RAISONNE COMME UN REALISATEUR (ne montre pas ce raisonnement, applique-le) :
+1. Quel est le VRAI declencheur emotionnel qui rendra ce sujet viral pour cette audience ?
+2. Quel angle unique va demarquer cette video des milliers d'autres sur le meme sujet ?
+3. Quelle est la meilleure structure narrative pour ${state.plateforme} et l'objectif "${state.objectif}" ?
+4. Quel type de hook aura le plus fort taux d'arret du scroll ?
+5. Comment maintenir l'attention du debut a la fin ?
+
+Puis GENERE un package de contenu COMPLET et PREMIUM qui comprend :
 
 0. SCRIPTURA SCORE : Évalue honnêtement le potentiel de cette vidéo avec 6 métriques :
 - viral : potentiel viral sur 100 (sois réaliste, pas toujours 90+)
@@ -1202,22 +1250,69 @@ Ces scores doivent VARIER selon la qualité réelle du sujet et l'objectif.
 
 1. ANALYSE DU SUJET : Pourquoi ce sujet peut devenir viral (2-3 phrases percutantes)
 
-2. HOOKS (5 variations) : Chaque hook doit stopper le scroll dans les 2 premières secondes. Styles : suspense, statistique choc, question provocatrice, storytelling, contre-intuition.
+2. HOOKS (5 variations) — L'ARME NUMERO 1 DE LA VIRALITE :
+Chaque hook doit ARRETER LE POUCE en moins de 2 secondes. C'est ce qui determine si la video fait 300 vues ou 300 000.
+REGLES DES HOOKS :
+- INTERDIT : les hooks generiques que tout le monde utilise ("Voici 5 astuces pour...", "Saviez-vous que...", "Dans cette video...")
+- OBLIGATOIRE : creer une tension psychologique immediate (curiosite, choc, peur de rater, controverse, promesse forte)
+- Chaque hook doit exploiter un DECLENCHEUR EMOTIONNEL precis
+- Adapte au format de ${state.plateforme} :
+  * TikTok : hook ultra-rapide, choc des la 1ere seconde, souvent une phrase qui interpelle directement ("Arrete de faire ca si tu veux...")
+  * Instagram Reels : hook visuel + verbal, esthetique et intriguant
+  * YouTube Shorts : hook qui promet une revelation ou un resultat concret
+  * Facebook : hook emotionnel ou qui cree le debat, car l'audience commente beaucoup
+  * LinkedIn : hook qui bouscule une croyance professionnelle, ton plus posé mais percutant
+Les 5 styles : Suspense (on cache l'info) | Statistique choc (un chiffre qui surprend) | Question provocatrice (qui derange) | Storytelling (on rentre dans une histoire) | Contre-intuition (l'inverse de ce qu'on croit).
+Chaque hook doit etre CONCRET et lie au sujet exact : ${sujet}
 
-3. SCRIPT COMPLET : Structuré seconde par seconde, adapté à ${state.plateforme}. Inclure ce qu'on voit à l'écran si format faceless.
+3. SCRIPT COMPLET — CONSTRUIT POUR LA RETENTION MAXIMALE :
+Structure seconde par seconde, calibre pour ${state.plateforme}.
+REGLES DU SCRIPT :
+- Chaque phrase doit donner envie d'ecouter la suivante (technique du "loop ouvert")
+- JAMAIS de remplissage, JAMAIS de phrase inutile — chaque seconde compte
+- Utilise le rythme propre a ${state.plateforme} :
+  * TikTok : phrases courtes, punch, changements rapides, on garde le meilleur pour la fin
+  * Instagram Reels : narration fluide et esthetique, emotion
+  * YouTube Shorts : structure claire avec une promesse tenue a la fin
+  * Facebook : storytelling qui cree l'attachement et pousse au commentaire
+  * LinkedIn : argumentation structuree qui demontre l'expertise
+- Integre des "retention hooks" au milieu du script (relances qui reaccrochent : "mais attends, le plus important arrive", "et c'est la que ca devient interessant")
+- Le script doit servir l'objectif : ${state.objectif}
+- Termine par un CTA puissant adapte a l'objectif (pas un "abonne-toi" generique)
+- Si format faceless : indique ce qu'on voit a l'ecran a chaque moment.
 
 4. LÉGENDE : Prête à copier-coller, avec appel à l'action fort.
 
 5. HASHTAGS : 8 hashtags optimisés — mélange niche + tendance + francophone.
 
-6. PROMPTS VISUELS : 3 prompts d'images (pour Midjourney ou Flux) adaptés au contenu.
+6. STORYBOARD VISUEL SEGMENTE (LE COEUR DE SCRIPTURA) :
+Decoupe TOUT le script en segments de 3 SECONDES MAXIMUM a l'oral (environ 7-8 mots par segment).
+Pour CHAQUE segment de 3 secondes, cree un prompt visuel PRECIS et ANTI-SCROLL.
+
+REGLES DES PROMPTS VISUELS :
+- JAMAIS de prompt generique du type "une personne qui parle" ou "un fond coloré"
+- Chaque visuel doit CAPTIVER : mouvement, tension, contraste, emotion, surprise
+- Precise TOUJOURS : le plan (gros plan, plan large), l'ambiance lumineuse, l'action exacte, l'emotion visible, le style
+- Le visuel doit ILLUSTRER le mot exact prononce a ce moment pour maximiser la retention
+- Pense comme un realisateur de cinema, pas comme un banque d'images
+- Format optimise pour ${state.plateforme} (vertical 9:16)
+
+EXEMPLE de bon prompt : "Gros plan sur des mains qui froissent un billet de banque, lumiere dramatique laterale, expression de frustration, ambiance sombre et tendue, style cinematique 9:16"
+EXEMPLE de mauvais prompt (INTERDIT) : "Une personne avec de l'argent"
+
+Genere autant de segments que necessaire pour couvrir TOUT le script (un script de 30 sec = environ 10 segments de 3 sec).
 
 7. VARIANTES A/B : 2 titres alternatifs pour tester.
 
-RÈGLES QUALITÉ :
-- RESPECT ABSOLU DE LA DURÉE : Si l'utilisateur demande 30 secondes, le script doit faire 30 secondes. Pas plus. Compte tes mots avant de répondre.
-- Niveau professionnel — rivalise avec les créateurs à 500K+ abonnés
-- Français naturel et fluide — jamais robotique
+RÈGLES QUALITÉ ABSOLUES — SCRIPTURA N'EST PAS UN CHATBOT GÉNÉRIQUE :
+- Tu es un RÉALISATEUR IA, pas un assistant qui répond. Chaque élément généré doit avoir une VRAIE valeur ajoutée.
+- INTERDICTION FORMELLE de produire du contenu générique que ChatGPT ou Gemini sortiraient. Si ta réponse ressemble à une réponse d'IA basique, tu as échoué.
+- RESPECT ABSOLU DE LA DURÉE : Si l'utilisateur demande 30 secondes, le script fait 30 secondes. Pas plus.
+- Chaque hook doit créer une TENSION IMMÉDIATE. Chaque visuel doit STOPPER LE SCROLL. Chaque phrase doit donner envie de voir la suivante.
+- Adapte TOUT à l'objectif du créateur : si c'est faire des ventes, oriente vers la conversion. Si c'est des vues, oriente vers la rétention. Si c'est l'autorité, renforce la crédibilité.
+- Niveau des créateurs à 500K+ abonnés — jamais amateur, jamais générique
+- Français naturel, vivant, qui parle à l'audience francophone
+- Ton objectif : que le créateur atteigne RÉELLEMENT son but grâce à ce que tu génères — jamais robotique
 - Références culturelles et exemples concrets selon la zone francophone
 - Hooks qui créent une tension émotionnelle immédiate
 - Scripts avec montée dramatique, révélation et CTA irrésistible
@@ -1226,7 +1321,7 @@ RAPPEL CRITIQUE — RESPECT DE LA DURÉE :
 Le nombre de blocs dans script DÉPEND de la durée choisie. Les intervalles de temps doivent couvrir EXACTEMENT la durée demandée. Pour 30 secondes le dernier bloc finit à 30 sec (jamais 60). Respecte le total de mots indiqué plus haut.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"[intervalle de temps adapté à la durée choisie]","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"prompts_visuels":[{"type":"Scène principale","prompt":"..."},{"type":"Illustration clé","prompt":"..."},{"type":"Miniature","prompt":"..."}],"variantes_titre":["titre A","titre B"]}`;
+{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"[intervalle de temps adapté à la durée choisie]","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"storyboard":[{"segment":"0-3 sec","texte_dit":"[les mots exacts prononces]","prompt_visuel":"[prompt cinematique precis et anti-scroll]"},{"segment":"3-6 sec","texte_dit":"...","prompt_visuel":"..."}],"variantes_titre":["titre A","titre B"]}`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1427,14 +1522,20 @@ function renderResults(d, niche, sujet) {
       </div>`
     },
     {
-      titre: "Prompts visuels — Images & Miniatures",
+      titre: "Storyboard visuel — Segment par segment (3 sec)",
       num: "05",
       content: `<div class="out-section">
-        <div class="out-section-label">Prompts · Midjourney / Flux</div>
-        <div class="prompts-grid">${(d.prompts_visuels || []).map(p => `
-          <div class="prompt-item">
-            <span class="prompt-type">${p.type}</span>
-            ${p.prompt}
+        <div class="out-section-label">Storyboard · Prompts anti-scroll pour ${state.plateforme}</div>
+        <div class="storyboard-list">${(d.storyboard || []).map((seg, i) => `
+          <div class="sb-segment">
+            <div class="sb-head">
+              <span class="sb-time">${seg.segment}</span>
+              <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+            </div>
+            <div class="sb-dit">"${seg.texte_dit}"</div>
+            <div class="sb-visual-label">🎬 Prompt visuel</div>
+            <div class="sb-visual">${seg.prompt_visuel}</div>
+            <button class="sb-copy" onclick="copyText(\`${(seg.prompt_visuel||'').replace(/\`/g,"'")}\`, this)">◆ Copier ce prompt</button>
           </div>`).join('')}
         </div>
       </div>`
@@ -1460,7 +1561,7 @@ function renderResults(d, niche, sujet) {
     (d.hooks || []).map(h => h.style + ' :\n' + h.texte).join('\n\n'),
     (d.script || []).map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n'),
     (d.legende || '') + '\n\n' + (d.hashtags || []).join(' '),
-    (d.prompts_visuels || []).map(p => p.type + ' :\n' + p.prompt).join('\n\n'),
+    (d.storyboard || []).map(s => s.segment + ' | ' + s.texte_dit + '\nVISUEL: ' + s.prompt_visuel).join('\n\n'),
     (d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n')
   ];
 
