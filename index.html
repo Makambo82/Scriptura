@@ -668,6 +668,55 @@ footer strong{color:var(--gold)}
   padding:6px 14px;border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
 .sb-copy:hover{border-color:var(--gold);color:var(--gold)}
+
+/* ── CHAT AJUSTEMENT SCRIPT ── */
+.script-chat{
+  margin-top:20px;padding-top:20px;
+  border-top:1px solid rgba(255,255,255,0.1);
+}
+.script-chat-label{
+  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.16em;
+  text-transform:uppercase;color:var(--gold);opacity:0.7;margin-bottom:12px;
+  display:flex;align-items:center;gap:8px;
+}
+.script-chat-suggestions{
+  display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;
+}
+.chat-sugg{
+  font-size:0.72rem;padding:6px 14px;border-radius:999px;
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);
+  color:rgba(255,255,255,0.7);cursor:pointer;transition:all 0.2s;
+}
+.chat-sugg:hover{border-color:var(--gold);color:var(--gold)}
+.script-chat-input-row{
+  display:flex;gap:10px;align-items:stretch;
+}
+.script-chat-input{
+  flex:1;font-family:'Tenor Sans',sans-serif;font-size:0.88rem;
+  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);
+  border-radius:8px;padding:12px 16px;color:#FFFFFF;outline:none;
+  transition:border-color 0.2s;resize:none;min-height:46px;line-height:1.5;
+}
+.script-chat-input:focus{border-color:var(--gold)}
+.script-chat-input::placeholder{color:rgba(255,255,255,0.35)}
+.script-chat-send{
+  background:var(--gold);color:var(--bg);border:none;border-radius:8px;
+  padding:0 22px;font-family:'Cinzel',serif;font-size:0.62rem;
+  letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;
+  transition:all 0.2s;white-space:nowrap;display:flex;align-items:center;gap:8px;
+}
+.script-chat-send:hover{background:var(--gold-light)}
+.script-chat-send:disabled{background:rgba(201,168,76,0.3);cursor:not-allowed}
+.chat-spinner{
+  width:14px;height:14px;border:2px solid rgba(28,28,30,0.3);
+  border-top-color:var(--bg);border-radius:50%;
+  animation:spin 0.7s linear infinite;display:none;
+}
+.script-updated-badge{
+  display:none;align-items:center;gap:6px;
+  font-size:0.72rem;color:var(--gold-light);margin-top:10px;
+  font-family:'Cinzel',serif;letter-spacing:0.08em;
+}
 </style>
 </head>
 <body>
@@ -1123,6 +1172,10 @@ function verifyCode() {
 let selectedTone = '';
 const state = { objectif:'', depart:'', plateforme:'' };
 
+// Contexte de la dernière génération (pour l'ajustement du script)
+let lastGenContext = null;
+let currentScript = null;
+
 // ── NAVIGATION ──
 function choose(key, val, nextStep) {
   state[key] = val;
@@ -1163,6 +1216,73 @@ function renderSummary() {
   } else {
     viralField.style.display = 'none';
     sujetLabel.textContent = 'Ton sujet ou idée';
+  }
+}
+
+// ── PARSING JSON ROBUSTE ──
+function parseAIResponse(raw) {
+  if (!raw) return null;
+
+  // Tentative 1 : parsing direct du bloc JSON complet
+  let match = raw.match(/\{[\s\S]*\}/);
+  if (match) {
+    try {
+      return JSON.parse(match[0]);
+    } catch(e) {
+      // Le JSON est probablement tronqué, on tente de le réparer
+    }
+  }
+
+  // Tentative 2 : réparer un JSON tronqué
+  // On prend depuis la première accolade
+  const start = raw.indexOf('{');
+  if (start === -1) return null;
+  let jsonStr = raw.substring(start);
+
+  // Fermer les structures ouvertes (tableaux et objets)
+  try {
+    // Compter les accolades et crochets non fermés
+    let openBraces = 0, openBrackets = 0, inString = false, escape = false;
+    let lastValidPos = 0;
+
+    for (let i = 0; i < jsonStr.length; i++) {
+      const c = jsonStr[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\') { escape = true; continue; }
+      if (c === '"') inString = !inString;
+      if (!inString) {
+        if (c === '{') openBraces++;
+        if (c === '}') openBraces--;
+        if (c === '[') openBrackets++;
+        if (c === ']') openBrackets--;
+        // Position après une valeur complète
+        if (c === '}' || c === ']') lastValidPos = i + 1;
+      }
+    }
+
+    // Tronquer à la dernière position valide et fermer proprement
+    let repaired = jsonStr.substring(0, lastValidPos);
+    // Recompter ce qui reste ouvert
+    openBraces = 0; openBrackets = 0; inString = false; escape = false;
+    for (let i = 0; i < repaired.length; i++) {
+      const c = repaired[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\') { escape = true; continue; }
+      if (c === '"') inString = !inString;
+      if (!inString) {
+        if (c === '{') openBraces++;
+        if (c === '}') openBraces--;
+        if (c === '[') openBrackets++;
+        if (c === ']') openBrackets--;
+      }
+    }
+    // Fermer les crochets puis les accolades restants
+    while (openBrackets > 0) { repaired += ']'; openBrackets--; }
+    while (openBraces > 0) { repaired += '}'; openBraces--; }
+
+    return JSON.parse(repaired);
+  } catch(e) {
+    return null;
   }
 }
 
@@ -1286,8 +1406,8 @@ REGLES DU SCRIPT :
 5. HASHTAGS : 8 hashtags optimisés — mélange niche + tendance + francophone.
 
 6. STORYBOARD VISUEL SEGMENTE (LE COEUR DE SCRIPTURA) :
-Decoupe TOUT le script en segments de 3 SECONDES MAXIMUM a l'oral (environ 7-8 mots par segment).
-Pour CHAQUE segment de 3 secondes, cree un prompt visuel PRECIS et ANTI-SCROLL.
+Decoupe TOUT le script en segments de 3 A 5 SECONDES a l'oral (environ 8-13 mots par segment). Pour TikTok/Reels/Shorts privilegie 3 sec (dynamique), pour Facebook/LinkedIn tu peux aller jusqu'a 5 sec.
+Pour CHAQUE segment, cree un prompt visuel PRECIS et ANTI-SCROLL.
 
 REGLES DES PROMPTS VISUELS :
 - JAMAIS de prompt generique du type "une personne qui parle" ou "un fond coloré"
@@ -1300,7 +1420,13 @@ REGLES DES PROMPTS VISUELS :
 EXEMPLE de bon prompt : "Gros plan sur des mains qui froissent un billet de banque, lumiere dramatique laterale, expression de frustration, ambiance sombre et tendue, style cinematique 9:16"
 EXEMPLE de mauvais prompt (INTERDIT) : "Une personne avec de l'argent"
 
-Genere autant de segments que necessaire pour couvrir TOUT le script (un script de 30 sec = environ 10 segments de 3 sec).
+NOMBRE DE SEGMENTS SELON LA DUREE (segments de 3-5 sec) :
+- 30 sec : 6 a 9 segments
+- 1 min : 12 a 15 segments
+- 2 min : 15 a 18 segments MAXIMUM
+- 3 min : 18 a 22 segments MAXIMUM
+- 5 min : 20 a 25 segments MAXIMUM
+Ne genere JAMAIS plus de 25 segments au total pour garder une reponse complete.
 
 7. VARIANTES A/B : 2 titres alternatifs pour tester.
 
@@ -1321,7 +1447,7 @@ RAPPEL CRITIQUE — RESPECT DE LA DURÉE :
 Le nombre de blocs dans script DÉPEND de la durée choisie. Les intervalles de temps doivent couvrir EXACTEMENT la durée demandée. Pour 30 secondes le dernier bloc finit à 30 sec (jamais 60). Respecte le total de mots indiqué plus haut.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"[intervalle de temps adapté à la durée choisie]","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"storyboard":[{"segment":"0-3 sec","texte_dit":"[les mots exacts prononces]","prompt_visuel":"[prompt cinematique precis et anti-scroll]"},{"segment":"3-6 sec","texte_dit":"...","prompt_visuel":"..."}],"variantes_titre":["titre A","titre B"]}`;
+{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"[intervalle de temps adapté à la durée choisie]","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"storyboard":[{"segment":"0-4 sec","texte_dit":"[les mots exacts prononces]","prompt_visuel":"[prompt cinematique precis et anti-scroll]"},{"segment":"4-8 sec","texte_dit":"...","prompt_visuel":"..."}],"variantes_titre":["titre A","titre B"]}`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1334,7 +1460,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -1343,9 +1469,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (!res.ok) throw new Error(data.error?.message || 'Erreur ' + res.status);
 
     const raw = data.content?.map(b => b.text || '').join('') || '';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Réponse mal formatée');
-    const parsed = JSON.parse(match[0]);
+    const parsed = parseAIResponse(raw);
+    if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
 
     // Incrémenter le compteur si pas débloqué
     if (!unlocked) {
@@ -1353,6 +1478,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       localStorage.setItem('scriptura_used', usedGen);
       renderGenCounter();
     }
+
+    // Sauvegarder le contexte pour l'ajustement du script
+    lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, style, tone: selectedTone, duree: selectedDuree };
+    currentScript = parsed.script;
 
     renderResults(parsed, niche, sujet);
 
@@ -1502,12 +1631,30 @@ function renderResults(d, niche, sujet) {
       num: "03",
       content: `<div class="out-section">
         <div class="out-section-label">Script · ${state.plateforme}</div>
-        <div class="script-block">${(d.script || []).map(s => `
+        <div class="script-block" id="scriptBlock">${(d.script || []).map(s => `
           <div class="script-row">
             <span class="script-time">⏱ ${s.temps}</span>
             <div class="script-text">${s.texte}</div>
             ${s.visuel ? `<div class="script-visual">📹 ${s.visuel}</div>` : ''}
           </div>`).join('')}
+        </div>
+        <div class="script-chat">
+          <div class="script-chat-label">💬 Ajuster le script avec Scriptura</div>
+          <div class="script-chat-suggestions">
+            <span class="chat-sugg" onclick="fillChat('Raccourcis le script, il est trop long')">Raccourcir</span>
+            <span class="chat-sugg" onclick="fillChat('Allonge le script, il est trop court')">Allonger</span>
+            <span class="chat-sugg" onclick="fillChat('Rends le hook et le ton plus percutants')">Plus percutant</span>
+            <span class="chat-sugg" onclick="fillChat('Rends le script plus simple et accessible')">Plus simple</span>
+            <span class="chat-sugg" onclick="fillChat('Ajoute plus d émotion au script')">Plus d'émotion</span>
+          </div>
+          <div class="script-chat-input-row">
+            <textarea class="script-chat-input" id="scriptChatInput" placeholder="Dis à Scriptura comment ajuster le script… (ex: raccourcis, change le ton, ajoute un exemple concret)"></textarea>
+            <button class="script-chat-send" id="scriptChatSend" onclick="adjustScript()">
+              <span class="chat-spinner" id="chatSpinner"></span>
+              <span id="chatSendText">Ajuster</span>
+            </button>
+          </div>
+          <div class="script-updated-badge" id="scriptUpdatedBadge">✦ Script mis à jour par Scriptura</div>
         </div>
       </div>`
     },
@@ -1624,6 +1771,93 @@ function copySection(id, text) {
     });
   };
   copy(text);
+}
+
+function fillChat(text) {
+  const input = document.getElementById('scriptChatInput');
+  if (input) { input.value = text; input.focus(); }
+}
+
+async function adjustScript() {
+  const input = document.getElementById('scriptChatInput');
+  const demande = input.value.trim();
+  if (!demande) { input.focus(); return; }
+  if (!lastGenContext || !currentScript) return;
+
+  // UI loading
+  const btn = document.getElementById('scriptChatSend');
+  const spinner = document.getElementById('chatSpinner');
+  const sendText = document.getElementById('chatSendText');
+  const badge = document.getElementById('scriptUpdatedBadge');
+  btn.disabled = true;
+  spinner.style.display = 'inline-block';
+  sendText.textContent = 'Scriptura ajuste…';
+  badge.style.display = 'none';
+
+  const ctx = lastGenContext;
+  const scriptActuel = currentScript.map(s => `[${s.temps}] ${s.texte}${s.visuel ? ' (Visuel: ' + s.visuel + ')' : ''}`).join('\n');
+
+  const prompt = `Tu es Scriptura, realisateur IA expert en contenu viral francophone.
+
+Voici le script actuel d'une video pour ${ctx.plateforme} sur le sujet : ${ctx.sujet}
+Objectif : ${ctx.objectif}
+Duree cible : ${ctx.duree || 'libre'}
+
+SCRIPT ACTUEL :
+${scriptActuel}
+
+DEMANDE DU CREATEUR : "${demande}"
+
+Regenere UNIQUEMENT le script en appliquant precisement cette demande. Garde le meme niveau de qualite virale (hooks puissants, retention, anti-scroll). Respecte la plateforme et l'objectif.
+
+Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
+{"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "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",
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Erreur');
+
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !parsed.script) throw new Error('Réponse invalide');
+
+    // Mettre à jour le script affiché
+    currentScript = parsed.script;
+    const scriptBlock = document.getElementById('scriptBlock');
+    scriptBlock.innerHTML = parsed.script.map(s => `
+      <div class="script-row">
+        <span class="script-time">⏱ ${s.temps}</span>
+        <div class="script-text">${s.texte}</div>
+        ${s.visuel ? `<div class="script-visual">📹 ${s.visuel}</div>` : ''}
+      </div>`).join('');
+
+    input.value = '';
+    badge.style.display = 'flex';
+    setTimeout(() => { badge.style.display = 'none'; }, 4000);
+
+  } catch(e) {
+    sendText.textContent = 'Erreur, réessaie';
+    setTimeout(() => { sendText.textContent = 'Ajuster'; }, 2000);
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    if (sendText.textContent === 'Scriptura ajuste…') sendText.textContent = 'Ajuster';
+  }
 }
 
 function restart() {
