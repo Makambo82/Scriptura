@@ -8,10 +8,10 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --burgundy:#1C1C1E;
-  --burgundy-mid:#242426;
-  --burgundy-card:#2C2C2E;
-  --burgundy-soft:#323234;
+  --bg:#1C1C1E;
+  --bg-mid:#242426;
+  --bg-card:#2C2C2E;
+  --bg-soft:#323234;
   --gold:#C9A84C;
   --gold-light:#E2C87A;
   --gold-pale:rgba(201,168,76,0.12);
@@ -69,6 +69,7 @@ nav{
   font-size:clamp(3rem,8vw,6rem);
   line-height:1.05;letter-spacing:-0.02em;
   margin-bottom:14px;max-width:900px;
+  color:#FFFFFF;
 }
 .hero h1 strong{font-style:normal;font-weight:700;color:var(--gold-light);display:block}
 .hero-rule{
@@ -352,10 +353,10 @@ nav{
 
 /* FOOTER */
 footer{
-  text-align:center;padding:40px 24px;
+  text-align:center;padding:40px 20px;
   border-top:1px solid var(--border-soft);
-  font-family:'Cinzel',serif;font-size:0.6rem;
-  color:rgba(255,255,255,0.45);letter-spacing:0.12em;text-transform:uppercase;
+  font-family:'Cinzel',serif;
+  color:rgba(255,255,255,0.45);
 }
 footer strong{color:var(--gold)}
 
@@ -661,6 +662,14 @@ footer strong{color:var(--gold)}
         </div>
         <div class="choice-arrow">→</div>
       </div>
+      <div class="choice" onclick="choose('depart','analyser une vidéo virale et recréer sa recette',2)">
+        <div class="choice-icon">🔍</div>
+        <div class="choice-body">
+          <div class="choice-label">Analyser une vidéo virale</div>
+          <div class="choice-desc">J'ai vu une vidéo qui cartonne — Scriptura décode sa recette et la recrée pour moi.</div>
+        </div>
+        <div class="choice-arrow">→</div>
+      </div>
     </div>
   </div>
 
@@ -771,8 +780,13 @@ footer strong{color:var(--gold)}
           <option>Autre</option>
         </select>
       </div>
+      <div class="ctx-field" id="viralVideoField" style="display:none">
+        <label class="ctx-label">Texte de la vidéo virale à analyser</label>
+        <textarea class="ctx-textarea" id="viralVideo" placeholder="Colle ici le texte, les sous-titres ou la description de la vidéo virale que tu as vue. Scriptura va décoder sa structure (hook, rythme, narration) et la recréer pour ton sujet." style="min-height:120px"></textarea>
+        <div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:6px;line-height:1.5">💡 Astuce : sur TikTok, active les sous-titres et copie le texte. Ou décris simplement ce qui se passe dans la vidéo.</div>
+      </div>
       <div class="ctx-field">
-        <label class="ctx-label">Ton sujet ou idée</label>
+        <label class="ctx-label" id="sujetLabel">Ton sujet ou idée</label>
         <textarea class="ctx-textarea" id="sujet" placeholder="Ex : pourquoi les gens n'arrivent pas à épargner, les 5 erreurs du débutant en bourse, l'histoire du roi Béhanzin…"></textarea>
       </div>
       <div class="ctx-field">
@@ -854,12 +868,8 @@ footer strong{color:var(--gold)}
 </section>
 
 <footer>
-  <div style="margin-bottom:20px;white-space:nowrap;overflow-x:auto;font-size:0.5rem">
-    <strong style="color:var(--gold);font-family:'Cinzel',serif;letter-spacing:0.14em">SCRIPTURA</strong>
-    <span style="color:rgba(255,255,255,0.6);margin:0 8px">·</span>
-    <span style="color:rgba(255,255,255,0.6)">L'OS du créateur francophone</span>
-    <span style="color:rgba(255,255,255,0.6);margin:0 8px">·</span>
-    <span style="color:rgba(255,255,255,0.6)">© 2026</span>
+  <div style="margin-bottom:20px;white-space:nowrap;font-size:0.46rem;letter-spacing:0.08em;text-transform:uppercase">
+    <strong style="color:var(--gold);font-family:'Cinzel',serif">SCRIPTURA</strong><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">L'OS du créateur francophone</span><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">© 2026</span>
   </div>
   <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:8px">
     <span style="font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.16em;color:rgba(255,255,255,0.7);text-transform:uppercase">Une création</span>
@@ -900,6 +910,17 @@ function renderSummary() {
     .filter(Boolean)
     .map(v => `<span class="summary-tag">${v}</span>`)
     .join('');
+
+  // Afficher le champ vidéo virale si l'utilisateur a choisi cette option
+  const viralField = document.getElementById('viralVideoField');
+  const sujetLabel = document.getElementById('sujetLabel');
+  if (state.depart && state.depart.includes('analyser une vidéo virale')) {
+    viralField.style.display = 'flex';
+    sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
+  } else {
+    viralField.style.display = 'none';
+    sujetLabel.textContent = 'Ton sujet ou idée';
+  }
 }
 
 // ── GÉNÉRATION ──
@@ -908,12 +929,18 @@ async function generate() {
   const sujet    = document.getElementById('sujet').value.trim();
   const audience = document.getElementById('audience').value.trim();
   const style    = document.getElementById('style').value.trim();
+  const viralVideo = document.getElementById('viralVideo').value.trim();
+  const isViralMode = state.depart && state.depart.includes('analyser une vidéo virale');
   const errorBox = document.getElementById('errorBox');
 
   errorBox.style.display = 'none';
 
   if (!niche || !sujet) {
     errorBox.textContent = 'Renseigne au minimum ta niche et ton sujet pour continuer.';
+    errorBox.style.display = 'block'; return;
+  }
+  if (isViralMode && !viralVideo) {
+    errorBox.textContent = 'Colle le texte de la vidéo virale que tu veux analyser.';
     errorBox.style.display = 'block'; return;
   }
 
@@ -931,6 +958,20 @@ CONTEXTE DU CRÉATEUR :
 ${audience ? `- Audience : ${audience}` : ''}
 ${style ? `- Style : ${style}` : ''}
 ${selectedTone ? `- Ton & voix : ${selectedTone}` : ''}
+${isViralMode ? `
+
+MODE ANALYSE VIRALE ACTIVE :
+Voici le texte d'une video virale que le createur veut reproduire :
+[DEBUT VIDEO]
+${viralVideo}
+[FIN VIDEO]
+
+TA MISSION SPECIALE :
+1. DECODE la recette virale de cette video : quel type de hook elle utilise, sa structure narrative, son rythme, ses techniques de retention, son emotion dominante, son CTA.
+2. Dans le champ analyse, explique CLAIREMENT la recette identifiee (ex: cette video utilise un hook de type X, une structure en Y etapes, joue sur l emotion Z).
+3. RECREE ensuite cette meme recette virale MAIS pour le sujet du createur : ${sujet}
+4. Le script, les hooks et la structure doivent SUIVRE LA MEME RECETTE que la video analysee, adaptee au nouveau sujet.
+Le createur veut reproduire le SUCCES de cette video sur SON sujet a lui.` : ''}
 ${selectedDuree ? (
       selectedDuree === '30 secondes' ? '- DUREE 30 SEC : 3 blocs script SEULEMENT. Bloc1 [0-3sec]=hook 1 phrase. Bloc2 [4-22sec]=corps 2 phrases max. Bloc3 [23-30sec]=CTA 1 phrase. TOTAL 60-75 mots MAX.' :
       selectedDuree === '1 minute'    ? '- DUREE 1 MIN : 4 blocs script. TOTAL 130-150 mots MAX.' :
