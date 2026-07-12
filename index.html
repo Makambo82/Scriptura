@@ -717,6 +717,31 @@ footer strong{color:var(--gold)}
   font-size:0.72rem;color:var(--gold-light);margin-top:10px;
   font-family:'Cinzel',serif;letter-spacing:0.08em;
 }
+
+/* ── STORYBOARD À LA DEMANDE ── */
+.sb-generate-box{
+  text-align:center;padding:28px 24px;
+  background:rgba(255,255,255,0.04);border:1px dashed rgba(201,168,76,0.3);
+  border-radius:8px;
+}
+.sb-generate-text{
+  font-size:0.86rem;color:rgba(255,255,255,0.7);line-height:1.7;
+  margin-bottom:20px;max-width:440px;margin-left:auto;margin-right:auto;
+}
+.sb-generate-btn{
+  display:inline-flex;align-items:center;gap:10px;
+  background:var(--gold);color:var(--bg);
+  font-family:'Cinzel',serif;font-weight:500;font-size:0.72rem;
+  letter-spacing:0.14em;text-transform:uppercase;
+  padding:14px 32px;border-radius:999px;border:none;cursor:pointer;transition:all 0.25s;
+}
+.sb-generate-btn:hover{background:var(--gold-light)}
+.sb-generate-btn:disabled{background:rgba(201,168,76,0.3);cursor:not-allowed}
+.sb-gen-spinner{
+  width:15px;height:15px;border:2px solid rgba(28,28,30,0.3);
+  border-top-color:var(--bg);border-radius:50%;
+  animation:spin 0.7s linear infinite;display:none;
+}
 </style>
 </head>
 <body>
@@ -1405,30 +1430,7 @@ REGLES DU SCRIPT :
 
 5. HASHTAGS : 8 hashtags optimisés — mélange niche + tendance + francophone.
 
-6. STORYBOARD VISUEL SEGMENTE (LE COEUR DE SCRIPTURA) :
-Decoupe TOUT le script en segments de 3 A 5 SECONDES a l'oral (environ 8-13 mots par segment). Pour TikTok/Reels/Shorts privilegie 3 sec (dynamique), pour Facebook/LinkedIn tu peux aller jusqu'a 5 sec.
-Pour CHAQUE segment, cree un prompt visuel PRECIS et ANTI-SCROLL.
-
-REGLES DES PROMPTS VISUELS :
-- JAMAIS de prompt generique du type "une personne qui parle" ou "un fond coloré"
-- Chaque visuel doit CAPTIVER : mouvement, tension, contraste, emotion, surprise
-- Precise TOUJOURS : le plan (gros plan, plan large), l'ambiance lumineuse, l'action exacte, l'emotion visible, le style
-- Le visuel doit ILLUSTRER le mot exact prononce a ce moment pour maximiser la retention
-- Pense comme un realisateur de cinema, pas comme un banque d'images
-- Format optimise pour ${state.plateforme} (vertical 9:16)
-
-EXEMPLE de bon prompt : "Gros plan sur des mains qui froissent un billet de banque, lumiere dramatique laterale, expression de frustration, ambiance sombre et tendue, style cinematique 9:16"
-EXEMPLE de mauvais prompt (INTERDIT) : "Une personne avec de l'argent"
-
-NOMBRE DE SEGMENTS SELON LA DUREE (segments de 3-5 sec) :
-- 30 sec : 6 a 9 segments
-- 1 min : 12 a 15 segments
-- 2 min : 15 a 18 segments MAXIMUM
-- 3 min : 18 a 22 segments MAXIMUM
-- 5 min : 20 a 25 segments MAXIMUM
-Ne genere JAMAIS plus de 25 segments au total pour garder une reponse complete.
-
-7. VARIANTES A/B : 2 titres alternatifs pour tester.
+6. VARIANTES A/B : 2 titres alternatifs pour tester.
 
 RÈGLES QUALITÉ ABSOLUES — SCRIPTURA N'EST PAS UN CHATBOT GÉNÉRIQUE :
 - Tu es un RÉALISATEUR IA, pas un assistant qui répond. Chaque élément généré doit avoir une VRAIE valeur ajoutée.
@@ -1447,7 +1449,7 @@ RAPPEL CRITIQUE — RESPECT DE LA DURÉE :
 Le nombre de blocs dans script DÉPEND de la durée choisie. Les intervalles de temps doivent couvrir EXACTEMENT la durée demandée. Pour 30 secondes le dernier bloc finit à 30 sec (jamais 60). Respecte le total de mots indiqué plus haut.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"[intervalle de temps adapté à la durée choisie]","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"storyboard":[{"segment":"0-4 sec","texte_dit":"[les mots exacts prononces]","prompt_visuel":"[prompt cinematique precis et anti-scroll]"},{"segment":"4-8 sec","texte_dit":"...","prompt_visuel":"..."}],"variantes_titre":["titre A","titre B"]}`;
+{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"...","hooks":[{"style":"Suspense","texte":"..."},{"style":"Statistique choc","texte":"..."},{"style":"Question provocatrice","texte":"..."},{"style":"Storytelling","texte":"..."},{"style":"Contre-intuition","texte":"..."}],"script":[{"temps":"[intervalle de temps adapté à la durée choisie]","texte":"...","visuel":"..."}],"legende":"...","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A","titre B"]}`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -1669,21 +1671,18 @@ function renderResults(d, niche, sujet) {
       </div>`
     },
     {
-      titre: "Storyboard visuel — Segment par segment (3 sec)",
+      titre: "Storyboard visuel — Prompts anti-scroll",
       num: "05",
       content: `<div class="out-section">
-        <div class="out-section-label">Storyboard · Prompts anti-scroll pour ${state.plateforme}</div>
-        <div class="storyboard-list">${(d.storyboard || []).map((seg, i) => `
-          <div class="sb-segment">
-            <div class="sb-head">
-              <span class="sb-time">${seg.segment}</span>
-              <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
-            </div>
-            <div class="sb-dit">"${seg.texte_dit}"</div>
-            <div class="sb-visual-label">🎬 Prompt visuel</div>
-            <div class="sb-visual">${seg.prompt_visuel}</div>
-            <button class="sb-copy" onclick="copyText(\`${(seg.prompt_visuel||'').replace(/\`/g,"'")}\`, this)">◆ Copier ce prompt</button>
-          </div>`).join('')}
+        <div class="out-section-label">Storyboard · Découpé segment par segment (3-5 sec)</div>
+        <div id="storyboardContainer">
+          <div class="sb-generate-box">
+            <p class="sb-generate-text">Scriptura peut découper ton script en plans de 3-5 secondes avec un prompt visuel cinématique et anti-scroll pour chacun.</p>
+            <button class="sb-generate-btn" id="sbGenerateBtn" onclick="generateStoryboard()">
+              <span class="sb-gen-spinner" id="sbGenSpinner"></span>
+              <span id="sbGenText">🎬 Générer le storyboard visuel</span>
+            </button>
+          </div>
         </div>
       </div>`
     },
@@ -1771,6 +1770,83 @@ function copySection(id, text) {
     });
   };
   copy(text);
+}
+
+async function generateStoryboard() {
+  if (!lastGenContext || !currentScript) return;
+
+  const btn = document.getElementById('sbGenerateBtn');
+  const spinner = document.getElementById('sbGenSpinner');
+  const genText = document.getElementById('sbGenText');
+  btn.disabled = true;
+  spinner.style.display = 'inline-block';
+  genText.textContent = 'Scriptura crée le storyboard…';
+
+  const ctx = lastGenContext;
+  const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
+
+  const prompt = `Tu es Scriptura, realisateur IA expert en contenu viral.
+
+Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
+
+SCRIPT :
+${scriptText}
+
+MISSION : Decoupe ce script en segments de 3 A 5 SECONDES (8-13 mots chacun). Pour TikTok/Reels/Shorts privilegie 3 sec, pour Facebook/LinkedIn jusqu'a 5 sec.
+
+Pour CHAQUE segment, cree un prompt visuel PRECIS et ANTI-SCROLL :
+- JAMAIS generique (interdit : "une personne qui parle", "un fond")
+- Precise : plan (gros plan/large), lumiere, action exacte, emotion, style cinematique, format 9:16
+- Le visuel illustre les mots exacts prononces pour maximiser la retention
+- Pense comme un realisateur de cinema
+
+EXEMPLE bon prompt : "Gros plan sur des mains qui froissent un billet, lumiere laterale dramatique, expression de frustration, ambiance sombre, style cinematique 9:16"
+
+Maximum 25 segments. Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
+{"storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"..."}]}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": "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",
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 8000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Erreur');
+
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
+
+    const container = document.getElementById('storyboardContainer');
+    container.innerHTML = `<div class="storyboard-list">${parsed.storyboard.map((seg, i) => `
+      <div class="sb-segment">
+        <div class="sb-head">
+          <span class="sb-time">${seg.segment}</span>
+          <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+        </div>
+        <div class="sb-dit">"${seg.texte_dit}"</div>
+        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual">${seg.prompt_visuel}</div>
+        <button class="sb-copy" onclick="copyText(\`${(seg.prompt_visuel||'').replace(/\`/g,"'")}\`, this)">◆ Copier ce prompt</button>
+      </div>`).join('')}</div>`;
+
+  } catch(e) {
+    genText.textContent = 'Erreur, réessaie';
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    setTimeout(() => { genText.textContent = '🎬 Générer le storyboard visuel'; }, 2000);
+  }
 }
 
 function fillChat(text) {
