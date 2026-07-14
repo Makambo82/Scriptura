@@ -1413,13 +1413,10 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant","strategie_retention":"où placer les relances pour tenir jusqu'au bout"}`;
 
-    const briefRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const briefRes = await fetch("/api/generate", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "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",
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
@@ -1477,13 +1474,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et respecter ${wt.min}-${wt.max} mots au total.`;
 
-    const writeRes = await fetch("https://api.anthropic.com/v1/messages", {
+    const writeRes = await fetch("/api/generate", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "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",
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
@@ -1844,13 +1838,10 @@ Maximum 25 segments. Reponds UNIQUEMENT en JSON valide sans texte avant ni apres
 {"storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"..."}]}`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/generate", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "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",
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
@@ -1928,13 +1919,10 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/api/generate", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": "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",
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true"
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
