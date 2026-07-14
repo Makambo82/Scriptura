@@ -10,7 +10,7 @@
 :root{
   --bg:#1C1C1E;
   --bg-mid:#242426;
-  --bg-card:#2C2C2E;
+  --bg-card:#2E2E30;
   --bg-soft:#323234;
   --gold:#C9A84C;
   --gold-light:#E2C87A;
@@ -177,18 +177,18 @@ nav{
 }
 .ctx-field{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
 .ctx-label{
-  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;
-  text-transform:uppercase;color:var(--gold);opacity:0.65;
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.2em;
+  text-transform:uppercase;color:var(--gold-light);opacity:1;
 }
 .ctx-input,.ctx-textarea{
   font-family:'Tenor Sans',sans-serif;font-size:0.92rem;
-  background:rgba(255,255,255,0.07);
-  border:1px solid var(--border-soft);border-radius:2px;
-  padding:13px 16px;color:var(--white);outline:none;
+  background:#3A3A3D;
+  border:1px solid rgba(255,255,255,0.15);border-radius:6px;
+  padding:13px 16px;color:#FFFFFF;outline:none;
   transition:border-color 0.2s;width:100%;
 }
 .ctx-input:focus,.ctx-textarea:focus{border-color:rgba(201,168,76,0.45)}
-.ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.2);font-size:0.88rem}
+.ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.45);font-size:0.88rem}
 .ctx-textarea{resize:vertical;min-height:90px;line-height:1.7}
 
 /* SUMMARY ROW */
@@ -767,6 +767,108 @@ footer strong{color:var(--gold)}
   background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);
   padding:6px 14px;border-radius:999px;
 }
+
+/* ── MODES HERO ── */
+.hero-modes{
+  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;
+}
+.hero-mode-btn{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(201,168,76,0.25);
+  border-radius:12px;padding:22px 28px;cursor:pointer;transition:all 0.25s;
+  min-width:200px;
+}
+.hero-mode-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.06);transform:translateY(-2px)}
+.hero-mode-btn.primary{background:var(--gold);border-color:var(--gold)}
+.hero-mode-btn.primary:hover{background:var(--gold-light)}
+.hero-mode-btn.primary .mode-label{color:var(--bg)}
+.hero-mode-btn.primary .mode-desc{color:rgba(28,28,30,0.7)}
+.hero-mode-btn.primary .mode-icon{filter:none}
+.mode-icon{font-size:1.8rem;margin-bottom:2px}
+.mode-label{
+  font-family:'Cinzel',serif;font-size:0.82rem;font-weight:500;
+  letter-spacing:0.1em;text-transform:uppercase;color:var(--white);
+}
+.mode-desc{
+  font-size:0.75rem;color:rgba(255,255,255,0.55);font-family:'Tenor Sans',sans-serif;
+  letter-spacing:0.02em;text-transform:none;
+}
+
+/* ── GÉNÉRATEUR D'IDÉES ── */
+#ideasFlow{max-width:680px;margin:0 auto;padding:40px 24px 80px}
+.ideas-container{}
+.ideas-header{margin-bottom:32px;margin-top:20px}
+.ideas-eyebrow{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;
+  text-transform:uppercase;color:var(--gold);margin-bottom:16px;
+}
+.ideas-title{
+  font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
+  font-size:clamp(1.8rem,4vw,2.6rem);line-height:1.15;color:#FFFFFF;margin-bottom:12px;
+}
+.ideas-title strong{font-style:normal;font-weight:700;color:var(--gold-light);display:block}
+.ideas-sub{font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.7}
+.ideas-results-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:36px 0 20px;flex-wrap:wrap;gap:12px;
+}
+.btn-regenerate{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--gold);background:transparent;border:1px solid var(--border);
+  padding:9px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+}
+.btn-regenerate:hover{background:var(--gold-pale);border-color:var(--gold)}
+
+/* Cartes d'idées */
+.idea-card{
+  background:var(--bg-card);border:1px solid rgba(255,255,255,0.1);
+  border-radius:10px;padding:24px;margin-bottom:16px;
+  transition:all 0.25s;position:relative;overflow:hidden;
+}
+.idea-card:hover{border-color:var(--gold);box-shadow:0 8px 28px rgba(0,0,0,0.2)}
+.idea-card::before{
+  content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--gold);
+}
+.idea-number{
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.14em;
+  color:var(--gold-light);margin-bottom:10px;
+}
+.idea-titre{
+  font-family:'Playfair Display',serif;font-weight:600;font-size:1.25rem;
+  color:#FFFFFF;line-height:1.3;margin-bottom:16px;
+}
+.idea-section{margin-bottom:14px}
+.idea-section-label{
+  font-family:'Cinzel',serif;font-size:0.52rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--gold);opacity:0.75;margin-bottom:6px;
+  display:flex;align-items:center;gap:6px;
+}
+.idea-section-text{
+  font-size:0.9rem;color:rgba(255,255,255,0.82);line-height:1.6;
+}
+.idea-hook{
+  font-family:'Playfair Display',serif;font-style:italic;font-size:0.95rem;
+  color:var(--gold-light);line-height:1.6;
+  background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.18);
+  border-radius:6px;padding:12px 14px;
+}
+.idea-actions{
+  display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;
+}
+.idea-btn-script{
+  flex:1;min-width:180px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--gold);color:var(--bg);border:none;border-radius:999px;
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;
+  padding:12px 20px;cursor:pointer;transition:all 0.2s;font-weight:500;
+}
+.idea-btn-script:hover{background:var(--gold-light)}
+.idea-btn-copy{
+  display:inline-flex;align-items:center;gap:6px;
+  background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);
+  border-radius:999px;font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;
+  text-transform:uppercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
+}
+.idea-btn-copy:hover{border-color:var(--gold);color:var(--gold)}
 </style>
 </head>
 <body>
@@ -788,10 +890,18 @@ footer strong{color:var(--gold)}
   </h1>
   <div class="hero-rule"></div>
   <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
-  <button class="hero-btn" onclick="document.getElementById('flow').scrollIntoView({behavior:'smooth'})">
-    Commencer maintenant
-    <span>↓</span>
-  </button>
+  <div class="hero-modes">
+    <button class="hero-mode-btn primary" onclick="chooseMode('script')">
+      <span class="mode-icon">🎬</span>
+      <span class="mode-label">J'ai une idée</span>
+      <span class="mode-desc">Génère mon script complet</span>
+    </button>
+    <button class="hero-mode-btn" onclick="chooseMode('ideas')">
+      <span class="mode-icon">💡</span>
+      <span class="mode-label">Trouve-moi des idées</span>
+      <span class="mode-desc">Scriptura brainstorme pour moi</span>
+    </button>
+  </div>
   <p class="hero-free">Entièrement gratuit · Aucun compte requis</p>
 </section>
 
@@ -828,6 +938,114 @@ footer strong{color:var(--gold)}
 </div>
 
 <!-- FLOW -->
+<!-- ══ MODULE GÉNÉRATEUR D'IDÉES ══ -->
+<section id="ideasFlow" style="display:none">
+  <div class="ideas-container">
+    <button class="btn-back" onclick="backToHome()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Générateur d'idées</div>
+      <h2 class="ideas-title">Trouvons tes<br/><strong>prochaines idées virales.</strong></h2>
+      <p class="ideas-sub">Dis-moi qui tu es. Scriptura génère des idées calibrées pour ta niche et ton audience.</p>
+    </div>
+
+    <div class="context-card">
+      <div class="ctx-field">
+        <label class="ctx-label">Ta niche</label>
+        <select class="ctx-input" id="ideaNiche">
+          <option value="">Choisir ta niche…</option>
+          <option>Géopolitique</option>
+          <option>Histoire</option>
+          <option>Développement personnel</option>
+          <option>Business & Entrepreneuriat</option>
+          <option>Finance & Argent</option>
+          <option>Motivation</option>
+          <option>Éducation</option>
+          <option>Santé & Bien-être</option>
+          <option>Technologie & IA</option>
+          <option>Culture & Société</option>
+          <option>Spiritualité</option>
+          <option>Lifestyle</option>
+          <option>Autre</option>
+        </select>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton audience</label>
+        <select class="ctx-input" id="ideaAudience">
+          <option value="">Choisir ton audience…</option>
+          <option>Tout public</option>
+          <option>Jeunes adultes (18-25 ans)</option>
+          <option>Adultes actifs (25-40 ans)</option>
+          <option>Entrepreneurs</option>
+          <option>Femmes</option>
+          <option>Étudiants</option>
+          <option>Professionnels</option>
+          <option>Passionnés du sujet</option>
+        </select>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label" id="ideaGeoLabel">Zone géographique <span id="geoOptional" style="color:rgba(255,255,255,0.4);font-size:0.9em">(optionnel)</span></label>
+        <input type="text" class="ctx-input" id="ideaGeo" placeholder="Ex : Afrique de l'Ouest, Bénin, Empire du Mali, Sénégal, Maghreb, France…"/>
+
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ta plateforme</label>
+        <div class="btn-grid" id="ideaPlatformGrid">
+          <button type="button" class="grid-btn" data-val="TikTok">TikTok</button>
+          <button type="button" class="grid-btn" data-val="Instagram Reels">Instagram</button>
+          <button type="button" class="grid-btn" data-val="YouTube Shorts">YouTube</button>
+          <button type="button" class="grid-btn" data-val="Facebook">Facebook</button>
+          <button type="button" class="grid-btn" data-val="LinkedIn">LinkedIn</button>
+        </div>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton objectif principal</label>
+        <div class="btn-grid" id="ideaGoalGrid">
+          <button type="button" class="grid-btn" data-val="faire des vues">Faire des vues</button>
+          <button type="button" class="grid-btn" data-val="gagner des abonnés">Gagner des abonnés</button>
+          <button type="button" class="grid-btn" data-val="générer des ventes">Générer des ventes</button>
+          <button type="button" class="grid-btn" data-val="renforcer mon expertise">Mon expertise</button>
+        </div>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton style / ton angle</label>
+        <div class="btn-grid" id="ideaToneGrid">
+          <button type="button" class="grid-btn" data-val="analytique et factuel">Analytique</button>
+          <button type="button" class="grid-btn" data-val="inspirant et émotionnel">Inspirant</button>
+          <button type="button" class="grid-btn" data-val="provocateur et cash">Provocateur</button>
+          <button type="button" class="grid-btn" data-val="éducatif et pédagogue">Éducatif</button>
+          <button type="button" class="grid-btn" data-val="storytelling narratif">Storytelling</button>
+        </div>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Un thème précis à explorer ? (optionnel)</label>
+        <textarea class="ctx-textarea" id="ideaTheme" placeholder="Ex : les empires africains, la psychologie de l'argent, les femmes qui ont marqué l'histoire… Laisse vide pour des idées larges dans ta niche."></textarea>
+      </div>
+
+      <div class="error-box" id="ideaErrorBox"></div>
+
+      <button class="btn-generate" id="ideaGenerateBtn" onclick="generateIdeas()">
+        <div class="spinner" id="ideaSpinner"></div>
+        <span id="ideaBtnText">💡 Générer mes idées de contenu</span>
+      </button>
+    </div>
+
+    <!-- RÉSULTATS IDÉES -->
+    <div id="ideasResults" style="display:none">
+      <div class="ideas-results-header">
+        <h3 class="results-heading">Tes idées de contenu</h3>
+        <button class="btn-regenerate" onclick="generateIdeas()">↻ Générer d'autres idées</button>
+      </div>
+      <div id="ideasList"></div>
+    </div>
+  </div>
+</section>
+
 <section id="flow">
 
   <!-- ÉTAPE 1 — OBJECTIF -->
@@ -1092,22 +1310,22 @@ footer strong{color:var(--gold)}
       <div class="ctx-field">
         <label class="ctx-label">Ton & voix</label>
         <div class="btn-grid" id="toneGrid">
-          <button class="grid-btn" data-val="analytique et froid, comme un documentaire">Analytique</button>
-          <button class="grid-btn" data-val="inspirant et chaleureux, qui touche l'émotion">Inspirant</button>
-          <button class="grid-btn" data-val="provocateur et direct, qui choque et interpelle">Provocateur</button>
-          <button class="grid-btn" data-val="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</button>
-          <button class="grid-btn" data-val="humoristique et décalé, avec légèreté">Humoristique</button>
-          <button class="grid-btn" data-val="storytelling narratif, qui raconte une histoire captivante">Storytelling</button>
+          <button type="button" class="grid-btn" data-val="analytique et froid, comme un documentaire">Analytique</button>
+          <button type="button" class="grid-btn" data-val="inspirant et chaleureux, qui touche l'émotion">Inspirant</button>
+          <button type="button" class="grid-btn" data-val="provocateur et direct, qui choque et interpelle">Provocateur</button>
+          <button type="button" class="grid-btn" data-val="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</button>
+          <button type="button" class="grid-btn" data-val="humoristique et décalé, avec légèreté">Humoristique</button>
+          <button type="button" class="grid-btn" data-val="storytelling narratif, qui raconte une histoire captivante">Storytelling</button>
         </div>
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Durée de la vidéo</label>
         <div class="btn-grid" id="dureeGrid">
-          <button class="grid-btn" data-val="30 secondes">30 sec</button>
-          <button class="grid-btn" data-val="1 minute">1 min</button>
-          <button class="grid-btn" data-val="2 minutes">2 min</button>
-          <button class="grid-btn" data-val="3 minutes">3 min</button>
-          <button class="grid-btn" data-val="5 minutes">5 min</button>
+          <button type="button" class="grid-btn" data-val="30 secondes">30 sec</button>
+          <button type="button" class="grid-btn" data-val="1 minute">1 min</button>
+          <button type="button" class="grid-btn" data-val="2 minutes">2 min</button>
+          <button type="button" class="grid-btn" data-val="3 minutes">3 min</button>
+          <button type="button" class="grid-btn" data-val="5 minutes">5 min</button>
         </div>
       </div>
 
@@ -1225,6 +1443,302 @@ const state = { objectif:'', depart:'', plateforme:'' };
 // Contexte de la dernière génération (pour l'ajustement du script)
 let lastGenContext = null;
 let currentScript = null;
+
+// ══════════════════════════════════════
+//  NAVIGATION ENTRE MODES
+// ══════════════════════════════════════
+function chooseMode(mode) {
+  if (mode === 'script') {
+    document.getElementById('ideasFlow').style.display = 'none';
+    document.getElementById('flow').style.display = 'block';
+    document.getElementById('flow').scrollIntoView({ behavior: 'smooth' });
+  } else if (mode === 'ideas') {
+    document.getElementById('flow').style.display = 'none';
+    document.getElementById('ideasFlow').style.display = 'block';
+    document.getElementById('ideasFlow').scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+function backToHome() {
+  document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('flow').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ══════════════════════════════════════
+//  GÉNÉRATEUR D'IDÉES
+// ══════════════════════════════════════
+let ideaPlatform = '';
+let ideaGoal = '';
+let ideaTone = '';
+
+function setupIdeaButtons() {
+  const groups = [
+    { id: 'ideaPlatformGrid', setter: v => ideaPlatform = v },
+    { id: 'ideaGoalGrid', setter: v => ideaGoal = v },
+    { id: 'ideaToneGrid', setter: v => ideaTone = v }
+  ];
+  groups.forEach(g => {
+    const container = document.getElementById(g.id);
+    if (!container) return;
+    const btns = container.querySelectorAll('.grid-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        // Désactiver UNIQUEMENT les boutons de CE conteneur précis
+        btns.forEach(b => b.classList.remove('active'));
+        // Activer celui cliqué
+        btn.classList.add('active');
+        g.setter(btn.dataset.val);
+      });
+    });
+  });
+
+  // Adapter le champ géo selon la niche (obligatoire pour Histoire/Géopolitique)
+  const nicheSelect = document.getElementById('ideaNiche');
+  if (nicheSelect) {
+    nicheSelect.addEventListener('change', updateGeoRequirement);
+  }
+  updateGeoRequirement();
+}
+
+function updateGeoRequirement() {
+  const niche = document.getElementById('ideaNiche').value;
+  const geoRequired = ['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'].includes(niche);
+  const label = document.getElementById('ideaGeoLabel');
+  const optional = document.getElementById('geoOptional');
+  const input = document.getElementById('ideaGeo');
+
+  if (geoRequired) {
+    if (optional) optional.style.display = 'none';
+    if (input) input.style.borderColor = 'rgba(201,168,76,0.4)';
+    if (label && !label.querySelector('.geo-req')) {
+      const req = document.createElement('span');
+      req.className = 'geo-req';
+      req.style.cssText = 'color:var(--gold);margin-left:4px';
+      req.textContent = '*';
+      label.appendChild(req);
+    }
+  } else {
+    if (optional) optional.style.display = 'inline';
+    if (input) input.style.borderColor = '';
+    const req = label ? label.querySelector('.geo-req') : null;
+    if (req) req.remove();
+  }
+}
+
+function setIdeaLoading(on) {
+  const btn = document.getElementById('ideaGenerateBtn');
+  btn.disabled = on;
+  document.getElementById('ideaSpinner').style.display = on ? 'block' : 'none';
+  document.getElementById('ideaBtnText').textContent = on ? 'Scriptura brainstorme…' : '💡 Générer mes idées de contenu';
+  if (on) startGenAnimation();
+  else stopGenAnimation();
+}
+
+async function generateIdeas() {
+  const niche = document.getElementById('ideaNiche').value.trim();
+  const audience = document.getElementById('ideaAudience').value.trim();
+  const geo = document.getElementById('ideaGeo').value.trim();
+  const theme = document.getElementById('ideaTheme').value.trim();
+  const errorBox = document.getElementById('ideaErrorBox');
+
+  errorBox.style.display = 'none';
+
+  if (!niche) {
+    errorBox.textContent = 'Choisis au moins ta niche pour continuer.';
+    errorBox.style.display = 'block'; return;
+  }
+
+  // Géo obligatoire pour Histoire et Géopolitique
+  if (['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'].includes(niche) && !geo) {
+    errorBox.textContent = 'Pour ' + niche + ', précise une zone géographique (pays, région, empire…) pour des idées ciblées.';
+    errorBox.style.display = 'block'; return;
+  }
+
+  // Vérification limite (partagée avec le générateur de script)
+  if (!unlocked && usedGen >= MAX_FREE) {
+    document.getElementById('ideaErrorBox').textContent = 'Tu as utilisé tes 5 générations gratuites. Reviens à l\'accueil pour débloquer l\'accès illimité.';
+    document.getElementById('ideaErrorBox').style.display = 'block';
+    return;
+  }
+
+  setIdeaLoading(true);
+  document.getElementById('ideasResults').style.display = 'none';
+
+  const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour un créateur.
+
+PROFIL DU CRÉATEUR :
+- Niche : ${niche}
+${audience ? '- Audience : ' + audience : ''}
+${geo ? '- ZONE GÉOGRAPHIQUE CIBLE : ' + geo : ''}
+${ideaPlatform ? '- Plateforme : ' + ideaPlatform : ''}
+${ideaGoal ? '- Objectif : ' + ideaGoal : ''}
+${ideaTone ? '- Style/angle : ' + ideaTone : ''}
+${theme ? '- Thème précis à explorer : ' + theme : ''}
+
+${geo ? `CONTRAINTE GÉOGRAPHIQUE ABSOLUE — TU ES UN EXPERT LOCAL DE : ${geo}
+Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne reste JAMAIS vague ou générique.
+- Puise dans les figures historiques réelles, les événements précis, les dynasties, les royaumes, les batailles, les personnages et les faits SPÉCIFIQUES à ${geo}
+- Utilise des noms propres réels, des dates réelles, des lieux réels de cette zone
+- Agis comme quelqu'un qui connaît intimement l'histoire et les réalités de ${geo}, pas comme un touriste
+- Évite les sujets déjà vus mille fois : cherche les histoires méconnues, les angles surprenants, les faits que même les habitants de ${geo} ignorent souvent
+- Si la niche est géopolitique : ancre dans les enjeux, tensions, alliances et réalités actuelles et historiques réelles de ${geo}
+Une idée qui pourrait s'appliquer à n'importe quelle région est une idée ÉCHOUÉE. Chaque idée doit être impossible à imaginer sans connaître ${geo}.` : ''}
+
+MISSION : Génère 6 idées de vidéos à FORT POTENTIEL VIRAL. 
+
+RÈGLES ABSOLUES :
+- INTERDIT les idées génériques ("Les 5 erreurs à éviter", "Comment réussir en...", "Mon top 10"). Ça, tout le monde le fait.
+- Chaque idée doit avoir un ANGLE UNIQUE, une tension, quelque chose de surprenant ou contre-intuitif
+- Les idées doivent exploiter des déclencheurs émotionnels (curiosité, choc, indignation, fascination, peur de rater)
+- Adapte au style ${ideaTone || 'de la niche'} et à la plateforme ${ideaPlatform || 'sociale'}
+- Chaque idée doit donner envie de cliquer IMMÉDIATEMENT
+- Varie les angles : certaines révélations, certaines contre-intuitions, certaines histoires, certains débats
+
+Pour CHAQUE idée, fournis :
+1. Un TITRE accrocheur (comme il apparaîtrait en accroche)
+2. L'ANGLE : quelle est l'approche unique, pourquoi c'est différent
+3. POURQUOI ÇA MARCHE : le mécanisme psychologique qui rend cette idée virale
+4. UN HOOK DE DÉPART : la première phrase exacte pour lancer la vidéo (percutante, arrête le scroll)
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"idees":[{"titre":"...","angle":"...","pourquoi":"...","hook":"..."}]}
+
+Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
+      throw new Error('(' + res.status + ') ' + detail);
+    }
+
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
+
+    // Incrémenter le compteur
+    if (!unlocked) {
+      usedGen++;
+      localStorage.setItem('scriptura_used', usedGen);
+      renderGenCounter();
+    }
+
+    renderIdeas(parsed.idees, niche);
+
+  } catch(e) {
+    errorBox.textContent = 'Erreur : ' + e.message;
+    errorBox.style.display = 'block';
+  } finally {
+    setIdeaLoading(false);
+  }
+}
+
+// Stocke les idées pour le passage vers le générateur de script
+let generatedIdeas = [];
+
+function renderIdeas(idees, niche) {
+  generatedIdeas = idees;
+  const list = document.getElementById('ideasList');
+  list.innerHTML = idees.map((idea, i) => `
+    <div class="idea-card">
+      <div class="idea-number">Idée ${String(i+1).padStart(2,'0')}</div>
+      <div class="idea-titre">${idea.titre || ''}</div>
+      <div class="idea-section">
+        <div class="idea-section-label">◆ L'angle</div>
+        <div class="idea-section-text">${idea.angle || ''}</div>
+      </div>
+      <div class="idea-section">
+        <div class="idea-section-label">◆ Pourquoi ça marche</div>
+        <div class="idea-section-text">${idea.pourquoi || ''}</div>
+      </div>
+      <div class="idea-section">
+        <div class="idea-section-label">◆ Hook de départ</div>
+        <div class="idea-hook">"${idea.hook || ''}"</div>
+      </div>
+      <div class="idea-actions">
+        <button class="idea-btn-script" onclick="useIdeaForScript(${i})">🎬 Générer le script complet</button>
+        <button class="idea-btn-copy" onclick="copyIdea(${i}, this)">◆ Copier</button>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('ideasResults').style.display = 'block';
+  document.getElementById('ideasResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Envoie l'idée choisie vers le générateur de script
+function useIdeaForScript(index) {
+  const idea = generatedIdeas[index];
+  if (!idea) return;
+
+  // Pré-remplir le tunnel de script avec l'idée
+  const niche = document.getElementById('ideaNiche').value.trim();
+
+  // Basculer vers le mode script
+  document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('flow').style.display = 'block';
+
+  // Pré-remplir le sujet avec le titre de l'idée (+ contexte géo si présent)
+  const geoContext = document.getElementById('ideaGeo').value.trim();
+  document.getElementById('sujet').value = idea.titre + (geoContext ? ' (' + geoContext + ')' : '');
+  // Pré-remplir la niche si le champ existe et correspond
+  const nicheSelect = document.getElementById('niche');
+  if (nicheSelect) {
+    for (let opt of nicheSelect.options) {
+      if (opt.value === niche || opt.text === niche) { nicheSelect.value = opt.value; break; }
+    }
+  }
+  // Reporter l'objectif si choisi
+  if (ideaGoal) {
+    const goalMap = {
+      'faire des vues': 'Faire plus de vues et maximiser la portée',
+      'gagner des abonnés': 'Gagner des abonnés qualifiés rapidement',
+      'générer des ventes': 'Générer des ventes via mon contenu',
+      'renforcer mon expertise': 'Renforcer mon expertise et ma crédibilité'
+    };
+    state.objectif = goalMap[ideaGoal] || '';
+  }
+  if (ideaPlatform) state.plateforme = ideaPlatform;
+  state.depart = 'un sujet précis que je veux développer';
+
+  // Aller à l'étape 4 (contexte) puisqu'on a déjà objectif, départ, plateforme
+  if (state.objectif && state.plateforme) {
+    showStep(4);
+    renderSummary();
+  } else {
+    showStep(1);
+  }
+
+  window.scrollTo({ top: document.getElementById('flow').offsetTop - 20, behavior: 'smooth' });
+}
+
+function copyIdea(index, btn) {
+  const idea = generatedIdeas[index];
+  if (!idea) return;
+  const text = idea.titre + '\n\nAngle : ' + idea.angle + '\n\nPourquoi ça marche : ' + idea.pourquoi + '\n\nHook : ' + idea.hook;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = '◆ Copier', 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = '◆ Copier', 2000);
+  });
+}
 
 // ── NAVIGATION ──
 function choose(key, val, nextStep) {
@@ -2020,6 +2534,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   renderGenCounter();
+  setupIdeaButtons();
 });
 
 // ── BOUTONS TON & DURÉE — GROUPES INDÉPENDANTS ──
