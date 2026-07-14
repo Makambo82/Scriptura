@@ -1410,8 +1410,10 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Donne la direction (pas encore la formulation finale).
 
+7. STRATÉGIE DE CTA : Quel appel à l'action final servira le mieux l'objectif "${state.objectif}" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s'abonner pour une raison précise) ?
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant","strategie_retention":"où placer les relances pour tenir jusqu'au bout"}`;
+{"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant","strategie_retention":"où placer les relances pour tenir jusqu'au bout","strategie_cta":"l'action précise à demander en fin de script"}`;
 
     const briefRes = await fetch("/api/generate", {
       method: "POST",
@@ -1426,7 +1428,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     });
 
     const briefData = await briefRes.json();
-    if (!briefRes.ok) throw new Error(briefData.error?.message || 'Erreur phase 1');
+    if (!briefRes.ok) {
+      const detail = briefData.error?.message || briefData.message || JSON.stringify(briefData).slice(0, 150);
+      throw new Error('Phase 1 (' + briefRes.status + ') : ' + detail);
+    }
     const briefRaw = briefData.content?.map(b => b.text || '').join('') || '';
     const brief = parseAIResponse(briefRaw) || {};
 
@@ -1444,6 +1449,7 @@ BRIEF STRATÉGIQUE À SUIVRE :
 - Émotion dominante : ${brief.emotion_dominante || 'curiosité'}
 - Direction du hook : ${brief.strategie_hook || 'accroche forte'}
 - Stratégie de rétention : ${brief.strategie_retention || 'relances régulières'}
+- Stratégie de CTA : ${brief.strategie_cta || 'appel à l\'action clair adapté à l\'objectif'}
 
 CONTEXTE :
 - Sujet : ${sujet}
@@ -1460,14 +1466,27 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
 3. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
 
-4. HOOKS DIFFÉRENCIANTS : Génère 5 hooks qui suivent la direction du brief. INTERDIT les formules génériques ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo"). Chaque hook doit créer une tension psychologique immédiate et être IMPOSSIBLE à confondre avec du ChatGPT basique.
+4. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair et adapté à l'objectif "${state.objectif}". Jamais un "abonne-toi" générique. Le CTA doit dire précisément quoi faire ensuite :
+- Objectif ventes → inciter à passer à l'action commerciale (lien, DM, commentaire déclencheur, offre)
+- Objectif vues → inciter au partage ou à regarder une autre vidéo
+- Objectif abonnés → donner une raison concrète de s'abonner (promesse de valeur future)
+- Objectif autorité → inciter à commenter son avis ou sauvegarder
+Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA.
 
-5. ADAPTÉ À ${state.plateforme} : respecte les codes de rythme de cette plateforme.
+5. HOOKS DIFFÉRENCIANTS : Génère 5 hooks qui suivent la direction du brief. INTERDIT les formules génériques ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo"). Chaque hook doit créer une tension psychologique immédiate et être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
-6. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
+6. ADAPTÉ À ${state.plateforme} : respecte les codes de rythme de cette plateforme.
+
+7. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
 
 AVANT DE LIVRER — AUTO-CRITIQUE OBLIGATOIRE :
-Relis ton script. Pose-toi : "Est-ce qu'un créateur pourrait obtenir ça avec un simple prompt ChatGPT ?" Si oui, c'est raté, réécris pour le rendre nettement supérieur. "Le hook arrête-t-il vraiment le scroll ?" Si non, réécris. "Le compte de mots est-il dans la cible ${wt.min}-${wt.max} ?" Si non, ajuste. Ne livre que ta MEILLEURE version.
+Relis ton script et vérifie chaque point :
+- "Est-ce qu'un créateur pourrait obtenir ça avec un simple prompt ChatGPT ?" Si oui, c'est raté, réécris pour le rendre nettement supérieur.
+- "Le hook arrête-t-il vraiment le scroll ?" Si non, réécris.
+- "Le compte de mots est-il dans la cible ${wt.min}-${wt.max} ?" Si non, ajuste.
+- "Le dernier bloc contient-il un vrai CTA qui dit quoi faire ?" Si non, AJOUTE-LE. Un script sans CTA est incomplet.
+- "Chaque phrase a-t-elle une fonction ?" Supprime tout remplissage.
+Ne livre que ta MEILLEURE version.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A percutant","titre B percutant"]}
@@ -1487,7 +1506,10 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et respecter
     });
 
     const writeData = await writeRes.json();
-    if (!writeRes.ok) throw new Error(writeData.error?.message || 'Erreur phase 2');
+    if (!writeRes.ok) {
+      const detail = writeData.error?.message || writeData.message || JSON.stringify(writeData).slice(0, 150);
+      throw new Error('Phase 2 (' + writeRes.status + ') : ' + detail);
+    }
     const writeRaw = writeData.content?.map(b => b.text || '').join('') || '';
     const parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
