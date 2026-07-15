@@ -795,7 +795,7 @@ footer strong{color:var(--gold)}
 }
 
 /* ── GÉNÉRATEUR D'IDÉES ── */
-#ideasFlow{max-width:680px;margin:0 auto;padding:40px 24px 80px}
+#ideasFlow,#storyFlow{max-width:680px;margin:0 auto;padding:40px 24px 80px}
 .ideas-container{}
 .ideas-header{margin-bottom:32px;margin-top:20px}
 .ideas-eyebrow{
@@ -925,37 +925,6 @@ footer strong{color:var(--gold)}
   <div class="nav-tag">L'OS du créateur francophone</div>
 </nav>
 
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-bg"></div>
-  <div class="hero-grid"></div>
-  <div class="hero-eyebrow">Pour les créateurs francophones du monde entier</div>
-  <h1>
-    Ton contenu,<br/>
-    <strong>réinventé.</strong>
-  </h1>
-  <div class="hero-rule"></div>
-  <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
-  <div class="hero-modes">
-    <button class="hero-mode-btn primary" onclick="chooseMode('script')">
-      <span class="mode-icon">🎬</span>
-      <span class="mode-label">J'ai une idée</span>
-      <span class="mode-desc">Génère mon script complet</span>
-    </button>
-    <button class="hero-mode-btn" onclick="chooseMode('ideas')">
-      <span class="mode-icon">💡</span>
-      <span class="mode-label">Trouve-moi des idées</span>
-      <span class="mode-desc">Scriptura brainstorme pour moi</span>
-    </button>
-    <button class="hero-mode-btn storytelling" onclick="chooseMode('story')">
-      <span class="mode-icon">✍️</span>
-      <span class="mode-label">Storytelling</span>
-      <span class="mode-desc">Un récit immersif signature</span>
-    </button>
-  </div>
-  <p class="hero-free">Entièrement gratuit · Aucun compte requis</p>
-</section>
-
 <!-- TICKER -->
 <div class="ticker-wrap">
   <div class="ticker">
@@ -987,6 +956,37 @@ footer strong{color:var(--gold)}
     <span class="ticker-item"><span class="gem">◆</span>Développement personnel</span>
   </div>
 </div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-eyebrow">Pour les créateurs francophones du monde entier</div>
+  <h1>
+    Ton contenu,<br/>
+    <strong>réinventé.</strong>
+  </h1>
+  <div class="hero-rule"></div>
+  <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
+  <div class="hero-modes">
+    <button class="hero-mode-btn primary" onclick="chooseMode('script')">
+      <span class="mode-icon">🎬</span>
+      <span class="mode-label">J'ai une idée</span>
+      <span class="mode-desc">Génère mon script complet</span>
+    </button>
+    <button class="hero-mode-btn" onclick="chooseMode('ideas')">
+      <span class="mode-icon">💡</span>
+      <span class="mode-label">Trouve-moi des idées</span>
+      <span class="mode-desc">Scriptura brainstorme pour moi</span>
+    </button>
+    <button class="hero-mode-btn storytelling" onclick="chooseMode('story')">
+      <span class="mode-icon">✍️</span>
+      <span class="mode-label">Storytelling</span>
+      <span class="mode-desc">Un récit immersif signature</span>
+    </button>
+  </div>
+  <p class="hero-free">Entièrement gratuit · Aucun compte requis</p>
+</section>
 
 <!-- FLOW -->
 <!-- ══ MODULE STORYTELLING (STYLE MAKAMBO) ══ -->
@@ -1161,7 +1161,9 @@ footer strong{color:var(--gold)}
   </div>
 </section>
 
-<section id="flow">
+<section id="flow" style="display:none">
+
+  <button class="btn-back" onclick="backToHome()" style="margin-bottom:20px">← Retour</button>
 
   <!-- ÉTAPE 1 — OBJECTIF -->
   <div class="step active" id="step1">
@@ -1581,7 +1583,7 @@ function chooseMode(mode) {
 function backToHome() {
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('storyFlow').style.display = 'none';
-  document.getElementById('flow').style.display = 'block';
+  document.getElementById('flow').style.display = 'none';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
