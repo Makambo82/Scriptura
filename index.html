@@ -530,7 +530,7 @@ footer strong{color:var(--gold)}
 
 /* ── PAYWALL ── */
 .paywall{
-  display:none;max-width:520px;margin:40px auto 0;
+  display:none;max-width:520px;margin:40px auto;width:calc(100% - 48px);
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:8px;padding:44px 36px;text-align:center;
   position:relative;overflow:hidden;
@@ -1455,18 +1455,7 @@ footer strong{color:var(--gold)}
     </div>
   </div>
 
-  <!-- PAYWALL -->
-  <div class="paywall" id="paywall">
-    <div class="paywall-tag">Accès Illimité</div>
-    <h3>Tu as utilisé tes<br/>5 générations gratuites.</h3>
-    <p>Pour continuer à générer des scripts viraux sans limite, passe à l'accès illimité Scriptura.</p>
-    <div class="paywall-price">3 000 FCFA</div>
-    <div class="paywall-period">par mois · Mobile Money accepté</div>
-    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+l%27acc%C3%A8s+illimit%C3%A9+%C3%A0+Scriptura+%E2%80%94+3+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
-      S'abonner via WhatsApp →
-    </a>
-    <span class="paywall-unlock" onclick="openModal()">J'ai déjà un code d'accès</span>
-  </div>
+  
 
   <!-- RÉSULTATS -->
   <div id="results">
@@ -1932,12 +1921,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
+    const sbFullText = parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
     out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${parsed.storyboard.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
-      </div>`).join('')}</div>`;
+      </div>`).join('')}</div>
+      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, this.dataset.copy)" data-copy="${sbFullText.replace(/"/g,'&quot;')}">◆ Copier cette section</button>`;
 
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
@@ -2068,8 +2059,8 @@ async function generateIdeas() {
 
   // Vérification limite (partagée avec le générateur de script)
   if (!unlocked && usedGen >= MAX_FREE) {
-    document.getElementById('ideaErrorBox').textContent = 'Tu as utilisé tes 5 générations gratuites. Reviens à l\'accueil pour débloquer l\'accès illimité.';
-    document.getElementById('ideaErrorBox').style.display = 'block';
+    document.getElementById('paywall').style.display = 'block';
+    document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
 
@@ -3209,5 +3200,18 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
     <div class="gen-progress"><div class="gen-progress-fill" id="genProgress"></div></div>
   </div>
 </div>
+<!-- PAYWALL (racine - visible depuis tous les modes) -->
+<div class="paywall" id="paywall">
+    <div class="paywall-tag">Accès Illimité</div>
+    <h3>Tu as utilisé tes<br/>5 générations gratuites.</h3>
+    <p>Pour continuer à générer des scripts viraux sans limite, passe à l'accès illimité Scriptura.</p>
+    <div class="paywall-price">3 000 FCFA</div>
+    <div class="paywall-period">par mois · Mobile Money accepté</div>
+    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+l%27acc%C3%A8s+illimit%C3%A9+%C3%A0+Scriptura+%E2%80%94+3+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
+      S'abonner via WhatsApp →
+    </a>
+    <span class="paywall-unlock" onclick="openModal()">J'ai déjà un code d'accès</span>
+  </div>
+
 </body>
 </html>
