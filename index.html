@@ -362,6 +362,8 @@ footer{
 footer strong{color:var(--gold)}
 
 @media(max-width:600px){
+  .nav-tag{display:none}
+  nav{padding:16px 20px}
   nav{padding:16px 20px}
   #flow{padding:80px 20px 100px}
   .context-card{padding:24px 20px}
@@ -762,7 +764,7 @@ footer strong{color:var(--gold)}
 }
 
 /* ── GÉNÉRATEUR D'IDÉES ── */
-#ideasFlow,#storyFlow{max-width:680px;margin:0 auto;padding:40px 24px 80px}
+#ideasFlow,#storyFlow{max-width:680px;margin:0 auto;padding:100px 24px 80px}
 .ideas-container{}
 .ideas-header{margin-bottom:32px;margin-top:20px}
 .ideas-eyebrow{
@@ -888,10 +890,11 @@ footer strong{color:var(--gold)}
 
 <!-- NAV -->
 <nav>
-  <div class="logo">SCRIPT<em>URA</em></div>
+  <div class="logo" onclick="goHome()" style="cursor:pointer">SCRIPT<em>URA</em></div>
   <div class="nav-tag">L'OS du créateur francophone</div>
 </nav>
 
+<div id="homePage">
 <!-- TICKER -->
 <div class="ticker-wrap">
   <div class="ticker">
@@ -954,6 +957,7 @@ footer strong{color:var(--gold)}
   </div>
   <p class="hero-free">Entièrement gratuit · Aucun compte requis</p>
 </section>
+</div>
 
 <!-- FLOW -->
 <!-- ══ MODULE STORYTELLING (STYLE MAKAMBO) ══ -->
@@ -1521,26 +1525,35 @@ let currentScript = null;
 //  NAVIGATION ENTRE MODES
 // ══════════════════════════════════════
 function chooseMode(mode) {
+  // Masquer la page d'accueil et tous les modules
+  document.getElementById('homePage').style.display = 'none';
   document.getElementById('flow').style.display = 'none';
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('storyFlow').style.display = 'none';
   if (mode === 'script') {
     document.getElementById('flow').style.display = 'block';
-    document.getElementById('flow').scrollIntoView({ behavior: 'smooth' });
   } else if (mode === 'ideas') {
     document.getElementById('ideasFlow').style.display = 'block';
-    document.getElementById('ideasFlow').scrollIntoView({ behavior: 'smooth' });
   } else if (mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
-    document.getElementById('storyFlow').scrollIntoView({ behavior: 'smooth' });
   }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goHome() {
+  // Réafficher la page d'accueil, masquer tous les modules
+  document.getElementById('homePage').style.display = 'block';
+  document.getElementById('flow').style.display = 'none';
+  document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('storyFlow').style.display = 'none';
+  // Masquer aussi le paywall s'il était ouvert
+  const pw = document.getElementById('paywall');
+  if (pw) pw.style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function backToHome() {
-  document.getElementById('ideasFlow').style.display = 'none';
-  document.getElementById('storyFlow').style.display = 'none';
-  document.getElementById('flow').style.display = 'none';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  goHome();
 }
 
 // ══════════════════════════════════════
