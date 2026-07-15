@@ -1781,7 +1781,7 @@ function renderStory(d) {
             <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
             <div class="hook-text">${h.texte || ''}</div>
           </div>`).join('')}</div>
-        <button class="copy-btn" onclick="copyText(this, this.dataset.copy)" data-copy="${(d.hooks || []).map(h => (h.texte||'').replace(/"/g,'&quot;')).join(' | ')}">◆ Copier les hooks</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">◆ Copier les hooks</button>
       </div>
     </div>`;
   }
@@ -1805,7 +1805,7 @@ function renderStory(d) {
       <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Légende</h3></div>
       <div class="out-section">
         <div class="legende-block">${d.legende}</div>
-        <button class="copy-btn" onclick="copyText(this, this.dataset.copy)" data-copy="${(d.legende||'').replace(/"/g,'&quot;')}">◆ Copier la légende</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(d.legende||'')}')">◆ Copier la légende</button>
       </div>
     </div>`;
   }
@@ -1816,7 +1816,7 @@ function renderStory(d) {
       <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Hashtags</h3></div>
       <div class="out-section">
         <div class="hashtags-wrap">${d.hashtags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>
-        <button class="copy-btn" onclick="copyText(this, this.dataset.copy)" data-copy="${(d.hashtags||[]).join(' ')}">◆ Copier les hashtags</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hashtags||[]).join(' '))}')">◆ Copier les hashtags</button>
       </div>
     </div>`;
   }
@@ -1895,7 +1895,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
       </div>`).join('')}</div>
-      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, this.dataset.copy)" data-copy="${sbFullText.replace(/"/g,'&quot;')}">◆ Copier cette section</button>`;
+      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button>`;
 
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
@@ -1906,19 +1906,40 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   }
 }
 
+// Registre global des textes à copier (évite les problèmes d'encodage HTML)
+window._copyStore = window._copyStore || {};
+
 function copyText(btn, text) {
+  // Si text est une clé du registre, récupérer le vrai texte
+  let realText = text;
+  if (typeof text === 'string' && text.startsWith('__copykey_') && window._copyStore[text]) {
+    realText = window._copyStore[text];
+  }
+  // Sécurité : si realText n'est pas une string valide, ne rien faire
+  if (typeof realText !== 'string') {
+    console.error('copyText: texte invalide');
+    return;
+  }
   const label = btn.innerHTML;
-  navigator.clipboard.writeText(text).then(() => {
+  const done = () => {
     btn.textContent = '✓ Copié !';
     setTimeout(() => btn.innerHTML = label, 2000);
-  }).catch(() => {
+  };
+  navigator.clipboard.writeText(realText).then(done).catch(() => {
     const ta = document.createElement('textarea');
-    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    ta.value = realText; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
     document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-    btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = label, 2000);
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    done();
   });
+}
+
+// Enregistre un texte et retourne sa clé
+function storeCopyText(text) {
+  const key = '__copykey_' + (window._copyKeyCounter = (window._copyKeyCounter || 0) + 1);
+  window._copyStore[key] = text;
+  return key;
 }
 
 function copyStory(btn) {
