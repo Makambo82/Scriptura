@@ -892,6 +892,29 @@ footer strong{color:var(--gold)}
 .story-segment-text{
   font-size:1rem;line-height:1.75;color:rgba(255,255,255,0.9);font-weight:300;
 }
+
+/* ── CLASSES STORYTELLING (résultats) ── */
+.hook-text{font-size:0.95rem;color:rgba(255,255,255,0.9);line-height:1.5;margin-top:4px}
+.hashtags-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.hashtag-chip{
+  font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.04em;
+  color:var(--gold-light);background:rgba(201,168,76,0.08);
+  border:1px solid rgba(201,168,76,0.2);padding:6px 12px;border-radius:999px;
+}
+.btn-storyboard{
+  display:inline-flex;align-items:center;gap:10px;
+  background:transparent;color:var(--gold);border:1px solid var(--gold);
+  border-radius:999px;font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.1em;
+  text-transform:uppercase;padding:13px 26px;cursor:pointer;transition:all 0.2s;
+}
+.btn-storyboard:hover{background:var(--gold);color:var(--bg)}
+.btn-storyboard:disabled{opacity:0.5;cursor:not-allowed}
+.storyboard-grid{display:flex;flex-direction:column;gap:14px}
+.sb-seg-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sb-seg-num{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold)}
+.sb-seg-time{font-family:'Playfair Display',serif;font-size:0.78rem;color:var(--gold-light)}
+.sb-seg-text{font-size:0.92rem;color:rgba(255,255,255,0.85);line-height:1.5;margin-bottom:10px}
+.sb-seg-visual{font-size:0.86rem;color:rgba(255,255,255,0.7);line-height:1.55;background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:6px;padding:12px 14px}
 </style>
 </head>
 <body>
@@ -1571,6 +1594,8 @@ function backToHome() {
 let storyFormat = '';
 let storyDuree = '';
 let storyPlatform = '';
+let currentStory = null;
+let currentStoryText = '';
 
 function setupStoryButtons() {
   // Format
@@ -1715,10 +1740,15 @@ STYLE ET LANGUE :
 
 EXIGENCE DE PERFECTION : Avant de livrer, relis ton récit. S'il n'atteint pas un niveau où un storyteller professionnel ne trouverait rien à améliorer, réécris-le. Vérifie que le hook arrête le scroll, que la tension tient du début à la fin, que la triple question et la signature sont présentes et percutantes.
 
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":95,"hook":95,"tension":90,"emotion":92},"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+EN PLUS DU RÉCIT, génère aussi :
+- 5 HOOKS alternatifs (variations du hook d'ouverture, chacun dans un style différent mais gardant l'esprit paradoxal/choc)
+- Une LÉGENDE prête à publier (accrocheuse, avec appel à commenter/partager)
+- 8 HASHTAGS pertinents pour la portée
 
-Découpe le récit en segments logiques (le nombre de segments s'adapte à la longueur). Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":95,"hook":95,"tension":90,"emotion":92},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"legende":"la légende prête à publier","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+
+Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
 
   try {
     const res = await fetch("/api/generate", {
@@ -1762,11 +1792,17 @@ function renderStory(d) {
   const fullText = (d.recit || []).map(s => s.texte).join('\n\n');
   const wordCount = fullText.split(/\s+/).filter(Boolean).length;
 
-  let html = '';
+  // Stocker pour storyboard et copie
+  currentStory = d;
+  currentStoryText = fullText;
 
-  // Carte score + ton
+  let html = '';
+  let num = 1;
+  const pad = () => String(num++).padStart(2, '0');
+
+  // Carte 01 — titre + ton + analyse
   html += `<div class="out-card">
-    <div class="out-card-header"><div class="out-card-num">01</div><h3 class="out-card-title">${d.titre || 'Ton récit'}</h3></div>
+    <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">${d.titre || 'Ton récit'}</h3></div>
     <div class="out-section">
       <div class="story-meta">
         ${d.ton ? `<span class="script-meta-item">🎭 Ton ${d.ton}</span>` : ''}
@@ -1776,9 +1812,25 @@ function renderStory(d) {
     </div>
   </div>`;
 
-  // Carte récit complet
+  // Carte 02 — 5 hooks
+  if (d.hooks && d.hooks.length) {
+    html += `<div class="out-card">
+      <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">5 Hooks alternatifs</h3></div>
+      <div class="out-section">
+        <div class="out-section-label">Accroches · Plusieurs styles</div>
+        <div class="hooks-list">${d.hooks.map((h, i) => `
+          <div class="hook-item">
+            <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
+            <div class="hook-text">${h.texte || ''}</div>
+          </div>`).join('')}</div>
+        <button class="copy-btn" onclick="copyText(this, this.dataset.copy)" data-copy="${(d.hooks || []).map(h => (h.texte||'').replace(/"/g,'&quot;')).join(' | ')}">◆ Copier les hooks</button>
+      </div>
+    </div>`;
+  }
+
+  // Carte 03 — récit complet
   html += `<div class="out-card">
-    <div class="out-card-header"><div class="out-card-num">02</div><h3 class="out-card-title">Le récit</h3></div>
+    <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Le récit</h3></div>
     <div class="out-section">
       <div class="story-block">${(d.recit || []).map(s => `
         <div class="story-segment">
@@ -1789,12 +1841,124 @@ function renderStory(d) {
     </div>
   </div>`;
 
+  // Carte 04 — légende
+  if (d.legende) {
+    html += `<div class="out-card">
+      <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Légende</h3></div>
+      <div class="out-section">
+        <div class="legende-block">${d.legende}</div>
+        <button class="copy-btn" onclick="copyText(this, this.dataset.copy)" data-copy="${(d.legende||'').replace(/"/g,'&quot;')}">◆ Copier la légende</button>
+      </div>
+    </div>`;
+  }
+
+  // Carte 05 — hashtags
+  if (d.hashtags && d.hashtags.length) {
+    html += `<div class="out-card">
+      <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Hashtags</h3></div>
+      <div class="out-section">
+        <div class="hashtags-wrap">${d.hashtags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>
+        <button class="copy-btn" onclick="copyText(this, this.dataset.copy)" data-copy="${(d.hashtags||[]).join(' ')}">◆ Copier les hashtags</button>
+      </div>
+    </div>`;
+  }
+
+  // Carte 06 — storyboard à la demande
+  html += `<div class="out-card">
+    <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Storyboard visuel</h3></div>
+    <div class="out-section">
+      <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton récit, avec un prompt d'image pour chaque segment.</p>
+      <button class="btn-storyboard" id="storyStoryboardBtn" onclick="generateStoryStoryboard()">
+        <div class="spinner" id="storyboardSpinner2" style="display:none"></div>
+        <span id="storyStoryboardText">🎬 Générer le storyboard visuel</span>
+      </button>
+      <div id="storyStoryboardOutput"></div>
+    </div>
+  </div>`;
+
   out.innerHTML = html;
-  // Stocker le texte pour la copie
   out.dataset.fulltext = fullText;
 
   document.getElementById('storyResults').style.display = 'block';
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function generateStoryStoryboard() {
+  if (!currentStory || !currentStoryText) return;
+
+  const btn = document.getElementById('storyStoryboardBtn');
+  const out = document.getElementById('storyStoryboardOutput');
+  btn.disabled = true;
+  document.getElementById('storyboardSpinner2').style.display = 'block';
+  document.getElementById('storyStoryboardText').textContent = 'Création du storyboard…';
+
+  const plat = storyPlatform || 'TikTok';
+  // Durée de segment selon plateforme
+  const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
+  const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
+
+  const prompt = `Tu es un directeur artistique expert en storyboard vidéo pour ${plat}. Découpe ce récit en segments visuels et donne un prompt d'image cinématique pour chacun.
+
+RÉCIT :
+"""
+${currentStoryText}
+"""
+
+RÈGLES :
+- Chaque segment dure ${segDuration} maximum
+- Pour chaque segment : le texte narré correspondant + un prompt visuel détaillé et cinématique (décor, ambiance, cadrage, lumière) qui capte l'attention et empêche le scroll
+- Les visuels doivent être percutants, immersifs, adaptés au ton du récit
+- Maximum 25 segments
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel cinématique détaillé"}]}`;
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 8000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error('Erreur storyboard');
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
+
+    out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${parsed.storyboard.map(s => `
+      <div class="sb-segment">
+        <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
+        <div class="sb-seg-text">${s.texte || ''}</div>
+        <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
+      </div>`).join('')}</div>`;
+
+  } catch(e) {
+    out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    document.getElementById('storyboardSpinner2').style.display = 'none';
+    document.getElementById('storyStoryboardText').textContent = '🎬 Générer le storyboard visuel';
+  }
+}
+
+function copyText(btn, text) {
+  const label = btn.innerHTML;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = label, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = label, 2000);
+  });
 }
 
 function copyStory(btn) {
