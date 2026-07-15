@@ -670,53 +670,20 @@ footer strong{color:var(--gold)}
 .sb-copy:hover{border-color:var(--gold);color:var(--gold)}
 
 /* ── CHAT AJUSTEMENT SCRIPT ── */
-.script-chat{
-  margin-top:20px;padding-top:20px;
-  border-top:1px solid rgba(255,255,255,0.1);
-}
-.script-chat-label{
-  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.16em;
-  text-transform:uppercase;color:var(--gold);opacity:0.7;margin-bottom:12px;
-  display:flex;align-items:center;gap:8px;
-}
-.script-chat-suggestions{
-  display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;
-}
-.chat-sugg{
-  font-size:0.72rem;padding:6px 14px;border-radius:999px;
-  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);
-  color:rgba(255,255,255,0.7);cursor:pointer;transition:all 0.2s;
-}
-.chat-sugg:hover{border-color:var(--gold);color:var(--gold)}
-.script-chat-input-row{
-  display:flex;gap:10px;align-items:stretch;
-}
-.script-chat-input{
-  flex:1;font-family:'Tenor Sans',sans-serif;font-size:0.88rem;
-  background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);
-  border-radius:8px;padding:12px 16px;color:#FFFFFF;outline:none;
-  transition:border-color 0.2s;resize:none;min-height:46px;line-height:1.5;
-}
-.script-chat-input:focus{border-color:var(--gold)}
-.script-chat-input::placeholder{color:rgba(255,255,255,0.35)}
-.script-chat-send{
-  background:var(--gold);color:var(--bg);border:none;border-radius:8px;
-  padding:0 22px;font-family:'Cinzel',serif;font-size:0.62rem;
-  letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;
-  transition:all 0.2s;white-space:nowrap;display:flex;align-items:center;gap:8px;
-}
-.script-chat-send:hover{background:var(--gold-light)}
-.script-chat-send:disabled{background:rgba(201,168,76,0.3);cursor:not-allowed}
-.chat-spinner{
-  width:14px;height:14px;border:2px solid rgba(28,28,30,0.3);
-  border-top-color:var(--bg);border-radius:50%;
-  animation:spin 0.7s linear infinite;display:none;
-}
-.script-updated-badge{
-  display:none;align-items:center;gap:6px;
-  font-size:0.72rem;color:var(--gold-light);margin-top:10px;
-  font-family:'Cinzel',serif;letter-spacing:0.08em;
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ── STORYBOARD À LA DEMANDE ── */
 .sb-generate-box{
@@ -2817,24 +2784,6 @@ function renderResults(d, niche, sujet) {
             ${s.visuel ? `<div class="script-visual">📹 ${s.visuel}</div>` : ''}
           </div>`).join('')}
         </div>
-        <div class="script-chat">
-          <div class="script-chat-label">💬 Ajuster le script avec Scriptura</div>
-          <div class="script-chat-suggestions">
-            <span class="chat-sugg" onclick="fillChat('Raccourcis le script, il est trop long')">Raccourcir</span>
-            <span class="chat-sugg" onclick="fillChat('Allonge le script, il est trop court')">Allonger</span>
-            <span class="chat-sugg" onclick="fillChat('Rends le hook et le ton plus percutants')">Plus percutant</span>
-            <span class="chat-sugg" onclick="fillChat('Rends le script plus simple et accessible')">Plus simple</span>
-            <span class="chat-sugg" onclick="fillChat('Ajoute plus d émotion au script')">Plus d'émotion</span>
-          </div>
-          <div class="script-chat-input-row">
-            <textarea class="script-chat-input" id="scriptChatInput" placeholder="Dis à Scriptura comment ajuster le script… (ex: raccourcis, change le ton, ajoute un exemple concret)"></textarea>
-            <button class="script-chat-send" id="scriptChatSend" onclick="adjustScript()">
-              <span class="chat-spinner" id="chatSpinner"></span>
-              <span id="chatSendText">Ajuster</span>
-            </button>
-          </div>
-          <div class="script-updated-badge" id="scriptUpdatedBadge">✦ Script mis à jour par Scriptura</div>
-        </div>
       </div>`
     },
     {
@@ -3023,98 +2972,9 @@ Maximum 25 segments. Reponds UNIQUEMENT en JSON valide sans texte avant ni apres
   }
 }
 
-function fillChat(text) {
-  const input = document.getElementById('scriptChatInput');
-  if (input) { input.value = text; input.focus(); }
-}
 
-async function adjustScript() {
-  const input = document.getElementById('scriptChatInput');
-  const demande = input.value.trim();
-  if (!demande) { input.focus(); return; }
-  if (!lastGenContext || !currentScript) return;
 
-  // UI loading
-  const btn = document.getElementById('scriptChatSend');
-  const spinner = document.getElementById('chatSpinner');
-  const sendText = document.getElementById('chatSendText');
-  const badge = document.getElementById('scriptUpdatedBadge');
-  btn.disabled = true;
-  spinner.style.display = 'inline-block';
-  sendText.textContent = 'Scriptura ajuste…';
-  badge.style.display = 'none';
 
-  const ctx = lastGenContext;
-  const scriptActuel = currentScript.map(s => `[${s.temps}] ${s.texte}${s.visuel ? ' (Visuel: ' + s.visuel + ')' : ''}`).join('\n');
-
-  const prompt = `Tu es Scriptura, realisateur IA expert en contenu viral francophone.
-
-Voici le script actuel d'une video pour ${ctx.plateforme} sur le sujet : ${ctx.sujet}
-Objectif : ${ctx.objectif}
-Duree cible : ${ctx.duree || 'libre'}
-
-SCRIPT ACTUEL :
-${scriptActuel}
-
-DEMANDE DU CREATEUR : "${demande}"
-
-Regenere UNIQUEMENT le script en appliquant precisement cette demande.
-
-REGLES A TOUJOURS RESPECTER (meme apres ajustement) :
-- Le hook doit arreter le scroll des la 1ere seconde
-- Chaque phrase a une fonction (accroche, tension, relance) — zero remplissage
-- Garde des relances au milieu pour la retention ("mais attends", "et la", "sauf que")
-- LE DERNIER BLOC DOIT CONTENIR UN CTA CLAIR adapte a l'objectif "${ctx.objectif}" : dire precisement quoi faire (commenter un mot, s'abonner pour une raison precise, cliquer le lien, partager). JAMAIS un "abonne-toi" generique, JAMAIS finir sans CTA.
-- Respecte la plateforme ${ctx.plateforme} et la duree ${ctx.duree || 'libre'}
-
-Sauf si la demande du createur concerne explicitement le CTA ou demande de le retirer, tu GARDES toujours un CTA a la fin.
-
-Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
-{"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
-
-  try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || 'Erreur');
-
-    const raw = data.content?.map(b => b.text || '').join('') || '';
-    const parsed = parseAIResponse(raw);
-    if (!parsed || !parsed.script) throw new Error('Réponse invalide');
-
-    // Mettre à jour le script affiché
-    currentScript = parsed.script;
-    const scriptBlock = document.getElementById('scriptBlock');
-    scriptBlock.innerHTML = parsed.script.map(s => `
-      <div class="script-row">
-        <span class="script-time">⏱ ${s.temps}</span>
-        <div class="script-text">${s.texte}</div>
-        ${s.visuel ? `<div class="script-visual">📹 ${s.visuel}</div>` : ''}
-      </div>`).join('');
-
-    input.value = '';
-    badge.style.display = 'flex';
-    setTimeout(() => { badge.style.display = 'none'; }, 4000);
-
-  } catch(e) {
-    sendText.textContent = 'Erreur, réessaie';
-    setTimeout(() => { sendText.textContent = 'Ajuster'; }, 2000);
-  } finally {
-    btn.disabled = false;
-    spinner.style.display = 'none';
-    if (sendText.textContent === 'Scriptura ajuste…') sendText.textContent = 'Ajuster';
-  }
-}
 
 function restart() {
   Object.keys(state).forEach(k => state[k] = '');
