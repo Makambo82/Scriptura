@@ -1532,7 +1532,7 @@ function setIdeaLoading(on) {
   btn.disabled = on;
   document.getElementById('ideaSpinner').style.display = on ? 'block' : 'none';
   document.getElementById('ideaBtnText').textContent = on ? 'Scriptura brainstorme…' : '💡 Générer mes idées de contenu';
-  if (on) startGenAnimation();
+  if (on) startGenAnimation('ideas');
   else stopGenAnimation();
 }
 
@@ -2058,26 +2058,63 @@ function setLoading(on) {
   document.getElementById('btnText').textContent = on ? 'Scriptura génère ton contenu…' : 'Générer mon contenu Scriptura';
 
   if (on) {
-    startGenAnimation();
+    startGenAnimation('script');
   } else {
     stopGenAnimation();
   }
 }
 
-function startGenAnimation() {
+// Jeux d'étapes selon le mode
+const GEN_STEPS = {
+  script: [
+    'Analyse stratégique du sujet…',
+    'Exploration de 3 angles narratifs…',
+    'Sélection du meilleur angle…',
+    'Test de plusieurs hooks…',
+    'Écriture du script à haute tension…',
+    'Auto-critique et réécriture…',
+    'Contrôle qualité final…'
+  ],
+  ideas: [
+    'Analyse de ta niche et ton audience…',
+    'Exploration du terrain géographique…',
+    'Recherche d\'angles méconnus…',
+    'Génération de concepts viraux…',
+    'Filtrage des idées génériques…',
+    'Calibrage des hooks de départ…',
+    'Sélection des meilleures idées…'
+  ]
+};
+const GEN_TAGLINE = {
+  script: 'Ton réalisateur IA au travail',
+  ideas: 'Ton directeur éditorial cherche tes idées'
+};
+
+function startGenAnimation(mode) {
+  mode = mode || 'script';
   const overlay = document.getElementById('genOverlay');
-  const steps = document.querySelectorAll('.gen-step');
+  const stepsContainer = document.getElementById('genSteps');
   const progress = document.getElementById('genProgress');
+  const tagline = document.querySelector('.gen-tagline');
+
+  // Reconstruire les étapes selon le mode
+  const stepTexts = GEN_STEPS[mode] || GEN_STEPS.script;
+  stepsContainer.innerHTML = stepTexts.map((txt, i) =>
+    `<div class="gen-step" data-step="${i}"><div class="gen-step-icon">${i+1}</div><div class="gen-step-text">${txt}</div></div>`
+  ).join('');
+
+  // Adapter le tagline
+  if (tagline) tagline.textContent = GEN_TAGLINE[mode] || GEN_TAGLINE.script;
+
+  const steps = stepsContainer.querySelectorAll('.gen-step');
   overlay.classList.add('active');
 
-  // Reset
   steps.forEach(s => s.classList.remove('active', 'done'));
   progress.style.width = '0%';
 
   let current = 0;
   const total = steps.length;
 
-  // Première étape active immédiatement
   steps[0].classList.add('active');
   progress.style.width = (100 / total) + '%';
 
