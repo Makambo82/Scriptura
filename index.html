@@ -1862,9 +1862,13 @@ RÉCIT :
 ${currentStoryText}
 """
 
-RÈGLES DE DÉCOUPAGE :
+RÈGLES DE DÉCOUPAGE (TRÈS IMPORTANT) :
 - Chaque segment dure ${segDuration} maximum
-- Pour chaque segment : le texte narré correspondant + un prompt visuel détaillé
+- RESPECTE ABSOLUMENT LES UNITÉS DE SENS : ne coupe JAMAIS une phrase ou une idée au milieu. Chaque segment doit contenir une pensée complète et cohérente (une phrase entière, ou une proposition qui a du sens seule).
+- Si une phrase est trop longue pour un seul segment, coupe-la à un endroit NATUREL (après une virgule, une pause logique, une articulation du sens) — jamais en plein milieu d'une idée.
+- Un segment mal coupé comme "Et partage cette vidéo à quelqu'un" suivi de "qui en a besoin" est INTERDIT : ces deux morceaux forment une seule idée et doivent rester ensemble.
+- Privilégie la cohérence du sens sur la durée exacte : mieux vaut un segment légèrement plus court ou plus long mais qui garde une idée complète.
+- Pour chaque segment : le texte narré (cohérent) + un prompt visuel détaillé
 - Maximum 25 segments
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
@@ -2949,6 +2953,8 @@ SCRIPT :
 ${scriptText}
 
 MISSION : Decoupe ce script en segments de 3 A 5 SECONDES (8-13 mots chacun). Pour TikTok/Reels/Shorts privilegie 3 sec, pour Facebook/LinkedIn jusqu'a 5 sec. Maximum 25 segments.
+
+REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble. Privilegie la coherence du sens sur la duree exacte.
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE et naturelle, en une description continue, SANS jamais ecrire les etiquettes) :
 1. LE DECOR : le lieu precis, l'epoque, l'ambiance globale de la scene
