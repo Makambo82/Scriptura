@@ -1855,21 +1855,30 @@ async function generateStoryStoryboard() {
   const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
   const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
 
-  const prompt = `Tu es un directeur artistique expert en storyboard vidéo pour ${plat}. Découpe ce récit en segments visuels et donne un prompt d'image cinématique pour chacun.
+  const prompt = `Tu es un directeur artistique expert en storyboard vidéo cinématique pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt d'image d'une richesse exceptionnelle.
 
 RÉCIT :
 """
 ${currentStoryText}
 """
 
-RÈGLES :
+RÈGLES DE DÉCOUPAGE :
 - Chaque segment dure ${segDuration} maximum
-- Pour chaque segment : le texte narré correspondant + un prompt visuel détaillé et cinématique (décor, ambiance, cadrage, lumière) qui capte l'attention et empêche le scroll
-- Les visuels doivent être percutants, immersifs, adaptés au ton du récit
+- Pour chaque segment : le texte narré correspondant + un prompt visuel détaillé
 - Maximum 25 segments
 
+STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
+1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
+2. LA MATIÈRE : les détails de structure, les matériaux, les textures
+3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures
+4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
+
+Le prompt doit se lire comme une description cinématographique fluide et immersive, pas comme une liste. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll. Adapte l'ambiance au ton du récit.
+
+FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel cinématique détaillé"}]}`;
+{"storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
 
   try {
     const res = await fetch("/api/generate", {
@@ -2932,25 +2941,27 @@ async function generateStoryboard() {
   const ctx = lastGenContext;
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
 
-  const prompt = `Tu es Scriptura, realisateur IA expert en contenu viral.
+  const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral.
 
 Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
 
 SCRIPT :
 ${scriptText}
 
-MISSION : Decoupe ce script en segments de 3 A 5 SECONDES (8-13 mots chacun). Pour TikTok/Reels/Shorts privilegie 3 sec, pour Facebook/LinkedIn jusqu'a 5 sec.
+MISSION : Decoupe ce script en segments de 3 A 5 SECONDES (8-13 mots chacun). Pour TikTok/Reels/Shorts privilegie 3 sec, pour Facebook/LinkedIn jusqu'a 5 sec. Maximum 25 segments.
 
-Pour CHAQUE segment, cree un prompt visuel PRECIS et ANTI-SCROLL :
-- JAMAIS generique (interdit : "une personne qui parle", "un fond")
-- Precise : plan (gros plan/large), lumiere, action exacte, emotion, style cinematique, format 9:16
-- Le visuel illustre les mots exacts prononces pour maximiser la retention
-- Pense comme un realisateur de cinema
+STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE et naturelle, en une description continue, SANS jamais ecrire les etiquettes) :
+1. LE DECOR : le lieu precis, l'epoque, l'ambiance globale de la scene
+2. LA MATIERE : les details de structure, les materiaux, les textures
+3. LES PERSONNAGES : leur titre/fonction, age, apparence physique, et SURTOUT leurs vetements precis ainsi que leurs gestes et postures
+4. LA VIE DE LA SCENE : les elements secondaires (inscriptions, objets, foule…), la gestion de la lumiere et des ombres
 
-EXEMPLE bon prompt : "Gros plan sur des mains qui froissent un billet, lumiere laterale dramatique, expression de frustration, ambiance sombre, style cinematique 9:16"
+Le prompt doit se lire comme une description cinematographique fluide et immersive, jamais comme une liste. Il doit etre riche, precis, anti-scroll, et illustrer les mots exacts prononces pour maximiser la retention. JAMAIS generique (interdit : "une personne qui parle", "un fond").
 
-Maximum 25 segments. Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
-{"storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"..."}]}`;
+FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
+
+Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
+{"storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
 
   try {
     const res = await fetch("/api/generate", {
