@@ -1974,7 +1974,9 @@ ${selectedTone ? '- Ton : ' + selectedTone : ''}
 
 RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
-1. RESPECT STRICT DE LA DURÉE : Le script doit faire ${wt.desc}, soit entre ${wt.min} et ${wt.max} mots au TOTAL, répartis en ${wt.blocs} blocs. Compte tes mots. Si tu dépasses ou es en-dessous, RÉÉCRIS jusqu'à tomber dans la cible. C'est impératif.
+1. RESPECT STRICT DE LA DURÉE (RÈGLE N°1 ABSOLUE) : Le script doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au TOTAL (pour ${wt.desc}), répartis en ${wt.blocs} blocs.
+   ⚠️ MÉTHODE OBLIGATOIRE : Avant de finaliser, COMPTE mot par mot le total de ton script. S'il fait moins de ${wt.min} mots, tu DOIS ajouter du contenu de valeur pour atteindre la cible. S'il dépasse ${wt.max}, tu DOIS couper. Ne rends JAMAIS un script hors de la fourchette ${wt.min}-${wt.max} mots.
+   Un script de ${wt.desc} qui fait moins de ${wt.min} mots est un ÉCHEC TOTAL. Vise le milieu de la fourchette (environ ${Math.round((wt.min + wt.max) / 2)} mots).
 
 2. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
 
@@ -2005,7 +2007,7 @@ Ne livre que ta MEILLEURE version.
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
-Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et respecter ${wt.min}-${wt.max} mots au total.`;
+Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
     const writeRes = await fetch("/api/generate", {
       method: "POST",
@@ -2025,8 +2027,67 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et respecter
       throw new Error('Phase 2 (' + writeRes.status + ') : ' + detail);
     }
     const writeRaw = writeData.content?.map(b => b.text || '').join('') || '';
-    const parsed = parseAIResponse(writeRaw);
+    let parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
+
+    // ══════════════════════════════════════
+    //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
+    //  Compte les mots réels. Si hors cible, régénère avec correction.
+    // ══════════════════════════════════════
+    function countScriptWords(script) {
+      if (!script || !Array.isArray(script)) return 0;
+      return script.map(s => (s.texte || '')).join(' ').split(/\s+/).filter(Boolean).length;
+    }
+
+    let wordCount = countScriptWords(parsed.script);
+    let correctionAttempts = 0;
+
+    // Tolérance : on accepte une petite marge (10%) mais on corrige si vraiment hors cible
+    const hardMin = Math.round(wt.min * 0.9);
+    const hardMax = Math.round(wt.max * 1.1);
+
+    while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 2) {
+      correctionAttempts++;
+      const tooShort = wordCount < hardMin;
+      const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
+
+SCRIPT ACTUEL (${wordCount} mots) :
+${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
+
+PROBLÈME : Ce script fait ${wordCount} mots. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots.
+${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Ajoute du contenu de valeur, développe les idées, ajoute des détails percutants, SANS remplissage inutile. Garde le même sujet, le même angle, le même ton.' : 'Le script est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
+
+RÈGLES :
+- Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
+- Garde ${wt.blocs} blocs, un hook fort au début, un CTA clair à la fin
+- Chaque phrase garde une fonction, zéro remplissage
+- Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujet}
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
+
+      const correctRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 8000,
+          messages: [{ role: "user", content: correctionPrompt }]
+        })
+      });
+
+      if (!correctRes.ok) break; // en cas d'erreur, on garde la version actuelle
+      const correctData = await correctRes.json();
+      const correctRaw = correctData.content?.map(b => b.text || '').join('') || '';
+      const correctedScript = parseAIResponse(correctRaw);
+
+      if (correctedScript && correctedScript.script) {
+        parsed.script = correctedScript.script;
+        wordCount = countScriptWords(parsed.script);
+      } else {
+        break; // parsing échoué, on garde la version actuelle
+      }
+    }
 
     // Incrémenter le compteur si pas débloqué
     if (!unlocked) {
