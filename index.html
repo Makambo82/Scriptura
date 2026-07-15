@@ -2827,7 +2827,7 @@ function renderResults(d, niche, sujet) {
         <div class="out-section-label">Légende</div>
         <div class="legende-block">${d.legende || ''}</div>
         <div class="hashtags">${(d.hashtags || []).map(h => `<span class="ht">${h}</span>`).join('')}</div>
-        <button class="copy-btn" onclick="copyText(\`${(d.legende || '').replace(/`/g,"'")} ${(d.hashtags||[]).join(' ')}\`, this)">◆ Copier légende + hashtags</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.legende || '') + '\n\n' + (d.hashtags||[]).join(' '))}')">◆ Copier légende + hashtags</button>
       </div>`
     },
     {
@@ -2897,13 +2897,6 @@ function toggleCard(card) { card.classList.toggle('open'); }
 
 // Variable globale pour les textes à copier
 let copyTexts = [];
-
-function copyText(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = '◆ Copier', 2000);
-  });
-}
 
 function copySection(id, text) {
   const btn = document.getElementById(id);
@@ -2999,7 +2992,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="sb-copy" onclick="copyText(\`${(seg.prompt_visuel||'').replace(/\`/g,"'")}\`, this)">◆ Copier ce prompt</button>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button>
       </div>`).join('')}</div>`;
 
   } catch(e) {
