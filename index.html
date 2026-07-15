@@ -869,6 +869,29 @@ footer strong{color:var(--gold)}
   text-transform:uppercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
 }
 .idea-btn-copy:hover{border-color:var(--gold);color:var(--gold)}
+
+.hero-mode-btn.storytelling{
+  background:linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04));
+  border-color:rgba(201,168,76,0.4);
+}
+.hero-mode-btn.storytelling:hover{
+  border-color:var(--gold);
+  background:linear-gradient(135deg,rgba(201,168,76,0.18),rgba(201,168,76,0.06));
+}
+
+/* ── AFFICHAGE STORYTELLING ── */
+.story-meta{display:flex;gap:12px;flex-wrap:wrap}
+.story-block{display:flex;flex-direction:column;gap:18px;margin-bottom:18px}
+.story-segment{
+  border-left:2px solid rgba(201,168,76,0.3);padding-left:16px;
+}
+.story-segment-label{
+  font-family:'Cinzel',serif;font-size:0.52rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--gold);opacity:0.8;margin-bottom:8px;
+}
+.story-segment-text{
+  font-size:1rem;line-height:1.75;color:rgba(255,255,255,0.9);font-weight:300;
+}
 </style>
 </head>
 <body>
@@ -900,6 +923,11 @@ footer strong{color:var(--gold)}
       <span class="mode-icon">💡</span>
       <span class="mode-label">Trouve-moi des idées</span>
       <span class="mode-desc">Scriptura brainstorme pour moi</span>
+    </button>
+    <button class="hero-mode-btn storytelling" onclick="chooseMode('story')">
+      <span class="mode-icon">✍️</span>
+      <span class="mode-label">Storytelling</span>
+      <span class="mode-desc">Un récit immersif signature</span>
     </button>
   </div>
   <p class="hero-free">Entièrement gratuit · Aucun compte requis</p>
@@ -938,6 +966,70 @@ footer strong{color:var(--gold)}
 </div>
 
 <!-- FLOW -->
+<!-- ══ MODULE STORYTELLING (STYLE MAKAMBO) ══ -->
+<section id="storyFlow" style="display:none">
+  <div class="ideas-container">
+    <button class="btn-back" onclick="backToHome()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Mode Storytelling · Signature</div>
+      <h2 class="ideas-title">Transforme un sujet en<br/><strong>récit immersif.</strong></h2>
+      <p class="ideas-sub">Donne un sujet, une idée, ou colle un texte entier. Scriptura le réécrit en histoire captivante — hook percutant, tension jusqu'au bout, chute mémorable.</p>
+    </div>
+
+    <div class="context-card">
+      <div class="ctx-field">
+        <label class="ctx-label">Ton sujet ou ton texte</label>
+        <textarea class="ctx-textarea" id="storyInput" style="min-height:140px" placeholder="Exemples :&#10;• Un sujet court : « Mouammar Kadhafi » ou « L'affaire Madoff »&#10;• Une idée : « Comment une IA a manipulé une élection »&#10;• Ou colle un texte entier, un article, tes notes brutes — Scriptura en fera un récit."></textarea>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Format du récit</label>
+        <div class="btn-grid" id="storyFormatGrid">
+          <button type="button" class="grid-btn" data-val="long">📖 Narratif long (immersif, sans limite)</button>
+          <button type="button" class="grid-btn" data-val="court">⚡ Court (durée précise)</button>
+        </div>
+      </div>
+
+      <div class="ctx-field" id="storyDureeField" style="display:none">
+        <label class="ctx-label">Durée cible</label>
+        <div class="btn-grid" id="storyDureeGrid">
+          <button type="button" class="grid-btn" data-val="30 secondes">30 sec</button>
+          <button type="button" class="grid-btn" data-val="1 minute">1 min</button>
+          <button type="button" class="grid-btn" data-val="2 minutes">2 min</button>
+          <button type="button" class="grid-btn" data-val="3 minutes">3 min</button>
+          <button type="button" class="grid-btn" data-val="5 minutes">5 min</button>
+        </div>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Plateforme</label>
+        <div class="btn-grid" id="storyPlatformGrid">
+          <button type="button" class="grid-btn" data-val="TikTok">TikTok</button>
+          <button type="button" class="grid-btn" data-val="Instagram Reels">Instagram</button>
+          <button type="button" class="grid-btn" data-val="YouTube">YouTube</button>
+          <button type="button" class="grid-btn" data-val="Facebook">Facebook</button>
+        </div>
+      </div>
+
+      <div class="error-box" id="storyErrorBox"></div>
+
+      <button class="btn-generate" id="storyGenerateBtn" onclick="generateStory()">
+        <div class="spinner" id="storySpinner"></div>
+        <span id="storyBtnText">✍️ Créer mon récit</span>
+      </button>
+    </div>
+
+    <!-- RÉSULTATS STORYTELLING -->
+    <div id="storyResults" style="display:none">
+      <div class="ideas-results-header">
+        <h3 class="results-heading">Ton récit</h3>
+        <button class="btn-regenerate" onclick="generateStory()">↻ Régénérer</button>
+      </div>
+      <div id="storyOutput"></div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ MODULE GÉNÉRATEUR D'IDÉES ══ -->
 <section id="ideasFlow" style="display:none">
   <div class="ideas-container">
@@ -1448,19 +1540,24 @@ let currentScript = null;
 //  NAVIGATION ENTRE MODES
 // ══════════════════════════════════════
 function chooseMode(mode) {
+  document.getElementById('flow').style.display = 'none';
+  document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('storyFlow').style.display = 'none';
   if (mode === 'script') {
-    document.getElementById('ideasFlow').style.display = 'none';
     document.getElementById('flow').style.display = 'block';
     document.getElementById('flow').scrollIntoView({ behavior: 'smooth' });
   } else if (mode === 'ideas') {
-    document.getElementById('flow').style.display = 'none';
     document.getElementById('ideasFlow').style.display = 'block';
     document.getElementById('ideasFlow').scrollIntoView({ behavior: 'smooth' });
+  } else if (mode === 'story') {
+    document.getElementById('storyFlow').style.display = 'block';
+    document.getElementById('storyFlow').scrollIntoView({ behavior: 'smooth' });
   }
 }
 
 function backToHome() {
   document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('storyFlow').style.display = 'none';
   document.getElementById('flow').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1468,6 +1565,253 @@ function backToHome() {
 // ══════════════════════════════════════
 //  GÉNÉRATEUR D'IDÉES
 // ══════════════════════════════════════
+// ══════════════════════════════════════
+//  MODE STORYTELLING (STYLE MAKAMBO)
+// ══════════════════════════════════════
+let storyFormat = '';
+let storyDuree = '';
+let storyPlatform = '';
+
+function setupStoryButtons() {
+  // Format
+  const fmtContainer = document.getElementById('storyFormatGrid');
+  if (fmtContainer) {
+    const fmtBtns = fmtContainer.querySelectorAll('.grid-btn');
+    fmtBtns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        fmtBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        storyFormat = btn.dataset.val;
+        // Afficher le champ durée seulement si format court
+        document.getElementById('storyDureeField').style.display = (storyFormat === 'court') ? 'block' : 'none';
+      });
+    });
+  }
+  // Durée
+  const durContainer = document.getElementById('storyDureeGrid');
+  if (durContainer) {
+    const durBtns = durContainer.querySelectorAll('.grid-btn');
+    durBtns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        durBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        storyDuree = btn.dataset.val;
+      });
+    });
+  }
+  // Plateforme
+  const pfContainer = document.getElementById('storyPlatformGrid');
+  if (pfContainer) {
+    const pfBtns = pfContainer.querySelectorAll('.grid-btn');
+    pfBtns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        pfBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        storyPlatform = btn.dataset.val;
+      });
+    });
+  }
+}
+
+function setStoryLoading(on) {
+  const btn = document.getElementById('storyGenerateBtn');
+  btn.disabled = on;
+  document.getElementById('storySpinner').style.display = on ? 'block' : 'none';
+  document.getElementById('storyBtnText').textContent = on ? 'Scriptura écrit ton récit…' : '✍️ Créer mon récit';
+  if (on) startGenAnimation('story');
+  else stopGenAnimation();
+}
+
+async function generateStory() {
+  const input = document.getElementById('storyInput').value.trim();
+  const errorBox = document.getElementById('storyErrorBox');
+  errorBox.style.display = 'none';
+
+  if (!input) {
+    errorBox.textContent = 'Entre un sujet, une idée ou colle un texte pour créer ton récit.';
+    errorBox.style.display = 'block'; return;
+  }
+  if (!storyFormat) {
+    errorBox.textContent = 'Choisis un format : narratif long ou court.';
+    errorBox.style.display = 'block'; return;
+  }
+  if (storyFormat === 'court' && !storyDuree) {
+    errorBox.textContent = 'Choisis une durée pour le format court.';
+    errorBox.style.display = 'block'; return;
+  }
+
+  // Vérification limite
+  if (!unlocked && usedGen >= MAX_FREE) {
+    document.getElementById('paywall').style.display = 'block';
+    document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  setStoryLoading(true);
+  document.getElementById('storyResults').style.display = 'none';
+
+  // Cibles de mots pour le format court
+  const wordTargets = {
+    '30 secondes': { min: 60, max: 78 },
+    '1 minute': { min: 130, max: 155 },
+    '2 minutes': { min: 270, max: 310 },
+    '3 minutes': { min: 410, max: 460 },
+    '5 minutes': { min: 680, max: 780 }
+  };
+  const wt = wordTargets[storyDuree] || null;
+
+  const longueurInstruction = storyFormat === 'court' && wt
+    ? `LONGUEUR : Le récit doit faire ${storyDuree}, soit entre ${wt.min} et ${wt.max} mots au total. Compte tes mots et respecte impérativement cette cible. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact.`
+    : `LONGUEUR : Format narratif long. Déploie pleinement ton histoire, sans restriction de durée. Prends le temps de développer l'immersion, la tension et les rebondissements comme dans un vrai récit captivant.`;
+
+  const storyPrompt = `Tu es le meilleur storyteller narratif francophone, spécialisé dans les récits immersifs, critiques et stylisés pour les réseaux sociaux. Tu produis un script qui capte l'attention immédiatement, la maintient jusqu'à la fin, et marque émotionnellement le spectateur. Le spectateur doit VIVRE la scène, pas seulement la regarder.
+
+SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
+"""
+${input}
+"""
+${storyPlatform ? 'PLATEFORME : ' + storyPlatform : ''}
+
+${longueurInstruction}
+
+MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
+
+1. HOOK EN 2 PHRASES BRÈVES : paradoxal, choquant, dérangeant, fataliste ou intrigant. Il doit stopper le scroll immédiatement.
+   Exemples du style : "Il n'a pas fait un braquage. Il a juste pris une décision." / "Il voulait devenir le guide du monde arabe. Il a fini lynché dans un tuyau." / "Ils ont vécu 24 ans sans lumière. Et personne n'a rien vu."
+
+2. OUVERTURE : Enchaîne avec "Aujourd'hui, on parle de..." (ou variante fluide) qui pose le personnage ou l'enjeu.
+
+3. CONTEXTE / PORTRAIT : Plante le décor, présente le personnage ou la situation de façon vivante et concrète.
+
+4. IMMERSION EN SECONDE PERSONNE : Utilise "Imaginez, vous êtes..." pour plonger le spectateur DANS la scène. C'est un procédé signature essentiel. Fais-le vivre la situation de l'intérieur.
+
+5. DÉTONATEUR : Une question, une révélation ou une accusation qui fait basculer le récit.
+
+6. MONTÉE DE TENSION avec RELANCES régulières (tous les ~5 secondes de lecture) : des ruptures narratives, des cliffhangers, des "Mais...", "Et là...", "Sauf que...". Personne ne doit décrocher.
+
+7. Le message clé doit apparaître AVANT la fin (pas de réserver tout le sens pour la conclusion).
+
+8. Ajoute au moins un élément qui pousse à SAUVEGARDER : un fait rare, une citation mémorable, une révélation choc, un chiffre marquant.
+
+9. CLÔTURE — TRIPLE QUESTION MIROIR (obligatoire) : Termine par trois questions qui créent une résonance émotionnelle ou intellectuelle, sous cette forme :
+   "Alors, que retenir de cette histoire ?
+   Que... ?
+   Que... ?
+   Ou que... ?"
+   Ces questions doivent heurter, interpeller, et pousser à commenter/partager.
+
+10. SIGNATURE MÉTAPOÉTIQUE (obligatoire, juste avant ou après la triple question) : Une phrase de forme fixe "Moi, je t'ai pas [X]. Je t'ai [Y]." — poétique, ironique, lucide, qui frappe fort en une seule image, adaptée au sujet.
+    Exemple : "Moi, je t'ai pas raconté une fuite. Je t'ai montré ce que devient un empire quand il rentre dans une valise."
+
+TON : Choisis le ton qui sert le mieux le sujet parmi : lucide, ironique, poétique, fataliste, grave, révolté, glacial. Adapte-le à la nature du sujet (un drame historique = poétique/tragique ; une affaire politique = tendu/critique ; un crime = glacial/narratif).
+
+STYLE ET LANGUE :
+- Français courant, compréhensible par un ado de 12 ans, avec de subtiles touches d'ironie qui font sourire.
+- Phrases brèves et moyennes. Rythme soutenu. Images fortes. Ruptures marquées.
+- AUCUN ton générique. Aucune formule plate.
+
+EXIGENCE DE PERFECTION : Avant de livrer, relis ton récit. S'il n'atteint pas un niveau où un storyteller professionnel ne trouverait rien à améliorer, réécris-le. Vérifie que le hook arrête le scroll, que la tension tient du début à la fin, que la triple question et la signature sont présentes et percutantes.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":95,"hook":95,"tension":90,"emotion":92},"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+
+Découpe le récit en segments logiques (le nombre de segments s'adapte à la longueur). Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
+
+  try {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 8000,
+        messages: [{ role: "user", content: storyPrompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
+      throw new Error('(' + res.status + ') ' + detail);
+    }
+
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
+
+    if (!unlocked) {
+      usedGen++;
+      localStorage.setItem('scriptura_used', usedGen);
+      renderGenCounter();
+    }
+
+    renderStory(parsed);
+
+  } catch(e) {
+    errorBox.textContent = 'Erreur : ' + e.message;
+    errorBox.style.display = 'block';
+  } finally {
+    setStoryLoading(false);
+  }
+}
+
+function renderStory(d) {
+  const out = document.getElementById('storyOutput');
+  const fullText = (d.recit || []).map(s => s.texte).join('\n\n');
+  const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+
+  let html = '';
+
+  // Carte score + ton
+  html += `<div class="out-card">
+    <div class="out-card-header"><div class="out-card-num">01</div><h3 class="out-card-title">${d.titre || 'Ton récit'}</h3></div>
+    <div class="out-section">
+      <div class="story-meta">
+        ${d.ton ? `<span class="script-meta-item">🎭 Ton ${d.ton}</span>` : ''}
+        <span class="script-meta-item">📝 ${wordCount} mots</span>
+      </div>
+      ${d.analyse ? `<div class="legende-block" style="margin-top:14px">${d.analyse}</div>` : ''}
+    </div>
+  </div>`;
+
+  // Carte récit complet
+  html += `<div class="out-card">
+    <div class="out-card-header"><div class="out-card-num">02</div><h3 class="out-card-title">Le récit</h3></div>
+    <div class="out-section">
+      <div class="story-block">${(d.recit || []).map(s => `
+        <div class="story-segment">
+          <div class="story-segment-label">${s.segment || ''}</div>
+          <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
+        </div>`).join('')}</div>
+      <button class="copy-btn" onclick="copyStory(this)">◆ Copier le récit complet</button>
+    </div>
+  </div>`;
+
+  out.innerHTML = html;
+  // Stocker le texte pour la copie
+  out.dataset.fulltext = fullText;
+
+  document.getElementById('storyResults').style.display = 'block';
+  document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyStory(btn) {
+  const text = document.getElementById('storyOutput').dataset.fulltext || '';
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = '◆ Copier le récit complet', 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    btn.textContent = '✓ Copié !';
+    setTimeout(() => btn.innerHTML = '◆ Copier le récit complet', 2000);
+  });
+}
+
 let ideaPlatform = '';
 let ideaGoal = '';
 let ideaTone = '';
@@ -2144,11 +2488,21 @@ const GEN_STEPS = {
     'Filtrage des idées génériques…',
     'Calibrage des hooks de départ…',
     'Sélection des meilleures idées…'
+  ],
+  story: [
+    'Analyse du sujet et de sa tension…',
+    'Choix du ton narratif…',
+    'Écriture du hook percutant…',
+    'Construction de l\'immersion…',
+    'Montée de la tension…',
+    'Ciselage de la chute et signature…',
+    'Perfection narrative finale…'
   ]
 };
 const GEN_TAGLINE = {
   script: 'Ton réalisateur IA au travail',
-  ideas: 'Ton directeur éditorial cherche tes idées'
+  ideas: 'Ton directeur éditorial cherche tes idées',
+  story: 'Ton storyteller écrit ton récit'
 };
 
 function startGenAnimation(mode) {
@@ -2633,6 +2987,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   renderGenCounter();
   setupIdeaButtons();
+  setupStoryButtons();
 });
 
 // ── BOUTONS TON & DURÉE — GROUPES INDÉPENDANTS ──
