@@ -44,7 +44,7 @@ nav{
 .hero{
   min-height:100vh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  text-align:center;padding:120px 24px 80px;
+  text-align:center;padding:50px 24px 80px;
   position:relative;overflow:hidden;
 }
 .hero-bg{
@@ -94,7 +94,7 @@ nav{
 .hero-free{margin-top:16px;font-size:0.7rem;color:rgba(255,255,255,0.7);letter-spacing:0.1em}
 
 /* TICKER */
-.ticker-wrap{overflow:hidden;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);background:var(--bg-mid);padding:14px 0}
+.ticker-wrap{overflow:hidden;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);background:var(--bg-mid);padding:14px 0;margin-top:72px}
 .ticker{display:flex;gap:56px;width:max-content;animation:ticker 38s linear infinite;white-space:nowrap}
 .ticker-item{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.7);display:flex;align-items:center;gap:14px}
 .gem{color:var(--gold);font-size:0.45rem}
@@ -969,15 +969,15 @@ footer strong{color:var(--gold)}
   <div class="hero-rule"></div>
   <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
   <div class="hero-modes">
-    <button class="hero-mode-btn primary" onclick="chooseMode('script')">
-      <span class="mode-icon">🎬</span>
-      <span class="mode-label">J'ai une idée</span>
-      <span class="mode-desc">Génère mon script complet</span>
-    </button>
-    <button class="hero-mode-btn" onclick="chooseMode('ideas')">
+    <button class="hero-mode-btn primary" onclick="chooseMode('ideas')">
       <span class="mode-icon">💡</span>
       <span class="mode-label">Trouve-moi des idées</span>
       <span class="mode-desc">Scriptura brainstorme pour moi</span>
+    </button>
+    <button class="hero-mode-btn" onclick="chooseMode('script')">
+      <span class="mode-icon">🎬</span>
+      <span class="mode-label">J'ai une idée</span>
+      <span class="mode-desc">Génère mon script complet</span>
     </button>
     <button class="hero-mode-btn storytelling" onclick="chooseMode('story')">
       <span class="mode-icon">✍️</span>
