@@ -2085,12 +2085,10 @@ function renderStory(d) {
   currentStoryText = fullText;
 
   let html = '';
-  let num = 1;
-  const pad = () => String(num++).padStart(2, '0');
 
   // Carte 01 — titre + ton + analyse
   html += `<div class="out-card">
-    <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">${d.titre || 'Ton récit'}</h3></div>
+    <div class="out-card-header"><h3 class="out-card-title">${d.titre || 'Ton récit'}</h3></div>
     <div class="out-section">
       <div class="story-meta">
         ${d.ton ? `<span class="script-meta-item">🎭 Ton ${d.ton}</span>` : ''}
@@ -2103,7 +2101,7 @@ function renderStory(d) {
   // Carte 02 — 5 hooks
   if (d.hooks && d.hooks.length) {
     html += `<div class="out-card">
-      <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">5 Hooks alternatifs</h3></div>
+      <div class="out-card-header"><h3 class="out-card-title">5 Hooks alternatifs</h3></div>
       <div class="out-section">
         <div class="out-section-label">Accroches · Plusieurs styles</div>
         <div class="hooks-list">${d.hooks.map((h, i) => `
@@ -2118,7 +2116,7 @@ function renderStory(d) {
 
   // Carte 03 — récit complet
   html += `<div class="out-card">
-    <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Le récit</h3></div>
+    <div class="out-card-header"><h3 class="out-card-title">Le récit</h3></div>
     <div class="out-section">
       <div class="story-block">${(d.recit || []).map(s => `
         <div class="story-segment">
@@ -2132,7 +2130,7 @@ function renderStory(d) {
   // Carte 04 — légende
   if (d.legende) {
     html += `<div class="out-card">
-      <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Légende</h3></div>
+      <div class="out-card-header"><h3 class="out-card-title">Légende</h3></div>
       <div class="out-section">
         <div class="legende-block">${d.legende}</div>
         <button class="copy-btn" onclick="copyText(this, '${storeCopyText(d.legende||'')}')">◆ Copier la légende</button>
@@ -2143,7 +2141,7 @@ function renderStory(d) {
   // Carte 05 — hashtags
   if (d.hashtags && d.hashtags.length) {
     html += `<div class="out-card">
-      <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Hashtags</h3></div>
+      <div class="out-card-header"><h3 class="out-card-title">Hashtags</h3></div>
       <div class="out-section">
         <div class="hashtags-wrap">${d.hashtags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>
         <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hashtags||[]).join(' '))}')">◆ Copier les hashtags</button>
@@ -2153,7 +2151,7 @@ function renderStory(d) {
 
   // Carte 06 — storyboard à la demande
   html += `<div class="out-card">
-    <div class="out-card-header"><div class="out-card-num">${pad()}</div><h3 class="out-card-title">Storyboard visuel</h3></div>
+    <div class="out-card-header"><h3 class="out-card-title">Storyboard visuel</h3></div>
     <div class="out-section">
       <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton récit, avec un prompt d'image pour chaque segment.</p>
       <button class="btn-storyboard" id="storyStoryboardBtn" onclick="generateStoryStoryboard()">
