@@ -905,6 +905,7 @@ footer strong{color:var(--gold)}
 .history-card{
   background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
   padding:20px;margin-bottom:14px;cursor:pointer;transition:border-color 0.2s;
+  position:relative;display:flex;align-items:stretch;gap:0;
 }
 .history-card:hover{border-color:rgba(201,168,76,0.4)}
 .history-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -915,6 +916,34 @@ footer strong{color:var(--gold)}
 .history-content{margin-bottom:14px}
 .hist-line{font-size:0.92rem;line-height:1.6;color:rgba(255,255,255,0.85);margin-bottom:10px}
 .hist-time{font-family:'Cinzel',serif;font-size:0.62rem;color:var(--gold);letter-spacing:0.08em}
+
+/* ── SUPPRESSION HISTORIQUE ── */
+.history-toolbar{
+  display:flex;align-items:center;gap:12px;margin-bottom:16px;
+  justify-content:flex-end;flex-wrap:wrap;
+}
+.hist-tool-btn{
+  background:transparent;border:1px solid rgba(201,168,76,0.3);
+  color:var(--gold-light);font-family:'Cinzel',serif;font-size:0.58rem;
+  letter-spacing:0.1em;text-transform:uppercase;padding:8px 16px;
+  border-radius:999px;cursor:pointer;transition:all 0.2s;
+}
+.hist-tool-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+.hist-tool-btn.danger{border-color:rgba(200,80,80,0.5);color:#E88}
+.hist-tool-btn.danger:hover{background:rgba(200,80,80,0.12);border-color:#E88}
+.hist-tool-btn:disabled{opacity:0.35;cursor:not-allowed}
+.hist-tool-count{font-size:0.82rem;color:rgba(255,255,255,0.6);flex:1}
+.history-card.selecting{cursor:pointer}
+.history-card.selected{border-color:var(--gold)}
+.history-card-body{flex:1;padding:0}
+.history-check{display:flex;align-items:center;padding-right:14px}
+.history-check input{width:20px;height:20px;accent-color:var(--gold);cursor:pointer}
+.history-delete{
+  background:transparent;border:none;color:rgba(255,255,255,0.35);
+  font-size:1.1rem;cursor:pointer;padding:0 4px;align-self:flex-start;
+  transition:color 0.2s;
+}
+.history-delete:hover{color:#E88}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -950,6 +979,7 @@ footer strong{color:var(--gold)}
       </div>
     </div>
 
+    <div id="historyToolbar" class="history-toolbar" style="display:none"></div>
     <div id="historyList"></div>
   </div>
 </section>
@@ -1569,8 +1599,23 @@ async function saveGeneration(mode, titre, contenu) {
   } catch(e) { console.warn('Sauvegarde échouée', e); }
 }
 
+// Supprime une ou plusieurs générations dans Supabase
+async function deleteGenerations(ids) {
+  if (!supabaseClient || !ids || !ids.length) return false;
+  try {
+    const { error } = await supabaseClient
+      .from('generations')
+      .delete()
+      .in('id', ids);
+    if (error) throw error;
+    return true;
+  } catch(e) { console.warn('Suppression échouée', e); return false; }
+}
+
 // Ouvre le panneau historique
 async function openHistory() {
+  _selectMode = false;
+  if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('flow').style.display = 'none';
   document.getElementById('ideasFlow').style.display = 'none';
@@ -1595,6 +1640,9 @@ async function syncHistory() {
 }
 
 // Affiche la liste des générations
+let _selectMode = false;
+let _selectedIds = new Set();
+
 async function renderHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:40px">Chargement…</p>';
@@ -1603,10 +1651,16 @@ async function renderHistory() {
 
   if (!gens.length) {
     list.innerHTML = '<div class="history-empty"><p>Aucune génération pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Tes scripts, idées et récits apparaîtront ici automatiquement.</p></div>';
+    document.getElementById('historyToolbar').style.display = 'none';
     return;
   }
 
   window._historyData = gens;
+
+  // Barre d'outils (sélection multiple)
+  const toolbar = document.getElementById('historyToolbar');
+  toolbar.style.display = 'flex';
+  updateHistoryToolbar();
 
   const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C' };
@@ -1614,16 +1668,85 @@ async function renderHistory() {
   list.innerHTML = gens.map((g, i) => {
     const date = new Date(g.cree_le);
     const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const checked = _selectedIds.has(g.id) ? 'checked' : '';
+    const selectClass = _selectMode ? ' selecting' : '';
     return `
-      <div class="history-card" onclick="reopenGeneration(${i})">
-        <div class="history-card-head">
-          <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || g.mode}</span>
-          <span class="history-date">${dateStr}</span>
+      <div class="history-card${selectClass}" data-id="${g.id}">
+        ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
+        <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
+          <div class="history-card-head">
+            <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || g.mode}</span>
+            <span class="history-date">${dateStr}</span>
+          </div>
+          <div class="history-title">${g.titre || 'Sans titre'}</div>
+          ${!_selectMode ? '<div class="history-reopen">Appuie pour rouvrir cette génération →</div>' : ''}
         </div>
-        <div class="history-title">${g.titre || 'Sans titre'}</div>
-        <div class="history-reopen">Appuie pour rouvrir cette génération →</div>
+        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}', '${(g.titre || 'cette génération').replace(/'/g, "\\'")}')">🗑</button>` : ''}
       </div>`;
   }).join('');
+}
+
+function updateHistoryToolbar() {
+  const toolbar = document.getElementById('historyToolbar');
+  if (!toolbar) return;
+  if (_selectMode) {
+    const n = _selectedIds.size;
+    toolbar.innerHTML = `
+      <button class="hist-tool-btn" onclick="exitSelectMode()">Annuler</button>
+      <span class="hist-tool-count">${n} sélectionné${n > 1 ? 's' : ''}</span>
+      <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''}>🗑 Supprimer</button>`;
+  } else {
+    toolbar.innerHTML = `<button class="hist-tool-btn" onclick="enterSelectMode()">Sélectionner</button>`;
+  }
+}
+
+function enterSelectMode() {
+  _selectMode = true;
+  _selectedIds.clear();
+  renderHistory();
+}
+
+function exitSelectMode() {
+  _selectMode = false;
+  _selectedIds.clear();
+  renderHistory();
+}
+
+function toggleSelect(id) {
+  if (_selectedIds.has(id)) _selectedIds.delete(id);
+  else _selectedIds.add(id);
+  updateHistoryToolbar();
+  // Mettre à jour l'apparence de la carte
+  const card = document.querySelector(`.history-card[data-id="${id}"]`);
+  if (card) {
+    const cb = card.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = _selectedIds.has(id);
+    card.classList.toggle('selected', _selectedIds.has(id));
+  }
+}
+
+async function deleteOne(id, titre) {
+  if (!confirm('Supprimer « ' + titre + ' » ?\n\nCette action est définitive.')) return;
+  const ok = await deleteGenerations([id]);
+  if (ok) {
+    renderHistory();
+  } else {
+    alert('La suppression a échoué. Réessaie.');
+  }
+}
+
+async function deleteSelected() {
+  const ids = Array.from(_selectedIds);
+  if (!ids.length) return;
+  if (!confirm('Supprimer ' + ids.length + ' génération' + (ids.length > 1 ? 's' : '') + ' ?\n\nCette action est définitive.')) return;
+  const ok = await deleteGenerations(ids);
+  if (ok) {
+    _selectMode = false;
+    _selectedIds.clear();
+    renderHistory();
+  } else {
+    alert('La suppression a échoué. Réessaie.');
+  }
 }
 
 // Rouvre une génération complète dans son mode d'origine (avec hooks, script, légende,
@@ -1632,7 +1755,6 @@ function reopenGeneration(i) {
   const g = window._historyData[i];
   if (!g || !g.contenu) return;
 
-  // Masquer l'historique et la page d'accueil
   document.getElementById('historyFlow').style.display = 'none';
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('flow').style.display = 'none';
@@ -1654,6 +1776,7 @@ function reopenGeneration(i) {
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
 
 // Récupère l'historique des générations de l'utilisateur
 async function loadGenerations() {
