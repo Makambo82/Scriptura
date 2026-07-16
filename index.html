@@ -1458,6 +1458,8 @@ footer strong{color:var(--gold)}
   </div>
 </footer>
 
+<script src="modeles.js"></script>
+
 <script>
 // ══════════════════════════════════════
 //  SYSTÈME DE LIMITE — 5 GÉNÉRATIONS GRATUITES
@@ -1663,6 +1665,29 @@ async function generateStory() {
     ? `LONGUEUR : Le récit doit faire ${storyDuree}, soit entre ${wt.min} et ${wt.max} mots au total. Compte tes mots et respecte impérativement cette cible. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact.`
     : `LONGUEUR : Format narratif long. Déploie pleinement ton histoire, sans restriction de durée. Prends le temps de développer l'immersion, la tension et les rebondissements comme dans un vrai récit captivant.`;
 
+  // Choisir le modèle de référence le plus proche du sujet (via modeles.js)
+  let modeleRef = '';
+  try {
+    if (typeof choisirModele === 'function') {
+      const modele = choisirModele(input);
+      if (modele) {
+        modeleRef = `
+
+════════════════════════════════════════════
+MODÈLE DE RÉFÉRENCE (ta signature narrative sur un sujet proche)
+Voici l'un de tes propres scripts, à utiliser comme RÉFÉRENCE ABSOLUE de style, de rythme, de ton et de structure. Ne le copie pas, mais IMPRÈGNE-toi de sa manière : la façon dont le hook frappe, dont les phrases sont courtes et rythmées, dont la tension monte, dont l'ironie affleure, dont la triple question et la signature closent le récit. Ton nouveau récit doit avoir EXACTEMENT ce niveau de qualité et cette voix.
+
+TITRE DU MODÈLE : ${modele.titre}
+TON : ${modele.ton}
+
+SCRIPT MODÈLE :
+${modele.script}
+════════════════════════════════════════════
+`;
+      }
+    }
+  } catch(e) { /* si modeles.js absent, on continue avec la méthode seule */ }
+
   const storyPrompt = `Tu es le meilleur storyteller narratif francophone, spécialisé dans les récits immersifs, critiques et stylisés pour les réseaux sociaux. Tu produis un script qui capte l'attention immédiatement, la maintient jusqu'à la fin, et marque émotionnellement le spectateur. Le spectateur doit VIVRE la scène, pas seulement la regarder.
 
 SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
@@ -1670,7 +1695,7 @@ SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
 ${input}
 """
 ${storyPlatform ? 'PLATEFORME : ' + storyPlatform : ''}
-
+${modeleRef}
 ${longueurInstruction}
 
 MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
