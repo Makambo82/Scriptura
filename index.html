@@ -364,6 +364,7 @@ footer strong{color:var(--gold)}
 @media(max-width:600px){
   .nav-tag{display:none}
   nav{padding:16px 20px}
+  .nav-history-btn{font-size:0.55rem;padding:7px 10px}
   nav{padding:16px 20px}
   #flow{padding:80px 20px 100px}
   .context-card{padding:24px 20px}
@@ -884,15 +885,69 @@ footer strong{color:var(--gold)}
 .sb-seg-time{font-family:'Playfair Display',serif;font-size:0.78rem;color:var(--gold-light)}
 .sb-seg-text{font-size:0.92rem;color:rgba(255,255,255,0.85);line-height:1.5;margin-bottom:10px}
 .sb-seg-visual{font-size:0.86rem;color:rgba(255,255,255,0.7);line-height:1.55;background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:6px;padding:12px 14px}
+
+/* ── BOUTON HISTORIQUE NAV ── */
+.nav-right{display:flex;align-items:center;gap:16px}
+.nav-history-btn{
+  background:transparent;border:1px solid rgba(201,168,76,0.3);
+  color:var(--gold-light);font-family:'Cinzel',serif;font-size:0.6rem;
+  letter-spacing:0.1em;text-transform:uppercase;padding:8px 14px;
+  border-radius:999px;cursor:pointer;transition:all 0.2s;white-space:nowrap;
+}
+.nav-history-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+/* ── CARTES HISTORIQUE ── */
+.history-empty{text-align:center;padding:60px 20px;color:rgba(255,255,255,0.7)}
+.history-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+  padding:20px;margin-bottom:14px;cursor:pointer;transition:border-color 0.2s;
+}
+.history-card:hover{border-color:rgba(201,168,76,0.4)}
+.history-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.history-mode{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase}
+.history-date{font-size:0.75rem;color:rgba(255,255,255,0.4)}
+.history-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:#fff;line-height:1.4}
+.history-detail{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.history-content{margin-bottom:14px}
+.hist-line{font-size:0.92rem;line-height:1.6;color:rgba(255,255,255,0.85);margin-bottom:10px}
+.hist-time{font-family:'Cinzel',serif;font-size:0.62rem;color:var(--gold);letter-spacing:0.08em}
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
 <!-- NAV -->
 <nav>
   <div class="logo" onclick="goHome()" style="cursor:pointer">SCRIPT<em>URA</em></div>
-  <div class="nav-tag">L'OS du créateur francophone</div>
+  <div class="nav-right">
+    <button class="nav-history-btn" onclick="openHistory()">📁 Mes générations</button>
+    <div class="nav-tag">L'OS du créateur francophone</div>
+  </div>
 </nav>
+
+<!-- ══ MODULE HISTORIQUE ══ -->
+<section id="historyFlow" style="display:none">
+  <div class="ideas-container" style="max-width:720px;margin:0 auto;padding:100px 24px 80px">
+    <button class="btn-back" onclick="goHome()" style="margin-bottom:20px">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Historique</div>
+      <h2 class="ideas-title">Mes<br/><strong>générations.</strong></h2>
+      <p class="ideas-sub">Retrouve tous tes scripts, idées et récits. Entre ton code d'accès pour synchroniser sur tous tes appareils.</p>
+    </div>
+
+    <div class="context-card" style="margin-bottom:24px">
+      <div class="ctx-field" style="margin-bottom:0">
+        <label class="ctx-label">Ton code d'accès (optionnel)</label>
+        <div style="display:flex;gap:10px">
+          <input type="text" class="ctx-input" id="historyCodeInput" placeholder="SCRIPTURA-..." style="flex:1"/>
+          <button class="btn-generate" style="width:auto;padding:0 24px;margin:0" onclick="syncHistory()">Synchroniser</button>
+        </div>
+        <p style="font-size:0.82rem;color:rgba(255,255,255,0.5);margin-top:10px;line-height:1.5">Sans code, ton historique reste sur cet appareil. Avec ton code d'abonné, tu le retrouves partout.</p>
+      </div>
+    </div>
+
+    <div id="historyList"></div>
+  </div>
+</section>
 
 <div id="homePage">
 <!-- TICKER -->
@@ -1461,6 +1516,161 @@ footer strong{color:var(--gold)}
 <script src="modeles.js"></script>
 
 <script>
+// ═══════════════════════════════════════════════════════════
+//  SUPABASE — Sauvegarde permanente des générations
+// ═══════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
+let supabaseClient = null;
+try {
+  if (window.supabase && window.supabase.createClient) {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+} catch(e) { console.warn('Supabase non initialisé', e); }
+
+// Récupère un identifiant pour l'utilisateur : son code d'accès s'il en a un,
+// sinon un identifiant anonyme stable stocké dans le navigateur.
+function getUserRef() {
+  const code = localStorage.getItem('scriptura_code');
+  if (code) return code;
+  let anon = localStorage.getItem('scriptura_anon_id');
+  if (!anon) {
+    anon = 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    localStorage.setItem('scriptura_anon_id', anon);
+  }
+  return anon;
+}
+
+// Sauvegarde une génération dans Supabase (silencieux, ne bloque jamais l'app)
+async function saveGeneration(mode, titre, contenu) {
+  if (!supabaseClient) return;
+  try {
+    await supabaseClient.from('generations').insert({
+      code_acces: getUserRef(),
+      mode: mode,
+      titre: titre || 'Sans titre',
+      contenu: contenu
+    });
+  } catch(e) { console.warn('Sauvegarde échouée', e); }
+}
+
+// Ouvre le panneau historique
+async function openHistory() {
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('flow').style.display = 'none';
+  document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('storyFlow').style.display = 'none';
+  document.getElementById('historyFlow').style.display = 'block';
+  const pw = document.getElementById('paywall');
+  if (pw) pw.style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Pré-remplir le code si connu
+  const code = localStorage.getItem('scriptura_code');
+  if (code) document.getElementById('historyCodeInput').value = code;
+  renderHistory();
+}
+
+// Synchronise avec le code d'accès saisi
+async function syncHistory() {
+  const code = document.getElementById('historyCodeInput').value.trim();
+  if (code) {
+    localStorage.setItem('scriptura_code', code);
+  }
+  renderHistory();
+}
+
+// Affiche la liste des générations
+async function renderHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:40px">Chargement…</p>';
+
+  const gens = await loadGenerations();
+
+  if (!gens.length) {
+    list.innerHTML = '<div class="history-empty"><p>Aucune génération pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Tes scripts, idées et récits apparaîtront ici automatiquement.</p></div>';
+    return;
+  }
+
+  const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit' };
+  const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C' };
+
+  list.innerHTML = gens.map((g, i) => {
+    const date = new Date(g.cree_le);
+    const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="history-card" onclick="toggleHistoryCard(${i})">
+        <div class="history-card-head">
+          <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || g.mode}</span>
+          <span class="history-date">${dateStr}</span>
+        </div>
+        <div class="history-title">${g.titre || 'Sans titre'}</div>
+        <div class="history-detail" id="histDetail${i}" style="display:none">
+          <div class="history-content">${formatHistoryContent(g)}</div>
+          <button class="copy-btn" onclick="event.stopPropagation(); copyText(this, '${storeCopyText(historyToText(g))}')">◆ Copier</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  window._historyData = gens;
+}
+
+function toggleHistoryCard(i) {
+  const detail = document.getElementById('histDetail' + i);
+  if (detail) detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+}
+
+// Formate le contenu d'une génération pour l'affichage
+function formatHistoryContent(g) {
+  const c = g.contenu;
+  if (!c) return '';
+  try {
+    if (g.mode === 'script' && c.script) {
+      return c.script.map(s => `<div class="hist-line"><span class="hist-time">${s.temps || ''}</span> ${s.texte || ''}</div>`).join('');
+    }
+    if (g.mode === 'story' && c.recit) {
+      return c.recit.map(s => `<div class="hist-line">${s.texte || ''}</div>`).join('');
+    }
+    if (g.mode === 'ideas' && c.idees) {
+      return c.idees.map((idee, n) => `<div class="hist-line"><strong>${n+1}. ${idee.titre || ''}</strong><br/>${idee.angle || ''}</div>`).join('');
+    }
+  } catch(e) {}
+  return '<em style="opacity:0.5">Contenu indisponible</em>';
+}
+
+// Convertit une génération en texte brut pour la copie
+function historyToText(g) {
+  const c = g.contenu;
+  if (!c) return '';
+  try {
+    if (g.mode === 'script' && c.script) {
+      return c.script.map(s => `[${s.temps || ''}] ${s.texte || ''}`).join('\n\n');
+    }
+    if (g.mode === 'story' && c.recit) {
+      return c.recit.map(s => s.texte || '').join('\n\n');
+    }
+    if (g.mode === 'ideas' && c.idees) {
+      return c.idees.map((idee, n) => `${n+1}. ${idee.titre || ''}\n${idee.angle || ''}`).join('\n\n');
+    }
+  } catch(e) {}
+  return '';
+}
+
+// Récupère l'historique des générations de l'utilisateur
+async function loadGenerations() {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('generations')
+      .select('*')
+      .eq('code_acces', getUserRef())
+      .order('cree_le', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.warn('Chargement échoué', e); return []; }
+}
+
+
 // ══════════════════════════════════════
 //  SYSTÈME DE LIMITE — 5 GÉNÉRATIONS GRATUITES
 // ══════════════════════════════════════
@@ -1507,6 +1717,7 @@ function verifyCode() {
   if (valid.includes(code)) {
     unlocked = true;
     localStorage.setItem('scriptura_unlocked', 'true');
+    localStorage.setItem('scriptura_code', code);
     closeModal();
     renderGenCounter();
     document.getElementById('paywall').style.display = 'none';
@@ -1548,6 +1759,8 @@ function goHome() {
   document.getElementById('flow').style.display = 'none';
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('storyFlow').style.display = 'none';
+  const hist = document.getElementById('historyFlow');
+  if (hist) hist.style.display = 'none';
   // Masquer aussi le paywall s'il était ouvert
   const pw = document.getElementById('paywall');
   if (pw) pw.style.display = 'none';
@@ -1774,6 +1987,7 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
     }
 
     renderStory(parsed);
+    saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
@@ -2176,6 +2390,7 @@ Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
     }
 
     renderIdeas(parsed.idees, niche);
+    saveGeneration('ideas', 'Idées : ' + niche, { idees: parsed.idees, niche: niche });
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
@@ -2747,6 +2962,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     currentScript = parsed.script;
 
     renderResults(parsed, niche, sujet);
+    saveGeneration('script', sujet, parsed);
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
