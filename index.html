@@ -860,11 +860,12 @@ footer strong{color:var(--gold)}
   text-transform:uppercase;color:var(--gold);opacity:0.8;margin-bottom:8px;
 }
 .story-segment-text{
-  font-size:1rem;line-height:1.75;color:rgba(255,255,255,0.9);font-weight:300;
+  font-family:'Tenor Sans',sans-serif;
+  font-size:0.88rem;line-height:1.8;color:#FFFFFF;
 }
 
 /* ── CLASSES STORYTELLING (résultats) ── */
-.hook-text{font-size:0.95rem;color:rgba(255,255,255,0.9);line-height:1.5;margin-top:4px}
+.hook-text{font-family:'Tenor Sans',sans-serif;font-size:0.95rem;color:rgba(255,255,255,0.9);line-height:1.5;margin-top:4px}
 .hashtags-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 .hashtag-chip{
   font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.04em;
@@ -1601,6 +1602,8 @@ async function renderHistory() {
     return;
   }
 
+  window._historyData = gens;
+
   const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C' };
 
@@ -1608,61 +1611,44 @@ async function renderHistory() {
     const date = new Date(g.cree_le);
     const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     return `
-      <div class="history-card" onclick="toggleHistoryCard(${i})">
+      <div class="history-card" onclick="reopenGeneration(${i})">
         <div class="history-card-head">
           <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || g.mode}</span>
           <span class="history-date">${dateStr}</span>
         </div>
         <div class="history-title">${g.titre || 'Sans titre'}</div>
-        <div class="history-detail" id="histDetail${i}" style="display:none">
-          <div class="history-content">${formatHistoryContent(g)}</div>
-          <button class="copy-btn" onclick="event.stopPropagation(); copyText(this, '${storeCopyText(historyToText(g))}')">◆ Copier</button>
-        </div>
+        <div class="history-reopen">Appuie pour rouvrir cette génération →</div>
       </div>`;
   }).join('');
-
-  window._historyData = gens;
 }
 
-function toggleHistoryCard(i) {
-  const detail = document.getElementById('histDetail' + i);
-  if (detail) detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
-}
+// Rouvre une génération complète dans son mode d'origine (avec hooks, script, légende,
+// hashtags, storyboard à la demande — exactement comme à la génération)
+function reopenGeneration(i) {
+  const g = window._historyData[i];
+  if (!g || !g.contenu) return;
 
-// Formate le contenu d'une génération pour l'affichage
-function formatHistoryContent(g) {
-  const c = g.contenu;
-  if (!c) return '';
-  try {
-    if (g.mode === 'script' && c.script) {
-      return c.script.map(s => `<div class="hist-line"><span class="hist-time">${s.temps || ''}</span> ${s.texte || ''}</div>`).join('');
-    }
-    if (g.mode === 'story' && c.recit) {
-      return c.recit.map(s => `<div class="hist-line">${s.texte || ''}</div>`).join('');
-    }
-    if (g.mode === 'ideas' && c.idees) {
-      return c.idees.map((idee, n) => `<div class="hist-line"><strong>${n+1}. ${idee.titre || ''}</strong><br/>${idee.angle || ''}</div>`).join('');
-    }
-  } catch(e) {}
-  return '<em style="opacity:0.5">Contenu indisponible</em>';
-}
+  // Masquer l'historique et la page d'accueil
+  document.getElementById('historyFlow').style.display = 'none';
+  document.getElementById('homePage').style.display = 'none';
+  document.getElementById('flow').style.display = 'none';
+  document.getElementById('ideasFlow').style.display = 'none';
+  document.getElementById('storyFlow').style.display = 'none';
 
-// Convertit une génération en texte brut pour la copie
-function historyToText(g) {
-  const c = g.contenu;
-  if (!c) return '';
-  try {
-    if (g.mode === 'script' && c.script) {
-      return c.script.map(s => `[${s.temps || ''}] ${s.texte || ''}`).join('\n\n');
-    }
-    if (g.mode === 'story' && c.recit) {
-      return c.recit.map(s => s.texte || '').join('\n\n');
-    }
-    if (g.mode === 'ideas' && c.idees) {
-      return c.idees.map((idee, n) => `${n+1}. ${idee.titre || ''}\n${idee.angle || ''}`).join('\n\n');
-    }
-  } catch(e) {}
-  return '';
+  if (g.mode === 'script') {
+    document.getElementById('flow').style.display = 'block';
+    currentScript = g.contenu.script;
+    lastGenContext = g.contenu.context || { sujet: g.titre, plateforme: 'TikTok' };
+    renderResults(g.contenu, g.contenu.niche || '', g.titre || '');
+  } else if (g.mode === 'story') {
+    document.getElementById('storyFlow').style.display = 'block';
+    renderStory(g.contenu);
+  } else if (g.mode === 'ideas') {
+    document.getElementById('ideasFlow').style.display = 'block';
+    renderIdeas(g.contenu.idees, g.contenu.niche || '');
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Récupère l'historique des générations de l'utilisateur
@@ -3054,7 +3040,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     currentScript = parsed.script;
 
     renderResults(parsed, niche, sujet);
-    saveGeneration('script', sujet, parsed);
+    // Sauvegarder la génération complète + le contexte (pour rouvrir et générer le storyboard plus tard)
+    saveGeneration('script', sujet, Object.assign({}, parsed, { niche: niche, context: { sujet: sujet, plateforme: state.plateforme, objectif: state.objectif } }));
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
