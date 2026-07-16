@@ -2510,14 +2510,13 @@ Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est l
 
 7. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
 
-AVANT DE LIVRER — AUTO-CRITIQUE OBLIGATOIRE :
-Relis ton script et vérifie chaque point :
-- "Est-ce qu'un créateur pourrait obtenir ça avec un simple prompt ChatGPT ?" Si oui, c'est raté, réécris pour le rendre nettement supérieur.
-- "Le hook arrête-t-il vraiment le scroll ?" Si non, réécris.
-- "Le compte de mots est-il dans la cible ${wt.min}-${wt.max} ?" Si non, ajuste.
-- "Le dernier bloc contient-il un vrai CTA qui dit quoi faire ?" Si non, AJOUTE-LE. Un script sans CTA est incomplet.
-- "Chaque phrase a-t-elle une fonction ?" Supprime tout remplissage.
-Ne livre que ta MEILLEURE version.
+RÈGLES DE QUALITÉ À RESPECTER :
+- Un simple prompt ChatGPT ne doit JAMAIS pouvoir reproduire ça. Sois nettement supérieur.
+- Le hook doit vraiment arrêter le scroll.
+- Le compte de mots doit être dans la cible ${wt.min}-${wt.max}.
+- Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.
+- Chaque phrase a une fonction, aucun remplissage.
+Écris ta meilleure version. Un critique indépendant va ensuite évaluer ton travail.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A percutant","titre B percutant"]}
@@ -2544,6 +2543,113 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     const writeRaw = writeData.content?.map(b => b.text || '').join('') || '';
     let parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
+
+    // ══════════════════════════════════════
+    //  PHASE 3 — LE CRITIQUE (agent indépendant)
+    //  Juge le travail du rédacteur sans l'avoir écrit. Objectif.
+    // ══════════════════════════════════════
+    const scriptForReview = (parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n');
+    const hooksForReview = (parsed.hooks || []).map((h, i) => (i+1) + '. ' + h.texte).join('\n');
+
+    const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un expert exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script — ton rôle est de l'évaluer objectivement et sans complaisance, comme un directeur de création qui review le travail de son équipe.
+
+CONTEXTE :
+- Sujet : ${sujet}
+- Plateforme : ${state.plateforme}
+- Objectif : ${state.objectif}
+- Durée cible : ${wt.desc} (${wt.min}-${wt.max} mots)
+- Angle stratégique prévu : ${brief.angle_choisi || 'non précisé'}
+
+HOOKS PROPOSÉS :
+${hooksForReview}
+
+SCRIPT PROPOSÉ :
+${scriptForReview}
+
+TON ÉVALUATION CRITIQUE (sois honnête, sévère si nécessaire) :
+1. Le hook arrête-t-il vraiment le scroll dès la 1ère seconde ? Ou est-il tiède ?
+2. La tension tient-elle du début à la fin, ou y a-t-il des moments où on décroche ?
+3. Y a-t-il des phrases de remplissage qui ne servent à rien ?
+4. Le script est-il vraiment supérieur à ce qu'un simple ChatGPT donnerait, ou est-ce générique ?
+5. Le CTA final est-il présent, clair et adapté à l'objectif ?
+6. Le script respecte-t-il l'angle stratégique prévu ?
+7. Y a-t-il des formulations plates, clichées ou faibles à signaler précisément ?
+
+Identifie les FAIBLESSES CONCRÈTES avec précision (cite les passages problématiques). Ne sois pas complaisant : si c'est excellent, dis-le ; si c'est moyen, liste exactement ce qui cloche.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise 1 avec le passage concerné","faiblesse 2"],"points_forts":["ce qui marche"],"instructions_revision":"instructions précises et actionnables pour le réviseur : quoi corriger exactement et comment"}`;
+
+    let critique = null;
+    try {
+      const critiqueRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 2000,
+          messages: [{ role: "user", content: critiquePrompt }]
+        })
+      });
+      if (critiqueRes.ok) {
+        const critiqueData = await critiqueRes.json();
+        const critiqueRaw = critiqueData.content?.map(b => b.text || '').join('') || '';
+        critique = parseAIResponse(critiqueRaw);
+      }
+    } catch(e) { /* si le critique échoue, on garde le script tel quel */ }
+
+    // ══════════════════════════════════════
+    //  PHASE 4 — LE RÉVISEUR (agent indépendant)
+    //  Corrige le script selon les critiques. N'est pas le rédacteur.
+    //  Ne s'active QUE si le critique a trouvé des faiblesses.
+    // ══════════════════════════════════════
+    if (critique && critique.verdict === 'à améliorer' && critique.instructions_revision) {
+      const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture de contenu viral. Un critique indépendant a évalué le script ci-dessous et identifié des faiblesses. Ta mission : appliquer ses corrections pour produire une version nettement meilleure.
+
+SUJET : ${sujet} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
+DURÉE CIBLE : ${wt.desc} (${wt.min}-${wt.max} mots au total)
+
+SCRIPT ACTUEL :
+${scriptForReview}
+
+FAIBLESSES IDENTIFIÉES PAR LE CRITIQUE :
+${(critique.faiblesses || []).map(f => '- ' + f).join('\n')}
+
+INSTRUCTIONS DE RÉVISION À APPLIQUER :
+${critique.instructions_revision}
+
+RÈGLES :
+- Corrige précisément les faiblesses signalées, garde ce qui marche déjà.
+- Respecte la durée cible ${wt.min}-${wt.max} mots et le nombre de blocs.
+- Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, le CTA final être présent et clair.
+- Garde le même format de blocs (temps + texte + visuel).
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"hooks":[{"style":"...","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}
+
+Fournis les 5 hooks améliorés et le script révisé complet.`;
+
+      try {
+        const reviseRes = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 8000,
+            messages: [{ role: "user", content: revisePrompt }]
+          })
+        });
+        if (reviseRes.ok) {
+          const reviseData = await reviseRes.json();
+          const reviseRaw = reviseData.content?.map(b => b.text || '').join('') || '';
+          const revised = parseAIResponse(reviseRaw);
+          if (revised && revised.script) {
+            parsed.script = revised.script;
+            if (revised.hooks) parsed.hooks = revised.hooks;
+          }
+        }
+      } catch(e) { /* si la révision échoue, on garde la version du rédacteur */ }
+    }
 
     // ══════════════════════════════════════
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
@@ -2612,7 +2718,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // Sauvegarder le contexte pour l'ajustement du script
-    lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, style, tone: selectedTone, duree: selectedDuree, brief: brief };
+    lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, style, tone: selectedTone, duree: selectedDuree, brief: brief, critique: critique };
     currentScript = parsed.script;
 
     renderResults(parsed, niche, sujet);
@@ -2643,13 +2749,13 @@ function setLoading(on) {
 // Jeux d'étapes selon le mode
 const GEN_STEPS = {
   script: [
-    'Analyse stratégique du sujet…',
+    'Le Directeur analyse le sujet…',
     'Exploration de 3 angles narratifs…',
-    'Sélection du meilleur angle…',
-    'Test de plusieurs hooks…',
-    'Écriture du script à haute tension…',
-    'Auto-critique et réécriture…',
-    'Contrôle qualité final…'
+    'Le Rédacteur écrit le script…',
+    'Le Critique évalue le travail…',
+    'Le Réviseur applique les corrections…',
+    'Contrôle de la durée…',
+    'Finalisation…'
   ],
   ideas: [
     'Analyse de ta niche et ton audience…',
@@ -2671,7 +2777,7 @@ const GEN_STEPS = {
   ]
 };
 const GEN_TAGLINE = {
-  script: 'Ton réalisateur IA au travail',
+  script: 'Ton équipe éditoriale IA au travail',
   ideas: 'Ton directeur éditorial cherche tes idées',
   story: 'Ton storyteller écrit ton récit'
 };
