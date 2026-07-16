@@ -1060,6 +1060,11 @@ footer strong{color:var(--gold)}
         </div>
       </div>
 
+      <div class="gen-counter" id="genCounterStory">
+        <span>Générations gratuites · <strong class="usedNumShared">0</strong> / 5 utilisées</span>
+        <div class="gen-counter-dots genCounterDotsShared"></div>
+      </div>
+
       <div class="error-box" id="storyErrorBox"></div>
 
       <button class="btn-generate" id="storyGenerateBtn" onclick="generateStory()">
@@ -1166,6 +1171,11 @@ footer strong{color:var(--gold)}
       <div class="ctx-field">
         <label class="ctx-label">Un thème précis à explorer ? (optionnel)</label>
         <textarea class="ctx-textarea" id="ideaTheme" placeholder="Ex : les empires africains, la psychologie de l'argent, les femmes qui ont marqué l'histoire… Laisse vide pour des idées larges dans ta niche."></textarea>
+      </div>
+
+      <div class="gen-counter" id="genCounterIdeas">
+        <span>Générations gratuites · <strong class="usedNumShared">0</strong> / 5 utilisées</span>
+        <div class="gen-counter-dots genCounterDotsShared"></div>
       </div>
 
       <div class="error-box" id="ideaErrorBox"></div>
@@ -1681,23 +1691,39 @@ let usedGen = parseInt(localStorage.getItem('scriptura_used') || '0');
 let unlocked = localStorage.getItem('scriptura_unlocked') === 'true';
 
 function renderGenCounter() {
-  const dots = document.getElementById('genCounterDots');
-  const counter = document.getElementById('genCounter');
-  if (!dots) return;
+  // Liste de tous les conteneurs de compteur (les 3 modes)
+  const counters = [
+    { counter: document.getElementById('genCounter'), dots: document.getElementById('genCounterDots'), num: document.getElementById('usedNum') },
+    { counter: document.getElementById('genCounterIdeas'), dots: document.querySelector('#genCounterIdeas .genCounterDotsShared'), num: document.querySelector('#genCounterIdeas .usedNumShared') },
+    { counter: document.getElementById('genCounterStory'), dots: document.querySelector('#genCounterStory .genCounterDotsShared'), num: document.querySelector('#genCounterStory .usedNumShared') }
+  ];
 
-  if (unlocked) {
-    counter.innerHTML = '<span style="color:var(--gold-light)">✦ Accès illimité actif</span>';
-    return;
-  }
+  for (const c of counters) {
+    if (!c.counter) continue;
 
-  dots.innerHTML = '';
-  for (let i = 0; i < MAX_FREE; i++) {
-    const d = document.createElement('div');
-    d.className = 'gcdot' + (i < usedGen ? ' used' : '');
-    dots.appendChild(d);
+    if (unlocked) {
+      c.counter.innerHTML = '<span style="color:var(--gold-light)">✦ Accès illimité actif</span>';
+      continue;
+    }
+
+    // Reconstruire le contenu (au cas où il aurait été remplacé par "illimité")
+    if (!c.dots || !c.counter.querySelector('.gen-counter-dots')) {
+      const restant = MAX_FREE - usedGen;
+      c.counter.innerHTML = '<span>Générations gratuites · <strong>' + usedGen + '</strong> / ' + MAX_FREE + ' utilisées</span><div class="gen-counter-dots"></div>';
+    }
+
+    const dotsEl = c.counter.querySelector('.gen-counter-dots');
+    if (dotsEl) {
+      dotsEl.innerHTML = '';
+      for (let i = 0; i < MAX_FREE; i++) {
+        const d = document.createElement('div');
+        d.className = 'gcdot' + (i < usedGen ? ' used' : '');
+        dotsEl.appendChild(d);
+      }
+    }
+    const numEl = c.counter.querySelector('strong');
+    if (numEl) numEl.textContent = usedGen;
   }
-  const usedNumEl = document.getElementById('usedNum');
-  if (usedNumEl) usedNumEl.textContent = usedGen;
 }
 
 function openModal() {
@@ -1815,6 +1841,7 @@ function chooseMode(mode) {
   } else if (mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
   }
+  renderGenCounter();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
