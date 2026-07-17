@@ -1574,6 +1574,7 @@ const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, stor
 // Avec Sonnet sur le rédacteur, la critique/révision est souvent inutile.
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
 const CRITIQUE_ACTIVE = false;
+const LIMITE_JOUR_ABONNE = 15;   // Générations max par jour pour un abonné (anti-abus)
 
 // ═══════════════════════════════════════════════════════════
 //  APPEL IA AVEC REPRISE AUTOMATIQUE
@@ -1674,6 +1675,41 @@ async function saveGeneration(mode, titre, contenu) {
       contenu: contenu
     });
   } catch(e) { console.warn('Sauvegarde échouée', e); }
+}
+
+// Compte les générations faites aujourd'hui par l'utilisateur (anti-abus abonnés)
+async function countTodayGenerations() {
+  if (!supabaseClient) return 0;
+  try {
+    const debutJour = new Date();
+    debutJour.setHours(0, 0, 0, 0);
+    const { count, error } = await supabaseClient
+      .from('generations')
+      .select('*', { count: 'exact', head: true })
+      .eq('code_acces', getUserRef())
+      .gte('cree_le', debutJour.toISOString());
+    if (error) throw error;
+    return count || 0;
+  } catch(e) { console.warn('Comptage du jour échoué', e); return 0; }
+}
+
+// Vérifie si un abonné a atteint sa limite quotidienne.
+// Retourne true si l'utilisateur PEUT générer, false s'il est bloqué (et affiche le message).
+async function peutGenerer(errorBoxId) {
+  // Les non-abonnés sont gérés par le système de générations gratuites, pas ici.
+  if (!unlocked) return true;
+
+  const faitesAujourdhui = await countTodayGenerations();
+  if (faitesAujourdhui >= LIMITE_JOUR_ABONNE) {
+    const box = document.getElementById(errorBoxId);
+    if (box) {
+      box.textContent = 'Tu as atteint ta limite de ' + LIMITE_JOUR_ABONNE + ' générations pour aujourd\'hui. Reviens demain pour continuer à créer ! ✨';
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return false;
+  }
+  return true;
 }
 
 // Supprime une ou plusieurs générations dans Supabase
@@ -1892,7 +1928,7 @@ function renderGenCounter() {
     if (!c.counter) continue;
 
     if (unlocked) {
-      c.counter.innerHTML = '<span style="color:var(--gold-light)">✦ Accès illimité actif</span>';
+      c.counter.innerHTML = '<span style="color:var(--gold-light)">✦ Accès abonné actif</span><span class="quota-jour" style="color:rgba(255,255,255,0.5);font-size:0.82rem"></span>';
       continue;
     }
 
@@ -1914,6 +1950,17 @@ function renderGenCounter() {
     const numEl = c.counter.querySelector('strong');
     if (numEl) numEl.textContent = usedGen;
   }
+}
+
+// Met à jour l'affichage du quota journalier pour les abonnés
+async function updateQuotaJour() {
+  if (!unlocked) return;
+  const faites = await countTodayGenerations();
+  const restant = Math.max(0, LIMITE_JOUR_ABONNE - faites);
+  const els = document.querySelectorAll('.quota-jour');
+  els.forEach(el => {
+    el.textContent = '  ·  ' + restant + '/' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
+  });
 }
 
 function openModal() {
@@ -2032,6 +2079,7 @@ function chooseMode(mode) {
     document.getElementById('storyFlow').style.display = 'block';
   }
   renderGenCounter();
+  updateQuotaJour();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2142,6 +2190,8 @@ async function generateStory() {
     document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+  // Limite journalière pour les abonnés (anti-abus)
+  if (!(await peutGenerer('storyErrorBox'))) return;
 
   setStoryLoading(true);
   document.getElementById('storyResults').style.display = 'none';
@@ -2254,6 +2304,7 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
 
     renderStory(parsed);
     saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
+    updateQuotaJour();
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
@@ -2568,6 +2619,8 @@ async function generateIdeas() {
     document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+  // Limite journalière pour les abonnés (anti-abus)
+  if (!(await peutGenerer('ideaErrorBox'))) return;
 
   setIdeaLoading(true);
   document.getElementById('ideasResults').style.display = 'none';
@@ -2627,6 +2680,7 @@ Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
 
     renderIdeas(parsed.idees, niche);
     saveGeneration('ideas', 'Idées : ' + niche, { idees: parsed.idees, niche: niche });
+    updateQuotaJour();
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
@@ -2868,6 +2922,8 @@ async function generate() {
     document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+  // Limite journalière pour les abonnés (anti-abus)
+  if (!(await peutGenerer('errorBox'))) return;
 
   setLoading(true);
   document.getElementById('results').style.display = 'none';
@@ -3174,6 +3230,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     renderResults(parsed, niche, sujet);
     // Sauvegarder la génération complète + le contexte (pour rouvrir et générer le storyboard plus tard)
     saveGeneration('script', sujet, Object.assign({}, parsed, { niche: niche, context: { sujet: sujet, plateforme: state.plateforme, objectif: state.objectif } }));
+    updateQuotaJour();
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
