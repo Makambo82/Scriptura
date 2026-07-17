@@ -1581,61 +1581,63 @@ const CRITIQUE_ACTIVE = false;
 //  si la réponse est vide/coupée. Attente croissante entre essais.
 // ═══════════════════════════════════════════════════════════
 async function callAI(model, maxTokens, prompt, maxRetries) {
-  maxRetries = maxRetries || 3;
-  let lastError = '';
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: model,
-          max_tokens: maxTokens,
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-
-      const data = await res.json();
-
-      // Erreur serveur temporaire (surcharge, timeout) → on retente
-      if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
-        lastError = '(' + res.status + ') ' + (data.error?.message || 'Serveur occupé');
-        if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, attempt * 1500)); // 1.5s, 3s, 4.5s
-          continue;
-        }
-        throw new Error(lastError);
-      }
-
-      if (!res.ok) {
-        const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
-        throw new Error('(' + res.status + ') ' + detail);
-      }
-
-      const raw = data.content?.map(b => b.text || '').join('') || '';
-      // Réponse vide → probablement coupée par surcharge, on retente
-      if (!raw.trim()) {
-        lastError = 'Réponse vide';
-        if (attempt < maxRetries) {
-          await new Promise(r => setTimeout(r, attempt * 1500));
-          continue;
-        }
-        throw new Error('Réponse vide après plusieurs tentatives');
-      }
-
-      return raw; // succès
-
-    } catch(e) {
-      lastError = e.message;
-      // Erreur réseau → on retente aussi
-      if (attempt < maxRetries && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed'))) {
-        await new Promise(r => setTimeout(r, attempt * 1500));
-        continue;
-      }
-      if (attempt >= maxRetries) throw e;
+  // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
+  async function tryOnce(useModel) {
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: useModel,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    // Surcharge / erreur serveur temporaire → échec récupérable (on renvoie null)
+    if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
+      return { ok: false, recoverable: true, detail: '(' + res.status + ') serveur occupé' };
     }
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
+      return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
+    }
+    const raw = data.content?.map(b => b.text || '').join('') || '';
+    if (!raw.trim()) return { ok: false, recoverable: true, detail: 'réponse vide' };
+    return { ok: true, raw: raw };
   }
-  throw new Error(lastError || 'Échec après plusieurs tentatives');
+
+  // Modèle de secours : si on demandait Sonnet, on retombe sur Haiku (stable).
+  const fallbackModel = MODEL_RAPIDE;
+  const usesFallback = (model === MODEL_CREATIF); // on ne bascule que si on visait Sonnet
+
+  let lastDetail = '';
+
+  // Tentative 1 — modèle demandé (ex: Sonnet)
+  try {
+    const r1 = await tryOnce(model);
+    if (r1.ok) return r1.raw;
+    lastDetail = r1.detail;
+    if (!r1.recoverable && !usesFallback) throw new Error(lastDetail);
+  } catch(e) { lastDetail = e.message; }
+
+  // Petite pause puis Tentative 2 — même modèle
+  await new Promise(r => setTimeout(r, 1500));
+  try {
+    const r2 = await tryOnce(model);
+    if (r2.ok) return r2.raw;
+    lastDetail = r2.detail;
+  } catch(e) { lastDetail = e.message; }
+
+  // Tentative 3 — bascule automatique sur Haiku (si on visait Sonnet)
+  if (usesFallback) {
+    try {
+      const r3 = await tryOnce(fallbackModel);
+      if (r3.ok) return r3.raw;
+      lastDetail = r3.detail;
+    } catch(e) { lastDetail = e.message; }
+  }
+
+  throw new Error(lastDetail || 'Service momentanément indisponible, réessaie');
 }
 
 
