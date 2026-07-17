@@ -1575,6 +1575,7 @@ const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, stor
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
 const CRITIQUE_ACTIVE = false;
 const LIMITE_JOUR_ABONNE = 15;   // Générations max par jour pour un abonné (anti-abus)
+const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite journalière (VIP/admin)
 
 // ═══════════════════════════════════════════════════════════
 //  APPEL IA AVEC REPRISE AUTOMATIQUE
@@ -1698,6 +1699,10 @@ async function countTodayGenerations() {
 async function peutGenerer(errorBoxId) {
   // Les non-abonnés sont gérés par le système de générations gratuites, pas ici.
   if (!unlocked) return true;
+
+  // Codes VIP/admin : générations vraiment illimitées, aucun quota journalier.
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
 
   const faitesAujourdhui = await countTodayGenerations();
   if (faitesAujourdhui >= LIMITE_JOUR_ABONNE) {
@@ -1955,6 +1960,12 @@ function renderGenCounter() {
 // Met à jour l'affichage du quota journalier pour les abonnés
 async function updateQuotaJour() {
   if (!unlocked) return;
+  // Codes VIP/admin : on affiche "illimité", pas de quota.
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) {
+    document.querySelectorAll('.quota-jour').forEach(el => { el.textContent = '  ·  illimité'; });
+    return;
+  }
   const faites = await countTodayGenerations();
   const restant = Math.max(0, LIMITE_JOUR_ABONNE - faites);
   const els = document.querySelectorAll('.quota-jour');
