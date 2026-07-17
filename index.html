@@ -1575,6 +1575,70 @@ const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, stor
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
 const CRITIQUE_ACTIVE = false;
 
+// ═══════════════════════════════════════════════════════════
+//  APPEL IA AVEC REPRISE AUTOMATIQUE
+//  Retente jusqu'à 3 fois si le modèle est surchargé (529) ou
+//  si la réponse est vide/coupée. Attente croissante entre essais.
+// ═══════════════════════════════════════════════════════════
+async function callAI(model, maxTokens, prompt, maxRetries) {
+  maxRetries = maxRetries || 3;
+  let lastError = '';
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: maxTokens,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+
+      const data = await res.json();
+
+      // Erreur serveur temporaire (surcharge, timeout) → on retente
+      if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
+        lastError = '(' + res.status + ') ' + (data.error?.message || 'Serveur occupé');
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, attempt * 1500)); // 1.5s, 3s, 4.5s
+          continue;
+        }
+        throw new Error(lastError);
+      }
+
+      if (!res.ok) {
+        const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
+        throw new Error('(' + res.status + ') ' + detail);
+      }
+
+      const raw = data.content?.map(b => b.text || '').join('') || '';
+      // Réponse vide → probablement coupée par surcharge, on retente
+      if (!raw.trim()) {
+        lastError = 'Réponse vide';
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, attempt * 1500));
+          continue;
+        }
+        throw new Error('Réponse vide après plusieurs tentatives');
+      }
+
+      return raw; // succès
+
+    } catch(e) {
+      lastError = e.message;
+      // Erreur réseau → on retente aussi
+      if (attempt < maxRetries && (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed'))) {
+        await new Promise(r => setTimeout(r, attempt * 1500));
+        continue;
+      }
+      if (attempt >= maxRetries) throw e;
+    }
+  }
+  throw new Error(lastError || 'Échec après plusieurs tentatives');
+}
+
+
 const SUPABASE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
 let supabaseClient = null;
@@ -2176,23 +2240,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
 
   try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL_CREATIF,
-        max_tokens: 8000,
-        messages: [{ role: "user", content: storyPrompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
-      throw new Error('(' + res.status + ') ' + detail);
-    }
-
-    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const raw = await callAI(MODEL_CREATIF, 8000, storyPrompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
 
@@ -2351,19 +2399,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
 
   try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL_RAPIDE,
-        max_tokens: 8000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error('Erreur storyboard');
-    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
@@ -2576,23 +2612,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
 
   try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL_RAPIDE,
-        max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
-      throw new Error('(' + res.status + ') ' + detail);
-    }
-
-    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 
@@ -2898,24 +2918,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant","strategie_retention":"où placer les relances pour tenir jusqu'au bout","strategie_cta":"l'action précise à demander en fin de script"}`;
 
-    const briefRes = await fetch("/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: MODEL_RAPIDE,
-        max_tokens: 2000,
-        messages: [{ role: "user", content: briefPrompt }]
-      })
-    });
-
-    const briefData = await briefRes.json();
-    if (!briefRes.ok) {
-      const detail = briefData.error?.message || briefData.message || JSON.stringify(briefData).slice(0, 150);
-      throw new Error('Phase 1 (' + briefRes.status + ') : ' + detail);
-    }
-    const briefRaw = briefData.content?.map(b => b.text || '').join('') || '';
+    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt);
     const brief = parseAIResponse(briefRaw) || {};
 
     // ════════════════════════════════════════════
@@ -2977,24 +2980,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
-    const writeRes = await fetch("/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: MODEL_CREATIF,
-        max_tokens: 8000,
-        messages: [{ role: "user", content: writePrompt }]
-      })
-    });
-
-    const writeData = await writeRes.json();
-    if (!writeRes.ok) {
-      const detail = writeData.error?.message || writeData.message || JSON.stringify(writeData).slice(0, 150);
-      throw new Error('Phase 2 (' + writeRes.status + ') : ' + detail);
-    }
-    const writeRaw = writeData.content?.map(b => b.text || '').join('') || '';
+    const writeRaw = await callAI(MODEL_CREATIF, 8000, writePrompt);
     let parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
 
@@ -3546,22 +3532,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 {"storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
 
   try {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: MODEL_RAPIDE,
-        max_tokens: 8000,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || 'Erreur');
-
-    const raw = data.content?.map(b => b.text || '').join('') || '';
+    const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
