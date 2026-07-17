@@ -1564,6 +1564,17 @@ footer strong{color:var(--gold)}
 // ═══════════════════════════════════════════════════════════
 //  SUPABASE — Sauvegarde permanente des générations
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  MODÈLES IA — Sonnet pour le créatif, Haiku pour le reste
+//  Pour changer un modèle plus tard, modifie juste ces 2 lignes.
+// ═══════════════════════════════════════════════════════════
+const MODEL_CREATIF = "claude-sonnet-5";              // Rédacteur + Storytelling (qualité)
+const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, storyboards (vitesse)
+
+// Avec Sonnet sur le rédacteur, la critique/révision est souvent inutile.
+// false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
+const CRITIQUE_ACTIVE = false;
+
 const SUPABASE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
 let supabaseClient = null;
@@ -2169,7 +2180,7 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL_CREATIF,
         max_tokens: 8000,
         messages: [{ role: "user", content: storyPrompt }]
       })
@@ -2344,7 +2355,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL_RAPIDE,
         max_tokens: 8000,
         messages: [{ role: "user", content: prompt }]
       })
@@ -2569,7 +2580,7 @@ Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL_RAPIDE,
         max_tokens: 4000,
         messages: [{ role: "user", content: prompt }]
       })
@@ -2893,7 +2904,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL_RAPIDE,
         max_tokens: 2000,
         messages: [{ role: "user", content: briefPrompt }]
       })
@@ -2972,7 +2983,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL_CREATIF,
         max_tokens: 8000,
         messages: [{ role: "user", content: writePrompt }]
       })
@@ -2987,6 +2998,12 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     let parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
 
+    // ══════════════════════════════════════
+    //  PHASES 3-4 (Critique + Réviseur) — optionnelles
+    //  Désactivées par défaut car le Rédacteur Sonnet écrit déjà très bien.
+    // ══════════════════════════════════════
+    let critique = null;
+    if (CRITIQUE_ACTIVE) {
     // ══════════════════════════════════════
     //  PHASE 3 — LE CRITIQUE (agent indépendant)
     //  Juge le travail du rédacteur sans l'avoir écrit. Objectif.
@@ -3023,13 +3040,13 @@ Identifie les FAIBLESSES CONCRÈTES avec précision (cite les passages probléma
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise 1 avec le passage concerné","faiblesse 2"],"points_forts":["ce qui marche"],"instructions_revision":"instructions précises et actionnables pour le réviseur : quoi corriger exactement et comment"}`;
 
-    let critique = null;
+    critique = null;
     try {
       const critiqueRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
+          model: MODEL_RAPIDE,
           max_tokens: 2000,
           messages: [{ role: "user", content: critiquePrompt }]
         })
@@ -3077,7 +3094,7 @@ Fournis les 5 hooks améliorés et le script révisé complet.`;
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
+            model: MODEL_CREATIF,
             max_tokens: 8000,
             messages: [{ role: "user", content: revisePrompt }]
           })
@@ -3092,6 +3109,8 @@ Fournis les 5 hooks améliorés et le script révisé complet.`;
           }
         }
       } catch(e) { /* si la révision échoue, on garde la version du rédacteur */ }
+    }
+
     }
 
     // ══════════════════════════════════════
@@ -3134,7 +3153,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
+          model: MODEL_CREATIF,
           max_tokens: 8000,
           messages: [{ role: "user", content: correctionPrompt }]
         })
@@ -3533,7 +3552,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL_RAPIDE,
         max_tokens: 8000,
         messages: [{ role: "user", content: prompt }]
       })
