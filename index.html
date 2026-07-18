@@ -992,6 +992,55 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 @media(max-width:600px){
   #scrollTopBtn{bottom:18px;right:18px;width:44px;height:44px;font-size:1.2rem}
 }
+
+/* ── MENU LATÉRAL (SIDEBAR) ── */
+.menu-toggle{
+  background:transparent;border:1px solid rgba(201,168,76,0.35);
+  color:var(--gold-light);font-size:1.1rem;line-height:1;
+  width:42px;height:42px;border-radius:10px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all 0.2s;
+}
+.menu-toggle:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+.sidebar-overlay{
+  position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.6);
+  opacity:0;visibility:hidden;transition:opacity 0.3s, visibility 0.3s;
+}
+.sidebar-overlay.active{opacity:1;visibility:visible}
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;z-index:301;
+  width:290px;max-width:82vw;
+  background:var(--bg-mid);border-right:1px solid var(--border);
+  transform:translateX(-100%);transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  display:flex;flex-direction:column;padding:24px 22px;
+  box-shadow:4px 0 30px rgba(0,0,0,0.4);
+}
+.sidebar.active{transform:translateX(0)}
+.sidebar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.sidebar-logo{font-family:'Cinzel',serif;font-weight:500;font-size:1.1rem;letter-spacing:0.16em;color:var(--white)}
+.sidebar-logo em{color:var(--gold);font-style:normal}
+.sidebar-close{background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;padding:4px}
+.sidebar-close:hover{color:#fff}
+.sidebar-counter{
+  background:rgba(201,168,76,0.08);border:1px solid var(--border-soft);
+  border-radius:10px;padding:16px;margin-bottom:24px;text-align:center;
+}
+.sidebar-counter-label{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);opacity:0.7;margin-bottom:6px}
+.sidebar-counter-value{font-family:'Playfair Display',serif;font-size:1.15rem;color:#fff}
+.sidebar-nav{display:flex;flex-direction:column;gap:6px;flex:1}
+.sidebar-item{
+  display:flex;align-items:center;gap:12px;
+  background:transparent;border:none;text-align:left;
+  color:rgba(255,255,255,0.85);font-family:'Tenor Sans',sans-serif;font-size:0.95rem;
+  padding:14px 14px;border-radius:8px;cursor:pointer;transition:background 0.2s;
+  text-decoration:none;
+}
+.sidebar-item:hover{background:rgba(255,255,255,0.05)}
+.sidebar-icon{font-size:1.1rem;width:24px;text-align:center}
+.sidebar-footer{
+  font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:rgba(255,255,255,0.3);text-align:center;padding-top:20px;
+}
+body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1007,10 +1056,40 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 <nav>
   <div class="logo" onclick="goHome()" style="cursor:pointer">SCRIPT<em>URA</em></div>
   <div class="nav-right">
-    <button class="action-btn nav-code-btn icon-only" onclick="openModal()" title="J'ai un code d'accès" aria-label="J'ai un code">🔓</button>
-    <button class="action-btn" onclick="openHistory()">📁 Mes générations</button>
+    <button class="menu-toggle" onclick="openSidebar()" aria-label="Ouvrir le menu" title="Menu">☰</button>
   </div>
 </nav>
+
+<!-- ══ MENU LATÉRAL ══ -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <span class="sidebar-logo">SCRIPT<em>URA</em></span>
+    <button class="sidebar-close" onclick="closeSidebar()" aria-label="Fermer">✕</button>
+  </div>
+
+  <div class="sidebar-counter" id="sidebarCounter">
+    <div class="sidebar-counter-label">Générations</div>
+    <div class="sidebar-counter-value" id="sidebarCounterValue">—</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <button class="sidebar-item" onclick="sidebarGo('history')">
+      <span class="sidebar-icon">📁</span> Mes générations
+    </button>
+    <button class="sidebar-item nav-code-btn" onclick="sidebarGo('code')">
+      <span class="sidebar-icon">🔓</span> J'ai un code
+    </button>
+    <button class="sidebar-item" onclick="sidebarGo('subscribe')">
+      <span class="sidebar-icon">✦</span> S'abonner
+    </button>
+    <a class="sidebar-item" href="https://wa.me/22995056424?text=Bonjour%20!%20J%27ai%20une%20question%20sur%20Scriptura" target="_blank" rel="noopener" onclick="closeSidebar()">
+      <span class="sidebar-icon">💬</span> Nous contacter
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">Scriptura · L'OS du créateur francophone</div>
+</aside>
 
 <!-- ══ MODULE HISTORIQUE ══ -->
 <section id="historyFlow" style="display:none">
@@ -2063,6 +2142,44 @@ function updateScrollBtn() {
 }
 window.addEventListener('scroll', updateScrollBtn);
 window.addEventListener('resize', updateScrollBtn);
+
+// ── MENU LATÉRAL (SIDEBAR) ──
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('active');
+  document.getElementById('sidebarOverlay').classList.add('active');
+  updateSidebarCounter();
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('active');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+}
+function sidebarGo(action) {
+  closeSidebar();
+  if (action === 'history') { openHistory(); }
+  else if (action === 'code') { openModal(); }
+  else if (action === 'subscribe') {
+    // Ouvre WhatsApp pour s'abonner
+    window.open('https://wa.me/22995056424?text=Bonjour%20!%20je%20veux%20m%27abonner%20%C3%A0%20Scriptura%20pour%205%20000%20FCFA%2Fmois', '_blank');
+  }
+}
+// Met à jour le compteur affiché dans la sidebar
+async function updateSidebarCounter() {
+  const el = document.getElementById('sidebarCounterValue');
+  if (!el) return;
+  if (unlocked) {
+    const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+    if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) {
+      el.textContent = '✦ Illimité';
+      return;
+    }
+    const faites = await countTodayGenerations();
+    const restant = Math.max(0, LIMITE_JOUR_ABONNE - faites);
+    el.textContent = restant + ' / ' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
+  } else {
+    const restant = Math.max(0, MAX_FREE - usedGen);
+    el.textContent = restant + ' / ' + MAX_FREE + ' gratuites';
+  }
+}
 
 // ── POP-UP RAPPEL ABONNEMENT ──
 function fermerRappel() {
