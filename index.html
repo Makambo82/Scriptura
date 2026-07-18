@@ -1094,7 +1094,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 <!-- ══ MODULE HISTORIQUE ══ -->
 <section id="historyFlow" style="display:none">
   <div class="ideas-container" style="max-width:720px;margin:0 auto;padding:100px 24px 80px">
-    <button class="btn-back" onclick="goHome()" style="margin-bottom:20px">← Retour</button>
+    <button class="btn-back" onclick="navBack()" style="margin-bottom:20px">← Retour</button>
     <div class="ideas-header">
       <div class="ideas-eyebrow">Historique</div>
       <h2 class="ideas-title">Mes<br/><strong>générations.</strong></h2>
@@ -1187,7 +1187,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 <!-- ══ MODULE STORYTELLING (STYLE MAKAMBO) ══ -->
 <section id="storyFlow" style="display:none">
   <div class="ideas-container">
-    <button class="btn-back" onclick="backToHome()">← Retour</button>
+    <button class="btn-back" onclick="navBack()">← Retour</button>
     <div class="ideas-header">
       <div class="ideas-eyebrow">Mode Storytelling · Signature</div>
       <h2 class="ideas-title">Transforme un sujet en<br/><strong>récit immersif.</strong></h2>
@@ -1256,7 +1256,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 <!-- ══ MODULE GÉNÉRATEUR D'IDÉES ══ -->
 <section id="ideasFlow" style="display:none">
   <div class="ideas-container">
-    <button class="btn-back" onclick="backToHome()">← Retour</button>
+    <button class="btn-back" onclick="navBack()">← Retour</button>
     <div class="ideas-header">
       <div class="ideas-eyebrow">Générateur d'idées</div>
       <h2 class="ideas-title">Trouvons tes<br/><strong>prochaines idées virales.</strong></h2>
@@ -1390,7 +1390,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 
 <section id="flow" style="display:none">
 
-  <button class="btn-back" onclick="backToHome()" style="margin-bottom:20px">← Retour</button>
+  <button class="btn-back" onclick="navBack()" style="margin-bottom:20px">← Retour</button>
 
   <!-- ÉTAPE 1 — OBJECTIF -->
   <div class="step active" id="step1">
@@ -1900,6 +1900,7 @@ async function deleteGenerations(ids) {
 
 // Ouvre le panneau historique
 async function openHistory() {
+  pushNav(); // mémoriser l'écran d'où on vient
   _selectMode = false;
   if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
   document.getElementById('homePage').style.display = 'none';
@@ -2040,6 +2041,9 @@ async function deleteSelected() {
 function reopenGeneration(i) {
   const g = window._historyData[i];
   if (!g || !g.contenu) return;
+  // Empiler 'historyFlow' pour que Retour ramène à la liste des générations
+  if (navStack[navStack.length - 1] !== 'historyFlow') navStack.push('historyFlow');
+  _skipPush = true; // empêcher les fonctions render d'empiler par-dessus
 
   document.getElementById('historyFlow').style.display = 'none';
   document.getElementById('homePage').style.display = 'none';
@@ -2060,6 +2064,7 @@ function reopenGeneration(i) {
     renderIdeas(g.contenu.idees, g.contenu.niche || '');
   }
 
+  _skipPush = false; // réactiver l'empilement normal
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2343,6 +2348,7 @@ let currentScript = null;
 //  NAVIGATION ENTRE MODES
 // ══════════════════════════════════════
 function chooseMode(mode) {
+  pushNav(); // mémoriser l'écran d'où on vient
   // Masquer la page d'accueil et tous les modules
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('flow').style.display = 'none';
@@ -2360,7 +2366,81 @@ function chooseMode(mode) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ═══════════════════════════════════════════════════════════
+//  HISTORIQUE DE NAVIGATION (pile) — pour un vrai "Retour" pas à pas
+// ═══════════════════════════════════════════════════════════
+let navStack = [];
+
+// Identifie l'écran actuellement visible
+function currentScreen() {
+  // Un résultat affiché est un "sous-écran" prioritaire
+  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
+  for (const rid in results) {
+    const el = document.getElementById(rid);
+    if (el && el.style.display !== 'none' && el.offsetParent !== null) {
+      return rid; // ex: 'ideasResults'
+    }
+  }
+  // Sinon, l'écran/module visible
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'historyFlow']) {
+    const el = document.getElementById(id);
+    if (el && el.style.display !== 'none') return id;
+  }
+  return 'homePage';
+}
+
+// Empile l'écran courant avant d'en changer
+let _skipPush = false;
+function pushNav() {
+  if (_skipPush) return; // réouverture depuis l'historique : empilement géré à la main
+  const s = currentScreen();
+  // Éviter les doublons consécutifs
+  if (navStack[navStack.length - 1] !== s) navStack.push(s);
+}
+
+// Affiche un écran donné (sans toucher à la pile)
+function showScreen(screen) {
+  // Masquer tout
+  ['homePage','flow','ideasFlow','storyFlow','historyFlow'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const pw = document.getElementById('paywall');
+  if (pw) pw.style.display = 'none';
+
+  // Cas d'un sous-écran résultat
+  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
+  if (resultParent[screen]) {
+    document.getElementById(resultParent[screen]).style.display = 'block';
+    document.getElementById(screen).style.display = 'block';
+  } else if (screen === 'homePage') {
+    document.getElementById('homePage').style.display = 'block';
+  } else {
+    document.getElementById(screen).style.display = 'block';
+    // Masquer les résultats de ce module (on revient au formulaire)
+    const childRes = { 'flow':'results', 'ideasFlow':'ideasResults', 'storyFlow':'storyResults' };
+    if (childRes[screen]) {
+      const r = document.getElementById(childRes[screen]);
+      if (r) r.style.display = 'none';
+    }
+    // Rafraîchir la liste des générations en y revenant
+    if (screen === 'historyFlow' && typeof renderHistory === 'function') renderHistory();
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Retour pas à pas : revient à l'écran précédent de la pile
+function navBack() {
+  if (navStack.length > 0) {
+    const prev = navStack.pop();
+    showScreen(prev);
+  } else {
+    showScreen('homePage');
+  }
+}
+
 function goHome() {
+  navStack = []; // réinitialiser l'historique quand on revient à l'accueil
   // Réafficher la page d'accueil, masquer tous les modules
   document.getElementById('homePage').style.display = 'block';
   document.getElementById('flow').style.display = 'none';
@@ -2770,6 +2850,7 @@ function renderStory(d) {
     });
   }, 100);
 
+  pushNav();
   document.getElementById('storyResults').style.display = 'block';
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -3090,6 +3171,7 @@ function renderIdeas(idees, niche) {
       </div>
     </div>`).join('');
 
+  pushNav();
   document.getElementById('ideasResults').style.display = 'block';
   document.getElementById('ideasResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -3901,6 +3983,7 @@ function renderResults(d, niche, sujet) {
     list.appendChild(card);
   });
 
+  pushNav();
   section.style.display = 'block';
   setTimeout(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
 }
