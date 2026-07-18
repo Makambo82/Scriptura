@@ -366,10 +366,9 @@ footer{
 footer strong{color:var(--gold)}
 
 @media(max-width:600px){
-  .nav-tag{display:none}
   nav{padding:16px 20px}
-  .nav-history-btn{font-size:0.55rem;padding:7px 10px}
-  nav{padding:16px 20px}
+  .nav-tag{font-size:0.5rem}
+  .action-btn{font-size:0.55rem;padding:9px 14px}
   #flow{padding:80px 20px 100px}
   .context-card{padding:24px 20px}
   .out-header{padding:20px 20px}
@@ -954,6 +953,21 @@ footer strong{color:var(--gold)}
 .modal-btn-ghost:hover{color:rgba(255,255,255,0.9)}
 /* Bouton "J'ai un code" dans le nav — masqué si déjà abonné */
 body.is-unlocked .nav-code-btn{display:none}
+
+/* ── BARRE D'ACTIONS (sous le ticker) ── */
+.action-bar{
+  display:flex;justify-content:center;gap:12px;
+  padding:16px 20px;flex-wrap:wrap;
+  background:var(--bg);border-bottom:1px solid var(--border-soft);
+}
+.action-btn{
+  background:transparent;border:1px solid rgba(201,168,76,0.35);
+  color:var(--gold-light);font-family:'Cinzel',serif;font-size:0.62rem;
+  letter-spacing:0.1em;text-transform:uppercase;padding:10px 18px;
+  border-radius:999px;cursor:pointer;transition:all 0.2s;white-space:nowrap;
+}
+.action-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+body.is-unlocked .action-bar .nav-code-btn{display:none}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -963,8 +977,6 @@ body.is-unlocked .nav-code-btn{display:none}
 <nav>
   <div class="logo" onclick="goHome()" style="cursor:pointer">SCRIPT<em>URA</em></div>
   <div class="nav-right">
-    <button class="nav-history-btn nav-code-btn" onclick="openModal()">🔓 J'ai un code</button>
-    <button class="nav-history-btn" onclick="openHistory()">📁 Mes générations</button>
     <div class="nav-tag">L'OS du créateur francophone</div>
   </div>
 </nav>
@@ -1033,6 +1045,10 @@ body.is-unlocked .nav-code-btn{display:none}
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
   <div class="hero-eyebrow">Pour les créateurs francophones du monde entier</div>
+<div class="action-bar">
+  <button class="action-btn nav-code-btn" onclick="openModal()">🔓 J'ai un code</button>
+  <button class="action-btn" onclick="openHistory()">📁 Mes générations</button>
+</div>
   <h1>
     Ton contenu,<br/>
     <strong>réinventé.</strong>
