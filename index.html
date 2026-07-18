@@ -2151,16 +2151,18 @@ function openModal() {
 // ── BOUTON INTELLIGENT HAUT/BAS ──
 // Descend en bas si on est en haut, remonte en haut si on est en bas.
 function scrollSmart() {
-  const enBas = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100);
-  if (enBas) {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  } else {
+  // Va dans le sens indiqué par la flèche (cohérent avec le sens du scroll)
+  if (_scrollDir === 'down') {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 }
 // Garde l'ancien nom au cas où il est appelé ailleurs
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
+let _lastScrollY = 0;
+let _scrollDir = 'down'; // sens courant du scroll
 function updateScrollBtn() {
   const btn = document.getElementById('scrollTopBtn');
   if (!btn) return;
@@ -2169,10 +2171,16 @@ function updateScrollBtn() {
   if (!scrollable) { btn.classList.remove('visible'); return; }
 
   btn.classList.add('visible');
-  const enBas = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100);
-  // Change la flèche selon la position
-  btn.textContent = enBas ? '↑' : '↓';
-  btn.setAttribute('title', enBas ? 'Remonter en haut' : 'Descendre en bas');
+
+  const y = window.scrollY;
+  // Détecter le sens du scroll (avec un petit seuil pour éviter les micro-mouvements)
+  if (y > _lastScrollY + 4) _scrollDir = 'down';
+  else if (y < _lastScrollY - 4) _scrollDir = 'up';
+  _lastScrollY = y;
+
+  // La flèche suit le sens du scroll
+  btn.textContent = (_scrollDir === 'down') ? '↓' : '↑';
+  btn.setAttribute('title', (_scrollDir === 'down') ? 'Descendre en bas' : 'Remonter en haut');
 }
 window.addEventListener('scroll', updateScrollBtn);
 window.addEventListener('resize', updateScrollBtn);
@@ -2367,6 +2375,23 @@ function goHome() {
 }
 
 function backToHome() {
+  // Si des résultats sont affichés, "Retour" ramène au formulaire (page précédente)
+  // plutôt que directement à l'accueil.
+  const resultsBlocks = ['results', 'ideasResults', 'storyResults'];
+  let closedSomething = false;
+  for (const id of resultsBlocks) {
+    const el = document.getElementById(id);
+    if (el && el.style.display !== 'none' && el.offsetParent !== null) {
+      el.style.display = 'none';
+      closedSomething = true;
+    }
+  }
+  if (closedSomething) {
+    // On reste dans le mode, on remonte juste au formulaire
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  // Sinon, retour à l'accueil
   goHome();
 }
 
@@ -2555,15 +2580,40 @@ EN PLUS DU RÉCIT, génère aussi :
 - Une LÉGENDE prête à publier (accrocheuse, avec appel à commenter/partager)
 - 8 HASHTAGS pertinents pour la portée
 
+Vise l'excellence absolue (score global 90-100). EVALUATION HONNETE : évalue ton récit avec RIGUEUR, sans gonfler les chiffres. Le score doit être MERITE.
+- "viral" : potentiel de partage
+- "narration" : qualité du récit, de l'accroche à la chute
+- "engagement" : capacité à retenir l'attention sans temps mort
+- "emotion" : impact émotionnel réel
+- "retention" : pourcentage (0-100) d'auditeurs qui écouteront jusqu'à la chute finale, selon la force de l'accroche, la tension maintenue et la promesse de résolution.
+Si ton récit ne mérite pas 90+, réécris-le AVANT de répondre.
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":95,"hook":95,"tension":90,"emotion":92},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"legende":"la légende prête à publier","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"legende":"la légende prête à publier","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
 Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
 
   try {
     const raw = await callAI(MODEL_CREATIF, 8000, storyPrompt);
-    const parsed = parseAIResponse(raw);
+    let parsed = parseAIResponse(raw);
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
+
+    // ── SCORE RÉEL : régénère UNE fois si le score global est < 90 ──
+    function scoreGlobalStory(p) {
+      if (!p || !p.score) return 100;
+      const s = p.score;
+      const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
+      return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
+    }
+    if (scoreGlobalStory(parsed) < 90) {
+      try {
+        const raw2 = await callAI(MODEL_CREATIF, 8000, storyPrompt);
+        const parsed2 = parseAIResponse(raw2);
+        if (parsed2 && parsed2.recit && parsed2.score && scoreGlobalStory(parsed2) > scoreGlobalStory(parsed)) {
+          parsed = parsed2;
+        }
+      } catch(e) { /* garde la première version si échec */ }
+    }
 
     if (!unlocked) {
       usedGen++;
@@ -2592,6 +2642,31 @@ function renderStory(d) {
   // Stocker pour storyboard et copie
   currentStory = d;
   currentStoryText = fullText;
+
+  // ── SCRIPTURA SCORE (adapté au récit) ──
+  let scoreHTML = '';
+  if (d.score) {
+    const s = d.score;
+    const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
+    const globalScore = vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 0;
+    scoreHTML = `
+      <div class="score-card">
+        <div class="score-header">
+          <div class="score-title">◆ Scriptura Score</div>
+          <div class="score-global">
+            <span class="score-global-num">${globalScore}</span>
+            <span class="score-global-max">/ 100</span>
+          </div>
+        </div>
+        <div class="score-metrics">
+          ${metricBar('Potentiel viral', s.viral)}
+          ${metricBar('Force narrative', s.narration)}
+          ${metricBar('Engagement', s.engagement)}
+          ${metricBar('Force émotionnelle', s.emotion)}
+          ${metricBar('Rétention estimée', s.retention)}
+        </div>
+      </div>`;
+  }
 
   // Construire les sections (comme le mode script : accordéon avec +)
   const sections = [];
@@ -2630,7 +2705,6 @@ function renderStory(d) {
       <div class="out-section">
         <div class="story-block">${(d.recit || []).map(s => `
           <div class="story-segment">
-            <div class="story-segment-label">${s.segment || ''}</div>
             <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
           </div>`).join('')}</div>
         <button class="copy-btn" onclick="copyStory(this)">◆ Copier le récit complet</button>
@@ -2675,11 +2749,10 @@ function renderStory(d) {
       </div>`
   });
 
-  // Rendu accordéon (1re carte ouverte, les autres fermées — clic sur + pour ouvrir)
-  out.innerHTML = sections.map((sec, i) => `
+  // Rendu : score en haut, puis accordéon (1re carte ouverte — clic sur + pour ouvrir)
+  out.innerHTML = scoreHTML + sections.map((sec, i) => `
     <div class="out-card${i === 0 ? ' open' : ''}">
       <div class="out-header" onclick="toggleCard(this.parentElement)">
-        <span class="out-num">№ ${String(i+1).padStart(2,'0')}</span>
         <div class="out-title">${sec.titre}</div>
         <div class="out-toggle">+</div>
       </div>
@@ -2689,6 +2762,13 @@ function renderStory(d) {
     </div>`).join('');
 
   out.dataset.fulltext = fullText;
+
+  // Animer les barres de score
+  setTimeout(() => {
+    document.querySelectorAll('#storyOutput .metric-fill').forEach(bar => {
+      bar.style.width = bar.dataset.width + '%';
+    });
+  }, 100);
 
   document.getElementById('storyResults').style.display = 'block';
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2985,24 +3065,28 @@ function renderIdeas(idees, niche) {
   generatedIdeas = idees;
   const list = document.getElementById('ideasList');
   list.innerHTML = idees.map((idea, i) => `
-    <div class="idea-card">
-      <div class="idea-number">Idée ${String(i+1).padStart(2,'0')}</div>
-      <div class="idea-titre">${idea.titre || ''}</div>
-      <div class="idea-section">
-        <div class="idea-section-label">◆ L'angle</div>
-        <div class="idea-section-text">${idea.angle || ''}</div>
+    <div class="out-card idea-card">
+      <div class="out-header" onclick="toggleCard(this.parentElement)">
+        <div class="out-title idea-titre">${idea.titre || ''}</div>
+        <div class="out-toggle">+</div>
       </div>
-      <div class="idea-section">
-        <div class="idea-section-label">◆ Pourquoi ça marche</div>
-        <div class="idea-section-text">${idea.pourquoi || ''}</div>
-      </div>
-      <div class="idea-section">
-        <div class="idea-section-label">◆ Hook de départ</div>
-        <div class="idea-hook">"${idea.hook || ''}"</div>
-      </div>
-      <div class="idea-actions">
-        <button class="idea-btn-script" onclick="useIdeaForScript(${i})">🎬 Générer le script complet</button>
-        <button class="idea-btn-copy" onclick="copyIdea(${i}, this)">◆ Copier</button>
+      <div class="out-body">
+        <div class="idea-section">
+          <div class="idea-section-label">◆ L'angle</div>
+          <div class="idea-section-text">${idea.angle || ''}</div>
+        </div>
+        <div class="idea-section">
+          <div class="idea-section-label">◆ Pourquoi ça marche</div>
+          <div class="idea-section-text">${idea.pourquoi || ''}</div>
+        </div>
+        <div class="idea-section">
+          <div class="idea-section-label">◆ Hook de départ</div>
+          <div class="idea-hook">"${idea.hook || ''}"</div>
+        </div>
+        <div class="idea-actions">
+          <button class="idea-btn-script" onclick="useIdeaForScript(${i})">🎬 Générer le script complet</button>
+          <button class="idea-btn-copy" onclick="copyIdea(${i}, this)">◆ Copier</button>
+        </div>
       </div>
     </div>`).join('');
 
@@ -3319,9 +3403,15 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Le compte de mots doit être dans la cible ${wt.min}-${wt.max}.
 - Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.
 - Chaque phrase a une fonction, aucun remplissage.
-Écris ta meilleure version. Un critique indépendant va ensuite évaluer ton travail.
+Écris ta MEILLEURE version — vise l'excellence absolue (score global 90-100). Chaque script doit être digne d'un créateur professionnel.
 
-Pour le champ "retention" : estime le pourcentage (0-100) de spectateurs qui regarderont la vidéo jusqu'au bout. Base-toi sur la force du hook, le rythme, les relances de curiosité et la promesse de la chute. Un script sans temps mort avec une vraie tension mérite 80+. Un script qui traîne mérite moins.
+EVALUATION HONNETE DU SCORE : après avoir écrit, évalue ton propre travail avec RIGUEUR et HONNETETE, comme un critique exigeant. Ne gonfle pas les chiffres artificiellement : un bon score doit être MERITE par la qualité réelle du script.
+- "viral" : potentiel de partage réel
+- "hook" : le hook arrête-t-il vraiment le scroll en 2 secondes ?
+- "engagement" : maintient-il l'attention sans temps mort ?
+- "emotion" : provoque-t-il une vraie émotion ?
+- "retention" : pourcentage (0-100) de spectateurs qui regarderont jusqu'au bout, selon la force du hook, le rythme et la promesse de la chute.
+Si ton script ne mérite pas 90+, réécris-le AVANT de répondre jusqu'à ce qu'il soit réellement excellent.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A percutant","titre B percutant"]}
@@ -3331,6 +3421,24 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     const writeRaw = await callAI(MODEL_CREATIF, 8000, writePrompt);
     let parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
+
+    // ── SCORE RÉEL : régénère UNE fois si le score global est < 90 ──
+    function scoreGlobal(p) {
+      if (!p || !p.score) return 100; // pas de score = on ne bloque pas
+      const s = p.score;
+      const vals = [s.viral, s.hook, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
+      return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
+    }
+    if (scoreGlobal(parsed) < 90) {
+      try {
+        const writeRaw2 = await callAI(MODEL_CREATIF, 8000, writePrompt);
+        const parsed2 = parseAIResponse(writeRaw2);
+        // On garde la meilleure des deux versions
+        if (parsed2 && parsed2.score && scoreGlobal(parsed2) > scoreGlobal(parsed)) {
+          parsed = parsed2;
+        }
+      } catch(e) { /* si la 2e tentative échoue, on garde la première */ }
+    }
 
     // ══════════════════════════════════════
     //  PHASES 3-4 (Critique + Réviseur) — optionnelles
@@ -3720,7 +3828,6 @@ function renderResults(d, niche, sujet) {
         <div class="out-section-label">Script · ${state.plateforme}</div>
         <div class="script-block" id="scriptBlock">${(d.script || []).map(s => `
           <div class="script-row">
-            <span class="script-time">⏱ ${s.temps}</span>
             <div class="script-text">${s.texte}</div>
           </div>`).join('')}
         </div>
@@ -3783,7 +3890,6 @@ function renderResults(d, niche, sujet) {
     const btnId = 'copybtn_' + i;
     card.innerHTML = `
       <div class="out-header" onclick="toggleCard(this.parentElement)">
-        <span class="out-num">№ ${sec.num}</span>
         <div class="out-title">${sec.titre}</div>
         <div class="out-toggle">+</div>
       </div>
