@@ -979,6 +979,12 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<script>
+  // Appliquer immédiatement l'état abonné pour éviter tout clignotement du bouton cadenas
+  if (localStorage.getItem('scriptura_unlocked') === 'true') {
+    document.body.classList.add('is-unlocked');
+  }
+</script>
 
 <!-- NAV -->
 <nav>
@@ -3768,7 +3774,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
     <div class="modal-error" id="modalError">Code invalide. Vérifie et réessaie.</div>
     <input class="modal-input" id="codeInput" placeholder="Entrer ton code ici" maxlength="40"/>
     <button class="modal-btn" onclick="verifyCode()">Débloquer l'accès illimité</button>
-    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+m%27abonner+%C3%A0+Scriptura+pour+3+000+FCFA%2Fmois" target="_blank" class="modal-wa">
+    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+m%27abonner+%C3%A0+Scriptura+pour+5+000+FCFA%2Fmois" target="_blank" class="modal-wa">
       💬 Je n'ai pas encore de code — S'abonner
     </a>
   </div>
@@ -3796,9 +3802,9 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
     <div class="paywall-tag">Accès Illimité</div>
     <h3>Tu as utilisé tes<br/>5 générations gratuites.</h3>
     <p>Pour continuer à générer des scripts viraux sans limite, passe à l'accès illimité Scriptura.</p>
-    <div class="paywall-price">3 000 FCFA</div>
+    <div class="paywall-price">5 000 FCFA</div>
     <div class="paywall-period">par mois · Mobile Money accepté</div>
-    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+l%27acc%C3%A8s+illimit%C3%A9+%C3%A0+Scriptura+%E2%80%94+3+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
+    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+l%27acc%C3%A8s+illimit%C3%A9+%C3%A0+Scriptura+%E2%80%94+5+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
       S'abonner via WhatsApp →
     </a>
     <span class="paywall-unlock" onclick="openModal()">J'ai déjà un code d'accès</span>
