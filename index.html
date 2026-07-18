@@ -1699,13 +1699,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 //  SUPABASE — Sauvegarde permanente des générations
 // ═══════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════
-//  MODÈLES IA — Sonnet pour le créatif, Haiku pour le reste
-//  Pour changer un modèle plus tard, modifie juste ces 2 lignes.
+//  MODÈLES IA — Haiku partout (rapide et fiable)
+//  Pour tester un autre modèle plus tard, modifie juste ces 2 lignes.
 // ═══════════════════════════════════════════════════════════
-const MODEL_CREATIF = "claude-sonnet-5";              // Rédacteur + Storytelling (qualité)
+const MODEL_CREATIF = "claude-haiku-4-5-20251001";    // Haiku partout (rapide et fiable)
 const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, storyboards (vitesse)
 
-// Avec Sonnet sur le rédacteur, la critique/révision est souvent inutile.
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
 const CRITIQUE_ACTIVE = false;
 const LIMITE_JOUR_ABONNE = 15;   // Générations max par jour pour un abonné (anti-abus)
@@ -2882,7 +2881,7 @@ Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne res
 - Si la niche est géopolitique : ancre dans les enjeux, tensions, alliances et réalités actuelles et historiques réelles de ${geo}
 Une idée qui pourrait s'appliquer à n'importe quelle région est une idée ÉCHOUÉE. Chaque idée doit être impossible à imaginer sans connaître ${geo}.` : ''}
 
-MISSION : Génère 6 idées de vidéos à FORT POTENTIEL VIRAL. 
+MISSION : Génère 12 idées de vidéos à FORT POTENTIEL VIRAL. 
 
 RÈGLES ABSOLUES :
 - INTERDIT les idées génériques ("Les 5 erreurs à éviter", "Comment réussir en...", "Mon top 10"). Ça, tout le monde le fait.
@@ -2901,10 +2900,10 @@ Pour CHAQUE idée, fournis :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"idees":[{"titre":"...","angle":"...","pourquoi":"...","hook":"..."}]}
 
-Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
+Génère exactement 12 idées, toutes différentes et toutes à fort potentiel.`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 
@@ -3509,12 +3508,9 @@ const GEN_STEPS = {
   ],
   ideas: [
     'Analyse de ta niche et ton audience…',
-    'Exploration du terrain géographique…',
-    'Recherche d\'angles méconnus…',
-    'Génération de concepts viraux…',
-    'Filtrage des idées génériques…',
-    'Calibrage des hooks de départ…',
-    'Sélection des meilleures idées…'
+    'Exploration des angles à fort potentiel…',
+    'Recherche de sujets méconnus…',
+    'Sélection des idées les plus virales…'
   ],
   story: [
     'Analyse du sujet et de sa tension…',
