@@ -944,6 +944,16 @@ footer strong{color:var(--gold)}
   transition:color 0.2s;
 }
 .history-delete:hover{color:#E88}
+
+/* Bouton "Plus tard" du pop-up rappel */
+.modal-btn-ghost{
+  width:100%;padding:12px;background:transparent;color:rgba(255,255,255,0.6);
+  font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;
+  border:none;cursor:pointer;margin-top:10px;transition:color 0.2s;
+}
+.modal-btn-ghost:hover{color:rgba(255,255,255,0.9)}
+/* Bouton "J'ai un code" dans le nav — masqué si déjà abonné */
+body.is-unlocked .nav-code-btn{display:none}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -953,6 +963,7 @@ footer strong{color:var(--gold)}
 <nav>
   <div class="logo" onclick="goHome()" style="cursor:pointer">SCRIPT<em>URA</em></div>
   <div class="nav-right">
+    <button class="nav-history-btn nav-code-btn" onclick="openModal()">🔓 J'ai un code</button>
     <button class="nav-history-btn" onclick="openHistory()">📁 Mes générations</button>
     <div class="nav-tag">L'OS du créateur francophone</div>
   </div>
@@ -1979,6 +1990,26 @@ function openModal() {
   setTimeout(() => document.getElementById('codeInput').focus(), 100);
 }
 
+// ── POP-UP RAPPEL ABONNEMENT ──
+function fermerRappel() {
+  document.getElementById('rappelOverlay').classList.remove('active');
+}
+function rappelVersCode() {
+  fermerRappel();
+  openModal();
+}
+// Déclenche le rappel après la 3e génération, une seule fois par appareil
+function checkRappelAbonnement() {
+  if (unlocked) return; // déjà abonné, pas de rappel
+  if (localStorage.getItem('scriptura_rappel_vu')) return; // déjà montré
+  if (usedGen === 3) {
+    localStorage.setItem('scriptura_rappel_vu', 'true');
+    setTimeout(() => {
+      document.getElementById('rappelOverlay').classList.add('active');
+    }, 1200); // petit délai après l'affichage du résultat
+  }
+}
+
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
   document.getElementById('modalError').style.display = 'none';
@@ -2039,6 +2070,7 @@ async function verifyCode() {
       unlocked = true;
       localStorage.setItem('scriptura_unlocked', 'true');
       localStorage.setItem('scriptura_code', code);
+      document.body.classList.add('is-unlocked');
       closeModal();
       renderGenCounter();
       document.getElementById('paywall').style.display = 'none';
@@ -2056,6 +2088,7 @@ async function verifyCode() {
     unlocked = true;
     localStorage.setItem('scriptura_unlocked', 'true');
     localStorage.setItem('scriptura_code', code);
+    document.body.classList.add('is-unlocked');
     closeModal();
     renderGenCounter();
     document.getElementById('paywall').style.display = 'none';
@@ -2311,6 +2344,7 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       renderGenCounter();
+      checkRappelAbonnement();
     }
 
     renderStory(parsed);
@@ -2687,6 +2721,7 @@ Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       renderGenCounter();
+      checkRappelAbonnement();
     }
 
     renderIdeas(parsed.idees, niche);
@@ -3232,6 +3267,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       renderGenCounter();
+      checkRappelAbonnement();
     }
 
     // Sauvegarder le contexte pour l'ajustement du script
@@ -3645,10 +3681,17 @@ function restart() {
 
 // Fermer modal en cliquant dehors
 document.addEventListener('DOMContentLoaded', function() {
+  if (unlocked) document.body.classList.add('is-unlocked');
   const overlay = document.getElementById('modalOverlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeModal();
+    });
+  }
+  const rappelOv = document.getElementById('rappelOverlay');
+  if (rappelOv) {
+    rappelOv.addEventListener('click', function(e) {
+      if (e.target === rappelOv) fermerRappel();
     });
   }
   const codeInput = document.getElementById('codeInput');
@@ -3681,6 +3724,18 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
   });
 });
 </script>
+
+<!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
+<div class="modal-overlay" id="rappelOverlay">
+  <div class="modal">
+    <button class="modal-close" onclick="fermerRappel()">✕</button>
+    <div class="modal-tag">✨ Continue avec Scriptura</div>
+    <h3>Tu aimes<br/>Scriptura ?</h3>
+    <p>Il te reste quelques générations gratuites. Abonne-toi dès maintenant pour ne jamais être à court et débloquer l'accès complet — avec la sauvegarde de toutes tes créations.</p>
+    <button class="modal-btn" onclick="rappelVersCode()">J'ai déjà un code</button>
+    <button class="modal-btn-ghost" onclick="fermerRappel()">Plus tard</button>
+  </div>
+</div>
 
 <!-- MODAL CODE D'ACCÈS -->
 <div class="modal-overlay" id="modalOverlay">
