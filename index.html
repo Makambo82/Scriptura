@@ -2690,7 +2690,7 @@ Vise l'excellence absolue (score global 90-100). EVALUATION HONNETE : évalue to
 Si ton récit ne mérite pas 90+, réécris-le AVANT de répondre.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"legende":"la légende prête à publier","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir + la signature métapoétique"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
 Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
 
@@ -2820,9 +2820,9 @@ function renderStory(d) {
       titre: 'Légende & Hashtags',
       content: `
       <div class="out-section">
-        ${d.legende ? `<div class="legende-block">${d.legende}</div>` : ''}
+        ${d.legende ? `<div class="legende-block">${sansHashtags(d.legende)}</div>` : ''}
         ${tags.length ? `<div class="hashtags-wrap" style="margin-top:14px">${tags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>` : ''}
-        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">◆ Copier légende + hashtags</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">◆ Copier légende + hashtags</button>
       </div>`
     });
   }
@@ -2963,6 +2963,11 @@ function copyText(btn, text) {
 }
 
 // Enregistre un texte et retourne sa clé
+// Retire les hashtags (#mot) d'un texte de légende
+function sansHashtags(txt) {
+  if (!txt) return '';
+  return txt.replace(/#[\p{L}\p{N}_]+/gu, '').replace(/[ \t]{2,}/g, ' ').replace(/\s+\n/g, '\n').trim();
+}
 function storeCopyText(text) {
   const key = '__copykey_' + (window._copyKeyCounter = (window._copyKeyCounter || 0) + 1);
   window._copyStore[key] = text;
@@ -3508,7 +3513,7 @@ EVALUATION HONNETE DU SCORE : après avoir écrit, évalue ton propre travail av
 Si ton script ne mérite pas 90+, réécris-le AVANT de répondre jusqu'à ce qu'il soit réellement excellent.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
+{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
@@ -3932,9 +3937,9 @@ function renderResults(d, niche, sujet) {
       num: "04",
       content: `<div class="out-section">
         <div class="out-section-label">Légende</div>
-        <div class="legende-block">${d.legende || ''}</div>
+        <div class="legende-block">${sansHashtags(d.legende || '')}</div>
         <div class="hashtags">${(d.hashtags || []).slice(0, 5).map(h => `<span class="ht">${h.toLowerCase()}</span>`).join('')}</div>
-        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">◆ Copier légende + hashtags</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">◆ Copier légende + hashtags</button>
       </div>`
     },
     {
