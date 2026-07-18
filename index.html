@@ -1273,7 +1273,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="ideaNiche">
           <option>Choisir ta niche…</option>
-          <option>Géopolitique</option>
+          <option>Géopolitique & Actualité</option>
           <option>Histoire</option>
           <option>Faits divers & Crime</option>
           <option>Célébrités & People</option>
@@ -1587,7 +1587,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="niche">
           <option>Choisir ta niche…</option>
-          <option>Géopolitique</option>
+          <option>Géopolitique & Actualité</option>
           <option>Histoire</option>
           <option>Faits divers & Crime</option>
           <option>Célébrités & People</option>
@@ -2588,30 +2588,29 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
 function renderStory(d) {
   const out = document.getElementById('storyOutput');
   const fullText = (d.recit || []).map(s => s.texte).join('\n\n');
-  const wordCount = fullText.split(/\s+/).filter(Boolean).length;
 
   // Stocker pour storyboard et copie
   currentStory = d;
   currentStoryText = fullText;
 
-  let html = '';
+  // Construire les sections (comme le mode script : accordéon avec +)
+  const sections = [];
 
-  // Carte 01 — titre + ton + analyse
-  html += `<div class="out-card">
-    <div class="out-card-header"><h3 class="out-card-title">${d.titre || 'Ton récit'}</h3></div>
-    <div class="out-section">
-      <div class="story-meta">
-        ${d.ton ? `<span class="script-meta-item">🎭 Ton ${d.ton}</span>` : ''}
-        <span class="script-meta-item">📝 ${wordCount} mots</span>
-      </div>
-      ${d.analyse ? `<div class="legende-block" style="margin-top:14px">${d.analyse}</div>` : ''}
-    </div>
-  </div>`;
+  // Section — titre + ton + analyse
+  sections.push({
+    titre: d.titre || 'Ton récit',
+    content: `
+      <div class="out-section">
+        ${d.ton ? `<div class="story-meta"><span class="script-meta-item">🎭 Ton ${d.ton}</span></div>` : ''}
+        ${d.analyse ? `<div class="legende-block" style="margin-top:14px">${d.analyse}</div>` : ''}
+      </div>`
+  });
 
-  // Carte 02 — 5 hooks
+  // Section — 5 hooks
   if (d.hooks && d.hooks.length) {
-    html += `<div class="out-card">
-      <div class="out-card-header"><h3 class="out-card-title">5 Hooks alternatifs</h3></div>
+    sections.push({
+      titre: '5 Hooks alternatifs',
+      content: `
       <div class="out-section">
         <div class="out-section-label">Accroches · Plusieurs styles</div>
         <div class="hooks-list">${d.hooks.map((h, i) => `
@@ -2620,59 +2619,75 @@ function renderStory(d) {
             <div class="hook-text">${h.texte || ''}</div>
           </div>`).join('')}</div>
         <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">◆ Copier les hooks</button>
-      </div>
-    </div>`;
+      </div>`
+    });
   }
 
-  // Carte 03 — récit complet
-  html += `<div class="out-card">
-    <div class="out-card-header"><h3 class="out-card-title">Le récit</h3></div>
-    <div class="out-section">
-      <div class="story-block">${(d.recit || []).map(s => `
-        <div class="story-segment">
-          <div class="story-segment-label">${s.segment || ''}</div>
-          <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
-        </div>`).join('')}</div>
-      <button class="copy-btn" onclick="copyStory(this)">◆ Copier le récit complet</button>
-    </div>
-  </div>`;
+  // Section — récit complet
+  sections.push({
+    titre: 'Le récit',
+    content: `
+      <div class="out-section">
+        <div class="story-block">${(d.recit || []).map(s => `
+          <div class="story-segment">
+            <div class="story-segment-label">${s.segment || ''}</div>
+            <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
+          </div>`).join('')}</div>
+        <button class="copy-btn" onclick="copyStory(this)">◆ Copier le récit complet</button>
+      </div>`
+  });
 
-  // Carte 04 — légende
+  // Section — légende
   if (d.legende) {
-    html += `<div class="out-card">
-      <div class="out-card-header"><h3 class="out-card-title">Légende</h3></div>
+    sections.push({
+      titre: 'Légende',
+      content: `
       <div class="out-section">
         <div class="legende-block">${d.legende}</div>
         <button class="copy-btn" onclick="copyText(this, '${storeCopyText(d.legende||'')}')">◆ Copier la légende</button>
-      </div>
-    </div>`;
+      </div>`
+    });
   }
 
-  // Carte 05 — hashtags
+  // Section — hashtags
   if (d.hashtags && d.hashtags.length) {
-    html += `<div class="out-card">
-      <div class="out-card-header"><h3 class="out-card-title">Hashtags</h3></div>
+    sections.push({
+      titre: 'Hashtags',
+      content: `
       <div class="out-section">
         <div class="hashtags-wrap">${d.hashtags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>
         <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hashtags||[]).join(' '))}')">◆ Copier les hashtags</button>
-      </div>
-    </div>`;
+      </div>`
+    });
   }
 
-  // Carte 06 — storyboard à la demande
-  html += `<div class="out-card">
-    <div class="out-card-header"><h3 class="out-card-title">Storyboard visuel</h3></div>
-    <div class="out-section">
-      <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton récit, avec un prompt d'image pour chaque segment.</p>
-      <button class="btn-storyboard" id="storyStoryboardBtn" onclick="generateStoryStoryboard()">
-        <div class="spinner" id="storyboardSpinner2" style="display:none"></div>
-        <span id="storyStoryboardText">🎬 Générer le storyboard visuel</span>
-      </button>
-      <div id="storyStoryboardOutput"></div>
-    </div>
-  </div>`;
+  // Section — storyboard à la demande
+  sections.push({
+    titre: 'Storyboard visuel',
+    content: `
+      <div class="out-section">
+        <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton récit, avec un prompt d'image pour chaque segment.</p>
+        <button class="btn-storyboard" id="storyStoryboardBtn" onclick="generateStoryStoryboard()">
+          <div class="spinner" id="storyboardSpinner2" style="display:none"></div>
+          <span id="storyStoryboardText">🎬 Générer le storyboard visuel</span>
+        </button>
+        <div id="storyStoryboardOutput"></div>
+      </div>`
+  });
 
-  out.innerHTML = html;
+  // Rendu accordéon (1re carte ouverte, les autres fermées — clic sur + pour ouvrir)
+  out.innerHTML = sections.map((sec, i) => `
+    <div class="out-card${i === 0 ? ' open' : ''}">
+      <div class="out-header" onclick="toggleCard(this.parentElement)">
+        <span class="out-num">№ ${String(i+1).padStart(2,'0')}</span>
+        <div class="out-title">${sec.titre}</div>
+        <div class="out-toggle">+</div>
+      </div>
+      <div class="out-body">
+        ${sec.content}
+      </div>
+    </div>`).join('');
+
   out.dataset.fulltext = fullText;
 
   document.getElementById('storyResults').style.display = 'block';
@@ -3306,8 +3321,10 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Chaque phrase a une fonction, aucun remplissage.
 Écris ta meilleure version. Un critique indépendant va ensuite évaluer ton travail.
 
+Pour le champ "retention" : estime le pourcentage (0-100) de spectateurs qui regarderont la vidéo jusqu'au bout. Base-toi sur la force du hook, le rythme, les relances de curiosité et la promesse de la chute. Un script sans temps mort avec une vraie tension mérite 80+. Un script qui traîne mérite moins.
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"difficulte":40,"tournage":"15 minutes"},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A percutant","titre B percutant"]}
+{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7","#tag8"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
@@ -3655,11 +3672,9 @@ function renderResults(d, niche, sujet) {
           ${metricBar('Puissance du hook', s.hook)}
           ${metricBar('Engagement', s.engagement)}
           ${metricBar('Force émotionnelle', s.emotion)}
-          ${metricBar('Difficulté de production', s.difficulte)}
+          ${metricBar('Rétention estimée', s.retention)}
         </div>
-        <div class="metric-tournage">
-          ⏱ Temps de tournage estimé : <strong>${s.tournage || 'à définir'}</strong>
-        </div>
+        
       </div>`;
     list.innerHTML = scoreHTML;
     // Animer les barres après affichage
@@ -3703,19 +3718,10 @@ function renderResults(d, niche, sujet) {
       num: "03",
       content: `<div class="out-section">
         <div class="out-section-label">Script · ${state.plateforme}</div>
-        ${(() => {
-          const words = (d.script || []).map(s => s.texte || '').join(' ').split(/\s+/).filter(Boolean).length;
-          const secs = Math.round(words / 2.5);
-          const mins = Math.floor(secs / 60);
-          const remSecs = secs % 60;
-          const durStr = mins > 0 ? mins + ' min ' + remSecs + ' sec' : secs + ' sec';
-          return `<div class="script-meta"><span class="script-meta-item">📝 ${words} mots</span><span class="script-meta-item">⏱ ≈ ${durStr} à l'oral</span></div>`;
-        })()}
         <div class="script-block" id="scriptBlock">${(d.script || []).map(s => `
           <div class="script-row">
             <span class="script-time">⏱ ${s.temps}</span>
             <div class="script-text">${s.texte}</div>
-            ${s.visuel ? `<div class="script-visual">📹 ${s.visuel}</div>` : ''}
           </div>`).join('')}
         </div>
       </div>`
