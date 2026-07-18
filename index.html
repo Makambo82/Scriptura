@@ -975,6 +975,23 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 .action-btn.icon-only{
   padding:8px 12px;font-size:1rem;line-height:1;border-radius:999px;
 }
+
+/* ── BOUTON RETOUR EN HAUT ── */
+#scrollTopBtn{
+  position:fixed;bottom:24px;right:24px;z-index:200;
+  width:48px;height:48px;border-radius:50%;
+  background:var(--gold);color:var(--bg);
+  border:none;cursor:pointer;font-size:1.3rem;line-height:1;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+  opacity:0;visibility:hidden;transform:translateY(10px);
+  transition:opacity 0.3s, visibility 0.3s, transform 0.3s;
+  display:flex;align-items:center;justify-content:center;
+}
+#scrollTopBtn.visible{opacity:1;visibility:visible;transform:translateY(0)}
+#scrollTopBtn:hover{background:var(--gold-light)}
+@media(max-width:600px){
+  #scrollTopBtn{bottom:18px;right:18px;width:44px;height:44px;font-size:1.2rem}
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2017,6 +2034,36 @@ function openModal() {
   setTimeout(() => document.getElementById('codeInput').focus(), 100);
 }
 
+
+// ── BOUTON INTELLIGENT HAUT/BAS ──
+// Descend en bas si on est en haut, remonte en haut si on est en bas.
+function scrollSmart() {
+  const enBas = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100);
+  if (enBas) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+}
+// Garde l'ancien nom au cas où il est appelé ailleurs
+function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+function updateScrollBtn() {
+  const btn = document.getElementById('scrollTopBtn');
+  if (!btn) return;
+  // La page est-elle assez longue pour scroller ?
+  const scrollable = document.body.scrollHeight > window.innerHeight + 200;
+  if (!scrollable) { btn.classList.remove('visible'); return; }
+
+  btn.classList.add('visible');
+  const enBas = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100);
+  // Change la flèche selon la position
+  btn.textContent = enBas ? '↑' : '↓';
+  btn.setAttribute('title', enBas ? 'Remonter en haut' : 'Descendre en bas');
+}
+window.addEventListener('scroll', updateScrollBtn);
+window.addEventListener('resize', updateScrollBtn);
+
 // ── POP-UP RAPPEL ABONNEMENT ──
 function fermerRappel() {
   document.getElementById('rappelOverlay').classList.remove('active');
@@ -2375,6 +2422,7 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
     }
 
     renderStory(parsed);
+    setTimeout(updateScrollBtn, 300);
     saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
     updateQuotaJour();
 
@@ -2752,6 +2800,7 @@ Génère exactement 6 idées, toutes différentes et toutes à fort potentiel.`;
     }
 
     renderIdeas(parsed.idees, niche);
+    setTimeout(updateScrollBtn, 300);
     saveGeneration('ideas', 'Idées : ' + niche, { idees: parsed.idees, niche: niche });
     updateQuotaJour();
 
@@ -3302,6 +3351,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     currentScript = parsed.script;
 
     renderResults(parsed, niche, sujet);
+    setTimeout(updateScrollBtn, 300);
     // Sauvegarder la génération complète + le contexte (pour rouvrir et générer le storyboard plus tard)
     saveGeneration('script', sujet, Object.assign({}, parsed, { niche: niche, context: { sujet: sujet, plateforme: state.plateforme, objectif: state.objectif } }));
     updateQuotaJour();
@@ -3709,6 +3759,7 @@ function restart() {
 // Fermer modal en cliquant dehors
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
+  setTimeout(updateScrollBtn, 500);
   const overlay = document.getElementById('modalOverlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
@@ -3809,6 +3860,9 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
     </a>
     <span class="paywall-unlock" onclick="openModal()">J'ai déjà un code d'accès</span>
   </div>
+
+<!-- BOUTON RETOUR EN HAUT -->
+<button id="scrollTopBtn" onclick="scrollSmart()" aria-label="Naviguer haut ou bas" title="Descendre en bas">↓</button>
 
 </body>
 </html>
