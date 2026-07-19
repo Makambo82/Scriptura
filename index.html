@@ -578,7 +578,7 @@ footer strong{color:var(--gold)}
   font-family:'Playfair Display',serif;font-weight:500;font-style:normal;
   font-size:1.4rem;line-height:1.4;margin-bottom:14px;color:#FFFFFF;
 }
-.paywall p{font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
+.paywall p{font-family:'Playfair Display',serif;font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
 .paywall-price{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--gold-light);margin-bottom:4px}
 .paywall-period{font-size:0.8rem;color:rgba(255,255,255,0.5);letter-spacing:0.06em;margin-bottom:28px}
 .paywall-wa{
@@ -2302,7 +2302,6 @@ function renderGenCounter() {
 
     // Reconstruire le contenu (au cas où il aurait été remplacé par "illimité")
     if (!c.dots || !c.counter.querySelector('.gen-counter-dots')) {
-      const restant = MAX_FREE - usedGen;
       c.counter.innerHTML = '<span>Générations gratuites · <strong>' + usedGen + '</strong> / ' + MAX_FREE + ' utilisées</span><div class="gen-counter-dots"></div>';
     }
 
@@ -2330,10 +2329,10 @@ async function updateQuotaJour() {
     return;
   }
   const faites = await countTodayGenerations();
-  const restant = Math.max(0, LIMITE_JOUR_ABONNE - faites);
+  const faitesAff = Math.min(faites, LIMITE_JOUR_ABONNE);
   const els = document.querySelectorAll('.quota-jour');
   els.forEach(el => {
-    el.textContent = '  ·  ' + restant + '/' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
+    el.textContent = '  ·  ' + faitesAff + '/' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
   });
 }
 
@@ -2417,11 +2416,11 @@ async function updateSidebarCounter() {
       return;
     }
     const faites = await countTodayGenerations();
-    const restant = Math.max(0, LIMITE_JOUR_ABONNE - faites);
-    el.textContent = restant + ' / ' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
+    const faitesAff = Math.min(faites, LIMITE_JOUR_ABONNE);
+    el.textContent = faitesAff + ' / ' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
   } else {
-    const restant = Math.max(0, MAX_FREE - usedGen);
-    el.textContent = restant + ' / ' + MAX_FREE + ' gratuites';
+    const faitesAff = Math.min(usedGen, MAX_FREE);
+    el.textContent = faitesAff + ' / ' + MAX_FREE + ' gratuites';
   }
 }
 
