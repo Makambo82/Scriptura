@@ -1166,6 +1166,26 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .sb-progress.gold .sb-progress-track{background:rgba(201,168,76,0.2)}
 .sb-progress.gold .sb-progress-fill{background:var(--gold)}
 .sb-progress.gold .sb-progress-pct{color:var(--gold-light)}
+
+/* ── BARRE DE PROGRESSION SÉPARÉE (sous le bouton storyboard) ── */
+.sb-progress-bar{
+  display:flex;align-items:center;gap:12px;
+  max-width:340px;margin:16px auto 0;
+}
+.sb-progress-bar-track{
+  flex:1;height:8px;border-radius:999px;
+  background:rgba(255,255,255,0.1);overflow:hidden;
+}
+.sb-progress-bar-fill{
+  height:100%;width:0%;border-radius:999px;
+  background:linear-gradient(90deg, var(--gold), var(--gold-light));
+  transition:width 0.25s ease-out;
+}
+.sb-progress-bar-pct{
+  font-family:'Cinzel',serif;font-size:0.7rem;font-weight:500;
+  letter-spacing:0.05em;color:var(--gold-light);
+  min-width:40px;text-align:right;
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3110,6 +3130,10 @@ function renderStory(d) {
           <div class="spinner" id="storyboardSpinner2" style="display:none"></div>
           <span id="storyStoryboardText">🎬 Générer le storyboard visuel</span>
         </button>
+        <div class="sb-progress-bar" id="sbProgBar2" style="display:none">
+          <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill2"></div></div>
+          <div class="sb-progress-bar-pct" id="sbProgPct2">0%</div>
+        </div>
         <div id="storyStoryboardOutput"></div>
       </div>`
   });
@@ -3147,7 +3171,9 @@ async function generateStoryStoryboard() {
   const out = document.getElementById('storyStoryboardOutput');
   btn.disabled = true;
   document.getElementById('storyboardSpinner2').style.display = 'none';
-  document.getElementById('storyStoryboardText').innerHTML = 'Création du storyboard… <span class="sb-progress gold"><span class="sb-progress-track"><span class="sb-progress-fill" id="sbProgFill2"></span></span><span class="sb-progress-pct" id="sbProgPct2">0%</span></span>';
+  document.getElementById('storyStoryboardText').textContent = 'Création du storyboard…';
+  const progBar2 = document.getElementById('sbProgBar2');
+  if (progBar2) progBar2.style.display = 'flex';
   const prog = createProgress((p) => {
     const fill = document.getElementById('sbProgFill2');
     const pct = document.getElementById('sbProgPct2');
@@ -3203,6 +3229,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
+    setTimeout(() => { const pb = document.getElementById('sbProgBar2'); if (pb) pb.style.display = 'none'; }, 600);
     const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
     const miniHtmlSt = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
@@ -3221,6 +3248,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
   } finally {
     if (typeof prog !== 'undefined') prog.stop();
+    const pb2 = document.getElementById('sbProgBar2'); if (pb2) setTimeout(() => { pb2.style.display = 'none'; }, 600);
     btn.disabled = false;
     document.getElementById('storyboardSpinner2').style.display = 'none';
     document.getElementById('storyStoryboardText').textContent = '🎬 Générer le storyboard visuel';
@@ -4349,6 +4377,10 @@ function renderResults(d, niche, sujet) {
               <span class="sb-gen-spinner" id="sbGenSpinner"></span>
               <span id="sbGenText">🎬 Générer le storyboard visuel</span>
             </button>
+            <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
+              <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
+              <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
+            </div>
           </div>
         </div>
       </div>`
@@ -4440,7 +4472,9 @@ async function generateStoryboard() {
   const genText = document.getElementById('sbGenText');
   btn.disabled = true;
   spinner.style.display = 'none';
-  genText.innerHTML = 'Scriptura crée le storyboard… <span class="sb-progress"><span class="sb-progress-track"><span class="sb-progress-fill" id="sbProgFill1"></span></span><span class="sb-progress-pct" id="sbProgPct1">0%</span></span>';
+  genText.textContent = 'Scriptura crée le storyboard…';
+  const progBar = document.getElementById('sbProgBar1');
+  if (progBar) progBar.style.display = 'flex';
   const prog = createProgress((p) => {
     const fill = document.getElementById('sbProgFill1');
     const pct = document.getElementById('sbProgPct1');
@@ -4488,6 +4522,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
+    setTimeout(() => { const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none'; }, 600);
     const container = document.getElementById('storyboardContainer');
     const miniHtml = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
@@ -4518,6 +4553,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 
   } catch(e) {
     if (typeof prog !== 'undefined') prog.stop();
+    const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none';
     genText.textContent = 'Erreur, réessaie';
     btn.disabled = false;
     spinner.style.display = 'none';
