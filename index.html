@@ -1080,9 +1080,9 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 
 /* ── NOTIFICATION PREUVE SOCIALE ── */
 .social-notif{
-  position:fixed;bottom:24px;left:24px;transform:translateY(12px);
-  z-index:250;max-width:calc(100vw - 48px);
-  background:rgba(36,36,38,0.96);backdrop-filter:blur(12px);
+  position:fixed;top:82px;left:50%;transform:translateX(-50%) translateY(-12px);
+  z-index:250;max-width:calc(100vw - 32px);white-space:nowrap;
+  background:rgba(36,36,38,0.97);backdrop-filter:blur(12px);
   border:1px solid rgba(201,168,76,0.3);border-radius:999px;
   padding:10px 18px;font-family:'Tenor Sans',sans-serif;font-size:0.78rem;
   color:rgba(255,255,255,0.85);
@@ -1091,7 +1091,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   transition:opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
   display:flex;align-items:center;gap:8px;
 }
-.social-notif.visible{opacity:1;visibility:visible;transform:translateY(0)}
+.social-notif.visible{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
 .social-notif strong{color:var(--gold-light);font-weight:normal}
 .social-dot{
   width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;
@@ -1103,7 +1103,23 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
 }
 @media(max-width:600px){
-  .social-notif{font-size:0.68rem;padding:9px 14px;bottom:18px;left:14px}
+  .social-notif{font-size:0.66rem;padding:8px 14px;top:76px}
+}
+
+/* ── NOTIF INLINE (dans le flux, accueil uniquement) ── */
+.social-inline{
+  display:none;margin:0 auto 24px;width:fit-content;max-width:calc(100vw - 32px);
+  pointer-events:none;
+  background:rgba(36,36,38,0.9);
+  border:1px solid rgba(201,168,76,0.3);border-radius:999px;
+  padding:10px 18px;font-family:'Tenor Sans',sans-serif;font-size:0.78rem;
+  color:rgba(255,255,255,0.85);
+  align-items:center;gap:8px;white-space:nowrap;
+  opacity:0;transition:opacity 0.4s ease;
+}
+.social-inline.visible{display:flex;opacity:1}
+@media(max-width:600px){
+  .social-inline{font-size:0.66rem;padding:8px 14px}
 }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1219,6 +1235,8 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
+  <!-- Emplacement notif dans le flux (accueil uniquement) -->
+  <div class="social-inline" id="socialInline"></div>
   <div class="hero-eyebrow">Pour les créateurs francophones du monde entier</div>
 
   <h1>
@@ -2332,27 +2350,44 @@ const SOCIAL_ACTIONS = ['vient de générer un script', 'vient de créer un réc
 
 let _socialShown = 0;
 function showSocialNotif() {
-  const el = document.getElementById('socialNotif');
-  if (!el) return;
+  const floatEl = document.getElementById('socialNotif');
+  const inlineEl = document.getElementById('socialInline');
+  if (!floatEl && !inlineEl) return;
 
-  // Alterner les deux types de message
+  // Construire le message (alterne les deux types)
   let html;
   if (_socialShown % 2 === 0) {
-    // Type 1 : activité récente
     const qui = SOCIAL_PRENOMS[Math.floor(Math.random() * SOCIAL_PRENOMS.length)];
     const action = SOCIAL_ACTIONS[Math.floor(Math.random() * SOCIAL_ACTIONS.length)];
     const ilya = Math.floor(Math.random() * 5) + 1;
     html = '<span class="social-dot"></span>' + qui + ' ' + action + ' il y a ' + ilya + ' min';
   } else {
-    // Type 2 : compteur global
     html = '<span class="social-dot"></span><strong>' + socialIncrement().toLocaleString('fr-FR') + '</strong> créateurs utilisent Scriptura';
   }
-  el.innerHTML = html;
   _socialShown++;
 
-  // Afficher, puis masquer après 30 secondes
-  el.classList.add('visible');
-  setTimeout(() => { el.classList.remove('visible'); }, 30000);
+  // Sommes-nous sur la page d'accueil ?
+  const home = document.getElementById('homePage');
+  const surAccueil = home && home.style.display !== 'none';
+
+  // Toujours masquer les deux d'abord (repartir propre)
+  if (floatEl) floatEl.classList.remove('visible');
+  if (inlineEl) inlineEl.classList.remove('visible');
+
+  let cible;
+  if (surAccueil && inlineEl) {
+    // ACCUEIL : notif dans le flux (entre barre défilante et texte)
+    cible = inlineEl;
+  } else if (floatEl) {
+    // AUTRES ÉCRANS : notif flottante sous l'en-tête
+    cible = floatEl;
+  }
+  if (!cible) return;
+
+  cible.innerHTML = html;
+  cible.classList.add('visible');
+  // Disparaît après 30s — un clic ne l'affecte pas
+  setTimeout(() => { cible.classList.remove('visible'); }, 30000);
 }
 
 // Lancer la première notif après 8s, puis en boucle toutes les 45s
