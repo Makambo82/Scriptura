@@ -1156,6 +1156,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   50%, 90%  { transform:rotate(180deg); }
   100%      { transform:rotate(360deg); }
 }
+
+/* ── BARRE DE PROGRESSION (storyboard) ── */
+.sb-progress{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:260px}
+.sb-progress-track{flex:1;height:6px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden}
+.sb-progress-fill{height:100%;width:0%;background:var(--gold);border-radius:999px;transition:width 0.15s linear}
+.sb-progress-pct{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.08em;color:var(--gold-light);min-width:34px;text-align:right}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3137,7 +3143,14 @@ async function generateStoryStoryboard() {
   const out = document.getElementById('storyStoryboardOutput');
   btn.disabled = true;
   document.getElementById('storyboardSpinner2').style.display = 'none';
-  document.getElementById('storyStoryboardText').innerHTML = '<span class="sablier">⏳</span> Création du storyboard…';
+  document.getElementById('storyStoryboardText').innerHTML = 'Création du storyboard… <span class="sb-progress"><span class="sb-progress-track"><span class="sb-progress-fill" id="sbProgFill2"></span></span><span class="sb-progress-pct" id="sbProgPct2">0%</span></span>';
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('sbProgFill2');
+    const pct = document.getElementById('sbProgPct2');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  });
+  prog.start();
 
   const plat = storyPlatform || 'TikTok';
   // Durée de segment selon plateforme
@@ -3185,6 +3198,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
+    prog.finish(); // 100% pile au moment où le storyboard s'affiche
     const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
     const miniHtmlSt = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
@@ -3202,6 +3216,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
   } finally {
+    if (typeof prog !== 'undefined') prog.stop();
     btn.disabled = false;
     document.getElementById('storyboardSpinner2').style.display = 'none';
     document.getElementById('storyStoryboardText').textContent = '🎬 Générer le storyboard visuel';
@@ -3289,6 +3304,40 @@ async function shareIdea(index, btn) {
   if (!idea) return;
   const text = idea.titre + '\n\nAngle : ' + idea.angle + '\n\nPourquoi ça marche : ' + idea.pourquoi + '\n\nHook : ' + idea.hook;
   await shareText(btn, text);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BARRE DE PROGRESSION ESTIMÉE (storyboard)
+// ═══════════════════════════════════════════════════════════
+// La barre monte de façon crédible vers 90% pendant que l'IA travaille,
+// puis saute à 100% PILE quand le storyboard est prêt et affiché.
+// 100% = storyboard visible, toujours.
+function createProgress(setLabel) {
+  let pct = 0;
+  let timer = null;
+  const DUREE_ESTIMEE = 9000; // ~9s, durée moyenne d'une génération
+  const debut = Date.now();
+
+  function tick() {
+    const ecoule = Date.now() - debut;
+    // Courbe qui ralentit en approchant 90% (asymptote)
+    const ratio = ecoule / DUREE_ESTIMEE;
+    const cible = 90 * (1 - Math.exp(-ratio * 1.8)); // monte vers 90% sans jamais dépasser
+    pct = Math.min(90, Math.max(pct, cible));
+    setLabel(Math.round(pct));
+    timer = setTimeout(tick, 120);
+  }
+
+  return {
+    start() { pct = 0; setLabel(0); tick(); },
+    // Termine : saute à 100% (à appeler quand le storyboard est affiché)
+    finish() {
+      if (timer) clearTimeout(timer);
+      pct = 100;
+      setLabel(100);
+    },
+    stop() { if (timer) clearTimeout(timer); }
+  };
 }
 
 function copyStory(btn) {
@@ -4363,7 +4412,14 @@ async function generateStoryboard() {
   const genText = document.getElementById('sbGenText');
   btn.disabled = true;
   spinner.style.display = 'none';
-  genText.innerHTML = '<span class="sablier">⏳</span> Scriptura crée le storyboard…';
+  genText.innerHTML = 'Scriptura crée le storyboard… <span class="sb-progress"><span class="sb-progress-track"><span class="sb-progress-fill" id="sbProgFill1"></span></span><span class="sb-progress-pct" id="sbProgPct1">0%</span></span>';
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('sbProgFill1');
+    const pct = document.getElementById('sbProgPct1');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  });
+  prog.start();
 
   const ctx = lastGenContext;
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
@@ -4403,6 +4459,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
+    prog.finish(); // 100% pile au moment où le storyboard s'affiche
     const container = document.getElementById('storyboardContainer');
     const miniHtml = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
@@ -4432,6 +4489,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     btn.disabled = false;
 
   } catch(e) {
+    if (typeof prog !== 'undefined') prog.stop();
     genText.textContent = 'Erreur, réessaie';
     btn.disabled = false;
     spinner.style.display = 'none';
