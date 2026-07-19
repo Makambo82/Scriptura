@@ -3530,19 +3530,28 @@ function lancerGenImage(cible) {
     appUrl = 'chatgpt://?q=' + encodeURIComponent(texte);
     webUrl = 'https://chatgpt.com/?q=' + encodeURIComponent(texte);
   } else {
-    appUrl = 'googleapp://';
+    appUrl = 'googleapp://robin';  // deeplink officiel pour ouvrir Gemini dans l'app Google
     webUrl = 'https://gemini.google.com/app';
   }
 
   fermerGenImage();
 
-  // 3. Repli vers le site SI l'app ne s'ouvre pas (page toujours visible après 1,2s)
+  // 3. Repli vers le site UNIQUEMENT si rien ne s'est passé (ni app ouverte, ni dialogue affiché).
+  // Le blur (perte de focus) détecte aussi le dialogue iOS "Ouvrir dans..." → on annule le repli
+  // pour respecter le choix de l'utilisateur s'il annule.
   const bascule = setTimeout(() => {
     if (!document.hidden) { window.location.href = webUrl; }
-  }, 1200);
-  document.addEventListener('visibilitychange', function onHide() {
-    if (document.hidden) { clearTimeout(bascule); document.removeEventListener('visibilitychange', onHide); }
-  });
+  }, 1500);
+  const annuler = () => { clearTimeout(bascule); cleanup(); };
+  const onHide = () => { if (document.hidden) annuler(); };
+  function cleanup() {
+    document.removeEventListener('visibilitychange', onHide);
+    window.removeEventListener('blur', annuler);
+    window.removeEventListener('pagehide', annuler);
+  }
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('blur', annuler);      // le dialogue iOS fait perdre le focus → annule le repli
+  window.addEventListener('pagehide', annuler);
 
   // 4. Ouvrir l'app IMMÉDIATEMENT (synchrone, dans le contexte du clic — exigé par iOS)
   window.location.href = appUrl;
