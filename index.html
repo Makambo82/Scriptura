@@ -3530,7 +3530,7 @@ function lancerGenImage(cible) {
     appUrl = 'chatgpt://?q=' + encodeURIComponent(texte);
     webUrl = 'https://chatgpt.com/?q=' + encodeURIComponent(texte);
   } else {
-    appUrl = 'googleapp://robin';  // deeplink officiel pour ouvrir Gemini dans l'app Google
+    appUrl = 'googlegemini://';  // schéma de l'app Gemini dédiée (app séparée depuis février 2025)
     webUrl = 'https://gemini.google.com/app';
   }
 
