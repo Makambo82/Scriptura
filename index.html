@@ -1220,7 +1220,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   text-transform:uppercase;color:var(--gold-light);
 }
 .genimg-btn:hover{background:rgba(201,168,76,0.12)}
-.genimg-btn-icon{font-size:1.8rem}
+.genimg-btn-icon{font-size:1.8rem;display:flex;align-items:center;justify-content:center;height:38px}
 
 /* ── BOUTON GÉNÉRER L'IMAGE (déclencheur) ── */
 .genimg-trigger{
@@ -2117,16 +2117,90 @@ async function bumpServerQuota(newValue) {
 }
 
 // Sauvegarde une génération dans Supabase (silencieux, ne bloque jamais l'app)
+let currentGenId = null; // id de la génération en cours (pour y rattacher le storyboard)
+
 async function saveGeneration(mode, titre, contenu) {
+  currentGenId = null;
   if (!supabaseClient) return;
   try {
-    await supabaseClient.from('generations').insert({
+    const { data, error } = await supabaseClient.from('generations').insert({
       code_acces: getUserRef(),
       mode: mode,
       titre: titre || 'Sans titre',
       contenu: contenu
-    });
+    }).select('id').single();
+    if (!error && data) currentGenId = data.id;
   } catch(e) { console.warn('Sauvegarde échouée', e); }
+}
+
+// Met à jour une génération existante (pour y rattacher le storyboard généré)
+async function updateGenerationStoryboard(storyboardData) {
+  if (!supabaseClient || !currentGenId) return;
+  try {
+    // Récupérer le contenu actuel, y ajouter le storyboard, puis réenregistrer
+    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
+    if (data && data.contenu) {
+      const nouveauContenu = Object.assign({}, data.contenu, { storyboard_genere: storyboardData });
+      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
+    }
+  } catch(e) { console.warn('Maj storyboard échouée', e); }
+}
+
+// Réaffiche un storyboard déjà généré (depuis Mes générations), sans régénérer.
+function reafficherStoryboard(sbData, isStory) {
+  if (!sbData || !sbData.storyboard) return;
+  const board = sbData.storyboard;
+  const miniature = sbData.miniature;
+
+  if (isStory) {
+    // Mode Storytelling
+    const out = document.getElementById('storyStoryboardOutput');
+    if (!out) return;
+    const miniHtmlSt = miniature ? `
+      <div class="sb-segment sb-miniature">
+        <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
+        <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${miniature}</div>
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(miniature||'')}')">✨ Générer l'image</button>
+      </div>` : '';
+    out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map(s => `
+      <div class="sb-segment">
+        <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
+        <div class="sb-seg-text">${s.texte || ''}</div>
+        <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(s.visuel||'')}')">✨ Générer l'image</button>
+      </div>`).join('')}</div>`;
+    // Cacher le bouton "Générer le storyboard" puisqu'il est déjà là
+    const btn = document.getElementById('storyStoryboardBtn');
+    if (btn) btn.style.display = 'none';
+  } else {
+    // Mode J'ai une idée
+    const container = document.getElementById('storyboardContainer');
+    if (!container) return;
+    const miniHtml = miniature ? `
+      <div class="sb-segment sb-miniature">
+        <div class="sb-head">
+          <span class="sb-time">★ Miniature</span>
+          <span class="sb-index">Couverture</span>
+        </div>
+        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-visual">${miniature}</div>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(miniature||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(miniature||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(miniature||'')}')">✨ Générer l'image</button>
+      </div>` : '';
+    container.innerHTML = `<div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
+      <div class="sb-segment">
+        <div class="sb-head">
+          <span class="sb-time">${seg.segment}</span>
+          <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+        </div>
+        <div class="sb-dit">"${seg.texte_dit}"</div>
+        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual">${seg.prompt_visuel}</div>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
+      </div>`).join('')}</div>`;
+    // Cacher le bouton générer
+    const btn = document.getElementById('sbGenerateBtn');
+    if (btn) btn.style.display = 'none';
+  }
 }
 
 // Compte les générations faites aujourd'hui par l'utilisateur (anti-abus abonnés)
@@ -2334,14 +2408,24 @@ function reopenGeneration(i) {
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('storyFlow').style.display = 'none';
 
+  // Mémoriser l'id pour pouvoir re-rattacher un storyboard généré ensuite
+  currentGenId = g.id || null;
+
   if (g.mode === 'script') {
     document.getElementById('flow').style.display = 'block';
     currentScript = g.contenu.script;
     lastGenContext = g.contenu.context || { sujet: g.titre, plateforme: 'TikTok' };
     renderResults(g.contenu, g.contenu.niche || '', g.titre || '');
+    // Réafficher le storyboard sauvegardé s'il existe
+    if (g.contenu.storyboard_genere) {
+      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, false), 200);
+    }
   } else if (g.mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
     renderStory(g.contenu);
+    if (g.contenu.storyboard_genere) {
+      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, true), 200);
+    }
   } else if (g.mode === 'ideas') {
     document.getElementById('ideasFlow').style.display = 'block';
     renderIdeas(g.contenu.idees, g.contenu.niche || '');
@@ -3082,6 +3166,12 @@ function renderStory(d) {
   currentStory = d;
   currentStoryText = fullText;
 
+  // Réinitialiser le storyboard (bouton visible, conteneur vide) pour une nouvelle génération
+  const sbBtnSt = document.getElementById('storyStoryboardBtn');
+  if (sbBtnSt) sbBtnSt.style.display = '';
+  const sbContSt = document.getElementById('storyStoryboardOutput');
+  if (sbContSt) sbContSt.innerHTML = '';
+
   // ── SCRIPTURA SCORE (adapté au récit) ──
   let scoreHTML = '';
   if (d.score) {
@@ -3293,6 +3383,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
     setTimeout(() => { const pb = document.getElementById('sbProgBar2'); if (pb) pb.style.display = 'none'; }, 600);
+    // Sauvegarder le storyboard pour qu'il reste après réouverture
+    updateGenerationStoryboard({ storyboard: parsed.storyboard, miniature: parsed.miniature || null, isStory: true });
     const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
     const miniHtmlSt = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
@@ -3440,16 +3532,38 @@ async function lancerGenImage(cible) {
     } catch(e2) { /* tant pis */ }
   }
 
-  // 2. Ouvrir l'app / le site correspondant
-  let url;
+  // 2. Tenter d'ouvrir l'APP native, avec repli sur le site si l'app n'est pas installée
+  let appUrl, webUrl;
   if (cible === 'chatgpt') {
-    url = 'https://chatgpt.com/';
+    appUrl = 'chatgpt://';                       // schéma de l'app ChatGPT
+    webUrl = 'https://chatgpt.com/';
   } else {
-    url = 'https://gemini.google.com/app';
+    appUrl = 'googleapp://';                      // tentative pour l'app Google/Gemini
+    webUrl = 'https://gemini.google.com/app';
   }
   fermerGenImage();
-  // Petit délai pour que la copie soit bien prise en compte
-  setTimeout(() => { window.open(url, '_blank'); }, 150);
+
+  setTimeout(() => {
+    // On note l'heure : si l'app s'ouvre, la page passe en arrière-plan et le repli ne se déclenche pas
+    const debut = Date.now();
+    let bascule = setTimeout(() => {
+      // Si moins de 1,5s se sont écoulées ET qu'on est toujours visible → l'app n'a pas pris → ouvrir le site
+      if (Date.now() - debut < 1600 && !document.hidden) {
+        window.open(webUrl, '_blank');
+      }
+    }, 1000);
+
+    // Si la page devient cachée (= l'app s'est ouverte), on annule le repli
+    const onHide = () => { if (document.hidden) { clearTimeout(bascule); } };
+    document.addEventListener('visibilitychange', onHide, { once: true });
+
+    // Tenter d'ouvrir l'app
+    try {
+      window.location.href = appUrl;
+    } catch(e) {
+      window.open(webUrl, '_blank');
+    }
+  }, 150);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4395,6 +4509,12 @@ function renderResults(d, niche, sujet) {
   const section = document.getElementById('results');
   document.getElementById('resultsMeta').textContent = niche + ' · ' + state.plateforme;
 
+  // Réinitialiser le storyboard (bouton visible, conteneur vide) pour une nouvelle génération
+  const sbBtn = document.getElementById('sbGenerateBtn');
+  if (sbBtn) sbBtn.style.display = '';
+  const sbCont = document.getElementById('storyboardContainer');
+  if (sbCont) sbCont.innerHTML = '';
+
   list.innerHTML = '';
 
   // ── SCRIPTURA SCORE ──
@@ -4637,6 +4757,8 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
     setTimeout(() => { const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none'; }, 600);
+    // Sauvegarder le storyboard pour qu'il reste après réouverture
+    updateGenerationStoryboard({ storyboard: parsed.storyboard, miniature: parsed.miniature || null });
     const container = document.getElementById('storyboardContainer');
     const miniHtml = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
@@ -4840,11 +4962,15 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
     <div class="genimg-sub">Le prompt sera copié automatiquement. Tu n'auras plus qu'à le coller (appui long) dans l'app.</div>
     <div class="genimg-options">
       <button class="genimg-btn" onclick="lancerGenImage('chatgpt')">
-        <span class="genimg-btn-icon">🤖</span>
+        <span class="genimg-btn-icon">
+          <svg viewBox="0 0 24 24" width="34" height="34" fill="#fff"><path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-3.99 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.98 5.98 0 0 0 13.26 22a6.05 6.05 0 0 0 5.77-4.2 5.98 5.98 0 0 0 3.99-2.9 6.05 6.05 0 0 0-.74-7.09zm-9.02 12.6a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.78.78 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.06v5.58a4.5 4.5 0 0 1-4.49 4.49zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.09 4.78 2.76a.78.78 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.07l-4.83 2.79a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.34-1.97V11.6a.77.77 0 0 0 .39.68l5.84 3.37-2.02 1.17a.07.07 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.37 2.02-1.16a.07.07 0 0 1 .07 0l4.83 2.78a4.49 4.49 0 0 1-.68 8.1v-5.67a.77.77 0 0 0-.4-.68zm2.01-3.02l-.14-.09-4.78-2.76a.78.78 0 0 0-.78 0L9.4 9.26V6.93a.08.08 0 0 1 .03-.07l4.83-2.79a4.49 4.49 0 0 1 6.68 4.65zM8.3 12.86l-2.02-1.17a.07.07 0 0 1-.04-.06V6.05a4.49 4.49 0 0 1 7.37-3.44l-.14.08-4.78 2.76a.78.78 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>
+        </span>
         <span>ChatGPT</span>
       </button>
       <button class="genimg-btn" onclick="lancerGenImage('gemini')">
-        <span class="genimg-btn-icon">✨</span>
+        <span class="genimg-btn-icon">
+          <svg viewBox="0 0 24 24" width="34" height="34"><defs><linearGradient id="gemGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4285F4"/><stop offset="50%" stop-color="#9B72CB"/><stop offset="100%" stop-color="#D96570"/></linearGradient></defs><path fill="url(#gemGrad)" d="M12 2c.34 4.9 4.8 9.36 9.7 9.7v.6C16.8 12.64 12.34 17.1 12 22h-.6C11.06 17.1 6.6 12.64 1.7 12.3v-.6C6.6 11.36 11.06 6.9 11.4 2z"/></svg>
+        </span>
         <span>Gemini</span>
       </button>
     </div>
