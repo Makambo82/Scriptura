@@ -1186,6 +1186,51 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   letter-spacing:0.05em;color:var(--gold-light);
   min-width:40px;text-align:right;
 }
+
+/* ── MODAL GÉNÉRATION D'IMAGE ── */
+.genimg-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;padding:24px;
+}
+.genimg-overlay.active{display:flex}
+.genimg-modal{
+  background:var(--bg-card);border:1px solid var(--gold);
+  border-radius:14px;padding:32px 26px;max-width:400px;width:100%;
+  text-align:center;position:relative;
+}
+.genimg-close{
+  position:absolute;top:14px;right:16px;background:none;border:none;
+  color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;
+}
+.genimg-title{
+  font-family:'Playfair Display',serif;font-weight:500;font-size:1.4rem;
+  color:#fff;margin-bottom:10px;
+}
+.genimg-sub{
+  font-family:'Tenor Sans',sans-serif;font-size:0.85rem;
+  color:rgba(255,255,255,0.6);line-height:1.6;margin-bottom:26px;
+}
+.genimg-options{display:flex;gap:14px}
+.genimg-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;
+  background:rgba(255,255,255,0.04);border:1px solid var(--gold);
+  border-radius:12px;padding:20px 12px;cursor:pointer;transition:all 0.2s;
+  font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--gold-light);
+}
+.genimg-btn:hover{background:rgba(201,168,76,0.12)}
+.genimg-btn-icon{font-size:1.8rem}
+
+/* ── BOUTON GÉNÉRER L'IMAGE (déclencheur) ── */
+.genimg-trigger{
+  display:inline-flex;align-items:center;gap:6px;margin-top:12px;margin-left:8px;
+  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--bg);background:var(--gold);
+  border:1px solid var(--gold);
+  padding:7px 16px;border-radius:999px;cursor:pointer;transition:all 0.2s;font-weight:500;
+}
+.genimg-trigger:hover{background:var(--gold-light);border-color:var(--gold-light)}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3253,12 +3298,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       <div class="sb-segment sb-miniature">
         <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${parsed.miniature}</div>
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(parsed.miniature||'')}')">✨ Générer l'image</button>
       </div>` : '';
     out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(s.visuel||'')}')">✨ Générer l'image</button>
       </div>`).join('')}</div>
       <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button><button class="share-btn" style="margin-top:16px" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button>`;
 
@@ -3354,6 +3401,55 @@ async function shareIdea(index, btn) {
   if (!idea) return;
   const text = idea.titre + '\n\nAngle : ' + idea.angle + '\n\nPourquoi ça marche : ' + idea.pourquoi + '\n\nHook : ' + idea.hook;
   await shareText(btn, text);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GÉNÉRATION D'IMAGE — pont vers ChatGPT ou Gemini
+// ═══════════════════════════════════════════════════════════
+// Ouvre une boîte de dialogue, copie le prompt, puis ouvre l'app choisie.
+let _promptAGenerer = '';
+
+function ouvrirGenImage(promptText) {
+  // Récupérer le vrai texte si c'est une clé du registre
+  let realText = promptText;
+  if (typeof promptText === 'string' && promptText.startsWith('__copykey_') && window._copyStore[promptText]) {
+    realText = window._copyStore[promptText];
+  }
+  _promptAGenerer = (realText || '').replace(/\u200B/g, '').trim();
+  const modal = document.getElementById('genImageModal');
+  if (modal) modal.classList.add('active');
+}
+
+function fermerGenImage() {
+  const modal = document.getElementById('genImageModal');
+  if (modal) modal.classList.remove('active');
+}
+
+// Copie le prompt puis ouvre l'app choisie (chatgpt / gemini)
+async function lancerGenImage(cible) {
+  const texte = _promptAGenerer;
+  // 1. Copier le prompt dans le presse-papier
+  try {
+    await navigator.clipboard.writeText(texte);
+  } catch(e) {
+    // Repli : méthode ancienne
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = texte; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    } catch(e2) { /* tant pis */ }
+  }
+
+  // 2. Ouvrir l'app / le site correspondant
+  let url;
+  if (cible === 'chatgpt') {
+    url = 'https://chatgpt.com/';
+  } else {
+    url = 'https://gemini.google.com/app';
+  }
+  fermerGenImage();
+  // Petit délai pour que la copie soit bien prise en compte
+  setTimeout(() => { window.open(url, '_blank'); }, 150);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -4550,7 +4646,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${parsed.miniature}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Partager</button>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(parsed.miniature||'')}')">✨ Générer l'image</button>
       </div>` : '';
     container.innerHTML = `<div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
       <div class="sb-segment">
@@ -4561,7 +4657,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Partager</button>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
       </div>`).join('')}</div>`;
 
     // Réactiver le bouton après succès
@@ -4619,7 +4715,10 @@ document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
-  syncServerQuota(); // synchronise le quota gratuit avec le serveur (anti-vidage de cache)
+  syncServerQuota();
+  // Fermer la modal image au clic sur le fond
+  const giOv = document.getElementById('genImageModal');
+  if (giOv) giOv.addEventListener('click', (e) => { if (e.target === giOv) fermerGenImage(); }); // synchronise le quota gratuit avec le serveur (anti-vidage de cache)
   const overlay = document.getElementById('modalOverlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
@@ -4732,6 +4831,25 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
 
 <!-- BOUTON RETOUR EN HAUT -->
 <button id="scrollTopBtn" onclick="scrollSmart()" aria-label="Naviguer haut ou bas" title="Descendre en bas">↓</button>
+
+<!-- MODAL GÉNÉRATION D'IMAGE -->
+<div class="genimg-overlay" id="genImageModal">
+  <div class="genimg-modal">
+    <button class="genimg-close" onclick="fermerGenImage()">✕</button>
+    <div class="genimg-title">Générer l'image</div>
+    <div class="genimg-sub">Le prompt sera copié automatiquement. Tu n'auras plus qu'à le coller (appui long) dans l'app.</div>
+    <div class="genimg-options">
+      <button class="genimg-btn" onclick="lancerGenImage('chatgpt')">
+        <span class="genimg-btn-icon">🤖</span>
+        <span>ChatGPT</span>
+      </button>
+      <button class="genimg-btn" onclick="lancerGenImage('gemini')">
+        <span class="genimg-btn-icon">✨</span>
+        <span>Gemini</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- NOTIFICATION PREUVE SOCIALE (niveau racine, visible partout) -->
 <div class="social-notif" id="socialNotif"></div>
