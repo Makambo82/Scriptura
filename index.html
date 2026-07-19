@@ -1145,6 +1145,17 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   border-left:3px solid var(--gold) !important;
   background:rgba(201,168,76,0.06) !important;
 }
+
+/* ── SABLIER ANIMÉ (génération storyboard) ── */
+.sablier{
+  display:inline-block;font-size:1.1em;line-height:1;
+  animation:sablierFlip 2s ease-in-out infinite;
+}
+@keyframes sablierFlip{
+  0%, 40%   { transform:rotate(0deg); }
+  50%, 90%  { transform:rotate(180deg); }
+  100%      { transform:rotate(360deg); }
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3125,8 +3136,8 @@ async function generateStoryStoryboard() {
   const btn = document.getElementById('storyStoryboardBtn');
   const out = document.getElementById('storyStoryboardOutput');
   btn.disabled = true;
-  document.getElementById('storyboardSpinner2').style.display = 'block';
-  document.getElementById('storyStoryboardText').textContent = 'Création du storyboard…';
+  document.getElementById('storyboardSpinner2').style.display = 'none';
+  document.getElementById('storyStoryboardText').innerHTML = '<span class="sablier">⏳</span> Création du storyboard…';
 
   const plat = storyPlatform || 'TikTok';
   // Durée de segment selon plateforme
@@ -3186,7 +3197,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
       </div>`).join('')}</div>
-      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button><button class="share-btn" style="margin-top:16px" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button>`;
+      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button><button class="share-btn" style="margin-top:16px" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button>`;
 
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
@@ -4351,8 +4362,8 @@ async function generateStoryboard() {
   const spinner = document.getElementById('sbGenSpinner');
   const genText = document.getElementById('sbGenText');
   btn.disabled = true;
-  spinner.style.display = 'inline-block';
-  genText.textContent = 'Scriptura crée le storyboard…';
+  spinner.style.display = 'none';
+  genText.innerHTML = '<span class="sablier">⏳</span> Scriptura crée le storyboard…';
 
   const ctx = lastGenContext;
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
@@ -4417,7 +4428,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 
     // Réactiver le bouton après succès
     spinner.style.display = 'none';
-    genText.textContent = '🎬 Storyboard généré';
+    genText.innerHTML = '🎬 Storyboard généré';
     btn.disabled = false;
 
   } catch(e) {
