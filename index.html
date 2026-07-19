@@ -544,9 +544,9 @@ footer strong{color:var(--gold)}
 }
 .paywall-overlay.active{display:flex}
 .paywall-modal{
-  max-width:520px;width:100%;
+  max-width:460px;width:100%;
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:8px;padding:44px 36px;text-align:center;
+  border-radius:8px;padding:36px 30px;text-align:center;
   position:relative;overflow:hidden;
   max-height:90vh;overflow-y:auto;
 }
@@ -565,8 +565,9 @@ footer strong{color:var(--gold)}
   text-transform:uppercase;color:var(--gold);margin-bottom:18px;
 }
 .paywall h3{
-  font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
-  font-size:1.7rem;margin-bottom:12px;color:#FFFFFF;
+  font-family:'Tenor Sans',sans-serif;font-weight:400;font-style:normal;
+  font-size:1.25rem;line-height:1.4;margin-bottom:14px;color:#FFFFFF;
+  letter-spacing:0.01em;
 }
 .paywall p{font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
 .paywall-price{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--gold-light);margin-bottom:4px}
@@ -2349,29 +2350,36 @@ function showSocialNotif() {
   const el = document.getElementById('socialNotif');
   if (!el) return;
 
-  // Construire le message (alterne les deux types)
+  // Alterne 3 types de messages
   let html;
-  if (_socialShown % 2 === 0) {
+  const type = _socialShown % 3;
+  if (type === 0) {
+    // Type 1 : activité récente (créateur, masculin)
     const qui = SOCIAL_PRENOMS[Math.floor(Math.random() * SOCIAL_PRENOMS.length)];
     const action = SOCIAL_ACTIONS[Math.floor(Math.random() * SOCIAL_ACTIONS.length)];
     const ilya = Math.floor(Math.random() * 5) + 1;
     html = '<span class="social-dot"></span>' + qui + ' ' + action + ' il y a ' + ilya + ' min';
-  } else {
+  } else if (type === 1) {
+    // Type 2 : compteur global
     html = '<span class="social-dot"></span><strong>' + socialIncrement().toLocaleString('fr-FR') + '</strong> créateurs utilisent Scriptura';
+  } else {
+    // Type 3 : un prénom vient de s'abonner
+    const nom = SOCIAL_NOMS[Math.floor(Math.random() * SOCIAL_NOMS.length)];
+    html = '<span class="social-dot"></span><strong>' + nom + '</strong> vient de s\'abonner';
   }
   _socialShown++;
 
   el.innerHTML = html;
   el.classList.add('visible');
-  // Disparaît après 30s — un clic ne l'affecte pas
-  setTimeout(() => { el.classList.remove('visible'); }, 20000);
+  // Disparaît après 10s — un clic ne l'affecte pas
+  setTimeout(() => { el.classList.remove('visible'); }, 10000);
 }
 
 // Lancer la première notif après 8s, puis en boucle toutes les 45s
 function startSocialProof() {
   setTimeout(() => {
     showSocialNotif();
-    setInterval(showSocialNotif, 50000); // cycle de 50s (20s visible + 30s de pause)
+    setInterval(showSocialNotif, 40000); // cycle de 40s (10s visible + 30s de pause)
   }, 5000);
 }
 
