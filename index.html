@@ -3518,46 +3518,34 @@ function fermerGenImage() {
 }
 
 // Copie le prompt puis ouvre l'app choisie (chatgpt / gemini)
-async function lancerGenImage(cible) {
+function lancerGenImage(cible) {
   const texte = _promptAGenerer;
-  // Copier le prompt (utile surtout pour Gemini)
-  try {
-    await navigator.clipboard.writeText(texte);
-  } catch(e) {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = texte; document.body.appendChild(ta); ta.select();
-      document.execCommand('copy'); document.body.removeChild(ta);
-    } catch(e2) { /* tant pis */ }
+
+  // 1. Copier le prompt EN PARALLÈLE (sans attendre — sinon iOS bloque l'ouverture d'app)
+  try { navigator.clipboard.writeText(texte); } catch(e) { /* silencieux */ }
+
+  // 2. Préparer les liens
+  let appUrl, webUrl;
+  if (cible === 'chatgpt') {
+    appUrl = 'chatgpt://?q=' + encodeURIComponent(texte);
+    webUrl = 'https://chatgpt.com/?q=' + encodeURIComponent(texte);
+  } else {
+    appUrl = 'googleapp://';
+    webUrl = 'https://gemini.google.com/app';
   }
 
   fermerGenImage();
 
-  if (cible === 'chatgpt') {
-    // ChatGPT : le schéma chatgpt://?q= ouvre l'app AVEC le prompt pré-rempli
-    const appUrl = 'chatgpt://?q=' + encodeURIComponent(texte);
-    const webUrl = 'https://chatgpt.com/?q=' + encodeURIComponent(texte);
-    ouvrirAppOuSite(appUrl, webUrl);
-  } else {
-    // Gemini : pas de schéma app fiable → on tente l'app Google, repli sur le site.
-    // Le prompt est déjà copié, l'utilisateur n'a qu'à coller.
-    const appUrl = 'googleapp://';
-    const webUrl = 'https://gemini.google.com/app';
-    ouvrirAppOuSite(appUrl, webUrl);
-  }
-}
+  // 3. Repli vers le site SI l'app ne s'ouvre pas (page toujours visible après 1,2s)
+  const bascule = setTimeout(() => {
+    if (!document.hidden) { window.location.href = webUrl; }
+  }, 1200);
+  document.addEventListener('visibilitychange', function onHide() {
+    if (document.hidden) { clearTimeout(bascule); document.removeEventListener('visibilitychange', onHide); }
+  });
 
-// Tente d'ouvrir une app via son schéma ; si elle n'est pas installée, ouvre le site.
-function ouvrirAppOuSite(appUrl, webUrl) {
-  setTimeout(() => {
-    let bascule = setTimeout(() => {
-      if (!document.hidden) { window.location.href = webUrl; }
-    }, 1200);
-    document.addEventListener('visibilitychange', function onHide() {
-      if (document.hidden) { clearTimeout(bascule); document.removeEventListener('visibilitychange', onHide); }
-    });
-    window.location.href = appUrl;
-  }, 150);
+  // 4. Ouvrir l'app IMMÉDIATEMENT (synchrone, dans le contexte du clic — exigé par iOS)
+  window.location.href = appUrl;
 }
 
 // ═══════════════════════════════════════════════════════════
