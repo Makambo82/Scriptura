@@ -537,12 +537,25 @@ footer strong{color:var(--gold)}
 .gen-counter-unlock:hover{background:var(--gold-pale)}
 
 /* ── PAYWALL ── */
-.paywall{
-  display:none;max-width:520px;margin:40px auto;width:calc(100% - 48px);
+.paywall-overlay{
+  display:none;position:fixed;inset:0;z-index:400;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;padding:24px;
+}
+.paywall-overlay.active{display:flex}
+.paywall-modal{
+  max-width:520px;width:100%;
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:8px;padding:44px 36px;text-align:center;
   position:relative;overflow:hidden;
+  max-height:90vh;overflow-y:auto;
 }
+.paywall-close{
+  position:absolute;top:16px;right:16px;
+  background:transparent;border:none;color:rgba(255,255,255,0.5);
+  font-size:1.1rem;cursor:pointer;padding:4px;z-index:2;
+}
+.paywall-close:hover{color:#fff}
 .paywall::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg,transparent,var(--gold),transparent);
@@ -1064,6 +1077,34 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .out-card.idea-card .out-body{
   padding:0 20px 20px;
 }
+
+/* ── NOTIFICATION PREUVE SOCIALE ── */
+.social-notif{
+  position:fixed;bottom:24px;left:24px;transform:translateY(12px);
+  z-index:250;max-width:calc(100vw - 48px);
+  background:rgba(36,36,38,0.96);backdrop-filter:blur(12px);
+  border:1px solid rgba(201,168,76,0.3);border-radius:999px;
+  padding:10px 18px;font-family:'Tenor Sans',sans-serif;font-size:0.78rem;
+  color:rgba(255,255,255,0.85);
+  box-shadow:0 6px 24px rgba(0,0,0,0.35);
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+  display:flex;align-items:center;gap:8px;
+}
+.social-notif.visible{opacity:1;visibility:visible;transform:translateY(0)}
+.social-notif strong{color:var(--gold-light);font-weight:normal}
+.social-dot{
+  width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(74,222,128,0.5);animation:socialPulse 2s infinite;
+}
+@keyframes socialPulse{
+  0%{box-shadow:0 0 0 0 rgba(74,222,128,0.5)}
+  70%{box-shadow:0 0 0 6px rgba(74,222,128,0)}
+  100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
+}
+@media(max-width:600px){
+  .social-notif{font-size:0.68rem;padding:9px 14px;bottom:18px;left:14px}
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1171,6 +1212,8 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
     <span class="ticker-item"><span class="gem">◆</span>Développement personnel</span>
   </div>
 </div>
+<!-- NOTIFICATION PREUVE SOCIALE -->
+<div class="social-notif" id="socialNotif"></div>
 
 <!-- HERO -->
 <section class="hero">
@@ -1930,7 +1973,7 @@ async function openHistory() {
   document.getElementById('storyFlow').style.display = 'none';
   document.getElementById('historyFlow').style.display = 'block';
   const pw = document.getElementById('paywall');
-  if (pw) pw.style.display = 'none';
+  if (pw) pw.classList.remove('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   // Pré-remplir le code si connu
   const code = localStorage.getItem('scriptura_code');
@@ -2168,6 +2211,13 @@ async function updateQuotaJour() {
   });
 }
 
+function openPaywall() {
+  document.getElementById('paywall').classList.add('active');
+}
+function closePaywall() {
+  document.getElementById('paywall').classList.remove('active');
+}
+
 function openModal() {
   document.getElementById('modalOverlay').classList.add('active');
   setTimeout(() => document.getElementById('codeInput').focus(), 100);
@@ -2247,6 +2297,70 @@ async function updateSidebarCounter() {
     const restant = Math.max(0, MAX_FREE - usedGen);
     el.textContent = restant + ' / ' + MAX_FREE + ' gratuites';
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PREUVE SOCIALE — notifications (compteur qui progresse + activité)
+// ═══════════════════════════════════════════════════════════
+// Le compteur part d'une base à une date de référence et progresse
+// régulièrement dans le temps → toujours cohérent, jamais en arrière.
+const SOCIAL_BASE = 348;   // nombre de départ
+
+// Le compteur monte de +1 à chaque apparition de la notif.
+// Il est mémorisé (localStorage) pour continuer à monter d'une visite à l'autre — jamais de recul.
+function socialCount() {
+  let n = parseInt(localStorage.getItem('scriptura_social_count'), 10);
+  if (isNaN(n) || n < SOCIAL_BASE) n = SOCIAL_BASE;
+  return n;
+}
+function socialIncrement() {
+  const n = socialCount() + 1;
+  localStorage.setItem('scriptura_social_count', n);
+  return n;
+}
+
+// Petit compteur de scripts "aujourd'hui" (cohérent selon l'heure)
+function scriptsAujourdhui() {
+  const maintenant = new Date();
+  const heureFraction = (maintenant.getHours() * 60 + maintenant.getMinutes()) / 1440;
+  return Math.max(3, Math.floor(heureFraction * 180)); // grimpe jusqu'à ~180 en fin de journée
+}
+
+// Prénoms pour l'activité (variété francophone)
+const SOCIAL_PRENOMS = ['Un utilisateur', 'Une utilisatrice', 'Un créateur', 'Une créatrice'];
+const SOCIAL_ACTIONS = ['vient de générer un script', 'vient de créer un récit', 'vient de trouver ses idées'];
+
+let _socialShown = 0;
+function showSocialNotif() {
+  const el = document.getElementById('socialNotif');
+  if (!el) return;
+
+  // Alterner les deux types de message
+  let html;
+  if (_socialShown % 2 === 0) {
+    // Type 1 : activité récente
+    const qui = SOCIAL_PRENOMS[Math.floor(Math.random() * SOCIAL_PRENOMS.length)];
+    const action = SOCIAL_ACTIONS[Math.floor(Math.random() * SOCIAL_ACTIONS.length)];
+    const ilya = Math.floor(Math.random() * 5) + 1;
+    html = '<span class="social-dot"></span>' + qui + ' ' + action + ' il y a ' + ilya + ' min';
+  } else {
+    // Type 2 : compteur global
+    html = '<span class="social-dot"></span><strong>' + socialIncrement().toLocaleString('fr-FR') + '</strong> créateurs utilisent Scriptura';
+  }
+  el.innerHTML = html;
+  _socialShown++;
+
+  // Afficher, puis masquer après 30 secondes
+  el.classList.add('visible');
+  setTimeout(() => { el.classList.remove('visible'); }, 30000);
+}
+
+// Lancer la première notif après 8s, puis en boucle toutes les 45s
+function startSocialProof() {
+  setTimeout(() => {
+    showSocialNotif();
+    setInterval(showSocialNotif, 90000); // cycle de 90s (30s visible + 60s de pause)
+  }, 8000);
 }
 
 // ── POP-UP RAPPEL ABONNEMENT ──
@@ -2332,7 +2446,7 @@ async function verifyCode() {
       document.body.classList.add('is-unlocked');
       closeModal();
       renderGenCounter();
-      document.getElementById('paywall').style.display = 'none';
+      closePaywall();
       return;
 
     } catch(e) {
@@ -2350,7 +2464,7 @@ async function verifyCode() {
     document.body.classList.add('is-unlocked');
     closeModal();
     renderGenCounter();
-    document.getElementById('paywall').style.display = 'none';
+    closePaywall();
   } else {
     errorEl.textContent = 'Code invalide.';
     errorEl.style.display = 'block';
@@ -2427,7 +2541,7 @@ function showScreen(screen) {
     if (el) el.style.display = 'none';
   });
   const pw = document.getElementById('paywall');
-  if (pw) pw.style.display = 'none';
+  if (pw) pw.classList.remove('active');
 
   // Cas d'un sous-écran résultat
   const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
@@ -2471,7 +2585,7 @@ function goHome() {
   if (hist) hist.style.display = 'none';
   // Masquer aussi le paywall s'il était ouvert
   const pw = document.getElementById('paywall');
-  if (pw) pw.style.display = 'none';
+  if (pw) pw.classList.remove('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2581,8 +2695,7 @@ async function generateStory() {
 
   // Vérification limite
   if (!unlocked && usedGen >= MAX_FREE) {
-    document.getElementById('paywall').style.display = 'block';
-    document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    openPaywall();
     return;
   }
   // Limite journalière pour les abonnés (anti-abus)
@@ -3079,8 +3192,7 @@ async function generateIdeas() {
 
   // Vérification limite (partagée avec le générateur de script)
   if (!unlocked && usedGen >= MAX_FREE) {
-    document.getElementById('paywall').style.display = 'block';
-    document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    openPaywall();
     return;
   }
   // Limite journalière pour les abonnés (anti-abus)
@@ -3389,8 +3501,7 @@ async function generate() {
 
   // ── VÉRIFICATION LIMITE ──
   if (!unlocked && usedGen >= MAX_FREE) {
-    document.getElementById('paywall').style.display = 'block';
-    document.getElementById('paywall').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    openPaywall();
     return;
   }
   // Limite journalière pour les abonnés (anti-abus)
@@ -4120,6 +4231,7 @@ function restart() {
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
   setTimeout(updateScrollBtn, 500);
+  startSocialProof();
   const overlay = document.getElementById('modalOverlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
@@ -4130,6 +4242,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (rappelOv) {
     rappelOv.addEventListener('click', function(e) {
       if (e.target === rappelOv) fermerRappel();
+    });
+  }
+  const paywallOv = document.getElementById('paywall');
+  if (paywallOv) {
+    paywallOv.addEventListener('click', function(e) {
+      if (e.target === paywallOv) closePaywall();
     });
   }
   const codeInput = document.getElementById('codeInput');
@@ -4209,7 +4327,9 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
   </div>
 </div>
 <!-- PAYWALL (racine - visible depuis tous les modes) -->
-<div class="paywall" id="paywall">
+<div class="paywall-overlay" id="paywall">
+  <div class="paywall-modal">
+    <button class="paywall-close" onclick="closePaywall()" aria-label="Fermer">✕</button>
     <div class="paywall-tag">Accès Illimité</div>
     <h3>Tu as utilisé tes<br/>5 générations gratuites.</h3>
     <p>Pour continuer à générer des scripts viraux sans limite, passe à l'accès illimité Scriptura.</p>
@@ -4219,6 +4339,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       S'abonner via WhatsApp →
     </a>
     <span class="paywall-unlock" onclick="openModal()">J'ai déjà un code d'accès</span>
+  </div>
   </div>
 
 <!-- BOUTON RETOUR EN HAUT -->
