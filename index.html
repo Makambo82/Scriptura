@@ -820,7 +820,7 @@ footer strong{color:var(--gold)}
 /* Cartes d'idées */
 .idea-card{
   background:var(--bg-card);border:1px solid rgba(255,255,255,0.1);
-  border-radius:10px;padding:24px;margin-bottom:16px;
+  border-radius:10px;margin-bottom:16px;
   transition:all 0.25s;position:relative;overflow:hidden;
 }
 .idea-card:hover{border-color:var(--gold);box-shadow:0 8px 28px rgba(0,0,0,0.2)}
@@ -1137,6 +1137,13 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .social-inline.visible{display:flex;opacity:1}
 @media(max-width:600px){
   .social-inline{font-size:0.66rem;padding:8px 14px}
+}
+
+/* ── BLOC MINIATURE (couverture anti-scroll) ── */
+.sb-miniature{
+  border:1px solid var(--gold) !important;
+  border-left:3px solid var(--gold) !important;
+  background:rgba(201,168,76,0.06) !important;
 }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3125,6 +3132,10 @@ async function generateStoryStoryboard() {
   // Durée de segment selon plateforme
   const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
   const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
+  // Nombre de segments proportionnel à la longueur du récit
+  const nbMotsRecit = (currentStoryText || '').split(/\s+/).filter(Boolean).length;
+  const segMinR = Math.max(3, Math.round(nbMotsRecit / 18));
+  const segMaxR = Math.max(segMinR + 1, Math.round(nbMotsRecit / 11));
 
   const prompt = `Tu es un directeur artistique expert en storyboard vidéo cinématique pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt d'image d'une richesse exceptionnelle.
 
@@ -3134,13 +3145,14 @@ ${currentStoryText}
 """
 
 RÈGLES DE DÉCOUPAGE (TRÈS IMPORTANT) :
+- Le NOMBRE de segments doit s'adapter A LA LONGUEUR du récit : vise entre ${segMinR} et ${segMaxR} segments pour ce récit précis. Un récit court = peu de segments, un récit long = plus. Ne gonfle JAMAIS artificiellement le nombre de plans.
 - Chaque segment dure ${segDuration} maximum
 - RESPECTE ABSOLUMENT LES UNITÉS DE SENS : ne coupe JAMAIS une phrase ou une idée au milieu. Chaque segment doit contenir une pensée complète et cohérente (une phrase entière, ou une proposition qui a du sens seule).
 - Si une phrase est trop longue pour un seul segment, coupe-la à un endroit NATUREL (après une virgule, une pause logique, une articulation du sens) — jamais en plein milieu d'une idée.
 - Un segment mal coupé comme "Et partage cette vidéo à quelqu'un" suivi de "qui en a besoin" est INTERDIT : ces deux morceaux forment une seule idée et doivent rester ensemble.
 - Privilégie la cohérence du sens sur la durée exacte : mieux vaut un segment légèrement plus court ou plus long mais qui garde une idée complète.
 - Pour chaque segment : le texte narré (cohérent) + un prompt visuel détaillé
-- Maximum 25 segments
+- Respecte le nombre de segments indiqué ci-dessus (adapté à la longueur du récit)
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
 1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
@@ -3152,16 +3164,23 @@ Le prompt doit se lire comme une description cinématographique fluide et immers
 
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).
 
+MINIATURE (TRÈS IMPORTANT) : en plus des segments, crée UN prompt visuel spécial pour la MINIATURE (image de couverture). Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Elle résume la promesse du récit. Termine ce prompt par " 9:16".
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
+{"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
-    const sbFullText = parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
-    out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${parsed.storyboard.map(s => `
+    const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
+    const miniHtmlSt = parsed.miniature ? `
+      <div class="sb-segment sb-miniature">
+        <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
+        <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${parsed.miniature}</div>
+      </div>` : '';
+    out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
@@ -4337,6 +4356,10 @@ async function generateStoryboard() {
 
   const ctx = lastGenContext;
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
+  // Nombre de segments proportionnel à la longueur du script
+  const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
+  const segMin = Math.max(3, Math.round(nbMots / 18));   // ~18 mots par segment
+  const segMax = Math.max(segMin + 1, Math.round(nbMots / 11)); // ~11 mots par segment
 
   const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral.
 
@@ -4345,7 +4368,7 @@ Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
 SCRIPT :
 ${scriptText}
 
-MISSION : Decoupe ce script en segments de 3 A 5 SECONDES (8-13 mots chacun). Pour TikTok/Reels/Shorts privilegie 3 sec, pour Facebook/LinkedIn jusqu'a 5 sec. Maximum 25 segments.
+MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments pour ce script precis (ni plus, ni moins). Un script court = peu de segments, un script long = plus de segments. Chaque segment couvre une idee complete (environ 3 a 5 secondes de narration). Ne gonfle JAMAIS artificiellement le nombre de plans.
 
 REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble. Privilegie la coherence du sens sur la duree exacte.
 
@@ -4359,8 +4382,10 @@ Le prompt doit se lire comme une description cinematographique fluide et immersi
 
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
 
+MINIATURE (TRES IMPORTANT) : en plus des segments, cree UN prompt visuel special pour la MINIATURE (image de couverture) de la video. Cette miniature doit etre CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immediatement envie de cliquer, avec un sujet central percutant, une emotion visible, des couleurs contrastees, une composition qui accroche l'oeil en une fraction de seconde. Elle resume la promesse de la video. Termine ce prompt par " 9:16".
+
 Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
-{"storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
+{"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
@@ -4368,7 +4393,17 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
     const container = document.getElementById('storyboardContainer');
-    container.innerHTML = `<div class="storyboard-list">${parsed.storyboard.map((seg, i) => `
+    const miniHtml = parsed.miniature ? `
+      <div class="sb-segment sb-miniature">
+        <div class="sb-head">
+          <span class="sb-time">★ Miniature</span>
+          <span class="sb-index">Couverture</span>
+        </div>
+        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-visual">${parsed.miniature}</div>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Partager</button>
+      </div>` : '';
+    container.innerHTML = `<div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
           <span class="sb-time">${seg.segment}</span>
