@@ -4124,6 +4124,7 @@ function renderResults(d, niche, sujet) {
     {
       titre: "Légende & Hashtags",
       num: "04",
+      sansBoutonGenerique: true,
       content: `<div class="out-section">
         <div class="out-section-label">Légende</div>
         <div class="legende-block">${sansHashtags(d.legende || '')}</div>
@@ -4183,7 +4184,7 @@ function renderResults(d, niche, sujet) {
       </div>
       <div class="out-body">
         ${sec.content}
-        <button class="copy-btn" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">◆ Copier cette section</button><button class="share-btn" onclick="shareText(this, copyTexts[${i}])">◆ Partager</button>
+        ${sec.sansBoutonGenerique ? '' : `<button class="copy-btn" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">◆ Copier cette section</button><button class="share-btn" onclick="shareText(this, copyTexts[${i}])">◆ Partager</button>`}
       </div>
     `;
     list.appendChild(card);
@@ -4278,8 +4279,13 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button>
+        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Partager</button>
       </div>`).join('')}</div>`;
+
+    // Réactiver le bouton après succès
+    spinner.style.display = 'none';
+    genText.textContent = '🎬 Storyboard généré';
+    btn.disabled = false;
 
   } catch(e) {
     genText.textContent = 'Erreur, réessaie';
