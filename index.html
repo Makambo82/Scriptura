@@ -1927,6 +1927,102 @@ function getUserRef() {
   return anon;
 }
 
+// ═══════════════════════════════════════════════════════════
+//  ANTI-CONTOURNEMENT — empreinte d'appareil + IP (via Supabase)
+// ═══════════════════════════════════════════════════════════
+// Objectif : le quota gratuit ne se réinitialise PAS quand on vide le cache.
+// On calcule une empreinte stable de l'appareil (indépendante du localStorage)
+// et on stocke le vrai quota dans Supabase, lié à cette empreinte + à l'IP.
+
+// Calcule une empreinte stable du navigateur/appareil (ne dépend pas du cache)
+async function getDeviceFingerprint() {
+  const parts = [
+    navigator.userAgent || '',
+    navigator.language || '',
+    (navigator.languages || []).join(','),
+    screen.width + 'x' + screen.height,
+    screen.colorDepth || '',
+    new Date().getTimezoneOffset(),
+    navigator.hardwareConcurrency || '',
+    navigator.deviceMemory || '',
+    navigator.platform || '',
+    navigator.maxTouchPoints || ''
+  ];
+  // Empreinte canvas (rendu graphique propre à chaque appareil)
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = "14px 'Arial'";
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(125, 1, 62, 20);
+    ctx.fillStyle = '#069';
+    ctx.fillText('Scriptura🎬', 2, 15);
+    parts.push(canvas.toDataURL().slice(-50));
+  } catch(e) { /* ignore */ }
+
+  const str = parts.join('|');
+  // Hash simple (djb2) → chaîne courte et stable
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) >>> 0;
+  }
+  return 'fp_' + hash.toString(36);
+}
+
+// Récupère l'IP publique de l'utilisateur (service gratuit)
+async function getUserIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
+    const j = await r.json();
+    return j.ip || null;
+  } catch(e) { return null; }
+}
+
+// Empreinte mémorisée pour la session
+let _deviceFp = null;
+let _userIP = null;
+async function ensureDeviceIds() {
+  if (!_deviceFp) _deviceFp = await getDeviceFingerprint();
+  if (!_userIP) _userIP = await getUserIP();
+  return { fp: _deviceFp, ip: _userIP };
+}
+
+// Récupère le quota réel depuis Supabase (le max entre empreinte et IP).
+// Renvoie le nombre de générations déjà utilisées selon le serveur.
+async function fetchServerQuota() {
+  if (!supabaseClient) return null; // pas de Supabase → on garde le localStorage
+  try {
+    const { fp, ip } = await ensureDeviceIds();
+    const refs = [fp];
+    if (ip) refs.push('ip_' + ip);
+    // Chercher les lignes correspondant à l'empreinte OU l'IP
+    const { data, error } = await supabaseClient
+      .from('quotas')
+      .select('ref, used')
+      .in('ref', refs);
+    if (error) throw error;
+    if (!data || !data.length) return 0;
+    // On prend le maximum (le plus contraignant)
+    return Math.max(...data.map(r => r.used || 0));
+  } catch(e) {
+    console.warn('fetchServerQuota échec', e);
+    return null;
+  }
+}
+
+// Enregistre/incrémente le quota côté serveur (empreinte ET IP)
+async function bumpServerQuota(newValue) {
+  if (!supabaseClient) return;
+  try {
+    const { fp, ip } = await ensureDeviceIds();
+    const rows = [{ ref: fp, used: newValue, maj_le: new Date().toISOString() }];
+    if (ip) rows.push({ ref: 'ip_' + ip, used: newValue, maj_le: new Date().toISOString() });
+    // upsert : crée ou met à jour selon la clé 'ref'
+    await supabaseClient.from('quotas').upsert(rows, { onConflict: 'ref' });
+  } catch(e) { console.warn('bumpServerQuota échec', e); }
+}
+
 // Sauvegarde une génération dans Supabase (silencieux, ne bloque jamais l'app)
 async function saveGeneration(mode, titre, contenu) {
   if (!supabaseClient) return;
@@ -2868,6 +2964,7 @@ Génère exactement 5 hooks. Découpe le récit en segments : chaque segment doi
     if (!unlocked) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
+      bumpServerQuota(usedGen); // met à jour le serveur (empreinte + IP)
       renderGenCounter();
       checkRappelAbonnement();
     }
@@ -3329,6 +3426,7 @@ Génère exactement 12 idées, toutes différentes et toutes à fort potentiel.`
     if (!unlocked) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
+      bumpServerQuota(usedGen); // met à jour le serveur (empreinte + IP)
       renderGenCounter();
       checkRappelAbonnement();
     }
@@ -3906,6 +4004,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (!unlocked) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
+      bumpServerQuota(usedGen); // met à jour le serveur (empreinte + IP)
       renderGenCounter();
       checkRappelAbonnement();
     }
@@ -4312,10 +4411,30 @@ function restart() {
 }
 
 // Fermer modal en cliquant dehors
+// Synchronise usedGen avec le serveur : si le serveur dit qu'on a utilisé plus
+// que le localStorage (cache vidé), on prend la valeur du serveur.
+async function syncServerQuota() {
+  if (unlocked) return; // les abonnés ne sont pas concernés
+  try {
+    const serverUsed = await fetchServerQuota();
+    if (serverUsed !== null && serverUsed > usedGen) {
+      usedGen = serverUsed;
+      localStorage.setItem('scriptura_used', usedGen);
+      renderGenCounter();
+      // Si le serveur indique que la limite est déjà atteinte, on verrouille
+    }
+    // Dans tous les cas, on aligne le serveur sur le max connu
+    if (serverUsed !== null && usedGen > serverUsed) {
+      bumpServerQuota(usedGen);
+    }
+  } catch(e) { console.warn('syncServerQuota', e); }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
+  syncServerQuota(); // synchronise le quota gratuit avec le serveur (anti-vidage de cache)
   const overlay = document.getElementById('modalOverlay');
   if (overlay) {
     overlay.addEventListener('click', function(e) {
