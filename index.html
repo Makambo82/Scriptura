@@ -1158,10 +1158,14 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 }
 
 /* ── BARRE DE PROGRESSION (storyboard) ── */
-.sb-progress{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:260px}
-.sb-progress-track{flex:1;height:6px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden}
-.sb-progress-fill{height:100%;width:0%;background:var(--gold);border-radius:999px;transition:width 0.15s linear}
-.sb-progress-pct{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.08em;color:var(--gold-light);min-width:34px;text-align:right}
+.sb-progress{display:inline-flex;align-items:center;gap:10px;width:100%;max-width:220px}
+.sb-progress-track{flex:1;height:6px;border-radius:999px;background:rgba(28,28,30,0.25);overflow:hidden}
+.sb-progress-fill{height:100%;width:0%;background:var(--bg);border-radius:999px;transition:width 0.2s ease-out}
+.sb-progress-pct{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.08em;color:var(--bg);min-width:34px;text-align:right;font-weight:700}
+/* Variante pour bouton à fond transparent (Storytelling) : couleurs dorées */
+.sb-progress.gold .sb-progress-track{background:rgba(201,168,76,0.2)}
+.sb-progress.gold .sb-progress-fill{background:var(--gold)}
+.sb-progress.gold .sb-progress-pct{color:var(--gold-light)}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3143,7 +3147,7 @@ async function generateStoryStoryboard() {
   const out = document.getElementById('storyStoryboardOutput');
   btn.disabled = true;
   document.getElementById('storyboardSpinner2').style.display = 'none';
-  document.getElementById('storyStoryboardText').innerHTML = 'Création du storyboard… <span class="sb-progress"><span class="sb-progress-track"><span class="sb-progress-fill" id="sbProgFill2"></span></span><span class="sb-progress-pct" id="sbProgPct2">0%</span></span>';
+  document.getElementById('storyStoryboardText').innerHTML = 'Création du storyboard… <span class="sb-progress gold"><span class="sb-progress-track"><span class="sb-progress-fill" id="sbProgFill2"></span></span><span class="sb-progress-pct" id="sbProgPct2">0%</span></span>';
   const prog = createProgress((p) => {
     const fill = document.getElementById('sbProgFill2');
     const pct = document.getElementById('sbProgPct2');
@@ -3564,24 +3568,35 @@ function useIdeaForScript(index) {
   const idea = generatedIdeas[index];
   if (!idea) return;
 
-  // Pré-remplir le tunnel de script avec l'idée
+  // Récupérer TOUS les choix faits dans "Trouve-moi des idées"
   const niche = document.getElementById('ideaNiche').value.trim();
+  const audience = document.getElementById('ideaAudience') ? document.getElementById('ideaAudience').value.trim() : '';
+  const geoContext = document.getElementById('ideaGeo').value.trim();
 
   // Basculer vers le mode script
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('flow').style.display = 'block';
 
-  // Pré-remplir le sujet avec le titre de l'idée (+ contexte géo si présent)
-  const geoContext = document.getElementById('ideaGeo').value.trim();
+  // 1. Sujet = le titre de l'idée (+ contexte géo si présent)
   document.getElementById('sujet').value = idea.titre + (geoContext ? ' (' + geoContext + ')' : '');
-  // Pré-remplir la niche si le champ existe et correspond
+
+  // 2. Niche : reporter dans le select du mode script
   const nicheSelect = document.getElementById('niche');
-  if (nicheSelect) {
+  if (nicheSelect && niche) {
     for (let opt of nicheSelect.options) {
       if (opt.value === niche || opt.text === niche) { nicheSelect.value = opt.value; break; }
     }
   }
-  // Reporter l'objectif si choisi
+
+  // 3. Audience : reporter dans le select du mode script
+  const audSelect = document.getElementById('audience');
+  if (audSelect && audience && !audience.startsWith('Choisir')) {
+    for (let opt of audSelect.options) {
+      if (opt.value === audience || opt.text === audience) { audSelect.value = opt.value; break; }
+    }
+  }
+
+  // 4. Objectif : reporter dans state
   if (ideaGoal) {
     const goalMap = {
       'faire des vues': 'Faire plus de vues et maximiser la portée',
@@ -3589,16 +3604,29 @@ function useIdeaForScript(index) {
       'générer des ventes': 'Générer des ventes via mon contenu',
       'renforcer mon expertise': 'Renforcer mon expertise et ma crédibilité'
     };
-    state.objectif = goalMap[ideaGoal] || '';
+    state.objectif = goalMap[ideaGoal] || ideaGoal;
   }
+
+  // 5. Plateforme : reporter dans state
   if (ideaPlatform) state.plateforme = ideaPlatform;
+
+  // 6. Ton : reporter si un champ existe dans le mode script
+  const tonScript = document.getElementById('ton');
+  if (tonScript && ideaTone) {
+    for (let opt of tonScript.options || []) {
+      if (opt.value === ideaTone || opt.text === ideaTone) { tonScript.value = opt.value; break; }
+    }
+  }
+
+  // Point de départ : on a déjà tout, c'est un sujet précis
   state.depart = 'un sujet précis que je veux développer';
 
-  // Aller à l'étape 4 (contexte) puisqu'on a déjà objectif, départ, plateforme
+  // Comme TOUS les choix sont reportés, on saute directement au récap (étape 4)
   if (state.objectif && state.plateforme) {
     showStep(4);
     renderSummary();
   } else {
+    // Au cas où il manquerait objectif ou plateforme, on va à l'étape 1
     showStep(1);
   }
 
