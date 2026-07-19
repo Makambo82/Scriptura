@@ -1080,8 +1080,8 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 
 /* ── NOTIFICATION PREUVE SOCIALE ── */
 .social-notif{
-  position:fixed;top:82px;left:50%;transform:translateX(-50%) translateY(-12px);
-  z-index:250;max-width:calc(100vw - 32px);white-space:nowrap;
+  position:fixed;bottom:24px;left:24px;transform:translateY(12px);
+  z-index:250;max-width:calc(100vw - 48px);
   background:rgba(36,36,38,0.97);backdrop-filter:blur(12px);
   border:1px solid rgba(201,168,76,0.3);border-radius:999px;
   padding:10px 18px;font-family:'Tenor Sans',sans-serif;font-size:0.78rem;
@@ -1091,7 +1091,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   transition:opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
   display:flex;align-items:center;gap:8px;
 }
-.social-notif.visible{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+.social-notif.visible{opacity:1;visibility:visible;transform:translateY(0)}
 .social-notif strong{color:var(--gold-light);font-weight:normal}
 .social-dot{
   width:7px;height:7px;border-radius:50%;background:#4ADE80;flex-shrink:0;
@@ -1103,7 +1103,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}
 }
 @media(max-width:600px){
-  .social-notif{font-size:0.66rem;padding:8px 14px;top:76px}
+  .social-notif{font-size:0.66rem;padding:8px 14px;bottom:18px;left:14px}
 }
 
 /* ── NOTIF INLINE (dans le flux, accueil uniquement) ── */
@@ -1235,8 +1235,6 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
-  <!-- Emplacement notif dans le flux (accueil uniquement) -->
-  <div class="social-inline" id="socialInline"></div>
   <div class="hero-eyebrow">Pour les créateurs francophones du monde entier</div>
 
   <h1>
@@ -2345,14 +2343,13 @@ function scriptsAujourdhui() {
 }
 
 // Prénoms pour l'activité (variété francophone)
-const SOCIAL_PRENOMS = ['Un utilisateur', 'Une utilisatrice', 'Un créateur', 'Une créatrice'];
+const SOCIAL_PRENOMS = ['Un créateur'];
 const SOCIAL_ACTIONS = ['vient de générer un script', 'vient de créer un récit', 'vient de trouver ses idées'];
 
 let _socialShown = 0;
 function showSocialNotif() {
-  const floatEl = document.getElementById('socialNotif');
-  const inlineEl = document.getElementById('socialInline');
-  if (!floatEl && !inlineEl) return;
+  const el = document.getElementById('socialNotif');
+  if (!el) return;
 
   // Construire le message (alterne les deux types)
   let html;
@@ -2366,28 +2363,10 @@ function showSocialNotif() {
   }
   _socialShown++;
 
-  // Sommes-nous sur la page d'accueil ?
-  const home = document.getElementById('homePage');
-  const surAccueil = home && home.style.display !== 'none';
-
-  // Toujours masquer les deux d'abord (repartir propre)
-  if (floatEl) floatEl.classList.remove('visible');
-  if (inlineEl) inlineEl.classList.remove('visible');
-
-  let cible;
-  if (surAccueil && inlineEl) {
-    // ACCUEIL : notif dans le flux (entre barre défilante et texte)
-    cible = inlineEl;
-  } else if (floatEl) {
-    // AUTRES ÉCRANS : notif flottante sous l'en-tête
-    cible = floatEl;
-  }
-  if (!cible) return;
-
-  cible.innerHTML = html;
-  cible.classList.add('visible');
+  el.innerHTML = html;
+  el.classList.add('visible');
   // Disparaît après 30s — un clic ne l'affecte pas
-  setTimeout(() => { cible.classList.remove('visible'); }, 30000);
+  setTimeout(() => { el.classList.remove('visible'); }, 30000);
 }
 
 // Lancer la première notif après 8s, puis en boucle toutes les 45s
