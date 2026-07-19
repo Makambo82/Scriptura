@@ -3524,7 +3524,6 @@ async function lancerGenImage(cible) {
   try {
     await navigator.clipboard.writeText(texte);
   } catch(e) {
-    // Repli : méthode ancienne
     try {
       const ta = document.createElement('textarea');
       ta.value = texte; document.body.appendChild(ta); ta.select();
@@ -3532,38 +3531,17 @@ async function lancerGenImage(cible) {
     } catch(e2) { /* tant pis */ }
   }
 
-  // 2. Tenter d'ouvrir l'APP native, avec repli sur le site si l'app n'est pas installée
-  let appUrl, webUrl;
+  // 2. Ouvrir l'app / le site — via redirection directe (PAS window.open, qui déclenche l'alerte pop-up)
+  let webUrl;
   if (cible === 'chatgpt') {
-    appUrl = 'chatgpt://';                       // schéma de l'app ChatGPT
     webUrl = 'https://chatgpt.com/';
   } else {
-    appUrl = 'googleapp://';                      // tentative pour l'app Google/Gemini
     webUrl = 'https://gemini.google.com/app';
   }
   fermerGenImage();
-
-  setTimeout(() => {
-    // On note l'heure : si l'app s'ouvre, la page passe en arrière-plan et le repli ne se déclenche pas
-    const debut = Date.now();
-    let bascule = setTimeout(() => {
-      // Si moins de 1,5s se sont écoulées ET qu'on est toujours visible → l'app n'a pas pris → ouvrir le site
-      if (Date.now() - debut < 1600 && !document.hidden) {
-        window.open(webUrl, '_blank');
-      }
-    }, 1000);
-
-    // Si la page devient cachée (= l'app s'est ouverte), on annule le repli
-    const onHide = () => { if (document.hidden) { clearTimeout(bascule); } };
-    document.addEventListener('visibilitychange', onHide, { once: true });
-
-    // Tenter d'ouvrir l'app
-    try {
-      window.location.href = appUrl;
-    } catch(e) {
-      window.open(webUrl, '_blank');
-    }
-  }, 150);
+  // Redirection directe : le téléphone ouvre l'app si installée, sinon le site.
+  // Aucune alerte "pop-up" car ce n'est pas window.open.
+  setTimeout(() => { window.location.href = webUrl; }, 150);
 }
 
 // ═══════════════════════════════════════════════════════════
