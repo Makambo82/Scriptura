@@ -342,6 +342,16 @@ nav{
   border:1px solid var(--border-soft);
   padding:7px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
+.copy-btn + .share-btn, .sb-copy + .share-btn, .idea-btn-copy + .share-btn{margin-left:8px}
+.share-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:14px;
+  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--gold);background:transparent;
+  border:1px solid rgba(201,168,76,0.4);
+  padding:7px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+}
+.share-btn:hover{background:rgba(201,168,76,0.1);border-color:var(--gold)}
 .copy-btn:hover{border-color:var(--gold);color:var(--gold)}
 
 /* RESTART */
@@ -851,6 +861,13 @@ footer strong{color:var(--gold)}
 }
 .idea-btn-script:hover{background:var(--gold-light)}
 .idea-btn-copy{
+  display:inline-flex;align-items:center;gap:6px;
+  background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);
+  border-radius:999px;font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;
+  text-transform:uppercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
+}
+.idea-btn-copy + .idea-btn-share{margin-left:8px}
+.idea-btn-share{
   display:inline-flex;align-items:center;gap:6px;
   background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);
   border-radius:999px;font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;
@@ -2926,7 +2943,7 @@ function renderStory(d) {
             <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
             <div class="hook-text">${h.texte || ''}</div>
           </div>`).join('')}</div>
-        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">◆ Copier les hooks</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">◆ Copier les hooks</button><button class="share-btn" onclick="shareText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">◆ Partager</button>
       </div>`
     });
   }
@@ -2940,7 +2957,7 @@ function renderStory(d) {
           <div class="story-segment">
             <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
           </div>`).join('')}</div>
-        <button class="copy-btn" onclick="copyStory(this)">◆ Copier le récit complet</button>
+        <button class="copy-btn" onclick="copyStory(this)">◆ Copier le récit complet</button><button class="share-btn" onclick="shareStory(this)">◆ Partager</button>
       </div>`
   });
 
@@ -2954,7 +2971,7 @@ function renderStory(d) {
       <div class="out-section">
         ${d.legende ? `<div class="legende-block">${sansHashtags(d.legende)}</div>` : ''}
         ${tags.length ? `<div class="hashtags-wrap" style="margin-top:14px">${tags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>` : ''}
-        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">◆ Copier légende + hashtags</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">◆ Copier légende + hashtags</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">◆ Partager</button>
       </div>`
     });
   }
@@ -3054,7 +3071,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
       </div>`).join('')}</div>
-      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button>`;
+      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button><button class="share-btn" style="margin-top:16px" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button>`;
 
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
@@ -3104,6 +3121,48 @@ function storeCopyText(text) {
   const key = '__copykey_' + (window._copyKeyCounter = (window._copyKeyCounter || 0) + 1);
   window._copyStore[key] = text;
   return key;
+}
+
+// ── PARTAGE NATIF (menu du téléphone : WhatsApp, Instagram, etc.) ──
+async function shareText(btn, text) {
+  // Récupérer le vrai texte si c'est une clé du registre
+  let realText = text;
+  if (typeof text === 'string' && text.startsWith('__copykey_') && window._copyStore[text]) {
+    realText = window._copyStore[text];
+  }
+  if (typeof realText !== 'string') { console.error('shareText: texte invalide'); return; }
+  realText = realText.replace(/\u200B/g, '').trim();
+
+  // API de partage native (mobile)
+  if (navigator.share) {
+    try {
+      await navigator.share({ text: realText + '\n\n— Créé avec Scriptura' });
+    } catch(e) { /* l'utilisateur a annulé, on ne fait rien */ }
+  } else {
+    // Repli desktop : copier dans le presse-papier + message
+    try {
+      await navigator.clipboard.writeText(realText);
+      const label = btn.innerHTML;
+      btn.textContent = '✓ Copié (partage indispo)';
+      setTimeout(() => btn.innerHTML = label, 2500);
+    } catch(err) {
+      alert('Le partage n\'est pas disponible sur cet appareil.');
+    }
+  }
+}
+
+// Partage du récit complet
+async function shareStory(btn) {
+  const text = document.getElementById('storyOutput').dataset.fulltext || '';
+  await shareText(btn, text);
+}
+
+// Partage d'une idée
+async function shareIdea(index, btn) {
+  const idea = generatedIdeas[index];
+  if (!idea) return;
+  const text = idea.titre + '\n\nAngle : ' + idea.angle + '\n\nPourquoi ça marche : ' + idea.pourquoi + '\n\nHook : ' + idea.hook;
+  await shareText(btn, text);
 }
 
 function copyStory(btn) {
@@ -3314,7 +3373,7 @@ function renderIdeas(idees, niche) {
         </div>
         <div class="idea-actions">
           <button class="idea-btn-script" onclick="useIdeaForScript(${i})">🎬 Générer le script complet</button>
-          <button class="idea-btn-copy" onclick="copyIdea(${i}, this)">◆ Copier</button>
+          <button class="idea-btn-copy" onclick="copyIdea(${i}, this)">◆ Copier</button><button class="idea-btn-share" onclick="shareIdea(${i}, this)">◆ Partager</button>
         </div>
       </div>
     </div>`).join('');
@@ -4069,7 +4128,7 @@ function renderResults(d, niche, sujet) {
         <div class="out-section-label">Légende</div>
         <div class="legende-block">${sansHashtags(d.legende || '')}</div>
         <div class="hashtags">${(d.hashtags || []).slice(0, 5).map(h => `<span class="ht">${h.toLowerCase()}</span>`).join('')}</div>
-        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">◆ Copier légende + hashtags</button>
+        <button class="copy-btn" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">◆ Copier légende + hashtags</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">◆ Partager</button>
       </div>`
     },
     {
@@ -4124,7 +4183,7 @@ function renderResults(d, niche, sujet) {
       </div>
       <div class="out-body">
         ${sec.content}
-        <button class="copy-btn" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">◆ Copier cette section</button>
+        <button class="copy-btn" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">◆ Copier cette section</button><button class="share-btn" onclick="shareText(this, copyTexts[${i}])">◆ Partager</button>
       </div>
     `;
     list.appendChild(card);
