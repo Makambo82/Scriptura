@@ -3520,7 +3520,7 @@ function fermerGenImage() {
 // Copie le prompt puis ouvre l'app choisie (chatgpt / gemini)
 async function lancerGenImage(cible) {
   const texte = _promptAGenerer;
-  // 1. Copier le prompt dans le presse-papier
+  // Copier le prompt (utile surtout pour Gemini)
   try {
     await navigator.clipboard.writeText(texte);
   } catch(e) {
@@ -3531,27 +3531,31 @@ async function lancerGenImage(cible) {
     } catch(e2) { /* tant pis */ }
   }
 
-  // 2. Ouvrir l'APP directement via son schéma (pas le navigateur)
-  let appUrl, webUrl;
-  if (cible === 'chatgpt') {
-    appUrl = 'chatgpt://';                 // ouvre l'app ChatGPT
-    webUrl = 'https://chatgpt.com/';        // repli si l'app n'est pas installée
-  } else {
-    appUrl = 'googleapp://';                // ouvre l'app Google (Gemini)
-    webUrl = 'https://gemini.google.com/app';
-  }
   fermerGenImage();
 
-  // Tenter d'ouvrir l'app. Si elle n'est pas installée, basculer sur le site.
+  if (cible === 'chatgpt') {
+    // ChatGPT : le schéma chatgpt://?q= ouvre l'app AVEC le prompt pré-rempli
+    const appUrl = 'chatgpt://?q=' + encodeURIComponent(texte);
+    const webUrl = 'https://chatgpt.com/?q=' + encodeURIComponent(texte);
+    ouvrirAppOuSite(appUrl, webUrl);
+  } else {
+    // Gemini : pas de schéma app fiable → on tente l'app Google, repli sur le site.
+    // Le prompt est déjà copié, l'utilisateur n'a qu'à coller.
+    const appUrl = 'googleapp://';
+    const webUrl = 'https://gemini.google.com/app';
+    ouvrirAppOuSite(appUrl, webUrl);
+  }
+}
+
+// Tente d'ouvrir une app via son schéma ; si elle n'est pas installée, ouvre le site.
+function ouvrirAppOuSite(appUrl, webUrl) {
   setTimeout(() => {
     let bascule = setTimeout(() => {
       if (!document.hidden) { window.location.href = webUrl; }
     }, 1200);
-    // Si la page passe en arrière-plan, c'est que l'app s'est ouverte → annuler le repli
     document.addEventListener('visibilitychange', function onHide() {
       if (document.hidden) { clearTimeout(bascule); document.removeEventListener('visibilitychange', onHide); }
     });
-    // Lancer l'app
     window.location.href = appUrl;
   }, 150);
 }
