@@ -1228,9 +1228,6 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
     <span class="ticker-item"><span class="gem">◆</span>Développement personnel</span>
   </div>
 </div>
-<!-- NOTIFICATION PREUVE SOCIALE -->
-<div class="social-notif" id="socialNotif"></div>
-
 <!-- HERO -->
 <section class="hero">
   <div class="hero-bg"></div>
@@ -2345,6 +2342,7 @@ function scriptsAujourdhui() {
 // Prénoms pour l'activité (variété francophone)
 const SOCIAL_PRENOMS = ['Un créateur'];
 const SOCIAL_ACTIONS = ['vient de générer un script', 'vient de créer un récit', 'vient de trouver ses idées'];
+const SOCIAL_NOMS = ["Mamadou", "Ibrahima", "Cheikh", "Ousmane", "Abdoulaye", "Moussa", "Amadou", "Souleymane", "Boubacar", "Kofi", "Kouassi", "Sékou", "Youssouf", "Adama", "Bakary", "Lamine", "Seydou", "Drissa", "Yaya", "Aboubacar", "Tidiane", "Alassane", "Djibril", "Samba", "Modou", "Aminata", "Fatoumata", "Aïssata", "Mariama", "Kadiatou", "Awa", "Ramatoulaye", "Fatou", "Bintou", "Rokia", "Mariam", "Oumou", "Salimata", "Coumba", "Aïcha", "Hawa", "Néné", "Djénéba", "Maïmouna", "Ndèye", "Sokhna", "Yacine", "Khadija", "Astou", "Adja", "Lucas", "Hugo", "Nathan", "Enzo", "Louis", "Gabriel", "Jules", "Adam", "Raphaël", "Arthur", "Théo", "Maxime", "Antoine", "Clément", "Victor", "Alexandre", "Nicolas", "Julien", "Baptiste", "Romain", "Gaël", "Yanis", "Noé", "Timéo", "Ethan", "Emma", "Léa", "Chloé", "Manon", "Camille", "Sarah", "Inès", "Jade", "Louise", "Alice", "Juliette", "Zoé", "Lucie", "Marie", "Clara", "Anaïs", "Justine", "Élise", "Margaux", "Ambre", "Lina", "Nina", "Romane", "Maëlys", "Jeanne"];
 
 let _socialShown = 0;
 function showSocialNotif() {
@@ -2366,15 +2364,15 @@ function showSocialNotif() {
   el.innerHTML = html;
   el.classList.add('visible');
   // Disparaît après 30s — un clic ne l'affecte pas
-  setTimeout(() => { el.classList.remove('visible'); }, 30000);
+  setTimeout(() => { el.classList.remove('visible'); }, 20000);
 }
 
 // Lancer la première notif après 8s, puis en boucle toutes les 45s
 function startSocialProof() {
   setTimeout(() => {
     showSocialNotif();
-    setInterval(showSocialNotif, 90000); // cycle de 90s (30s visible + 60s de pause)
-  }, 8000);
+    setInterval(showSocialNotif, 50000); // cycle de 50s (20s visible + 30s de pause)
+  }, 5000);
 }
 
 // ── POP-UP RAPPEL ABONNEMENT ──
@@ -4358,6 +4356,9 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
 
 <!-- BOUTON RETOUR EN HAUT -->
 <button id="scrollTopBtn" onclick="scrollSmart()" aria-label="Naviguer haut ou bas" title="Descendre en bas">↓</button>
+
+<!-- NOTIFICATION PREUVE SOCIALE (niveau racine, visible partout) -->
+<div class="social-notif" id="socialNotif"></div>
 
 </body>
 </html>
