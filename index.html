@@ -574,11 +574,11 @@ footer strong{color:var(--gold)}
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.2em;
   text-transform:uppercase;color:var(--gold);margin-bottom:18px;
 }
-.paywall h3{
+.paywall-modal h3{
   font-family:'Playfair Display',serif;font-weight:500;font-style:normal;
   font-size:1.4rem;line-height:1.4;margin-bottom:14px;color:#FFFFFF;
 }
-.paywall p{font-family:'Playfair Display',serif;font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
+.paywall-modal p{font-family:'Playfair Display',serif;font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
 .paywall-price{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--gold-light);margin-bottom:4px}
 .paywall-period{font-size:0.8rem;color:rgba(255,255,255,0.5);letter-spacing:0.06em;margin-bottom:28px}
 .paywall-wa{
@@ -1231,6 +1231,22 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   padding:7px 16px;border-radius:999px;cursor:pointer;transition:all 0.2s;font-weight:500;
 }
 .genimg-trigger:hover{background:var(--gold-light);border-color:var(--gold-light)}
+
+/* ── BOUTONS ICÔNES (Copier / Partager) ── */
+.sb-actions-fin{
+  display:flex;gap:12px;justify-content:center;
+  margin-top:20px;padding-top:18px;
+  border-top:1px solid var(--border-soft);
+}
+.icon-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:transparent;color:var(--gold-light);
+  border:1px solid rgba(201,168,76,0.4);
+  padding:10px 20px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;
+}
+.icon-btn:hover{background:rgba(201,168,76,0.12);border-color:var(--gold)}
+.icon-btn svg{flex-shrink:0}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2168,7 +2184,11 @@ function reafficherStoryboard(sbData, isStory) {
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
         <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(s.visuel||'')}')">✨ Générer l'image</button>
-      </div>`).join('')}</div>`;
+      </div>`).join('')}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_COPY}<span>Copier</span></button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_SHARE}<span>Partager</span></button>
+      </div></div>`;
     // Cacher le bouton "Générer le storyboard" puisqu'il est déjà là
     const btn = document.getElementById('storyStoryboardBtn');
     if (btn) btn.style.display = 'none';
@@ -2184,8 +2204,9 @@ function reafficherStoryboard(sbData, isStory) {
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${miniature}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(miniature||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(miniature||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(miniature||'')}')">✨ Générer l'image</button>
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(miniature||'')}')">✨ Générer l'image</button>
       </div>` : '';
+    const tousLesPromptsRe = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
     container.innerHTML = `<div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
@@ -2195,8 +2216,12 @@ function reafficherStoryboard(sbData, isStory) {
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
-      </div>`).join('')}</div>`;
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
+      </div>`).join('')}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_COPY}<span>Copier</span></button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_SHARE}<span>Partager</span></button>
+      </div></div>`;
     // Cacher le bouton générer
     const btn = document.getElementById('sbGenerateBtn');
     if (btn) btn.style.display = 'none';
@@ -3398,8 +3423,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
         <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(s.visuel||'')}')">✨ Générer l'image</button>
-      </div>`).join('')}</div>
-      <button class="copy-btn" style="margin-top:16px" onclick="copyText(this, '${storeCopyText(sbFullText)}')">◆ Copier cette section</button><button class="share-btn" style="margin-top:16px" onclick="shareText(this, '${storeCopyText(sbFullText)}')">◆ Partager</button>`;
+      </div>`).join('')}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}<span>Copier</span></button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}<span>Partager</span></button>
+      </div></div>`;
 
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
@@ -3500,6 +3528,10 @@ async function shareIdea(index, btn) {
 // ═══════════════════════════════════════════════════════════
 // Ouvre une boîte de dialogue, copie le prompt, puis ouvre l'app choisie.
 let _promptAGenerer = '';
+
+// Icônes SVG pour les boutons Copier / Partager
+const ICON_COPY = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
 
 function ouvrirGenImage(promptText) {
   // Récupérer le vrai texte si c'est une clé du registre
@@ -4591,6 +4623,19 @@ function renderResults(d, niche, sujet) {
       </div>`
     },
     {
+      titre: "Variantes A/B du titre",
+      num: "06",
+      content: `<div class="out-section">
+        <div class="out-section-label">Titres alternatifs à tester</div>
+        <div class="hooks-list">${(d.variantes_titre || []).map((t, i) => `
+          <div class="hook-item">
+            <span class="hook-style">Version ${i === 0 ? 'A' : 'B'}</span>
+            ${t}
+          </div>`).join('')}
+        </div>
+      </div>`
+    },
+    {
       titre: "Storyboard visuel — Prompts anti-scroll",
       num: "05",
       content: `<div class="out-section">
@@ -4607,19 +4652,6 @@ function renderResults(d, niche, sujet) {
               <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
             </div>
           </div>
-        </div>
-      </div>`
-    },
-    {
-      titre: "Variantes A/B du titre",
-      num: "06",
-      content: `<div class="out-section">
-        <div class="out-section-label">Titres alternatifs à tester</div>
-        <div class="hooks-list">${(d.variantes_titre || []).map((t, i) => `
-          <div class="hook-item">
-            <span class="hook-style">Version ${i === 0 ? 'A' : 'B'}</span>
-            ${t}
-          </div>`).join('')}
         </div>
       </div>`
     }
@@ -4759,8 +4791,9 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${parsed.miniature}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(parsed.miniature||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(parsed.miniature||'')}')">✨ Générer l'image</button>
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(parsed.miniature||'')}')">✨ Générer l'image</button>
       </div>` : '';
+    const tousLesPrompts2 = (parsed.miniature ? 'MINIATURE : ' + parsed.miniature + '\n\n' : '') + parsed.storyboard.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
     container.innerHTML = `<div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
@@ -4770,8 +4803,12 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="sb-copy" onclick="copyText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Copier ce prompt</button><button class="share-btn" onclick="shareText(this, '${storeCopyText(seg.prompt_visuel||'')}')">◆ Partager</button><button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
-      </div>`).join('')}</div>`;
+        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
+      </div>`).join('')}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}<span>Copier</span></button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}<span>Partager</span></button>
+      </div></div>`;
 
     // Réactiver le bouton après succès
     spinner.style.display = 'none';
