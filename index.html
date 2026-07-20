@@ -1246,6 +1246,27 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 }
 .icon-btn:hover{color:var(--gold);transform:scale(1.15)}
 .icon-btn svg{flex-shrink:0}
+
+/* ── GÉNÉRER L'IMAGE : texte + logos cliquables ── */
+.genimg-inline{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-top:14px;
+}
+.genimg-inline-label{
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--gold-light);
+}
+.genimg-logo-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;padding:6px;
+  background:rgba(255,255,255,0.05);border:1px solid var(--border-soft);
+  border-radius:10px;cursor:pointer;transition:all 0.2s;
+}
+.genimg-logo-btn:hover{
+  background:rgba(201,168,76,0.12);border-color:var(--gold);
+  transform:scale(1.08);
+}
+.genimg-logo-btn svg{width:24px;height:24px}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2175,14 +2196,14 @@ function reafficherStoryboard(sbData, isStory) {
       <div class="sb-segment sb-miniature">
         <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${miniature}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(miniature||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(s.visuel||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_COPY}</button>
@@ -2203,7 +2224,7 @@ function reafficherStoryboard(sbData, isStory) {
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${miniature}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(miniature||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     const tousLesPromptsRe = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
     container.innerHTML = `<div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
@@ -2215,7 +2236,7 @@ function reafficherStoryboard(sbData, isStory) {
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_COPY}</button>
@@ -3419,14 +3440,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       <div class="sb-segment sb-miniature">
         <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${parsed.miniature}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(parsed.miniature||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(parsed.miniature||''))}
       </div>` : '';
     out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
         <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(s.visuel||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
@@ -3536,6 +3557,58 @@ let _promptAGenerer = '';
 // Icônes SVG pour les boutons Copier / Partager
 const ICON_COPY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const ICON_SHARE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
+
+// Logos ChatGPT et Gemini pour le sélecteur de génération d'image
+const LOGO_CHATGPT = `<svg viewBox="0 0 24 24" width="26" height="26" fill="#fff"><path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-3.99 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.98 5.98 0 0 0 13.26 22a6.05 6.05 0 0 0 5.77-4.2 5.98 5.98 0 0 0 3.99-2.9 6.05 6.05 0 0 0-.74-7.09zm-9.02 12.6a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.78.78 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.06v5.58a4.5 4.5 0 0 1-4.49 4.49zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.09 4.78 2.76a.78.78 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.07l-4.83 2.79a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.34-1.97V11.6a.77.77 0 0 0 .39.68l5.84 3.37-2.02 1.17a.07.07 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.37 2.02-1.16a.07.07 0 0 1 .07 0l4.83 2.78a4.49 4.49 0 0 1-.68 8.1v-5.67a.77.77 0 0 0-.4-.68zm2.01-3.02l-.14-.09-4.78-2.76a.78.78 0 0 0-.78 0L9.4 9.26V6.93a.08.08 0 0 1 .03-.07l4.83-2.79a4.49 4.49 0 0 1 6.68 4.65zM8.3 12.86l-2.02-1.17a.07.07 0 0 1-.04-.06V6.05a4.49 4.49 0 0 1 7.37-3.44l-.14.08-4.78 2.76a.78.78 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>`;
+const LOGO_GEMINI = `<svg viewBox="0 0 24 24" width="26" height="26"><defs><linearGradient id="gemGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4285F4"/><stop offset="50%" stop-color="#9B72CB"/><stop offset="100%" stop-color="#D96570"/></linearGradient></defs><path fill="url(#gemGrad)" d="M12 2c.34 4.9 4.8 9.36 9.7 9.7v.6C16.8 12.64 12.34 17.1 12 22h-.6C11.06 17.1 6.6 12.64 1.7 12.3v-.6C6.6 11.36 11.06 6.9 11.4 2z"/></svg>`;
+
+// Génère le bloc "Générer l'image : [logo ChatGPT] [logo Gemini]" pour un prompt donné.
+// promptKey est une clé du registre _copyStore (via storeCopyText).
+function blocGenImage(promptKey) {
+  return `<div class="genimg-inline">
+    <span class="genimg-inline-label">Générer l'image :</span>
+    <button class="genimg-logo-btn" title="Ouvrir dans ChatGPT" onclick="genImageDirect('chatgpt', '${promptKey}')">${LOGO_CHATGPT}</button>
+    <button class="genimg-logo-btn" title="Ouvrir dans Gemini" onclick="genImageDirect('gemini', '${promptKey}')">${LOGO_GEMINI}</button>
+  </div>`;
+}
+
+// Clic direct sur un logo : copie le prompt + ouvre l'app choisie (sans boîte de dialogue)
+function genImageDirect(cible, promptKey) {
+  let texte = promptKey;
+  if (typeof promptKey === 'string' && promptKey.startsWith('__copykey_') && window._copyStore[promptKey]) {
+    texte = window._copyStore[promptKey];
+  }
+  texte = (texte || '').replace(/\u200B/g, '').trim();
+
+  // Copier en parallèle (sans bloquer l'ouverture de l'app)
+  try { navigator.clipboard.writeText(texte); } catch(e) {}
+
+  let appUrl, webUrl;
+  if (cible === 'chatgpt') {
+    appUrl = 'chatgpt://?q=' + encodeURIComponent(texte);
+    webUrl = 'https://chatgpt.com/?q=' + encodeURIComponent(texte);
+  } else {
+    appUrl = 'googlegemini://';
+    webUrl = 'https://gemini.google.com/app';
+  }
+
+  // Repli vers le site si l'app ne s'ouvre pas
+  const bascule = setTimeout(() => {
+    if (!document.hidden) { window.location.href = webUrl; }
+  }, 1500);
+  const annuler = () => { clearTimeout(bascule); cleanup(); };
+  const onHide = () => { if (document.hidden) annuler(); };
+  function cleanup() {
+    document.removeEventListener('visibilitychange', onHide);
+    window.removeEventListener('blur', annuler);
+    window.removeEventListener('pagehide', annuler);
+  }
+  document.addEventListener('visibilitychange', onHide);
+  window.addEventListener('blur', annuler);
+  window.addEventListener('pagehide', annuler);
+
+  window.location.href = appUrl;
+}
 
 function ouvrirGenImage(promptText) {
   // Récupérer le vrai texte si c'est une clé du registre
@@ -4798,7 +4871,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${parsed.miniature}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(parsed.miniature||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(parsed.miniature||''))}
       </div>` : '';
     const tousLesPrompts2 = (parsed.miniature ? 'MINIATURE : ' + parsed.miniature + '\n\n' : '') + parsed.storyboard.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
     container.innerHTML = `<div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
@@ -4810,7 +4883,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <div class="sb-dit">"${seg.texte_dit}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${seg.prompt_visuel}</div>
-        <button class="genimg-trigger" onclick="ouvrirGenImage('${storeCopyText(seg.prompt_visuel||'')}')">✨ Générer l'image</button>
+        ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
