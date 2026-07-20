@@ -576,9 +576,9 @@ footer strong{color:var(--gold)}
 }
 .paywall-modal h3{
   font-family:'Playfair Display',serif;font-weight:500;font-style:normal;
-  font-size:1.4rem;line-height:1.4;margin-bottom:14px;color:#FFFFFF;
+  font-size:1.6rem;line-height:1.3;margin-bottom:14px;color:#FFFFFF;
 }
-.paywall-modal p{font-family:'Playfair Display',serif;font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
+.paywall-modal p{font-family:'Tenor Sans',sans-serif;font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.75;margin-bottom:28px}
 .paywall-price{font-family:'Playfair Display',serif;font-weight:700;font-size:2.4rem;color:var(--gold-light);margin-bottom:4px}
 .paywall-period{font-size:0.8rem;color:rgba(255,255,255,0.5);letter-spacing:0.06em;margin-bottom:28px}
 .paywall-wa{
@@ -617,8 +617,8 @@ footer strong{color:var(--gold)}
 }
 .modal-close:hover{color:#FFFFFF}
 .modal-tag{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:18px}
-.modal h3{font-family:'Playfair Display',serif;font-weight:400;font-style:italic;font-size:1.6rem;margin-bottom:12px;color:#FFFFFF}
-.modal p{font-size:0.86rem;color:rgba(255,255,255,0.65);line-height:1.7;margin-bottom:24px}
+.modal h3{font-family:'Playfair Display',serif;font-weight:500;font-style:normal;font-size:1.6rem;line-height:1.3;margin-bottom:14px;color:#FFFFFF}
+.modal p{font-family:'Tenor Sans',sans-serif;font-size:0.9rem;color:rgba(255,255,255,0.65);line-height:1.7;margin-bottom:24px}
 .modal-input{
   width:100%;font-family:'Cinzel',serif;font-size:0.9rem;letter-spacing:0.1em;
   text-align:center;text-transform:uppercase;
@@ -1204,7 +1204,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;
 }
 .genimg-title{
-  font-family:'Playfair Display',serif;font-weight:500;font-size:1.4rem;
+  font-family:'Playfair Display',serif;font-weight:500;font-style:normal;font-size:1.6rem;line-height:1.3;
   color:#fff;margin-bottom:10px;
 }
 .genimg-sub{
@@ -1241,10 +1241,10 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;
   background:transparent;color:var(--gold-light);
-  border:1px solid rgba(201,168,76,0.4);
-  width:46px;height:46px;border-radius:50%;cursor:pointer;transition:all 0.2s;
+  border:none;
+  width:40px;height:40px;margin:0 8px;cursor:pointer;transition:all 0.2s;
 }
-.icon-btn:hover{background:rgba(201,168,76,0.12);border-color:var(--gold)}
+.icon-btn:hover{color:var(--gold);transform:scale(1.15)}
 .icon-btn svg{flex-shrink:0}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -2545,6 +2545,11 @@ function closePaywall() {
 }
 
 function openModal() {
+  // Fermer le paywall et le rappel s'ils sont ouverts (sinon ils masquent cette modal)
+  const pw = document.getElementById('paywall');
+  if (pw) pw.classList.remove('active');
+  const rappel = document.getElementById('rappelOverlay');
+  if (rappel) rappel.classList.remove('active');
   document.getElementById('modalOverlay').classList.add('active');
   setTimeout(() => document.getElementById('codeInput').focus(), 100);
 }
@@ -3529,8 +3534,8 @@ async function shareIdea(index, btn) {
 let _promptAGenerer = '';
 
 // Icônes SVG pour les boutons Copier / Partager
-const ICON_COPY = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
-const ICON_SHARE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
+const ICON_COPY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const ICON_SHARE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
 
 function ouvrirGenImage(promptText) {
   // Récupérer le vrai texte si c'est une clé du registre
