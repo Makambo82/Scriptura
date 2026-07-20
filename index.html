@@ -1276,6 +1276,27 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   font-family:'Tenor Sans',sans-serif;font-size:0.85rem;line-height:1.55;
   color:var(--gold-light);
 }
+
+/* ── BOUTON RÉGÉNÉRER dans le storyboard ── */
+.sb-regen{
+  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;
+  background:transparent;color:var(--gold-light);
+  border:1px solid rgba(201,168,76,0.4);
+  padding:0 18px;height:40px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+  display:inline-flex;align-items:center;gap:6px;margin:0 8px;
+}
+.sb-regen:hover{background:rgba(201,168,76,0.12);border-color:var(--gold)}
+
+/* ── TOAST RÉGÉNÉRATION ── */
+.regen-toast{
+  position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--bg-card);border:1px solid var(--gold);
+  color:var(--gold-light);font-family:'Tenor Sans',sans-serif;font-size:0.85rem;
+  padding:12px 22px;border-radius:999px;z-index:600;
+  opacity:0;transition:all 0.3s ease;pointer-events:none;
+  box-shadow:0 8px 30px rgba(0,0,0,0.4);white-space:nowrap;
+}
+.regen-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1479,7 +1500,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
     <div id="storyResults" style="display:none">
       <div class="ideas-results-header">
         <h3 class="results-heading">Ton récit</h3>
-        <button class="btn-regenerate" onclick="generateStory()">↻ Régénérer</button>
+        <button class="btn-regenerate" onclick="regenererContenu('story')">↻ Régénérer</button>
       </div>
       <div id="storyOutput"></div>
     </div>
@@ -1932,8 +1953,11 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   <!-- RÉSULTATS -->
   <div id="results">
     <div class="results-top">
-      <div class="results-heading">Ton contenu est prêt.</div>
-      <div class="results-meta" id="resultsMeta"></div>
+      <div>
+        <div class="results-heading">Ton contenu est prêt.</div>
+        <div class="results-meta" id="resultsMeta"></div>
+      </div>
+      <button class="btn-regenerate" onclick="regenererContenu('script')">↻ Régénérer</button>
     </div>
     <div id="outputList"></div>
     <button class="btn-restart" onclick="restart()">↺ Générer un nouveau contenu</button>
@@ -2165,8 +2189,21 @@ async function bumpServerQuota(newValue) {
 let currentGenId = null; // id de la génération en cours (pour y rattacher le storyboard)
 
 async function saveGeneration(mode, titre, contenu) {
+  if (!supabaseClient) { currentGenId = null; return; }
+
+  // Régénération GRATUITE : on met à jour la ligne existante au lieu d'en créer une
+  // nouvelle → ça ne compte pas comme une génération supplémentaire dans le quota.
+  if (_regenGratuiteEnCours && currentGenId) {
+    try {
+      await supabaseClient.from('generations')
+        .update({ titre: titre || 'Sans titre', contenu: contenu })
+        .eq('id', currentGenId);
+    } catch(e) { console.warn('Maj régénération échouée', e); }
+    return; // on garde le même currentGenId, aucune nouvelle ligne créée
+  }
+
+  // Génération normale (ou 3e régénération+) : nouvelle ligne = compte dans le quota
   currentGenId = null;
-  if (!supabaseClient) return;
   try {
     const { data, error } = await supabaseClient.from('generations').insert({
       code_acces: getUserRef(),
@@ -2215,6 +2252,7 @@ function reafficherStoryboard(sbData, isStory) {
         ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
+        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_SHARE}</button>
       </div></div>`;
@@ -2248,6 +2286,7 @@ function reafficherStoryboard(sbData, isStory) {
         ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
+        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_SHARE}</button>
       </div></div>`;
@@ -2511,6 +2550,26 @@ async function loadGenerations() {
 // ══════════════════════════════════════
 const CODES_VALIDES = ["SCRIPTURA-JUIL-2026", "SCRIPTURA-AOUT-2026"]; // À changer chaque mois
 const MAX_FREE = 5;
+
+// ═══ RÉGÉNÉRATIONS GRATUITES ═══
+// À chaque nouveau contenu, l'utilisateur a REGEN_GRATUITES régénérations gratuites.
+// Au-delà, la régénération compte comme une génération normale (soustraite du quota).
+const REGEN_GRATUITES = 2;
+// Compteur par type de contenu (réinitialisé à chaque NOUVELLE génération de ce type)
+let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0 };
+// Flag : la génération en cours est-elle une régénération gratuite ? (ne compte pas au quota)
+let _regenGratuiteEnCours = false;
+
+// Détermine si une régénération est gratuite, et incrémente le compteur.
+// Retourne true si gratuite (ne pas compter), false si elle doit compter.
+function regenEstGratuite(type) {
+  regenCount[type] = (regenCount[type] || 0) + 1;
+  return regenCount[type] <= REGEN_GRATUITES;
+}
+// Réinitialise le compteur d'un type (à appeler quand un NOUVEAU contenu est généré, pas régénéré)
+function resetRegen(type) {
+  regenCount[type] = 0;
+}
 
 let usedGen = parseInt(localStorage.getItem('scriptura_used') || '0');
 let unlocked = localStorage.getItem('scriptura_unlocked') === 'true';
@@ -3043,6 +3102,7 @@ function setStoryLoading(on) {
 }
 
 async function generateStory() {
+  if (!_regenGratuiteEnCours) resetRegen('story');
   const input = document.getElementById('storyInput').value.trim();
   const errorBox = document.getElementById('storyErrorBox');
   errorBox.style.display = 'none';
@@ -3196,7 +3256,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       } catch(e) { /* garde la première version si échec */ }
     }
 
-    if (!unlocked) {
+    if (!unlocked && !_regenGratuiteEnCours) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       bumpServerQuota(usedGen); // met à jour le serveur (empreinte + IP)
@@ -3378,6 +3438,7 @@ function renderStory(d) {
 
 async function generateStoryStoryboard() {
   if (!currentStory || !currentStoryText) return;
+  if (!_regenGratuiteEnCours) resetRegen('storyboardStory');
 
   const btn = document.getElementById('storyStoryboardBtn');
   const out = document.getElementById('storyStoryboardOutput');
@@ -3461,6 +3522,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
+        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       </div></div>`;
@@ -3873,7 +3935,7 @@ Génère exactement 12 idées, toutes différentes et toutes à fort potentiel.`
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 
     // Incrémenter le compteur
-    if (!unlocked) {
+    if (!unlocked && !_regenGratuiteEnCours) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       bumpServerQuota(usedGen); // met à jour le serveur (empreinte + IP)
@@ -4131,6 +4193,7 @@ function parseAIResponse(raw) {
 
 // ── GÉNÉRATION ──
 async function generate() {
+  if (!_regenGratuiteEnCours) resetRegen('script');
   const niche    = document.getElementById('niche').value.trim();
   const sujet    = document.getElementById('sujet').value.trim();
   const audience = document.getElementById('audience').value.trim();
@@ -4476,7 +4539,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // Incrémenter le compteur si pas débloqué
-    if (!unlocked) {
+    if (!unlocked && !_regenGratuiteEnCours) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       bumpServerQuota(usedGen); // met à jour le serveur (empreinte + IP)
@@ -4499,6 +4562,53 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     errorBox.style.display = 'block';
   } finally {
     setLoading(false);
+  }
+}
+
+// Régénère un contenu. Les REGEN_GRATUITES premières fois sont gratuites (ne comptent pas au quota).
+// Petit message flottant temporaire (feedback régénération)
+function toastRegen(message) {
+  let t = document.getElementById('regenToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'regenToast';
+    t.className = 'regen-toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = message;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function regenererContenu(type) {
+  const gratuite = regenEstGratuite(type);
+  _regenGratuiteEnCours = gratuite;
+
+  // Petit message informatif
+  const restantes = REGEN_GRATUITES - regenCount[type];
+  if (gratuite) {
+    if (restantes > 0) {
+      toastRegen('Régénération gratuite · ' + restantes + ' restante' + (restantes > 1 ? 's' : ''));
+    } else {
+      toastRegen('Dernière régénération gratuite · la prochaine comptera');
+    }
+  } else {
+    toastRegen('Cette régénération compte dans ton quota');
+  }
+
+  try {
+    if (type === 'script') {
+      await generate();
+    } else if (type === 'story') {
+      await generateStory();
+    } else if (type === 'storyboardIdee') {
+      await generateStoryboard();
+    } else if (type === 'storyboardStory') {
+      await generateStoryStoryboard();
+    }
+  } finally {
+    _regenGratuiteEnCours = false;
   }
 }
 
@@ -4814,6 +4924,7 @@ function copySection(id, text) {
 
 async function generateStoryboard() {
   if (!lastGenContext || !currentScript) return;
+  if (!_regenGratuiteEnCours) resetRegen('storyboardIdee');
 
   const btn = document.getElementById('sbGenerateBtn');
   const spinner = document.getElementById('sbGenSpinner');
@@ -4899,6 +5010,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
+        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
       </div></div>`;
