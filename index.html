@@ -1267,6 +1267,15 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   transform:scale(1.08);
 }
 .genimg-logo-btn svg{width:24px;height:24px}
+
+/* ── MESSAGE D'AIDE STORYBOARD ── */
+.sb-aide{
+  display:flex;align-items:flex-start;gap:8px;
+  background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);
+  border-radius:10px;padding:14px 16px;margin-bottom:18px;
+  font-family:'Tenor Sans',sans-serif;font-size:0.85rem;line-height:1.55;
+  color:var(--gold-light);
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2198,7 +2207,7 @@ function reafficherStoryboard(sbData, isStory) {
         <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${miniature}</div>
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
-    out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map(s => `
+    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
@@ -2227,7 +2236,7 @@ function reafficherStoryboard(sbData, isStory) {
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     const tousLesPromptsRe = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
-    container.innerHTML = `<div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
+    container.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
           <span class="sb-time">${seg.segment}</span>
@@ -3419,6 +3428,8 @@ STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de faç
 
 Le prompt doit se lire comme une description cinématographique fluide et immersive, pas comme une liste. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll. Adapte l'ambiance au ton du récit.
 
+RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si un plan montre plusieurs scènes ou plusieurs moments sur une même image, ne les sépare JAMAIS par une ligne nette, un cadre, un split-screen graphique ou une bordure. Les différentes scènes doivent être FONDUES ensemble par une transition douce : un fondu stylisé en dégradé, une fusion progressive des lumières et des couleurs, ou un raccord visuel fluide. Précise explicitement dans le prompt que les scènes se fondent l'une dans l'autre par un dégradé harmonieux, sans séparation graphique visible.
+
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).
 
 MINIATURE (TRÈS IMPORTANT) : en plus des segments, crée UN prompt visuel spécial pour la MINIATURE (image de couverture). Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Elle résume la promesse du récit. Termine ce prompt par " 9:16".
@@ -3442,7 +3453,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${parsed.miniature}</div>
         ${blocGenImage(storeCopyText(parsed.miniature||''))}
       </div>` : '';
-    out.innerHTML = `<div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map(s => `
+    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map(s => `
       <div class="sb-segment">
         <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
         <div class="sb-seg-text">${s.texte || ''}</div>
@@ -4846,6 +4857,8 @@ STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon
 
 Le prompt doit se lire comme une description cinematographique fluide et immersive, jamais comme une liste. Il doit etre riche, precis, anti-scroll, et illustrer les mots exacts prononces pour maximiser la retention. JAMAIS generique (interdit : "une personne qui parle", "un fond").
 
+REGLE SUR LES SCENES MULTIPLES (IMPORTANT) : Si un plan montre plusieurs scenes ou plusieurs moments sur une meme image, ne les separe JAMAIS par une ligne nette, un cadre, un split-screen graphique ou une bordure. Les differentes scenes doivent etre FONDUES ensemble par une transition douce : un fondu stylise en degrade, une fusion progressive des lumieres et des couleurs, ou un raccord visuel fluide. Precise explicitement dans le prompt que les scenes se fondent l'une dans l'autre par un degrade harmonieux, sans separation graphique visible.
+
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
 
 MINIATURE (TRES IMPORTANT) : en plus des segments, cree UN prompt visuel special pour la MINIATURE (image de couverture) de la video. Cette miniature doit etre CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immediatement envie de cliquer, avec un sujet central percutant, une emotion visible, des couleurs contrastees, une composition qui accroche l'oeil en une fraction de seconde. Elle resume la promesse de la video. Termine ce prompt par " 9:16".
@@ -4874,7 +4887,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         ${blocGenImage(storeCopyText(parsed.miniature||''))}
       </div>` : '';
     const tousLesPrompts2 = (parsed.miniature ? 'MINIATURE : ' + parsed.miniature + '\n\n' : '') + parsed.storyboard.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
-    container.innerHTML = `<div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
+    container.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
           <span class="sb-time">${seg.segment}</span>
