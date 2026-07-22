@@ -2040,15 +2040,24 @@ const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite 
 async function callAI(model, maxTokens, prompt, maxRetries) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   async function tryOnce(useModel) {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: useModel,
-        max_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }]
-      })
-    });
+    // Timeout 60s par appel : évite un blocage infini si l'API ne répond pas
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 60000);
+    let res;
+    try {
+      res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: useModel,
+          max_tokens: maxTokens,
+          messages: [{ role: "user", content: prompt }]
+        }),
+        signal: ctrl.signal
+      });
+    } finally {
+      clearTimeout(to);
+    }
     // Surcharge / erreur serveur temporaire → échec récupérable (on renvoie null)
     if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
       return { ok: false, recoverable: true, detail: '(' + res.status + ') serveur occupé' };
@@ -2166,7 +2175,11 @@ async function getDeviceFingerprint() {
 // Récupère l'IP publique de l'utilisateur (service gratuit)
 async function getUserIP() {
   try {
-    const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
+    // Timeout 2,5s : si ipify ne répond pas (navigation privée, réseau lent), on abandonne
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 2500);
+    const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(to);
     const j = await r.json();
     return j.ip || null;
   } catch(e) { return null; }
@@ -3152,6 +3165,7 @@ async function generateStory() {
   }
 
   // Vérification limite
+  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -4160,6 +4174,7 @@ async function generateIdeas() {
   }
 
   // Vérification limite (partagée avec le générateur de script)
+  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -4496,6 +4511,8 @@ async function generate() {
   }
 
   // ── VÉRIFICATION LIMITE ──
+  // Anti-contournement : on vérifie le serveur EN DIRECT avant de décider (empreinte + IP).
+  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -5337,6 +5354,25 @@ function restart() {
 // Fermer modal en cliquant dehors
 // Synchronise usedGen avec le serveur : si le serveur dit qu'on a utilisé plus
 // que le localStorage (cache vidé), on prend la valeur du serveur.
+async // Vérifie le quota serveur EN DIRECT et met à jour usedGen si le serveur est plus haut.
+// Appelée juste avant chaque génération (anti-contournement : navigation privée, cache vidé…).
+async function verifierQuotaServeurDirect() {
+  if (unlocked) return; // abonnés non concernés ici
+  try {
+    // Course contre un timeout : la vérif serveur ne doit JAMAIS bloquer la génération.
+    // Si le serveur ne répond pas en 3s, on continue (le check local usedGen reste actif).
+    const serverUsed = await Promise.race([
+      fetchServerQuota(),
+      new Promise(resolve => setTimeout(() => resolve(null), 3000))
+    ]);
+    if (serverUsed !== null && serverUsed > usedGen) {
+      usedGen = serverUsed;
+      localStorage.setItem('scriptura_used', usedGen);
+      renderGenCounter();
+    }
+  } catch(e) { console.warn('verifierQuotaServeurDirect', e); }
+}
+
 async function syncServerQuota() {
   if (unlocked) return; // les abonnés ne sont pas concernés
   try {
