@@ -3152,7 +3152,6 @@ async function generateStory() {
   }
 
   // Vérification limite
-  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -4161,7 +4160,6 @@ async function generateIdeas() {
   }
 
   // Vérification limite (partagée avec le générateur de script)
-  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -4498,8 +4496,6 @@ async function generate() {
   }
 
   // ── VÉRIFICATION LIMITE ──
-  // Anti-contournement : on vérifie le serveur EN DIRECT avant de décider (empreinte + IP).
-  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -5341,20 +5337,6 @@ function restart() {
 // Fermer modal en cliquant dehors
 // Synchronise usedGen avec le serveur : si le serveur dit qu'on a utilisé plus
 // que le localStorage (cache vidé), on prend la valeur du serveur.
-async // Vérifie le quota serveur EN DIRECT et met à jour usedGen si le serveur est plus haut.
-// Appelée juste avant chaque génération (anti-contournement : navigation privée, cache vidé…).
-async function verifierQuotaServeurDirect() {
-  if (unlocked) return; // abonnés non concernés ici
-  try {
-    const serverUsed = await fetchServerQuota();
-    if (serverUsed !== null && serverUsed > usedGen) {
-      usedGen = serverUsed;
-      localStorage.setItem('scriptura_used', usedGen);
-      renderGenCounter();
-    }
-  } catch(e) { console.warn('verifierQuotaServeurDirect', e); }
-}
-
 async function syncServerQuota() {
   if (unlocked) return; // les abonnés ne sont pas concernés
   try {
