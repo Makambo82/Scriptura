@@ -4707,20 +4707,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     critique = null;
     try {
-      const critiqueRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL_RAPIDE,
-          max_tokens: 2000,
-          messages: [{ role: "user", content: critiquePrompt }]
-        })
-      });
-      if (critiqueRes.ok) {
-        const critiqueData = await critiqueRes.json();
-        const critiqueRaw = critiqueData.content?.map(b => b.text || '').join('') || '';
-        critique = parseAIResponse(critiqueRaw);
-      }
+      const critiqueRaw = await callAI(MODEL_RAPIDE, 2000, critiquePrompt);
+      critique = parseAIResponse(critiqueRaw);
     } catch(e) { /* si le critique échoue, on garde le script tel quel */ }
 
     // ══════════════════════════════════════
@@ -4755,23 +4743,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Fournis les 5 hooks améliorés et le script révisé complet.`;
 
       try {
-        const reviseRes = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: MODEL_CREATIF,
-            max_tokens: 8000,
-            messages: [{ role: "user", content: revisePrompt }]
-          })
-        });
-        if (reviseRes.ok) {
-          const reviseData = await reviseRes.json();
-          const reviseRaw = reviseData.content?.map(b => b.text || '').join('') || '';
-          const revised = parseAIResponse(reviseRaw);
-          if (revised && revised.script) {
-            parsed.script = revised.script;
-            if (revised.hooks) parsed.hooks = revised.hooks;
-          }
+        const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt);
+        const revised = parseAIResponse(reviseRaw);
+        if (revised && revised.script) {
+          parsed.script = revised.script;
+          if (revised.hooks) parsed.hooks = revised.hooks;
         }
       } catch(e) { /* si la révision échoue, on garde la version du rédacteur */ }
     }
@@ -4814,19 +4790,10 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
 
-      const correctRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL_CREATIF,
-          max_tokens: 8000,
-          messages: [{ role: "user", content: correctionPrompt }]
-        })
-      });
-
-      if (!correctRes.ok) break; // en cas d'erreur, on garde la version actuelle
-      const correctData = await correctRes.json();
-      const correctRaw = correctData.content?.map(b => b.text || '').join('') || '';
+      let correctRaw;
+      try {
+        correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt);
+      } catch(e) { break; } // en cas d'erreur, on garde la version actuelle
       const correctedScript = parseAIResponse(correctRaw);
 
       if (correctedScript && correctedScript.script) {
