@@ -1309,6 +1309,25 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 @media (prefers-reduced-motion: reduce) {
   .sb-appear { animation: none; }
 }
+
+/* ── MICRO-INTERACTIONS PREMIUM (très légères) ── */
+/* Focus doux et élégant sur les champs de saisie */
+textarea, input[type="text"], input[type="email"], select {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+textarea:focus, input[type="text"]:focus, input[type="email"]:focus, select:focus {
+  border-color: rgba(201,168,76,0.6) !important;
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+}
+/* Les cartes de résultat réagissent délicatement au survol */
+.out-card { transition: border-color 0.25s ease, transform 0.25s ease; }
+.out-header { transition: background 0.2s ease; }
+.out-header:hover { background: rgba(201,168,76,0.04); }
+/* Feedback tactile discret sur les boutons icônes au clic */
+.icon-btn:active { transform: scale(0.92); }
+.sb-regen:active, .btn-regenerate:active { transform: scale(0.97); }
+/* Toggle : transition douce (la rotation à l'ouverture est déjà gérée) */
+.out-toggle { transition: transform 0.3s cubic-bezier(0.22,0.61,0.36,1), background 0.25s ease; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3278,6 +3297,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 
     renderStory(parsed);
     setTimeout(updateScrollBtn, 300);
+    if (!_regenGratuiteEnCours) setTimeout(() => toastRegen('✓ Génération terminée'), 500);
     saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
     updateQuotaJour();
 
@@ -3428,7 +3448,7 @@ function renderStory(d) {
 
   // Rendu : score en haut, puis accordéon (1re carte ouverte — clic sur + pour ouvrir)
   out.innerHTML = scoreHTML + sections.map((sec, i) => `
-    <div class="out-card${i === 0 ? ' open' : ''}">
+    <div class="out-card sb-appear${i === 0 ? ' open' : ''}" style="animation-delay:${(i + 1) * 0.12}s">
       <div class="out-header" onclick="toggleCard(this.parentElement)">
         <div class="out-title">${sec.titre}</div>
         <div class="out-toggle">+</div>
@@ -4781,6 +4801,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     renderResults(parsed, niche, sujet);
     setTimeout(updateScrollBtn, 300);
+    if (!_regenGratuiteEnCours) setTimeout(() => toastRegen('✓ Génération terminée'), 500);
     // Sauvegarder la génération complète + le contexte (pour rouvrir et générer le storyboard plus tard)
     saveGeneration('script', sujet, Object.assign({}, parsed, { niche: niche, context: { sujet: sujet, plateforme: state.plateforme, objectif: state.objectif } }));
     updateQuotaJour();
