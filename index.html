@@ -1297,37 +1297,6 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   box-shadow:0 8px 30px rgba(0,0,0,0.4);white-space:nowrap;
 }
 .regen-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* ── APPARITION PROGRESSIVE DES RÉSULTATS (UX premium, très discret) ── */
-@keyframes sbFadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.sb-appear {
-  animation: sbFadeUp 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .sb-appear { animation: none; }
-}
-
-/* ── MICRO-INTERACTIONS PREMIUM (très légères) ── */
-/* Focus doux et élégant sur les champs de saisie */
-textarea, input[type="text"], input[type="email"], select {
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
-}
-textarea:focus, input[type="text"]:focus, input[type="email"]:focus, select:focus {
-  border-color: rgba(201,168,76,0.6) !important;
-  box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
-}
-/* Les cartes de résultat réagissent délicatement au survol */
-.out-card { transition: border-color 0.25s ease, transform 0.25s ease; }
-.out-header { transition: background 0.2s ease; }
-.out-header:hover { background: rgba(201,168,76,0.04); }
-/* Feedback tactile discret sur les boutons icônes au clic */
-.icon-btn:active { transform: scale(0.92); }
-.sb-regen:active, .btn-regenerate:active { transform: scale(0.97); }
-/* Toggle : transition douce (la rotation à l'ouverture est déjà gérée) */
-.out-toggle { transition: transform 0.3s cubic-bezier(0.22,0.61,0.36,1), background 0.25s ease; }
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2040,38 +2009,22 @@ const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite 
 async function callAI(model, maxTokens, prompt, maxRetries) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   async function tryOnce(useModel) {
-    // Timeout 60s par appel : évite un blocage infini si l'API ne répond pas
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 60000);
-    let res;
-    try {
-      res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: useModel,
-          max_tokens: maxTokens,
-          messages: [{ role: "user", content: prompt }]
-        }),
-        signal: ctrl.signal
-      });
-    } finally {
-      clearTimeout(to);
-    }
+    const res = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: useModel,
+        max_tokens: maxTokens,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
     // Surcharge / erreur serveur temporaire → échec récupérable (on renvoie null)
     if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
       return { ok: false, recoverable: true, detail: '(' + res.status + ') serveur occupé' };
     }
-    let data;
-    try { data = await res.json(); }
-    catch(e) { return { ok: false, recoverable: false, detail: '(' + res.status + ') réponse serveur illisible' }; }
+    const data = await res.json();
     if (!res.ok) {
       const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
-      // Erreur de crédit insuffisant : message clair et ARRÊT immédiat (inutile de réessayer)
-      const detailLower = (detail || '').toLowerCase();
-      if (res.status === 400 && (detailLower.includes('credit') || detailLower.includes('crédit') || detailLower.includes('balance') || detailLower.includes('billing') || detailLower.includes('quota'))) {
-        return { ok: false, recoverable: false, fatal: true, detail: 'CREDIT_INSUFFISANT' };
-      }
       return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
     }
     const raw = data.content?.map(b => b.text || '').join('') || '';
@@ -2090,25 +2043,16 @@ async function callAI(model, maxTokens, prompt, maxRetries) {
     const r1 = await tryOnce(model);
     if (r1.ok) return r1.raw;
     lastDetail = r1.detail;
-    // Erreur fatale (crédit insuffisant) : on arrête TOUT de suite avec un message clair
-    if (r1.fatal) throw new Error('Crédit API épuisé. Recharge le compte Anthropic pour continuer à générer.');
     if (!r1.recoverable && !usesFallback) throw new Error(lastDetail);
-  } catch(e) {
-    if (e.message && e.message.includes('Crédit API épuisé')) throw e; // ne pas avaler l'erreur fatale
-    lastDetail = e.message;
-  }
+  } catch(e) { lastDetail = e.message; }
 
   // Petite pause puis Tentative 2 — même modèle
   await new Promise(r => setTimeout(r, 1500));
   try {
     const r2 = await tryOnce(model);
     if (r2.ok) return r2.raw;
-    if (r2.fatal) throw new Error('Crédit API épuisé. Recharge le compte Anthropic pour continuer à générer.');
     lastDetail = r2.detail;
-  } catch(e) {
-    if (e.message && e.message.includes('Crédit API épuisé')) throw e;
-    lastDetail = e.message;
-  }
+  } catch(e) { lastDetail = e.message; }
 
   // Tentative 3 — bascule automatique sur Haiku (si on visait Sonnet)
   if (usesFallback) {
@@ -2191,11 +2135,7 @@ async function getDeviceFingerprint() {
 // Récupère l'IP publique de l'utilisateur (service gratuit)
 async function getUserIP() {
   try {
-    // Timeout 2,5s : si ipify ne répond pas (navigation privée, réseau lent), on abandonne
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 2500);
-    const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store', signal: ctrl.signal });
-    clearTimeout(to);
+    const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' });
     const j = await r.json();
     return j.ip || null;
   } catch(e) { return null; }
@@ -3181,7 +3121,6 @@ async function generateStory() {
   }
 
   // Vérification limite
-  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -3327,7 +3266,6 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 
     renderStory(parsed);
     setTimeout(updateScrollBtn, 300);
-    if (!_regenGratuiteEnCours) setTimeout(() => toastRegen('✓ Génération terminée'), 500);
     saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
     updateQuotaJour();
 
@@ -3364,7 +3302,7 @@ function renderStory(d) {
     const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
     const globalScore = vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 0;
     scoreHTML = `
-      <div class="score-card sb-appear">
+      <div class="score-card">
         <div class="score-header">
           <div class="score-title">◆ Scriptura Score</div>
           <div class="score-global">
@@ -3478,7 +3416,7 @@ function renderStory(d) {
 
   // Rendu : score en haut, puis accordéon (1re carte ouverte — clic sur + pour ouvrir)
   out.innerHTML = scoreHTML + sections.map((sec, i) => `
-    <div class="out-card sb-appear${i === 0 ? ' open' : ''}" style="animation-delay:${(i + 1) * 0.12}s">
+    <div class="out-card${i === 0 ? ' open' : ''}">
       <div class="out-header" onclick="toggleCard(this.parentElement)">
         <div class="out-title">${sec.titre}</div>
         <div class="out-toggle">+</div>
@@ -3502,242 +3440,6 @@ function renderStory(d) {
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ═══════════════════════════════════════════════════════════
-//  MOTEUR DE SEGMENTATION PAR IMAGE MENTALE (partagé 2 modes)
-// ═══════════════════════════════════════════════════════════
-// Règle de base : UN STORYBOARD = UNE SEULE IMAGE MENTALE.
-// Question centrale : « un seul visuel peut-il représenter ce passage ? »
-//   oui → même storyboard | non → nouveau storyboard.
-// Ordre de priorité : 1) image mentale  2) scène  3) idée
-//   4) révélation  5) émotion  6) durée (en DERNIER, ajustement léger).
-
-function splitIntoSentences(script) {
-  if (!script || typeof script !== 'string') return [];
-  const brut = script
-    .replace(/\s+/g, ' ')
-    .match(/[^.!?…]+[.!?…]+(?:["'»)\]]*)?|\S[^.!?…]*$/g) || [];
-  return brut.map(s => s.trim()).filter(Boolean);
-}
-
-// Classe une phrase selon son rôle narratif (sert au raisonnement, pas à couper mécaniquement).
-function classifySentence(sentence) {
-  const t = (sentence || '').trim().toLowerCase();
-  if (!t) return 'neutre';
-  if (t.includes('?')) return 'question';
-  if (/^(et )?(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|le twist|sauf |pourtant|c'est alors|c'est là|c'est la|là que|soudain|jusqu'au jour|ce qu'il ignorait|personne ne savait)/.test(t)) return 'revelation';
-  if (/^(donc |alors |resultat|résultat|c'est pourquoi|du coup|ainsi |par consequent|par conséquent|desormais|désormais|le problème|le probleme)/.test(t)) return 'consequence';
-  if (/^(moi,? |toi,? |vous |tu |je t'ai|je t ai|retiens|souviens|imagine|imaginez)/.test(t)) return 'interpellation';
-  if (/^(il etait|il était|au debut|au début|a l'epoque|à l'époque|autrefois|d'abord|pour commencer)/.test(t)) return 'preparation';
-  return 'neutre';
-}
-
-// Détecte l'"empreinte visuelle" d'une phrase : les éléments qui définissent SON image mentale.
-// Sert à comparer deux phrases : partagent-elles le même visuel, ou en évoquent-elles deux différents ?
-function empreinteVisuelle(sentence) {
-  const t = (sentence || '').toLowerCase();
-  // Actions/verbes concrets qui créent une image (chaque action forte = une image potentielle)
-  const actions = (t.match(/\b(brûle|brule|meurt|tombe|sonne|explose|s'effondre|surgit|frappe|court|fuit|arrive|revient|part|bombardé|détruit|détruite|finance|organise|fuient|marche|se dresse|s'allie)\w*/g) || []);
-  // Sujets/lieux concrets (chaque nouveau sujet visuel compte)
-  const sujets = (t.match(/\b(village|armée|armee|téléphone|telephone|pays|ville|palais|rue|homme|femme|foule|soldat|président|president|renseignement|dissident|coup d'état|coup d'etat|libye|sahel|dakar|nuit|jour)\w*/g) || []);
-  return { actions, sujets };
-}
-
-// Cœur : mesure si "current" ouvre une NOUVELLE image mentale par rapport au segment courant.
-// Retourne un score 0-100. Au-delà du seuil → nouvelle image = nouveau storyboard.
-function computeNarrativeBreakScore(previous, current, next) {
-  if (!previous) return 100; // première phrase = début d'image
-  let score = 0;
-
-  const clsPrev = classifySentence(previous);
-  const clsCur = classifySentence(current);
-  const curT = (current || '').trim().toLowerCase();
-
-  // ── PRIORITÉ 4 : RÉVÉLATION jamais collée à sa préparation ──
-  if (clsCur === 'revelation') score += 55;
-  if (clsPrev === 'revelation' && clsCur !== 'revelation') score += 50; // après une révélation, la CHUTE ouvre sa propre image
-  // Ne jamais mélanger préparation et révélation
-  if ((clsPrev === 'preparation' && clsCur === 'revelation') ||
-      (clsPrev === 'revelation' && clsCur === 'preparation')) score += 40;
-
-  // ── PRIORITÉ 5 : question / interpellation = leur propre image ──
-  if (clsCur === 'question') score += 60;
-  if (clsCur === 'interpellation' && clsPrev !== 'interpellation') score += 35;
-
-  // ── PRIORITÉ 1 : IMAGE MENTALE — deux actions/sujets visuels distincts ? ──
-  const empPrev = empreinteVisuelle(previous);
-  const empCur = empreinteVisuelle(current);
-  // Si la phrase courante introduit une NOUVELLE action concrète absente d'avant → nouvelle image
-  const nouvelleAction = empCur.actions.some(a => !empPrev.actions.includes(a));
-  const nouveauSujet = empCur.sujets.some(s => !empPrev.sujets.includes(s));
-  if (empCur.actions.length && nouvelleAction) score += 40; // une nouvelle action = une nouvelle image mentale forte
-  if (empCur.sujets.length && nouveauSujet && empPrev.sujets.length) score += 25;
-
-  // ── PRIORITÉ 2 : changement de SCÈNE (lieu, moment, personnage) ──
-  if (/\b(à |a |dans |vers |depuis )(dakar|paris|londres|new york|afrique|europe|palais|bureau|maison|rue|ville|pays)\b/.test(curT)) score += 20;
-  if (/\b(deux ans|trois ans|plus tard|à l'époque|aujourd'hui|hier|demain|en \d{4}|le lendemain|quelques années|desormais|désormais|maintenant)\b/.test(curT)) score += 25;
-
-  // ── PRIORITÉ 3 : CONNECTEURS narratifs (indices FORTS, non mécaniques) ──
-  // Ils augmentent la probabilité sans forcer : score modéré.
-  if (/^(mais|pourtant|cependant|sauf que|et là|et la|c'est alors que|jusqu'au jour où|puis|quelques années plus tard|de l'autre côté|soudain|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(curT)) {
-    score += 22;
-  }
-
-  // ── Continuité : une même démonstration (énumération liée) NE coupe PAS ──
-  // Si la phrase courante prolonge visuellement la même idée (mêmes sujets, pas de nouvelle action),
-  // on réduit le score pour éviter une coupure artificielle.
-  if (!nouvelleAction && !nouveauSujet && empCur.actions.length === 0
-      && clsCur !== 'question' && clsCur !== 'revelation' && clsCur !== 'interpellation') {
-    score -= 20;
-  }
-  // Énumération parallèle ("qui ont... qui ont... qui viennent...") = une seule image
-  // MAIS pas si c'est une question (une question garde toujours sa propre image).
-  if (/^(qui |que |dont |et qui )/.test(curT) && !curT.includes('?')) score -= 25;
-
-  return Math.max(0, Math.min(100, score));
-}
-
-// Estime la durée d'un texte APRÈS segmentation (~2,8 mots/seconde).
-function estimateDuration(text) {
-  const mots = (text || '').split(/\s+/).filter(Boolean).length;
-  const sec = mots / 2.8;
-  const bas = Math.max(2, Math.round(sec));       // segments courts (2-3s) autorisés
-  const haut = Math.max(bas + 1, Math.round(sec) + 1);
-  return { seconds: sec, label: bas + '-' + haut + ' sec' };
-}
-
-// Construit les storyboards : une image mentale = un segment. La durée n'intervient QU'À LA FIN.
-function buildNarrativeSegments(script) {
-  const phrases = splitIntoSentences(script);
-  if (!phrases.length) return [];
-  const SEUIL_IMAGE = 45; // au-delà : nouvelle image mentale → nouveau storyboard
-
-  const segments = [];
-  let courant = [];
-
-  for (let i = 0; i < phrases.length; i++) {
-    const prev = i > 0 ? phrases[i - 1] : null;
-    const cur = phrases[i];
-    const next = i < phrases.length - 1 ? phrases[i + 1] : null;
-    const score = computeNarrativeBreakScore(prev, cur, next);
-
-    if (courant.length === 0) {
-      courant.push(cur);
-    } else if (score >= SEUIL_IMAGE) {
-      // nouvelle image mentale → on ferme le storyboard courant
-      segments.push(courant.join(' '));
-      courant = [cur];
-    } else {
-      // même image mentale → on prolonge (PAS de coupure sur la durée seule)
-      courant.push(cur);
-    }
-  }
-  if (courant.length) segments.push(courant.join(' '));
-
-  // PRIORITÉ 6 (durée, en DERNIER) : garde-fou souple contre les storyboards vraiment trop longs.
-  // On ne coupe QUE si un segment dépasse largement la durée idéale ET contient plusieurs phrases
-  // (donc potentiellement plusieurs sous-images). Cohérence visuelle > optimisation temporelle.
-  const raffines = [];
-  for (const seg of segments) {
-    const dur = estimateDuration(seg).seconds;
-    const phr = splitIntoSentences(seg);
-    // Garde-fou durée (priorité 6, dernier recours) : si un segment est long ET contient
-    // plusieurs phrases qui portent CHACUNE une action visuelle distincte, on redécoupe.
-    if (dur > 7 && phr.length > 2) {
-      // Redécouper phrase par phrase (chaque phrase = une image potentielle),
-      // en regroupant seulement les fragments sans action propre.
-      let sousSeg = [];
-      for (let k = 0; k < phr.length; k++) {
-        sousSeg.push(phr[k]);
-        const dSous = estimateDuration(sousSeg.join(' ')).seconds;
-        // Fermer dès qu'on atteint ~4-5 sec OU qu'on a une image complète
-        if (dSous >= 4 || k === phr.length - 1) {
-          raffines.push(sousSeg.join(' '));
-          sousSeg = [];
-        }
-      }
-      if (sousSeg.length) raffines.push(sousSeg.join(' '));
-    } else {
-      raffines.push(seg); // segment court OU image unique → on garde tel quel
-    }
-  }
-  return raffines;
-}
-
-function segmentNarrativeStoryboard(script) {
-  const segmentsTexte = buildNarrativeSegments(script);
-  return segmentsTexte.map(txt => {
-    const d = estimateDuration(txt);
-    return { text: txt.trim(), duree: d.label };
-  });
-}
-
-
-// ═══ ADAPTATION AUX DEUX MODES (réutilise le moteur central) ═══
-// Le storyboard vient de l'IA sous forme de segments {texte, visuel} (Storytelling)
-// ou {texte_dit, prompt_visuel, segment} (J'ai une idée). On reconstruit le texte
-// narré complet, on le re-segmente NARRATIVEMENT, puis on réassocie le meilleur
-// prompt visuel disponible à chaque nouveau segment.
-
-// Réassocie à chaque segment narratif le prompt visuel de l'IA le plus pertinent.
-// Stratégie : on garde l'ordre ; chaque nouveau segment hérite du prompt visuel
-// du segment IA d'origine qui couvrait son texte de départ.
-function _reassocierVisuels(segmentsNarratifs, segmentsIA, cléTexte, cléVisuel) {
-  // Construire une liste plate : pour chaque segment IA, son texte et son visuel
-  const sources = segmentsIA.map(s => ({
-    texte: (s[cléTexte] || '').trim(),
-    visuel: (s[cléVisuel] || '').trim()
-  }));
-
-  return segmentsNarratifs.map(seg => {
-    // Trouver le segment IA dont le texte chevauche le plus le début de ce segment narratif
-    const debut = seg.text.slice(0, 40).toLowerCase();
-    let visuel = '';
-    let meilleurScore = -1;
-    for (const src of sources) {
-      const srcDebut = src.texte.slice(0, 40).toLowerCase();
-      // score de chevauchement simple : mots communs en tête
-      const motsSeg = new Set(debut.split(/\s+/));
-      const motsSrc = srcDebut.split(/\s+/);
-      let commun = 0;
-      for (const m of motsSrc) if (motsSeg.has(m)) commun++;
-      if (commun > meilleurScore) { meilleurScore = commun; visuel = src.visuel; }
-    }
-    // repli : si rien trouvé, prendre le visuel du 1er segment IA
-    if (!visuel && sources.length) visuel = sources[0].visuel;
-    return { text: seg.text, duree: seg.duree, visuel: visuel };
-  });
-}
-
-// MODE STORYTELLING : format {segment, duree, texte, visuel}
-function segmenterStoryboardStory(boardIA) {
-  if (!Array.isArray(boardIA) || !boardIA.length) return boardIA;
-  const texteComplet = boardIA.map(s => s.texte || '').join(' ');
-  const segmentsNarratifs = segmentNarrativeStoryboard(texteComplet);
-  if (!segmentsNarratifs.length) return boardIA;
-  const reassocies = _reassocierVisuels(segmentsNarratifs, boardIA, 'texte', 'visuel');
-  return reassocies.map((s, i) => ({
-    segment: String(i + 1),
-    duree: s.duree,
-    texte: s.text,
-    visuel: s.visuel
-  }));
-}
-
-// MODE J'AI UNE IDÉE : format {segment(=durée), texte_dit, prompt_visuel}
-function segmenterStoryboardScript(boardIA) {
-  if (!Array.isArray(boardIA) || !boardIA.length) return boardIA;
-  const texteComplet = boardIA.map(s => s.texte_dit || '').join(' ');
-  const segmentsNarratifs = segmentNarrativeStoryboard(texteComplet);
-  if (!segmentsNarratifs.length) return boardIA;
-  const reassocies = _reassocierVisuels(segmentsNarratifs, boardIA, 'texte_dit', 'prompt_visuel');
-  return reassocies.map(s => ({
-    segment: s.duree,
-    texte_dit: s.text,
-    prompt_visuel: s.visuel
-  }));
-}
-
-
 async function generateStoryStoryboard() {
   if (!currentStory || !currentStoryText) return;
   if (!_regenGratuiteEnCours) resetRegen('storyboardStory');
@@ -3760,7 +3462,7 @@ async function generateStoryStoryboard() {
   const plat = storyPlatform || 'TikTok';
   // Durée de segment selon plateforme
   const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
-  const segDuration = '4 à 6 secondes';
+  const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
   // Nombre de segments proportionnel à la longueur du récit
   const nbMotsRecit = (currentStoryText || '').split(/\s+/).filter(Boolean).length;
   const segMinR = Math.max(3, Math.round(nbMotsRecit / 18));
@@ -3774,16 +3476,14 @@ ${currentStoryText}
 """
 
 RÈGLES DE DÉCOUPAGE (TRÈS IMPORTANT) :
-- DURÉE CIBLE : chaque segment doit durer ${segDuration} (c'est la règle principale du découpage). Découpe le récit de façon à ce que chaque plan dure environ ce temps quand il est lu à voix haute à un rythme naturel.
-- Le NOMBRE de segments n'est PAS fixé à l'avance : il découle NATURELLEMENT de la longueur et de la densité du récit, une fois découpé en plans de ${segDuration}. Un récit qui mérite 22 plans en aura 22, un récit qui en mérite 28 en aura 28. Ne vise AUCUN nombre précis, ne gonfle ni ne réduis artificiellement : laisse le contenu décider.
-- REGROUPEMENT DES SCÈNES TROP COURTES (IMPORTANT) : si une phrase ou une idée est trop courte pour tenir ${segDuration} (par exemple une phrase de moins de 3 secondes lue à voix haute), REGROUPE-la avec la ou les phrases suivantes qui ont un lien logique, jusqu'à atteindre la durée cible. Ne laisse JAMAIS un segment du corps du récit durer moins de 3 secondes. Plusieurs petites phrases qui se suivent et forment une même idée = un seul segment.
+- Le NOMBRE de segments doit s'adapter A LA LONGUEUR du récit : vise entre ${segMinR} et ${segMaxR} segments pour ce récit précis. Un récit court = peu de segments, un récit long = plus. Ne gonfle JAMAIS artificiellement le nombre de plans.
+- Chaque segment dure ${segDuration} maximum
 - RESPECTE ABSOLUMENT LES UNITÉS DE SENS : ne coupe JAMAIS une phrase ou une idée au milieu. Chaque segment doit contenir une pensée complète et cohérente (une phrase entière, ou une proposition qui a du sens seule).
 - Si une phrase est trop longue pour un seul segment, coupe-la à un endroit NATUREL (après une virgule, une pause logique, une articulation du sens) — jamais en plein milieu d'une idée.
 - Un segment mal coupé comme "Et partage cette vidéo à quelqu'un" suivi de "qui en a besoin" est INTERDIT : ces deux morceaux forment une seule idée et doivent rester ensemble.
 - Privilégie la cohérence du sens sur la durée exacte : mieux vaut un segment légèrement plus court ou plus long mais qui garde une idée complète.
 - Pour chaque segment : le texte narré (cohérent) + un prompt visuel détaillé
 - Respecte le nombre de segments indiqué ci-dessus (adapté à la longueur du récit)
-- DÉCOUPAGE FIN DE LA CONCLUSION (TRÈS IMPORTANT) : la partie finale du récit — celle qui interpelle directement le spectateur (par exemple à partir de "Alors, que retenir de cette histoire...") — doit être découpée PLUS FINEMENT que le reste. Dans cette conclusion : CHAQUE phrase forte, CHAQUE question posée, et CHAQUE interpellation directe doit avoir SON PROPRE segment (donc son propre prompt visuel). Ne regroupe JAMAIS plusieurs questions ou plusieurs phrases d'accroche finale dans un seul segment. Exemple : "Alors que retenir de cette histoire ?" = 1 segment ; chaque question qui suit = 1 segment chacune ; "Moi je t'ai pas..." = 1 segment ; "Je t'ai..." = 1 segment. Chaque punchline finale mérite son plan visuel dédié pour maximiser l'impact. ATTENTION : la règle de regroupement des scènes courtes NE S'APPLIQUE PAS à cette conclusion — ici, même une phrase très courte (moins de 3 secondes) garde son propre segment, car l'impact prime sur la durée.
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
 1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
@@ -3805,7 +3505,6 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
-    if (parsed && parsed.storyboard) parsed.storyboard = segmenterStoryboardStory(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
@@ -4190,7 +3889,6 @@ async function generateIdeas() {
   }
 
   // Vérification limite (partagée avec le générateur de script)
-  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -4527,8 +4225,6 @@ async function generate() {
   }
 
   // ── VÉRIFICATION LIMITE ──
-  // Anti-contournement : on vérifie le serveur EN DIRECT avant de décider (empreinte + IP).
-  await verifierQuotaServeurDirect();
   if (!unlocked && usedGen >= MAX_FREE) {
     openPaywall();
     return;
@@ -4723,8 +4419,20 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     critique = null;
     try {
-      const critiqueRaw = await callAI(MODEL_RAPIDE, 2000, critiquePrompt);
-      critique = parseAIResponse(critiqueRaw);
+      const critiqueRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: MODEL_RAPIDE,
+          max_tokens: 2000,
+          messages: [{ role: "user", content: critiquePrompt }]
+        })
+      });
+      if (critiqueRes.ok) {
+        const critiqueData = await critiqueRes.json();
+        const critiqueRaw = critiqueData.content?.map(b => b.text || '').join('') || '';
+        critique = parseAIResponse(critiqueRaw);
+      }
     } catch(e) { /* si le critique échoue, on garde le script tel quel */ }
 
     // ══════════════════════════════════════
@@ -4759,11 +4467,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Fournis les 5 hooks améliorés et le script révisé complet.`;
 
       try {
-        const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt);
-        const revised = parseAIResponse(reviseRaw);
-        if (revised && revised.script) {
-          parsed.script = revised.script;
-          if (revised.hooks) parsed.hooks = revised.hooks;
+        const reviseRes = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: MODEL_CREATIF,
+            max_tokens: 8000,
+            messages: [{ role: "user", content: revisePrompt }]
+          })
+        });
+        if (reviseRes.ok) {
+          const reviseData = await reviseRes.json();
+          const reviseRaw = reviseData.content?.map(b => b.text || '').join('') || '';
+          const revised = parseAIResponse(reviseRaw);
+          if (revised && revised.script) {
+            parsed.script = revised.script;
+            if (revised.hooks) parsed.hooks = revised.hooks;
+          }
         }
       } catch(e) { /* si la révision échoue, on garde la version du rédacteur */ }
     }
@@ -4806,13 +4526,19 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
 
-      let correctRaw;
-      try {
-        correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt);
-      } catch(e) {
-        if (e.message && e.message.includes('Crédit API épuisé')) throw e; // remonter l'erreur crédit
-        break; // autre erreur : on garde la version actuelle
-      }
+      const correctRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: MODEL_CREATIF,
+          max_tokens: 8000,
+          messages: [{ role: "user", content: correctionPrompt }]
+        })
+      });
+
+      if (!correctRes.ok) break; // en cas d'erreur, on garde la version actuelle
+      const correctData = await correctRes.json();
+      const correctRaw = correctData.content?.map(b => b.text || '').join('') || '';
       const correctedScript = parseAIResponse(correctRaw);
 
       if (correctedScript && correctedScript.script) {
@@ -4838,7 +4564,6 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     renderResults(parsed, niche, sujet);
     setTimeout(updateScrollBtn, 300);
-    if (!_regenGratuiteEnCours) setTimeout(() => toastRegen('✓ Génération terminée'), 500);
     // Sauvegarder la génération complète + le contexte (pour rouvrir et générer le storyboard plus tard)
     saveGeneration('script', sujet, Object.assign({}, parsed, { niche: niche, context: { sujet: sujet, plateforme: state.plateforme, objectif: state.objectif } }));
     updateQuotaJour();
@@ -5031,7 +4756,7 @@ function renderResults(d, niche, sujet) {
     const s = d.score;
     const globalScore = Math.round((s.viral + s.hook + s.engagement + s.emotion) / 4);
     const scoreHTML = `
-      <div class="score-card sb-appear">
+      <div class="score-card">
         <div class="score-header">
           <div class="score-title">◆ Scriptura Score</div>
           <div class="score-global">
@@ -5125,10 +4850,10 @@ function renderResults(d, niche, sujet) {
       titre: "Storyboard visuel — Prompts anti-scroll",
       num: "05",
       content: `<div class="out-section">
-        <div class="out-section-label">Storyboard · Découpé plan par plan, une image par scène</div>
+        <div class="out-section-label">Storyboard · Découpé segment par segment (3-5 sec)</div>
         <div id="storyboardContainer">
           <div class="sb-generate-box">
-            <p class="sb-generate-text">Scriptura peut découper ton script plan par plan — une image mentale par scène — avec un prompt visuel cinématique et anti-scroll pour chacun.</p>
+            <p class="sb-generate-text">Scriptura peut découper ton script en plans de 3-5 secondes avec un prompt visuel cinématique et anti-scroll pour chacun.</p>
             <button class="sb-generate-btn" id="sbGenerateBtn" onclick="generateStoryboard()">
               <span class="sb-gen-spinner" id="sbGenSpinner"></span>
               <span id="sbGenText">🎬 Générer le storyboard visuel</span>
@@ -5139,8 +4864,7 @@ function renderResults(d, niche, sujet) {
             </div>
           </div>
         </div>
-      </div>`,
-      sansBoutonGenerique: true
+      </div>`
     }
   ];
 
@@ -5156,9 +4880,7 @@ function renderResults(d, niche, sujet) {
 
   sections.forEach((sec, i) => {
     const card = document.createElement('div');
-    card.className = 'out-card sb-appear' + (i === 0 ? ' open' : '');
-    // Apparition progressive : chaque section arrive avec un léger décalage (effet "travail qui se termine")
-    card.style.animationDelay = (i * 0.12) + 's';
+    card.className = 'out-card' + (i === 0 ? ' open' : '');
     const btnId = 'copybtn_' + i;
     card.innerHTML = `
       <div class="out-header" onclick="toggleCard(this.parentElement)">
@@ -5245,13 +4967,9 @@ Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
 SCRIPT :
 ${scriptText}
 
-MISSION : Decoupe ce script en segments visuels.
+MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments pour ce script precis (ni plus, ni moins). Un script court = peu de segments, un script long = plus de segments. Chaque segment couvre une idee complete (environ 3 a 5 secondes de narration). Ne gonfle JAMAIS artificiellement le nombre de plans.
 
-REGLES DE DECOUPAGE (TRES IMPORTANT) :
-- DUREE CIBLE : chaque segment doit durer 4 a 6 secondes de narration (c'est la regle principale du decoupage). Decoupe le script de facon a ce que chaque plan dure environ ce temps quand il est lu a voix haute a un rythme naturel.
-- Le NOMBRE de segments n'est PAS fixe a l'avance : il decoule NATURELLEMENT de la longueur et de la densite du script, une fois decoupe en plans de 4 a 6 secondes. Un script qui merite 22 plans en aura 22, un script qui en merite 28 en aura 28. Ne vise AUCUN nombre precis, ne gonfle ni ne reduis artificiellement : laisse le contenu decider.
-- RESPECTE ABSOLUMENT LES UNITES DE SENS : ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble.
-- REGROUPEMENT DES SCENES TROP COURTES (IMPORTANT) : si une phrase ou une idee est trop courte pour tenir 4 a 6 secondes (par exemple une phrase de moins de 3 secondes lue a voix haute), REGROUPE-la avec la ou les phrases suivantes qui ont un lien logique, jusqu'a atteindre la duree cible. Ne laisse JAMAIS un segment durer moins de 3 secondes. Plusieurs petites phrases qui se suivent et forment une meme idee = un seul segment.
+REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble. Privilegie la coherence du sens sur la duree exacte.
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE et naturelle, en une description continue, SANS jamais ecrire les etiquettes) :
 1. LE DECOR : le lieu precis, l'epoque, l'ambiance globale de la scene
@@ -5273,7 +4991,6 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
-    if (parsed && parsed.storyboard) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
@@ -5340,25 +5057,6 @@ function restart() {
 // Fermer modal en cliquant dehors
 // Synchronise usedGen avec le serveur : si le serveur dit qu'on a utilisé plus
 // que le localStorage (cache vidé), on prend la valeur du serveur.
-async // Vérifie le quota serveur EN DIRECT et met à jour usedGen si le serveur est plus haut.
-// Appelée juste avant chaque génération (anti-contournement : navigation privée, cache vidé…).
-async function verifierQuotaServeurDirect() {
-  if (unlocked) return; // abonnés non concernés ici
-  try {
-    // Course contre un timeout : la vérif serveur ne doit JAMAIS bloquer la génération.
-    // Si le serveur ne répond pas en 3s, on continue (le check local usedGen reste actif).
-    const serverUsed = await Promise.race([
-      fetchServerQuota(),
-      new Promise(resolve => setTimeout(() => resolve(null), 3000))
-    ]);
-    if (serverUsed !== null && serverUsed > usedGen) {
-      usedGen = serverUsed;
-      localStorage.setItem('scriptura_used', usedGen);
-      renderGenCounter();
-    }
-  } catch(e) { console.warn('verifierQuotaServeurDirect', e); }
-}
-
 async function syncServerQuota() {
   if (unlocked) return; // les abonnés ne sont pas concernés
   try {
