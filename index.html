@@ -3462,7 +3462,7 @@ async function generateStoryStoryboard() {
   const plat = storyPlatform || 'TikTok';
   // Durée de segment selon plateforme
   const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
-  const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
+  const segDuration = '4 à 6 secondes';
   // Nombre de segments proportionnel à la longueur du récit
   const nbMotsRecit = (currentStoryText || '').split(/\s+/).filter(Boolean).length;
   const segMinR = Math.max(3, Math.round(nbMotsRecit / 18));
@@ -3476,14 +3476,16 @@ ${currentStoryText}
 """
 
 RÈGLES DE DÉCOUPAGE (TRÈS IMPORTANT) :
-- Le NOMBRE de segments doit s'adapter A LA LONGUEUR du récit : vise entre ${segMinR} et ${segMaxR} segments pour ce récit précis. Un récit court = peu de segments, un récit long = plus. Ne gonfle JAMAIS artificiellement le nombre de plans.
-- Chaque segment dure ${segDuration} maximum
+- DURÉE CIBLE : chaque segment doit durer ${segDuration} (c'est la règle principale du découpage). Découpe le récit de façon à ce que chaque plan dure environ ce temps quand il est lu à voix haute à un rythme naturel.
+- Le NOMBRE de segments n'est PAS fixé à l'avance : il découle NATURELLEMENT de la longueur et de la densité du récit, une fois découpé en plans de ${segDuration}. Un récit qui mérite 22 plans en aura 22, un récit qui en mérite 28 en aura 28. Ne vise AUCUN nombre précis, ne gonfle ni ne réduis artificiellement : laisse le contenu décider.
+- REGROUPEMENT DES SCÈNES TROP COURTES (IMPORTANT) : si une phrase ou une idée est trop courte pour tenir ${segDuration} (par exemple une phrase de moins de 3 secondes lue à voix haute), REGROUPE-la avec la ou les phrases suivantes qui ont un lien logique, jusqu'à atteindre la durée cible. Ne laisse JAMAIS un segment du corps du récit durer moins de 3 secondes. Plusieurs petites phrases qui se suivent et forment une même idée = un seul segment.
 - RESPECTE ABSOLUMENT LES UNITÉS DE SENS : ne coupe JAMAIS une phrase ou une idée au milieu. Chaque segment doit contenir une pensée complète et cohérente (une phrase entière, ou une proposition qui a du sens seule).
 - Si une phrase est trop longue pour un seul segment, coupe-la à un endroit NATUREL (après une virgule, une pause logique, une articulation du sens) — jamais en plein milieu d'une idée.
 - Un segment mal coupé comme "Et partage cette vidéo à quelqu'un" suivi de "qui en a besoin" est INTERDIT : ces deux morceaux forment une seule idée et doivent rester ensemble.
 - Privilégie la cohérence du sens sur la durée exacte : mieux vaut un segment légèrement plus court ou plus long mais qui garde une idée complète.
 - Pour chaque segment : le texte narré (cohérent) + un prompt visuel détaillé
 - Respecte le nombre de segments indiqué ci-dessus (adapté à la longueur du récit)
+- DÉCOUPAGE FIN DE LA CONCLUSION (TRÈS IMPORTANT) : la partie finale du récit — celle qui interpelle directement le spectateur (par exemple à partir de "Alors, que retenir de cette histoire...") — doit être découpée PLUS FINEMENT que le reste. Dans cette conclusion : CHAQUE phrase forte, CHAQUE question posée, et CHAQUE interpellation directe doit avoir SON PROPRE segment (donc son propre prompt visuel). Ne regroupe JAMAIS plusieurs questions ou plusieurs phrases d'accroche finale dans un seul segment. Exemple : "Alors que retenir de cette histoire ?" = 1 segment ; chaque question qui suit = 1 segment chacune ; "Moi je t'ai pas..." = 1 segment ; "Je t'ai..." = 1 segment. Chaque punchline finale mérite son plan visuel dédié pour maximiser l'impact. ATTENTION : la règle de regroupement des scènes courtes NE S'APPLIQUE PAS à cette conclusion — ici, même une phrase très courte (moins de 3 secondes) garde son propre segment, car l'impact prime sur la durée.
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
 1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
@@ -4967,9 +4969,13 @@ Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
 SCRIPT :
 ${scriptText}
 
-MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments pour ce script precis (ni plus, ni moins). Un script court = peu de segments, un script long = plus de segments. Chaque segment couvre une idee complete (environ 3 a 5 secondes de narration). Ne gonfle JAMAIS artificiellement le nombre de plans.
+MISSION : Decoupe ce script en segments visuels.
 
-REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble. Privilegie la coherence du sens sur la duree exacte.
+REGLES DE DECOUPAGE (TRES IMPORTANT) :
+- DUREE CIBLE : chaque segment doit durer 4 a 6 secondes de narration (c'est la regle principale du decoupage). Decoupe le script de facon a ce que chaque plan dure environ ce temps quand il est lu a voix haute a un rythme naturel.
+- Le NOMBRE de segments n'est PAS fixe a l'avance : il decoule NATURELLEMENT de la longueur et de la densite du script, une fois decoupe en plans de 4 a 6 secondes. Un script qui merite 22 plans en aura 22, un script qui en merite 28 en aura 28. Ne vise AUCUN nombre precis, ne gonfle ni ne reduis artificiellement : laisse le contenu decider.
+- RESPECTE ABSOLUMENT LES UNITES DE SENS : ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble.
+- REGROUPEMENT DES SCENES TROP COURTES (IMPORTANT) : si une phrase ou une idee est trop courte pour tenir 4 a 6 secondes (par exemple une phrase de moins de 3 secondes lue a voix haute), REGROUPE-la avec la ou les phrases suivantes qui ont un lien logique, jusqu'a atteindre la duree cible. Ne laisse JAMAIS un segment durer moins de 3 secondes. Plusieurs petites phrases qui se suivent et forment une meme idee = un seul segment.
 
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE et naturelle, en une description continue, SANS jamais ecrire les etiquettes) :
 1. LE DECOR : le lieu precis, l'epoque, l'ambiance globale de la scene
