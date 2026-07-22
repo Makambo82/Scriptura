@@ -3440,6 +3440,130 @@ function renderStory(d) {
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ═══════════════════════════════════════════════════════════
+//  POST-TRAITEMENT DU STORYBOARD (fiabilise le découpage)
+// ═══════════════════════════════════════════════════════════
+// Estime la durée max d'un segment à partir de son champ "duree" (ex: "0-3 sec" → 3)
+function dureeMax(duree) {
+  if (!duree) return 4;
+  const nums = (duree.match(/\d+/g) || []).map(Number);
+  if (!nums.length) return 4;
+  return Math.max(...nums);
+}
+
+// Estime la durée de lecture d'un texte (~2,8 mots/seconde en narration posée)
+function dureeTexte(texte) {
+  const mots = (texte || '').split(/\s+/).filter(Boolean).length;
+  return mots / 2.8;
+}
+
+// Détecte si un texte est une punchline de conclusion à garder SÉPARÉE :
+// une question, ou une phrase d'interpellation directe ("Moi je...", "Je t'ai...").
+function estPunchlineConclusion(texte) {
+  const t = (texte || '').trim();
+  if (t.includes('?')) return true; // toute question reste seule
+  if (/^(alors|moi|je t'ai|je t ai|toi|vous|tu )/i.test(t)) return true;
+  return false;
+}
+
+// Fusionne les segments trop courts du CORPS, mais garde séparées les punchlines de conclusion.
+function nettoyerStoryboard(board) {
+  if (!Array.isArray(board) || board.length < 2) return board;
+
+  // 1) Repérer le début de la conclusion : premier segment qui contient "que retenir"
+  //    ou, à défaut, le dernier tiers du storyboard.
+  let idxConclusion = board.findIndex(s => /que retenir|retenir de cette histoire/i.test(s.texte || ''));
+  if (idxConclusion === -1) idxConclusion = Math.floor(board.length * 0.75);
+
+  const resultat = [];
+  for (let i = 0; i < board.length; i++) {
+    const seg = board[i];
+    const dansConclusion = i >= idxConclusion;
+
+    // Dans la conclusion : si le texte contient plusieurs punchlines collées, on les éclate.
+    if (dansConclusion) {
+      const morceaux = eclaterPunchlines(seg.texte || '');
+      if (morceaux.length > 1) {
+        morceaux.forEach(m => resultat.push({ ...seg, texte: m.trim() }));
+        continue;
+      }
+      resultat.push(seg);
+      continue;
+    }
+
+    // Dans le corps : fusionner si trop court
+    const dtSeg = dureeTexte(seg.texte);
+    const segCourt = dtSeg < 3.5;
+    if (segCourt && resultat.length > 0) {
+      const prec = resultat[resultat.length - 1];
+      // Fusionner seulement si le précédent n'a pas atteint la durée cible ET sans dépasser ~6,5s
+      if (dureeTexte(prec.texte) < 4 && (dureeTexte(prec.texte) + dtSeg) <= 6.5) {
+        prec.texte = (prec.texte + ' ' + (seg.texte || '')).trim();
+        if ((seg.visuel || '').length > (prec.visuel || '').length) prec.visuel = seg.visuel;
+        prec.duree = '4-6 sec';
+        continue;
+      }
+    }
+    resultat.push(seg);
+  }
+
+  // Renuméroter proprement
+  resultat.forEach((s, i) => { s.segment = String(i + 1); });
+  return resultat;
+}
+
+// Nettoyage pour le mode "J'ai une idée" (format : segment=durée, texte_dit, prompt_visuel).
+// Pas de conclusion à éclater (un script n'en a pas) : on fusionne juste les segments trop courts.
+function nettoyerStoryboardScript(board) {
+  if (!Array.isArray(board) || board.length < 2) return board;
+  const resultat = [];
+  for (let i = 0; i < board.length; i++) {
+    const seg = board[i];
+    const dtSeg = dureeTexte(seg.texte_dit);
+    const segCourt = dtSeg < 3.5;
+    if (segCourt && resultat.length > 0) {
+      const prec = resultat[resultat.length - 1];
+      // Fusionner seulement si le précédent n'a pas atteint la durée cible ET sans dépasser ~6,5s
+      if (dureeTexte(prec.texte_dit) < 4 && (dureeTexte(prec.texte_dit) + dtSeg) <= 6.5) {
+        prec.texte_dit = (prec.texte_dit + ' ' + (seg.texte_dit || '')).trim();
+        if ((seg.prompt_visuel || '').length > (prec.prompt_visuel || '').length) prec.prompt_visuel = seg.prompt_visuel;
+        prec.segment = '4-6 sec';
+        continue;
+      }
+    }
+    resultat.push(seg);
+  }
+  return resultat;
+}
+
+// Éclate un texte de conclusion en punchlines séparées (par question et par phrase forte).
+function eclaterPunchlines(texte) {
+  const t = (texte || '').trim();
+  if (!t) return [t];
+  // Découper en gardant la ponctuation forte (? ! .) comme séparateur
+  const phrases = t.match(/[^?!.]+[?!.]+|\S[^?!.]*$/g) || [t];
+  // Regrouper les fragments trop courts (< 4 mots) avec le suivant, sauf les questions
+  const out = [];
+  let buffer = '';
+  for (const ph of phrases) {
+    const p = ph.trim();
+    if (!p) continue;
+    const estQuestion = p.includes('?');
+    const motsCount = p.split(/\s+/).filter(Boolean).length;
+    if (estQuestion) {
+      if (buffer) { out.push(buffer.trim()); buffer = ''; }
+      out.push(p); // chaque question = son propre segment
+    } else if (motsCount < 4 && !buffer) {
+      buffer = p;
+    } else {
+      out.push((buffer + ' ' + p).trim());
+      buffer = '';
+    }
+  }
+  if (buffer) out.push(buffer.trim());
+  return out.length ? out : [t];
+}
+
 async function generateStoryStoryboard() {
   if (!currentStory || !currentStoryText) return;
   if (!_regenGratuiteEnCours) resetRegen('storyboardStory');
@@ -3507,6 +3631,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
+    if (parsed && parsed.storyboard) parsed.storyboard = nettoyerStoryboard(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
@@ -4997,6 +5122,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
+    if (parsed && parsed.storyboard) parsed.storyboard = nettoyerStoryboardScript(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
