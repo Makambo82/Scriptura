@@ -3457,92 +3457,166 @@ function dureeTexte(texte) {
   return mots / 2.8;
 }
 
-// Détecte si un texte est une punchline de conclusion à garder SÉPARÉE :
-// une question, ou une phrase d'interpellation directe ("Moi je...", "Je t'ai...").
-function estPunchlineConclusion(texte) {
+const CONNECTEURS_NARRATIFS = [
+  /\bmais\b/i,
+  /\bpourtant\b/i,
+  /\bcependant\b/i,
+  /\bpuis\b/i,
+  /\bet voilà que\b/i,
+  /\bde l’autre côté\b/i,
+  /\bde l'autre côté\b/i,
+  /\bquelques années plus tard\b/i,
+  /\bsoudain\b/i,
+  /\bjusqu’au jour où\b/i,
+  /\bjusqu'au jour où\b/i,
+  /\bce qu’il ignorait\b/i,
+  /\bce qu'il ignorait\b/i,
+  /\bpersonne ne savait que\b/i,
+  /\bc’est alors que\b/i,
+  /\bc'est alors que\b/i,
+  /\bet c’est là que\b/i,
+  /\bet c'est là que\b/i,
+  /\ble problème\b/i
+];
+
+function contientConnecteurNarratif(texte) {
   const t = (texte || '').trim();
-  if (t.includes('?')) return true; // toute question reste seule
-  if (/^(alors|moi|je t'ai|je t ai|toi|vous|tu )/i.test(t)) return true;
-  return false;
+  return CONNECTEURS_NARRATIFS.some(rx => rx.test(t));
 }
 
-// Fusionne les segments trop courts du CORPS, mais garde séparées les punchlines de conclusion.
+function estDebutRevelation(texte) {
+  const t = (texte || '').trim();
+  return /(ce qu’il ignorait|ce qu'il ignorait|personne ne savait que|c’est alors que|c'est alors que|et c’est là que|et c'est là que|soudain|jusqu’au jour où|jusqu'au jour où)/i.test(t);
+}
+
+function estCoupureNarrative(texte) {
+  const t = (texte || '').trim();
+  return contientConnecteurNarratif(t) || /[:—-]$/.test(t) || /\.{3}$/.test(t);
+}
+
+function estPhraseComplete(texte) {
+  const t = (texte || '').trim();
+  if (!t) return false;
+  return /[.!?…]$/.test(t) || t.length < 90;
+}
+
+// Priorité narrative : une idée / une scène / une révélation = un storyboard.
+// La durée ne sert qu'à empêcher des segments trop longs ou à laisser passer une fusion mineure.
 function nettoyerStoryboard(board) {
   if (!Array.isArray(board) || board.length < 2) return board;
 
-  // 1) Repérer le début de la conclusion : premier segment qui contient "que retenir"
-  //    ou, à défaut, le dernier tiers du storyboard.
-  let idxConclusion = board.findIndex(s => /que retenir|retenir de cette histoire/i.test(s.texte || ''));
-  if (idxConclusion === -1) idxConclusion = Math.floor(board.length * 0.75);
-
   const resultat = [];
   for (let i = 0; i < board.length; i++) {
-    const seg = board[i];
-    const dansConclusion = i >= idxConclusion;
+    const seg = { ...board[i] };
+    const texte = seg.texte || '';
+    const dtSeg = dureeTexte(texte);
+    const devientNouvelleImage = resultat.length === 0
+      || estDebutRevelation(texte)
+      || estCoupureNarrative(texte);
 
-    // Dans la conclusion : si le texte contient plusieurs punchlines collées, on les éclate.
-    if (dansConclusion) {
-      const morceaux = eclaterPunchlines(seg.texte || '');
-      if (morceaux.length > 1) {
-        morceaux.forEach(m => resultat.push({ ...seg, texte: m.trim() }));
-        continue;
-      }
-      resultat.push(seg);
-      continue;
-    }
-
-    // Dans le corps : fusionner si trop court
-    const dtSeg = dureeTexte(seg.texte);
-    const segCourt = dtSeg < 3.5;
-    if (segCourt && resultat.length > 0) {
+    if (resultat.length > 0 && !devientNouvelleImage) {
       const prec = resultat[resultat.length - 1];
-      // Fusionner seulement si le précédent n'a pas atteint la durée cible ET sans dépasser ~6,5s
-      if (dureeTexte(prec.texte) < 4 && (dureeTexte(prec.texte) + dtSeg) <= 6.5) {
-        prec.texte = (prec.texte + ' ' + (seg.texte || '')).trim();
+      const dtPrec = dureeTexte(prec.texte || '');
+      const precEstPreparation = !estDebutRevelation(prec.texte || '') && !/\?|!/.test(prec.texte || '');
+      const segEstRevelation = estDebutRevelation(texte);
+      const peutFusionner =
+        dtPrec < 3 &&
+        dtSeg < 2.8 &&
+        (dtPrec + dtSeg) <= 6.2 &&
+        !precEstPreparation &&
+        !segEstRevelation &&
+        !estCoupureNarrative(prec.texte || '');
+
+      if (peutFusionner && estPhraseComplete(prec.texte || '')) {
+        prec.texte = (prec.texte + ' ' + texte).trim();
         if ((seg.visuel || '').length > (prec.visuel || '').length) prec.visuel = seg.visuel;
-        prec.duree = '4-6 sec';
+        prec.duree = '3-6 sec';
         continue;
       }
     }
+
+    if (dtSeg <= 2.2) seg.duree = seg.duree || '2-3 sec';
+    else if (dtSeg <= 3.8) seg.duree = seg.duree || '3-4 sec';
+    else seg.duree = seg.duree || '4-6 sec';
+
     resultat.push(seg);
   }
 
-  // Renuméroter proprement
-  resultat.forEach((s, i) => { s.segment = String(i + 1); });
-  return resultat;
+  // Séparation stricte préparation / révélation si le modèle a tenté de les coller.
+  const final = [];
+  for (const seg of resultat) {
+    const texte = (seg.texte || '').trim();
+    const splitIdx = texte.search(/(?:\bMais\b|\bPourtant\b|\bCependant\b|\bPuis\b|\bSoudain\b|\bC’est alors que\b|\bC'est alors que\b|\bEt voilà que\b|\bEt voilà qu'|\bJusqu’au jour où\b|\bJusqu'au jour où\b|\bLe problème\b)/i);
+    if (splitIdx > 0 && splitIdx < texte.length - 1 && /[.!?…]\s*$/.test(texte.slice(0, splitIdx))) {
+      final.push({ ...seg, texte: texte.slice(0, splitIdx).trim(), duree: '2-3 sec' });
+      final.push({ ...seg, texte: texte.slice(splitIdx).trim(), duree: seg.duree || '3-6 sec' });
+    } else {
+      final.push(seg);
+    }
+  }
+
+  final.forEach((s, i) => { s.segment = String(i + 1); });
+  return final;
 }
 
 // Nettoyage pour le mode "J'ai une idée" (format : segment=durée, texte_dit, prompt_visuel).
-// Pas de conclusion à éclater (un script n'en a pas) : on fusionne juste les segments trop courts.
+// Même logique narrative que le mode Storytelling.
 function nettoyerStoryboardScript(board) {
   if (!Array.isArray(board) || board.length < 2) return board;
   const resultat = [];
   for (let i = 0; i < board.length; i++) {
-    const seg = board[i];
-    const dtSeg = dureeTexte(seg.texte_dit);
-    const segCourt = dtSeg < 3.5;
-    if (segCourt && resultat.length > 0) {
+    const seg = { ...board[i] };
+    const texte = seg.texte_dit || '';
+    const dtSeg = dureeTexte(texte);
+    const nouveauStoryboard = resultat.length === 0 || estDebutRevelation(texte) || estCoupureNarrative(texte);
+
+    if (resultat.length > 0 && !nouveauStoryboard) {
       const prec = resultat[resultat.length - 1];
-      // Fusionner seulement si le précédent n'a pas atteint la durée cible ET sans dépasser ~6,5s
-      if (dureeTexte(prec.texte_dit) < 4 && (dureeTexte(prec.texte_dit) + dtSeg) <= 6.5) {
-        prec.texte_dit = (prec.texte_dit + ' ' + (seg.texte_dit || '')).trim();
+      const dtPrec = dureeTexte(prec.texte_dit || '');
+      const precEstPreparation = !estDebutRevelation(prec.texte_dit || '') && !/\?|!/.test(prec.texte_dit || '');
+      const segEstRevelation = estDebutRevelation(texte);
+      const peutFusionner =
+        dtPrec < 3 &&
+        dtSeg < 2.8 &&
+        (dtPrec + dtSeg) <= 6.2 &&
+        !precEstPreparation &&
+        !segEstRevelation &&
+        !estCoupureNarrative(prec.texte_dit || '');
+
+      if (peutFusionner && estPhraseComplete(prec.texte_dit || '')) {
+        prec.texte_dit = (prec.texte_dit + ' ' + texte).trim();
         if ((seg.prompt_visuel || '').length > (prec.prompt_visuel || '').length) prec.prompt_visuel = seg.prompt_visuel;
-        prec.segment = '4-6 sec';
+        prec.segment = '3-6 sec';
         continue;
       }
     }
+
+    if (dtSeg <= 2.2) seg.segment = seg.segment || '2-3 sec';
+    else if (dtSeg <= 3.8) seg.segment = seg.segment || '3-4 sec';
+    else seg.segment = seg.segment || '4-6 sec';
+
     resultat.push(seg);
   }
-  return resultat;
+
+  const final = [];
+  for (const seg of resultat) {
+    const texte = (seg.texte_dit || '').trim();
+    const splitIdx = texte.search(/(?:\bMais\b|\bPourtant\b|\bCependant\b|\bPuis\b|\bSoudain\b|\bC’est alors que\b|\bC'est alors que\b|\bEt voilà que\b|\bEt voilà qu'|\bJusqu’au jour où\b|\bJusqu'au jour où\b|\bLe problème\b)/i);
+    if (splitIdx > 0 && splitIdx < texte.length - 1 && /[.!?…]\s*$/.test(texte.slice(0, splitIdx))) {
+      final.push({ ...seg, texte_dit: texte.slice(0, splitIdx).trim(), segment: '2-3 sec' });
+      final.push({ ...seg, texte_dit: texte.slice(splitIdx).trim(), segment: seg.segment || '3-6 sec' });
+    } else {
+      final.push(seg);
+    }
+  }
+  return final;
 }
 
 // Éclate un texte de conclusion en punchlines séparées (par question et par phrase forte).
 function eclaterPunchlines(texte) {
   const t = (texte || '').trim();
   if (!t) return [t];
-  // Découper en gardant la ponctuation forte (? ! .) comme séparateur
   const phrases = t.match(/[^?!.]+[?!.]+|\S[^?!.]*$/g) || [t];
-  // Regrouper les fragments trop courts (< 4 mots) avec le suivant, sauf les questions
   const out = [];
   let buffer = '';
   for (const ph of phrases) {
@@ -3552,7 +3626,7 @@ function eclaterPunchlines(texte) {
     const motsCount = p.split(/\s+/).filter(Boolean).length;
     if (estQuestion) {
       if (buffer) { out.push(buffer.trim()); buffer = ''; }
-      out.push(p); // chaque question = son propre segment
+      out.push(p);
     } else if (motsCount < 4 && !buffer) {
       buffer = p;
     } else {
