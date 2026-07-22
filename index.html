@@ -3473,87 +3473,113 @@ function renderStory(d) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  MOTEUR NARRATIF DE SEGMENTATION (partagé par les deux modes)
+//  MOTEUR DE SEGMENTATION PAR IMAGE MENTALE (partagé 2 modes)
 // ═══════════════════════════════════════════════════════════
-// Principe : on segmente d'ABORD selon la NARRATION (idées, images mentales,
-// ruptures de sens), puis on estime la durée APRÈS coup. La narration prime
-// toujours sur la durée. Une idée complète = un plan.
+// Règle de base : UN STORYBOARD = UNE SEULE IMAGE MENTALE.
+// Question centrale : « un seul visuel peut-il représenter ce passage ? »
+//   oui → même storyboard | non → nouveau storyboard.
+// Ordre de priorité : 1) image mentale  2) scène  3) idée
+//   4) révélation  5) émotion  6) durée (en DERNIER, ajustement léger).
 
-// 1) Découpe un texte en phrases (unités de base), ponctuation conservée.
 function splitIntoSentences(script) {
   if (!script || typeof script !== 'string') return [];
-  // Coupe après . ! ? … tout en gardant la ponctuation ; gère les points de suspension.
   const brut = script
     .replace(/\s+/g, ' ')
     .match(/[^.!?…]+[.!?…]+(?:["'»)\]]*)?|\S[^.!?…]*$/g) || [];
   return brut.map(s => s.trim()).filter(Boolean);
 }
 
-// 2) Classe une phrase selon son rôle narratif (sert au score de rupture).
+// Classe une phrase selon son rôle narratif (sert au raisonnement, pas à couper mécaniquement).
 function classifySentence(sentence) {
   const t = (sentence || '').trim().toLowerCase();
   if (!t) return 'neutre';
   if (t.includes('?')) return 'question';
-  // Révélation / bascule
-  if (/^(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|le twist|sauf|pourtant)/.test(t)) return 'revelation';
-  // Conséquence / résultat
-  if (/^(donc |alors |resultat|résultat|c'est pourquoi|du coup|ainsi |par consequent|par conséquent|desormais|désormais)/.test(t)) return 'consequence';
-  // Interpellation directe (conclusion)
-  if (/^(moi,? |toi,? |vous |tu |je t'ai|je t ai|retiens|souviens)/.test(t)) return 'interpellation';
-  // Préparation / mise en contexte
-  if (/^(il etait|il était|au debut|au début|a l'epoque|à l'époque|autrefois|d'abord|pour commencer|imagine|imaginez)/.test(t)) return 'preparation';
+  if (/^(et )?(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|le twist|sauf |pourtant|c'est alors|c'est là|c'est la|là que|soudain|jusqu'au jour|ce qu'il ignorait|personne ne savait)/.test(t)) return 'revelation';
+  if (/^(donc |alors |resultat|résultat|c'est pourquoi|du coup|ainsi |par consequent|par conséquent|desormais|désormais|le problème|le probleme)/.test(t)) return 'consequence';
+  if (/^(moi,? |toi,? |vous |tu |je t'ai|je t ai|retiens|souviens|imagine|imaginez)/.test(t)) return 'interpellation';
+  if (/^(il etait|il était|au debut|au début|a l'epoque|à l'époque|autrefois|d'abord|pour commencer)/.test(t)) return 'preparation';
   return 'neutre';
 }
 
-// 3) Score de rupture narrative entre la phrase courante et la précédente (0 à 100).
-//    Plus le score est élevé, plus il faut commencer un NOUVEAU segment.
-function computeNarrativeBreakScore(previous, current, next) {
-  if (!previous) return 100; // première phrase = toujours un début de segment
-  let score = 0;
-  const clsPrev = classifySentence(previous);
-  const clsCur = classifySentence(current);
-
-  // a) Changement de nature narrative (préparation → révélation, etc.)
-  if (clsPrev !== clsCur) score += 35;
-  // Ne JAMAIS mélanger préparation et révélation : rupture forte
-  if ((clsPrev === 'preparation' && clsCur === 'revelation') ||
-      (clsPrev === 'revelation' && clsCur === 'preparation')) score += 40;
-  // Début de révélation ou de conséquence importante
-  if (clsCur === 'revelation') score += 30;
-  if (clsCur === 'consequence') score += 20;
-  // Chaque question / interpellation = son propre plan (conclusion percutante)
-  if (clsCur === 'question') score += 60;
-  if (clsCur === 'interpellation') score += 45;
-
-  const curT = (current || '').toLowerCase();
-
-  // b) Connecteurs narratifs : augmentent le score SANS forcer mécaniquement la coupure
-  if (/^(mais|or|pourtant|cependant|soudain|puis|ensuite|alors|donc|c'est alors|finalement|enfin|au final)/.test(curT.trim())) {
-    score += 25;
-  }
-
-  // c) Changement de LIEU
-  if (/\b(à |a |dans |vers |depuis |en )(dakar|paris|londres|new york|afrique|europe|palais|bureau|maison|rue|ville|pays|capitale|scène|scene)\b/.test(curT)) {
-    score += 15;
-  }
-  // d) Changement d'ÉPOQUE / marqueur temporel
-  if (/\b(deux ans|trois ans|des annees|des années|plus tard|à l'époque|a l'epoque|aujourd'hui|hier|demain|en \d{4}|le lendemain|ce jour|des lors|dès lors|maintenant)\b/.test(curT)) {
-    score += 20;
-  }
-  // e) Nouvelle image mentale (verbes de vision / apparition)
-  if (/\b(on voit|imagine|apparait|apparaît|surgit|se dresse|montre|image de|gros plan|vue de)\b/.test(curT)) {
-    score += 20;
-  }
-
-  return Math.min(100, score);
+// Détecte l'"empreinte visuelle" d'une phrase : les éléments qui définissent SON image mentale.
+// Sert à comparer deux phrases : partagent-elles le même visuel, ou en évoquent-elles deux différents ?
+function empreinteVisuelle(sentence) {
+  const t = (sentence || '').toLowerCase();
+  // Actions/verbes concrets qui créent une image (chaque action forte = une image potentielle)
+  const actions = (t.match(/\b(brûle|brule|meurt|tombe|sonne|explose|s'effondre|surgit|frappe|court|fuit|arrive|revient|part|bombardé|détruit|détruite|finance|organise|fuient|marche|se dresse|s'allie)\w*/g) || []);
+  // Sujets/lieux concrets (chaque nouveau sujet visuel compte)
+  const sujets = (t.match(/\b(village|armée|armee|téléphone|telephone|pays|ville|palais|rue|homme|femme|foule|soldat|président|president|renseignement|dissident|coup d'état|coup d'etat|libye|sahel|dakar|nuit|jour)\w*/g) || []);
+  return { actions, sujets };
 }
 
-// 4) Construit les segments NARRATIFS à partir du texte, selon le score de rupture.
-//    Seuil : au-delà de 45, on ouvre un nouveau segment. Sinon on prolonge le courant.
+// Cœur : mesure si "current" ouvre une NOUVELLE image mentale par rapport au segment courant.
+// Retourne un score 0-100. Au-delà du seuil → nouvelle image = nouveau storyboard.
+function computeNarrativeBreakScore(previous, current, next) {
+  if (!previous) return 100; // première phrase = début d'image
+  let score = 0;
+
+  const clsPrev = classifySentence(previous);
+  const clsCur = classifySentence(current);
+  const curT = (current || '').trim().toLowerCase();
+
+  // ── PRIORITÉ 4 : RÉVÉLATION jamais collée à sa préparation ──
+  if (clsCur === 'revelation') score += 55;
+  if (clsPrev === 'revelation' && clsCur !== 'revelation') score += 50; // après une révélation, la CHUTE ouvre sa propre image
+  // Ne jamais mélanger préparation et révélation
+  if ((clsPrev === 'preparation' && clsCur === 'revelation') ||
+      (clsPrev === 'revelation' && clsCur === 'preparation')) score += 40;
+
+  // ── PRIORITÉ 5 : question / interpellation = leur propre image ──
+  if (clsCur === 'question') score += 60;
+  if (clsCur === 'interpellation' && clsPrev !== 'interpellation') score += 35;
+
+  // ── PRIORITÉ 1 : IMAGE MENTALE — deux actions/sujets visuels distincts ? ──
+  const empPrev = empreinteVisuelle(previous);
+  const empCur = empreinteVisuelle(current);
+  // Si la phrase courante introduit une NOUVELLE action concrète absente d'avant → nouvelle image
+  const nouvelleAction = empCur.actions.some(a => !empPrev.actions.includes(a));
+  const nouveauSujet = empCur.sujets.some(s => !empPrev.sujets.includes(s));
+  if (empCur.actions.length && nouvelleAction) score += 40; // une nouvelle action = une nouvelle image mentale forte
+  if (empCur.sujets.length && nouveauSujet && empPrev.sujets.length) score += 25;
+
+  // ── PRIORITÉ 2 : changement de SCÈNE (lieu, moment, personnage) ──
+  if (/\b(à |a |dans |vers |depuis )(dakar|paris|londres|new york|afrique|europe|palais|bureau|maison|rue|ville|pays)\b/.test(curT)) score += 20;
+  if (/\b(deux ans|trois ans|plus tard|à l'époque|aujourd'hui|hier|demain|en \d{4}|le lendemain|quelques années|desormais|désormais|maintenant)\b/.test(curT)) score += 25;
+
+  // ── PRIORITÉ 3 : CONNECTEURS narratifs (indices FORTS, non mécaniques) ──
+  // Ils augmentent la probabilité sans forcer : score modéré.
+  if (/^(mais|pourtant|cependant|sauf que|et là|et la|c'est alors que|jusqu'au jour où|puis|quelques années plus tard|de l'autre côté|soudain|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(curT)) {
+    score += 22;
+  }
+
+  // ── Continuité : une même démonstration (énumération liée) NE coupe PAS ──
+  // Si la phrase courante prolonge visuellement la même idée (mêmes sujets, pas de nouvelle action),
+  // on réduit le score pour éviter une coupure artificielle.
+  if (!nouvelleAction && !nouveauSujet && empCur.actions.length === 0
+      && clsCur !== 'question' && clsCur !== 'revelation' && clsCur !== 'interpellation') {
+    score -= 20;
+  }
+  // Énumération parallèle ("qui ont... qui ont... qui viennent...") = une seule image
+  // MAIS pas si c'est une question (une question garde toujours sa propre image).
+  if (/^(qui |que |dont |et qui )/.test(curT) && !curT.includes('?')) score -= 25;
+
+  return Math.max(0, Math.min(100, score));
+}
+
+// Estime la durée d'un texte APRÈS segmentation (~2,8 mots/seconde).
+function estimateDuration(text) {
+  const mots = (text || '').split(/\s+/).filter(Boolean).length;
+  const sec = mots / 2.8;
+  const bas = Math.max(2, Math.round(sec));       // segments courts (2-3s) autorisés
+  const haut = Math.max(bas + 1, Math.round(sec) + 1);
+  return { seconds: sec, label: bas + '-' + haut + ' sec' };
+}
+
+// Construit les storyboards : une image mentale = un segment. La durée n'intervient QU'À LA FIN.
 function buildNarrativeSegments(script) {
   const phrases = splitIntoSentences(script);
   if (!phrases.length) return [];
-  const SEUIL_RUPTURE = 45;
+  const SEUIL_IMAGE = 45; // au-delà : nouvelle image mentale → nouveau storyboard
 
   const segments = [];
   let courant = [];
@@ -3564,41 +3590,49 @@ function buildNarrativeSegments(script) {
     const next = i < phrases.length - 1 ? phrases[i + 1] : null;
     const score = computeNarrativeBreakScore(prev, cur, next);
 
-    // Estimer la durée du segment courant s'il absorbait cette phrase
-    const dureeSiAjout = ((courant.join(' ') + ' ' + cur).split(/\s+/).filter(Boolean).length) / 2.8;
-
     if (courant.length === 0) {
       courant.push(cur);
-    } else if (score >= SEUIL_RUPTURE) {
-      // rupture narrative nette → nouveau segment
-      segments.push(courant.join(' '));
-      courant = [cur];
-    } else if (dureeSiAjout > 6.5) {
-      // GARDE-FOU DURÉE : même sans rupture franche, un plan ne doit pas dépasser ~6,5 sec.
-      // On coupe ici à la frontière de phrase (la plus naturelle possible).
+    } else if (score >= SEUIL_IMAGE) {
+      // nouvelle image mentale → on ferme le storyboard courant
       segments.push(courant.join(' '));
       courant = [cur];
     } else {
-      // pas de rupture → la phrase prolonge la même idée
+      // même image mentale → on prolonge (PAS de coupure sur la durée seule)
       courant.push(cur);
     }
   }
   if (courant.length) segments.push(courant.join(' '));
-  return segments;
+
+  // PRIORITÉ 6 (durée, en DERNIER) : garde-fou souple contre les storyboards vraiment trop longs.
+  // On ne coupe QUE si un segment dépasse largement la durée idéale ET contient plusieurs phrases
+  // (donc potentiellement plusieurs sous-images). Cohérence visuelle > optimisation temporelle.
+  const raffines = [];
+  for (const seg of segments) {
+    const dur = estimateDuration(seg).seconds;
+    const phr = splitIntoSentences(seg);
+    // Garde-fou durée (priorité 6, dernier recours) : si un segment est long ET contient
+    // plusieurs phrases qui portent CHACUNE une action visuelle distincte, on redécoupe.
+    if (dur > 7 && phr.length > 2) {
+      // Redécouper phrase par phrase (chaque phrase = une image potentielle),
+      // en regroupant seulement les fragments sans action propre.
+      let sousSeg = [];
+      for (let k = 0; k < phr.length; k++) {
+        sousSeg.push(phr[k]);
+        const dSous = estimateDuration(sousSeg.join(' ')).seconds;
+        // Fermer dès qu'on atteint ~4-5 sec OU qu'on a une image complète
+        if (dSous >= 4 || k === phr.length - 1) {
+          raffines.push(sousSeg.join(' '));
+          sousSeg = [];
+        }
+      }
+      if (sousSeg.length) raffines.push(sousSeg.join(' '));
+    } else {
+      raffines.push(seg); // segment court OU image unique → on garde tel quel
+    }
+  }
+  return raffines;
 }
 
-// 5) Estime la durée d'un texte APRÈS segmentation (~2,8 mots/seconde en narration posée).
-function estimateDuration(text) {
-  const mots = (text || '').split(/\s+/).filter(Boolean).length;
-  const sec = mots / 2.8;
-  // Bornes d'affichage : on vise 3 à 6 sec, exception 2 sec si l'idée est complète mais courte.
-  const bas = Math.max(2, Math.round(sec));
-  const haut = Math.max(bas + 1, Math.round(sec) + 1);
-  return { seconds: sec, label: bas + '-' + haut + ' sec' };
-}
-
-// 6) FONCTION CENTRALE : segmente un script/récit en unités narratives prêtes pour l'UI.
-//    Retourne un tableau de { text, duree } — la narration prime, la durée est indicative.
 function segmentNarrativeStoryboard(script) {
   const segmentsTexte = buildNarrativeSegments(script);
   return segmentsTexte.map(txt => {
