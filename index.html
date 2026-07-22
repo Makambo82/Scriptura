@@ -2062,9 +2062,16 @@ async function callAI(model, maxTokens, prompt, maxRetries) {
     if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
       return { ok: false, recoverable: true, detail: '(' + res.status + ') serveur occupé' };
     }
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); }
+    catch(e) { return { ok: false, recoverable: false, detail: '(' + res.status + ') réponse serveur illisible' }; }
     if (!res.ok) {
       const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
+      // Erreur de crédit insuffisant : message clair et ARRÊT immédiat (inutile de réessayer)
+      const detailLower = (detail || '').toLowerCase();
+      if (res.status === 400 && (detailLower.includes('credit') || detailLower.includes('crédit') || detailLower.includes('balance') || detailLower.includes('billing') || detailLower.includes('quota'))) {
+        return { ok: false, recoverable: false, fatal: true, detail: 'CREDIT_INSUFFISANT' };
+      }
       return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
     }
     const raw = data.content?.map(b => b.text || '').join('') || '';
@@ -2083,16 +2090,25 @@ async function callAI(model, maxTokens, prompt, maxRetries) {
     const r1 = await tryOnce(model);
     if (r1.ok) return r1.raw;
     lastDetail = r1.detail;
+    // Erreur fatale (crédit insuffisant) : on arrête TOUT de suite avec un message clair
+    if (r1.fatal) throw new Error('Crédit API épuisé. Recharge le compte Anthropic pour continuer à générer.');
     if (!r1.recoverable && !usesFallback) throw new Error(lastDetail);
-  } catch(e) { lastDetail = e.message; }
+  } catch(e) {
+    if (e.message && e.message.includes('Crédit API épuisé')) throw e; // ne pas avaler l'erreur fatale
+    lastDetail = e.message;
+  }
 
   // Petite pause puis Tentative 2 — même modèle
   await new Promise(r => setTimeout(r, 1500));
   try {
     const r2 = await tryOnce(model);
     if (r2.ok) return r2.raw;
+    if (r2.fatal) throw new Error('Crédit API épuisé. Recharge le compte Anthropic pour continuer à générer.');
     lastDetail = r2.detail;
-  } catch(e) { lastDetail = e.message; }
+  } catch(e) {
+    if (e.message && e.message.includes('Crédit API épuisé')) throw e;
+    lastDetail = e.message;
+  }
 
   // Tentative 3 — bascule automatique sur Haiku (si on visait Sonnet)
   if (usesFallback) {
@@ -4793,7 +4809,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       let correctRaw;
       try {
         correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt);
-      } catch(e) { break; } // en cas d'erreur, on garde la version actuelle
+      } catch(e) {
+        if (e.message && e.message.includes('Crédit API épuisé')) throw e; // remonter l'erreur crédit
+        break; // autre erreur : on garde la version actuelle
+      }
       const correctedScript = parseAIResponse(correctRaw);
 
       if (correctedScript && correctedScript.script) {
