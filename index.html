@@ -3285,9 +3285,13 @@ function renderStory(d) {
   currentStory = d;
   currentStoryText = fullText;
 
-  // Réinitialiser le storyboard (bouton visible, conteneur vide) pour une nouvelle génération
+  // Réinitialiser le storyboard (bouton + texte visibles, conteneur vide) pour une nouvelle génération
   const sbBtnSt = document.getElementById('storyStoryboardBtn');
-  if (sbBtnSt) sbBtnSt.style.display = '';
+  if (sbBtnSt) {
+    sbBtnSt.style.display = '';
+    const descP = sbBtnSt.previousElementSibling;
+    if (descP && descP.tagName === 'P') descP.style.display = '';
+  }
   const sbContSt = document.getElementById('storyStoryboardOutput');
   if (sbContSt) sbContSt.innerHTML = '';
 
@@ -3526,6 +3530,13 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       </div></div>`;
+    // Masquer le bouton + le texte descriptif après génération (le bouton Régénérer prend le relais)
+    if (btn) {
+      btn.style.display = 'none';
+      // Masquer le paragraphe descriptif juste avant le bouton
+      const descP = btn.previousElementSibling;
+      if (descP && descP.tagName === 'P') descP.style.display = 'none';
+    }
 
   } catch(e) {
     out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
@@ -5014,11 +5025,8 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
       </div></div>`;
-
-    // Réactiver le bouton après succès
-    spinner.style.display = 'none';
-    genText.innerHTML = '🎬 Storyboard généré';
-    btn.disabled = false;
+    // Le bouton "Générer le storyboard" a été remplacé par le storyboard lui-même.
+    // Le bouton "Régénérer" (en bas du storyboard) prend désormais le relais.
 
   } catch(e) {
     if (typeof prog !== 'undefined') prog.stop();
