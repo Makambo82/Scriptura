@@ -2255,8 +2255,12 @@ function reafficherStoryboard(sbData, isStory) {
     if (!out) return;
     const miniHtmlSt = miniature ? `
       <div class="sb-segment sb-miniature">
-        <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
-        <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${miniature}</div>
+        <div class="sb-head">
+          <span class="sb-time">★ Miniature</span>
+          <span class="sb-index">Couverture</span>
+        </div>
+        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-visual">${miniature}</div>
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map((s, i) => `
@@ -3534,9 +3538,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map((s, i) => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
     const miniHtmlSt = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
-        <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
+        <div class="sb-head">
+          <span class="sb-time">★ Miniature</span>
+          <span class="sb-index">Couverture</span>
+        </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-seg-visual">${parsed.miniature}</div>
+        <div class="sb-visual">${parsed.miniature}</div>
         ${blocGenImage(storeCopyText(parsed.miniature||''))}
       </div>` : '';
     out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map((s, i) => `
