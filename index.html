@@ -4857,21 +4857,18 @@ function renderResults(d, niche, sujet) {
       </div>`
     },
     {
-      titre: "Storyboard visuel — Prompts anti-scroll",
+      titre: "Storyboard visuel",
       num: "05",
       content: `<div class="out-section">
-        <div class="out-section-label">Storyboard · Découpé segment par segment (3-5 sec)</div>
         <div id="storyboardContainer">
-          <div class="sb-generate-box">
-            <p class="sb-generate-text">Scriptura peut découper ton script en plans de 3-5 secondes avec un prompt visuel cinématique et anti-scroll pour chacun.</p>
-            <button class="sb-generate-btn" id="sbGenerateBtn" onclick="generateStoryboard()">
-              <span class="sb-gen-spinner" id="sbGenSpinner"></span>
-              <span id="sbGenText">🎬 Générer le storyboard visuel</span>
-            </button>
-            <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
-              <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
-              <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
-            </div>
+          <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton script, avec un prompt d'image pour chaque segment.</p>
+          <button class="btn-storyboard" id="sbGenerateBtn" onclick="generateStoryboard()">
+            <span class="sb-gen-spinner" id="sbGenSpinner"></span>
+            <span id="sbGenText">🎬 Générer le storyboard visuel</span>
+          </button>
+          <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
+            <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
+            <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
           </div>
         </div>
       </div>`,
