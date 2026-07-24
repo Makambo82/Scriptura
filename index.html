@@ -3493,7 +3493,7 @@ function classifySentence(phrase) {
   const t = (phrase || '').trim().toLowerCase();
   if (!t) return 'neutre';
   if (t.includes('?')) return 'question';
-  if (/^(et )?(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|le twist|sauf |pourtant|c'est alors|c'est là|c'est la|soudain|jusqu'au jour|ce qu'il ignorait|personne ne savait)/.test(t)) return 'revelation';
+  if (/^(et )?(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|mais voila|mais voilà|le twist|sauf |pourtant|c'est alors|c'est là|c'est la|soudain|jusqu'au jour|ce qu'il ignorait|personne ne savait)/.test(t)) return 'revelation';
   if (/^(donc |alors |resultat|résultat|c'est pourquoi|du coup|ainsi |par consequent|par conséquent|desormais|désormais|le problème|le probleme)/.test(t)) return 'consequence';
   if (/^(moi,? |toi,? |vous |tu |je t'ai|je t ai|retiens|souviens|imagine|imaginez)/.test(t)) return 'interpellation';
   if (/^(il etait|il était|au debut|au début|a l'epoque|à l'époque|autrefois|d'abord|pour commencer)/.test(t)) return 'preparation';
@@ -3513,8 +3513,11 @@ function prolongeLaMemeImage(precedente, courante) {
   const t = (courante || '').trim().toLowerCase();
   // Subordonnée ou énumération parallèle
   if (/^(qui |que |dont |où |ou |et qui |et que |lequel|laquelle)/.test(t) && !t.includes('?')) return true;
-  // Précision immédiate : fragment court SANS image propre (ni action ni sujet visuel)
-  if (dureeDe(courante) < 1.2 && !/[?!]/.test(courante)) {
+  // Précision immédiate : fragment court SANS image propre (ni action ni sujet visuel).
+  // Ne s'applique JAMAIS à une révélation, question ou interpellation (elles ouvrent un plan).
+  const cls = classifySentence(courante);
+  if (dureeDe(courante) < 1.2 && !/[?!]/.test(courante)
+      && cls !== 'revelation' && cls !== 'question' && cls !== 'interpellation') {
     const e = empreinteVisuelle(courante);
     if (e.actions.length === 0 && e.sujets.length === 0) return true;
   }
@@ -3554,14 +3557,22 @@ function computeNarrativeBreakScore(precedente, courante) {
   if (eCur.sujets.length && nouveauSujet && ePrev.sujets.length) score += 25;
 
   // Priorité 2 — changement de scène (lieu, époque)
+  // Lieu nommé en tête de phrase : "À Nefis", "Au Mali", "En Libye" (nom propre = nouvelle scène)
+  let changementScene = false;
+  if (/^(À|A|Au|Aux|En|Dans|Vers|Depuis|à|au|aux|en|dans|vers|depuis)\s+[A-ZÀ-Ý][a-zà-ÿ]+/.test((courante || '').trim())) {
+    score += 45; changementScene = true;
+  }
   if (/\b(à |a |dans |vers |depuis )(dakar|paris|londres|new york|afrique|europe|palais|bureau|maison|rue|ville|pays)\b/.test(t)) score += 20;
   if (/\b(deux ans|trois ans|plus tard|à l'époque|aujourd'hui|hier|demain|en \d{4}|le lendemain|quelques années|désormais|maintenant)\b/.test(t)) score += 25;
+
+  // Situation explicite : "Nous sommes à…", "On est à…", "Direction…"
+  if (/^(nous sommes|on est|direction |retour |cap sur)/.test(t)) { score += 45; changementScene = true; }
 
   // Priorité 3 — connecteurs narratifs (indices forts, non mécaniques)
   if (/^(mais|pourtant|cependant|sauf que|et là|c'est alors que|jusqu'au jour où|puis|soudain|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
 
   // Continuité douce : rien de neuf visuellement → on prolonge
-  if (!nouvelleAction && !nouveauSujet && eCur.actions.length === 0
+  if (!nouvelleAction && !nouveauSujet && eCur.actions.length === 0 && !changementScene
       && clsCur !== 'question' && clsCur !== 'revelation' && clsCur !== 'interpellation'
       && clsPrev !== 'question' && clsPrev !== 'revelation') {
     score -= 20;
@@ -3591,11 +3602,10 @@ function buildNarrativeSegments(texte) {
     // Fragment d'ouverture (lieu/date : "Paris, 1925.") : seulement au TOUT DÉBUT,
     // et seulement s'il n'a ni verbe conjugué ni ponctuation forte.
     const txtCourant = courant.join(' ');
-    const courantEstFragment = plans.length === 0
-      && courant.length === 1
-      && dureeDe(txtCourant) < 1.6
-      && !/[?!]/.test(txtCourant)
-      && !/\b(est|sont|a|ont|va|vont|fait|font|arrive|revient|brûle|meurt|sonne)\b/i.test(txtCourant);
+    // Cartouche d'ouverture : "Paris, 1925." — un lieu suivi d'une date, sans verbe.
+    // Ce n'est pas une image à lui seul : il rejoint la phrase suivante.
+    const estCartouche = /^[A-ZÀ-Ý][\wà-ÿ'-]*\s*,\s*(\d{4}|\d{1,2}\s+\w+|\w+\s+\d{4})\s*\.?$/.test(txtCourant.trim());
+    const courantEstFragment = plans.length === 0 && courant.length === 1 && estCartouche;
 
     if (score >= SEUIL && !courantEstFragment) {
       plans.push(courant.join(' '));
