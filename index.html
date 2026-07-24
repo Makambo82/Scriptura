@@ -664,9 +664,9 @@ footer strong{color:var(--gold)}
 /* ── STORYBOARD SEGMENTÉ ── */
 .storyboard-list{display:flex;flex-direction:column;gap:14px}
 .sb-segment{
-  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
-  border-radius:8px;padding:18px 20px;
-  border-left:2px solid var(--gold);
+  background:rgba(255,255,255,0.03);
+  border:none;border-left:2px solid var(--gold);
+  border-radius:0 8px 8px 0;padding:16px 18px;
 }
 .sb-head{
   display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
@@ -691,7 +691,7 @@ footer strong{color:var(--gold)}
 }
 .sb-visual{
   font-size:0.88rem;color:rgba(255,255,255,0.85);line-height:1.7;
-  background:rgba(0,0,0,0.2);border-radius:6px;padding:12px 14px;
+  padding:0;
 }
 .sb-copy{
   display:inline-flex;align-items:center;gap:6px;margin-top:12px;
@@ -921,7 +921,7 @@ footer strong{color:var(--gold)}
 .sb-seg-num{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold)}
 .sb-seg-time{font-family:'Playfair Display',serif;font-size:0.78rem;color:var(--gold-light)}
 .sb-seg-text{font-size:0.92rem;color:rgba(255,255,255,0.85);line-height:1.5;margin-bottom:10px}
-.sb-seg-visual{font-size:0.86rem;color:rgba(255,255,255,0.7);line-height:1.55;background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.15);border-radius:6px;padding:12px 14px}
+.sb-seg-visual{font-size:0.86rem;color:rgba(255,255,255,0.7);line-height:1.55;padding:0}
 
 /* ── BOUTON HISTORIQUE NAV ── */
 .nav-right{display:flex;align-items:center;gap:16px}
@@ -1142,9 +1142,9 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 
 /* ── BLOC MINIATURE (couverture anti-scroll) ── */
 .sb-miniature{
-  border:1px solid var(--gold) !important;
+  border:none !important;
   border-left:3px solid var(--gold) !important;
-  background:rgba(201,168,76,0.06) !important;
+  background:rgba(201,168,76,0.05) !important;
 }
 
 /* ── SABLIER ANIMÉ (génération storyboard) ── */
