@@ -664,9 +664,10 @@ footer strong{color:var(--gold)}
 /* ── STORYBOARD SEGMENTÉ ── */
 .storyboard-list{display:flex;flex-direction:column;gap:14px}
 .sb-segment{
-  background:rgba(255,255,255,0.03);
-  border:none;border-left:2px solid var(--gold);
-  border-radius:0 8px 8px 0;padding:16px 18px;
+  background:transparent;
+  border:none;
+  border-radius:0;
+  padding:16px 0;
 }
 .sb-head{
   display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
@@ -1143,8 +1144,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 /* ── BLOC MINIATURE (couverture anti-scroll) ── */
 .sb-miniature{
   border:none !important;
-  border-left:3px solid var(--gold) !important;
-  background:rgba(201,168,76,0.05) !important;
+  background:transparent !important;
 }
 
 /* ── SABLIER ANIMÉ (génération storyboard) ── */
@@ -1306,6 +1306,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 }
 .sb-appear { animation: sbFadeUp 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 @media (prefers-reduced-motion: reduce) { .sb-appear { animation: none; } }
+
+/* Séparateur discret entre les plans du storyboard */
+.storyboard-list .sb-segment + .sb-segment,
+.storyboard-grid .sb-segment + .sb-segment {
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
