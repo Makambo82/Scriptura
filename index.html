@@ -3464,6 +3464,260 @@ function renderStory(d) {
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ═══════════════════════════════════════════════════════════
+//  MOTEUR DE DÉCOUPAGE PAR IMAGE MENTALE
+//  Règle : UN STORYBOARD = UNE SEULE IMAGE MENTALE.
+//  Question centrale : « un seul visuel peut-il représenter ce passage ? »
+//  Priorités : 1) image mentale 2) scène 3) idée 4) révélation
+//              5) émotion 6) durée (EN DERNIER, simple ajustement)
+// ═══════════════════════════════════════════════════════════
+
+const MOTS_PAR_SEC = 2.8;   // rythme de narration posée
+const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet)
+const DUREE_MAX = 7;        // au-delà : plusieurs images cachées
+
+// Découpe en phrases, ponctuation conservée
+function splitIntoSentences(texte) {
+  if (!texte || typeof texte !== 'string') return [];
+  return (texte.replace(/\s+/g, ' ')
+    .match(/[^.!?…]+[.!?…]+(?:["'»)\]]*)?|\S[^.!?…]*$/g) || [])
+    .map(s => s.trim()).filter(Boolean);
+}
+
+function dureeDe(texte) {
+  return (texte || '').split(/\s+/).filter(Boolean).length / MOTS_PAR_SEC;
+}
+
+// Rôle narratif d'une phrase
+function classifySentence(phrase) {
+  const t = (phrase || '').trim().toLowerCase();
+  if (!t) return 'neutre';
+  if (t.includes('?')) return 'question';
+  if (/^(et )?(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|le twist|sauf |pourtant|c'est alors|c'est là|c'est la|soudain|jusqu'au jour|ce qu'il ignorait|personne ne savait)/.test(t)) return 'revelation';
+  if (/^(donc |alors |resultat|résultat|c'est pourquoi|du coup|ainsi |par consequent|par conséquent|desormais|désormais|le problème|le probleme)/.test(t)) return 'consequence';
+  if (/^(moi,? |toi,? |vous |tu |je t'ai|je t ai|retiens|souviens|imagine|imaginez)/.test(t)) return 'interpellation';
+  if (/^(il etait|il était|au debut|au début|a l'epoque|à l'époque|autrefois|d'abord|pour commencer)/.test(t)) return 'preparation';
+  return 'neutre';
+}
+
+// Empreinte visuelle : ce qui définit l'IMAGE d'une phrase
+function empreinteVisuelle(phrase) {
+  const t = (phrase || '').toLowerCase();
+  const actions = t.match(/\b\w*(brûle|brule|meurt|tombe|sonne|explose|s'effondre|surgit|frappe|court|fuit|fuient|arrive|revient|part|bombard|détruit|detruit|finance|organise|marche|dresse|allie|serre|descend|monte|ouvre|ferme|crie|pleure|rit|regarde|tourne)\w*/g) || [];
+  const sujets = t.match(/\b(village|armée|armee|téléphone|telephone|pays|ville|palais|rue|homme|femme|foule|soldat|président|president|renseignement|dissident|coup d'état|coup d'etat|main|porte|voiture|salle|bureau|maison|enfant|mère|mere|père|pere|nuit|jour|ciel|mur)\w*/g) || [];
+  return { actions: [...new Set(actions)], sujets: [...new Set(sujets)] };
+}
+
+// CONTINUITÉ : cette phrase prolonge-t-elle la même image ? (ne JAMAIS couper)
+function prolongeLaMemeImage(precedente, courante) {
+  const t = (courante || '').trim().toLowerCase();
+  // Subordonnée ou énumération parallèle
+  if (/^(qui |que |dont |où |ou |et qui |et que |lequel|laquelle)/.test(t) && !t.includes('?')) return true;
+  // Précision immédiate : fragment court SANS image propre (ni action ni sujet visuel)
+  if (dureeDe(courante) < 1.2 && !/[?!]/.test(courante)) {
+    const e = empreinteVisuelle(courante);
+    if (e.actions.length === 0 && e.sujets.length === 0) return true;
+  }
+  // Incise de dialogue
+  if (/^(puis il|puis elle|dit-il|dit-elle|répondit|repondit|ajouta)/.test(t)) return true;
+  return false;
+}
+
+// Score de rupture : 0-100. Au-delà du seuil = nouvelle image = nouveau plan.
+function computeNarrativeBreakScore(precedente, courante) {
+  if (!precedente) return 100;
+  // Règles de continuité : priment sur tout le reste
+  if (prolongeLaMemeImage(precedente, courante)) return 0;
+
+  let score = 0;
+  const clsPrev = classifySentence(precedente);
+  const clsCur = classifySentence(courante);
+  const t = (courante || '').trim().toLowerCase();
+
+  // Priorité 4 — révélation jamais collée à sa préparation
+  if (clsCur === 'revelation') score += 55;
+  if (clsPrev === 'revelation' && clsCur !== 'revelation') score += 50; // la chute a son propre plan
+  if ((clsPrev === 'preparation' && clsCur === 'revelation') ||
+      (clsPrev === 'revelation' && clsCur === 'preparation')) score += 40;
+
+  // Priorité 5 — question / interpellation = leur propre image
+  if (clsCur === 'question') score += 60;
+  if (clsPrev === 'question' && clsCur !== 'question') score += 50; // ce qui suit une question a son propre plan
+  if (clsCur === 'interpellation' && clsPrev !== 'interpellation') score += 35;
+
+  // Priorité 1 — IMAGE MENTALE : nouvelle action ou nouveau sujet visuel
+  const ePrev = empreinteVisuelle(precedente);
+  const eCur = empreinteVisuelle(courante);
+  const nouvelleAction = eCur.actions.some(a => !ePrev.actions.includes(a));
+  const nouveauSujet = eCur.sujets.some(s => !ePrev.sujets.includes(s));
+  if (eCur.actions.length && nouvelleAction) score += 45;
+  if (eCur.sujets.length && nouveauSujet && ePrev.sujets.length) score += 25;
+
+  // Priorité 2 — changement de scène (lieu, époque)
+  if (/\b(à |a |dans |vers |depuis )(dakar|paris|londres|new york|afrique|europe|palais|bureau|maison|rue|ville|pays)\b/.test(t)) score += 20;
+  if (/\b(deux ans|trois ans|plus tard|à l'époque|aujourd'hui|hier|demain|en \d{4}|le lendemain|quelques années|désormais|maintenant)\b/.test(t)) score += 25;
+
+  // Priorité 3 — connecteurs narratifs (indices forts, non mécaniques)
+  if (/^(mais|pourtant|cependant|sauf que|et là|c'est alors que|jusqu'au jour où|puis|soudain|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
+
+  // Continuité douce : rien de neuf visuellement → on prolonge
+  if (!nouvelleAction && !nouveauSujet && eCur.actions.length === 0
+      && clsCur !== 'question' && clsCur !== 'revelation' && clsCur !== 'interpellation'
+      && clsPrev !== 'question' && clsPrev !== 'revelation') {
+    score -= 20;
+  }
+
+  return Math.max(0, Math.min(100, score));
+}
+
+// Construit les plans : narration d'abord, durée en dernier
+function buildNarrativeSegments(texte) {
+  const phrases = splitIntoSentences(texte);
+  if (!phrases.length) return [];
+  const SEUIL = 45;
+
+  const plans = [];
+  let courant = [];
+
+  for (let i = 0; i < phrases.length; i++) {
+    const prev = i > 0 ? phrases[i - 1] : null;
+    const cur = phrases[i];
+    const score = computeNarrativeBreakScore(prev, cur);
+
+    if (courant.length === 0) { courant.push(cur); continue; }
+
+    const dureeSiAjout = dureeDe(courant.join(' ') + ' ' + cur);
+
+    // Fragment d'ouverture (lieu/date : "Paris, 1925.") : seulement au TOUT DÉBUT,
+    // et seulement s'il n'a ni verbe conjugué ni ponctuation forte.
+    const txtCourant = courant.join(' ');
+    const courantEstFragment = plans.length === 0
+      && courant.length === 1
+      && dureeDe(txtCourant) < 1.6
+      && !/[?!]/.test(txtCourant)
+      && !/\b(est|sont|a|ont|va|vont|fait|font|arrive|revient|brûle|meurt|sonne)\b/i.test(txtCourant);
+
+    if (score >= SEUIL && !courantEstFragment) {
+      plans.push(courant.join(' '));
+      courant = [cur];
+    } else if (dureeSiAjout > DUREE_MAX && !prolongeLaMemeImage(prev, cur)) {
+      // Priorité 6 (durée) : garde-fou, jamais critère de décision
+      plans.push(courant.join(' '));
+      courant = [cur];
+    } else {
+      courant.push(cur);
+    }
+  }
+  if (courant.length) plans.push(courant.join(' '));
+
+  // Dernier passage : un plan qui dépasse nettement 7s cache souvent plusieurs images
+  const final = [];
+  for (const plan of plans) {
+    const phr = splitIntoSentences(plan);
+    if (dureeDe(plan) > DUREE_MAX + 1.5 && phr.length > 2) {
+      let buf = [];
+      for (let k = 0; k < phr.length; k++) {
+        buf.push(phr[k]);
+        if (dureeDe(buf.join(' ')) >= 4.5 || k === phr.length - 1) {
+          final.push(buf.join(' ')); buf = [];
+        }
+      }
+      if (buf.length) final.push(buf.join(' '));
+    } else {
+      final.push(plan);
+    }
+  }
+  return final;
+}
+
+function estimateDuration(texte) {
+  const sec = dureeDe(texte);
+  const bas = Math.max(DUREE_MIN, Math.round(sec));
+  const haut = Math.max(bas + 1, Math.round(sec) + 1);
+  return { seconds: sec, label: bas + '-' + haut + ' sec' };
+}
+
+// Fonction centrale partagée par les deux modes
+function segmentNarrativeStoryboard(texte) {
+  return buildNarrativeSegments(texte).map(t => ({
+    text: t.trim(),
+    duree: estimateDuration(t).label
+  }));
+}
+
+// ═══ ADAPTATION AUX DEUX MODES ═══
+// L'IA renvoie un storyboard déjà découpé. On reconstruit le texte complet,
+// on le re-découpe selon la NARRATION, puis on réassocie les prompts visuels.
+// Chaque plan reçoit un prompt DISTINCT (jamais le même recopié).
+
+// Associe à chaque nouveau plan le prompt de l'IA qui couvrait son texte,
+// en évitant d'attribuer deux fois le même prompt.
+function _reassocierVisuels(plans, segmentsIA, cleTexte, cleVisuel) {
+  const sources = segmentsIA.map(s => ({
+    texte: (s[cleTexte] || '').trim().toLowerCase(),
+    visuel: (s[cleVisuel] || '').trim(),
+    pris: false
+  })).filter(s => s.visuel);
+
+  const motsDe = t => new Set((t || '').toLowerCase().split(/\s+/).filter(w => w.length > 3));
+
+  return plans.map(plan => {
+    const motsPlan = motsDe(plan.text);
+    let best = -1, bestScore = -1;
+
+    // 1er passage : chercher parmi les prompts NON encore attribués
+    sources.forEach((src, idx) => {
+      if (src.pris) return;
+      const motsSrc = motsDe(src.texte);
+      let common = 0;
+      motsSrc.forEach(w => { if (motsPlan.has(w)) common++; });
+      if (common > bestScore) { bestScore = common; best = idx; }
+    });
+
+    // Repli : si tout est pris, prendre le meilleur global (rare)
+    if (best === -1) {
+      sources.forEach((src, idx) => {
+        const motsSrc = motsDe(src.texte);
+        let common = 0;
+        motsSrc.forEach(w => { if (motsPlan.has(w)) common++; });
+        if (common > bestScore) { bestScore = common; best = idx; }
+      });
+    }
+
+    let visuel = '';
+    if (best >= 0) { visuel = sources[best].visuel; sources[best].pris = true; }
+    return { text: plan.text, duree: plan.duree, visuel: visuel };
+  });
+}
+
+// MODE STORYTELLING : { segment, duree, texte, visuel }
+function segmenterStoryboardStory(boardIA) {
+  if (!Array.isArray(boardIA) || boardIA.length < 2) return boardIA;
+  const texteComplet = boardIA.map(s => s.texte || '').join(' ');
+  const plans = segmentNarrativeStoryboard(texteComplet);
+  if (!plans.length) return boardIA;
+  return _reassocierVisuels(plans, boardIA, 'texte', 'visuel').map((p, i) => ({
+    segment: String(i + 1),
+    duree: p.duree,
+    texte: p.text,
+    visuel: p.visuel
+  }));
+}
+
+// MODE J'AI UNE IDÉE : { segment (=durée), texte_dit, prompt_visuel }
+function segmenterStoryboardScript(boardIA) {
+  if (!Array.isArray(boardIA) || boardIA.length < 2) return boardIA;
+  const texteComplet = boardIA.map(s => s.texte_dit || '').join(' ');
+  const plans = segmentNarrativeStoryboard(texteComplet);
+  if (!plans.length) return boardIA;
+  return _reassocierVisuels(plans, boardIA, 'texte_dit', 'prompt_visuel').map(p => ({
+    segment: p.duree,
+    texte_dit: p.text,
+    prompt_visuel: p.visuel
+  }));
+}
+
+
 async function generateStoryStoryboard() {
   if (!currentStory || !currentStoryText) return;
   if (!_regenGratuiteEnCours) resetRegen('storyboardStory');
@@ -3529,6 +3783,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
+    // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
+    if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardStory(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
@@ -5022,6 +5278,8 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
   try {
     const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
     const parsed = parseAIResponse(raw);
+    // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
+    if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
