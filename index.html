@@ -3494,6 +3494,8 @@ function classifySentence(phrase) {
   if (!t) return 'neutre';
   if (t.includes('?')) return 'question';
   if (/^(et )?(mais |or |sauf que|en réalité|en verite|en vérité|voici|voila|voilà|mais voila|mais voilà|le twist|sauf |pourtant|c'est alors|c'est là|c'est la|soudain|jusqu'au jour|ce qu'il ignorait|personne ne savait)/.test(t)) return 'revelation';
+  // Ruptures dramatiques : "Et là, silence.", "Et soudain…", "Et puis plus rien."
+  if (/^(et là|et la|et soudain|et puis|et d'un coup|et brusquement|puis plus rien|silence)/.test(t)) return 'revelation';
   if (/^(donc |alors |resultat|résultat|c'est pourquoi|du coup|ainsi |par consequent|par conséquent|desormais|désormais|le problème|le probleme)/.test(t)) return 'consequence';
   if (/^(moi,? |toi,? |vous |tu |je t'ai|je t ai|retiens|souviens|imagine|imaginez)/.test(t)) return 'interpellation';
   if (/^(il etait|il était|au debut|au début|a l'epoque|à l'époque|autrefois|d'abord|pour commencer)/.test(t)) return 'preparation';
@@ -3547,6 +3549,8 @@ function computeNarrativeBreakScore(precedente, courante) {
   if (clsCur === 'question') score += 60;
   if (clsPrev === 'question' && clsCur !== 'question') score += 50; // ce qui suit une question a son propre plan
   if (clsCur === 'interpellation' && clsPrev !== 'interpellation') score += 35;
+  // Adresse directe qui projette le spectateur ailleurs = changement de scène radical
+  if (/^(imagine|imaginez|regarde|regardez|écoute|ecoute|écoutez|vous êtes|tu es|vous voilà)/.test(t)) score += 30;
 
   // Priorité 1 — IMAGE MENTALE : nouvelle action ou nouveau sujet visuel
   const ePrev = empreinteVisuelle(precedente);
@@ -3569,7 +3573,9 @@ function computeNarrativeBreakScore(precedente, courante) {
   if (/^(nous sommes|on est|direction |retour |cap sur)/.test(t)) { score += 45; changementScene = true; }
 
   // Priorité 3 — connecteurs narratifs (indices forts, non mécaniques)
-  if (/^(mais|pourtant|cependant|sauf que|et là|c'est alors que|jusqu'au jour où|puis|soudain|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
+  if (/^(mais|pourtant|cependant|sauf que|c'est alors que|jusqu'au jour où|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
+  // Succession temporelle ("Puis…", "Ensuite…") = nouveau moment = nouvelle image
+  if (/^(puis |ensuite |après |plus tard|quelques (heures|jours|minutes|semaines|mois|années))/.test(t)) score += 45;
 
   // Continuité douce : rien de neuf visuellement → on prolonge
   if (!nouvelleAction && !nouveauSujet && eCur.actions.length === 0 && !changementScene
