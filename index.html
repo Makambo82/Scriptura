@@ -2259,11 +2259,15 @@ function reafficherStoryboard(sbData, isStory) {
         <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${miniature}</div>
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
-    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map(s => `
+    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map((s, i) => `
       <div class="sb-segment">
-        <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
-        <div class="sb-seg-text">${s.texte || ''}</div>
-        <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
+        <div class="sb-head">
+          <span class="sb-time">${s.duree || ''}</span>
+          <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+        </div>
+        <div class="sb-dit">"${s.texte || ''}"</div>
+        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual">${s.visuel || ''}</div>
         ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
@@ -3527,18 +3531,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     setTimeout(() => { const pb = document.getElementById('sbProgBar2'); if (pb) pb.style.display = 'none'; }, 600);
     // Sauvegarder le storyboard pour qu'il reste après réouverture
     updateGenerationStoryboard({ storyboard: parsed.storyboard, miniature: parsed.miniature || null, isStory: true });
-    const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map(s => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
+    const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map((s, i) => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
     const miniHtmlSt = parsed.miniature ? `
       <div class="sb-segment sb-miniature">
         <div class="sb-seg-header"><span class="sb-seg-num">★ Miniature</span><span class="sb-seg-time">Couverture</span></div>
-        <div class="sb-seg-visual"><span class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</span>${parsed.miniature}</div>
+        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-seg-visual">${parsed.miniature}</div>
         ${blocGenImage(storeCopyText(parsed.miniature||''))}
       </div>` : '';
-    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map(s => `
+    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map((s, i) => `
       <div class="sb-segment">
-        <div class="sb-seg-header"><span class="sb-seg-num">Plan ${s.segment || ''}</span><span class="sb-seg-time">${s.duree || ''}</span></div>
-        <div class="sb-seg-text">${s.texte || ''}</div>
-        <div class="sb-seg-visual"><span class="sb-visual-label">🎨 Prompt visuel</span>${s.visuel || ''}</div>
+        <div class="sb-head">
+          <span class="sb-time">${s.duree || ''}</span>
+          <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+        </div>
+        <div class="sb-dit">"${s.texte || ''}"</div>
+        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual">${s.visuel || ''}</div>
         ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
