@@ -795,7 +795,7 @@ footer strong{color:var(--gold)}
 }
 
 /* ── GÉNÉRATEUR D'IDÉES ── */
-#ideasFlow,#storyFlow{max-width:680px;margin:0 auto;padding:100px 24px 80px}
+#ideasFlow,#storyFlow,#auditFlow{max-width:680px;margin:0 auto;padding:100px 24px 80px}
 .ideas-container{}
 .ideas-header{margin-bottom:32px;margin-top:20px}
 .ideas-eyebrow{
@@ -1378,6 +1378,48 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   line-height:1;padding:0;
 }
 .audit-thumb-del:hover{background:rgba(200,60,60,0.9)}
+
+/* ── RÉSULTAT DE L'AUDIT (noir & or) ── */
+.audit-result{margin-top:24px;display:grid;gap:18px}
+.audit-score-card{
+  background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.04));
+  border:1px solid var(--border);border-radius:18px;padding:26px 22px;text-align:center
+}
+.audit-score-label{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.24em;color:var(--gold);opacity:0.8;margin-bottom:10px}
+.audit-score-num{font-family:'Playfair Display',serif;font-size:3.4rem;font-weight:700;line-height:1;color:var(--gold-light)}
+.audit-score-num span{font-size:1.3rem;font-weight:500;color:rgba(255,255,255,0.4)}
+.audit-score-phrase{margin-top:12px;font-size:0.95rem;color:var(--text-secondary);line-height:1.5}
+.audit-axes{display:grid;gap:13px}
+.audit-axe-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.9rem;color:var(--text-secondary)}
+.audit-axe-head b{color:var(--gold-light);font-size:0.92rem}
+.audit-axe-bar{height:7px;background:rgba(255,255,255,0.07);border-radius:6px;overflow:hidden}
+.audit-axe-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:6px;transition:width .6s ease}
+.audit-block{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;padding:18px}
+.audit-block-title{font-size:0.92rem;font-weight:700;color:var(--gold-light);margin-bottom:14px;letter-spacing:0.02em}
+.audit-diag-constat{font-size:0.92rem;color:#fff;font-weight:600;line-height:1.45;margin-bottom:6px}
+.audit-diag-interp{font-size:0.88rem;color:var(--muted);line-height:1.45;margin-bottom:6px}
+.audit-diag-action{font-size:0.9rem;color:var(--gold-light);line-height:1.45;margin-top:4px}
+/* Comparatif meilleure / pire */
+.audit-vs{display:grid;gap:12px}
+.audit-vs-col{border-radius:12px;padding:14px;border:1px solid var(--border-soft)}
+.audit-vs-best{background:rgba(201,168,76,0.07)}
+.audit-vs-worst{background:rgba(217,101,112,0.07);border-color:rgba(217,101,112,0.22)}
+.audit-vs-tag{font-size:0.82rem;font-weight:700;color:#fff;margin-bottom:7px}
+.audit-vs-text{font-size:0.88rem;color:var(--text-secondary);line-height:1.45}
+.audit-vs-formule{font-size:0.88rem;color:var(--gold-light);margin-top:7px;line-height:1.45}
+.audit-vs-concl{margin-top:12px;font-size:0.92rem;color:#fff;font-weight:600;line-height:1.5;text-align:center;padding-top:12px;border-top:1px solid var(--border-soft)}
+/* Éditorial : notes par sujet */
+.audit-sujets{display:grid;gap:8px;margin-bottom:12px}
+.audit-sujet{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;color:var(--text-secondary);padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.audit-sujet b{color:var(--gold-light)}
+/* Plan d'action */
+.audit-plan{background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.03));border-color:var(--border)}
+.audit-plan-list{margin:0;padding-left:18px;display:grid;gap:9px}
+.audit-plan-list li{font-size:0.9rem;color:var(--text-secondary);line-height:1.5}
+.audit-plan-list li b{color:#fff;font-weight:600}
+.audit-manquant ul{margin:0;padding-left:20px}
+.audit-manquant li{font-size:0.87rem;color:var(--muted);line-height:1.6}
+.audit-idees-btn{margin-top:6px}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2658,6 +2700,10 @@ function reopenGeneration(i) {
   } else if (g.mode === 'ideas') {
     document.getElementById('ideasFlow').style.display = 'block';
     renderIdeas(g.contenu.idees, g.contenu.niche || '');
+  } else if (g.mode === 'audit') {
+    const af = document.getElementById('auditFlow');
+    if (af) af.style.display = 'block';
+    renderAudit(g.contenu);
   }
 
   _skipPush = false; // réactiver l'empilement normal
@@ -3120,17 +3166,297 @@ function retirerCapture(i) {
 }
 
 
-// L'analyse elle-même sera branchée sur l'IA à l'étape suivante.
+// ═══════════════════════════════════════════════════════════
+//  AUDIT — Prompt d'analyse + branchement IA + affichage
+// ═══════════════════════════════════════════════════════════
+
+const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 8 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
+
+TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
+- VUE D'ENSEMBLE (28 j) : vues publications, vues profil, likes, commentaires, partages, abonnés nets.
+- DÉTAIL D'UNE VIDÉO : une courbe de rétention, durée moyenne de visionnage, temps total, sources de trafic. S'il y en a deux, la plus performante = "meilleure", l'autre = "pire".
+- TOP CONTENUS (60 j) : une liste de plusieurs vidéos avec leurs vues.
+- AUDIENCE : répartition par âge, sexe, pays/emplacements.
+- COMPARATIF déjà fait par l'utilisateur : un tableau "Meilleure / Pire".
+
+RÈGLE ABSOLUE D'HONNÊTETÉ : n'analyse QUE ce que tu vois réellement. Chaque chiffre que tu cites doit provenir d'une capture. Si une donnée manque (ex. pas de capture audience), NE L'INVENTE PAS : mets le pilier concerné en "disponible": false et explique quelle capture l'utilisateur doit envoyer. Un audit honnête sur 3 piliers vaut mieux qu'un audit inventé sur 7.
+
+Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
+
+{
+  "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 28j', 'détail vidéo (rétention 71%)'>"],
+  "tiktok_score": {
+    "hook": <0-20>, "retention": <0-20>, "storytelling": <0-20>,
+    "sujets": <0-20>, "regularite": <0-10>, "engagement": <0-10>,
+    "global": <0-100>,
+    "levier": "<la dimension qui, améliorée, ferait le plus monter le score, ex: 'Si tu améliores la rétention, ton score passe à 92/100'>"
+  },
+  "piliers": {
+    "performance_globale": { "disponible": <true/false>, "constat": "<...chiffré...>", "blocage": "<...>", "action": "<...>" },
+    "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : hook, sujet, durée, rétention>", "formule": "<la formule extraite, ex: 'Tes histoires personnelles font 2,5x plus de vues'>" },
+    "pire_video":         { "disponible": <true/false>, "constat": "<où et pourquoi les gens décrochent>", "seconde_decrochage": <nombre ou null> },
+    "comparatif":         { "disponible": <true/false>, "conclusion": "<ce que l audience préfère, tiré de meilleure VS pire>" },
+    "editorial":          { "disponible": <true/false>, "sujets_notes": [ {"sujet":"<...>","note":"<ex: 4/5>"} ], "recommandation": "<ex: arrête les vidéos marketing 30 jours>" },
+    "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? ex: 70% France mais références 100% béninoises>" }
+  },
+  "plan_action_30j": {
+    "frequence": "<ex: 3 vidéos/semaine>",
+    "duree_ideale": "<ex: 40-55 s>",
+    "type_hook": "<consigne de hook précise>",
+    "sujets_a_faire": ["<...>"],
+    "erreurs_a_eviter": ["<...>"]
+  },
+  "donnees_manquantes": ["<captures à envoyer la prochaine fois pour compléter l audit>"]
+}
+
+Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un consultant qui dit quoi faire.`;
+
+// Échappe le HTML pour un affichage sûr
+function auditEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 async function lancerAudit() {
   const err = document.getElementById('auditError');
+  const out = document.getElementById('auditOutput');
+  const btn = document.getElementById('auditBtn');
+  const spin = document.getElementById('auditSpinner');
+  const btnText = document.getElementById('auditBtnText');
+
   if (!auditCaptures.length) {
     err.textContent = 'Ajoute au moins une capture de tes statistiques.';
     err.style.display = 'block';
     return;
   }
   err.style.display = 'none';
-  document.getElementById('auditOutput').innerHTML =
-    '<div class="sb-aide">Analyse en cours de construction — cette étape sera branchée sur l\'IA prochainement.</div>';
+  out.innerHTML = '';
+
+  if (spin) spin.style.display = 'inline-block';
+  if (btnText) btnText.textContent = 'Analyse en cours…';
+  if (btn) btn.disabled = true;
+
+  try {
+    const images = auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType }));
+
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL_RAPIDE,
+        max_tokens: 4000,
+        images: images,
+        prompt: AUDIT_PROMPT
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error?.message || 'erreur serveur');
+    }
+
+    const raw = (data.content?.map(b => b.text || '').join('') || '').trim();
+    if (!raw) throw new Error('Réponse vide du modèle.');
+
+    // Isole le JSON même si le modèle ajoute du texte autour
+    let jsonStr = raw;
+    const d = raw.indexOf('{'), f = raw.lastIndexOf('}');
+    if (d !== -1 && f !== -1) jsonStr = raw.slice(d, f + 1);
+
+    let parsed;
+    try { parsed = JSON.parse(jsonStr); }
+    catch (e) { throw new Error('Le modèle a mal formaté sa réponse. Réessaie.'); }
+
+    renderAudit(parsed);
+
+    if (typeof saveGeneration === 'function') {
+      try { saveGeneration('audit', 'Audit TikTok — score ' + (parsed.score_global ?? '?'), parsed); }
+      catch(e) { /* silencieux */ }
+    }
+
+  } catch (e) {
+    err.textContent = 'Analyse impossible : ' + (e.message || 'réessaie dans un instant');
+    err.style.display = 'block';
+  } finally {
+    if (spin) spin.style.display = 'none';
+    if (btnText) btnText.textContent = 'Analyser mon compte';
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Dernier audit affiché (pour le bouton "idées correctives")
+let lastAudit = null;
+
+const SCORE_DIMS = [
+  { key: 'hook', label: 'Hook', max: 20 },
+  { key: 'retention', label: 'Rétention', max: 20 },
+  { key: 'storytelling', label: 'Storytelling', max: 20 },
+  { key: 'sujets', label: 'Choix des sujets', max: 20 },
+  { key: 'regularite', label: 'Régularité', max: 10 },
+  { key: 'engagement', label: 'Engagement', max: 10 }
+];
+
+function auditNum(v) {
+  return Number.isFinite(v) ? v : (parseInt(v) || 0);
+}
+
+function renderAudit(a) {
+  lastAudit = a;
+  const out = document.getElementById('auditOutput');
+  if (!out) return;
+  if (!a || typeof a !== 'object') {
+    out.innerHTML = '<div class="err" style="display:block">Réponse illisible.</div>';
+    return;
+  }
+
+  let html = '<div class="audit-result">';
+
+  // ── TikTok Score ──
+  const ts = a.tiktok_score || {};
+  const global = auditNum(ts.global);
+  html += `
+    <div class="audit-score-card">
+      <div class="audit-score-label">ADN TIKTOK SCORE</div>
+      <div class="audit-score-num">${global}<span>/100</span></div>
+      ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>` : ''}
+    </div>`;
+
+  // Dimensions du score
+  const hasDims = SCORE_DIMS.some(d => ts[d.key] != null);
+  if (hasDims) {
+    html += '<div class="audit-axes">';
+    SCORE_DIMS.forEach(d => {
+      const v = auditNum(ts[d.key]);
+      const pct = Math.max(0, Math.min(100, (v / d.max) * 100));
+      html += `
+        <div class="audit-axe">
+          <div class="audit-axe-head"><span>${d.label}</span><b>${v}/${d.max}</b></div>
+          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    });
+    html += '</div>';
+  }
+
+  const P = a.piliers || {};
+  const dispo = p => p && p.disponible !== false && (p.constat || p.conclusion || p.formule || (p.sujets_notes && p.sujets_notes.length));
+
+  // ── Pilier : performance globale ──
+  if (dispo(P.performance_globale)) {
+    const p = P.performance_globale;
+    html += auditBlock('📊 Performance globale', `
+      ${p.constat ? `<div class="audit-diag-constat">${auditEsc(p.constat)}</div>` : ''}
+      ${p.blocage ? `<div class="audit-diag-interp">🚧 ${auditEsc(p.blocage)}</div>` : ''}
+      ${p.action ? `<div class="audit-diag-action">→ ${auditEsc(p.action)}</div>` : ''}
+    `);
+  }
+
+  // ── Comparatif meilleure / pire ──
+  const mv = P.meilleure_video, pv = P.pire_video, comp = P.comparatif;
+  if (dispo(mv) || dispo(pv) || dispo(comp)) {
+    let inner = '';
+    if (dispo(mv)) {
+      inner += `<div class="audit-vs-col audit-vs-best">
+        <div class="audit-vs-tag">✅ Meilleure vidéo</div>
+        ${mv.constat ? `<div class="audit-vs-text">${auditEsc(mv.constat)}</div>` : ''}
+        ${mv.formule ? `<div class="audit-vs-formule">💡 ${auditEsc(mv.formule)}</div>` : ''}
+      </div>`;
+    }
+    if (dispo(pv)) {
+      const sec = pv.seconde_decrochage;
+      inner += `<div class="audit-vs-col audit-vs-worst">
+        <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ' — décroche à ' + auditEsc(sec) + 's' : ''}</div>
+        ${pv.constat ? `<div class="audit-vs-text">${auditEsc(pv.constat)}</div>` : ''}
+      </div>`;
+    }
+    html += auditBlock('⚡ Comparatif', `<div class="audit-vs">${inner}</div>
+      ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}`);
+  }
+
+  // ── Éditorial ──
+  if (dispo(P.editorial)) {
+    const e = P.editorial;
+    let inner = '';
+    if (Array.isArray(e.sujets_notes) && e.sujets_notes.length) {
+      inner += '<div class="audit-sujets">';
+      e.sujets_notes.forEach(s => {
+        inner += `<div class="audit-sujet"><span>${auditEsc(s.sujet)}</span><b>${auditEsc(s.note)}</b></div>`;
+      });
+      inner += '</div>';
+    }
+    if (e.recommandation) inner += `<div class="audit-diag-action">→ ${auditEsc(e.recommandation)}</div>`;
+    html += auditBlock('📝 Analyse éditoriale', inner);
+  }
+
+  // ── Audience ──
+  if (dispo(P.audience)) {
+    const au = P.audience;
+    html += auditBlock('👥 Audience', `
+      ${au.constat ? `<div class="audit-diag-constat">${auditEsc(au.constat)}</div>` : ''}
+      ${au.alignement ? `<div class="audit-diag-interp">${auditEsc(au.alignement)}</div>` : ''}
+    `);
+  }
+
+  // ── Plan d'action 30 jours ──
+  const pa = a.plan_action_30j;
+  if (pa && typeof pa === 'object') {
+    let items = '';
+    if (pa.frequence) items += `<li><b>Fréquence :</b> ${auditEsc(pa.frequence)}</li>`;
+    if (pa.duree_ideale) items += `<li><b>Durée idéale :</b> ${auditEsc(pa.duree_ideale)}</li>`;
+    if (pa.type_hook) items += `<li><b>Hook :</b> ${auditEsc(pa.type_hook)}</li>`;
+    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length)
+      items += `<li><b>Sujets à faire :</b> ${pa.sujets_a_faire.map(auditEsc).join(', ')}</li>`;
+    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length)
+      items += `<li><b>À éviter :</b> ${pa.erreurs_a_eviter.map(auditEsc).join(', ')}</li>`;
+    if (items) {
+      html += `<div class="audit-block audit-plan">
+        <div class="audit-block-title">🎯 Ton plan des 30 prochains jours</div>
+        <ul class="audit-plan-list">${items}</ul>
+      </div>`;
+    }
+  }
+
+  // ── Données manquantes ──
+  if (Array.isArray(a.donnees_manquantes) && a.donnees_manquantes.length) {
+    let li = '';
+    a.donnees_manquantes.forEach(m => { li += `<li>${auditEsc(m)}</li>`; });
+    html += `<div class="audit-block audit-manquant">
+      <div class="audit-block-title">📋 Pour un audit plus complet</div>
+      <ul>${li}</ul>
+    </div>`;
+  }
+
+  // ── Pont vers le contenu ──
+  html += `
+    <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
+      Générer 3 idées pour corriger ça
+    </button>
+  </div>`;
+
+  out.innerHTML = html;
+  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function auditBlock(titre, inner) {
+  return `<div class="audit-block"><div class="audit-block-title">${titre}</div>${inner}</div>`;
+}
+
+// Pont audit → mode idées : envoie le problème principal vers le générateur d'idées
+function genererIdeesCorrectives() {
+  if (!lastAudit) return;
+  const P = lastAudit.piliers || {};
+  let probleme = '';
+  // Priorité : conclusion du comparatif, sinon blocage global, sinon reco éditoriale
+  if (P.comparatif && P.comparatif.conclusion) probleme = P.comparatif.conclusion;
+  else if (P.performance_globale && P.performance_globale.blocage) probleme = P.performance_globale.blocage;
+  else if (P.editorial && P.editorial.recommandation) probleme = P.editorial.recommandation;
+
+  chooseMode('ideas');
+  const nicheField = document.getElementById('ideaNiche');
+  if (nicheField && probleme) nicheField.value = probleme;
+  const info = document.getElementById('ideasFlow');
+  if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function chooseMode(mode) {
