@@ -770,28 +770,34 @@ footer strong{color:var(--gold)}
 
 /* ── MODES HERO ── */
 .hero-modes{
-  display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;
+  display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;
+  width:100%;max-width:420px;margin-left:auto;margin-right:auto;
 }
 .hero-mode-btn{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
-  background:rgba(255,255,255,0.04);border:1px solid rgba(201,168,76,0.25);
-  border-radius:12px;padding:22px 28px;cursor:pointer;transition:all 0.25s;
-  min-width:200px;
+  display:flex;flex-direction:row;align-items:center;gap:16px;text-align:left;
+  background:rgba(255,255,255,0.02);border:1px solid rgba(201,168,76,0.18);
+  border-radius:14px;padding:20px 22px;cursor:pointer;
+  transition:border-color 0.3s ease,background 0.3s ease,transform 0.3s ease;
+  width:100%;box-sizing:border-box;
 }
-.hero-mode-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.06);transform:translateY(-2px)}
-.hero-mode-btn.primary{background:var(--gold);border-color:var(--gold)}
-.hero-mode-btn.primary:hover{background:var(--gold-light)}
-.hero-mode-btn.primary .mode-label{color:var(--bg)}
-.hero-mode-btn.primary .mode-desc{color:rgba(28,28,30,0.7)}
+.hero-mode-btn .mode-body{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+@media(min-width:600px){
+  .hero-modes{grid-template-columns:1fr 1fr;max-width:680px}
+}
+.hero-mode-btn:hover{border-color:rgba(201,168,76,0.55);background:rgba(201,168,76,0.05);transform:translateY(-2px)}
+.hero-mode-btn.primary{background:rgba(201,168,76,0.10);border-color:rgba(201,168,76,0.45)}
+.hero-mode-btn.primary:hover{background:rgba(201,168,76,0.15);border-color:var(--gold)}
+.hero-mode-btn.primary .mode-label{color:var(--gold-light)}
+.hero-mode-btn.primary .mode-desc{color:rgba(255,255,255,0.6)}
 .hero-mode-btn.primary .mode-icon{filter:none}
-.mode-icon{font-size:1.8rem;margin-bottom:2px}
+.mode-icon{font-size:1.5rem;margin:0;flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(201,168,76,0.08);border-radius:11px}
 .mode-label{
-  font-family:'Cinzel',serif;font-size:0.82rem;font-weight:500;
-  letter-spacing:0.1em;text-transform:uppercase;color:var(--white);
+  font-family:'Cinzel',serif;font-size:0.8rem;font-weight:500;
+  letter-spacing:0.08em;text-transform:uppercase;color:var(--white);line-height:1.3;
 }
 .mode-desc{
-  font-size:0.75rem;color:rgba(255,255,255,0.55);font-family:'Tenor Sans',sans-serif;
-  letter-spacing:0.02em;text-transform:none;
+  font-size:0.78rem;color:rgba(255,255,255,0.5);font-family:'Tenor Sans',sans-serif;
+  letter-spacing:0.01em;text-transform:none;line-height:1.4;
 }
 
 /* ── GÉNÉRATEUR D'IDÉES ── */
@@ -878,12 +884,12 @@ footer strong{color:var(--gold)}
 .idea-btn-copy:hover{border-color:var(--gold);color:var(--gold)}
 
 .hero-mode-btn.storytelling{
-  background:linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04));
-  border-color:rgba(201,168,76,0.4);
+  background:rgba(255,255,255,0.02);
+  border-color:rgba(201,168,76,0.18);
 }
 .hero-mode-btn.storytelling:hover{
-  border-color:var(--gold);
-  background:linear-gradient(135deg,rgba(201,168,76,0.18),rgba(201,168,76,0.06));
+  border-color:rgba(201,168,76,0.55);
+  background:rgba(201,168,76,0.05);
 }
 
 /* ── AFFICHAGE STORYTELLING ── */
@@ -1542,23 +1548,31 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   <div class="hero-modes">
     <button class="hero-mode-btn primary" onclick="chooseMode('ideas')">
       <span class="mode-icon">💡</span>
-      <span class="mode-label">Trouve-moi des idées</span>
-      <span class="mode-desc">Scriptura brainstorme pour moi</span>
+      <span class="mode-body">
+        <span class="mode-label">Trouve-moi des idées</span>
+        <span class="mode-desc">Scriptura brainstorme pour moi</span>
+      </span>
     </button>
     <button class="hero-mode-btn" onclick="chooseMode('script')">
       <span class="mode-icon">🎬</span>
-      <span class="mode-label">J'ai une idée</span>
-      <span class="mode-desc">Génère mon script complet</span>
+      <span class="mode-body">
+        <span class="mode-label">J'ai une idée</span>
+        <span class="mode-desc">Génère mon script complet</span>
+      </span>
     </button>
     <button class="hero-mode-btn storytelling" onclick="chooseMode('story')">
       <span class="mode-icon">✍️</span>
-      <span class="mode-label">Storytelling</span>
-      <span class="mode-desc">Un récit immersif signature</span>
+      <span class="mode-body">
+        <span class="mode-label">Storytelling</span>
+        <span class="mode-desc">Un récit immersif signature</span>
+      </span>
     </button>
     <button class="hero-mode-btn audit" onclick="chooseMode('audit')">
       <span class="mode-icon">📊</span>
-      <span class="mode-label">Analyse mon compte TikTok</span>
-      <span class="mode-desc">Découvre ce qui bloque ta croissance</span>
+      <span class="mode-body">
+        <span class="mode-label">Analyse mon compte TikTok</span>
+        <span class="mode-desc">Découvre ce qui bloque ta croissance</span>
+      </span>
     </button>
   </div>
   <p class="hero-free">Aucun compte requis</p>
