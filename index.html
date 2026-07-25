@@ -3125,24 +3125,13 @@ const PLANS = {
 
 // L'utilisateur a choisi un plan : on ferme la fenêtre de choix et on ouvre
 // le paywall d'abonnement, adapté au plan sélectionné.
+// L'utilisateur a choisi un plan : on ouvre directement WhatsApp avec le
+// message pré-rempli. Plus de fenêtre intermédiaire.
 function choisirPlan(cle) {
   const p = PLANS[cle];
   if (!p) return;
   closePlans();
-
-  const tag = document.querySelector('#paywall .paywall-tag');
-  const titre = document.querySelector('#paywall h3');
-  const desc = document.querySelector('#paywall p');
-  const prix = document.querySelector('#paywall .paywall-price');
-  const wa = document.querySelector('#paywall .paywall-wa');
-
-  if (tag) tag.textContent = 'Plan ' + p.nom;
-  if (titre) titre.innerHTML = p.titre;
-  if (desc) desc.textContent = p.desc;
-  if (prix) prix.textContent = p.prix;
-  if (wa) wa.href = 'https://wa.me/22995056424?text=' + encodeURIComponent(p.wa);
-
-  openPaywall();
+  window.open('https://wa.me/22995056424?text=' + encodeURIComponent(p.wa), '_blank');
 }
 
 function openModal() {
@@ -4469,7 +4458,7 @@ async function generateStory() {
 
   // Vérification limite
   if (!unlocked && usedGen >= MAX_FREE) {
-    openPaywall();
+    openPlans('nouveau');
     return;
   }
   // Limite journalière pour les abonnés (anti-abus)
@@ -5518,7 +5507,7 @@ async function generateIdeas() {
 
   // Vérification limite (partagée avec le générateur de script)
   if (!unlocked && usedGen >= MAX_FREE) {
-    openPaywall();
+    openPlans('nouveau');
     return;
   }
   // Limite journalière pour les abonnés (anti-abus)
@@ -5854,7 +5843,7 @@ async function generate() {
 
   // ── VÉRIFICATION LIMITE ──
   if (!unlocked && usedGen >= MAX_FREE) {
-    openPaywall();
+    openPlans('nouveau');
     return;
   }
   // Limite journalière pour les abonnés (anti-abus)
@@ -6866,6 +6855,8 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       </ul>
       <button class="plan-btn plan-btn-pro" onclick="choisirPlan('pro')">Choisir Pro</button>
     </div>
+
+    <span class="paywall-unlock" onclick="closePlans(); openModal();" style="text-align:center">J'ai déjà un code d'accès</span>
   </div>
 </div>
 
