@@ -13,6 +13,9 @@ CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes r
 - Objectif principal : {{OBJECTIF}}
 - Niche : {{NICHE}}
 - Fréquence de publication actuelle : {{FREQUENCE}}
+- Style de contenu : {{STYLE}}
+
+RÈGLE IMPÉRATIVE SUR LE STYLE DE CONTENU : adapte TOUTES tes recommandations au style déclaré. Ne propose jamais une action incompatible avec ce format. En particulier, si le style est "Faceless (sans visage)", ne suggère JAMAIS au créateur de se filmer, de se montrer, de faire du face caméra, de soigner sa présence à l'écran ou son expression faciale. Pour un créateur faceless, une accroche se travaille par la voix off, le texte à l'écran, les visuels, le rythme du montage, la musique et la première image — pas par un visage. Vérifie chaque recommandation avant de l'écrire : est-elle réalisable dans le style déclaré ? Si non, reformule-la pour ce style.
 
 Adapte ton diagnostic et tes recommandations à cet objectif précis (ex : si l'objectif est "Générer des ventes", ne recommande pas uniquement d'augmenter les vues — regarde si le contenu convertit). Compare la fréquence de publication déclarée avec ce que les dates de publication des captures montrent réellement, et signale l'écart s'il y en a un.
 
@@ -140,7 +143,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, images, objectif, niche, frequence } = req.body || {};
+    const { model, max_tokens, images, objectif, niche, frequence, style } = req.body || {};
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: { message: 'Aucune image reçue' } });
@@ -150,7 +153,8 @@ export default async function handler(req, res) {
     const promptFinal = AUDIT_PROMPT
       .replace('{{OBJECTIF}}', objectif || 'non précisé')
       .replace('{{NICHE}}', niche || 'non précisée')
-      .replace('{{FREQUENCE}}', frequence || 'non précisée');
+      .replace('{{FREQUENCE}}', frequence || 'non précisée')
+      .replace('{{STYLE}}', style || 'non précisé');
 
     // Construction du contenu : les images d'abord, le prompt d'audit ensuite.
     // (L'API Anthropic recommande cet ordre pour l'analyse visuelle.)
