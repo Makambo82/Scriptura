@@ -1752,6 +1752,22 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
           <option value="Irrégulière, sans rythme fixe">Irrégulière, sans rythme fixe</option>
         </select>
       </div>
+      <div class="ctx-field">
+        <label class="ctx-label">Ton style de contenu</label>
+        <select class="ctx-input" id="auditStyle">
+          <option value="">Choisir ton style…</option>
+          <option>Faceless (sans visage)</option>
+          <option>Avec visage — talking head</option>
+          <option>Storytelling narratif</option>
+          <option>Éducatif & pédagogue</option>
+          <option>Provocateur & direct</option>
+          <option>Humoristique & décalé</option>
+          <option>Inspirant & motivationnel</option>
+          <option>Documentaire & analytique</option>
+          <option>Réaction & commentaire</option>
+          <option>Tutoriel & how-to</option>
+        </select>
+      </div>
     </div>
 
     <div class="audit-drop" id="auditDrop" onclick="document.getElementById('auditInput').click()">
@@ -3522,6 +3538,15 @@ async function lancerAudit() {
   // Quota d'audits du jour (séparé du quota de création)
   if (!(await peutAuditer('auditError'))) return;
 
+  // Le style de contenu est requis : sans lui, les recommandations peuvent
+  // supposer un format inadapté (ex : "filme-toi" pour un créateur faceless).
+  if (!document.getElementById('auditStyle')?.value) {
+    err.textContent = 'Choisis ton style de contenu pour une analyse adaptée à ton format.';
+    err.style.display = 'block';
+    document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
   err.style.display = 'none';
   out.innerHTML = '';
 
@@ -3535,6 +3560,7 @@ async function lancerAudit() {
     const objectif = document.getElementById('auditObjectif')?.value || '';
     const niche = document.getElementById('auditNiche')?.value || '';
     const frequence = document.getElementById('auditFrequence')?.value || '';
+    const style = document.getElementById('auditStyle')?.value || '';
 
     const res = await fetch('/api/audit', {
       method: 'POST',
@@ -3545,7 +3571,8 @@ async function lancerAudit() {
         images: images,
         objectif: objectif,
         niche: niche,
-        frequence: frequence
+        frequence: frequence,
+        style: style
       })
     });
 
@@ -4277,7 +4304,7 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'historyFlow']) {
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'historyFlow']) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }
@@ -4296,7 +4323,7 @@ function pushNav() {
 // Affiche un écran donné (sans toucher à la pile)
 function showScreen(screen) {
   // Masquer tout
-  ['homePage','flow','ideasFlow','storyFlow','historyFlow'].forEach(id => {
+  ['homePage','flow','ideasFlow','storyFlow','auditFlow','historyFlow'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
