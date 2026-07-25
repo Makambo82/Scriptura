@@ -170,7 +170,7 @@ nav{
 /* CONTEXT STEP */
 .context-card{
   background:var(--bg-card);border:1px solid var(--border);
-  border-radius:4px;padding:36px 36px;position:relative;
+  border-radius:4px;padding:36px 36px;margin-bottom:24px;position:relative;
 }
 .context-card::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
@@ -1601,6 +1601,63 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <li><b>Ton audience</b><span>Analyses → Spectateurs → onglets Âge et Emplacements</span></li>
       </ol>
       <p class="audit-note">Tu peux en envoyer moins, l'analyse sera juste moins précise. La courbe de rétention est la plus importante.</p>
+    </div>
+
+    <div class="context-card">
+      <div class="ctx-field">
+        <label class="ctx-label">Ton objectif principal</label>
+        <select class="ctx-input" id="auditObjectif">
+          <option value="">Choisir ton objectif…</option>
+          <option value="Faire plus de vues et maximiser la portée">Faire plus de vues</option>
+          <option value="Gagner des abonnés qualifiés rapidement">Gagner des abonnés</option>
+          <option value="Générer des ventes via mon contenu">Générer des ventes</option>
+          <option value="Renforcer mon expertise et ma crédibilité">Renforcer mon expertise</option>
+        </select>
+      </div>
+      <div class="ctx-field">
+        <label class="ctx-label">Ta niche</label>
+        <select class="ctx-input" id="auditNiche">
+          <option value="">Choisir ta niche…</option>
+          <option>Géopolitique & Actualité</option>
+          <option>Histoire</option>
+          <option>Faits divers & Crime</option>
+          <option>Célébrités & People</option>
+          <option>Mystères & Paranormal</option>
+          <option>Développement personnel</option>
+          <option>Motivation & Mindset</option>
+          <option>Business & Entrepreneuriat</option>
+          <option>Finance & Argent</option>
+          <option>Immobilier & Investissement</option>
+          <option>Relation & Amour</option>
+          <option>Parentalité & Famille</option>
+          <option>Santé & Bien-être</option>
+          <option>Sport & Fitness</option>
+          <option>Spiritualité & Philosophie</option>
+          <option>Religion & Foi</option>
+          <option>Éducation</option>
+          <option>Technologie & IA</option>
+          <option>Culture & Société</option>
+          <option>Art & Créativité</option>
+          <option>Cuisine & Food</option>
+          <option>Beauté & Mode</option>
+          <option>Voyage & Découverte</option>
+          <option>Lifestyle</option>
+          <option>Autre</option>
+        </select>
+      </div>
+      <div class="ctx-field">
+        <label class="ctx-label">Ta fréquence de publication actuelle</label>
+        <select class="ctx-input" id="auditFrequence">
+          <option value="">Choisir ta fréquence…</option>
+          <option value="Tous les jours">Tous les jours</option>
+          <option value="5 fois par semaine">5 fois par semaine</option>
+          <option value="3 fois par semaine">3 fois par semaine</option>
+          <option value="2 fois par semaine">2 fois par semaine</option>
+          <option value="1 fois par semaine">1 fois par semaine</option>
+          <option value="Moins d'une fois par semaine">Moins d'une fois par semaine</option>
+          <option value="Irrégulière, sans rythme fixe">Irrégulière, sans rythme fixe</option>
+        </select>
+      </div>
     </div>
 
     <div class="audit-drop" id="auditDrop" onclick="document.getElementById('auditInput').click()">
@@ -3186,6 +3243,13 @@ function retirerCapture(i) {
 
 const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 8 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
 
+CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes recommandations) :
+- Objectif principal : {{OBJECTIF}}
+- Niche : {{NICHE}}
+- Fréquence de publication actuelle : {{FREQUENCE}}
+
+Adapte ton diagnostic et tes recommandations à cet objectif précis (ex : si l'objectif est "Générer des ventes", ne recommande pas uniquement d'augmenter les vues — regarde si le contenu convertit). Compare la fréquence de publication déclarée avec ce que les dates de publication des captures montrent réellement, et signale l'écart s'il y en a un.
+
 TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
 - VUE D'ENSEMBLE (28 j) : vues publications, vues profil, likes, commentaires, partages, abonnés nets.
 - DÉTAIL D'UNE VIDÉO : une courbe de rétention, durée moyenne de visionnage, temps total, sources de trafic. S'il y en a deux, la plus performante = "meilleure", l'autre = "pire".
@@ -3195,6 +3259,8 @@ TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
 
 RÈGLE ABSOLUE D'HONNÊTETÉ : n'analyse QUE ce que tu vois réellement. Chaque chiffre que tu cites doit provenir d'une capture. Si une donnée manque (ex. pas de capture audience), NE L'INVENTE PAS : mets le pilier concerné en "disponible": false et explique quelle capture l'utilisateur doit envoyer. Un audit honnête sur 3 piliers vaut mieux qu'un audit inventé sur 7.
 
+CAS PARTICULIER DU HOOK : tu n'as pas de mesure fiable de rétention précise (chute à 3 secondes, seconde exacte de décrochage) sauf si une capture "détail vidéo" avec courbe de rétention labellisée est explicitement fournie. Si elle est absente, ne chiffre jamais le hook ni la rétention dans le score. Tu peux uniquement, si les données suggèrent indirectement un problème d'accroche (par exemple vues de publication en hausse mais vues de profil stagnantes ou en baisse), mentionner en recommandation le principe général que les 3 premières secondes sont déterminantes sur TikTok — sans le présenter comme une mesure de ce compte.
+
 Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
@@ -3202,23 +3268,21 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 {
   "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 28j', 'détail vidéo (rétention 71%)'>"],
   "tiktok_score": {
-    "hook": <0-20>, "retention": <0-20>, "storytelling": <0-20>,
-    "sujets": <0-20>, "regularite": <0-10>, "engagement": <0-10>,
+    "storytelling": <0-25>, "sujets": <0-25>, "engagement": <0-30>, "regularite": <0-20>,
     "global": <0-100>,
-    "levier": "<la dimension qui, améliorée, ferait le plus monter le score, ex: 'Si tu améliores la rétention, ton score passe à 92/100'>"
+    "levier": "<la dimension qui, améliorée, ferait le plus monter le score>"
   },
   "piliers": {
     "performance_globale": { "disponible": <true/false>, "constat": "<...chiffré...>", "blocage": "<...>", "action": "<...>" },
-    "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : hook, sujet, durée, rétention>", "formule": "<la formule extraite, ex: 'Tes histoires personnelles font 2,5x plus de vues'>" },
-    "pire_video":         { "disponible": <true/false>, "constat": "<où et pourquoi les gens décrochent>", "seconde_decrochage": <nombre ou null> },
+    "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : sujet, durée, et hook/rétention UNIQUEMENT si une capture détail vidéo le montre>", "formule": "<la formule extraite, ex: 'Tes histoires personnelles font 2,5x plus de vues'>" },
+    "pire_video":         { "disponible": <true/false>, "constat": "<où et pourquoi les gens décrochent, UNIQUEMENT si une capture détail vidéo le montre>", "seconde_decrochage": <nombre ou null, uniquement si visible dans une capture, jamais estimé> },
     "comparatif":         { "disponible": <true/false>, "conclusion": "<ce que l audience préfère, tiré de meilleure VS pire>" },
     "editorial":          { "disponible": <true/false>, "sujets_notes": [ {"sujet":"<...>","note":"<ex: 4/5>"} ], "recommandation": "<ex: arrête les vidéos marketing 30 jours>" },
     "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? ex: 70% France mais références 100% béninoises>" }
   },
   "plan_action_30j": {
-    "frequence": "<ex: 3 vidéos/semaine>",
-    "duree_ideale": "<ex: 40-55 s>",
-    "type_hook": "<consigne de hook précise>",
+    "frequence": "<recommandation de fréquence, en tenant compte de la fréquence actuelle déclarée par le créateur>",
+    "duree_ideale": "<ex: 40-55 s, uniquement si déductible des données ; sinon 'non déterminable avec les données fournies'>",
     "sujets_a_faire": ["<...>"],
     "erreurs_a_eviter": ["<...>"]
   },
@@ -3254,6 +3318,9 @@ async function lancerAudit() {
 
   try {
     const images = auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType }));
+    const objectif = document.getElementById('auditObjectif')?.value || '';
+    const niche = document.getElementById('auditNiche')?.value || '';
+    const frequence = document.getElementById('auditFrequence')?.value || '';
 
     const res = await fetch('/api/audit', {
       method: 'POST',
@@ -3262,7 +3329,9 @@ async function lancerAudit() {
         model: MODEL_RAPIDE,
         max_tokens: 4000,
         images: images,
-        prompt: AUDIT_PROMPT
+        objectif: objectif,
+        niche: niche,
+        frequence: frequence
       })
     });
 
@@ -3304,12 +3373,10 @@ async function lancerAudit() {
 let lastAudit = null;
 
 const SCORE_DIMS = [
-  { key: 'hook', label: 'Hook', max: 20 },
-  { key: 'retention', label: 'Rétention', max: 20 },
-  { key: 'storytelling', label: 'Storytelling', max: 20 },
-  { key: 'sujets', label: 'Choix des sujets', max: 20 },
-  { key: 'regularite', label: 'Régularité', max: 10 },
-  { key: 'engagement', label: 'Engagement', max: 10 }
+  { key: 'storytelling', label: 'Storytelling', max: 25 },
+  { key: 'sujets', label: 'Choix des sujets', max: 25 },
+  { key: 'engagement', label: 'Engagement', max: 30 },
+  { key: 'regularite', label: 'Régularité', max: 20 }
 ];
 
 function auditNum(v) {
