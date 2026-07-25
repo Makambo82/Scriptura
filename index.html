@@ -1397,14 +1397,32 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   background:radial-gradient(circle at 50% 0%,rgba(201,168,76,0.10),transparent 60%);
 }
 .audit-score-label{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.24em;color:var(--gold);opacity:0.8;margin-bottom:14px}
-.audit-score-num{font-family:'Playfair Display',serif;font-size:4rem;font-weight:700;line-height:1;color:var(--gold-light)}
-.audit-score-num span{font-size:1.4rem;font-weight:500;color:rgba(255,255,255,0.4)}
+/* Anneau de score animé */
+.audit-ring-wrap{position:relative;width:170px;height:170px;margin:4px auto 2px}
+.audit-ring{width:100%;height:100%;transform:rotate(-90deg)}
+.audit-ring-track{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:9}
+.audit-ring-fill{fill:none;stroke:url(#auditRingGrad);stroke-width:9;stroke-linecap:round;
+  transition:stroke-dashoffset 1.3s cubic-bezier(.16,1,.3,1)}
+.audit-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.audit-score-num{font-family:'Playfair Display',serif;font-size:3.1rem;font-weight:700;line-height:1;color:var(--gold-light)}
+.audit-score-num span{font-size:1.1rem;font-weight:500;color:rgba(255,255,255,0.4)}
 .audit-score-phrase{margin-top:14px;font-size:0.95rem;color:var(--text-secondary);line-height:1.55;max-width:34ch;margin-left:auto;margin-right:auto}
 .audit-axes{display:grid;gap:16px;padding:4px 2px}
 .audit-axe-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:0.9rem;color:var(--text-secondary)}
 .audit-axe-head b{color:var(--gold-light);font-size:0.92rem}
 .audit-axe-bar{height:8px;background:rgba(255,255,255,0.07);border-radius:6px;overflow:hidden}
 .audit-axe-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:6px;transition:width .9s cubic-bezier(.16,1,.3,1)}
+
+/* Graphique radar des 5 dimensions */
+.audit-radar-wrap{display:flex;justify-content:center;padding:6px 0 2px}
+.audit-radar{width:100%;max-width:280px;height:auto}
+.audit-radar-grid{fill:none;stroke:rgba(255,255,255,0.08);stroke-width:1}
+.audit-radar-spoke{stroke:rgba(255,255,255,0.08);stroke-width:1}
+.audit-radar-shape{fill:rgba(201,168,76,0.18);stroke:var(--gold-light);stroke-width:2;stroke-linejoin:round;
+  transform-box:fill-box;transform-origin:center;transition:transform 1s cubic-bezier(.16,1,.3,1),opacity 1s ease}
+.audit-radar-dot{fill:var(--gold-light)}
+.audit-radar-label{fill:var(--text-secondary);font-size:10px;font-family:'Tenor Sans',sans-serif}
+.audit-radar-val{fill:var(--gold-light);font-size:10px;font-weight:700;font-family:'Tenor Sans',sans-serif}
 
 /* Séparateur de section : donne un rythme au lieu d'une pile uniforme */
 .audit-section-label{
@@ -3703,10 +3721,29 @@ function renderAudit(a) {
   const global = maxMesure > 0 ? Math.round((obtenu / maxMesure) * 100) : auditNum(ts.global);
   const partiel = dimsMesurees.length > 0 && dimsMesurees.length < SCORE_DIMS.length;
 
+  // Circonférence de l'anneau (rayon 74) pour le calcul du remplissage
+  const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
+  const scoreAffiche = (global == null || Number.isNaN(global)) ? '—' : global;
+
   html += `
     <div class="audit-score-card">
       <div class="audit-score-label">ADN TIKTOK SCORE</div>
-      <div class="audit-score-num">${global}<span>/100</span></div>
+      <div class="audit-ring-wrap">
+        <svg class="audit-ring" viewBox="0 0 170 170">
+          <defs>
+            <linearGradient id="auditRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--gold)"/>
+              <stop offset="100%" stop-color="var(--gold-light)"/>
+            </linearGradient>
+          </defs>
+          <circle class="audit-ring-track" cx="85" cy="85" r="${RING_R}"/>
+          <circle class="audit-ring-fill" id="auditRingFill" cx="85" cy="85" r="${RING_R}"
+            stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
+        </svg>
+        <div class="audit-ring-center">
+          <div class="audit-score-num"><span id="auditScoreNum">0</span><span>/100</span></div>
+        </div>
+      </div>
       ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
       ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>`
         : (ts.levier_dim ? `<div class="audit-score-phrase">Ton levier le plus fort aujourd'hui : ${auditEsc(ts.levier_dim)}.</div>` : '')}
@@ -3714,6 +3751,11 @@ function renderAudit(a) {
 
   // Dimensions du score
   const hasDims = dimsMesurees.length > 0;
+  // Le radar n'a de sens qu'à partir de 3 points ; en dessous, on garde
+  // seulement les barres, plus lisibles pour 1 ou 2 valeurs.
+  if (dimsMesurees.length >= 3) {
+    html += radarSVG(ts, dimValeur);
+  }
   if (hasDims) {
     html += '<div class="audit-axes">';
     SCORE_DIMS.forEach(d => {
@@ -3846,7 +3888,109 @@ function renderAudit(a) {
   </div>`;
 
   out.innerHTML = html;
+  animerScoreAudit(global, RING_C);
+  animerRadar();
   out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Fait apparaître la forme du radar en fondu, une fois le SVG dans le DOM.
+function animerRadar() {
+  const shape = document.getElementById('auditRadarShape');
+  if (!shape) return;
+  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduit) { shape.style.opacity = '1'; return; }
+  shape.style.opacity = '0';
+  shape.style.transform = 'scale(0.4)';
+  requestAnimationFrame(() => {
+    shape.style.opacity = '1';
+    shape.style.transform = 'scale(1)';
+  });
+}
+
+// Dessine un radar (toile d'araignée) des dimensions du score.
+// SVG pur, sans librairie. Chaque branche = une dimension, la distance au
+// centre = la note en proportion de son maximum.
+function radarSVG(ts, dimValeur) {
+  const cx = 130, cy = 122, rayonMax = 92;
+  const dims = SCORE_DIMS;
+  const n = dims.length;
+  const point = (i, rayon) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    return [cx + rayon * Math.cos(angle), cy + rayon * Math.sin(angle)];
+  };
+
+  let grille = '';
+  [0.25, 0.5, 0.75, 1].forEach(f => {
+    const pts = dims.map((_, i) => point(i, rayonMax * f).map(v => v.toFixed(1)).join(',')).join(' ');
+    grille += `<polygon class="audit-radar-grid" points="${pts}"/>`;
+  });
+  let branches = '', labels = '';
+  dims.forEach((d, i) => {
+    const [bx, by] = point(i, rayonMax);
+    branches += `<line class="audit-radar-spoke" x1="${cx}" y1="${cy}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"/>`;
+    const [lx, ly] = point(i, rayonMax + 16);
+    const v = dimValeur(ts[d.key]);
+    const ancre = Math.abs(lx - cx) < 5 ? 'middle' : (lx > cx ? 'start' : 'end');
+    labels += `<text class="audit-radar-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${ancre}" dominant-baseline="middle">${d.label}</text>`;
+    if (v !== null) {
+      labels += `<text class="audit-radar-val" x="${lx.toFixed(1)}" y="${(ly + 12).toFixed(1)}" text-anchor="${ancre}" dominant-baseline="middle">${v}/${d.max}</text>`;
+    }
+  });
+  const pts = dims.map((d, i) => {
+    const v = dimValeur(ts[d.key]);
+    const frac = v === null ? 0 : Math.max(0, Math.min(1, v / d.max));
+    return point(i, rayonMax * frac).map(x => x.toFixed(1)).join(',');
+  }).join(' ');
+  const dots = dims.map((d, i) => {
+    const v = dimValeur(ts[d.key]);
+    if (v === null) return '';
+    const [px, py] = point(i, rayonMax * Math.max(0, Math.min(1, v / d.max)));
+    return `<circle class="audit-radar-dot" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3"/>`;
+  }).join('');
+
+  return `<div class="audit-radar-wrap">
+    <svg class="audit-radar" viewBox="0 0 260 250" id="auditRadarSvg">
+      ${grille}${branches}
+      <polygon class="audit-radar-shape" id="auditRadarShape" points="${pts}" style="opacity:0"/>
+      ${dots}
+      ${labels}
+    </svg>
+  </div>`;
+}
+
+// Anime l'anneau de score et le compteur de 0 jusqu'à la valeur finale.
+// Respecte la préférence système "réduire les animations".
+function animerScoreAudit(valeur, circonference) {
+  const numEl = document.getElementById('auditScoreNum');
+  const ringEl = document.getElementById('auditRingFill');
+  if (valeur == null || Number.isNaN(valeur)) {
+    if (numEl) numEl.textContent = '—';
+    return;
+  }
+  const cible = Math.max(0, Math.min(100, valeur));
+  const offsetFinal = circonference * (1 - cible / 100);
+
+  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduit) {
+    if (numEl) numEl.textContent = cible;
+    if (ringEl) ringEl.style.strokeDashoffset = offsetFinal;
+    return;
+  }
+
+  // L'anneau part sur sa transition CSS après un court délai (sinon le
+  // navigateur applique la valeur finale sans transition au premier rendu).
+  if (ringEl) requestAnimationFrame(() => { ringEl.style.strokeDashoffset = offsetFinal; });
+
+  // Le chiffre monte en parallèle, calé sur la même durée que l'anneau.
+  const duree = 1300;
+  const debut = performance.now();
+  function tick(maintenant) {
+    const t = Math.min(1, (maintenant - debut) / duree);
+    const adouci = 1 - Math.pow(1 - t, 3); // easing cubic-out, comme l'anneau
+    if (numEl) numEl.textContent = Math.round(cible * adouci);
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 function auditBlock(titre, inner) {
