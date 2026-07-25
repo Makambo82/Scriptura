@@ -3355,7 +3355,7 @@ async function lancerAudit() {
     renderAudit(parsed);
 
     if (typeof saveGeneration === 'function') {
-      try { saveGeneration('audit', 'Audit TikTok — score ' + (parsed.score_global ?? '?'), parsed); }
+      try { saveGeneration('audit', 'Audit TikTok — score ' + (parsed.tiktok_score?.global ?? '?'), parsed); }
       catch(e) { /* silencieux */ }
     }
 
