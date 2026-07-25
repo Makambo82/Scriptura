@@ -1594,11 +1594,11 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
     <div class="audit-guide">
       <div class="audit-guide-title">Les 5 captures à envoyer</div>
       <ol class="audit-steps">
-        <li><b>Vue d'ensemble · 28 jours</b><span>TikTok Studio → Analyses → Vue d'ensemble, période 28 jours</span></li>
-        <li><b>Ta meilleure vidéo · écran détail</b><span>Ouvre-la dans Analyses et descends jusqu'à la courbe de rétention</span></li>
-        <li><b>Ta vidéo la plus faible · écran détail</b><span>Même chose — c'est la comparaison qui révèle le problème</span></li>
-        <li><b>Top contenus · 60 jours</b><span>Analyses → Contenu, classé par vues</span></li>
-        <li><b>Ton audience</b><span>Analyses → Spectateurs → onglets Âge et Emplacements</span></li>
+        <li><b>Vue d'ensemble · 60 jours</b><span>TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours</span></li>
+        <li><b>Ta vidéo la plus performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la plus performante des 60 derniers jours et descends jusqu'à la courbe de rétention</span></li>
+        <li><b>Ta vidéo la moins performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la moins performante des 60 derniers jours et descends jusqu'à la courbe de rétention</span></li>
+        <li><b>Top contenus · 60 jours</b><span>TikTok Studio → Analyses → Contenu → Période : 60 jours → Classé par vues</span></li>
+        <li><b>Ton audience</b><span>TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements</span></li>
       </ol>
       <p class="audit-note">Tu peux en envoyer moins, l'analyse sera juste moins précise. La courbe de rétention est la plus importante.</p>
     </div>
@@ -3373,9 +3373,10 @@ async function lancerAudit() {
 let lastAudit = null;
 
 const SCORE_DIMS = [
-  { key: 'storytelling', label: 'Storytelling', max: 25 },
-  { key: 'sujets', label: 'Choix des sujets', max: 25 },
-  { key: 'engagement', label: 'Engagement', max: 30 },
+  { key: 'hook', label: 'Hook', max: 20 },
+  { key: 'storytelling', label: 'Storytelling', max: 20 },
+  { key: 'sujets', label: 'Choix des sujets', max: 20 },
+  { key: 'engagement', label: 'Engagement', max: 20 },
   { key: 'regularite', label: 'Régularité', max: 20 }
 ];
 
