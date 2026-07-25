@@ -25,7 +25,11 @@ TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
 
 RÈGLE ABSOLUE D'HONNÊTETÉ : n'analyse QUE ce que tu vois réellement. Chaque chiffre que tu cites doit provenir d'une capture. Si une donnée manque (ex. pas de capture audience), NE L'INVENTE PAS : mets le pilier concerné en "disponible": false et explique quelle capture l'utilisateur doit envoyer. Un audit honnête sur 3 piliers vaut mieux qu'un audit inventé sur 7.
 
-CAS PARTICULIER DU HOOK : tu n'as pas de mesure fiable de rétention précise (chute à 3 secondes, seconde exacte de décrochage) sauf si une capture "détail vidéo" avec courbe de rétention labellisée est explicitement fournie. Si elle est absente, ne chiffre jamais le hook ni la rétention dans le score. Tu peux uniquement, si les données suggèrent indirectement un problème d'accroche (par exemple vues de publication en hausse mais vues de profil stagnantes ou en baisse), mentionner en recommandation le principe général que les 3 premières secondes sont déterminantes sur TikTok — sans le présenter comme une mesure de ce compte.
+CAS PARTICULIER DU HOOK : le hook (les 3 premières secondes) ne peut être chiffré QUE si une capture "détail vidéo" fournit un point de décrochage majoritaire explicite (ex : TikTok indique "la plupart des spectateurs ont cessé de regarder à 0:02"). Applique cette règle stricte :
+- Si le décrochage majoritaire indiqué tombe à 3 secondes ou avant : c'est un signal direct et fiable sur le hook. Utilise-le pour chiffrer la dimension "hook" du score.
+- Si le décrochage majoritaire indiqué tombe après 3 secondes : ce n'est PAS un problème de hook, mais plutôt un problème de rythme ou de contenu plus loin dans la vidéo. N'attribue pas de score hook bas à partir de cette donnée — mentionne plutôt ce décrochage tardif dans le pilier "pire_video" ou "meilleure_video", pas dans le score hook.
+- Si aucune capture détail vidéo n'est fournie, ou si elle ne précise aucun point de décrochage chiffré : le hook n'est pas calculable. N'invente rien, indique "non calculable avec les données fournies" pour cette dimension.
+Dans tous les cas où le hook n'est pas calculable mais que d'autres données suggèrent indirectement un problème d'accroche (par exemple vues de publication en hausse mais vues de profil stagnantes ou en baisse), tu peux mentionner en recommandation le principe général que les 3 premières secondes sont déterminantes sur TikTok — sans le présenter comme une mesure chiffrée de ce compte.
 
 Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
 
@@ -34,7 +38,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 {
   "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 28j', 'détail vidéo (rétention 71%)'>"],
   "tiktok_score": {
-    "storytelling": <0-25>, "sujets": <0-25>, "engagement": <0-30>, "regularite": <0-20>,
+    "hook": <0-20>, "storytelling": <0-20>, "sujets": <0-20>, "engagement": <0-20>, "regularite": <0-20>,
     "global": <0-100>,
     "levier": "<la dimension qui, améliorée, ferait le plus monter le score>"
   },
