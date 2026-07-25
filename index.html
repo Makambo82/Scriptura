@@ -1520,6 +1520,8 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .audit-manquant ul{margin:0;padding-left:20px}
 .audit-manquant li{font-size:0.87rem;color:var(--muted);line-height:1.6}
 .audit-idees-btn{margin-top:14px}
+.audit-affiner-btn{margin-top:14px;background:rgba(255,255,255,0.06);color:var(--gold-light);border:1px solid var(--border-soft)}
+.audit-affiner-btn:hover{background:rgba(255,255,255,0.1)}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1694,7 +1696,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <li><b>Top contenus · 60 jours</b><span>TikTok Studio → Analyses → Contenu → Période : 60 jours → Classé par vues</span></li>
         <li><b>Ton audience</b><span>TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements</span></li>
       </ol>
-      <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 10 captures au total.</p>
+      <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 12 captures au total.</p>
     </div>
 
     <div class="context-card">
@@ -3435,7 +3437,7 @@ let currentScript = null;
 //  MODE AUDIT TIKTOK — gestion des captures
 // ═══════════════════════════════════════════════════════════
 let auditCaptures = []; // { nom, dataUrl, mediaType, base64 }
-const AUDIT_MAX = 10;
+const AUDIT_MAX = 12;
 
 // Ajoute les fichiers choisis (galerie ou appareil photo)
 async function ajouterCaptures(files) {
@@ -4109,6 +4111,9 @@ function renderAudit(a) {
 
   // ── Pont vers le contenu ──
   html += `
+    <button class="btn-generate audit-affiner-btn" onclick="affinerAudit()">
+      Affiner avec plus de captures
+    </button>
     <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
       Générer des idées pour corriger ça
     </button>
@@ -4225,6 +4230,19 @@ function auditBlock(titre, inner) {
 }
 
 // Pont audit → mode idées : envoie le problème principal vers le générateur d'idées
+// Ramène à la zone d'upload en gardant les captures déjà chargées, pour en
+// ajouter d'autres (ex : sources de trafic) puis relancer. Le relancement
+// passe par lancerAudit → peutAuditer, donc il consomme bien un audit du jour.
+function affinerAudit() {
+  const out = document.getElementById('auditOutput');
+  if (out) out.innerHTML = ''; // on efface l'ancien résultat, les captures restent
+  const drop = document.getElementById('auditDrop');
+  if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Ouvre directement le sélecteur de fichiers pour ajouter des captures
+  const input = document.getElementById('auditInput');
+  if (input) setTimeout(() => input.click(), 400);
+}
+
 function genererIdeesCorrectives() {
   if (!lastAudit) return;
 
