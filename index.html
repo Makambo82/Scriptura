@@ -1592,15 +1592,15 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
     </div>
 
     <div class="audit-guide">
-      <div class="audit-guide-title">Les 5 captures à envoyer</div>
+      <div class="audit-guide-title">Les 5 données à envoyer</div>
       <ol class="audit-steps">
         <li><b>Vue d'ensemble · 60 jours</b><span>TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours</span></li>
-        <li><b>Ta vidéo la plus performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la plus performante des 60 derniers jours et descends jusqu'à la courbe de rétention</span></li>
-        <li><b>Ta vidéo la moins performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la moins performante des 60 derniers jours et descends jusqu'à la courbe de rétention</span></li>
+        <li><b>Ta vidéo la plus performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la plus performante des 60 derniers jours et descends jusqu'à la courbe de rétention. Si tout ne tient pas sur un écran, prends-en deux</span></li>
+        <li><b>Ta vidéo la moins performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la moins performante des 60 derniers jours et descends jusqu'à la courbe de rétention. Même chose si l'écran est trop long</span></li>
         <li><b>Top contenus · 60 jours</b><span>TikTok Studio → Analyses → Contenu → Période : 60 jours → Classé par vues</span></li>
         <li><b>Ton audience</b><span>TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements</span></li>
       </ol>
-      <p class="audit-note">Tu peux en envoyer moins, l'analyse sera juste moins précise. La courbe de rétention est la plus importante.</p>
+      <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 10 captures au total.</p>
     </div>
 
     <div class="context-card">
@@ -2240,6 +2240,15 @@ const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, stor
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
 const CRITIQUE_ACTIVE = false;
 const LIMITE_JOUR_ABONNE = 15;   // Générations max par jour pour un abonné (anti-abus)
+
+// ── Paliers d'abonnement ──
+// Creator : tous les modes de création. Pro : Creator + Analyse compte TikTok.
+// Le palier est lu dans la colonne "plan" de la table Supabase "abonnes".
+// PLAN_PAR_DEFAUT s'applique quand la colonne est absente ou vide : le temps
+// de renseigner les abonnés existants, le mettre sur 'pro' évite de leur
+// couper l'accès ; le repasser sur 'creator' une fois la migration faite.
+const PLAN_PAR_DEFAUT = 'creator';
+const MODES_PRO = ['audit'];
 const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite journalière (VIP/admin)
 
 // ═══════════════════════════════════════════════════════════
@@ -2563,6 +2572,20 @@ async function countTodayGenerations() {
 
 // Vérifie si un abonné a atteint sa limite quotidienne.
 // Retourne true si l'utilisateur PEUT générer, false s'il est bloqué (et affiche le message).
+// Palier d'abonnement de l'utilisateur courant
+function monPalier() {
+  return (localStorage.getItem('scriptura_plan') || PLAN_PAR_DEFAUT).trim().toLowerCase();
+}
+
+// Un mode réservé au Pro est-il accessible ?
+function aAccesMode(mode) {
+  if (!MODES_PRO.includes(mode)) return true;
+  // Codes VIP/admin : accès total
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
+  return unlocked && monPalier() === 'pro';
+}
+
 async function peutGenerer(errorBoxId) {
   // Les non-abonnés sont gérés par le système de générations gratuites, pas ici.
   if (!unlocked) return true;
@@ -3122,6 +3145,9 @@ async function verifyCode() {
       unlocked = true;
       localStorage.setItem('scriptura_unlocked', 'true');
       localStorage.setItem('scriptura_code', code);
+      // Palier d'abonnement (colonne "plan" côté Supabase)
+      localStorage.setItem('scriptura_plan',
+        String(data.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
       document.body.classList.add('is-unlocked');
       closeModal();
       renderGenCounter();
@@ -3140,6 +3166,8 @@ async function verifyCode() {
     unlocked = true;
     localStorage.setItem('scriptura_unlocked', 'true');
     localStorage.setItem('scriptura_code', code);
+    // Codes en dur : ce sont des accès internes ou de secours, donc palier complet
+    localStorage.setItem('scriptura_plan', 'pro');
     document.body.classList.add('is-unlocked');
     closeModal();
     renderGenCounter();
@@ -3166,7 +3194,7 @@ let currentScript = null;
 //  MODE AUDIT TIKTOK — gestion des captures
 // ═══════════════════════════════════════════════════════════
 let auditCaptures = []; // { nom, dataUrl, mediaType, base64 }
-const AUDIT_MAX = 8;
+const AUDIT_MAX = 10;
 
 // Ajoute les fichiers choisis (galerie ou appareil photo)
 async function ajouterCaptures(files) {
@@ -3241,56 +3269,6 @@ function retirerCapture(i) {
 //  AUDIT — Prompt d'analyse + branchement IA + affichage
 // ═══════════════════════════════════════════════════════════
 
-const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 8 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
-
-CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes recommandations) :
-- Objectif principal : {{OBJECTIF}}
-- Niche : {{NICHE}}
-- Fréquence de publication actuelle : {{FREQUENCE}}
-
-Adapte ton diagnostic et tes recommandations à cet objectif précis (ex : si l'objectif est "Générer des ventes", ne recommande pas uniquement d'augmenter les vues — regarde si le contenu convertit). Compare la fréquence de publication déclarée avec ce que les dates de publication des captures montrent réellement, et signale l'écart s'il y en a un.
-
-TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
-- VUE D'ENSEMBLE (28 j) : vues publications, vues profil, likes, commentaires, partages, abonnés nets.
-- DÉTAIL D'UNE VIDÉO : une courbe de rétention, durée moyenne de visionnage, temps total, sources de trafic. S'il y en a deux, la plus performante = "meilleure", l'autre = "pire".
-- TOP CONTENUS (60 j) : une liste de plusieurs vidéos avec leurs vues.
-- AUDIENCE : répartition par âge, sexe, pays/emplacements.
-- COMPARATIF déjà fait par l'utilisateur : un tableau "Meilleure / Pire".
-
-RÈGLE ABSOLUE D'HONNÊTETÉ : n'analyse QUE ce que tu vois réellement. Chaque chiffre que tu cites doit provenir d'une capture. Si une donnée manque (ex. pas de capture audience), NE L'INVENTE PAS : mets le pilier concerné en "disponible": false et explique quelle capture l'utilisateur doit envoyer. Un audit honnête sur 3 piliers vaut mieux qu'un audit inventé sur 7.
-
-CAS PARTICULIER DU HOOK : tu n'as pas de mesure fiable de rétention précise (chute à 3 secondes, seconde exacte de décrochage) sauf si une capture "détail vidéo" avec courbe de rétention labellisée est explicitement fournie. Si elle est absente, ne chiffre jamais le hook ni la rétention dans le score. Tu peux uniquement, si les données suggèrent indirectement un problème d'accroche (par exemple vues de publication en hausse mais vues de profil stagnantes ou en baisse), mentionner en recommandation le principe général que les 3 premières secondes sont déterminantes sur TikTok — sans le présenter comme une mesure de ce compte.
-
-Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
-
-Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
-
-{
-  "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 28j', 'détail vidéo (rétention 71%)'>"],
-  "tiktok_score": {
-    "storytelling": <0-25>, "sujets": <0-25>, "engagement": <0-30>, "regularite": <0-20>,
-    "global": <0-100>,
-    "levier": "<la dimension qui, améliorée, ferait le plus monter le score>"
-  },
-  "piliers": {
-    "performance_globale": { "disponible": <true/false>, "constat": "<...chiffré...>", "blocage": "<...>", "action": "<...>" },
-    "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : sujet, durée, et hook/rétention UNIQUEMENT si une capture détail vidéo le montre>", "formule": "<la formule extraite, ex: 'Tes histoires personnelles font 2,5x plus de vues'>" },
-    "pire_video":         { "disponible": <true/false>, "constat": "<où et pourquoi les gens décrochent, UNIQUEMENT si une capture détail vidéo le montre>", "seconde_decrochage": <nombre ou null, uniquement si visible dans une capture, jamais estimé> },
-    "comparatif":         { "disponible": <true/false>, "conclusion": "<ce que l audience préfère, tiré de meilleure VS pire>" },
-    "editorial":          { "disponible": <true/false>, "sujets_notes": [ {"sujet":"<...>","note":"<ex: 4/5>"} ], "recommandation": "<ex: arrête les vidéos marketing 30 jours>" },
-    "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? ex: 70% France mais références 100% béninoises>" }
-  },
-  "plan_action_30j": {
-    "frequence": "<recommandation de fréquence, en tenant compte de la fréquence actuelle déclarée par le créateur>",
-    "duree_ideale": "<ex: 40-55 s, uniquement si déductible des données ; sinon 'non déterminable avec les données fournies'>",
-    "sujets_a_faire": ["<...>"],
-    "erreurs_a_eviter": ["<...>"]
-  },
-  "donnees_manquantes": ["<captures à envoyer la prochaine fois pour compléter l audit>"]
-}
-
-Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un consultant qui dit quoi faire.`;
-
 // Échappe le HTML pour un affichage sûr
 function auditEsc(s) {
   return String(s == null ? '' : s)
@@ -3303,6 +3281,12 @@ async function lancerAudit() {
   const btn = document.getElementById('auditBtn');
   const spin = document.getElementById('auditSpinner');
   const btnText = document.getElementById('auditBtnText');
+
+  if (!aAccesMode('audit')) {
+    err.textContent = "L'analyse de compte TikTok est réservée à l'offre Pro.";
+    err.style.display = 'block';
+    return;
+  }
 
   if (!auditCaptures.length) {
     err.textContent = 'Ajoute au moins une capture de tes statistiques.';
@@ -3327,7 +3311,7 @@ async function lancerAudit() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL_RAPIDE,
-        max_tokens: 4000,
+        max_tokens: 8000,
         images: images,
         objectif: objectif,
         niche: niche,
@@ -3352,10 +3336,55 @@ async function lancerAudit() {
     try { parsed = JSON.parse(jsonStr); }
     catch (e) { throw new Error('Le modèle a mal formaté sa réponse. Réessaie.'); }
 
+    // ── Contrôle de couverture ──
+    // Les 5 données sont exigées. Un audit partiel présenté comme complet
+    // serait trompeur, donc on préfère refuser et dire ce qui manque.
+    // Tolérant sur le format (true, "true", 1) car le modèle varie parfois.
+    // Si le champ "couverture" est totalement absent, on n'a rien à vérifier :
+    // on laisse passer plutôt que de bloquer tout le monde sur un oubli du modèle.
+    const REQUIS = [
+      ['vue_ensemble_60j', "Vue d'ensemble · 60 jours"],
+      ['meilleure_video',  "Analyse complète de ta vidéo la plus performante"],
+      ['pire_video',       "Analyse complète de ta vidéo la moins performante"],
+      ['top_contenus_60j', "Top contenus · 60 jours"],
+      ['audience',         "Ton audience (âge, sexe, emplacements)"]
+    ];
+    const estVrai = v => v === true || v === 'true' || v === 1 || v === '1';
+    const couv = parsed.couverture;
+    const couvFournie = couv && typeof couv === 'object';
+    const manquantes = couvFournie
+      ? REQUIS.filter(([k]) => !estVrai(couv[k])).map(([, label]) => label)
+      : [];
+    const horsSujet = couvFournie ? (parseInt(couv.captures_hors_sujet) || 0) : 0;
+
+    if (manquantes.length) {
+      let m = '<div class="audit-result"><div class="audit-block">';
+      m += '<div class="audit-block-title">Analyse impossible pour le moment</div>';
+      m += '<div class="audit-diag-constat">Il manque ' + manquantes.length +
+           ' donnée' + (manquantes.length > 1 ? 's' : '') +
+           ' sur 5 pour faire un diagnostic fiable. Plutôt que de te donner une analyse bancale, voici ce qu\'il reste à envoyer :</div>';
+      m += '<ul style="margin:14px 0 0;padding-left:18px;line-height:1.7">';
+      manquantes.forEach(x => { m += '<li>' + auditEsc(x) + '</li>'; });
+      m += '</ul>';
+      if (horsSujet > 0) {
+        m += '<div class="audit-diag-interp" style="margin-top:14px">' + horsSujet +
+             ' capture' + (horsSujet > 1 ? 's' : '') + ' ne correspond' + (horsSujet > 1 ? 'ent' : '') +
+             ' pas à un écran de statistiques TikTok.</div>';
+      }
+      m += '<div class="audit-diag-action" style="margin-top:14px">→ Ajoute les captures manquantes, puis relance l\'analyse. Si un écran est trop long, tu peux le couper en plusieurs captures.</div>';
+      m += '</div></div>';
+      out.innerHTML = m;
+      out.style.display = 'block';
+      return;
+    }
+
     renderAudit(parsed);
 
     if (typeof saveGeneration === 'function') {
-      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + (parsed.tiktok_score?.global ?? '?'), parsed); }
+      const scoreTitre = parsed.mesures
+        ? (calculerScores(parsed.mesures).global ?? '?')
+        : (parsed.tiktok_score?.global ?? '?');
+      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + scoreTitre, parsed); }
       catch(e) { /* silencieux */ }
     }
 
@@ -3373,12 +3402,200 @@ async function lancerAudit() {
 let lastAudit = null;
 
 const SCORE_DIMS = [
-  { key: 'hook', label: 'Hook', max: 20 },
-  { key: 'storytelling', label: 'Storytelling', max: 20 },
-  { key: 'sujets', label: 'Choix des sujets', max: 20 },
-  { key: 'engagement', label: 'Engagement', max: 20 },
-  { key: 'regularite', label: 'Régularité', max: 20 }
+  { key: 'engagement',   label: 'Engagement',       max: 20 },
+  { key: 'retention',    label: 'Rétention',        max: 20 },
+  { key: 'storytelling', label: 'Storytelling',     max: 20 },
+  { key: 'sujets',       label: 'Choix des sujets', max: 20 },
+  { key: 'regularite',   label: 'Régularité',       max: 20 }
 ];
+
+// ═══════════════════════════════════════════════════════════
+//  MOTEUR DE SCORING
+//  Le modèle n'attribue aucune note : il extrait des mesures brutes et
+//  répond OUI / PARTIEL / NON à des critères fermés. Tout le calcul est
+//  fait ici, donc deux analyses des mêmes captures donnent le même score.
+//  Les seuils sont des repères de marché, ajustables en un seul endroit.
+// ═══════════════════════════════════════════════════════════
+
+function sNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = (typeof v === 'number')
+    ? v
+    : parseFloat(String(v).replace(',', '.').replace(/[^\d.\-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Interpolation linéaire entre paliers, où PLUS HAUT est MEILLEUR.
+// Les paliers sont des repères, pas des marches : 2,99 % et 3,00 % donnent
+// des notes quasi identiques au lieu de basculer d'un cran.
+// Format : [[seuil, points], ...] du plus exigeant au moins exigeant,
+// le dernier seuil devant être 0.
+function sPalierHaut(v, paliers) {
+  if (v === null) return null;
+  if (v >= paliers[0][0]) return paliers[0][1];
+  for (let i = 0; i < paliers.length - 1; i++) {
+    const [sHaut, pHaut] = paliers[i];
+    const [sBas, pBas]   = paliers[i + 1];
+    if (v >= sBas) {
+      if (sHaut === sBas) return pBas;
+      return pBas + ((v - sBas) / (sHaut - sBas)) * (pHaut - pBas);
+    }
+  }
+  return paliers[paliers.length - 1][1];
+}
+
+// Même principe, mais PLUS BAS est MEILLEUR.
+// Format : [[seuil, points], ...] du plus exigeant au moins exigeant.
+function sPalierBas(v, paliers) {
+  if (v === null) return null;
+  if (v <= paliers[0][0]) return paliers[0][1];
+  for (let i = 0; i < paliers.length - 1; i++) {
+    const [sBas, pHaut]  = paliers[i];
+    const [sHaut, pBas]  = paliers[i + 1];
+    if (v <= sHaut) {
+      if (sHaut === sBas) return pBas;
+      return pHaut + ((v - sBas) / (sHaut - sBas)) * (pBas - pHaut);
+    }
+  }
+  return paliers[paliers.length - 1][1];
+}
+
+// Note en bande : plein score dans la zone optimale, dégradation douce en
+// dehors. Sert à la régularité, où publier PLUS n'est pas publier MIEUX.
+function sBande(v, min, max, ptsMax) {
+  if (v === null) return null;
+  if (v >= min && v <= max) return ptsMax;
+  const ecart = v < min ? (min - v) / Math.max(min, 0.001) : (v - max) / Math.max(max, 0.001);
+  return Math.max(ptsMax * 0.15, ptsMax * (1 - Math.min(1, ecart) * 0.75));
+}
+
+// Critère fermé : OUI = plein, PARTIEL = moitié, NON = 0, sinon non mesurable
+function sCritere(rep, max) {
+  if (rep === null || rep === undefined) return null;
+  const k = String(rep).trim().toUpperCase();
+  if (k === 'OUI') return max;
+  if (k === 'PARTIEL') return max / 2;
+  if (k === 'NON') return 0;
+  return null;
+}
+
+// Agrège les sous-critères mesurables et ramène sur le total de la dimension.
+// Un critère non mesurable est ignoré au lieu de compter zéro, sinon une
+// donnée manquante ferait chuter la note comme si elle était mauvaise.
+function sAgrege(parts, maxDim) {
+  const ok = parts.filter(p => p.obtenu !== null);
+  if (!ok.length) return null;
+  const maxDispo = ok.reduce((s, p) => s + p.max, 0);
+  const obtenu   = ok.reduce((s, p) => s + p.obtenu, 0);
+  return Math.round((obtenu / maxDispo) * maxDim);
+}
+
+function scoreEngagement(m) {
+  const e = (m && m.engagement) || {};
+  const vues = sNum(e.vues);
+  if (!vues || vues <= 0) return null;
+  const likes = sNum(e.likes), coms = sNum(e.commentaires), parts = sNum(e.partages);
+  const ratio = x => x === null ? null : (x / vues) * 100;
+
+  // Taux d'engagement par vues = (likes + commentaires + partages) / vues.
+  // C'est la mesure de référence du secteur. Moyenne TikTok 2026 : 3,85 %,
+  // zone correcte pour un petit compte : 3 à 5 %.
+  const dispo = [likes, coms, parts].filter(x => x !== null);
+  const tauxGlobal = dispo.length ? (dispo.reduce((a, b) => a + b, 0) / vues) * 100 : null;
+
+  return sAgrege([
+    { obtenu: sPalierHaut(tauxGlobal,   [[8,12],[6,10.5],[5,9],[3.85,7.5],[2.5,5.5],[1.5,3.5],[0,1]]), max: 12 },
+    { obtenu: sPalierHaut(ratio(coms),  [[1,4],[0.5,3.4],[0.25,2.8],[0.1,2],[0.03,1.2],[0,0.4]]),      max: 4 },
+    { obtenu: sPalierHaut(ratio(parts), [[2,4],[1,3.4],[0.5,2.8],[0.25,2.2],[0.1,1.4],[0,0.4]]),       max: 4 }
+  ], 20);
+}
+
+function scoreRetention(m) {
+  const src = [(m && m.retention_meilleure) || {}, (m && m.retention_pire) || {}];
+  const moyenne = cle => {
+    const v = src.map(o => sNum(o[cle])).filter(x => x !== null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  // Repère du secteur : les vidéos qui dépassent 40 à 60 % de complétion
+  // gardent une exposition durable dans le fil "Pour toi".
+  return sAgrege([
+    { obtenu: sPalierHaut(moyenne('taux_moyen_pct'), [[60,12],[45,10.5],[35,8.5],[25,6],[15,3.5],[0,1]]), max: 12 },
+    { obtenu: sPalierHaut(moyenne('completion_pct'), [[30,8],[20,6.5],[10,5],[5,3.5],[2,2],[0,0.5]]),     max: 8 }
+  ], 20);
+}
+
+function scoreStorytelling(m) {
+  const s = (m && m.storytelling) || {};
+  // Le critère du hook est CALCULÉ quand la seconde de décrochage est
+  // connue, au lieu d'être laissé au jugement du modèle : un décrochage
+  // dans les 3 premières secondes signifie que l'accroche n'a pas tenu.
+  // On ne retombe sur l'avis du modèle que si le chiffre est absent.
+  const secondes = [(m && m.retention_meilleure) || {}, (m && m.retention_pire) || {}]
+    .map(o => sNum(o.seconde_decrochage))
+    .filter(v => v !== null);
+  let ptsHook;
+  if (secondes.length) {
+    const moy = secondes.reduce((a, b) => a + b, 0) / secondes.length;
+    ptsHook = sPalierHaut(moy, [[6, 4], [3, 2], [0, 0]]);
+  } else {
+    ptsHook = sCritere(s.hook_avant_3s, 4);
+  }
+  return sAgrege([
+    { obtenu: sCritere(s.hook_present,       4), max: 4 },
+    { obtenu: ptsHook,                           max: 4 },
+    { obtenu: sCritere(s.faible_chute_debut, 4), max: 4 },
+    { obtenu: sCritere(s.retention_stable,   4), max: 4 },
+    { obtenu: sCritere(s.bonne_fin,          4), max: 4 }
+  ], 20);
+}
+
+function scoreSujets(m) {
+  const s = (m && m.sujets) || {};
+  return sAgrege([
+    { obtenu: sCritere(s.themes_repetes,          5), max: 5 },
+    { obtenu: sCritere(s.coherence_editoriale,    5), max: 5 },
+    { obtenu: sCritere(s.adequation_objectif,     5), max: 5 },
+    { obtenu: sCritere(s.performances_homogenes,  5), max: 5 }
+  ], 20);
+}
+
+function scoreRegularite(m) {
+  const r = (m && m.regularite) || {};
+  const nb    = sNum(r.nb_videos_periode);
+  const jours = sNum(r.periode_jours);
+  const trou  = sNum(r.plus_long_trou_jours);
+  // Ramené à une cadence hebdomadaire pour rester comparable d'une période à l'autre
+  const parSemaine = (nb !== null && jours !== null && jours > 0) ? (nb / jours) * 7 : null;
+  // Ne PAS récompenser la surpublication : les comptes qui publient moins de
+  // six fois par semaine obtiennent nettement plus d'engagement que ceux qui
+  // saturent. La zone optimale est donc une bande, pas une échelle croissante.
+  return sAgrege([
+    { obtenu: sBande(parSemaine, 3, 6, 10),                          max: 10 },
+    { obtenu: sPalierBas(trou, [[2,10],[4,8.5],[7,7],[14,4.5],[30,2],[90,0]]), max: 10 }
+  ], 20);
+}
+
+function calculerScores(mesures) {
+  const s = {
+    engagement:   scoreEngagement(mesures),
+    retention:    scoreRetention(mesures),
+    storytelling: scoreStorytelling(mesures),
+    sujets:       scoreSujets(mesures),
+    regularite:   scoreRegularite(mesures)
+  };
+  const mesurees = SCORE_DIMS.filter(d => s[d.key] !== null);
+  const maxDispo = mesurees.reduce((a, d) => a + d.max, 0);
+  const obtenu   = mesurees.reduce((a, d) => a + s[d.key], 0);
+  s.global = maxDispo > 0 ? Math.round((obtenu / maxDispo) * 100) : null;
+  // Le levier est la dimension mesurée la plus faible en proportion de son total
+  let levier = null, plusBas = 2;
+  mesurees.forEach(d => {
+    const part = s[d.key] / d.max;
+    if (part < plusBas) { plusBas = part; levier = d.label; }
+  });
+  s.levier_dim = levier;
+  return s;
+}
 
 function auditNum(v) {
   return Number.isFinite(v) ? v : (parseInt(v) || 0);
@@ -3396,21 +3613,52 @@ function renderAudit(a) {
   let html = '<div class="audit-result">';
 
   // ── TikTok Score ──
-  const ts = a.tiktok_score || {};
-  const global = auditNum(ts.global);
+  // Si le modèle a fourni des mesures brutes, le score est calculé ici par
+  // le moteur (reproductible). Sinon c'est un audit enregistré avant le
+  // moteur : on relit l'ancien champ tiktok_score tel quel.
+  const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
+
+  // Une dimension n'est notée que si le modèle a renvoyé un vrai nombre.
+  // Sinon elle est "non mesurée" — surtout pas 0/20, qui ferait croire
+  // à une mauvaise note alors que c'est la donnée qui manque.
+  const dimValeur = v => {
+    const n = (typeof v === 'number') ? v : parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // Le score global est recalculé ici à partir des seules dimensions
+  // réellement mesurées, puis ramené sur 100. Sans ça, un compte à qui
+  // il manque une capture plafonnerait mécaniquement (ex. 80/100 maximum).
+  // On ne se fie pas à l'arithmétique du modèle.
+  const dimsMesurees = SCORE_DIMS.filter(d => dimValeur(ts[d.key]) !== null);
+  const maxMesure = dimsMesurees.reduce((s, d) => s + d.max, 0);
+  const obtenu = dimsMesurees.reduce((s, d) => s + dimValeur(ts[d.key]), 0);
+  const global = maxMesure > 0 ? Math.round((obtenu / maxMesure) * 100) : auditNum(ts.global);
+  const partiel = dimsMesurees.length > 0 && dimsMesurees.length < SCORE_DIMS.length;
+
   html += `
     <div class="audit-score-card">
       <div class="audit-score-label">ADN TIKTOK SCORE</div>
       <div class="audit-score-num">${global}<span>/100</span></div>
-      ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>` : ''}
+      ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
+      ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>`
+        : (ts.levier_dim ? `<div class="audit-score-phrase">Ton levier le plus fort aujourd'hui : ${auditEsc(ts.levier_dim)}.</div>` : '')}
     </div>`;
 
   // Dimensions du score
-  const hasDims = SCORE_DIMS.some(d => ts[d.key] != null);
+  const hasDims = dimsMesurees.length > 0;
   if (hasDims) {
     html += '<div class="audit-axes">';
     SCORE_DIMS.forEach(d => {
-      const v = auditNum(ts[d.key]);
+      const v = dimValeur(ts[d.key]);
+      if (v === null) {
+        html += `
+        <div class="audit-axe" style="opacity:.45">
+          <div class="audit-axe-head"><span>${d.label}</span><b>non mesuré</b></div>
+          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:0%"></div></div>
+        </div>`;
+        return;
+      }
       const pct = Math.max(0, Math.min(100, (v / d.max) * 100));
       html += `
         <div class="audit-axe">
@@ -3551,6 +3799,12 @@ function chooseMode(mode) {
   const af = document.getElementById('auditFlow');
   if (af) af.style.display = 'none';
   if (mode === 'audit') {
+    if (!aAccesMode('audit')) {
+      alert("L'analyse de compte TikTok fait partie de l'offre Pro.\n\nCreator : tous les modes de création.\nPro : Creator + Analyse compte TikTok.\n\nContacte-nous pour passer au Pro.");
+      document.getElementById('homePage').style.display = 'block';
+      openPaywall();
+      return;
+    }
     if (af) af.style.display = 'block';
   } else if (mode === 'script') {
     document.getElementById('flow').style.display = 'block';
