@@ -3526,26 +3526,16 @@ function scoreRetention(m) {
 
 function scoreStorytelling(m) {
   const s = (m && m.storytelling) || {};
-  // Le critère du hook est CALCULÉ quand la seconde de décrochage est
-  // connue, au lieu d'être laissé au jugement du modèle : un décrochage
-  // dans les 3 premières secondes signifie que l'accroche n'a pas tenu.
-  // On ne retombe sur l'avis du modèle que si le chiffre est absent.
-  const secondes = [(m && m.retention_meilleure) || {}, (m && m.retention_pire) || {}]
-    .map(o => sNum(o.seconde_decrochage))
-    .filter(v => v !== null);
-  let ptsHook;
-  if (secondes.length) {
-    const moy = secondes.reduce((a, b) => a + b, 0) / secondes.length;
-    ptsHook = sPalierHaut(moy, [[6, 4], [3, 2], [0, 0]]);
-  } else {
-    ptsHook = sCritere(s.hook_avant_3s, 4);
-  }
+  // Le point de décrochage a été retiré du score après vérification sur des
+  // données réelles : une vidéo virale décrochait à 0:01 et un échec à 0:02.
+  // Sur TikTok, la masse quitte dans la première seconde même sur un bon
+  // contenu, donc cette seconde ne distingue rien. Ce qui sépare vraiment les
+  // deux, c'est le taux moyen et la complétion — déjà notés en Rétention.
   return sAgrege([
-    { obtenu: sCritere(s.hook_present,       4), max: 4 },
-    { obtenu: ptsHook,                           max: 4 },
-    { obtenu: sCritere(s.faible_chute_debut, 4), max: 4 },
-    { obtenu: sCritere(s.retention_stable,   4), max: 4 },
-    { obtenu: sCritere(s.bonne_fin,          4), max: 4 }
+    { obtenu: sCritere(s.hook_present,       5), max: 5 },
+    { obtenu: sCritere(s.faible_chute_debut, 5), max: 5 },
+    { obtenu: sCritere(s.retention_stable,   5), max: 5 },
+    { obtenu: sCritere(s.bonne_fin,          5), max: 5 }
   ], 20);
 }
 
@@ -3599,6 +3589,70 @@ function calculerScores(mesures) {
 
 function auditNum(v) {
   return Number.isFinite(v) ? v : (parseInt(v) || 0);
+}
+
+// Version texte de l'audit, pour les boutons Copier et Partager.
+// Reprend le même contenu que l'affichage, sans le HTML.
+function auditTexteBrut(a, ts) {
+  const L = [];
+  L.push('ANALYSE DE COMPTE TIKTOK · SCRIPTURA');
+  L.push('');
+  if (ts && ts.global != null) L.push('ADN TikTok Score : ' + ts.global + '/100');
+  SCORE_DIMS.forEach(d => {
+    const v = (ts && ts[d.key] != null) ? (ts[d.key] + '/' + d.max) : 'non mesuré';
+    L.push('  ' + d.label + ' : ' + v);
+  });
+  if (ts && ts.levier_dim) L.push('Levier principal : ' + ts.levier_dim);
+
+  const P = a.piliers || {};
+  const bloc = (titre, lignes) => {
+    const utiles = lignes.filter(Boolean);
+    if (!utiles.length) return;
+    L.push('', titre.toUpperCase());
+    utiles.forEach(x => L.push(x));
+  };
+
+  bloc('Performance globale', [
+    P.performance_globale && P.performance_globale.constat,
+    P.performance_globale && P.performance_globale.blocage,
+    (P.performance_globale && P.performance_globale.action) ? '→ ' + P.performance_globale.action : null
+  ]);
+  bloc('Meilleure vidéo', [
+    P.meilleure_video && P.meilleure_video.constat,
+    P.meilleure_video && P.meilleure_video.formule
+  ]);
+  bloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
+  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion]);
+
+  const ed = P.editorial;
+  if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
+    L.push('', 'ANALYSE ÉDITORIALE');
+    (ed.sujets_notes || []).forEach(s => L.push('  ' + (s.sujet || '') + ' : ' + (s.note || '')));
+    if (ed.recommandation) L.push('→ ' + ed.recommandation);
+  }
+
+  bloc('Audience', [
+    P.audience && P.audience.constat,
+    P.audience && P.audience.alignement
+  ]);
+
+  const pa = a.plan_action_30j;
+  if (pa && typeof pa === 'object') {
+    const lignes = [];
+    if (pa.frequence) lignes.push('Fréquence : ' + pa.frequence);
+    if (pa.duree_ideale) lignes.push('Durée idéale : ' + pa.duree_ideale);
+    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length)
+      lignes.push('Sujets à faire : ' + pa.sujets_a_faire.join(', '));
+    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length)
+      lignes.push('À éviter : ' + pa.erreurs_a_eviter.join(', '));
+    bloc('Plan des 30 prochains jours', lignes);
+  }
+
+  if (Array.isArray(a.donnees_manquantes) && a.donnees_manquantes.length) {
+    bloc('Pour un audit plus complet', a.donnees_manquantes);
+  }
+
+  return L.join('\n');
 }
 
 function renderAudit(a) {
@@ -3756,6 +3810,13 @@ function renderAudit(a) {
       <ul>${li}</ul>
     </div>`;
   }
+
+  // ── Copier / Partager ──
+  const txtAudit = auditTexteBrut(a, ts);
+  html += `<div class="sb-actions-fin">
+    <button class="icon-btn" title="Copier l'audit" onclick="copyText(this, '${storeCopyText(txtAudit)}')">${ICON_COPY}</button>
+    <button class="icon-btn" title="Partager l'audit" onclick="shareText(this, '${storeCopyText(txtAudit)}')">${ICON_SHARE}</button>
+  </div>`;
 
   // ── Pont vers le contenu ──
   html += `
