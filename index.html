@@ -4094,7 +4094,7 @@ function renderAudit(a) {
   // ── Pont vers le contenu ──
   html += `
     <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
-      Générer 3 idées pour corriger ça
+      Générer des idées pour corriger ça
     </button>
   </div>`;
 
@@ -4211,16 +4211,34 @@ function auditBlock(titre, inner) {
 // Pont audit → mode idées : envoie le problème principal vers le générateur d'idées
 function genererIdeesCorrectives() {
   if (!lastAudit) return;
-  const P = lastAudit.piliers || {};
-  let probleme = '';
-  // Priorité : conclusion du comparatif, sinon blocage global, sinon reco éditoriale
-  if (P.comparatif && P.comparatif.conclusion) probleme = P.comparatif.conclusion;
-  else if (P.performance_globale && P.performance_globale.blocage) probleme = P.performance_globale.blocage;
-  else if (P.editorial && P.editorial.recommandation) probleme = P.editorial.recommandation;
 
   chooseMode('ideas');
+
+  // Pré-remplir avec ce que l'audit sait déjà : la niche et l'objectif
+  // saisis au départ de l'analyse. L'utilisateur peut tout modifier ensuite.
+  const niche = document.getElementById('auditNiche')?.value || '';
+  const objectif = document.getElementById('auditObjectif')?.value || '';
+
+  // Niche : les listes de l'audit et des idées sont identiques, report direct.
   const nicheField = document.getElementById('ideaNiche');
-  if (nicheField && probleme) nicheField.value = probleme;
+  if (nicheField && niche) {
+    nicheField.value = niche;
+    nicheField.dispatchEvent(new Event('change')); // met à jour le champ géo lié
+  }
+
+  // Objectif : on relie l'objectif de l'audit au bon bouton du mode idées.
+  const mapObjectif = {
+    'Faire plus de vues et maximiser la portée': 'faire des vues',
+    'Gagner des abonnés qualifiés rapidement': 'gagner des abonnés',
+    'Générer des ventes via mon contenu': 'générer des ventes',
+    'Renforcer mon expertise et ma crédibilité': 'renforcer mon expertise'
+  };
+  const goalVal = mapObjectif[objectif];
+  if (goalVal) {
+    const btn = document.querySelector('#ideaGoalGrid .grid-btn[data-val="' + goalVal + '"]');
+    if (btn) btn.click(); // déclenche la sélection normale (classe active + setter)
+  }
+
   const info = document.getElementById('ideasFlow');
   if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
