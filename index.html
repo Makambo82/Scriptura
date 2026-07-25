@@ -1386,46 +1386,59 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .audit-thumb-del:hover{background:rgba(200,60,60,0.9)}
 
 /* ── RÉSULTAT DE L'AUDIT (noir & or) ── */
-.audit-result{margin-top:24px;display:grid;gap:18px}
+.audit-result{margin-top:28px;display:grid;gap:28px}
 .audit-score-card{
   background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.04));
-  border:1px solid var(--border);border-radius:18px;padding:26px 22px;text-align:center
+  border:1px solid var(--border);border-radius:20px;padding:34px 24px 30px;text-align:center;
+  position:relative;overflow:hidden;
 }
-.audit-score-label{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.24em;color:var(--gold);opacity:0.8;margin-bottom:10px}
-.audit-score-num{font-family:'Playfair Display',serif;font-size:3.4rem;font-weight:700;line-height:1;color:var(--gold-light)}
-.audit-score-num span{font-size:1.3rem;font-weight:500;color:rgba(255,255,255,0.4)}
-.audit-score-phrase{margin-top:12px;font-size:0.95rem;color:var(--text-secondary);line-height:1.5}
-.audit-axes{display:grid;gap:13px}
-.audit-axe-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:0.9rem;color:var(--text-secondary)}
+.audit-score-card::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 0%,rgba(201,168,76,0.10),transparent 60%);
+}
+.audit-score-label{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.24em;color:var(--gold);opacity:0.8;margin-bottom:14px}
+.audit-score-num{font-family:'Playfair Display',serif;font-size:4rem;font-weight:700;line-height:1;color:var(--gold-light)}
+.audit-score-num span{font-size:1.4rem;font-weight:500;color:rgba(255,255,255,0.4)}
+.audit-score-phrase{margin-top:14px;font-size:0.95rem;color:var(--text-secondary);line-height:1.55;max-width:34ch;margin-left:auto;margin-right:auto}
+.audit-axes{display:grid;gap:16px;padding:4px 2px}
+.audit-axe-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:0.9rem;color:var(--text-secondary)}
 .audit-axe-head b{color:var(--gold-light);font-size:0.92rem}
-.audit-axe-bar{height:7px;background:rgba(255,255,255,0.07);border-radius:6px;overflow:hidden}
-.audit-axe-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:6px;transition:width .6s ease}
-.audit-block{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;padding:18px}
-.audit-block-title{font-size:0.92rem;font-weight:700;color:var(--gold-light);margin-bottom:14px;letter-spacing:0.02em}
-.audit-diag-constat{font-size:0.92rem;color:#fff;font-weight:600;line-height:1.45;margin-bottom:6px}
-.audit-diag-interp{font-size:0.88rem;color:var(--muted);line-height:1.45;margin-bottom:6px}
-.audit-diag-action{font-size:0.9rem;color:var(--gold-light);line-height:1.45;margin-top:4px}
+.audit-axe-bar{height:8px;background:rgba(255,255,255,0.07);border-radius:6px;overflow:hidden}
+.audit-axe-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:6px;transition:width .9s cubic-bezier(.16,1,.3,1)}
+
+/* Séparateur de section : donne un rythme au lieu d'une pile uniforme */
+.audit-section-label{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--gold);opacity:0.7;margin:8px 2px -8px;display:flex;align-items:center;gap:12px;
+}
+.audit-section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(201,168,76,0.25),transparent)}
+
+.audit-block{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:16px;padding:22px}
+.audit-block-title{font-size:0.98rem;font-weight:700;color:var(--gold-light);margin-bottom:16px;letter-spacing:0.02em}
+.audit-diag-constat{font-size:0.94rem;color:#fff;font-weight:600;line-height:1.55;margin-bottom:10px}
+.audit-diag-interp{font-size:0.89rem;color:var(--muted);line-height:1.55;margin-bottom:10px}
+.audit-diag-action{font-size:0.9rem;color:var(--gold-light);line-height:1.55;margin-top:8px;padding-top:12px;border-top:1px solid var(--border-soft)}
 /* Comparatif meilleure / pire */
-.audit-vs{display:grid;gap:12px}
-.audit-vs-col{border-radius:12px;padding:14px;border:1px solid var(--border-soft)}
+.audit-vs{display:grid;gap:14px}
+.audit-vs-col{border-radius:14px;padding:16px;border:1px solid var(--border-soft)}
 .audit-vs-best{background:rgba(201,168,76,0.07)}
 .audit-vs-worst{background:rgba(217,101,112,0.07);border-color:rgba(217,101,112,0.22)}
-.audit-vs-tag{font-size:0.82rem;font-weight:700;color:#fff;margin-bottom:7px}
-.audit-vs-text{font-size:0.88rem;color:var(--text-secondary);line-height:1.45}
-.audit-vs-formule{font-size:0.88rem;color:var(--gold-light);margin-top:7px;line-height:1.45}
-.audit-vs-concl{margin-top:12px;font-size:0.92rem;color:#fff;font-weight:600;line-height:1.5;text-align:center;padding-top:12px;border-top:1px solid var(--border-soft)}
+.audit-vs-tag{font-size:0.84rem;font-weight:700;color:#fff;margin-bottom:9px}
+.audit-vs-text{font-size:0.89rem;color:var(--text-secondary);line-height:1.55}
+.audit-vs-formule{font-size:0.89rem;color:var(--gold-light);margin-top:9px;line-height:1.55}
+.audit-vs-concl{margin-top:14px;font-size:0.94rem;color:#fff;font-weight:600;line-height:1.55;text-align:center;padding-top:14px;border-top:1px solid var(--border-soft)}
 /* Éditorial : notes par sujet */
-.audit-sujets{display:grid;gap:8px;margin-bottom:12px}
-.audit-sujet{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;color:var(--text-secondary);padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+.audit-sujets{display:grid;gap:10px;margin-bottom:14px}
+.audit-sujet{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;color:var(--text-secondary);padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
 .audit-sujet b{color:var(--gold-light)}
 /* Plan d'action */
 .audit-plan{background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.03));border-color:var(--border)}
-.audit-plan-list{margin:0;padding-left:18px;display:grid;gap:9px}
-.audit-plan-list li{font-size:0.9rem;color:var(--text-secondary);line-height:1.5}
+.audit-plan-list{margin:0;padding-left:18px;display:grid;gap:11px}
+.audit-plan-list li{font-size:0.9rem;color:var(--text-secondary);line-height:1.55}
 .audit-plan-list li b{color:#fff;font-weight:600}
 .audit-manquant ul{margin:0;padding-left:20px}
 .audit-manquant li{font-size:0.87rem;color:var(--muted);line-height:1.6}
-.audit-idees-btn{margin-top:6px}
+.audit-idees-btn{margin-top:14px}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -3726,6 +3739,12 @@ function renderAudit(a) {
   const P = a.piliers || {};
   const dispo = p => p && p.disponible !== false && (p.constat || p.conclusion || p.formule || (p.sujets_notes && p.sujets_notes.length));
 
+  // Intertitre : ouvre la partie diagnostic, pour séparer visuellement le
+  // score (le verdict) de son explication détaillée.
+  const yaDiagnostic = dispo(P.performance_globale) || dispo(P.meilleure_video)
+    || dispo(P.pire_video) || dispo(P.comparatif) || dispo(P.editorial) || dispo(P.audience);
+  if (yaDiagnostic) html += '<div class="audit-section-label">Le diagnostic</div>';
+
   // ── Pilier : performance globale ──
   if (dispo(P.performance_globale)) {
     const p = P.performance_globale;
@@ -3785,6 +3804,7 @@ function renderAudit(a) {
   // ── Plan d'action 30 jours ──
   const pa = a.plan_action_30j;
   if (pa && typeof pa === 'object') {
+    html += '<div class="audit-section-label">Passe à l\'action</div>';
     let items = '';
     if (pa.frequence) items += `<li><b>Fréquence :</b> ${auditEsc(pa.frequence)}</li>`;
     if (pa.duree_ideale) items += `<li><b>Durée idéale :</b> ${auditEsc(pa.duree_ideale)}</li>`;
