@@ -7,7 +7,7 @@
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
 
-const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 8 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
+const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 10 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
 
 CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes recommandations) :
 - Objectif principal : {{OBJECTIF}}
@@ -33,15 +33,72 @@ Dans tous les cas où le hook n'est pas calculable mais que d'autres données su
 
 Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
 
+CONTRÔLE DE COUVERTURE (à faire AVANT toute analyse) : l'audit exige 5 données distinctes. Le nombre de captures ne compte pas, seule l'information compte : une donnée peut tenir sur une seule capture, ou être étalée sur plusieurs si l'écran était trop long. À l'inverse, une seule capture peut contenir deux données. Déclare pour chacune si tu l'as réellement vue :
+1. Vue d'ensemble sur 60 jours
+2. Analyse complète de la vidéo la plus performante (indicateurs + courbe ou taux de rétention)
+3. Analyse complète de la vidéo la moins performante (indicateurs + courbe ou taux de rétention)
+4. Top contenus sur 60 jours
+5. Audience (âge, sexe, emplacements)
+
+Sois strict, pas complaisant. Ne déclare une donnée présente que si tu la vois vraiment dans une capture. Ne devine pas, ne suppose pas qu'une capture "ressemble" à ce qui est demandé. Si une image n'est pas un écran de statistiques TikTok (photo personnelle, capture d'une autre application, image floue ou illisible), compte-la dans "captures_hors_sujet" et n'en tire aucune conclusion. Ta tendance naturelle à vouloir rendre service ne doit jamais te faire valider une donnée absente : un refus clair vaut mieux qu'un audit bâti sur du vide.
+
+RÈGLE DE NOTATION : tu ne donnes AUCUNE note. Tu n'inventes aucun score. Ton rôle est uniquement d'extraire des mesures brutes et de répondre à des critères fermés. C'est l'application qui calcule les notes, pour que deux analyses des mêmes captures donnent exactement le même score.
+
+Pour les mesures chiffrées : recopie le chiffre tel qu'il apparaît dans la capture. Si le chiffre n'est pas visible, mets null. Ne calcule rien, ne convertis rien, n'estime rien. Un "7,7 K" se recopie en 7700. Un "1 h:42 m:50 s" se recopie en secondes.
+
+Pour les critères fermés : réponds exactement "OUI", "PARTIEL", "NON", ou null si la capture ne permet pas de juger. Rien d'autre. Ne réponds pas OUI par complaisance : si tu hésites, c'est PARTIEL ; si tu ne peux pas voir, c'est null.
+
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
 
 {
-  "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 28j', 'détail vidéo (rétention 71%)'>"],
-  "tiktok_score": {
-    "hook": <0-20>, "storytelling": <0-20>, "sujets": <0-20>, "engagement": <0-20>, "regularite": <0-20>,
-    "global": <0-100>,
-    "levier": "<la dimension qui, améliorée, ferait le plus monter le score>"
+  "couverture": {
+    "vue_ensemble_60j": <true/false>,
+    "meilleure_video": <true/false>,
+    "pire_video": <true/false>,
+    "top_contenus_60j": <true/false>,
+    "audience": <true/false>,
+    "captures_hors_sujet": <nombre de captures fournies qui ne sont pas des statistiques TikTok>
   },
+  "mesures": {
+    "engagement": {
+      "vues": <nombre total de vues de publication sur la période, ou null>,
+      "likes": <nombre, ou null>,
+      "commentaires": <nombre, ou null>,
+      "partages": <nombre, ou null>
+    },
+    "retention_meilleure": {
+      "taux_moyen_pct": <le "en moyenne les spectateurs ont regardé X % de ta vidéo", ou null>,
+      "completion_pct": <le "a regardé toute la vidéo" en %, ou null>,
+      "seconde_decrochage": <la seconde où la plupart cessent de regarder, ou null>,
+      "duree_video_s": <durée totale de la vidéo en secondes, ou null>
+    },
+    "retention_pire": {
+      "taux_moyen_pct": <idem pour la vidéo la moins performante, ou null>,
+      "completion_pct": <ou null>,
+      "seconde_decrochage": <ou null>,
+      "duree_video_s": <ou null>
+    },
+    "storytelling": {
+      "hook_present": "<OUI|PARTIEL|NON|null — la vidéo ouvre-t-elle sur une accroche identifiable ?>",
+      "hook_avant_3s": "<OUI|PARTIEL|NON|null — l'accroche arrive-t-elle dans les 3 premières secondes ? juge d'après le point de décrochage et la pente de la courbe>",
+      "faible_chute_debut": "<OUI|PARTIEL|NON|null — la courbe de rétention tient-elle sur les premières secondes au lieu de s'effondrer ?>",
+      "retention_stable": "<OUI|PARTIEL|NON|null — après la chute initiale, la courbe reste-t-elle à peu près plate ?>",
+      "bonne_fin": "<OUI|PARTIEL|NON|null — la courbe se maintient-elle jusqu'à la fin, ou y a-t-il un décrochage final marqué ?>"
+    },
+    "sujets": {
+      "themes_repetes": "<OUI|PARTIEL|NON|null — les meilleures publications partagent-elles un thème commun ?>",
+      "coherence_editoriale": "<OUI|PARTIEL|NON|null — l'ensemble du top contenus suit-il une ligne cohérente ?>",
+      "adequation_objectif": "<OUI|PARTIEL|NON|null — les sujets servent-ils l'objectif déclaré par le créateur ?>",
+      "performances_homogenes": "<OUI|PARTIEL|NON|null — les performances du top sont-elles régulières, ou tout repose-t-il sur une seule vidéo ?>"
+    },
+    "regularite": {
+      "nb_videos_periode": <nombre de publications visibles sur la période, ou null>,
+      "periode_jours": <durée de la période analysée en jours, ou null>,
+      "plus_long_trou_jours": <plus long écart en jours entre deux publications d'après les dates visibles, ou null>
+    }
+  },
+  "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 60j', 'détail vidéo (rétention 22%)'>"],
+  "commentaire_score": "<une phrase expliquant ce que les mesures ci-dessus révèlent, sans donner de note>",
   "piliers": {
     "performance_globale": { "disponible": <true/false>, "constat": "<...chiffré...>", "blocage": "<...>", "action": "<...>" },
     "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : sujet, durée, et hook/rétention UNIQUEMENT si une capture détail vidéo le montre>", "formule": "<la formule extraite, ex: 'Tes histoires personnelles font 2,5x plus de vues'>" },
@@ -115,7 +172,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
-        max_tokens: max_tokens || 4000,
+        max_tokens: max_tokens || 8000,
         messages: [{ role: 'user', content: content }]
       })
     });
