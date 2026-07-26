@@ -1419,23 +1419,53 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 
 /* ── MODE AUDIT TIKTOK ── */
 .hero-mode-btn.audit .mode-icon{filter:saturate(0.9)}
-/* Halo doré pulsant : met en avant l'audit (produit d'appel) */
+/* Filet doré rotatif : une lumière fait le tour du cadre, sens horaire */
 .hero-mode-btn.audit{
-  background:rgba(201,168,76,0.08);
-  border-color:rgba(201,168,76,0.5);
-  animation:auditGlow 2.4s ease-in-out infinite;
+  position:relative;
+  background:transparent;
+  border-color:transparent;
+  overflow:hidden;
+  isolation:isolate;
 }
-.hero-mode-btn.audit:hover{
-  background:rgba(201,168,76,0.13);
-  border-color:var(--gold);
+/* Le dégradé conique qui tourne, derrière tout */
+.hero-mode-btn.audit::before{
+  content:'';
+  position:absolute;
+  top:50%;left:50%;
+  width:150%;
+  aspect-ratio:1;
+  background:conic-gradient(from 0deg,
+    rgba(201,168,76,0.18) 0deg,
+    rgba(201,168,76,0.18) 240deg,
+    rgba(201,168,76,0.55) 300deg,
+    #E2C87A 332deg,
+    rgba(201,168,76,0.55) 346deg,
+    rgba(201,168,76,0.18) 360deg);
+  animation:auditSpin 3.5s linear infinite;
+  z-index:0;
 }
+/* Le fond intérieur : masque le dégradé et ne laisse qu'un liseré de 1px */
+.hero-mode-btn.audit::after{
+  content:'';
+  position:absolute;
+  inset:1px;
+  border-radius:13px;
+  background:linear-gradient(rgba(201,168,76,0.08),rgba(201,168,76,0.08)),var(--bg);
+  z-index:1;
+  transition:background 0.3s ease;
+}
+.hero-mode-btn.audit:hover::after{
+  background:linear-gradient(rgba(201,168,76,0.14),rgba(201,168,76,0.14)),var(--bg);
+}
+/* Le contenu passe au-dessus des deux couches */
+.hero-mode-btn.audit > *{position:relative;z-index:2}
 .hero-mode-btn.audit .mode-label{color:var(--gold-light)}
-@keyframes auditGlow{
-  0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.0),0 0 12px 0 rgba(201,168,76,0.15)}
-  50%{box-shadow:0 0 0 1px rgba(201,168,76,0.35),0 0 22px 2px rgba(201,168,76,0.35)}
+@keyframes auditSpin{
+  from{transform:translate(-50%,-50%) rotate(0deg)}
+  to{transform:translate(-50%,-50%) rotate(360deg)}
 }
 @media(prefers-reduced-motion:reduce){
-  .hero-mode-btn.audit{animation:none;box-shadow:0 0 16px 1px rgba(201,168,76,0.25)}
+  .hero-mode-btn.audit::before{animation:none;background:rgba(201,168,76,0.5)}
 }
 
 .audit-guide{
@@ -1696,6 +1726,13 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   <div class="hero-rule"></div>
   <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
   <div class="hero-modes">
+    <button class="hero-mode-btn audit" onclick="chooseMode('audit')">
+      <span class="mode-icon">📊</span>
+      <span class="mode-body">
+        <span class="mode-label">Analyse mon compte TikTok</span>
+        <span class="mode-desc">Découvre ce qui bloque ta croissance</span>
+      </span>
+    </button>
     <button class="hero-mode-btn" onclick="chooseMode('ideas')">
       <span class="mode-icon">💡</span>
       <span class="mode-body">
@@ -1715,13 +1752,6 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
       <span class="mode-body">
         <span class="mode-label">Storytelling</span>
         <span class="mode-desc">Un récit immersif signature</span>
-      </span>
-    </button>
-    <button class="hero-mode-btn audit" onclick="chooseMode('audit')">
-      <span class="mode-icon">📊</span>
-      <span class="mode-body">
-        <span class="mode-label">Analyse mon compte TikTok</span>
-        <span class="mode-desc">Découvre ce qui bloque ta croissance</span>
       </span>
     </button>
   </div>
@@ -3271,7 +3301,7 @@ function openPlans(contexte) {
     // Abonné Creator qui veut l'analyse TikTok : on ne remontre pas Creator
     if (tag) tag.textContent = 'Passe au Pro';
     if (titre) titre.innerHTML = 'L\'analyse TikTok<br/>est dans le plan Pro';
-    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok à tout ce que tu as déjà.'; intro.style.display = 'block'; }
+    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok, propulsée par notre IA la plus avancée pour un diagnostic plus fin.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'quota') {
@@ -3302,7 +3332,7 @@ function openPlans(contexte) {
     // au tarif Creator (moins cher).
     if (tag) tag.textContent = 'Débloquer l\'analyse TikTok';
     if (titre) titre.innerHTML = 'Analyse ton<br/>compte TikTok';
-    if (intro) { intro.textContent = 'Passe au Pro pour l\'avoir chaque mois, ou achète juste le nombre d\'analyses dont tu as besoin.'; intro.style.display = 'block'; }
+    if (intro) { intro.textContent = 'Analyse propulsée par notre IA la plus avancée. Passe au Pro pour l\'avoir chaque mois, ou achète juste le nombre d\'analyses dont tu as besoin.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('creator'); packsBloc.style.display = 'block'; }
@@ -3310,7 +3340,7 @@ function openPlans(contexte) {
     // Non-abonné qui veut une analyse : Pro complet OU packs au tarif non-abonné.
     if (tag) tag.textContent = 'Analyse ton compte TikTok';
     if (titre) titre.innerHTML = 'Analyse ton<br/>compte TikTok';
-    if (intro) { intro.textContent = 'Prends le plan Pro pour tout débloquer, ou achète simplement une ou plusieurs analyses.'; intro.style.display = 'block'; }
+    if (intro) { intro.textContent = 'Analyse propulsée par notre IA la plus avancée. Prends le plan Pro pour tout débloquer, ou achète simplement une ou plusieurs analyses.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
@@ -7167,7 +7197,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       <div class="plan-price">10 000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
         <li>Tout le plan Creator</li>
-        <li>+ Analyse de compte TikTok</li>
+        <li>+ Analyse de compte TikTok, propulsée par notre IA la plus avancée</li>
         <li>70 générations de création + 5 analyses par mois</li>
         <li>Mobile Money accepté</li>
       </ul>
