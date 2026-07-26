@@ -4851,6 +4851,7 @@ async function creerSerie() {
   if (btn) btn.disabled = true;
   if (spin) spin.style.display = 'inline-block';
   if (txt) txt.textContent = 'Construction de ta série…';
+  startGenAnimation('serie_creation');
 
   try {
     // 1. La bible : prémisse, univers, ton, règle récurrente, et l'arc épisode par épisode
@@ -4906,6 +4907,7 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     err.textContent = 'Création impossible : ' + (e.message || 'réessaie');
     err.style.display = 'block';
   } finally {
+    stopGenAnimation();
     if (btn) btn.disabled = false;
     if (spin) spin.style.display = 'none';
     if (txt) txt.textContent = 'Lancer ma série';
@@ -4979,6 +4981,7 @@ async function genererEpisode() {
   if (spin) spin.style.display = 'inline-block';
   if (txt) txt.textContent = 'Écriture en cours…';
   if (err) err.style.display = 'none';
+  startGenAnimation('serie_episode');
 
   try {
     const { data: serie, error: e1 } = await supabaseClient
@@ -5046,8 +5049,10 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
       try { saveGeneration('serie', serie.titre + ' — épisode ' + num, ep); } catch(e) {}
     }
 
+    stopGenAnimation();
     ouvrirSerie(serieCouranteId);
   } catch(e) {
+    stopGenAnimation();
     if (err) { err.textContent = 'Génération impossible : ' + (e.message || 'réessaie'); err.style.display = 'block'; }
     if (btn) btn.disabled = false;
     if (spin) spin.style.display = 'none';
@@ -7143,13 +7148,33 @@ const GEN_STEPS = {
     'Analyse de l\'audience…',
     'Calcul de l\'ADN TikTok Score…',
     'Rédaction du plan d\'action…'
+  ],
+  serie_creation: [
+    'Lecture du concept…',
+    'Définition de la prémisse…',
+    "Construction de l'univers et du ton…",
+    'Choix de la règle récurrente…',
+    "Répartition de l'arc narratif…",
+    "Attribution d'une fonction à chaque épisode…",
+    'Finalisation de la bible…'
+  ],
+  serie_episode: [
+    'Relecture de la bible de la série…',
+    'Vérification des épisodes déjà publiés…',
+    'Cadrage de la fonction narrative…',
+    "Écriture de l'accroche…",
+    'Développement du récit…',
+    'Pose de la tension finale…',
+    'Calibrage de la durée…'
   ]
 };
 const GEN_TAGLINE = {
   script: 'Ton équipe éditoriale IA au travail',
   ideas: 'Ton directeur éditorial cherche tes idées',
   story: 'Ton storyteller écrit ton récit',
-  audit: 'Ton consultant TikTok analyse ton compte'
+  audit: 'Ton consultant TikTok analyse ton compte',
+  serie_creation: 'Ton architecte narratif construit ta série',
+  serie_episode: 'Ton scénariste écrit ton épisode'
 };
 
 function startGenAnimation(mode) {
