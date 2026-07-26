@@ -2404,6 +2404,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 // ═══════════════════════════════════════════════════════════
 const MODEL_CREATIF = "claude-haiku-4-5-20251001";    // Haiku partout (rapide et fiable)
 const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, storyboards (vitesse)
+const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : tâche complexe, qualité premium
 
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
 const CRITIQUE_ACTIVE = false;
@@ -3314,7 +3315,7 @@ function openPlans(contexte) {
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
   } else {
-    // Non-abonné qui a épuisé ses générations gratuites
+    // Non-abonné qui a épuisé ses générations gratuites (sans jetons affichés)
     if (tag) tag.textContent = 'Choisis ton offre';
     if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>5 générations gratuites';
     if (intro) { intro.textContent = 'Pour continuer à créer sans attendre, choisis le plan qui te convient.'; intro.style.display = 'block'; }
@@ -3339,24 +3340,24 @@ const PLANS = {
   },
   pro: {
     nom: 'Pro',
-    prix: '8 000 FCFA',
+    prix: '10 000 FCFA',
     titre: 'Passe au plan Pro',
     desc: 'Tout Creator + l\'analyse de compte TikTok. 70 générations + 5 analyses par mois.',
-    wa: 'Bonjour, je veux le plan Pro de Scriptura — 8 000 FCFA/mois'
+    wa: 'Bonjour, je veux le plan Pro de Scriptura — 10 000 FCFA/mois'
   }
 };
 
 // Packs d'analyses a l'unite (jetons), tarifes selon le profil de l'acheteur.
 const PACKS_AUDIT = {
   creator: [
-    { qte: 1, prix: 2000, label: '1 analyse' },
-    { qte: 2, prix: 3000, label: '2 analyses' },
-    { qte: 3, prix: 5000, label: '3 analyses' }
+    { qte: 1, prix: 2500, label: '1 analyse' },
+    { qte: 2, prix: 4000, label: '2 analyses' },
+    { qte: 3, prix: 6000, label: '3 analyses' }
   ],
   nonabonne: [
-    { qte: 1, prix: 3000, label: '1 analyse' },
-    { qte: 2, prix: 5000, label: '2 analyses' },
-    { qte: 3, prix: 7000, label: '3 analyses' }
+    { qte: 1, prix: 3500, label: '1 analyse' },
+    { qte: 2, prix: 6000, label: '2 analyses' },
+    { qte: 3, prix: 9000, label: '3 analyses' }
   ]
 };
 
@@ -3808,7 +3809,7 @@ async function lancerAudit() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: MODEL_RAPIDE,
+        model: MODEL_AUDIT,
         max_tokens: 8000,
         images: images,
         objectif: objectif,
@@ -4341,7 +4342,7 @@ function renderAudit(a) {
   // ── Pont vers le contenu ──
   html += `
     <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
-      Trouver des idées de contenu
+      Trouver des idées de contenu virales pour corriger ça
     </button>
   </div>`;
 
@@ -7163,7 +7164,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
         <span class="plan-name">PRO</span>
         <span class="plan-badge" id="planProBadge">Recommandé</span>
       </div>
-      <div class="plan-price">8 000 FCFA <span>/ mois</span></div>
+      <div class="plan-price">10 000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
         <li>Tout le plan Creator</li>
         <li>+ Analyse de compte TikTok</li>
