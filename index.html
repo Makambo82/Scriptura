@@ -3051,7 +3051,7 @@ function auditRappelRepondre(aCommence) {
     rep.textContent = 'Excellent. La régularité fait toute la différence — continue sur cette lancée, tu es sur la bonne voie.';
     btns.innerHTML = '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappelAudit()">Continuer</button>';
   } else {
-    rep.textContent = 'Pas de souci. Le plus dur, c\'est de commencer. Laisse Scriptura te trouver des idées de contenu prêtes à filmer, tout de suite.';
+    rep.textContent = 'Pas de souci. Le plus dur, c\'est de commencer. Laisse Scriptura te trouver des idées de contenu, tout de suite.';
     btns.innerHTML =
       '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappelAudit(); chooseMode(\'ideas\')">Trouver des idées maintenant</button>' +
       '<button class="rappel-btn rappel-btn-non" onclick="fermerRappelAudit()">Plus tard</button>';
@@ -3222,6 +3222,12 @@ function openPlans(contexte) {
       if (cardCreator) cardCreator.style.display = 'none';
       if (proBadge) proBadge.style.display = 'none';
     }
+  } else if (contexte === 'decouverte-audit') {
+    // Non-abonné qui clique sur l'audit : c'est une fonctionnalité Pro, on le
+    // dit sans prétendre qu'il a épuisé ses générations gratuites.
+    if (tag) tag.textContent = 'Fonctionnalité Pro';
+    if (titre) titre.innerHTML = 'L\'analyse de compte<br/>TikTok est dans le Pro';
+    if (intro) { intro.textContent = 'Cette analyse fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
   } else {
     // Non-abonné qui a épuisé ses générations gratuites
     if (tag) tag.textContent = 'Choisis ton offre';
@@ -4210,7 +4216,7 @@ function renderAudit(a) {
   // ── Pont vers le contenu ──
   html += `
     <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
-      Trouver des idées pour corriger le tir
+      Trouver des idées de contenu
     </button>
   </div>`;
 
@@ -4391,8 +4397,9 @@ function chooseMode(mode) {
   if (mode === 'audit') {
     if (!aAccesMode('audit')) {
       document.getElementById('homePage').style.display = 'block';
-      // Un abonné Creator voit la montée vers Pro ; un non-abonné voit les 2 plans.
-      openPlans(unlocked ? 'upgrade' : 'nouveau');
+      // Un abonné Creator voit la montée vers Pro ; un non-abonné découvre
+      // que l'audit est une fonctionnalité Pro (sans message de gratuits épuisés).
+      openPlans(unlocked ? 'upgrade' : 'decouverte-audit');
       return;
     }
     if (af) af.style.display = 'block';
