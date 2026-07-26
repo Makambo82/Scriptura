@@ -628,6 +628,16 @@ footer strong{color:var(--gold)}
   align-items:center;justify-content:center;padding:20px;
 }
 .plans-overlay.active{display:flex}
+/* Packs d'analyses à l'unité */
+.packs-audit{margin-top:20px}
+.packs-sep{text-align:center;font-family:'Tenor Sans',sans-serif;font-size:0.82rem;color:var(--muted);margin-bottom:14px;position:relative}
+.packs-grid{display:grid;gap:10px}
+.pack-btn{display:flex;justify-content:space-between;align-items:center;width:100%;padding:14px 16px;border-radius:14px;border:1px solid var(--border-soft);background:rgba(255,255,255,0.03);cursor:pointer;transition:border-color .2s,background .2s;text-align:left}
+.pack-btn:hover{background:rgba(201,168,76,0.08);border-color:var(--border)}
+.pack-label{font-family:'Tenor Sans',sans-serif;font-size:0.92rem;color:var(--text-secondary)}
+.pack-label b{color:#fff;font-weight:600}
+.pack-price{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--gold-light);white-space:nowrap}
+
 .plans-modal{
   background:var(--bg-card);border:1px solid var(--border);border-radius:22px;
   padding:28px 22px 26px;max-width:440px;width:100%;position:relative;
@@ -2764,18 +2774,56 @@ async function peutGenerer(errorBoxId) {
 }
 
 // Vérifie le quota d'audits du mois (compteur séparé de la création).
-async function peutAuditer(errorBoxId) {
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
+// Lit le nombre de jetons d'analyse de l'abonné courant, directement depuis
+// Supabase (jamais mis en cache : ça change à chaque audit).
+async function lireJetonsAudit() {
+  if (!supabaseClient) return 0;
+  const code = localStorage.getItem('scriptura_code');
+  if (!code) return 0;
+  try {
+    const { data, error } = await supabaseClient
+      .from('abonnes')
+      .select('jetons_audit')
+      .eq('code', code)
+      .maybeSingle();
+    if (error || !data) return 0;
+    return parseInt(data.jetons_audit) || 0;
+  } catch(e) { console.warn('Lecture jetons échouée', e); return 0; }
+}
 
-  const limite = limitesDuPalier().audit;
-  if (limite <= 0) return false; // l'accès Pro est déjà vérifié en amont
-  const faits = await countMonthGenerations('audit');
-  if (faits >= limite) {
-    openPlans('quota');
-    return false;
+// Décrémente d'un jeton l'abonné courant, après un audit consommé sur jeton.
+async function consommerJetonAudit() {
+  if (!supabaseClient) return;
+  const code = localStorage.getItem('scriptura_code');
+  if (!code) return;
+  try {
+    const actuels = await lireJetonsAudit();
+    const nouveau = Math.max(0, actuels - 1);
+    await supabaseClient.from('abonnes').update({ jetons_audit: nouveau }).eq('code', code);
+  } catch(e) { console.warn('Décompte jeton échoué', e); }
+}
+
+// Décide si l'utilisateur peut lancer un audit, et par quel moyen.
+// Retourne : 'pro' (analyse mensuelle incluse), 'jeton' (à décompter),
+// ou false (pas le droit — on lui a proposé d'acheter).
+async function peutAuditer() {
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return 'illimite';
+
+  // 1. D'abord les analyses incluses dans le plan Pro (elles se rechargent)
+  const limiteIncluse = limitesDuPalier().audit;
+  if (limiteIncluse > 0) {
+    const faits = await countMonthGenerations('audit');
+    if (faits < limiteIncluse) return 'pro';
   }
-  return true;
+
+  // 2. Ensuite les jetons achetés (ne périment pas)
+  const jetons = await lireJetonsAudit();
+  if (jetons > 0) return 'jeton';
+
+  // 3. Rien de disponible : on propose d'acheter selon le profil
+  openPlans(unlocked ? 'achat-audit-creator' : 'achat-audit-nonabonne');
+  return false;
 }
 
 // Supprime une ou plusieurs générations dans Supabase
@@ -3197,6 +3245,8 @@ function openPlans(contexte) {
   if (cardPro) cardPro.style.display = '';
   if (intro) intro.style.display = 'none';
   if (proBadge) { proBadge.textContent = 'Recommandé'; proBadge.style.display = ''; }
+  const packsBloc = document.getElementById('packsAudit');
+  if (packsBloc) packsBloc.style.display = 'none'; // masqué sauf en contexte d'achat
 
   if (contexte === 'upgrade') {
     // Abonné Creator qui veut l'analyse TikTok : on ne remontre pas Creator
@@ -3228,6 +3278,23 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Fonctionnalité Pro';
     if (titre) titre.innerHTML = 'L\'analyse de compte<br/>TikTok est dans le Pro';
     if (intro) { intro.textContent = 'Cette analyse fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
+  } else if (contexte === 'achat-audit-creator') {
+    // Abonné Creator qui veut une analyse : on propose le Pro ET les packs
+    // au tarif Creator (moins cher).
+    if (tag) tag.textContent = 'Débloquer l\'analyse TikTok';
+    if (titre) titre.innerHTML = 'Analyse ton<br/>compte TikTok';
+    if (intro) { intro.textContent = 'Passe au Pro pour l\'avoir chaque mois, ou achète juste le nombre d\'analyses dont tu as besoin.'; intro.style.display = 'block'; }
+    if (cardCreator) cardCreator.style.display = 'none';
+    if (proBadge) proBadge.style.display = 'none';
+    if (packsBloc) { remplirPacks('creator'); packsBloc.style.display = 'block'; }
+  } else if (contexte === 'achat-audit-nonabonne') {
+    // Non-abonné qui veut une analyse : Pro complet OU packs au tarif non-abonné.
+    if (tag) tag.textContent = 'Analyse ton compte TikTok';
+    if (titre) titre.innerHTML = 'Analyse ton<br/>compte TikTok';
+    if (intro) { intro.textContent = 'Prends le plan Pro pour tout débloquer, ou achète simplement une ou plusieurs analyses.'; intro.style.display = 'block'; }
+    if (cardCreator) cardCreator.style.display = 'none';
+    if (proBadge) proBadge.style.display = 'none';
+    if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
   } else {
     // Non-abonné qui a épuisé ses générations gratuites
     if (tag) tag.textContent = 'Choisis ton offre';
@@ -3260,6 +3327,44 @@ const PLANS = {
     wa: 'Bonjour, je veux le plan Pro de Scriptura — 8 000 FCFA/mois'
   }
 };
+
+// Packs d'analyses a l'unite (jetons), tarifes selon le profil de l'acheteur.
+const PACKS_AUDIT = {
+  creator: [
+    { qte: 1, prix: 2000, label: '1 analyse' },
+    { qte: 2, prix: 3000, label: '2 analyses' },
+    { qte: 3, prix: 5000, label: '3 analyses' }
+  ],
+  nonabonne: [
+    { qte: 1, prix: 3000, label: '1 analyse' },
+    { qte: 2, prix: 5000, label: '2 analyses' },
+    { qte: 3, prix: 7000, label: '3 analyses' }
+  ]
+};
+
+// Remplit la grille de packs selon le profil ('creator' ou 'nonabonne').
+function remplirPacks(profil) {
+  const grid = document.getElementById('packsGrid');
+  if (!grid) return;
+  const packs = PACKS_AUDIT[profil] || PACKS_AUDIT.nonabonne;
+  _packsProfilCourant = profil;
+  grid.innerHTML = packs.map(function(p, i) {
+    const prixFmt = p.prix.toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' FCFA';
+    return '<button class="pack-btn" onclick="acheterPack(' + i + ')">'
+      + '<span class="pack-label"><b>' + p.label + '</b></span>'
+      + '<span class="pack-price">' + prixFmt + '</span></button>';
+  }).join('');
+}
+
+let _packsProfilCourant = 'nonabonne';
+function acheterPack(index) {
+  const packs = PACKS_AUDIT[_packsProfilCourant] || PACKS_AUDIT.nonabonne;
+  const p = packs[index];
+  if (!p) return;
+  const prixFmt = p.prix.toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' FCFA';
+  const msg = 'Bonjour, je veux acheter ' + p.label + ' de compte TikTok sur Scriptura — ' + prixFmt;
+  window.open('https://wa.me/22995056424?text=' + encodeURIComponent(msg), '_blank');
+}
 
 // L'utilisateur a choisi un plan : on ferme la fenêtre de choix et on ouvre
 // le paywall d'abonnement, adapté au plan sélectionné.
@@ -3646,20 +3751,11 @@ async function lancerAudit() {
   const spin = document.getElementById('auditSpinner');
   const btnText = document.getElementById('auditBtnText');
 
-  if (!aAccesMode('audit')) {
-    err.textContent = "L'analyse de compte TikTok est réservée à l'offre Pro.";
-    err.style.display = 'block';
-    return;
-  }
-
   if (!auditCaptures.length) {
     err.textContent = 'Ajoute au moins une capture de tes statistiques.';
     err.style.display = 'block';
     return;
   }
-
-  // Quota d'audits du mois (séparé du quota de création)
-  if (!(await peutAuditer('auditError'))) return;
 
   // Le style de contenu est requis : sans lui, les recommandations peuvent
   // supposer un format inadapté (ex : "filme-toi" pour un créateur faceless).
@@ -3669,6 +3765,11 @@ async function lancerAudit() {
     document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
+
+  // Droit d'auditer : 'pro' (analyse incluse), 'jeton' (à décompter),
+  // 'illimite' (code VIP), ou false (peutAuditer a déjà proposé l'achat).
+  const moyenAudit = await peutAuditer();
+  if (!moyenAudit) return;
 
   err.style.display = 'none';
   out.innerHTML = '';
@@ -3766,6 +3867,11 @@ async function lancerAudit() {
         : (parsed.tiktok_score?.global ?? '?');
       try { saveGeneration('audit', 'Analyse compte TikTok — score ' + scoreTitre, parsed); }
       catch(e) { /* silencieux */ }
+    }
+
+    // Si l'audit a été payé avec un jeton, on le décompte maintenant (après succès)
+    if (moyenAudit === 'jeton') {
+      try { await consommerJetonAudit(); } catch(e) { /* silencieux */ }
     }
 
   } catch (e) {
@@ -4396,13 +4502,15 @@ function chooseMode(mode) {
   const af = document.getElementById('auditFlow');
   if (af) af.style.display = 'none';
   if (mode === 'audit') {
-    if (!aAccesMode('audit')) {
+    // Un non-abonné (sans code) ne peut pas encore auditer : on lui propose
+    // d'acheter des analyses ou de passer au Pro, sans ouvrir le formulaire.
+    if (!unlocked) {
       document.getElementById('homePage').style.display = 'block';
-      // Un abonné Creator voit la montée vers Pro ; un non-abonné découvre
-      // que l'audit est une fonctionnalité Pro (sans message de gratuits épuisés).
-      openPlans(unlocked ? 'upgrade' : 'decouverte-audit');
+      openPlans('achat-audit-nonabonne');
       return;
     }
+    // Un abonné (Creator ou Pro) entre dans le mode : le droit réel (analyse
+    // incluse, jeton, ou achat nécessaire) est tranché au lancement de l'audit.
     if (af) af.style.display = 'block';
     // Ouverture normale du mode : le formulaire de contexte est visible,
     // la note d'affinage est masquée (elle ne sert qu'après un premier audit).
@@ -7045,6 +7153,12 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
         <li>Mobile Money accepté</li>
       </ul>
       <button class="plan-btn plan-btn-pro" onclick="choisirPlan('pro')">Choisir Pro</button>
+    </div>
+
+    <!-- Packs d'analyses à l'unité (jetons) — affichés seulement en contexte d'achat -->
+    <div class="packs-audit" id="packsAudit" style="display:none">
+      <div class="packs-sep" id="packsSep">ou achète des analyses à l'unité</div>
+      <div class="packs-grid" id="packsGrid"></div>
     </div>
 
     <span class="paywall-unlock" onclick="closePlans(); openModal();" style="text-align:center">J'ai déjà un code d'accès</span>
