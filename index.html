@@ -596,6 +596,31 @@ footer strong{color:var(--gold)}
   text-decoration:underline;text-underline-offset:3px;
 }
 
+/* ── POP-UP DE RAPPEL DES RECOMMANDATIONS ── */
+.rappel-overlay{
+  display:none;position:fixed;inset:0;z-index:1001;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:20px;
+}
+.rappel-overlay.active{display:flex}
+.rappel-modal{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:22px;
+  padding:30px 24px 26px;max-width:420px;width:100%;position:relative;text-align:center;
+}
+.rappel-close{position:absolute;top:16px;right:18px;background:none;border:none;color:rgba(255,255,255,0.4);font-size:1.15rem;cursor:pointer}
+.rappel-close:hover{color:#fff}
+.rappel-tag{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);opacity:0.85;margin-bottom:12px}
+.rappel-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:#fff;line-height:1.3;margin-bottom:16px}
+.rappel-reco{background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:14px;padding:16px;font-size:0.94rem;color:var(--gold-light);line-height:1.55;margin-bottom:22px;text-align:left}
+.rappel-q{font-size:0.95rem;color:var(--text-secondary);margin-bottom:18px}
+.rappel-btns{display:grid;gap:10px}
+.rappel-btn{padding:13px;border-radius:30px;border:none;font-family:'Cinzel',serif;font-size:0.78rem;letter-spacing:0.08em;cursor:pointer;transition:background .2s}
+.rappel-btn-oui{background:var(--gold);color:var(--bg)}
+.rappel-btn-oui:hover{background:var(--gold-light)}
+.rappel-btn-non{background:rgba(255,255,255,0.07);color:var(--gold-light);border:1px solid var(--border-soft)}
+.rappel-btn-non:hover{background:rgba(255,255,255,0.12)}
+.rappel-reponse{font-size:0.98rem;color:#fff;line-height:1.6;margin-bottom:20px}
+
 /* ── FENÊTRE DE CHOIX DES PLANS ── */
 .plans-overlay{
   display:none;position:fixed;inset:0;z-index:1000;
@@ -1522,6 +1547,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .audit-idees-btn{margin-top:14px}
 .audit-affiner-btn{margin-top:14px;background:rgba(255,255,255,0.06);color:var(--gold-light);border:1px solid var(--border-soft)}
 .audit-affiner-btn:hover{background:rgba(255,255,255,0.1)}
+.audit-affine-note{background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:12px;padding:14px 16px;font-size:0.9rem;color:var(--gold-light);line-height:1.5;margin-bottom:18px}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1699,7 +1725,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
       <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 12 captures au total.</p>
     </div>
 
-    <div class="context-card">
+    <div class="context-card" id="auditContextCard">
       <div class="ctx-field">
         <label class="ctx-label">Ton objectif principal</label>
         <select class="ctx-input" id="auditObjectif">
@@ -1771,6 +1797,8 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         </select>
       </div>
     </div>
+
+    <p class="audit-affine-note" id="auditAffineNote" style="display:none">✓ Ton profil est déjà renseigné. Ajoute simplement tes nouvelles captures, puis relance l'analyse.</p>
 
     <div class="audit-drop" id="auditDrop" onclick="document.getElementById('auditInput').click()">
       <input type="file" id="auditInput" accept="image/*" multiple style="display:none" onchange="ajouterCaptures(this.files)"/>
@@ -2950,6 +2978,92 @@ function reopenGeneration(i) {
 
 
 // Récupère l'historique des générations de l'utilisateur
+// ══════════════════════════════════════
+//  POP-UP DE RAPPEL DES RECOMMANDATIONS
+//  Dès le lendemain d'un audit, si l'abonné rouvre Scriptura, on lui
+//  rappelle sa reco principale et on demande s'il a commencé.
+//  Ne s'affiche qu'une fois par audit (mémorisé en localStorage).
+// ══════════════════════════════════════
+
+// Extrait la recommandation principale d'un audit sauvegardé.
+function recoPrincipale(contenu) {
+  if (!contenu || typeof contenu !== 'object') return null;
+  const pa = contenu.plan_action_30j || {};
+  // Priorité : la première action concrète du plan des 30 jours
+  if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length) {
+    return pa.sujets_a_faire[0];
+  }
+  if (pa.frequence) return pa.frequence;
+  // Sinon, le levier du score (dimension la plus faible), déjà calculé à l'affichage
+  if (contenu.mesures) {
+    const s = calculerScores(contenu.mesures);
+    if (s.levier_dim) return 'Travailler en priorité : ' + s.levier_dim;
+  }
+  return null;
+}
+
+let _rappelAuditCourant = null;
+
+async function verifierRappelAudit() {
+  if (!supabaseClient || !unlocked) return; // réservé aux abonnés connectés
+  try {
+    const { data, error } = await supabaseClient
+      .from('generations')
+      .select('*')
+      .eq('code_acces', getUserRef())
+      .eq('mode', 'audit')
+      .order('cree_le', { ascending: false })
+      .limit(1);
+    if (error || !data || !data.length) return;
+
+    const audit = data[0];
+    // Déjà rappelé pour cet audit ? on n'insiste pas.
+    const dejaVu = localStorage.getItem('scriptura_rappel_' + audit.id);
+    if (dejaVu) return;
+
+    // Au moins le lendemain : l'audit doit dater d'un autre jour que today.
+    const dateAudit = new Date(audit.cree_le);
+    const auj = new Date();
+    const memeJour = dateAudit.toDateString() === auj.toDateString();
+    if (memeJour) return; // pas le jour même, on attend au moins demain
+
+    const reco = recoPrincipale(audit.contenu);
+    if (!reco) return; // rien à rappeler
+
+    _rappelAuditCourant = audit;
+    const recoEl = document.getElementById('rappelReco');
+    if (recoEl) recoEl.textContent = reco;
+    document.getElementById('rappelStep1').style.display = 'block';
+    document.getElementById('rappelStep2').style.display = 'none';
+    document.getElementById('rappelOverlay').classList.add('active');
+  } catch(e) { console.warn('Rappel audit échoué', e); }
+}
+
+function rappelRepondre(aCommence) {
+  if (_rappelAuditCourant) {
+    localStorage.setItem('scriptura_rappel_' + _rappelAuditCourant.id, aCommence ? 'oui' : 'non');
+  }
+  document.getElementById('rappelStep1').style.display = 'none';
+  const step2 = document.getElementById('rappelStep2');
+  const rep = document.getElementById('rappelReponse');
+  const btns = document.getElementById('rappelStep2Btns');
+  if (aCommence) {
+    rep.textContent = 'Excellent. La régularité fait toute la différence — continue sur cette lancée, tu es sur la bonne voie.';
+    btns.innerHTML = '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappel()">Continuer</button>';
+  } else {
+    rep.textContent = 'Pas de souci. Le plus dur, c\'est de commencer. Laisse Scriptura te trouver des idées de contenu prêtes à filmer, tout de suite.';
+    btns.innerHTML =
+      '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappel(); chooseMode(\'ideas\')">Trouver des idées maintenant</button>' +
+      '<button class="rappel-btn rappel-btn-non" onclick="fermerRappel()">Plus tard</button>';
+  }
+  step2.style.display = 'block';
+}
+
+function fermerRappel() {
+  const el = document.getElementById('rappelOverlay');
+  if (el) el.classList.remove('active');
+}
+
 async function loadGenerations() {
   if (!supabaseClient) return [];
   try {
@@ -3908,10 +4022,6 @@ function auditTexteBrut(a, ts) {
     bloc('Plan des 30 prochains jours', lignes);
   }
 
-  if (Array.isArray(a.donnees_manquantes) && a.donnees_manquantes.length) {
-    bloc('Pour un audit plus complet', a.donnees_manquantes);
-  }
-
   return L.join('\n');
 }
 
@@ -3980,11 +4090,6 @@ function renderAudit(a) {
 
   // Dimensions du score
   const hasDims = dimsMesurees.length > 0;
-  // Le radar n'a de sens qu'à partir de 3 points ; en dessous, on garde
-  // seulement les barres, plus lisibles pour 1 ou 2 valeurs.
-  if (dimsMesurees.length >= 3) {
-    html += radarSVG(ts, dimValeur);
-  }
   if (hasDims) {
     html += '<div class="audit-axes">';
     SCORE_DIMS.forEach(d => {
@@ -4093,14 +4198,7 @@ function renderAudit(a) {
   }
 
   // ── Données manquantes ──
-  if (Array.isArray(a.donnees_manquantes) && a.donnees_manquantes.length) {
-    let li = '';
-    a.donnees_manquantes.forEach(m => { li += `<li>${auditEsc(m)}</li>`; });
-    html += `<div class="audit-block audit-manquant">
-      <div class="audit-block-title">📋 Pour un audit plus complet</div>
-      <ul>${li}</ul>
-    </div>`;
-  }
+  // Bloc "Pour un audit plus complet" retiré à la demande.
 
   // ── Copier / Partager ──
   const txtAudit = auditTexteBrut(a, ts);
@@ -4111,9 +4209,6 @@ function renderAudit(a) {
 
   // ── Pont vers le contenu ──
   html += `
-    <button class="btn-generate audit-affiner-btn" onclick="affinerAudit()">
-      Affiner avec plus de captures
-    </button>
     <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
       Trouver des idées pour corriger le tir
     </button>
@@ -4121,7 +4216,6 @@ function renderAudit(a) {
 
   out.innerHTML = html;
   animerScoreAudit(global, RING_C);
-  animerRadar();
   out.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -4236,9 +4330,17 @@ function auditBlock(titre, inner) {
 function affinerAudit() {
   const out = document.getElementById('auditOutput');
   if (out) out.innerHTML = ''; // on efface l'ancien résultat, les captures restent
+
+  // Le contexte (objectif, niche, fréquence, style) est déjà rempli et
+  // conservé : inutile de le redemander. On masque le bloc pour ne pas
+  // encombrer, et on affiche un rappel discret.
+  const ctx = document.getElementById('auditContextCard');
+  if (ctx) ctx.style.display = 'none';
+  const rappel = document.getElementById('auditAffineNote');
+  if (rappel) rappel.style.display = 'block';
+
   const drop = document.getElementById('auditDrop');
   if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  // Ouvre directement le sélecteur de fichiers pour ajouter des captures
   const input = document.getElementById('auditInput');
   if (input) setTimeout(() => input.click(), 400);
 }
@@ -4294,6 +4396,12 @@ function chooseMode(mode) {
       return;
     }
     if (af) af.style.display = 'block';
+    // Ouverture normale du mode : le formulaire de contexte est visible,
+    // la note d'affinage est masquée (elle ne sert qu'après un premier audit).
+    const ctxCard = document.getElementById('auditContextCard');
+    if (ctxCard) ctxCard.style.display = '';
+    const affineNote = document.getElementById('auditAffineNote');
+    if (affineNote) affineNote.style.display = 'none';
   } else if (mode === 'script') {
     document.getElementById('flow').style.display = 'block';
   } else if (mode === 'ideas') {
@@ -6752,6 +6860,8 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
   syncServerQuota();
+  // Rappel des recommandations : on laisse le temps à Supabase de s'initialiser
+  setTimeout(verifierRappelAudit, 1500);
   // Fermer la modal image au clic sur le fond
   const giOv = document.getElementById('genImageModal');
   if (giOv) giOv.addEventListener('click', (e) => { if (e.target === giOv) fermerGenImage(); }); // synchronise le quota gratuit avec le serveur (anti-vidage de cache)
@@ -6866,6 +6976,28 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
   </div>
 
 <!-- ══ FENÊTRE DE CHOIX DES PLANS ══ -->
+<!-- ══ POP-UP DE RAPPEL DES RECOMMANDATIONS ══ -->
+<div class="rappel-overlay" id="rappelOverlay">
+  <div class="rappel-modal">
+    <button class="rappel-close" onclick="fermerRappel()" aria-label="Fermer">✕</button>
+    <div id="rappelStep1">
+      <div class="rappel-tag">Ton suivi</div>
+      <div class="rappel-title">On avait un plan ensemble.</div>
+      <div class="rappel-reco" id="rappelReco"></div>
+      <div class="rappel-q">Tu as commencé à le mettre en pratique ?</div>
+      <div class="rappel-btns">
+        <button class="rappel-btn rappel-btn-oui" onclick="rappelRepondre(true)">Oui, j'ai commencé</button>
+        <button class="rappel-btn rappel-btn-non" onclick="rappelRepondre(false)">Pas encore</button>
+      </div>
+    </div>
+    <div id="rappelStep2" style="display:none">
+      <div class="rappel-tag">Ton suivi</div>
+      <div class="rappel-reponse" id="rappelReponse"></div>
+      <div class="rappel-btns" id="rappelStep2Btns"></div>
+    </div>
+  </div>
+</div>
+
 <div class="plans-overlay" id="plansOverlay">
   <div class="plans-modal">
     <button class="plans-close" onclick="closePlans()" aria-label="Fermer">✕</button>
