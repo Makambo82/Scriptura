@@ -1951,6 +1951,29 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
       <p class="ideas-sub">Une série donne une raison de s'abonner : le spectateur revient pour voir la suite. Scriptura construit ton concept, puis un épisode à la fois.</p>
     </div>
 
+    <div class="audit-guide">
+      <div class="audit-guide-title">Comment Scriptura construit ta série</div>
+      <ol class="audit-steps">
+        <li>
+          <b>La bible de ta série</b>
+          <span>Scriptura définit la prémisse, l'univers, le ton et la règle récurrente qui donnent son identité à la série</span>
+        </li>
+        <li>
+          <b>L'arc narratif</b>
+          <span>Il répartit la tension sur l'ensemble des épisodes : où ça commence, où ça monte, où ça se résout</span>
+        </li>
+        <li>
+          <b>Une fonction par épisode</b>
+          <span>Chaque épisode sert un seul but narratif et se termine sur une tension non résolue qui appelle le suivant</span>
+        </li>
+        <li>
+          <b>Un épisode à la fois</b>
+          <span>Le suivant tient compte de tout ce qui précède, donc jamais de répétition et une progression réelle</span>
+        </li>
+      </ol>
+      <p class="audit-note">Méthode inspirée du programme d'écriture épisodique TikTok × Sundance : la contrainte narrative produit une meilleure rétention. Vise 45 à 60 secondes par épisode.</p>
+    </div>
+
     <!-- Séries existantes -->
     <div id="serieListeBloc" style="display:none">
       <div class="serie-section-label">Tes séries</div>
@@ -1972,6 +1995,18 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <div class="ctx-field">
           <label class="ctx-label">Ton style de contenu</label>
           <select class="ctx-input" id="serieStyle"></select>
+        </div>
+        <div class="ctx-field">
+          <label class="ctx-label">Le genre de ta série</label>
+          <select class="ctx-input" id="serieGenre">
+            <option value="">Choisir un genre…</option>
+            <option value="Dramatique">Dramatique — tension et enjeux forts</option>
+            <option value="Enquête et révélation">Enquête et révélation — on dévoile peu à peu</option>
+            <option value="Transformation et parcours">Transformation et parcours — une évolution étape par étape</option>
+            <option value="Portrait et biographie">Portrait et biographie — une figure par épisode</option>
+            <option value="Classement et compte à rebours">Classement et compte à rebours — du moins au plus fort</option>
+            <option value="Éducatif et explicatif">Éducatif et explicatif — comprendre un sujet complexe</option>
+          </select>
         </div>
         <div class="ctx-field">
           <label class="ctx-label">Combien d'épisodes ?</label>
@@ -4753,9 +4788,11 @@ async function proposerConceptsSerie() {
   zone.innerHTML = '<p class="serie-card-concept">Scriptura cherche des concepts…</p>';
   zone.style.display = 'block';
   const style = document.getElementById('serieStyle')?.value || '';
+  const genre = document.getElementById('serieGenre')?.value || '';
   const prompt = `Tu es un stratège de contenu pour créateurs TikTok francophones d'Afrique.
 Propose 3 concepts de SÉRIE (feuilleton en plusieurs épisodes) pour un créateur.
 Niche : ${niche}
+Genre souhaité : ${genre || 'libre'}
 Style de contenu : ${style}
 Un bon concept de série : un fil conducteur clair, chaque épisode autonome mais donnant envie du suivant, et un titre qui promet une suite.
 Réponds UNIQUEMENT en JSON, sans texte autour :
@@ -4795,13 +4832,16 @@ function serieParseJSON(txt) {
   return null;
 }
 
-// Crée la série dans Supabase puis ouvre son détail
+// Crée la série : Scriptura construit d'abord la bible + l'arc narratif,
+// puis enregistre le tout. C'est la bible qui garantit la cohérence ensuite.
 async function creerSerie() {
   const err = document.getElementById('serieError');
   const concept = document.getElementById('serieConcept')?.value.trim() || '';
   const niche = document.getElementById('serieNiche')?.value || '';
   const style = document.getElementById('serieStyle')?.value || '';
+  const genre = document.getElementById('serieGenre')?.value || '';
   if (!niche) { err.textContent = 'Choisis ta niche.'; err.style.display = 'block'; return; }
+  if (!genre) { err.textContent = 'Choisis le genre de ta série.'; err.style.display = 'block'; return; }
   if (!concept) { err.textContent = 'Décris ton concept, ou demande des propositions.'; err.style.display = 'block'; return; }
   err.style.display = 'none';
 
@@ -4810,16 +4850,49 @@ async function creerSerie() {
   const txt = document.getElementById('serieCreerTxt');
   if (btn) btn.disabled = true;
   if (spin) spin.style.display = 'inline-block';
-  if (txt) txt.textContent = 'Création…';
+  if (txt) txt.textContent = 'Construction de ta série…';
 
   try {
-    const titre = concept.split('—')[0].split('.')[0].trim().slice(0, 80);
+    // 1. La bible : prémisse, univers, ton, règle récurrente, et l'arc épisode par épisode
+    const promptBible = `Tu es un architecte de séries pour créateurs TikTok francophones d'Afrique.
+Construis la BIBLE d'une série courte, puis son ARC narratif.
+
+CONCEPT DONNÉ PAR LE CRÉATEUR : ${concept}
+NICHE : ${niche}
+GENRE : ${genre}
+STYLE DE CONTENU : ${style}
+NOMBRE D'ÉPISODES : ${serieNbEpisodes}
+
+Principes à respecter (méthode d'écriture épisodique courte) :
+- La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
+- Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
+- L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
+- Épisodes pensés pour 45 à 60 secondes.
+
+Réponds UNIQUEMENT en JSON, sans texte autour :
+{
+  "titre": "titre court et accrocheur de la série",
+  "premisse": "une phrase : de quoi parle la série et pourquoi on la suit",
+  "univers": "le cadre récurrent : époque, lieu, type de personnages",
+  "ton": "le registre : rythme, émotion dominante, façon de raconter",
+  "regle_recurrente": "la contrainte que chaque épisode respecte (ex : chaque épisode s'ouvre sur une date précise)",
+  "arc": [{"episode": 1, "fonction": "ce que cet épisode doit accomplir dans l'histoire", "tension_finale": "la question laissée en suspens"}]
+}
+L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
+
+    const rawBible = await callAI(MODEL_CREATIF, 2500, promptBible);
+    const bible = serieParseJSON(rawBible);
+    if (!bible || !bible.premisse) throw new Error('construction impossible');
+
+    const titre = (bible.titre || concept.split('—')[0]).trim().slice(0, 90);
     const { data, error } = await supabaseClient.from('series').insert({
       code_acces: getUserRef(),
       titre: titre,
       concept: concept,
       niche: niche,
       style: style,
+      genre: genre,
+      bible: bible,
       nb_episodes: serieNbEpisodes,
       episode_courant: 0,
       episodes: []
@@ -4919,24 +4992,38 @@ async function genererEpisode() {
       ? eps.map(e => `Épisode ${e.num} : ${e.titre}`).join('\n')
       : '(aucun pour l\'instant, c\'est le premier)';
 
-    const prompt = `Tu écris un épisode de série pour un créateur TikTok francophone d'Afrique.
+    const b = serie.bible || {};
+    const arc = Array.isArray(b.arc) ? b.arc : [];
+    const plan = arc.find(a => a.episode === num) || {};
 
-SÉRIE : ${serie.titre}
-CONCEPT : ${serie.concept}
-NICHE : ${serie.niche}
-STYLE DE CONTENU : ${serie.style}
+    const prompt = `Tu écris l'épisode d'une série pour un créateur TikTok francophone d'Afrique.
+
+BIBLE DE LA SÉRIE
+Titre : ${serie.titre}
+Prémisse : ${b.premisse || serie.concept}
+Univers : ${b.univers || ''}
+Ton : ${b.ton || ''}
+Règle récurrente à respecter absolument : ${b.regle_recurrente || 'aucune'}
+Genre : ${serie.genre || ''}
+Niche : ${serie.niche}
+Style de contenu : ${serie.style}
+
 ÉPISODE À ÉCRIRE : ${num} sur ${total}
+Fonction narrative de cet épisode : ${plan.fonction || 'faire avancer l\'histoire'}
+Tension à laisser en suspens à la fin : ${plan.tension_finale || 'une question qui appelle l\'épisode suivant'}
 
 ÉPISODES DÉJÀ PUBLIÉS :
 ${precedents}
 
-RÈGLES :
-- Ne répète JAMAIS un sujet déjà traité dans les épisodes ci-dessus.
-- L'épisode doit se suffire à lui-même, mais se terminer en donnant envie du suivant.
-- Adapte tout au style déclaré. Si le style est "Faceless (sans visage)", ne propose jamais de se filmer : travaille la voix off, le texte à l'écran, les visuels.
-- Commence par un hook fort dans les 3 premières secondes.
-- Annonce clairement dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
-${num === total ? '- C\'est le DERNIER épisode : conclus la série de façon satisfaisante.' : ''}
+RÈGLES D'ÉCRITURE :
+- Ne répète JAMAIS un sujet déjà traité ci-dessus.
+- Respecte la règle récurrente de la bible : c'est la signature de la série.
+- L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
+- Format court : vise 45 à 60 secondes de lecture à voix haute.
+- Accroche forte dès les 3 premières secondes.
+- Adapte tout au style déclaré. Si le style est "Faceless (sans visage)", ne propose jamais de se filmer : travaille la voix off, le texte à l'écran, les visuels, le rythme.
+- Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
+${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série de façon satisfaisante.' : ''}
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet, prêt à être tourné"}`;
