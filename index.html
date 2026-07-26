@@ -2384,16 +2384,14 @@ const CRITIQUE_ACTIVE = false;
 // séparés : un audit ne consomme pas le quota de création et inversement.
 // Ces limites sont indicatives côté client (anti-abus), la vérité reste
 // le comptage Supabase par type.
-const LIMITES_JOUR = {
-  creator: { creation: 15, audit: 0 },
-  pro:     { creation: 20, audit: 3 }
+const LIMITES_MOIS = {
+  creator: { creation: 50, audit: 0 },
+  pro:     { creation: 70, audit: 5 }
 };
 // Repli si le plan n'est pas reconnu : on applique le moins-disant (Creator).
 function limitesDuPalier() {
-  return LIMITES_JOUR[monPalier()] || LIMITES_JOUR.creator;
+  return LIMITES_MOIS[monPalier()] || LIMITES_MOIS.creator;
 }
-// Compat : ancienne constante encore référencée par l'affichage du compteur.
-const LIMITE_JOUR_ABONNE = 20;
 
 // ── Paliers d'abonnement ──
 // Creator : tous les modes de création. Pro : Creator + Analyse compte TikTok.
@@ -2708,18 +2706,19 @@ function reafficherStoryboard(sbData, isStory) {
   }
 }
 
-// Compte les générations faites aujourd'hui par l'utilisateur (anti-abus abonnés).
+// Compte les générations faites ce mois-ci par l'utilisateur (anti-abus abonnés).
 // typeVoulu : 'creation' (les 3 modes) ou 'audit'. Sans argument, compte tout.
-async function countTodayGenerations(typeVoulu) {
+async function countMonthGenerations(typeVoulu) {
   if (!supabaseClient) return 0;
   try {
-    const debutJour = new Date();
-    debutJour.setHours(0, 0, 0, 0);
+    // Début du mois courant : le 1er à 00:00
+    const now = new Date();
+    const debutMois = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     let req = supabaseClient
       .from('generations')
       .select('*', { count: 'exact', head: true })
       .eq('code_acces', getUserRef())
-      .gte('cree_le', debutJour.toISOString());
+      .gte('cree_le', debutMois.toISOString());
     if (typeVoulu === 'audit') {
       req = req.eq('mode', 'audit');
     } else if (typeVoulu === 'creation') {
@@ -2728,10 +2727,10 @@ async function countTodayGenerations(typeVoulu) {
     const { count, error } = await req;
     if (error) throw error;
     return count || 0;
-  } catch(e) { console.warn('Comptage du jour échoué', e); return 0; }
+  } catch(e) { console.warn('Comptage du mois échoué', e); return 0; }
 }
 
-// Vérifie si un abonné a atteint sa limite quotidienne.
+// Vérifie si un abonné a atteint sa limite mensuelle de création.
 // Retourne true si l'utilisateur PEUT générer, false s'il est bloqué (et affiche le message).
 // Palier d'abonnement de l'utilisateur courant
 function monPalier() {
@@ -2751,27 +2750,27 @@ async function peutGenerer(errorBoxId) {
   // Les non-abonnés sont gérés par le système de générations gratuites, pas ici.
   if (!unlocked) return true;
 
-  // Codes VIP/admin : générations vraiment illimitées, aucun quota journalier.
+  // Codes VIP/admin : générations vraiment illimitées, aucun quota mensuel.
   const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
 
   const limite = limitesDuPalier().creation;
-  const faitesAujourdhui = await countTodayGenerations('creation');
-  if (faitesAujourdhui >= limite) {
+  const faitesCeMois = await countMonthGenerations('creation');
+  if (faitesCeMois >= limite) {
     openPlans('quota');
     return false;
   }
   return true;
 }
 
-// Vérifie le quota d'audits du jour (compteur séparé de la création).
+// Vérifie le quota d'audits du mois (compteur séparé de la création).
 async function peutAuditer(errorBoxId) {
   const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
 
   const limite = limitesDuPalier().audit;
   if (limite <= 0) return false; // l'accès Pro est déjà vérifié en amont
-  const faits = await countTodayGenerations('audit');
+  const faits = await countMonthGenerations('audit');
   if (faits >= limite) {
     openPlans('quota');
     return false;
@@ -3152,11 +3151,12 @@ async function updateQuotaJour() {
     document.querySelectorAll('.quota-jour').forEach(el => { el.textContent = '  ·  illimité'; });
     return;
   }
-  const faites = await countTodayGenerations();
-  const faitesAff = Math.min(faites, LIMITE_JOUR_ABONNE);
+  const faites = await countMonthGenerations('creation');
+  const limiteCreation = limitesDuPalier().creation;
+  const faitesAff = Math.min(faites, limiteCreation);
   const els = document.querySelectorAll('.quota-jour');
   els.forEach(el => {
-    el.textContent = '  ·  ' + faitesAff + '/' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
+    el.textContent = '  ·  ' + faitesAff + '/' + limiteCreation + ' ce mois';
   });
 }
 
@@ -3169,8 +3169,8 @@ function openPaywall() {
   const prix = document.querySelector('#paywall .paywall-price');
   const wa = document.querySelector('#paywall .paywall-wa');
   if (tag) tag.textContent = 'Accès Créateur';
-  if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du jour.';
-  if (desc) desc.textContent = 'Passe au plan Creator pour continuer à générer chaque jour, ou au plan Pro pour débloquer aussi l\'analyse de compte TikTok.';
+  if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois.';
+  if (desc) desc.textContent = 'Passe au plan Creator pour continuer à générer chaque mois, ou au plan Pro pour débloquer aussi l\'analyse de compte TikTok.';
   if (prix) prix.textContent = '5 000 FCFA';
   if (wa) wa.href = 'https://wa.me/22995056424?text=' + encodeURIComponent(PLANS.creator.wa);
   document.getElementById('paywall').classList.add('active');
@@ -3182,7 +3182,7 @@ function closePaywall() {
 // ── Fenêtre de choix des plans ──
 // contexte : 'nouveau' (non-abonné épuisé, montre les 2 plans),
 //            'upgrade' (Creator veut l'audit, met le Pro en avant),
-//            'quota' (quota du jour atteint).
+//            'quota' (quota du mois atteint).
 function openPlans(contexte) {
   contexte = contexte || 'nouveau';
   const tag = document.getElementById('plansTag');
@@ -3206,19 +3206,19 @@ function openPlans(contexte) {
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'quota') {
-    // Quota journalier atteint : on explique, et on propose une éventuelle
+    // Quota mensuel atteint : on explique, et on propose une éventuelle
     // montée en gamme — mais jamais le plan que l'utilisateur a déjà.
     const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
-    if (tag) tag.textContent = 'Limite du jour atteinte';
-    if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du jour';
+    if (tag) tag.textContent = 'Limite du mois atteinte';
+    if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois';
     if (palier === 'pro') {
       // Aucun plan au-dessus : message seul, pas de carte.
-      if (intro) { intro.textContent = 'Reviens demain, ton quota se recharge chaque jour.'; intro.style.display = 'block'; }
+      if (intro) { intro.textContent = 'Ton quota se recharge au début du mois prochain.'; intro.style.display = 'block'; }
       if (cardCreator) cardCreator.style.display = 'none';
       if (cardPro) cardPro.style.display = 'none';
     } else {
       // Creator : on masque Creator (déjà pris) et on propose Pro.
-      if (intro) { intro.textContent = 'Reviens demain, ton quota se recharge chaque jour. Ou passe au plan Pro pour en faire plus, dès maintenant.'; intro.style.display = 'block'; }
+      if (intro) { intro.textContent = 'Ton quota se recharge au début du mois prochain. Ou passe au plan Pro pour en faire plus, dès maintenant.'; intro.style.display = 'block'; }
       if (cardCreator) cardCreator.style.display = 'none';
       if (proBadge) proBadge.style.display = 'none';
     }
@@ -3249,14 +3249,14 @@ const PLANS = {
     nom: 'Creator',
     prix: '5 000 FCFA',
     titre: 'Passe au plan Creator',
-    desc: 'Les 3 modes de création, 15 générations par jour.',
+    desc: 'Les 3 modes de création, 50 générations par mois.',
     wa: 'Bonjour, je veux le plan Creator de Scriptura — 5 000 FCFA/mois'
   },
   pro: {
     nom: 'Pro',
     prix: '8 000 FCFA',
     titre: 'Passe au plan Pro',
-    desc: 'Tout Creator + l\'analyse de compte TikTok. 20 générations + 3 analyses par jour.',
+    desc: 'Tout Creator + l\'analyse de compte TikTok. 70 générations + 5 analyses par mois.',
     wa: 'Bonjour, je veux le plan Pro de Scriptura — 8 000 FCFA/mois'
   }
 };
@@ -3349,9 +3349,10 @@ async function updateSidebarCounter() {
       el.textContent = '✦ Illimité';
       return;
     }
-    const faites = await countTodayGenerations();
-    const faitesAff = Math.min(faites, LIMITE_JOUR_ABONNE);
-    el.textContent = faitesAff + ' / ' + LIMITE_JOUR_ABONNE + ' aujourd\'hui';
+    const faites = await countMonthGenerations('creation');
+    const limiteCreation = limitesDuPalier().creation;
+    const faitesAff = Math.min(faites, limiteCreation);
+    el.textContent = faitesAff + ' / ' + limiteCreation + ' ce mois';
   } else {
     const faitesAff = Math.min(usedGen, MAX_FREE);
     el.textContent = faitesAff + ' / ' + MAX_FREE + ' gratuites';
@@ -3657,7 +3658,7 @@ async function lancerAudit() {
     return;
   }
 
-  // Quota d'audits du jour (séparé du quota de création)
+  // Quota d'audits du mois (séparé du quota de création)
   if (!(await peutAuditer('auditError'))) return;
 
   // Le style de contenu est requis : sans lui, les recommandations peuvent
@@ -4332,7 +4333,7 @@ function auditBlock(titre, inner) {
 // Pont audit → mode idées : envoie le problème principal vers le générateur d'idées
 // Ramène à la zone d'upload en gardant les captures déjà chargées, pour en
 // ajouter d'autres (ex : sources de trafic) puis relancer. Le relancement
-// passe par lancerAudit → peutAuditer, donc il consomme bien un audit du jour.
+// passe par lancerAudit → peutAuditer, donc il consomme bien un audit du mois.
 function affinerAudit() {
   const out = document.getElementById('auditOutput');
   if (out) out.innerHTML = ''; // on efface l'ancien résultat, les captures restent
@@ -7025,7 +7026,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       <div class="plan-price">5 000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
         <li>Les 3 modes de création : idées, script, storytelling</li>
-        <li>15 générations par jour</li>
+        <li>50 générations par mois</li>
         <li>Mobile Money accepté</li>
       </ul>
       <button class="plan-btn plan-btn-creator" onclick="choisirPlan('creator')">Choisir Creator</button>
@@ -7040,7 +7041,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       <ul class="plan-includes">
         <li>Tout le plan Creator</li>
         <li>+ Analyse de compte TikTok</li>
-        <li>20 générations de création + 3 analyses par jour</li>
+        <li>70 générations de création + 5 analyses par mois</li>
         <li>Mobile Money accepté</li>
       </ul>
       <button class="plan-btn plan-btn-pro" onclick="choisirPlan('pro')">Choisir Pro</button>
