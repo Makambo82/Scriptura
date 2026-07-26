@@ -1421,6 +1421,59 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
+/* ── MODE SÉRIE ── */
+.hero-mode-btn.serie{
+  background:rgba(201,168,76,0.06);
+  border-color:rgba(201,168,76,0.45);
+  animation:seriePulse 2.4s ease-in-out infinite;
+}
+.hero-mode-btn.serie:hover{background:rgba(201,168,76,0.12);border-color:var(--gold)}
+.hero-mode-btn.serie .mode-label{color:var(--gold-light)}
+@keyframes seriePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0),0 0 10px 0 rgba(201,168,76,0.12)}
+  50%{box-shadow:0 0 0 1px rgba(201,168,76,0.3),0 0 20px 2px rgba(201,168,76,0.3)}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-mode-btn.serie{animation:none;box-shadow:0 0 14px 1px rgba(201,168,76,0.22)}
+}
+.serie-section-label{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;text-transform:uppercase;
+  color:var(--gold);opacity:0.75;margin:6px 2px 14px;display:flex;align-items:center;gap:12px;
+}
+.serie-section-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(201,168,76,0.25),transparent)}
+.serie-card{
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:16px;
+  padding:18px;margin-bottom:12px;cursor:pointer;transition:border-color .2s,background .2s;
+}
+.serie-card:hover{border-color:var(--border);background:rgba(201,168,76,0.05)}
+.serie-card-titre{font-size:0.98rem;font-weight:700;color:var(--gold-light);margin-bottom:6px}
+.serie-card-concept{font-size:0.87rem;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.serie-card-bas{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.serie-progress-txt{font-size:0.82rem;color:var(--text-secondary);white-space:nowrap}
+.serie-progress-bar{flex:1;height:6px;background:rgba(255,255,255,0.07);border-radius:6px;overflow:hidden}
+.serie-progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:6px;transition:width .6s ease}
+.serie-badge-fini{font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--bg);background:var(--gold);padding:3px 9px;border-radius:20px}
+.serie-suggest-btn{
+  display:block;width:100%;margin-top:10px;padding:11px;border-radius:12px;
+  background:rgba(255,255,255,0.05);border:1px solid var(--border-soft);color:var(--gold-light);
+  font-family:'Tenor Sans',sans-serif;font-size:0.86rem;cursor:pointer;transition:background .2s;
+}
+.serie-suggest-btn:hover{background:rgba(201,168,76,0.1)}
+.serie-concept-prop{
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;
+  padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .2s,background .2s;
+}
+.serie-concept-prop:hover{border-color:var(--gold);background:rgba(201,168,76,0.07)}
+.serie-concept-prop b{display:block;color:var(--gold-light);font-size:0.94rem;margin-bottom:5px}
+.serie-concept-prop span{font-size:0.86rem;color:var(--muted);line-height:1.5}
+.serie-episode{
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;
+  padding:16px;margin-bottom:10px;
+}
+.serie-episode-num{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;color:var(--gold);margin-bottom:8px}
+.serie-episode-titre{font-size:0.96rem;font-weight:700;color:#fff;margin-bottom:8px;line-height:1.4}
+.serie-episode-txt{font-size:0.89rem;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap}
+
 /* ── MODE AUDIT TIKTOK ── */
 .hero-mode-btn.audit .mode-icon{filter:saturate(0.9)}
 /* Filet doré rotatif : une lumière fait le tour du cadre, sens horaire */
@@ -1737,6 +1790,13 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <span class="mode-desc">Découvre ce qui bloque ta croissance</span>
       </span>
     </button>
+    <button class="hero-mode-btn serie" onclick="chooseMode('serie')">
+      <span class="mode-icon">🎞️</span>
+      <span class="mode-body">
+        <span class="mode-label">Créer une série</span>
+        <span class="mode-desc">Des épisodes qui font revenir ton audience</span>
+      </span>
+    </button>
     <button class="hero-mode-btn" onclick="chooseMode('ideas')">
       <span class="mode-icon">💡</span>
       <span class="mode-body">
@@ -1878,6 +1938,68 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 
     <div class="err" id="auditError" style="display:none"></div>
     <div id="auditOutput"></div>
+  </div>
+</section>
+
+<!-- ══ MODULE SÉRIE ══ -->
+<section id="serieFlow" style="display:none">
+  <div class="ideas-container">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Mode Série · Feuilleton</div>
+      <h2 class="ideas-title">Crée une série qui<br/><strong>fait revenir ton audience.</strong></h2>
+      <p class="ideas-sub">Une série donne une raison de s'abonner : le spectateur revient pour voir la suite. Scriptura construit ton concept, puis un épisode à la fois.</p>
+    </div>
+
+    <!-- Séries existantes -->
+    <div id="serieListeBloc" style="display:none">
+      <div class="serie-section-label">Tes séries</div>
+      <div id="serieListe"></div>
+    </div>
+
+    <!-- Bouton nouvelle série -->
+    <button class="btn-generate" id="serieNouvelleBtn" onclick="ouvrirCreationSerie()">
+      Créer une nouvelle série
+    </button>
+
+    <!-- Formulaire de création -->
+    <div id="serieCreation" style="display:none">
+      <div class="context-card">
+        <div class="ctx-field">
+          <label class="ctx-label">Ta niche</label>
+          <select class="ctx-input" id="serieNiche"></select>
+        </div>
+        <div class="ctx-field">
+          <label class="ctx-label">Ton style de contenu</label>
+          <select class="ctx-input" id="serieStyle"></select>
+        </div>
+        <div class="ctx-field">
+          <label class="ctx-label">Combien d'épisodes ?</label>
+          <div class="btn-grid" id="serieNbGrid">
+            <button type="button" class="grid-btn" data-val="3">3 épisodes</button>
+            <button type="button" class="grid-btn active" data-val="5">5 épisodes</button>
+            <button type="button" class="grid-btn" data-val="7">7 épisodes</button>
+            <button type="button" class="grid-btn" data-val="10">10 épisodes</button>
+          </div>
+        </div>
+        <div class="ctx-field">
+          <label class="ctx-label">Ton concept de série</label>
+          <textarea class="ctx-input" id="serieConcept" rows="3" placeholder="Ex : Les braquages qui ont marqué l'histoire de l'Afrique de l'Ouest"></textarea>
+          <button class="serie-suggest-btn" onclick="proposerConceptsSerie()">Ou laisse Scriptura me proposer des concepts</button>
+        </div>
+      </div>
+
+      <div id="serieConceptsPropos" style="display:none"></div>
+      <div class="err" id="serieError" style="display:none"></div>
+
+      <button class="btn-generate" id="serieCreerBtn" onclick="creerSerie()">
+        <span id="serieCreerTxt">Lancer ma série</span>
+        <span class="spinner" id="serieSpinner"></span>
+      </button>
+    </div>
+
+    <!-- Détail d'une série ouverte -->
+    <div id="serieDetail" style="display:none"></div>
   </div>
 </section>
 
@@ -2463,7 +2585,7 @@ function limitesDuPalier() {
 // de renseigner les abonnés existants, le mettre sur 'pro' évite de leur
 // couper l'accès ; le repasser sur 'creator' une fois la migration faite.
 const PLAN_PAR_DEFAUT = 'creator';
-const MODES_PRO = ['audit'];
+const MODES_PRO = ['audit', 'serie'];
 const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite journalière (VIP/admin)
 
 // ═══════════════════════════════════════════════════════════
@@ -4555,6 +4677,297 @@ function animerEntreeEcran(el) {
   el.classList.add('screen-appear');
 }
 
+// ══════════════════════════════════════
+//  MODE SÉRIE
+//  Une série = un concept + N épisodes générés un par un, chacun tenant
+//  compte des précédents. L'état vit dans la table Supabase "series".
+// ══════════════════════════════════════
+
+let serieNbEpisodes = 5;      // choix par défaut
+let serieCouranteId = null;   // série ouverte dans le détail
+
+// Recopie les listes niche/style depuis le mode audit (mêmes options partout)
+function initSerieSelects() {
+  const paires = [['auditNiche','serieNiche'], ['auditStyle','serieStyle']];
+  paires.forEach(([src, dest]) => {
+    const s = document.getElementById(src), d = document.getElementById(dest);
+    if (s && d && !d.options.length) d.innerHTML = s.innerHTML;
+  });
+}
+
+// Charge les séries de l'utilisateur depuis Supabase
+async function chargerSeries() {
+  const bloc = document.getElementById('serieListeBloc');
+  const liste = document.getElementById('serieListe');
+  if (!supabaseClient || !liste) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('series')
+      .select('*')
+      .eq('code_acces', getUserRef())
+      .order('cree_le', { ascending: false });
+    if (error) throw error;
+    if (!data || !data.length) { if (bloc) bloc.style.display = 'none'; return; }
+    liste.innerHTML = data.map(s => {
+      const total = s.nb_episodes || 5;
+      const fait = s.episode_courant || 0;
+      const pct = Math.min(100, Math.round((fait / total) * 100));
+      const fini = s.statut === 'terminee' || fait >= total;
+      return `<div class="serie-card" onclick="ouvrirSerie('${s.id}')">
+        <div class="serie-card-titre">${serieEsc(s.titre || 'Série sans titre')}</div>
+        <div class="serie-card-concept">${serieEsc(s.concept || '')}</div>
+        <div class="serie-card-bas">
+          <span class="serie-progress-txt">${fait} / ${total} épisodes</span>
+          <span class="serie-progress-bar"><span class="serie-progress-fill" style="width:${pct}%"></span></span>
+          ${fini ? '<span class="serie-badge-fini">Terminée</span>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+    if (bloc) bloc.style.display = 'block';
+  } catch(e) { console.warn('Chargement séries échoué', e); }
+}
+
+function serieEsc(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
+function ouvrirCreationSerie() {
+  document.getElementById('serieCreation').style.display = 'block';
+  document.getElementById('serieDetail').style.display = 'none';
+  document.getElementById('serieNouvelleBtn').style.display = 'none';
+  document.getElementById('serieCreation').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// Demande à Scriptura des concepts de série adaptés à la niche
+async function proposerConceptsSerie() {
+  const err = document.getElementById('serieError');
+  const zone = document.getElementById('serieConceptsPropos');
+  const niche = document.getElementById('serieNiche')?.value || '';
+  if (!niche) {
+    err.textContent = 'Choisis ta niche pour que les concepts soient pertinents.';
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+  zone.innerHTML = '<p class="serie-card-concept">Scriptura cherche des concepts…</p>';
+  zone.style.display = 'block';
+  const style = document.getElementById('serieStyle')?.value || '';
+  const prompt = `Tu es un stratège de contenu pour créateurs TikTok francophones d'Afrique.
+Propose 3 concepts de SÉRIE (feuilleton en plusieurs épisodes) pour un créateur.
+Niche : ${niche}
+Style de contenu : ${style}
+Un bon concept de série : un fil conducteur clair, chaque épisode autonome mais donnant envie du suivant, et un titre qui promet une suite.
+Réponds UNIQUEMENT en JSON, sans texte autour :
+[{"titre":"...","pitch":"une phrase qui explique le fil conducteur"}]`;
+  try {
+    const raw = await callAI(MODEL_CREATIF, 1500, prompt);
+    const concepts = serieParseJSON(raw);
+    if (!Array.isArray(concepts) || !concepts.length) throw new Error('vide');
+    zone.innerHTML = concepts.map(c =>
+      `<div class="serie-concept-prop" onclick="choisirConcept(this)" data-titre="${serieEsc(c.titre)}">
+        <b>${serieEsc(c.titre)}</b><span>${serieEsc(c.pitch || '')}</span>
+      </div>`).join('');
+  } catch(e) {
+    zone.innerHTML = '';
+    zone.style.display = 'none';
+    err.textContent = 'Impossible de proposer des concepts pour le moment. Réessaie.';
+    err.style.display = 'block';
+  }
+}
+
+function choisirConcept(el) {
+  const champ = document.getElementById('serieConcept');
+  if (champ) champ.value = el.dataset.titre + ' — ' + (el.querySelector('span')?.textContent || '');
+  document.getElementById('serieConceptsPropos').style.display = 'none';
+  champ?.scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+// Extraction JSON tolérante (le modèle peut entourer de ```json)
+function serieParseJSON(txt) {
+  if (!txt) return null;
+  let t = String(txt).replace(/```json|```/g, '').trim();
+  const d = t.search(/[\[{]/);
+  if (d > 0) t = t.slice(d);
+  try { return JSON.parse(t); } catch(e) {}
+  const fin = Math.max(t.lastIndexOf(']'), t.lastIndexOf('}'));
+  if (fin > 0) { try { return JSON.parse(t.slice(0, fin + 1)); } catch(e) {} }
+  return null;
+}
+
+// Crée la série dans Supabase puis ouvre son détail
+async function creerSerie() {
+  const err = document.getElementById('serieError');
+  const concept = document.getElementById('serieConcept')?.value.trim() || '';
+  const niche = document.getElementById('serieNiche')?.value || '';
+  const style = document.getElementById('serieStyle')?.value || '';
+  if (!niche) { err.textContent = 'Choisis ta niche.'; err.style.display = 'block'; return; }
+  if (!concept) { err.textContent = 'Décris ton concept, ou demande des propositions.'; err.style.display = 'block'; return; }
+  err.style.display = 'none';
+
+  const btn = document.getElementById('serieCreerBtn');
+  const spin = document.getElementById('serieSpinner');
+  const txt = document.getElementById('serieCreerTxt');
+  if (btn) btn.disabled = true;
+  if (spin) spin.style.display = 'inline-block';
+  if (txt) txt.textContent = 'Création…';
+
+  try {
+    const titre = concept.split('—')[0].split('.')[0].trim().slice(0, 80);
+    const { data, error } = await supabaseClient.from('series').insert({
+      code_acces: getUserRef(),
+      titre: titre,
+      concept: concept,
+      niche: niche,
+      style: style,
+      nb_episodes: serieNbEpisodes,
+      episode_courant: 0,
+      episodes: []
+    }).select().single();
+    if (error) throw error;
+    document.getElementById('serieCreation').style.display = 'none';
+    document.getElementById('serieConcept').value = '';
+    await chargerSeries();
+    ouvrirSerie(data.id);
+  } catch(e) {
+    err.textContent = 'Création impossible : ' + (e.message || 'réessaie');
+    err.style.display = 'block';
+  } finally {
+    if (btn) btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.textContent = 'Lancer ma série';
+  }
+}
+
+// Affiche le détail d'une série : épisodes déjà écrits + bouton suivant
+async function ouvrirSerie(id) {
+  serieCouranteId = id;
+  const detail = document.getElementById('serieDetail');
+  document.getElementById('serieCreation').style.display = 'none';
+  document.getElementById('serieNouvelleBtn').style.display = 'none';
+  detail.style.display = 'block';
+  detail.innerHTML = '<p class="serie-card-concept">Chargement…</p>';
+  try {
+    const { data, error } = await supabaseClient.from('series').select('*').eq('id', id).single();
+    if (error) throw error;
+    const total = data.nb_episodes || 5;
+    const eps = Array.isArray(data.episodes) ? data.episodes : [];
+    const fait = eps.length;
+    const pct = Math.min(100, Math.round((fait / total) * 100));
+    const fini = fait >= total;
+
+    let html = `<div class="serie-section-label">${serieEsc(data.titre)}</div>
+      <div class="serie-card" style="cursor:default">
+        <div class="serie-card-concept">${serieEsc(data.concept)}</div>
+        <div class="serie-card-bas">
+          <span class="serie-progress-txt">${fait} / ${total} épisodes</span>
+          <span class="serie-progress-bar"><span class="serie-progress-fill" style="width:${pct}%"></span></span>
+        </div>
+      </div>`;
+
+    eps.forEach(ep => {
+      html += `<div class="serie-episode">
+        <div class="serie-episode-num">Épisode ${ep.num} sur ${total}</div>
+        <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
+        <div class="serie-episode-txt">${serieEsc(ep.script)}</div>
+      </div>`;
+    });
+
+    html += `<div class="err" id="serieDetailError" style="display:none"></div>`;
+    if (fini) {
+      html += `<p class="serie-card-concept" style="text-align:center">Série terminée. Belle constance !</p>
+        <button class="btn-generate" onclick="chooseMode('serie')">Créer une autre série</button>`;
+    } else {
+      html += `<button class="btn-generate" id="serieEpBtn" onclick="genererEpisode()">
+        <span id="serieEpTxt">Générer l'épisode ${fait + 1}</span>
+        <span class="spinner" id="serieEpSpinner"></span>
+      </button>`;
+    }
+    html += `<button class="serie-suggest-btn" onclick="chooseMode('serie')">← Toutes mes séries</button>`;
+    detail.innerHTML = html;
+    detail.scrollIntoView({ behavior:'smooth', block:'start' });
+  } catch(e) {
+    detail.innerHTML = '<div class="err" style="display:block">Impossible d\'ouvrir cette série.</div>';
+  }
+}
+
+// Génère l'épisode suivant, en tenant compte des précédents
+async function genererEpisode() {
+  if (!serieCouranteId) return;
+  const err = document.getElementById('serieDetailError');
+  const btn = document.getElementById('serieEpBtn');
+  const spin = document.getElementById('serieEpSpinner');
+  const txt = document.getElementById('serieEpTxt');
+
+  // L'épisode consomme une génération du quota mensuel
+  if (!(await peutGenerer('serieDetailError'))) return;
+
+  if (btn) btn.disabled = true;
+  if (spin) spin.style.display = 'inline-block';
+  if (txt) txt.textContent = 'Écriture en cours…';
+  if (err) err.style.display = 'none';
+
+  try {
+    const { data: serie, error: e1 } = await supabaseClient
+      .from('series').select('*').eq('id', serieCouranteId).single();
+    if (e1) throw e1;
+    const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
+    const num = eps.length + 1;
+    const total = serie.nb_episodes || 5;
+
+    const precedents = eps.length
+      ? eps.map(e => `Épisode ${e.num} : ${e.titre}`).join('\n')
+      : '(aucun pour l\'instant, c\'est le premier)';
+
+    const prompt = `Tu écris un épisode de série pour un créateur TikTok francophone d'Afrique.
+
+SÉRIE : ${serie.titre}
+CONCEPT : ${serie.concept}
+NICHE : ${serie.niche}
+STYLE DE CONTENU : ${serie.style}
+ÉPISODE À ÉCRIRE : ${num} sur ${total}
+
+ÉPISODES DÉJÀ PUBLIÉS :
+${precedents}
+
+RÈGLES :
+- Ne répète JAMAIS un sujet déjà traité dans les épisodes ci-dessus.
+- L'épisode doit se suffire à lui-même, mais se terminer en donnant envie du suivant.
+- Adapte tout au style déclaré. Si le style est "Faceless (sans visage)", ne propose jamais de se filmer : travaille la voix off, le texte à l'écran, les visuels.
+- Commence par un hook fort dans les 3 premières secondes.
+- Annonce clairement dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
+${num === total ? '- C\'est le DERNIER épisode : conclus la série de façon satisfaisante.' : ''}
+
+Réponds UNIQUEMENT en JSON, sans texte autour :
+{"titre":"titre court de l'épisode","script":"le script complet, prêt à être tourné"}`;
+
+    const raw = await callAI(MODEL_CREATIF, 3000, prompt);
+    const ep = serieParseJSON(raw);
+    if (!ep || !ep.script) throw new Error('réponse illisible');
+
+    const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script }]);
+    const termine = nouveaux.length >= total;
+    const { error: e2 } = await supabaseClient.from('series').update({
+      episodes: nouveaux,
+      episode_courant: nouveaux.length,
+      statut: termine ? 'terminee' : 'en_cours'
+    }).eq('id', serieCouranteId);
+    if (e2) throw e2;
+
+    // Enregistre aussi dans l'historique (et compte dans le quota du mois)
+    if (typeof saveGeneration === 'function') {
+      try { saveGeneration('serie', serie.titre + ' — épisode ' + num, ep); } catch(e) {}
+    }
+
+    ouvrirSerie(serieCouranteId);
+  } catch(e) {
+    if (err) { err.textContent = 'Génération impossible : ' + (e.message || 'réessaie'); err.style.display = 'block'; }
+    if (btn) btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.textContent = 'Réessayer';
+  }
+}
+
 function chooseMode(mode) {
   pushNav(); // mémoriser l'écran d'où on vient
   // Masquer la page d'accueil et tous les modules
@@ -4564,6 +4977,8 @@ function chooseMode(mode) {
   document.getElementById('storyFlow').style.display = 'none';
   const af = document.getElementById('auditFlow');
   if (af) af.style.display = 'none';
+  const sf = document.getElementById('serieFlow');
+  if (sf) sf.style.display = 'none';
   if (mode === 'audit') {
     // Un non-abonné (sans code) ne peut pas encore auditer : on lui propose
     // d'acheter des analyses ou de passer au Pro, sans ouvrir le formulaire.
@@ -4581,6 +4996,20 @@ function chooseMode(mode) {
     if (ctxCard) ctxCard.style.display = '';
     const affineNote = document.getElementById('auditAffineNote');
     if (affineNote) affineNote.style.display = 'none';
+  } else if (mode === 'serie') {
+    // Réservé au plan Pro (comme l'audit)
+    if (!aAccesMode('serie')) {
+      document.getElementById('homePage').style.display = 'block';
+      openPlans(unlocked ? 'upgrade' : 'nouveau');
+      return;
+    }
+    if (sf) sf.style.display = 'block';
+    initSerieSelects();
+    chargerSeries();
+    // On revient toujours sur la vue liste en entrant dans le mode
+    document.getElementById('serieCreation').style.display = 'none';
+    document.getElementById('serieDetail').style.display = 'none';
+    document.getElementById('serieNouvelleBtn').style.display = 'block';
   } else if (mode === 'script') {
     document.getElementById('flow').style.display = 'block';
   } else if (mode === 'ideas') {
@@ -4589,7 +5018,7 @@ function chooseMode(mode) {
     document.getElementById('storyFlow').style.display = 'block';
   }
   // Apparition en fondu + légère montée de l'écran qu'on vient d'ouvrir
-  const ecranDuMode = { audit:'auditFlow', script:'flow', ideas:'ideasFlow', story:'storyFlow' };
+  const ecranDuMode = { audit:'auditFlow', serie:'serieFlow', script:'flow', ideas:'ideasFlow', story:'storyFlow' };
   animerEntreeEcran(document.getElementById(ecranDuMode[mode]));
 
   renderGenCounter();
@@ -4613,7 +5042,7 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'historyFlow']) {
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'serieFlow', 'historyFlow']) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }
@@ -4632,7 +5061,7 @@ function pushNav() {
 // Affiche un écran donné (sans toucher à la pile)
 function showScreen(screen) {
   // Masquer tout
-  ['homePage','flow','ideasFlow','storyFlow','auditFlow','historyFlow'].forEach(id => {
+  ['homePage','flow','ideasFlow','storyFlow','auditFlow','serieFlow','historyFlow'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -7068,6 +7497,15 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target === auditRappelOv) fermerRappelAudit();
     });
   }
+  // Choix du nombre d'épisodes d'une série
+  document.querySelectorAll('#serieNbGrid .grid-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.querySelectorAll('#serieNbGrid .grid-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      serieNbEpisodes = parseInt(btn.dataset.val) || 5;
+    });
+  });
   const paywallOv = document.getElementById('paywall');
   if (paywallOv) {
     paywallOv.addEventListener('click', function(e) {
