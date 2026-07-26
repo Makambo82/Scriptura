@@ -1411,6 +1411,10 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .sb-appear { animation: sbFadeUp 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 @media (prefers-reduced-motion: reduce) { .sb-appear { animation: none; } }
 
+/* Apparition des écrans (navigation) : même style que les résultats, plus rapide */
+.screen-appear { animation: sbFadeUp 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) { .screen-appear { animation: none; } }
+
 /* Séparateur discret entre les plans du storyboard */
 .storyboard-list .sb-segment + .sb-segment,
 .storyboard-grid .sb-segment + .sb-segment {
@@ -4541,6 +4545,16 @@ function genererIdeesCorrectives() {
   if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// Fait apparaître un écran en fondu + légère montée.
+// On retire puis remet la classe (avec un reflow forcé) pour que l'animation
+// se relance à chaque navigation, et pas seulement la première fois.
+function animerEntreeEcran(el) {
+  if (!el) return;
+  el.classList.remove('screen-appear');
+  void el.offsetWidth; // force le navigateur à recalculer : relance l'animation
+  el.classList.add('screen-appear');
+}
+
 function chooseMode(mode) {
   pushNav(); // mémoriser l'écran d'où on vient
   // Masquer la page d'accueil et tous les modules
@@ -4574,6 +4588,10 @@ function chooseMode(mode) {
   } else if (mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
   }
+  // Apparition en fondu + légère montée de l'écran qu'on vient d'ouvrir
+  const ecranDuMode = { audit:'auditFlow', script:'flow', ideas:'ideasFlow', story:'storyFlow' };
+  animerEntreeEcran(document.getElementById(ecranDuMode[mode]));
+
   renderGenCounter();
   updateQuotaJour();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -4639,6 +4657,8 @@ function showScreen(screen) {
     // Rafraîchir la liste des générations en y revenant
     if (screen === 'historyFlow' && typeof renderHistory === 'function') renderHistory();
   }
+  // Même apparition en fondu qu'à l'aller
+  animerEntreeEcran(document.getElementById(resultParent[screen] || screen));
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
