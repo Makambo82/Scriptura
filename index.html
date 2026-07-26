@@ -1473,6 +1473,15 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .serie-episode-num{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;color:var(--gold);margin-bottom:8px}
 .serie-episode-titre{font-size:0.96rem;font-weight:700;color:#fff;margin-bottom:8px;line-height:1.4}
 .serie-episode-txt{font-size:0.89rem;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap}
+.serie-directives{margin-top:14px;padding:14px;background:rgba(201,168,76,0.06);border:1px solid var(--border-soft);border-radius:12px}
+.serie-directives-titre{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+.serie-sb-btn{margin-top:14px;width:100%}
+.serie-storyboard{margin-top:14px;padding-top:14px;border-top:1px solid var(--border-soft)}
+.serie-sb-titre{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+.serie-sb-plan{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:10px;padding:12px;margin-bottom:10px}
+.serie-sb-num{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.12em;color:var(--gold-light);margin-bottom:6px}
+.serie-sb-visuel{font-size:0.87rem;color:#fff;line-height:1.5;margin-bottom:6px}
+.serie-sb-texte,.serie-sb-voix{font-size:0.82rem;color:var(--muted);line-height:1.5;margin-top:3px}
 
 /* ── MODE AUDIT TIKTOK ── */
 .hero-mode-btn.audit .mode-icon{filter:saturate(0.9)}
@@ -4866,6 +4875,7 @@ async function creerSerie() {
   const style = document.getElementById('serieStyle')?.value || '';
   const genre = document.getElementById('serieGenre')?.value || '';
   if (!niche) { err.textContent = 'Choisis ta niche.'; err.style.display = 'block'; return; }
+  if (!style) { err.textContent = 'Choisis ton style de contenu : la série sera écrite pour ce format.'; err.style.display = 'block'; return; }
   if (!genre) { err.textContent = 'Choisis le genre de ta série.'; err.style.display = 'block'; return; }
   if (!concept) { err.textContent = 'Décris ton concept, ou demande des propositions.'; err.style.display = 'block'; return; }
   err.style.display = 'none';
@@ -4955,6 +4965,7 @@ async function ouvrirSerie(id) {
     if (error) throw error;
     const total = data.nb_episodes || 5;
     const eps = Array.isArray(data.episodes) ? data.episodes : [];
+    const estFaceless = data.style === 'Faceless (sans visage)';
     const fait = eps.length;
     const pct = Math.min(100, Math.round((fait / total) * 100));
     const fini = fait >= total;
@@ -4972,8 +4983,25 @@ async function ouvrirSerie(id) {
       html += `<div class="serie-episode">
         <div class="serie-episode-num">Épisode ${ep.num} sur ${total}</div>
         <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
-        <div class="serie-episode-txt">${serieEsc(ep.script)}</div>
-      </div>`;
+        <div class="serie-episode-txt">${serieEsc(ep.script)}</div>`;
+      // Directives de tournage (adaptées au style : cadrage pour face caméra, images pour faceless)
+      if (ep.directives) {
+        html += `<div class="serie-directives">
+          <div class="serie-directives-titre">${estFaceless ? '🎬 Quoi filmer / montrer' : '🎥 Comment te filmer'}</div>
+          <div class="serie-episode-txt">${serieEsc(ep.directives)}</div>
+        </div>`;
+      }
+      // Storyboard visuel : uniquement pour le faceless
+      if (estFaceless) {
+        if (ep.storyboard) {
+          html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard)}</div>`;
+        } else {
+          html += `<button class="btn-storyboard serie-sb-btn" onclick="genererStoryboardEpisode(${ep.num})">
+            🎬 Générer le storyboard de cet épisode
+          </button>`;
+        }
+      }
+      html += `</div>`;
     });
 
     html += `<div class="err" id="serieDetailError" style="display:none"></div>`;
@@ -4991,6 +5019,62 @@ async function ouvrirSerie(id) {
     detail.scrollIntoView({ behavior:'smooth', block:'start' });
   } catch(e) {
     detail.innerHTML = '<div class="err" style="display:block">Impossible d\'ouvrir cette série.</div>';
+  }
+}
+
+// Affiche un storyboard de série (liste de plans)
+function renderSerieStoryboard(sb) {
+  if (!Array.isArray(sb) || !sb.length) return '';
+  return '<div class="serie-sb-titre">Storyboard</div>' + sb.map((plan, i) =>
+    `<div class="serie-sb-plan">
+      <div class="serie-sb-num">Plan ${i + 1}</div>
+      <div class="serie-sb-visuel">${serieEsc(plan.visuel || '')}</div>
+      ${plan.texte_ecran ? `<div class="serie-sb-texte">Texte à l'écran : ${serieEsc(plan.texte_ecran)}</div>` : ''}
+      ${plan.voix ? `<div class="serie-sb-voix">Voix off : ${serieEsc(plan.voix)}</div>` : ''}
+    </div>`).join('');
+}
+
+// Génère le storyboard visuel d'un épisode faceless (découpage plan par plan)
+async function genererStoryboardEpisode(numEp) {
+  if (!serieCouranteId) return;
+  try {
+    const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
+    if (error) throw error;
+    const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
+    const ep = eps.find(e => e.num === numEp);
+    if (!ep) return;
+
+    startGenAnimation('serie_episode');
+
+    const prompt = `Tu es directeur artistique. Découpe ce script d'épisode faceless en plans visuels pour une vidéo TikTok verticale.
+
+SCRIPT :
+"""
+${ep.script}
+"""
+
+RÈGLES :
+- Un nouveau plan toutes les 2 à 3 secondes environ.
+- Chaque plan = une image concrète et précise (pas d'adjectif vague).
+- Respecte l'ordre du script, ne coupe jamais une idée en plein milieu.
+- Pour chaque plan, indique le visuel à montrer, le texte affiché à l'écran s'il y en a, et la portion de voix off correspondante.
+
+Réponds UNIQUEMENT en JSON, sans texte autour :
+[{"visuel":"description précise de l'image à filmer ou trouver","texte_ecran":"le texte affiché (ou vide)","voix":"la phrase de voix off de ce plan"}]`;
+
+    const raw = await callAI(MODEL_RAPIDE, 2500, prompt);
+    const sb = serieParseJSON(raw);
+    stopGenAnimation();
+    if (!Array.isArray(sb) || !sb.length) throw new Error('storyboard illisible');
+
+    // On rattache le storyboard à l'épisode et on réenregistre
+    const nouveaux = eps.map(e => e.num === numEp ? Object.assign({}, e, { storyboard: sb }) : e);
+    await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
+    ouvrirSerie(serieCouranteId);
+  } catch(e) {
+    stopGenAnimation();
+    const err = document.getElementById('serieDetailError');
+    if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'réessaie'); err.style.display = 'block'; }
   }
 }
 
@@ -5060,14 +5144,26 @@ RÈGLES D'ÉCRITURE :
 - Ne répète JAMAIS un sujet déjà traité ci-dessus.
 - Respecte la règle récurrente de la bible : c'est la signature de la série.
 - L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
-- Format court : vise 45 à 60 secondes de lecture à voix haute.
+- Format court : vise 45 à 60 secondes (environ 130-160 mots).
 - Accroche forte dès les 3 premières secondes.
-- Adapte tout au style déclaré. Si le style est "Faceless (sans visage)", ne propose jamais de se filmer : travaille la voix off, le texte à l'écran, les visuels, le rythme.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
-${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série de façon satisfaisante.' : ''}
+${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
+
+FORMAT SELON LE STYLE — RÈGLE ABSOLUE, les deux formats ne se ressemblent JAMAIS :
+
+${serie.style === 'Faceless (sans visage)' ? `>> STYLE FACELESS (sans visage) :
+Le créateur n'apparaît pas. Le script et le texte à l'écran portent tout.
+- Écris en DEUX temps clairement séparés : la VOIX OFF (ce qu'on entend) et le TEXTE À L'ÉCRAN (ce qu'on lit).
+- Utilise des images concrètes et sensorielles : le script doit faire voir, pas juste dire. Bannis les adjectifs vagues ("intense", "incroyable").
+- Pense en plans courts : une nouvelle idée visuelle toutes les 2-3 secondes.
+- Le champ "directives" doit expliquer quel type d'images ou de séquences filmer/trouver (archives, plans d'illustration, etc.).` : `>> STYLE AVEC VISAGE (le créateur se filme et parle) :
+Le créateur est à l'écran et s'adresse directement à sa caméra.
+- Écris un texte PARLÉ, à la première personne, fluide et naturel, comme une personne qui raconte. Découpe en courtes phrases (chaque saut de ligne = une respiration).
+- AUCUNE mention de "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" : ce sont des codes faceless, interdits ici.
+- Le champ "directives" doit dire au créateur COMMENT se filmer : cadrage (gros plan, plan poitrine), décor, énergie et ton à adopter, où regarder, quand marquer une pause, quel geste ou expression appuyer le propos.`}
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
-{"titre":"titre court de l'épisode","script":"le script complet, prêt à être tourné"}`;
+{"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au style (voir ci-dessus)"}`;
 
     const raw = await callAI(MODEL_CREATIF, 3000, prompt);
     const ep = serieParseJSON(raw);
