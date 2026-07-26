@@ -3031,36 +3031,36 @@ async function verifierRappelAudit() {
     if (!reco) return; // rien à rappeler
 
     _rappelAuditCourant = audit;
-    const recoEl = document.getElementById('rappelReco');
+    const recoEl = document.getElementById('auditRappelReco');
     if (recoEl) recoEl.textContent = reco;
-    document.getElementById('rappelStep1').style.display = 'block';
-    document.getElementById('rappelStep2').style.display = 'none';
-    document.getElementById('rappelOverlay').classList.add('active');
+    document.getElementById('auditRappelStep1').style.display = 'block';
+    document.getElementById('auditRappelStep2').style.display = 'none';
+    document.getElementById('auditRappelOverlay').classList.add('active');
   } catch(e) { console.warn('Rappel audit échoué', e); }
 }
 
-function rappelRepondre(aCommence) {
+function auditRappelRepondre(aCommence) {
   if (_rappelAuditCourant) {
     localStorage.setItem('scriptura_rappel_' + _rappelAuditCourant.id, aCommence ? 'oui' : 'non');
   }
-  document.getElementById('rappelStep1').style.display = 'none';
-  const step2 = document.getElementById('rappelStep2');
-  const rep = document.getElementById('rappelReponse');
-  const btns = document.getElementById('rappelStep2Btns');
+  document.getElementById('auditRappelStep1').style.display = 'none';
+  const step2 = document.getElementById('auditRappelStep2');
+  const rep = document.getElementById('auditRappelReponse');
+  const btns = document.getElementById('auditRappelStep2Btns');
   if (aCommence) {
     rep.textContent = 'Excellent. La régularité fait toute la différence — continue sur cette lancée, tu es sur la bonne voie.';
-    btns.innerHTML = '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappel()">Continuer</button>';
+    btns.innerHTML = '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappelAudit()">Continuer</button>';
   } else {
     rep.textContent = 'Pas de souci. Le plus dur, c\'est de commencer. Laisse Scriptura te trouver des idées de contenu prêtes à filmer, tout de suite.';
     btns.innerHTML =
-      '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappel(); chooseMode(\'ideas\')">Trouver des idées maintenant</button>' +
-      '<button class="rappel-btn rappel-btn-non" onclick="fermerRappel()">Plus tard</button>';
+      '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappelAudit(); chooseMode(\'ideas\')">Trouver des idées maintenant</button>' +
+      '<button class="rappel-btn rappel-btn-non" onclick="fermerRappelAudit()">Plus tard</button>';
   }
   step2.style.display = 'block';
 }
 
-function fermerRappel() {
-  const el = document.getElementById('rappelOverlay');
+function fermerRappelAudit() {
+  const el = document.getElementById('auditRappelOverlay');
   if (el) el.classList.remove('active');
 }
 
@@ -6877,6 +6877,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target === rappelOv) fermerRappel();
     });
   }
+  const auditRappelOv = document.getElementById('auditRappelOverlay');
+  if (auditRappelOv) {
+    auditRappelOv.addEventListener('click', function(e) {
+      if (e.target === auditRappelOv) fermerRappelAudit();
+    });
+  }
   const paywallOv = document.getElementById('paywall');
   if (paywallOv) {
     paywallOv.addEventListener('click', function(e) {
@@ -6977,23 +6983,23 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
 
 <!-- ══ FENÊTRE DE CHOIX DES PLANS ══ -->
 <!-- ══ POP-UP DE RAPPEL DES RECOMMANDATIONS ══ -->
-<div class="rappel-overlay" id="rappelOverlay">
+<div class="rappel-overlay" id="auditRappelOverlay">
   <div class="rappel-modal">
-    <button class="rappel-close" onclick="fermerRappel()" aria-label="Fermer">✕</button>
-    <div id="rappelStep1">
+    <button class="rappel-close" onclick="fermerRappelAudit()" aria-label="Fermer">✕</button>
+    <div id="auditRappelStep1">
       <div class="rappel-tag">Ton suivi</div>
       <div class="rappel-title">On avait un plan ensemble.</div>
-      <div class="rappel-reco" id="rappelReco"></div>
+      <div class="rappel-reco" id="auditRappelReco"></div>
       <div class="rappel-q">Tu as commencé à le mettre en pratique ?</div>
       <div class="rappel-btns">
-        <button class="rappel-btn rappel-btn-oui" onclick="rappelRepondre(true)">Oui, j'ai commencé</button>
-        <button class="rappel-btn rappel-btn-non" onclick="rappelRepondre(false)">Pas encore</button>
+        <button class="rappel-btn rappel-btn-oui" onclick="auditRappelRepondre(true)">Oui, j'ai commencé</button>
+        <button class="rappel-btn rappel-btn-non" onclick="auditRappelRepondre(false)">Pas encore</button>
       </div>
     </div>
-    <div id="rappelStep2" style="display:none">
+    <div id="auditRappelStep2" style="display:none">
       <div class="rappel-tag">Ton suivi</div>
-      <div class="rappel-reponse" id="rappelReponse"></div>
-      <div class="rappel-btns" id="rappelStep2Btns"></div>
+      <div class="rappel-reponse" id="auditRappelReponse"></div>
+      <div class="rappel-btns" id="auditRappelStep2Btns"></div>
     </div>
   </div>
 </div>
