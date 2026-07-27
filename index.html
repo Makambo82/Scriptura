@@ -1693,6 +1693,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .audit-affine-note{background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:12px;padding:14px 16px;font-size:0.9rem;color:var(--gold-light);line-height:1.5;margin-bottom:18px}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 <body>
 <script>
@@ -4636,6 +4637,192 @@ function auditNum(v) {
 
 // Version texte de l'audit, pour les boutons Copier et Partager.
 // Reprend le même contenu que l'affichage, sans le HTML.
+// ══════════════════════════════════════
+//  EXPORT PDF DE L'AUDIT
+//  Met en page le diagnostic aux couleurs de Scriptura, avec gestion
+//  automatique des sauts de page pour ne jamais couper une phrase.
+// ══════════════════════════════════════
+function telechargerAuditPDF() {
+  const lib = window.jspdf || window.jsPDF;
+  if (!lib) {
+    alert("Le module PDF n'a pas pu être chargé. Vérifie ta connexion et réessaie.");
+    return;
+  }
+  const { jsPDF } = lib;
+  const a = lastAudit;
+  if (!a) return;
+  const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const LARGEUR = 210, HAUTEUR = 297;
+  const MARGE = 18;
+  const UTILE = LARGEUR - MARGE * 2;
+  let y = 0;
+
+  const OR = [201, 168, 76];
+  const OR_CLAIR = [226, 200, 122];
+  const FOND = [28, 28, 30];
+  const BLANC = [255, 255, 255];
+  const GRIS = [175, 175, 178];
+
+  // Peint le fond sombre sur la page courante
+  function fondPage() {
+    doc.setFillColor(FOND[0], FOND[1], FOND[2]);
+    doc.rect(0, 0, LARGEUR, HAUTEUR, 'F');
+  }
+  // Ajoute une page si la place manque
+  function place(h) {
+    if (y + h > HAUTEUR - MARGE) {
+      doc.addPage();
+      fondPage();
+      y = MARGE;
+    }
+  }
+  function titreSection(txt) {
+    place(14);
+    y += 4;
+    doc.setTextColor(OR[0], OR[1], OR[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(String(txt).toUpperCase(), MARGE, y);
+    y += 2;
+    doc.setDrawColor(OR[0], OR[1], OR[2]);
+    doc.setLineWidth(0.3);
+    doc.line(MARGE, y, MARGE + UTILE, y);
+    y += 6;
+  }
+  function paragraphe(txt, couleur, taille, gras) {
+    if (!txt) return;
+    doc.setFont('helvetica', gras ? 'bold' : 'normal');
+    doc.setFontSize(taille || 10);
+    const c = couleur || BLANC;
+    doc.setTextColor(c[0], c[1], c[2]);
+    const lignes = doc.splitTextToSize(String(txt), UTILE);
+    lignes.forEach(l => {
+      place(6);
+      doc.text(l, MARGE, y);
+      y += 5;
+    });
+    y += 1.5;
+  }
+
+  // ── Page 1 : en-tête ──
+  fondPage();
+  y = MARGE + 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
+  doc.text('SCRIPT', MARGE, y);
+  const largeurScript = doc.getTextWidth('SCRIPT');
+  doc.setTextColor(OR[0], OR[1], OR[2]);
+  doc.text('URA', MARGE + largeurScript, y);
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
+  doc.text('Analyse de compte TikTok', MARGE, y);
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  doc.text(dateStr, MARGE + UTILE, y, { align: 'right' });
+  y += 8;
+
+  // ── Le score ──
+  if (ts && ts.global != null) {
+    place(30);
+    doc.setFillColor(38, 38, 41);
+    doc.roundedRect(MARGE, y, UTILE, 24, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
+    doc.text(String(ts.global) + '/100', MARGE + 8, y + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
+    doc.text('ADN TikTok Score', MARGE + 8, y + 21);
+    y += 30;
+  }
+
+  // ── Les dimensions ──
+  if (typeof SCORE_DIMS !== 'undefined' && Array.isArray(SCORE_DIMS)) {
+    titreSection('Détail par dimension');
+    SCORE_DIMS.forEach(d => {
+      const v = (ts && ts[d.key] != null) ? (ts[d.key] + ' / ' + d.max) : 'non mesuré';
+      place(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
+      doc.text(String(d.label), MARGE, y);
+      doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
+      doc.text(String(v), MARGE + UTILE, y, { align: 'right' });
+      y += 6.5;
+    });
+    if (ts && ts.levier_dim) {
+      y += 2;
+      paragraphe('Levier principal : ' + ts.levier_dim, OR_CLAIR, 10, true);
+    }
+  }
+
+  // ── Les piliers ──
+  const P = a.piliers || {};
+  const ajouteBloc = (titre, lignes) => {
+    const utiles = (lignes || []).filter(Boolean);
+    if (!utiles.length) return;
+    titreSection(titre);
+    utiles.forEach(x => paragraphe(x, BLANC, 10));
+  };
+
+  ajouteBloc('Performance globale', [
+    P.performance_globale && P.performance_globale.constat,
+    P.performance_globale && P.performance_globale.blocage,
+    (P.performance_globale && P.performance_globale.action) ? 'À faire : ' + P.performance_globale.action : null
+  ]);
+  ajouteBloc('Meilleure vidéo', [
+    P.meilleure_video && P.meilleure_video.constat,
+    P.meilleure_video && P.meilleure_video.formule
+  ]);
+  ajouteBloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
+  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion]);
+
+  const ed = P.editorial;
+  if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
+    titreSection('Analyse éditoriale');
+    (ed.sujets_notes || []).forEach(s => paragraphe((s.sujet || '') + ' : ' + (s.note || ''), BLANC, 10));
+    if (ed.recommandation) paragraphe('À faire : ' + ed.recommandation, OR_CLAIR, 10);
+  }
+
+  ajouteBloc('Audience', [
+    P.audience && P.audience.constat,
+    P.audience && P.audience.alignement
+  ]);
+
+  // ── Plan d'action ──
+  const pa = a.plan_action_30j;
+  if (pa) {
+    titreSection("Plan d'action 30 jours");
+    if (pa.frequence) paragraphe('Fréquence : ' + pa.frequence, BLANC, 10);
+    if (pa.duree_ideale) paragraphe('Durée idéale : ' + pa.duree_ideale, BLANC, 10);
+    (pa.sujets_a_faire || []).forEach(s => paragraphe('• ' + s, BLANC, 10));
+    if ((pa.erreurs_a_eviter || []).length) {
+      y += 2;
+      paragraphe('À éviter :', OR_CLAIR, 10, true);
+      (pa.erreurs_a_eviter || []).forEach(s => paragraphe('• ' + s, GRIS, 10));
+    }
+  }
+
+  // ── Pied de page sur chaque page ──
+  const total = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 124);
+    doc.text('Scriptura — Analyse de compte TikTok', MARGE, HAUTEUR - 10);
+    doc.text(p + ' / ' + total, MARGE + UTILE, HAUTEUR - 10, { align: 'right' });
+  }
+
+  const nom = 'Analyse-TikTok-Scriptura-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  doc.save(nom);
+}
+
 function auditTexteBrut(a, ts) {
   const L = [];
   L.push('ANALYSE DE COMPTE TIKTOK · SCRIPTURA');
@@ -4874,6 +5061,7 @@ function renderAudit(a) {
   html += `<div class="sb-actions-fin">
     <button class="icon-btn" title="Copier l'audit" onclick="copyText(this, '${storeCopyText(txtAudit)}')">${ICON_COPY}</button>
     <button class="icon-btn" title="Partager l'audit" onclick="shareText(this, '${storeCopyText(txtAudit)}')">${ICON_SHARE}</button>
+    <button class="icon-btn" title="Télécharger en PDF" onclick="telechargerAuditPDF()">${ICON_PDF}</button>
   </div>`;
 
   // ── Pont vers le contenu ──
@@ -6098,7 +6286,7 @@ function renderStory(d) {
             <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
             <div class="hook-text">${h.texte || ''}</div>
           </div>`).join('')}</div>
-        <button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">${ICON_SHARE}</button>
+        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">${ICON_SHARE}</button></div>
       </div>`
     });
   }
@@ -6112,7 +6300,7 @@ function renderStory(d) {
           <div class="story-segment">
             <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
           </div>`).join('')}</div>
-        <button class="icon-btn" title="Copier" onclick="copyStory(this)">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareStory(this)">${ICON_SHARE}</button>
+        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyStory(this)">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareStory(this)">${ICON_SHARE}</button></div>
       </div>`
   });
 
@@ -6126,7 +6314,7 @@ function renderStory(d) {
       <div class="out-section">
         ${d.legende ? `<div class="legende-block">${sansHashtags(d.legende)}</div>` : ''}
         ${tags.length ? `<div class="hashtags-wrap" style="margin-top:14px">${tags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>` : ''}
-        <button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">${ICON_SHARE}</button>
+        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">${ICON_SHARE}</button></div>
       </div>`
     });
   }
@@ -6143,7 +6331,7 @@ function renderStory(d) {
             ${t}
           </div>`).join('')}
         </div>
-        <button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText((d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'))}')">${ICON_SHARE}</button>
+        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText((d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'))}')">${ICON_SHARE}</button></div>
       </div>`,
       sansBoutonGenerique: true
     });
@@ -6675,6 +6863,7 @@ let _promptAGenerer = '';
 // Icônes SVG pour les boutons Copier / Partager
 const ICON_COPY = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 const ICON_SHARE = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>';
+const ICON_PDF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
 
 // Logos ChatGPT et Gemini pour le sélecteur de génération d'image
 const LOGO_CHATGPT = `<svg viewBox="0 0 24 24" width="26" height="26" fill="#fff"><path d="M22.28 9.82a5.98 5.98 0 0 0-.52-4.91 6.05 6.05 0 0 0-6.51-2.9A6.07 6.07 0 0 0 4.98 4.18a5.98 5.98 0 0 0-3.99 2.9 6.05 6.05 0 0 0 .74 7.1 5.98 5.98 0 0 0 .51 4.91 6.05 6.05 0 0 0 6.52 2.9A5.98 5.98 0 0 0 13.26 22a6.05 6.05 0 0 0 5.77-4.2 5.98 5.98 0 0 0 3.99-2.9 6.05 6.05 0 0 0-.74-7.09zm-9.02 12.6a4.48 4.48 0 0 1-2.88-1.04l.14-.08 4.78-2.76a.78.78 0 0 0 .39-.68v-6.74l2.02 1.17a.07.07 0 0 1 .04.06v5.58a4.5 4.5 0 0 1-4.49 4.49zM3.6 18.3a4.47 4.47 0 0 1-.54-3.01l.14.09 4.78 2.76a.78.78 0 0 0 .78 0l5.84-3.37v2.33a.08.08 0 0 1-.03.07l-4.83 2.79a4.5 4.5 0 0 1-6.14-1.65zM2.34 7.9a4.48 4.48 0 0 1 2.34-1.97V11.6a.77.77 0 0 0 .39.68l5.84 3.37-2.02 1.17a.07.07 0 0 1-.07 0l-4.83-2.79A4.5 4.5 0 0 1 2.34 7.9zm16.6 3.86l-5.84-3.37 2.02-1.16a.07.07 0 0 1 .07 0l4.83 2.78a4.49 4.49 0 0 1-.68 8.1v-5.67a.77.77 0 0 0-.4-.68zm2.01-3.02l-.14-.09-4.78-2.76a.78.78 0 0 0-.78 0L9.4 9.26V6.93a.08.08 0 0 1 .03-.07l4.83-2.79a4.49 4.49 0 0 1 6.68 4.65zM8.3 12.86l-2.02-1.17a.07.07 0 0 1-.04-.06V6.05a4.49 4.49 0 0 1 7.37-3.44l-.14.08-4.78 2.76a.78.78 0 0 0-.39.68zm1.1-2.37l2.6-1.5 2.6 1.5v3l-2.6 1.5-2.6-1.5z"/></svg>`;
@@ -7933,7 +8122,7 @@ function renderResults(d, niche, sujet) {
         <div class="out-section-label">Légende</div>
         <div class="legende-block">${sansHashtags(d.legende || '')}</div>
         <div class="hashtags">${(d.hashtags || []).slice(0, 5).map(h => `<span class="ht">${h.toLowerCase()}</span>`).join('')}</div>
-        <button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">${ICON_SHARE}</button>
+        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">${ICON_SHARE}</button></div>
       </div>`
     },
     {
@@ -7991,7 +8180,7 @@ function renderResults(d, niche, sujet) {
       </div>
       <div class="out-body">
         ${sec.content}
-        ${sec.sansBoutonGenerique ? '' : `<button class="icon-btn" title="Copier" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, copyTexts[${i}])">${ICON_SHARE}</button>`}
+        ${sec.sansBoutonGenerique ? '' : `<div class="sb-actions-fin"><button class="icon-btn" title="Copier" id="${btnId}" onclick="copySection('${btnId}', copyTexts[${i}])">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, copyTexts[${i}])">${ICON_SHARE}</button></div>`}
       </div>
     `;
     list.appendChild(card);
