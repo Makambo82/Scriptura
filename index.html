@@ -620,6 +620,10 @@ footer strong{color:var(--gold)}
 .rappel-btn-non{background:rgba(255,255,255,0.07);color:var(--gold-light);border:1px solid var(--border-soft)}
 .rappel-btn-non:hover{background:rgba(255,255,255,0.12)}
 .rappel-reponse{font-size:0.98rem;color:#fff;line-height:1.6;margin-bottom:20px}
+.infos-ligne{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-soft);text-align:left}
+.infos-ligne:last-child{border-bottom:none}
+.infos-label{font-size:0.9rem;color:var(--muted)}
+.infos-val{font-size:0.95rem;color:var(--gold-light);font-weight:600;text-align:right}
 
 /* ── FENÊTRE DE CHOIX DES PLANS ── */
 .plans-overlay{
@@ -3427,6 +3431,63 @@ function resetRegen(type) {
 let usedGen = parseInt(localStorage.getItem('scriptura_used') || '0');
 let unlocked = localStorage.getItem('scriptura_unlocked') === 'true';
 
+// Pop-up d'informations sur l'abonnement (plan, expiration, décompte)
+async function ouvrirInfosAbonne() {
+  if (!unlocked) return;
+  const overlay = document.getElementById('infosAbonneOverlay');
+  const corps = document.getElementById('infosAbonneCorps');
+  if (!overlay || !corps) return;
+
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  const estIllimite = CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode);
+  const plan = (typeof monPalier === 'function') ? monPalier() : 'creator';
+  const planNom = plan === 'pro' ? 'Pro' : 'Creator';
+
+  corps.innerHTML = '<p class="serie-card-concept">Chargement…</p>';
+  overlay.classList.add('active');
+
+  let html = '';
+  // Palier
+  html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">${estIllimite ? 'Accès complet' : 'Plan ' + planNom}</span></div>`;
+
+  // Expiration
+  const expireStr = localStorage.getItem('scriptura_expire');
+  if (estIllimite) {
+    html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">Illimitée</span></div>`;
+  } else if (expireStr) {
+    const d = new Date(expireStr);
+    const dateFmt = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const resteJours = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
+    html += `<div class="infos-ligne"><span class="infos-label">Expire le</span><span class="infos-val">${dateFmt}</span></div>`;
+    if (resteJours >= 0) html += `<div class="infos-ligne"><span class="infos-label">Il te reste</span><span class="infos-val">${resteJours} jour${resteJours > 1 ? 's' : ''}</span></div>`;
+  }
+
+  // Décompte des générations du mois
+  if (estIllimite) {
+    html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">Illimitées</span></div>`;
+  } else {
+    const limites = limitesDuPalier();
+    const faitesCrea = await countMonthGenerations('creation');
+    const resteCrea = Math.max(0, limites.creation - faitesCrea);
+    html += `<div class="infos-ligne"><span class="infos-label">Créations ce mois</span><span class="infos-val">${faitesCrea} / ${limites.creation} · ${resteCrea} restantes</span></div>`;
+    if (limites.audit > 0) {
+      const faitsAudit = await countMonthGenerations('audit');
+      const resteAudit = Math.max(0, limites.audit - faitsAudit);
+      html += `<div class="infos-ligne"><span class="infos-label">Analyses ce mois</span><span class="infos-val">${faitsAudit} / ${limites.audit} · ${resteAudit} restantes</span></div>`;
+    }
+    // Jetons d'analyse achetés
+    const jetons = await lireJetonsAudit();
+    if (jetons > 0) html += `<div class="infos-ligne"><span class="infos-label">Analyses à l'unité</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+  }
+
+  corps.innerHTML = html;
+}
+
+function fermerInfosAbonne() {
+  const o = document.getElementById('infosAbonneOverlay');
+  if (o) o.classList.remove('active');
+}
+
 function renderGenCounter() {
   // Liste de tous les conteneurs de compteur (les 3 modes)
   const counters = [
@@ -3439,7 +3500,7 @@ function renderGenCounter() {
     if (!c.counter) continue;
 
     if (unlocked) {
-      c.counter.innerHTML = '<span style="color:var(--gold-light)">✦ Accès abonné actif</span><span class="quota-jour" style="color:rgba(255,255,255,0.5);font-size:0.82rem"></span>';
+      c.counter.innerHTML = '<span style="color:var(--gold-light);cursor:pointer" onclick="ouvrirInfosAbonne()">✦ Accès abonné actif</span><span class="quota-jour" style="color:rgba(255,255,255,0.5);font-size:0.82rem"></span>';
       continue;
     }
 
@@ -3890,6 +3951,9 @@ async function verifyCode() {
       unlocked = true;
       localStorage.setItem('scriptura_unlocked', 'true');
       localStorage.setItem('scriptura_code', code);
+      // Mémoriser la date d'expiration pour l'afficher dans le pop-up abonné
+      if (data.expire_le) localStorage.setItem('scriptura_expire', data.expire_le);
+      else localStorage.removeItem('scriptura_expire');
       // Palier d'abonnement (colonne "plan" côté Supabase)
       localStorage.setItem('scriptura_plan',
         String(data.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
@@ -5186,6 +5250,38 @@ function renderSerieStoryboard(sb, miniature) {
 }
 
 // Revient à la liste des séries depuis le détail
+// Lit les séries de l'utilisateur pour l'historique (les plus récentes d'abord)
+async function chargerSeriesHistorique() {
+  if (!supabaseClient) return [];
+  const code = localStorage.getItem('scriptura_code');
+  if (!code) return []; // pas de séries pour un visiteur sans code
+  try {
+    const { data, error } = await supabaseClient
+      .from('series')
+      .select('*')
+      .eq('code_acces', getUserRef())
+      .order('cree_le', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.warn('Chargement séries (historique) échoué', e); return []; }
+}
+
+// Ouvre une série depuis l'historique : on va dans le module série, vue détail
+function ouvrirSerieDepuisHistorique(id) {
+  document.getElementById('historyFlow').style.display = 'none';
+  const sf = document.getElementById('serieFlow');
+  if (sf) sf.style.display = 'block';
+  const bl = document.getElementById('serieListeBloc');
+  if (bl) bl.style.display = 'none';
+  const cr = document.getElementById('serieCreation');
+  if (cr) cr.style.display = 'none';
+  const nb = document.getElementById('serieNouvelleBtn');
+  if (nb) nb.style.display = 'none';
+  if (navStack[navStack.length - 1] !== 'historyFlow') navStack.push('historyFlow');
+  ouvrirSerie(id);
+}
+
+// Revient à la liste des séries depuis le détail
 function retourListeSeries() {
   serieCouranteId = null;
   document.getElementById('serieDetail').style.display = 'none';
@@ -5352,11 +5448,11 @@ function chooseMode(mode) {
   }
   // Apparition en fondu + légère montée de l'écran qu'on vient d'ouvrir
   const ecranDuMode = { audit:'auditFlow', serie:'serieFlow', script:'flow', ideas:'ideasFlow', story:'storyFlow' };
-  animerEntreeEcran(document.getElementById(ecranDuMode[mode]));
-
   renderGenCounter();
   updateQuotaJour();
+  // On remet la page en haut AVANT d'animer, pour que le fondu soit visible
   window.scrollTo({ top: 0, behavior: 'auto' });
+  animerEntreeEcran(document.getElementById(ecranDuMode[mode]));
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -5419,9 +5515,9 @@ function showScreen(screen) {
     // Rafraîchir la liste des générations en y revenant
     if (screen === 'historyFlow' && typeof renderHistory === 'function') renderHistory();
   }
-  // Même apparition en fondu qu'à l'aller
-  animerEntreeEcran(document.getElementById(resultParent[screen] || screen));
+  // On remet la page en haut AVANT d'animer, pour que le fondu soit visible
   window.scrollTo({ top: 0, behavior: 'auto' });
+  animerEntreeEcran(document.getElementById(resultParent[screen] || screen));
 }
 
 // Retour pas à pas : revient à l'écran précédent de la pile
@@ -7853,6 +7949,12 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target === auditRappelOv) fermerRappelAudit();
     });
   }
+  const infosAbOv = document.getElementById('infosAbonneOverlay');
+  if (infosAbOv) {
+    infosAbOv.addEventListener('click', function(e) {
+      if (e.target === infosAbOv) fermerInfosAbonne();
+    });
+  }
   // Choix du nombre d'épisodes d'une série
   document.querySelectorAll('#serieNbGrid .grid-btn').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
@@ -7962,6 +8064,16 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
 
 <!-- ══ FENÊTRE DE CHOIX DES PLANS ══ -->
 <!-- ══ POP-UP DE RAPPEL DES RECOMMANDATIONS ══ -->
+<!-- ══ POP-UP INFOS ABONNÉ ══ -->
+<div class="rappel-overlay" id="infosAbonneOverlay">
+  <div class="rappel-modal">
+    <button class="rappel-close" onclick="fermerInfosAbonne()" aria-label="Fermer">✕</button>
+    <div class="rappel-tag">Mon abonnement</div>
+    <div class="rappel-title" style="margin-bottom:20px">Ton accès Scriptura</div>
+    <div id="infosAbonneCorps"></div>
+  </div>
+</div>
+
 <div class="rappel-overlay" id="auditRappelOverlay">
   <div class="rappel-modal">
     <button class="rappel-close" onclick="fermerRappelAudit()" aria-label="Fermer">✕</button>
