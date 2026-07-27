@@ -2654,9 +2654,15 @@ async function callAI(model, maxTokens, prompt, maxRetries) {
       body: JSON.stringify({
         model: useModel,
         max_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }]
+        messages: [{ role: "user", content: prompt }],
+        code_acces: localStorage.getItem('scriptura_code') || null
       })
     });
+    // Abonnement expiré/désactivé refusé par le serveur
+    if (res.status === 403) {
+      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+      return { ok: false, recoverable: false, detail: 'accès refusé' };
+    }
     // Surcharge / erreur serveur temporaire → échec récupérable (on renvoie null)
     if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
       return { ok: false, recoverable: true, detail: '(' + res.status + ') serveur occupé' };
@@ -3736,7 +3742,12 @@ function openPlans(contexte) {
   const packsBloc = document.getElementById('packsAudit');
   if (packsBloc) packsBloc.style.display = 'none'; // masqué sauf en contexte d'achat
 
-  if (contexte === 'upgrade') {
+  if (contexte === 'expire') {
+    // Ancien abonné dont l'abonnement est arrivé à échéance : on propose de renouveler.
+    if (tag) tag.textContent = 'Abonnement expiré';
+    if (titre) titre.innerHTML = 'Ton abonnement<br/>est arrivé à échéance';
+    if (intro) { intro.textContent = 'Renouvelle pour retrouver ton accès et continuer à créer sans interruption.'; intro.style.display = 'block'; }
+  } else if (contexte === 'upgrade') {
     // Abonné Creator qui veut l'analyse TikTok : on ne remontre pas Creator
     if (tag) tag.textContent = 'Passe au Pro';
     if (titre) titre.innerHTML = 'Cette fonctionnalité<br/>est dans le plan Pro';
@@ -4291,10 +4302,15 @@ async function lancerAudit() {
         objectif: objectif,
         niche: niche,
         frequence: frequence,
-        style: style
+        style: style,
+        code_acces: localStorage.getItem('scriptura_code') || null
       })
     });
 
+    if (res.status === 403) {
+      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+      throw new Error('Ton abonnement a expiré. Renouvelle pour relancer une analyse.');
+    }
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error?.message || 'erreur serveur');
