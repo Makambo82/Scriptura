@@ -3805,20 +3805,33 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Fonctionnalité Pro';
     if (titre) titre.innerHTML = 'L\'analyse de compte<br/>TikTok est dans le Pro';
     if (intro) { intro.textContent = 'Cette analyse fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
+  } else if (contexte === 'serie-pro') {
+    // Mode Série : réservé au Pro. On n'affiche QUE le plan qui y donne accès,
+    // et on ne parle jamais de générations gratuites (hors sujet ici).
+    if (tag) tag.textContent = 'Fonctionnalité Pro';
+    if (titre) titre.innerHTML = 'Le mode Série<br/>est dans le plan Pro';
+    if (intro) {
+      intro.textContent = unlocked
+        ? 'Tu as déjà le plan Creator. Le plan Pro ajoute Crée-moi une série : des feuilletons qui font revenir ton audience épisode après épisode.'
+        : 'Crée-moi une série fait partie du plan Pro : des feuilletons qui font revenir ton audience épisode après épisode.';
+      intro.style.display = 'block';
+    }
+    if (cardCreator) cardCreator.style.display = 'none';
+    if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'achat-audit-creator') {
-    // Abonné Creator qui veut une analyse : on propose le Pro ET les packs
-    // au tarif Creator (moins cher).
-    if (tag) tag.textContent = 'Débloquer l\'analyse TikTok';
-    if (titre) titre.innerHTML = 'Analyse ton<br/>compte TikTok';
-    if (intro) { intro.textContent = 'Analyse propulsée par notre IA la plus avancée. Passe au Pro pour l\'avoir chaque mois, ou achète juste le nombre d\'analyses dont tu as besoin.'; intro.style.display = 'block'; }
+    // Abonné Creator qui veut une analyse : on dit que c'est du Pro,
+    // et on propose aussi les packs au tarif Creator (moins cher).
+    if (tag) tag.textContent = 'Fonctionnalité Pro';
+    if (titre) titre.innerHTML = 'L\'analyse de compte<br/>est dans le plan Pro';
+    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok, propulsée par notre IA la plus avancée. Tu peux aussi acheter juste le nombre d\'analyses dont tu as besoin.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('creator'); packsBloc.style.display = 'block'; }
   } else if (contexte === 'achat-audit-nonabonne') {
-    // Non-abonné qui veut une analyse : Pro complet OU packs au tarif non-abonné.
-    if (tag) tag.textContent = 'Analyse ton compte TikTok';
-    if (titre) titre.innerHTML = 'Analyse ton<br/>compte TikTok';
-    if (intro) { intro.textContent = 'Analyse propulsée par notre IA la plus avancée. Prends le plan Pro pour tout débloquer, ou achète simplement une ou plusieurs analyses.'; intro.style.display = 'block'; }
+    // Non-abonné : Pro complet OU packs au tarif non-abonné.
+    if (tag) tag.textContent = 'Fonctionnalité Pro';
+    if (titre) titre.innerHTML = 'L\'analyse de compte<br/>est dans le plan Pro';
+    if (intro) { intro.textContent = 'L\'analyse de compte TikTok fait partie du plan Pro, propulsée par notre IA la plus avancée. Prends le Pro pour tout débloquer, ou achète simplement une ou plusieurs analyses.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
@@ -5595,7 +5608,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
   }
 }
 
-function chooseMode(mode) {
+async function chooseMode(mode) {
   pushNav(); // mémoriser l'écran d'où on vient
   // Masquer la page d'accueil et tous les modules
   document.getElementById('homePage').style.display = 'none';
@@ -5607,15 +5620,17 @@ function chooseMode(mode) {
   const sf = document.getElementById('serieFlow');
   if (sf) sf.style.display = 'none';
   if (mode === 'audit') {
-    // Un non-abonné (sans code) ne peut pas encore auditer : on lui propose
-    // d'acheter des analyses ou de passer au Pro, sans ouvrir le formulaire.
-    if (!unlocked) {
-      document.getElementById('homePage').style.display = 'block';
-      openPlans('achat-audit-nonabonne');
-      return;
+    // L'analyse est réservée au Pro. Un Creator ou un non-abonné n'y accède
+    // que s'il a acheté des jetons ; sinon on lui présente l'offre.
+    if (!aAccesMode('audit')) {
+      const jetonsDispo = await lireJetonsAudit();
+      if (jetonsDispo <= 0) {
+        document.getElementById('homePage').style.display = 'block';
+        openPlans(unlocked ? 'achat-audit-creator' : 'achat-audit-nonabonne');
+        return;
+      }
+      // Il possède des jetons achetés : il entre et pourra les utiliser.
     }
-    // Un abonné (Creator ou Pro) entre dans le mode : le droit réel (analyse
-    // incluse, jeton, ou achat nécessaire) est tranché au lancement de l'audit.
     if (af) af.style.display = 'block';
     // Ouverture normale du mode : le formulaire de contexte est visible,
     // la note d'affinage est masquée (elle ne sert qu'après un premier audit).
@@ -5627,7 +5642,7 @@ function chooseMode(mode) {
     // Réservé au plan Pro (comme l'audit)
     if (!aAccesMode('serie')) {
       document.getElementById('homePage').style.display = 'block';
-      openPlans(unlocked ? 'upgrade' : 'nouveau');
+      openPlans('serie-pro');
       return;
     }
     if (sf) sf.style.display = 'block';
