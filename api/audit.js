@@ -131,6 +131,35 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 
 Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un consultant qui dit quoi faire.`;
 
+// Vérifie côté serveur qu'un code d'accès correspond à un abonnement valide.
+async function verifierAcces(code) {
+  if (!code) return { ok: true };
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return { ok: true };
+  const CODES_ILLIMITES = ['SCRIPTURA-CELINE'];
+  if (CODES_ILLIMITES.includes(String(code).toUpperCase())) return { ok: true };
+  try {
+    const r = await fetch(
+      url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=actif,expire_le',
+      { headers: { apikey: key, Authorization: 'Bearer ' + key } }
+    );
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) return { ok: true };
+    const ab = rows[0];
+    if (ab.actif === false) return { ok: false, raison: 'compte désactivé' };
+    if (ab.expire_le) {
+      const ds = String(ab.expire_le).split('T')[0].split(' ')[0].replace(/\//g, '-');
+      const p = ds.split('-');
+      if (p.length === 3) {
+        const exp = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]), 23, 59, 59, 999);
+        if (!isNaN(exp.getTime()) && exp < new Date()) return { ok: false, raison: 'abonnement expiré' };
+      }
+    }
+    return { ok: true };
+  } catch (e) { return { ok: true }; }
+}
+
 export default async function handler(req, res) {
   // Seules les requêtes POST sont acceptées
   if (req.method !== 'POST') {
@@ -145,10 +174,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, images, objectif, niche, frequence, style } = req.body || {};
+    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces } = req.body || {};
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: { message: 'Aucune image reçue' } });
+    }
+
+    // Verrou serveur : refuser si l'abonnement est expiré ou désactivé
+    const acces = await verifierAcces(code_acces);
+    if (!acces.ok) {
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + acces.raison, code: 'ACCES_REFUSE' } });
     }
 
     // Injection du contexte créateur dans le prompt (valeurs de repli si absentes)
