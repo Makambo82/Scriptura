@@ -1444,6 +1444,10 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 @media(prefers-reduced-motion:reduce){
   .hero-mode-btn.serie{animation:none;box-shadow:0 0 14px 1px rgba(201,168,76,0.22)}
 }
+.ctx-note{
+  font-size:0.78rem;color:rgba(255,255,255,0.45);line-height:1.5;
+  margin-top:10px;text-align:left;
+}
 .serie-section-label{
   font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;text-transform:uppercase;
   color:var(--gold);opacity:0.75;margin:6px 2px 14px;display:flex;align-items:center;gap:12px;
@@ -2030,6 +2034,16 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
             <option value="Classement et compte à rebours">Classement et compte à rebours — du moins au plus fort</option>
             <option value="Éducatif et explicatif">Éducatif et explicatif — comprendre un sujet complexe</option>
           </select>
+        </div>
+        <div class="ctx-field">
+          <label class="ctx-label">Durée de chaque épisode</label>
+          <div class="btn-grid" id="serieDureeGrid">
+            <button type="button" class="grid-btn" data-val="30 à 45 secondes">30-45 s</button>
+            <button type="button" class="grid-btn active" data-val="45 à 60 secondes">45-60 s</button>
+            <button type="button" class="grid-btn" data-val="60 à 90 secondes">60-90 s</button>
+            <button type="button" class="grid-btn" data-val="environ 2 minutes">2 min</button>
+          </div>
+          <p class="ctx-note">Sur TikTok, les épisodes de 45 à 60 secondes retiennent mieux que les formats longs, surtout à partir du troisième épisode : c'est ce qui donne envie de regarder le suivant. Les durées plus longues conviennent aux portraits et aux sujets qui demandent du contexte.</p>
         </div>
         <div class="ctx-field">
           <label class="ctx-label">Combien d'épisodes ?</label>
@@ -5037,6 +5051,7 @@ function animerEntreeEcran(el) {
 // ══════════════════════════════════════
 
 let serieNbEpisodes = 5;      // choix par défaut
+let serieDuree = '45 à 60 secondes'; // durée cible de chaque épisode
 let serieCouranteId = null;   // série ouverte dans le détail
 
 // Recopie les listes niche/style depuis le mode audit (mêmes options partout)
@@ -5190,7 +5205,7 @@ Principes à respecter (méthode d'écriture épisodique courte) :
 - La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
 - Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
 - L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
-- Épisodes pensés pour 45 à 60 secondes.
+- Épisodes pensés pour une durée de ${serieDuree}.
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {
@@ -5206,6 +5221,7 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     const rawBible = await callAI(MODEL_CREATIF, 2500, promptBible);
     const bible = serieParseJSON(rawBible);
     if (!bible || !bible.premisse) throw new Error('construction impossible');
+    bible.duree_episode = serieDuree; // mémorisée pour tous les épisodes à venir
 
     const titre = (bible.titre || concept.split('—')[0]).trim().slice(0, 90);
     const { data, error } = await supabaseClient.from('series').insert({
@@ -5522,7 +5538,7 @@ RÈGLES D'ÉCRITURE :
 - Ne répète JAMAIS un sujet déjà traité ci-dessus.
 - Respecte la règle récurrente de la bible : c'est la signature de la série.
 - L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
-- Format court : vise 45 à 60 secondes (environ 130-160 mots).
+- Durée cible : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde).
 - Accroche forte dès les 3 premières secondes.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
@@ -8147,6 +8163,15 @@ document.addEventListener('DOMContentLoaded', function() {
       document.querySelectorAll('#serieNbGrid .grid-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       serieNbEpisodes = parseInt(btn.dataset.val) || 5;
+    });
+  });
+  // Choix de la durée de chaque épisode
+  document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      serieDuree = btn.dataset.val || '45 à 60 secondes';
     });
   });
   const paywallOv = document.getElementById('paywall');
