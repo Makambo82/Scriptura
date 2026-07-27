@@ -3503,52 +3503,78 @@ let unlocked = localStorage.getItem('scriptura_unlocked') === 'true';
 
 // Pop-up d'informations sur l'abonnement (plan, expiration, décompte)
 async function ouvrirInfosAbonne() {
-  if (!unlocked) return;
   const overlay = document.getElementById('infosAbonneOverlay');
   const corps = document.getElementById('infosAbonneCorps');
   if (!overlay || !corps) return;
 
   const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   const estIllimite = CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode);
-  const plan = (typeof monPalier === 'function') ? monPalier() : 'creator';
-  const planNom = plan === 'pro' ? 'Pro' : 'Creator';
 
   corps.innerHTML = '<p class="serie-card-concept">Chargement…</p>';
   overlay.classList.add('active');
 
   let html = '';
-  // Palier
-  html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">${estIllimite ? 'Accès complet' : 'Plan ' + planNom}</span></div>`;
 
-  // Expiration
-  const expireStr = localStorage.getItem('scriptura_expire');
+  // ── CAS 1 : accès illimité (fondateur) ──
   if (estIllimite) {
+    html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès complet</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">Illimitée</span></div>`;
-  } else if (expireStr) {
-    const d = new Date(expireStr);
-    const dateFmt = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const resteJours = Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24));
-    html += `<div class="infos-ligne"><span class="infos-label">Expire le</span><span class="infos-val">${dateFmt}</span></div>`;
-    if (resteJours >= 0) html += `<div class="infos-ligne"><span class="infos-label">Il te reste</span><span class="infos-val">${resteJours} jour${resteJours > 1 ? 's' : ''}</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">Illimitées</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Analyses de compte</span><span class="infos-val">Illimitées</span></div>`;
+    corps.innerHTML = html;
+    return;
   }
 
-  // Décompte des générations du mois
-  if (estIllimite) {
-    html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">Illimitées</span></div>`;
-  } else {
-    const limites = limitesDuPalier();
-    const faitesCrea = await countMonthGenerations('creation');
-    const resteCrea = Math.max(0, limites.creation - faitesCrea);
-    html += `<div class="infos-ligne"><span class="infos-label">Créations ce mois</span><span class="infos-val">${faitesCrea} / ${limites.creation} · ${resteCrea} restantes</span></div>`;
-    if (limites.audit > 0) {
-      const faitsAudit = await countMonthGenerations('audit');
-      const resteAudit = Math.max(0, limites.audit - faitsAudit);
-      html += `<div class="infos-ligne"><span class="infos-label">Analyses ce mois</span><span class="infos-val">${faitsAudit} / ${limites.audit} · ${resteAudit} restantes</span></div>`;
-    }
-    // Jetons d'analyse achetés
-    const jetons = await lireJetonsAudit();
-    if (jetons > 0) html += `<div class="infos-ligne"><span class="infos-label">Analyses à l'unité</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+  const jetons = await lireJetonsAudit();
+
+  // ── CAS 2 : non-abonné (avec ou sans jetons achetés) ──
+  if (!unlocked) {
+    const resteGratuit = Math.max(0, MAX_FREE - usedGen);
+    html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès gratuit</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Générations gratuites</span><span class="infos-val">${usedGen} / ${MAX_FREE} · ${resteGratuit} restantes</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+    corps.innerHTML = html;
+    return;
   }
+
+  // ── CAS 3 : abonné (Creator ou Pro) ──
+  const plan = (typeof monPalier === 'function') ? monPalier() : 'creator';
+  const planNom = plan === 'pro' ? 'Pro' : 'Creator';
+  html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Plan ${planNom}</span></div>`;
+
+  // Validité : lue en direct depuis Supabase (fiable pour tous)
+  let expireStr = localStorage.getItem('scriptura_expire');
+  if (supabaseClient && monCode) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('abonnes').select('expire_le').eq('code', monCode).maybeSingle();
+      if (!error && data && data.expire_le) {
+        expireStr = data.expire_le;
+        localStorage.setItem('scriptura_expire', expireStr);
+      }
+    } catch(e) { /* on garde le localStorage si la lecture échoue */ }
+  }
+  if (expireStr) {
+    const dd = new Date(expireStr);
+    const dateFmt = dd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">${dateFmt}</span></div>`;
+  }
+
+  // Générations de création du mois
+  const limites = limitesDuPalier();
+  const faitesCrea = await countMonthGenerations('creation');
+  const resteCrea = Math.max(0, limites.creation - faitesCrea);
+  html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">${faitesCrea} / ${limites.creation} · ${resteCrea} restantes</span></div>`;
+
+  // Analyses incluses (Pro) : expirent avec l'abonnement
+  if (limites.audit > 0) {
+    const faitsAudit = await countMonthGenerations('audit');
+    const resteAudit = Math.max(0, limites.audit - faitsAudit);
+    html += `<div class="infos-ligne"><span class="infos-label">Analyses de compte</span><span class="infos-val">${faitsAudit} / ${limites.audit} · ${resteAudit} restantes</span></div>`;
+  }
+
+  // Jetons achetés à l'unité : séparés, sans plafond, ne périment pas
+  html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
 
   corps.innerHTML = html;
 }
@@ -3578,6 +3604,9 @@ function renderGenCounter() {
     if (!c.dots || !c.counter.querySelector('.gen-counter-dots')) {
       c.counter.innerHTML = '<span>Générations gratuites · <strong>' + usedGen + '</strong> / ' + MAX_FREE + ' utilisées</span><div class="gen-counter-dots"></div>';
     }
+    // Le bandeau du non-abonné est cliquable : il ouvre ses infos (gratuites + jetons)
+    c.counter.style.cursor = 'pointer';
+    c.counter.onclick = ouvrirInfosAbonne;
 
     const dotsEl = c.counter.querySelector('.gen-counter-dots');
     if (dotsEl) {
