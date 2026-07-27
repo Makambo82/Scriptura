@@ -1799,6 +1799,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
   </h1>
   <div class="hero-rule"></div>
   <p class="hero-sub">De l'idée brute au contenu prêt à publier. Hooks, scripts, prompts visuels — générés en quelques secondes.</p>
+
+  <div class="gen-counter" id="genCounterHome" style="margin-bottom:20px">
+    <span>Générations gratuites · <strong id="usedNumHome">0</strong> / 5 utilisées</span>
+    <div class="gen-counter-dots" id="genCounterDotsHome"></div>
+  </div>
+
   <div class="hero-modes">
     <button class="hero-mode-btn audit" onclick="chooseMode('audit')">
       <span class="mode-icon">📊</span>
@@ -3651,7 +3657,8 @@ function renderGenCounter() {
   const counters = [
     { counter: document.getElementById('genCounter'), dots: document.getElementById('genCounterDots'), num: document.getElementById('usedNum') },
     { counter: document.getElementById('genCounterIdeas'), dots: document.querySelector('#genCounterIdeas .genCounterDotsShared'), num: document.querySelector('#genCounterIdeas .usedNumShared') },
-    { counter: document.getElementById('genCounterStory'), dots: document.querySelector('#genCounterStory .genCounterDotsShared'), num: document.querySelector('#genCounterStory .usedNumShared') }
+    { counter: document.getElementById('genCounterStory'), dots: document.querySelector('#genCounterStory .genCounterDotsShared'), num: document.querySelector('#genCounterStory .usedNumShared') },
+    { counter: document.getElementById('genCounterHome'), dots: document.getElementById('genCounterDotsHome'), num: document.getElementById('usedNumHome') }
   ];
 
   for (const c of counters) {
