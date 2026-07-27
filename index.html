@@ -2983,6 +2983,54 @@ function aAccesMode(mode) {
   return unlocked && monPalier() === 'pro';
 }
 
+// Parse une date quel que soit le séparateur (yyyy/mm/dd ou yyyy-mm-dd).
+// Les slashes ne sont pas fiables selon les navigateurs : on normalise en tirets.
+function parseDateFlexible(val) {
+  if (!val) return null;
+  let s = String(val).trim();
+  // Ne garder que la partie date si une heure est présente
+  s = s.split('T')[0].split(' ')[0];
+  s = s.replace(/\//g, '-'); // slashes -> tirets
+  const parts = s.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+    if (y && m && d) return new Date(y, m - 1, d); // date locale, sans souci de fuseau
+  }
+  const fallback = new Date(val);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+// Vérifie EN DIRECT (Supabase) si l'abonnement courant est expiré.
+// Renvoie true seulement si une date existe et qu'elle est dépassée.
+async function abonnementExpire() {
+  if (!unlocked) return false;
+  const code = localStorage.getItem('scriptura_code');
+  if (!code) return false;
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(code.toUpperCase())) return false;
+  if (!supabaseClient) return false;
+  try {
+    const { data, error } = await supabaseClient
+      .from('abonnes').select('expire_le, actif').eq('code', code).maybeSingle();
+    if (error || !data) return false; // en cas de doute, on ne bloque pas
+    if (data.actif === false) return true; // compte désactivé
+    if (!data.expire_le) return false; // pas de date = pas d'expiration
+    const expire = parseDateFlexible(data.expire_le);
+    if (!expire) return false; // date illisible : on ne bloque pas
+    // L'abonné garde accès tout le jour de sa date, bascule expiré le lendemain.
+    expire.setHours(23, 59, 59, 999);
+    return expire < new Date();
+  } catch(e) { return false; } // réseau incertain : on n'enferme pas l'abonné dehors
+}
+
+// Déconnecte un abonné expiré et lui propose de renouveler.
+function gererAbonnementExpire() {
+  unlocked = false;
+  localStorage.setItem('scriptura_unlocked', 'false');
+  localStorage.removeItem('scriptura_expire');
+  renderGenCounter();
+  if (typeof openPlans === 'function') openPlans('expire');
+}
+
 async function peutGenerer(errorBoxId) {
   // Les non-abonnés sont gérés par le système de générations gratuites, pas ici.
   if (!unlocked) return true;
@@ -2990,6 +3038,9 @@ async function peutGenerer(errorBoxId) {
   // Codes VIP/admin : générations vraiment illimitées, aucun quota mensuel.
   const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
+
+  // Abonnement expiré ? On bloque et on renvoie vers le renouvellement.
+  if (await abonnementExpire()) { gererAbonnementExpire(); return false; }
 
   const limite = limitesDuPalier().creation;
   const faitesCeMois = await countMonthGenerations('creation');
@@ -3035,6 +3086,11 @@ async function consommerJetonAudit() {
 // ou false (pas le droit — on lui a proposé d'acheter).
 async function peutAuditer() {
   const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  // Abonnement expiré ? on bloque avant tout (sauf codes illimités, gérés plus bas)
+  if (!CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode) && await abonnementExpire()) {
+    gererAbonnementExpire();
+    return false;
+  }
   if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return 'illimite';
 
   // 1. D'abord les analyses incluses dans le plan Pro (elles se rechargent)
@@ -8023,6 +8079,13 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
   syncServerQuota();
+  // Contrôle d'expiration dès l'ouverture : un abonné expiré est déconnecté
+  // sans attendre qu'il tente de générer.
+  if (unlocked) {
+    setTimeout(async () => {
+      try { if (await abonnementExpire()) gererAbonnementExpire(); } catch(e) {}
+    }, 800);
+  }
   // Rappel des recommandations : on laisse le temps à Supabase de s'initialiser
   setTimeout(verifierRappelAudit, 1500);
   // Fermer la modal image au clic sur le fond
