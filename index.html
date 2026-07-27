@@ -3598,7 +3598,7 @@ async function ouvrirInfosAbonne() {
   // ── CAS 2 : non-abonné (avec ou sans jetons achetés) ──
   if (!unlocked) {
     const resteGratuit = Math.max(0, MAX_FREE - usedGen);
-    html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès gratuit</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Plan gratuit</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Générations gratuites</span><span class="infos-val">${usedGen} / ${MAX_FREE} · ${resteGratuit} restantes</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
     corps.innerHTML = html;
