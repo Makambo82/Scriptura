@@ -3258,7 +3258,7 @@ async function renderHistory() {
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
           <div class="history-card-head">
             <span class="history-mode" style="color:#C9A84C">🎞️ Série</span>
-            ${fini ? '<span class="serie-badge-fini">Terminée</span>' : `<span class="history-date">${fait}/${total} épisodes</span>`}
+            ${fini ? '<span class="serie-badge-fini">Terminée</span>' : `<span class="history-date">${formaterNombre(fait)}/${formaterNombre(total)} épisodes</span>`}
           </div>
           <div class="history-title">${serieEsc(s.titre || 'Série sans titre')}</div>
           <div class="serie-progress-bar" style="margin-top:10px"><span class="serie-progress-fill" style="width:${pct}%"></span></div>
@@ -3640,8 +3640,8 @@ async function ouvrirInfosAbonne() {
   if (!unlocked) {
     const resteGratuit = Math.max(0, MAX_FREE - usedGen);
     html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Plan gratuit</span></div>`;
-    html += `<div class="infos-ligne"><span class="infos-label">Générations gratuites</span><span class="infos-val">${usedGen} / ${MAX_FREE} · ${resteGratuit} restantes</span></div>`;
-    html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Générations gratuites</span><span class="infos-val">${formaterNombre(usedGen)} / ${formaterNombre(MAX_FREE)} · ${formaterNombre(resteGratuit)} restantes</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
     corps.innerHTML = html;
     return;
   }
@@ -3673,17 +3673,17 @@ async function ouvrirInfosAbonne() {
   const limites = limitesDuPalier();
   const faitesCrea = await countMonthGenerations('creation');
   const resteCrea = Math.max(0, limites.creation - faitesCrea);
-  html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">${faitesCrea} / ${limites.creation} · ${resteCrea} restantes</span></div>`;
+  html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">${formaterNombre(faitesCrea)} / ${formaterNombre(limites.creation)} · ${formaterNombre(resteCrea)} restantes</span></div>`;
 
   // Analyses incluses (Pro) : expirent avec l'abonnement
   if (limites.audit > 0) {
     const faitsAudit = await countMonthGenerations('audit');
     const resteAudit = Math.max(0, limites.audit - faitsAudit);
-    html += `<div class="infos-ligne"><span class="infos-label">Analyses de compte</span><span class="infos-val">${faitsAudit} / ${limites.audit} · ${resteAudit} restantes</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Analyses de compte</span><span class="infos-val">${formaterNombre(faitsAudit)} / ${formaterNombre(limites.audit)} · ${formaterNombre(resteAudit)} restantes</span></div>`;
   }
 
   // Jetons achetés à l'unité : séparés, sans plafond, ne périment pas
-  html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${jetons} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+  html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
 
   corps.innerHTML = html;
 }
@@ -3764,7 +3764,7 @@ function openPaywall() {
   if (tag) tag.textContent = 'Accès Créateur';
   if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois.';
   if (desc) desc.textContent = 'Passe au plan Creator pour continuer à générer chaque mois, ou au plan Pro pour débloquer aussi l\'analyse de compte TikTok.';
-  if (prix) prix.textContent = '5 000 FCFA';
+  if (prix) prix.textContent = '5.000 FCFA';
   if (wa) wa.href = 'https://wa.me/22995056424?text=' + encodeURIComponent(PLANS.creator.wa);
   document.getElementById('paywall').classList.add('active');
 }
@@ -3877,17 +3877,17 @@ function closePlans() {
 const PLANS = {
   creator: {
     nom: 'Creator',
-    prix: '5 000 FCFA',
+    prix: '5.000 FCFA',
     titre: 'Passe au plan Creator',
     desc: 'Les 3 modes de création, 50 générations par mois.',
-    wa: 'Bonjour, je veux le plan Creator de Scriptura — 5 000 FCFA/mois'
+    wa: 'Bonjour, je veux le plan Creator de Scriptura — 5.000 FCFA/mois'
   },
   pro: {
     nom: 'Pro',
-    prix: '10 000 FCFA',
+    prix: '10.000 FCFA',
     titre: 'Passe au plan Pro',
     desc: 'Tout Creator + l\'analyse de compte TikTok et le mode Crée-moi une série. 70 générations + 5 analyses par mois.',
-    wa: 'Bonjour, je veux le plan Pro de Scriptura — 10 000 FCFA/mois'
+    wa: 'Bonjour, je veux le plan Pro de Scriptura — 10.000 FCFA/mois'
   }
 };
 
@@ -3912,7 +3912,7 @@ function remplirPacks(profil) {
   const packs = PACKS_AUDIT[profil] || PACKS_AUDIT.nonabonne;
   _packsProfilCourant = profil;
   grid.innerHTML = packs.map(function(p, i) {
-    const prixFmt = p.prix.toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' FCFA';
+    const prixFmt = formaterNombre(p.prix) + ' FCFA';
     return '<button class="pack-btn" onclick="acheterPack(' + i + ')">'
       + '<span class="pack-label"><b>' + p.label + '</b></span>'
       + '<span class="pack-price">' + prixFmt + '</span></button>';
@@ -3924,7 +3924,7 @@ function acheterPack(index) {
   const packs = PACKS_AUDIT[_packsProfilCourant] || PACKS_AUDIT.nonabonne;
   const p = packs[index];
   if (!p) return;
-  const prixFmt = p.prix.toLocaleString('fr-FR').replace(/\u202f/g, ' ') + ' FCFA';
+  const prixFmt = formaterNombre(p.prix) + ' FCFA';
   const msg = 'Bonjour, je veux acheter ' + p.label + ' de compte TikTok sur Scriptura — ' + prixFmt;
   window.open('https://wa.me/22995056424?text=' + encodeURIComponent(msg), '_blank');
 }
@@ -4079,7 +4079,7 @@ function showSocialNotif() {
     html = '<span class="social-dot"></span>' + qui + ' ' + action + ' il y a ' + ilya + ' min';
   } else if (type === 1) {
     // Type 2 : compteur global
-    html = '<span class="social-dot"></span><strong>' + socialIncrement().toLocaleString('fr-FR') + '</strong> créateurs utilisent Scriptura';
+    html = '<span class="social-dot"></span><strong>' + formaterNombre(socialIncrement()) + '</strong> créateurs utilisent Scriptura';
   } else {
     // Type 3 : un prénom vient de s'abonner
     const nom = SOCIAL_NOMS[Math.floor(Math.random() * SOCIAL_NOMS.length)];
@@ -4478,6 +4478,19 @@ const SCORE_DIMS = [
 //  fait ici, donc deux analyses des mêmes captures donnent le même score.
 //  Les seuils sont des repères de marché, ajustables en un seul endroit.
 // ═══════════════════════════════════════════════════════════
+
+// Formate un nombre au format Scriptura : point pour les milliers,
+// virgule pour les décimales (ex : 102.450,74). Pas de décimales si entier.
+function formaterNombre(n) {
+  if (n == null || n === '' || isNaN(n)) return '';
+  n = Number(n);
+  const neg = n < 0;
+  n = Math.abs(n);
+  const [entier, decimales] = n.toFixed(2).split('.');
+  const avecMilliers = entier.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const dec = (decimales === '00') ? '' : ',' + decimales;
+  return (neg ? '-' : '') + avecMilliers + dec;
+}
 
 function sNum(v) {
   if (v === null || v === undefined || v === '') return null;
@@ -5252,7 +5265,7 @@ function lancerIdeesDepuisAudit(niche, objectif) {
 
   // Exception : si la niche exige une zone géo et qu'on ne l'a pas, on laisse
   // le formulaire ouvert pour que l'utilisateur la précise (sinon échec).
-  const geoRequise = ['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'];
+  const geoRequise = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'];
   const geoVal = document.getElementById('ideaGeo')?.value.trim();
   if (niche && geoRequise.includes(niche) && !geoVal) {
     const info = document.getElementById('ideasFlow');
@@ -5315,7 +5328,7 @@ async function chargerSeries() {
         <div class="serie-card-titre">${serieEsc(s.titre || 'Série sans titre')}</div>
         <div class="serie-card-concept">${serieEsc(s.concept || '')}</div>
         <div class="serie-card-bas">
-          <span class="serie-progress-txt">${fait} / ${total} épisodes</span>
+          <span class="serie-progress-txt">${formaterNombre(fait)} / ${formaterNombre(total)} épisodes</span>
           <span class="serie-progress-bar"><span class="serie-progress-fill" style="width:${pct}%"></span></span>
           ${fini ? '<span class="serie-badge-fini">Terminée</span>' : ''}
         </div>
@@ -5506,7 +5519,7 @@ async function ouvrirSerie(id) {
       <div class="serie-card" style="cursor:default">
         <div class="serie-card-concept">${serieEsc(data.concept)}</div>
         <div class="serie-card-bas">
-          <span class="serie-progress-txt">${fait} / ${total} épisodes</span>
+          <span class="serie-progress-txt">${formaterNombre(fait)} / ${formaterNombre(total)} épisodes</span>
           <span class="serie-progress-bar"><span class="serie-progress-fill" style="width:${pct}%"></span></span>
         </div>
       </div>`;
@@ -8535,7 +8548,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
     <div class="paywall-tag">Accès Illimité</div>
     <h3>Tu as utilisé tes<br/>5 générations gratuites.</h3>
     <p>Pour continuer à générer des scripts viraux sans limite, passe à l'accès illimité Scriptura.</p>
-    <div class="paywall-price">5 000 FCFA</div>
+    <div class="paywall-price">5.000 FCFA</div>
     <div class="paywall-period">par mois · Mobile Money accepté</div>
     <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+l%27acc%C3%A8s+illimit%C3%A9+%C3%A0+Scriptura+%E2%80%94+5+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
       S'abonner via WhatsApp →
@@ -8588,7 +8601,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       <div class="plan-card-head">
         <span class="plan-name">CREATOR</span>
       </div>
-      <div class="plan-price">5 000 FCFA <span>/ mois</span></div>
+      <div class="plan-price">5.000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
         <li>Les 3 modes de création : idées, script, storytelling</li>
         <li>50 générations par mois</li>
@@ -8602,7 +8615,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
         <span class="plan-name">PRO</span>
         <span class="plan-badge" id="planProBadge">Recommandé</span>
       </div>
-      <div class="plan-price">10 000 FCFA <span>/ mois</span></div>
+      <div class="plan-price">10.000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
         <li>Tout le plan Creator</li>
         <li>+ Analyse de compte TikTok, propulsée par notre IA la plus avancée</li>
