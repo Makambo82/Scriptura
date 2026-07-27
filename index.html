@@ -3240,17 +3240,19 @@ async function renderHistory() {
   const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Analyse', serie: '🎞️ Série' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C' };
 
-  // Cartes de séries (en tête), puis les générations classiques
-  const cartesSeries = (series || []).map(s => {
+  // Séries et générations sont fusionnées dans UNE seule liste,
+  // triée du plus récent au plus ancien (peu importe le type).
+  const items = [];
+
+  (series || []).forEach(s => {
     const total = s.nb_episodes || 5;
     const fait = Array.isArray(s.episodes) ? s.episodes.length : (s.episode_courant || 0);
     const pct = Math.min(100, Math.round((fait / total) * 100));
     const fini = s.statut === 'terminee' || fait >= total;
-    const sid = 'serie:' + s.id; // id préfixé pour la sélection/suppression
+    const sid = 'serie:' + s.id;
     const checked = _selectedIds.has(sid) ? 'checked' : '';
     const selectClass = _selectMode ? ' selecting' : '';
-    const titreEsc = (s.titre || 'Série sans titre').replace(/'/g, "\\'");
-    return `
+    const html = `
       <div class="history-card${selectClass}${_selectedIds.has(sid) ? ' selected' : ''}" data-id="${sid}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${sid}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
@@ -3261,16 +3263,17 @@ async function renderHistory() {
           <div class="history-title">${serieEsc(s.titre || 'Série sans titre')}</div>
           <div class="serie-progress-bar" style="margin-top:10px"><span class="serie-progress-fill" style="width:${pct}%"></span></div>
         </div>
-        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}', '${titreEsc}')">🗑</button>` : ''}
+        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')">🗑</button>` : ''}
       </div>`;
-  }).join('');
+    items.push({ t: new Date(s.cree_le).getTime() || 0, html: html });
+  });
 
-  list.innerHTML = cartesSeries + gens.map((g, i) => {
+  gens.forEach((g, i) => {
     const date = new Date(g.cree_le);
     const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const checked = _selectedIds.has(g.id) ? 'checked' : '';
     const selectClass = _selectMode ? ' selecting' : '';
-    return `
+    const html = `
       <div class="history-card${selectClass}" data-id="${g.id}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
@@ -3281,9 +3284,13 @@ async function renderHistory() {
           <div class="history-title">${g.titre || 'Sans titre'}</div>
           ${!_selectMode ? '<div class="history-reopen">Appuie pour rouvrir cette génération →</div>' : ''}
         </div>
-        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}', '${(g.titre || 'cette génération').replace(/'/g, "\\'")}')">🗑</button>` : ''}
+        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')">🗑</button>` : ''}
       </div>`;
-  }).join('');
+    items.push({ t: date.getTime() || 0, html: html });
+  });
+
+  items.sort((a, b) => b.t - a.t); // le plus récent en premier
+  list.innerHTML = items.map(x => x.html).join('');
 }
 
 function updateHistoryToolbar() {
@@ -3341,7 +3348,13 @@ function toggleSelect(id) {
   }
 }
 
-async function deleteOne(id, titre) {
+async function deleteOne(id) {
+  // On retrouve le titre ici plutôt que de le passer dans le bouton :
+  // un titre contenant un guillemet ou un retour à la ligne cassait le clic.
+  const g = (window._historyData || []).find(x => x.id === id);
+  let titre = (g && g.titre) ? String(g.titre) : 'cette génération';
+  if (titre.length > 60) titre = titre.slice(0, 60) + '…';
+  titre = titre.replace(/\s+/g, ' ').trim();
   if (!confirm('Supprimer « ' + titre + ' » ?\n\nCette action est définitive.')) return;
   const ok = await deleteGenerations([id]);
   if (ok) {
@@ -3366,8 +3379,13 @@ async function deleteSelected() {
 }
 
 // Supprime une seule série depuis son panier
-async function deleteOneSerie(id, titre) {
-  if (!confirm('Supprimer la série « ' + titre +' » et tous ses épisodes ?\n\nCette action est définitive.')) return;
+async function deleteOneSerie(id) {
+  // Titre retrouvé ici (et non passé dans le bouton) pour éviter qu'un
+  // guillemet dans le titre ne casse le clic.
+  const s = (window._historySeries || []).find(x => x.id === id);
+  let titre = (s && s.titre) ? String(s.titre).replace(/\s+/g, ' ').trim() : 'cette série';
+  if (titre.length > 60) titre = titre.slice(0, 60) + '…';
+  if (!confirm('Supprimer la série « ' + titre + ' » et tous ses épisodes ?\n\nCette action est définitive.')) return;
   const ok = await deleteSeries([id]);
   if (ok) renderHistory();
   else alert('La suppression a échoué. Réessaie.');
