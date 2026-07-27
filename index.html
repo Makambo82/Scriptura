@@ -3094,15 +3094,20 @@ async function renderHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:40px">Chargement…</p>';
 
-  const gens = await loadGenerations();
+  let gens = await loadGenerations();
+  // Les épisodes de série ne s'affichent pas isolément : masqués ici
+  // (ils restent enregistrés pour le comptage du quota).
+  gens = gens.filter(g => g.mode !== 'serie');
+  const series = await chargerSeriesHistorique();
 
-  if (!gens.length) {
+  if (!gens.length && !series.length) {
     list.innerHTML = '<div class="history-empty"><p>Aucune génération pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Tes scripts, idées et récits apparaîtront ici automatiquement.</p></div>';
     document.getElementById('historyToolbar').style.display = 'none';
     return;
   }
 
   window._historyData = gens;
+  window._historySeries = series;
 
   // Barre d'outils (sélection multiple)
   const toolbar = document.getElementById('historyToolbar');
@@ -3112,7 +3117,26 @@ async function renderHistory() {
   const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Analyse', serie: '🎞️ Série' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C' };
 
-  list.innerHTML = gens.map((g, i) => {
+  // Cartes de séries (en tête), puis les générations classiques
+  const cartesSeries = (series || []).map(s => {
+    const total = s.nb_episodes || 5;
+    const fait = Array.isArray(s.episodes) ? s.episodes.length : (s.episode_courant || 0);
+    const pct = Math.min(100, Math.round((fait / total) * 100));
+    const fini = s.statut === 'terminee' || fait >= total;
+    return `
+      <div class="history-card" data-serie="${s.id}">
+        <div class="history-card-body" onclick="ouvrirSerieDepuisHistorique('${s.id}')">
+          <div class="history-card-head">
+            <span class="history-mode" style="color:#C9A84C">🎞️ Série</span>
+            ${fini ? '<span class="serie-badge-fini">Terminée</span>' : `<span class="history-date">${fait}/${total} épisodes</span>`}
+          </div>
+          <div class="history-title">${serieEsc(s.titre || 'Série sans titre')}</div>
+          <div class="serie-progress-bar" style="margin-top:10px"><span class="serie-progress-fill" style="width:${pct}%"></span></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  list.innerHTML = cartesSeries + gens.map((g, i) => {
     const date = new Date(g.cree_le);
     const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const checked = _selectedIds.has(g.id) ? 'checked' : '';
@@ -3259,7 +3283,7 @@ function reopenGeneration(i) {
         + '<div class="serie-episode-titre">' + serieEsc(c.titre || '') + '</div>'
         + '<div class="serie-episode-txt">' + serieEsc(c.script || '') + '</div>'
         + '</div>'
-        + '<button class="serie-suggest-btn" onclick="retourListeSeries()">← Toutes mes séries</button>';
+        + '<button class="serie-suggest-btn" onclick="retourListeSeries()">← Retour à mes séries</button>';
     }
   }
 
@@ -4802,6 +4826,9 @@ function serieEsc(t) {
 }
 
 function ouvrirCreationSerie() {
+  const sf = document.getElementById('serieFlow');
+  if (sf) sf.style.display = 'block';
+  document.getElementById('serieListeBloc').style.display = 'none';
   document.getElementById('serieCreation').style.display = 'block';
   document.getElementById('serieDetail').style.display = 'none';
   document.getElementById('serieNouvelleBtn').style.display = 'none';
@@ -4936,7 +4963,6 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     if (error) throw error;
     document.getElementById('serieCreation').style.display = 'none';
     document.getElementById('serieConcept').value = '';
-    await chargerSeries();
     ouvrirSerie(data.id);
   } catch(e) {
     err.textContent = 'Création impossible : ' + (e.message || 'réessaie');
@@ -5007,14 +5033,14 @@ async function ouvrirSerie(id) {
     html += `<div class="err" id="serieDetailError" style="display:none"></div>`;
     if (fini) {
       html += `<p class="serie-card-concept" style="text-align:center">Série terminée. Belle constance !</p>
-        <button class="btn-generate" onclick="retourListeSeries(); ouvrirCreationSerie();">Créer une autre série</button>`;
+        <button class="btn-generate" onclick="chooseMode('serie')">Créer une autre série</button>`;
     } else {
       html += `<button class="btn-generate" id="serieEpBtn" onclick="genererEpisode()">
         <span id="serieEpTxt">Générer l'épisode ${fait + 1}</span>
         <span class="spinner" id="serieEpSpinner"></span>
       </button>`;
     }
-    html += `<button class="serie-suggest-btn" onclick="retourListeSeries()">← Toutes mes séries</button>`;
+    html += `<button class="serie-suggest-btn" onclick="retourListeSeries()">← Retour à mes séries</button>`;
     detail.innerHTML = html;
     detail.scrollIntoView({ behavior:'smooth', block:'start' });
   } catch(e) {
@@ -5078,14 +5104,41 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
   }
 }
 
+// Lit les séries de l'utilisateur pour l'historique (les plus récentes d'abord)
+async function chargerSeriesHistorique() {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('series')
+      .select('*')
+      .eq('code_acces', getUserRef())
+      .order('cree_le', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch(e) { console.warn('Chargement séries (historique) échoué', e); return []; }
+}
+
+// Ouvre une série depuis l'historique : on va dans le mode série, vue détail
+function ouvrirSerieDepuisHistorique(id) {
+  // Masquer l'historique et les autres écrans, afficher le module série
+  document.getElementById('historyFlow').style.display = 'none';
+  const sf = document.getElementById('serieFlow');
+  if (sf) sf.style.display = 'block';
+  document.getElementById('serieListeBloc').style.display = 'none';
+  document.getElementById('serieCreation').style.display = 'none';
+  document.getElementById('serieNouvelleBtn').style.display = 'none';
+  // Empiler l'historique pour que Retour y ramène
+  if (navStack[navStack.length - 1] !== 'historyFlow') navStack.push('historyFlow');
+  ouvrirSerie(id);
+}
+
 // Revient à la liste des séries depuis le détail
 function retourListeSeries() {
   serieCouranteId = null;
   document.getElementById('serieDetail').style.display = 'none';
-  document.getElementById('serieCreation').style.display = 'none';
-  document.getElementById('serieNouvelleBtn').style.display = 'block';
-  chargerSeries();
-  document.getElementById('serieFlow').scrollIntoView({ behavior:'smooth', block:'start' });
+  document.getElementById('serieFlow').style.display = 'none';
+  // Les séries vivent dans "Mes générations" : on y retourne
+  openHistory();
 }
 
 // Génère l'épisode suivant, en tenant compte des précédents
@@ -5231,11 +5284,12 @@ function chooseMode(mode) {
     }
     if (sf) sf.style.display = 'block';
     initSerieSelects();
-    chargerSeries();
-    // On revient toujours sur la vue liste en entrant dans le mode
-    document.getElementById('serieCreation').style.display = 'none';
+    // La consultation des séries se fait via "Mes générations".
+    // Ce mode ne sert plus qu'à créer : on ouvre direct le formulaire.
+    document.getElementById('serieListeBloc').style.display = 'none';
     document.getElementById('serieDetail').style.display = 'none';
-    document.getElementById('serieNouvelleBtn').style.display = 'block';
+    document.getElementById('serieNouvelleBtn').style.display = 'none';
+    ouvrirCreationSerie();
   } else if (mode === 'script') {
     document.getElementById('flow').style.display = 'block';
   } else if (mode === 'ideas') {
