@@ -1412,8 +1412,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 @media (prefers-reduced-motion: reduce) { .sb-appear { animation: none; } }
 
 /* Apparition des écrans (navigation) : même style que les résultats, plus rapide */
-.screen-appear { animation: sbFadeUp 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.screen-appear { animation: screenFade 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
 @media (prefers-reduced-motion: reduce) { .screen-appear { animation: none; } }
+@keyframes screenFade {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* Séparateur discret entre les plans du storyboard */
 .storyboard-list .sb-segment + .sb-segment,
@@ -1802,7 +1806,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
     <button class="hero-mode-btn serie" onclick="chooseMode('serie')">
       <span class="mode-icon">🎞️</span>
       <span class="mode-body">
-        <span class="mode-label">Créer une série</span>
+        <span class="mode-label">Crée-moi une série</span>
         <span class="mode-desc">Des épisodes qui font revenir ton audience</span>
       </span>
     </button>
@@ -3070,7 +3074,7 @@ async function openHistory() {
   document.getElementById('historyFlow').style.display = 'block';
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
   // Pré-remplir le code si connu
   const code = localStorage.getItem('scriptura_code');
   if (code) document.getElementById('historyCodeInput').value = code;
@@ -3288,7 +3292,7 @@ function reopenGeneration(i) {
   }
 
   _skipPush = false; // réactiver l'empilement normal
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 
@@ -3519,8 +3523,8 @@ function openPlans(contexte) {
   if (contexte === 'upgrade') {
     // Abonné Creator qui veut l'analyse TikTok : on ne remontre pas Creator
     if (tag) tag.textContent = 'Passe au Pro';
-    if (titre) titre.innerHTML = 'L\'analyse TikTok<br/>est dans le plan Pro';
-    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok, propulsée par notre IA la plus avancée pour un diagnostic plus fin.'; intro.style.display = 'block'; }
+    if (titre) titre.innerHTML = 'Cette fonctionnalité<br/>est dans le plan Pro';
+    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok (propulsée par notre IA la plus avancée) et le mode Crée-moi une série.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'quota') {
@@ -3591,7 +3595,7 @@ const PLANS = {
     nom: 'Pro',
     prix: '10 000 FCFA',
     titre: 'Passe au plan Pro',
-    desc: 'Tout Creator + l\'analyse de compte TikTok. 70 générations + 5 analyses par mois.',
+    desc: 'Tout Creator + l\'analyse de compte TikTok et le mode Crée-moi une série. 70 générations + 5 analyses par mois.',
     wa: 'Bonjour, je veux le plan Pro de Scriptura — 10 000 FCFA/mois'
   }
 };
@@ -3659,12 +3663,16 @@ function openModal() {
 // ── BOUTON INTELLIGENT HAUT/BAS ──
 // Descend en bas si on est en haut, remonte en haut si on est en bas.
 function scrollSmart() {
-  // Va dans le sens indiqué par la flèche (cohérent avec le sens du scroll)
-  if (_scrollDir === 'down') {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  } else {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+  // Couper net toute inertie de scroll manuel en cours : on "fixe" la position
+  // actuelle en instantané. Sans ça, sur mobile, le premier clic ne fait
+  // qu'arrêter le mouvement du doigt et il faut recliquer.
+  window.scrollTo({ top: window.scrollY, behavior: 'auto' });
+  // Puis on lance le défilement automatique au tour de boucle suivant,
+  // pour que le navigateur ait bien enregistré l'arrêt avant de repartir.
+  const cible = (_scrollDir === 'down') ? document.body.scrollHeight : 0;
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: cible, behavior: 'smooth' });
+  });
 }
 // Garde l'ancien nom au cas où il est appelé ailleurs
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -4756,8 +4764,20 @@ function genererIdeesCorrectives() {
     if (btn) btn.click(); // déclenche la sélection normale (classe active + setter)
   }
 
-  const info = document.getElementById('ideasFlow');
-  if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // On ne laisse pas l'utilisateur sur le formulaire : Scriptura génère
+  // directement les 12 idées à partir des recommandations de l'audit.
+  // Exception : si la niche exige une zone géo et qu'on ne l'a pas, on laisse
+  // le formulaire ouvert pour que l'utilisateur la précise (sinon échec).
+  const geoRequise = ['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'];
+  const geoVal = document.getElementById('ideaGeo')?.value.trim();
+  if (niche && geoRequise.includes(niche) && !geoVal) {
+    const info = document.getElementById('ideasFlow');
+    if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  // generateIdeas bascule lui-même sur l'écran de résultats à la fin.
+  generateIdeas();
 }
 
 // Fait apparaître un écran en fondu + légère montée.
@@ -5006,23 +5026,30 @@ async function ouvrirSerie(id) {
       </div>`;
 
     eps.forEach(ep => {
+      const scriptCopie = storeCopyText((ep.titre ? ep.titre + '\n\n' : '') + (ep.script || '') + (ep.directives ? '\n\n' + ep.directives : ''));
       html += `<div class="serie-episode">
         <div class="serie-episode-num">Épisode ${ep.num} sur ${total}</div>
         <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
         <div class="serie-episode-txt">${serieEsc(ep.script)}</div>`;
-      // Directives de tournage (adaptées au style : cadrage pour face caméra, images pour faceless)
+      // Directives de tournage (adaptées au style)
       if (ep.directives) {
         html += `<div class="serie-directives">
           <div class="serie-directives-titre">${estFaceless ? '🎬 Quoi filmer / montrer' : '🎥 Comment te filmer'}</div>
           <div class="serie-episode-txt">${serieEsc(ep.directives)}</div>
         </div>`;
       }
+      // Copier / Partager le script de l'épisode
+      html += `<div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier l'épisode" onclick="copyText(this, '${scriptCopie}')">${ICON_COPY}</button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${scriptCopie}')">${ICON_SHARE}</button>
+      </div>`;
       // Storyboard visuel : uniquement pour le faceless
       if (estFaceless) {
         if (ep.storyboard) {
-          html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard)}</div>`;
+          html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard, ep.miniature)}</div>`;
         } else {
-          html += `<button class="btn-storyboard serie-sb-btn" onclick="genererStoryboardEpisode(${ep.num})">
+          html += `<div id="serieSbZone${ep.num}"></div>
+          <button class="btn-storyboard serie-sb-btn" onclick="genererStoryboardEpisode(${ep.num})">
             🎬 Générer le storyboard de cet épisode
           </button>`;
         }
@@ -5049,20 +5076,10 @@ async function ouvrirSerie(id) {
 }
 
 // Affiche un storyboard de série (liste de plans)
-function renderSerieStoryboard(sb) {
-  if (!Array.isArray(sb) || !sb.length) return '';
-  return '<div class="serie-sb-titre">Storyboard</div>' + sb.map((plan, i) =>
-    `<div class="serie-sb-plan">
-      <div class="serie-sb-num">Plan ${i + 1}</div>
-      <div class="serie-sb-visuel">${serieEsc(plan.visuel || '')}</div>
-      ${plan.texte_ecran ? `<div class="serie-sb-texte">Texte à l'écran : ${serieEsc(plan.texte_ecran)}</div>` : ''}
-      ${plan.voix ? `<div class="serie-sb-voix">Voix off : ${serieEsc(plan.voix)}</div>` : ''}
-    </div>`).join('');
-}
-
-// Génère le storyboard visuel d'un épisode faceless (découpage plan par plan)
+// Génère le storyboard visuel d'un épisode faceless (même moteur que les autres modes)
 async function genererStoryboardEpisode(numEp) {
   if (!serieCouranteId) return;
+  const err = document.getElementById('serieDetailError');
   try {
     const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
     if (error) throw error;
@@ -5070,66 +5087,102 @@ async function genererStoryboardEpisode(numEp) {
     const ep = eps.find(e => e.num === numEp);
     if (!ep) return;
 
-    startGenAnimation('serie_episode');
+    // Barre de progression animée (même système que J'ai une idée / Storytelling)
+    const barId = 'serieSbBar' + numEp;
+    const fillId = 'serieSbFill' + numEp;
+    const pctId = 'serieSbPct' + numEp;
+    const zone = document.getElementById('serieSbZone' + numEp);
+    if (zone) {
+      zone.innerHTML = '<div class="sb-progress gold" id="' + barId + '" style="display:flex;max-width:100%;margin:14px 0">'
+        + '<div class="sb-progress-track"><div class="sb-progress-fill" id="' + fillId + '"></div></div>'
+        + '<span class="sb-progress-pct" id="' + pctId + '">0%</span></div>';
+    }
+    const prog = createProgress((p) => {
+      const fill = document.getElementById(fillId);
+      const pct = document.getElementById(pctId);
+      if (fill) fill.style.width = p + '%';
+      if (pct) pct.textContent = p + '%';
+    });
+    prog.start();
 
-    const prompt = `Tu es directeur artistique. Découpe ce script d'épisode faceless en plans visuels pour une vidéo TikTok verticale.
+    const scriptText = ep.script || '';
+    const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
+    const segMin = Math.max(3, Math.round(nbMots / 18));
+    const segMax = Math.max(segMin + 1, Math.round(nbMots / 11));
+
+    const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral vertical.
+
+Voici le script d'un episode de serie TikTok (format faceless, sans visage) :
 
 SCRIPT :
-"""
-${ep.script}
-"""
+${scriptText}
 
-RÈGLES :
-- Un nouveau plan toutes les 2 à 3 secondes environ.
-- Chaque plan = une image concrète et précise (pas d'adjectif vague).
-- Respecte l'ordre du script, ne coupe jamais une idée en plein milieu.
-- Pour chaque plan, indique le visuel à montrer, le texte affiché à l'écran s'il y en a, et la portion de voix off correspondante.
+MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments (ni plus, ni moins). Chaque segment couvre une idee complete (~3 a 5 secondes). Ne gonfle JAMAIS le nombre de plans.
 
-Réponds UNIQUEMENT en JSON, sans texte autour :
-[{"visuel":"description précise de l'image à filmer ou trouver","texte_ecran":"le texte affiché (ou vide)","voix":"la phrase de voix off de ce plan"}]`;
+REGLE DE DECOUPAGE : RESPECTE les unites de sens. Ne coupe JAMAIS une idee au milieu. Si une phrase est longue, coupe a un endroit naturel (apres une virgule, une articulation).
 
-    const raw = await callAI(MODEL_RAPIDE, 2500, prompt);
-    const sb = serieParseJSON(raw);
-    stopGenAnimation();
-    if (!Array.isArray(sb) || !sb.length) throw new Error('storyboard illisible');
+STRUCTURE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE, sans ecrire les etiquettes) :
+1. LE DECOR : lieu precis, epoque, ambiance
+2. LA MATIERE : structures, materiaux, textures
+3. LES PERSONNAGES : fonction, age, apparence, vetements precis, gestes, postures
+4. LA VIE DE LA SCENE : elements secondaires, lumiere, ombres
 
-    // On rattache le storyboard à l'épisode et on réenregistre
-    const nouveaux = eps.map(e => e.num === numEp ? Object.assign({}, e, { storyboard: sb }) : e);
+Le prompt se lit comme une description cinematographique fluide et immersive, jamais une liste. Riche, precis, anti-scroll. JAMAIS generique.
+
+SCENES MULTIPLES : si un plan montre plusieurs moments, fonds-les par une transition douce (degrade, fusion des lumieres), jamais de split-screen ni bordure nette.
+
+FOOTER OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
+
+MINIATURE : cree aussi UN prompt special pour la miniature (couverture) : captivante, anti-scroll, sujet central percutant, emotion visible, couleurs contrastees. Termine par " 9:16".
+
+Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
+{"miniature":"le prompt de miniature se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche se terminant par 9:16"}]}`;
+
+    const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !Array.isArray(parsed.storyboard)) throw new Error('storyboard illisible');
+
+    prog.finish();
+
+    // On rattache le storyboard complet (miniature + segments) a l'episode
+    const nouveaux = eps.map(e => e.num === numEp
+      ? Object.assign({}, e, { storyboard: parsed.storyboard, miniature: parsed.miniature || null })
+      : e);
     await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
     ouvrirSerie(serieCouranteId);
   } catch(e) {
-    stopGenAnimation();
-    const err = document.getElementById('serieDetailError');
-    if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'réessaie'); err.style.display = 'block'; }
+    const zone2 = document.getElementById('serieSbZone' + numEp);
+    if (zone2) zone2.innerHTML = '';
+    if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'reessaie'); err.style.display = 'block'; }
   }
 }
 
-// Lit les séries de l'utilisateur pour l'historique (les plus récentes d'abord)
-async function chargerSeriesHistorique() {
-  if (!supabaseClient) return [];
-  try {
-    const { data, error } = await supabaseClient
-      .from('series')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .order('cree_le', { ascending: false });
-    if (error) throw error;
-    return data || [];
-  } catch(e) { console.warn('Chargement séries (historique) échoué', e); return []; }
-}
-
-// Ouvre une série depuis l'historique : on va dans le mode série, vue détail
-function ouvrirSerieDepuisHistorique(id) {
-  // Masquer l'historique et les autres écrans, afficher le module série
-  document.getElementById('historyFlow').style.display = 'none';
-  const sf = document.getElementById('serieFlow');
-  if (sf) sf.style.display = 'block';
-  document.getElementById('serieListeBloc').style.display = 'none';
-  document.getElementById('serieCreation').style.display = 'none';
-  document.getElementById('serieNouvelleBtn').style.display = 'none';
-  // Empiler l'historique pour que Retour y ramène
-  if (navStack[navStack.length - 1] !== 'historyFlow') navStack.push('historyFlow');
-  ouvrirSerie(id);
+// Affiche un storyboard de serie (miniature + segments, avec boutons image et copie)
+function renderSerieStoryboard(sb, miniature) {
+  if (!Array.isArray(sb) || !sb.length) return '';
+  const miniHtml = miniature ? `
+    <div class="sb-segment sb-miniature">
+      <div class="sb-head"><span class="sb-time">★ Miniature</span><span class="sb-index">Couverture</span></div>
+      <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+      <div class="sb-visual">${serieEsc(miniature)}</div>
+      ${blocGenImage(storeCopyText(miniature))}
+    </div>` : '';
+  const tous = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '')
+    + sb.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel || '')).join('\n\n');
+  return `<div class="serie-sb-titre">Storyboard</div>
+    <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié et l'app s'ouvre.</div>
+    <div class="storyboard-list">${miniHtml}${sb.map((seg, i) => `
+      <div class="sb-segment">
+        <div class="sb-head"><span class="sb-time">${serieEsc(seg.segment || '')}</span><span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span></div>
+        <div class="sb-dit">"${serieEsc(seg.texte_dit || '')}"</div>
+        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual">${serieEsc(seg.prompt_visuel || '')}</div>
+        ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
+      </div>`).join('')}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
+      </div></div>`;
 }
 
 // Revient à la liste des séries depuis le détail
@@ -5303,7 +5356,7 @@ function chooseMode(mode) {
 
   renderGenCounter();
   updateQuotaJour();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -5368,7 +5421,7 @@ function showScreen(screen) {
   }
   // Même apparition en fondu qu'à l'aller
   animerEntreeEcran(document.getElementById(resultParent[screen] || screen));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 // Retour pas à pas : revient à l'écran précédent de la pile
@@ -5390,12 +5443,15 @@ function goHome() {
   document.getElementById('storyFlow').style.display = 'none';
   const afh = document.getElementById('auditFlow');
   if (afh) afh.style.display = 'none';
+  const sfh = document.getElementById('serieFlow');
+  if (sfh) sfh.style.display = 'none';
   const hist = document.getElementById('historyFlow');
   if (hist) hist.style.display = 'none';
   // Masquer aussi le paywall s'il était ouvert
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  animerEntreeEcran(document.getElementById('homePage'));
 }
 
 function backToHome() {
@@ -5412,7 +5468,7 @@ function backToHome() {
   }
   if (closedSomething) {
     // On reste dans le mode, on remonte juste au formulaire
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
     return;
   }
   // Sinon, retour à l'accueil
@@ -7956,6 +8012,7 @@ document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
       <ul class="plan-includes">
         <li>Tout le plan Creator</li>
         <li>+ Analyse de compte TikTok, propulsée par notre IA la plus avancée</li>
+        <li>+ Crée-moi une série : des feuilletons qui font revenir ton audience</li>
         <li>70 générations de création + 5 analyses par mois</li>
         <li>Mobile Money accepté</li>
       </ul>
