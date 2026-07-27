@@ -3362,6 +3362,22 @@ async function verifierRappelAudit() {
   } catch(e) { console.warn('Rappel audit échoué', e); }
 }
 
+// Depuis le pop-up de rappel (le lendemain d'un audit) : génère directement
+// les 12 idées à partir de la niche et l'objectif de l'audit sauvegardé.
+function genererIdeesDepuisRappel() {
+  const audit = _rappelAuditCourant;
+  fermerRappelAudit();
+  const contenu = (audit && audit.contenu) ? audit.contenu : {};
+  const niche = contenu.niche || '';
+  const objectif = contenu.objectif || '';
+  if (!niche) {
+    // Pas de niche sauvegardée : on ouvre simplement le mode idées
+    chooseMode('ideas');
+    return;
+  }
+  lancerIdeesDepuisAudit(niche, objectif);
+}
+
 function auditRappelRepondre(aCommence) {
   if (_rappelAuditCourant) {
     localStorage.setItem('scriptura_rappel_' + _rappelAuditCourant.id, aCommence ? 'oui' : 'non');
@@ -3376,7 +3392,7 @@ function auditRappelRepondre(aCommence) {
   } else {
     rep.textContent = 'Pas de souci. Le plus dur, c\'est de commencer. Laisse Scriptura te trouver des idées de contenu, tout de suite.';
     btns.innerHTML =
-      '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappelAudit(); chooseMode(\'ideas\')">Trouver des idées maintenant</button>' +
+      '<button class="rappel-btn rappel-btn-oui" onclick="genererIdeesDepuisRappel()">Trouver des idées maintenant</button>' +
       '<button class="rappel-btn rappel-btn-non" onclick="fermerRappelAudit()">Plus tard</button>';
   }
   step2.style.display = 'block';
@@ -4205,7 +4221,7 @@ async function lancerAudit() {
       const scoreTitre = parsed.mesures
         ? (calculerScores(parsed.mesures).global ?? '?')
         : (parsed.tiktok_score?.global ?? '?');
-      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + scoreTitre, parsed); }
+      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + scoreTitre, Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
       catch(e) { /* silencieux */ }
     }
 
@@ -4800,22 +4816,22 @@ function affinerAudit() {
 
 function genererIdeesCorrectives() {
   if (!lastAudit) return;
-
-  chooseMode('ideas');
-
-  // Pré-remplir avec ce que l'audit sait déjà : la niche et l'objectif
-  // saisis au départ de l'analyse. L'utilisateur peut tout modifier ensuite.
   const niche = document.getElementById('auditNiche')?.value || '';
   const objectif = document.getElementById('auditObjectif')?.value || '';
+  lancerIdeesDepuisAudit(niche, objectif);
+}
 
-  // Niche : les listes de l'audit et des idées sont identiques, report direct.
+// Pré-remplit le mode idées à partir d'une niche + objectif connus (issus d'un
+// audit, à l'écran ou sauvegardé) et lance directement la génération.
+function lancerIdeesDepuisAudit(niche, objectif) {
+  chooseMode('ideas');
+
   const nicheField = document.getElementById('ideaNiche');
   if (nicheField && niche) {
     nicheField.value = niche;
     nicheField.dispatchEvent(new Event('change')); // met à jour le champ géo lié
   }
 
-  // Objectif : on relie l'objectif de l'audit au bon bouton du mode idées.
   const mapObjectif = {
     'Faire plus de vues et maximiser la portée': 'faire des vues',
     'Gagner des abonnés qualifiés rapidement': 'gagner des abonnés',
@@ -4825,11 +4841,9 @@ function genererIdeesCorrectives() {
   const goalVal = mapObjectif[objectif];
   if (goalVal) {
     const btn = document.querySelector('#ideaGoalGrid .grid-btn[data-val="' + goalVal + '"]');
-    if (btn) btn.click(); // déclenche la sélection normale (classe active + setter)
+    if (btn) btn.click();
   }
 
-  // On ne laisse pas l'utilisateur sur le formulaire : Scriptura génère
-  // directement les 12 idées à partir des recommandations de l'audit.
   // Exception : si la niche exige une zone géo et qu'on ne l'a pas, on laisse
   // le formulaire ouvert pour que l'utilisateur la précise (sinon échec).
   const geoRequise = ['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'];
@@ -4840,8 +4854,8 @@ function genererIdeesCorrectives() {
     return;
   }
 
-  // generateIdeas bascule lui-même sur l'écran de résultats à la fin.
   generateIdeas();
+
 }
 
 // Fait apparaître un écran en fondu + légère montée.
