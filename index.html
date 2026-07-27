@@ -3705,7 +3705,7 @@ async function updateQuotaJour() {
   const faitesAff = Math.min(faites, limiteCreation);
   const els = document.querySelectorAll('.quota-jour');
   els.forEach(el => {
-    el.textContent = '  ·  ' + faitesAff + '/' + limiteCreation + ' ce mois';
+    el.textContent = '  ·  ' + faitesAff + '/' + limiteCreation;
   });
 }
 
@@ -8108,6 +8108,8 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(async () => {
       try { if (await abonnementExpire()) gererAbonnementExpire(); } catch(e) {}
     }, 800);
+    // Renseigner le décompte du bandeau d'accueil (12/50, 26/70…)
+    setTimeout(() => { try { updateQuotaJour(); } catch(e) {} }, 900);
   }
   // Rappel des recommandations : on laisse le temps à Supabase de s'initialiser
   setTimeout(verifierRappelAudit, 1500);
