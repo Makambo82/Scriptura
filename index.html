@@ -109,6 +109,9 @@ nav{
 .step.active{display:block}
 
 .step-header{text-align:center;margin-bottom:52px}
+/* Le bouton retour reste à gauche, comme dans les autres modes,
+   même si le reste de l'en-tête d'étape est centré. */
+.step-header .btn-back{display:flex;margin-right:auto}
 .step-indicator{
   font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;
   color:var(--gold);opacity:0.6;margin-bottom:20px;
@@ -7229,7 +7232,32 @@ function parseAIResponse(raw) {
 
     return JSON.parse(repaired);
   } catch(e) {
-    return null;
+    // Tentative 3 : la coupure est arrivée AVANT toute structure fermée.
+    // On repart du texte brut, on ferme la chaîne en cours si besoin,
+    // puis toutes les structures ouvertes. Mieux vaut un objet partiel que rien.
+    try {
+      let t = jsonStr;
+      let ob = 0, obr = 0, ins = false, esc = false;
+      for (let i = 0; i < t.length; i++) {
+        const c = t[i];
+        if (esc) { esc = false; continue; }
+        if (c === '\\') { esc = true; continue; }
+        if (c === '"') ins = !ins;
+        if (!ins) {
+          if (c === '{') ob++;
+          if (c === '}') ob--;
+          if (c === '[') obr++;
+          if (c === ']') obr--;
+        }
+      }
+      if (ins) t += '"';               // fermer la chaîne restée ouverte
+      t = t.replace(/,\s*$/, '');      // virgule orpheline en fin
+      while (obr > 0) { t += ']'; obr--; }
+      while (ob > 0) { t += '}'; ob--; }
+      return JSON.parse(t);
+    } catch(e2) {
+      return null;
+    }
   }
 }
 
