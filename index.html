@@ -2516,6 +2516,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
       <div class="ctx-field">
         <label class="ctx-label" id="sujetLabel">Ton sujet ou idée</label>
         <textarea class="ctx-textarea" id="sujet" placeholder="Ex : pourquoi les gens n'arrivent pas à épargner, les 5 erreurs du débutant en bourse, l'histoire du roi Béhanzin…"></textarea>
+        <p class="ctx-note">Quelques mots suffisent. Tu peux aussi coller un texte long (article, notes, transcription) : Scriptura en tirera le sujet et l'angle.</p>
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Ton audience (optionnel)</label>
@@ -7236,7 +7237,16 @@ function parseAIResponse(raw) {
 async function generate() {
   if (!_regenGratuiteEnCours) resetRegen('script');
   const niche    = document.getElementById('niche').value.trim();
-  const sujet    = document.getElementById('sujet').value.trim();
+  const sujetBrut = document.getElementById('sujet').value.trim();
+  // Le champ accepte aussi bien quelques mots qu'un texte long collé.
+  // Au-delà d'un certain volume, on le traite comme une MATIÈRE de référence :
+  // on le borne pour ne pas faire exploser les prompts (le sujet est réutilisé
+  // à plusieurs étapes), et on prévient le modèle de ne pas le recopier.
+  const LONG_SEUIL = 400;
+  const estTexteLong = sujetBrut.length > LONG_SEUIL;
+  const sujet = estTexteLong
+    ? sujetBrut.slice(0, 2000)
+    : sujetBrut;
   const audience = document.getElementById('audience').value.trim();
   const style    = document.getElementById('style').value.trim();
   const viralVideo = document.getElementById('viralVideo').value.trim();
@@ -7284,7 +7294,7 @@ async function generate() {
     const briefPrompt = `Tu es le Directeur Éditorial de Scriptura, le meilleur stratège de contenu viral francophone. Tu ne rédiges PAS encore. Tu réfléchis comme un directeur créatif de haut niveau avant toute écriture.
 
 CONTEXTE :
-- Sujet : ${sujet}
+- ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles)' : 'Sujet'} : ${sujet}
 - Niche : ${niche}
 - Plateforme : ${state.plateforme}
 - Objectif du créateur : ${state.objectif}
@@ -7315,6 +7325,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt);
     const brief = parseAIResponse(briefRaw) || {};
+    // Si l'utilisateur a collé un texte long, on ne le répète pas dans les
+    // étapes suivantes : on utilise l'angle dégagé par le directeur éditorial.
+    const sujetCourt = estTexteLong
+      ? (brief.angle_choisi || brief.analyse_strategique || sujet.slice(0, 200))
+      : sujet;
 
     // ════════════════════════════════════════════
     //  PHASE 2 — LE RÉDACTEUR EN CHEF (écriture + auto-critique)
@@ -7333,7 +7348,7 @@ BRIEF STRATÉGIQUE À SUIVRE :
 - Stratégie de CTA : ${brief.strategie_cta || 'appel à l\'action clair adapté à l\'objectif'}
 
 CONTEXTE :
-- Sujet : ${sujet}
+- Sujet : ${sujetCourt}
 - Niche : ${niche}
 - Plateforme : ${state.plateforme}
 - Objectif : ${state.objectif}
@@ -7421,7 +7436,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un expert exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script — ton rôle est de l'évaluer objectivement et sans complaisance, comme un directeur de création qui review le travail de son équipe.
 
 CONTEXTE :
-- Sujet : ${sujet}
+- Sujet : ${sujetCourt}
 - Plateforme : ${state.plateforme}
 - Objectif : ${state.objectif}
 - Durée cible : ${wt.desc} (${wt.min}-${wt.max} mots)
@@ -7473,7 +7488,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (critique && critique.verdict === 'à améliorer' && critique.instructions_revision) {
       const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture de contenu viral. Un critique indépendant a évalué le script ci-dessous et identifié des faiblesses. Ta mission : appliquer ses corrections pour produire une version nettement meilleure.
 
-SUJET : ${sujet} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
+SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
 DURÉE CIBLE : ${wt.desc} (${wt.min}-${wt.max} mots au total)
 
 SCRIPT ACTUEL :
@@ -7551,7 +7566,7 @@ RÈGLES :
 - Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
 - Garde ${wt.blocs} blocs, un hook fort au début, un CTA clair à la fin
 - Chaque phrase garde une fonction, zéro remplissage
-- Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujet}
+- Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujetCourt}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
