@@ -5246,9 +5246,11 @@ function lancerIdeesDepuisAudit(niche, objectif) {
   chooseMode('ideas');
 
   const nicheField = document.getElementById('ideaNiche');
+  const geoField = document.getElementById('ideaGeo');
+  if (geoField) geoField.value = ''; // ne jamais hériter d'une ancienne saisie
   if (nicheField && niche) {
     nicheField.value = niche;
-    nicheField.dispatchEvent(new Event('change')); // met à jour le champ géo lié
+    nicheField.dispatchEvent(new Event('change')); // met à jour l'affichage du champ géo lié
   }
 
   const mapObjectif = {
@@ -7090,7 +7092,7 @@ function setupIdeaButtons() {
 
 function updateGeoRequirement() {
   const niche = document.getElementById('ideaNiche').value;
-  const geoRequired = ['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'].includes(niche);
+  const geoRequired = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'].includes(niche);
   const label = document.getElementById('ideaGeoLabel');
   const optional = document.getElementById('geoOptional');
   const input = document.getElementById('ideaGeo');
@@ -7137,7 +7139,7 @@ async function generateIdeas() {
   }
 
   // Géo obligatoire pour Histoire et Géopolitique
-  if (['Histoire', 'Géopolitique', 'Culture & Société', 'Spiritualité', 'Lifestyle'].includes(niche) && !geo) {
+  if (['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'].includes(niche) && !geo) {
     errorBox.textContent = 'Pour ' + niche + ', précise une zone géographique (pays, région, empire…) pour des idées ciblées.';
     errorBox.style.display = 'block'; return;
   }
