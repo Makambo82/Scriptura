@@ -1046,21 +1046,6 @@ footer strong{color:var(--gold)}
 .nav-history-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
 /* ── CARTES HISTORIQUE ── */
 .history-empty{text-align:center;padding:60px 20px;color:rgba(255,255,255,0.7)}
-/* Glissement vers la gauche pour révéler "Supprimer" (le panier reste dispo) */
-.swipe-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:14px}
-.swipe-wrap .history-card{margin-bottom:0;transition:transform 0.25s ease;will-change:transform}
-.swipe-wrap.ouvert .history-card{transform:translateX(-96px)}
-.swipe-action{
-  position:absolute;top:0;right:0;width:96px;height:100%;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(180,60,60,0.9);color:#fff;border:none;cursor:pointer;
-  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;
-  text-transform:uppercase;
-}
-.swipe-action:active{background:rgba(150,45,45,0.95)}
-@media(prefers-reduced-motion:reduce){
-  .swipe-wrap .history-card{transition:none}
-}
 .history-card{
   background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
   padding:20px;margin-bottom:14px;cursor:pointer;transition:border-color 0.2s;
@@ -1635,6 +1620,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .audit-couverture{margin-top:14px}
 .audit-manquantes{margin:0;padding-left:20px}
 .audit-manquantes li{font-size:0.9rem;color:var(--text-secondary);line-height:1.6;margin-bottom:10px}
+.audit-refaire{width:100%;margin-top:16px}
 .audit-couverture:empty{display:none}
 .couv-titre{
   font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.16em;
@@ -1914,12 +1900,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
       <div class="audit-guide-title">Les 5 données à envoyer</div>
       <ol class="audit-steps">
         <li><b>Vue d'ensemble · 60 jours</b><span>TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours</span></li>
-        <li><b>Ta vidéo la plus performante · Analyse complète</b><span>Sur ton profil, ouvre la vidéo → en bas à droite, appuie sur <b>Plus de données</b> (ou sur les 3 points → <b>Données analytiques</b>). Descends jusqu'à la courbe de rétention. Si tout ne tient pas sur un écran, prends-en deux</span></li>
-        <li><b>Ta vidéo la moins performante · Analyse complète</b><span>Même chemin : ouvre la vidéo depuis ton profil → <b>Plus de données</b> (ou 3 points → <b>Données analytiques</b>) → descends jusqu'à la rétention. Prends deux captures si l'écran est trop long</span></li>
+        <li><b>Ta vidéo la plus performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la plus performante des 60 derniers jours et descends jusqu'à la courbe de rétention. Si tout ne tient pas sur un écran, prends-en deux</span></li>
+        <li><b>Ta vidéo la moins performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la moins performante des 60 derniers jours et descends jusqu'à la courbe de rétention. Même chose si l'écran est trop long</span></li>
         <li><b>Top contenus · 60 jours</b><span>TikTok Studio → Analyses → Contenu → Période : 60 jours → Classé par vues</span></li>
         <li><b>Ton audience</b><span>TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements</span></li>
       </ol>
-      <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 12 captures au total.</p>
+      <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 16 captures au total.</p>
     </div>
 
     <div class="context-card" id="auditContextCard">
@@ -2067,11 +2053,6 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
         <div class="ctx-field">
           <label class="ctx-label">Ta niche</label>
           <select class="ctx-input" id="serieNiche"></select>
-        </div>
-        <div class="ctx-field">
-          <label class="ctx-label">Zone géographique <span style="color:rgba(255,255,255,0.4);font-size:0.9em">(optionnel)</span></label>
-          <input type="text" class="ctx-input" id="serieGeo" placeholder="Ex : Afrique de l'Ouest, France, Québec, Maghreb, Caraïbes…"/>
-          <p class="ctx-note">Précise ta zone pour que les épisodes soient ancrés dans le bon contexte culturel. Sans indication, Scriptura reste volontairement général.</p>
         </div>
         <div class="ctx-field">
           <label class="ctx-label">Ton style de contenu</label>
@@ -3259,70 +3240,6 @@ async function syncHistory() {
 let _selectMode = false;
 let _selectedIds = new Set();
 
-// ══════════════════════════════════════
-//  GLISSEMENT POUR SUPPRIMER (Mes générations)
-//  Glisser une carte vers la gauche révèle un bouton "Supprimer".
-//  Le panier reste disponible : deux façons de supprimer, au choix.
-//  Ne se déclenche jamais en mode sélection, ni sur un défilement vertical.
-// ══════════════════════════════════════
-let _swipeDepart = null;
-
-function fermerTousLesSwipes(sauf) {
-  document.querySelectorAll('.swipe-wrap.ouvert').forEach(w => {
-    if (w !== sauf) w.classList.remove('ouvert');
-  });
-}
-
-function initSwipeHistorique() {
-  const liste = document.getElementById('historyList');
-  if (!liste || liste.dataset.swipeInit === '1') return;
-  liste.dataset.swipeInit = '1';
-
-  liste.addEventListener('touchstart', function(e) {
-    if (_selectMode) return; // en mode sélection, on ne glisse pas
-    const wrap = e.target.closest('.swipe-wrap');
-    if (!wrap) return;
-    const t = e.touches[0];
-    _swipeDepart = { x: t.clientX, y: t.clientY, wrap: wrap, decide: false, horizontal: false };
-  }, { passive: true });
-
-  liste.addEventListener('touchmove', function(e) {
-    if (!_swipeDepart) return;
-    const t = e.touches[0];
-    const dx = t.clientX - _swipeDepart.x;
-    const dy = t.clientY - _swipeDepart.y;
-    // On décide une seule fois du sens : si c'est vertical, on laisse
-    // la page défiler normalement et on abandonne le glissement.
-    if (!_swipeDepart.decide) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // trop tôt pour trancher
-      _swipeDepart.decide = true;
-      _swipeDepart.horizontal = Math.abs(dx) > Math.abs(dy);
-      if (!_swipeDepart.horizontal) { _swipeDepart = null; return; }
-    }
-  }, { passive: true });
-
-  liste.addEventListener('touchend', function(e) {
-    if (!_swipeDepart || !_swipeDepart.horizontal) { _swipeDepart = null; return; }
-    const t = e.changedTouches[0];
-    const dx = t.clientX - _swipeDepart.x;
-    const wrap = _swipeDepart.wrap;
-    if (dx < -40) {            // glissé vers la gauche : on révèle
-      fermerTousLesSwipes(wrap);
-      wrap.classList.add('ouvert');
-    } else if (dx > 20) {      // glissé vers la droite : on referme
-      wrap.classList.remove('ouvert');
-    }
-    _swipeDepart = null;
-  }, { passive: true });
-
-  // Un clic ailleurs referme la carte ouverte
-  liste.addEventListener('click', function(e) {
-    if (e.target.closest('.swipe-action')) return; // sauf sur le bouton lui-même
-    const wrap = e.target.closest('.swipe-wrap');
-    fermerTousLesSwipes(wrap && wrap.classList.contains('ouvert') ? null : wrap);
-  });
-}
-
 async function renderHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:40px">Chargement…</p>';
@@ -3363,8 +3280,6 @@ async function renderHistory() {
     const checked = _selectedIds.has(sid) ? 'checked' : '';
     const selectClass = _selectMode ? ' selecting' : '';
     const html = `
-      <div class="swipe-wrap" data-swipe="${sid}">
-      ${!_selectMode ? `<button class="swipe-action" onclick="deleteOneSerie('${s.id}')">Supprimer</button>` : ''}
       <div class="history-card${selectClass}${_selectedIds.has(sid) ? ' selected' : ''}" data-id="${sid}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${sid}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
@@ -3376,7 +3291,7 @@ async function renderHistory() {
           <div class="serie-progress-bar" style="margin-top:10px"><span class="serie-progress-fill" style="width:${pct}%"></span></div>
         </div>
         ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')">🗑</button>` : ''}
-      </div></div>`;
+      </div>`;
     items.push({ t: new Date(s.cree_le).getTime() || 0, html: html });
   });
 
@@ -3386,8 +3301,6 @@ async function renderHistory() {
     const checked = _selectedIds.has(g.id) ? 'checked' : '';
     const selectClass = _selectMode ? ' selecting' : '';
     const html = `
-      <div class="swipe-wrap" data-swipe="${g.id}">
-      ${!_selectMode ? `<button class="swipe-action" onclick="deleteOne('${g.id}')">Supprimer</button>` : ''}
       <div class="history-card${selectClass}" data-id="${g.id}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
@@ -3399,13 +3312,12 @@ async function renderHistory() {
           ${!_selectMode ? '<div class="history-reopen">Appuie pour rouvrir cette génération →</div>' : ''}
         </div>
         ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')">🗑</button>` : ''}
-      </div></div>`;
+      </div>`;
     items.push({ t: date.getTime() || 0, html: html });
   });
 
   items.sort((a, b) => b.t - a.t); // le plus récent en premier
   list.innerHTML = items.map(x => x.html).join('');
-  initSwipeHistorique();
 }
 
 function updateHistoryToolbar() {
@@ -4343,7 +4255,7 @@ let currentScript = null;
 //  MODE AUDIT TIKTOK — gestion des captures
 // ═══════════════════════════════════════════════════════════
 let auditCaptures = []; // { nom, dataUrl, mediaType, base64 }
-const AUDIT_MAX = 12;
+const AUDIT_MAX = 16;
 
 // Ajoute les fichiers choisis (galerie ou appareil photo)
 async function ajouterCaptures(files) {
@@ -4416,13 +4328,18 @@ function compresserImage(file) {
       const img = new Image();
       img.onerror = () => reject(new Error('image invalide'));
       img.onload = () => {
-        const MAX = 1400; // largeur max : suffisant pour lire des chiffres
+        // Compression adaptative : au-delà de 8 captures, on réduit un peu plus
+        // pour que le poids TOTAL de l'envoi reste dans les limites du serveur.
+        // 1100 px reste largement suffisant pour lire des chiffres de statistiques.
+        const beaucoup = auditCaptures.length >= 8;
+        const MAX = beaucoup ? 1100 : 1400;
+        const QUALITE = beaucoup ? 0.72 : 0.82;
         let { width, height } = img;
         if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
         const canvas = document.createElement('canvas');
         canvas.width = width; canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        const dataUrl = canvas.toDataURL('image/jpeg', QUALITE);
         resolve({
           nom: file.name || 'capture',
           dataUrl: dataUrl,
@@ -4446,7 +4363,7 @@ function renderCaptures() {
     if (c.type === 'attente') {
       badge = '<span class="thumb-badge attente">…</span>';
     } else if (c.type === 0) {
-      badge = '<span class="thumb-badge alerte" title="Scriptura ne reconnaît pas cette image comme une donnée TikTok attendue">⚠️</span>';
+      badge = '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">⚠️</span>';
     } else if (AUDIT_TYPES[c.type]) {
       badge = `<span class="thumb-badge ok" title="${AUDIT_TYPES[c.type]} reconnue">✅</span>`;
     }
@@ -4534,6 +4451,12 @@ async function lancerAudit() {
 
   try {
     const images = auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType }));
+    // Garde-fou : le serveur refuse les envois trop lourds. On vérifie AVANT
+    // d'envoyer pour donner un message clair plutôt qu'une erreur technique.
+    const poidsMo = images.reduce((t, im) => t + (im.base64 ? im.base64.length : 0), 0) / (1024 * 1024);
+    if (poidsMo > 4) {
+      throw new Error('Tes captures sont trop lourdes au total (' + poidsMo.toFixed(1) + ' Mo). Retire les captures les moins utiles et relance l\'analyse.');
+    }
     const objectif = document.getElementById('auditObjectif')?.value || '';
     const niche = document.getElementById('auditNiche')?.value || '';
     const frequence = document.getElementById('auditFrequence')?.value || '';
@@ -5277,7 +5200,8 @@ function renderAudit(a) {
     html += auditBlock('📋 Pour un audit plus complet',
       '<ul class="audit-manquantes">' +
       manquantes.map(m => `<li>${auditEsc(m)}</li>`).join('') +
-      '</ul>');
+      '</ul>' +
+      '<button class="btn-storyboard audit-refaire" onclick="affinerAudit()">Refaire l\'audit avec les captures manquantes</button>');
   }
 
   // ── Copier / Partager ──
@@ -5580,7 +5504,6 @@ async function proposerConceptsSerie() {
   zone.style.display = 'block';
   const style = document.getElementById('serieStyle')?.value || '';
   const genre = document.getElementById('serieGenre')?.value || '';
-  const geo = document.getElementById('serieGeo')?.value.trim() || '';
   const prompt = `Tu es un stratège de contenu pour créateurs TikTok francophones d'Afrique.
 Propose 3 concepts de SÉRIE (feuilleton en plusieurs épisodes) pour un créateur.
 Niche : ${niche}
@@ -5653,7 +5576,6 @@ Construis la BIBLE d'une série courte, puis son ARC narratif.
 
 CONCEPT DONNÉ PAR LE CRÉATEUR : ${concept}
 NICHE : ${niche}
-ZONE GÉOGRAPHIQUE / CONTEXTE CULTUREL : ${geo || 'non précisée — reste général, n\'ancre pas la série dans une région particulière'}
 GENRE : ${genre}
 STYLE DE CONTENU : ${style}
 NOMBRE D'ÉPISODES : ${serieNbEpisodes}
@@ -5679,7 +5601,6 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     const bible = serieParseJSON(rawBible);
     if (!bible || !bible.premisse) throw new Error('construction impossible');
     bible.duree_episode = serieDuree; // mémorisée pour tous les épisodes à venir
-    bible.zone_geo = geo;               // contexte culturel, repris à chaque épisode
 
     const titre = (bible.titre || concept.split('—')[0]).trim().slice(0, 90);
     const { data, error } = await supabaseClient.from('series').insert({
@@ -5983,7 +5904,6 @@ Ton : ${b.ton || ''}
 Règle récurrente à respecter absolument : ${b.regle_recurrente || 'aucune'}
 Genre : ${serie.genre || ''}
 Niche : ${serie.niche}
-Zone géographique / contexte culturel : ${b.zone_geo || "non précisée — reste général"}
 Style de contenu : ${serie.style}
 
 ÉPISODE À ÉCRIRE : ${num} sur ${total}
