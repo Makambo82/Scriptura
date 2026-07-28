@@ -1676,6 +1676,7 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 .audit-vs-text{font-size:0.89rem;color:var(--text-secondary);line-height:1.55}
 .audit-vs-formule{font-size:0.89rem;color:var(--gold-light);margin-top:9px;line-height:1.55}
 .audit-vs-concl{margin-top:14px;font-size:0.94rem;color:#fff;font-weight:600;line-height:1.55;text-align:center;padding-top:14px;border-top:1px solid var(--border-soft)}
+.audit-vs-repres{margin-top:10px;font-size:0.85rem;color:var(--muted);line-height:1.5;text-align:center}
 /* Éditorial : notes par sujet */
 .audit-sujets{display:grid;gap:10px;margin-bottom:14px}
 .audit-sujet{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;color:var(--text-secondary);padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
@@ -4806,7 +4807,7 @@ function telechargerAuditPDF() {
     P.meilleure_video && P.meilleure_video.formule
   ]);
   ajouteBloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
-  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion]);
+  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.representativite]);
 
   const ed = P.editorial;
   if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
@@ -4878,7 +4879,7 @@ function auditTexteBrut(a, ts) {
     P.meilleure_video && P.meilleure_video.formule
   ]);
   bloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
-  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion]);
+  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.representativite]);
 
   const ed = P.editorial;
   if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
@@ -5032,7 +5033,8 @@ function renderAudit(a) {
       </div>`;
     }
     html += auditBlock('⚡ Comparatif', `<div class="audit-vs">${inner}</div>
-      ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}`);
+      ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}
+      ${dispo(comp) && comp.representativite ? `<div class="audit-vs-repres">📊 ${auditEsc(comp.representativite)}</div>` : ''}`);
   }
 
   // ── Éditorial ──
