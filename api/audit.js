@@ -7,6 +7,28 @@
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
 
+// Prompt court et bon marché : sert uniquement à reconnaître le TYPE de chaque
+// capture au moment du chargement, pour guider l'utilisateur avant l'audit.
+// Ne fait AUCUNE analyse : il classe, c'est tout.
+const CLASSIFY_PROMPT = `On te donne des captures d'écran, dans l'ordre. Pour CHACUNE, dis à quelle donnée TikTok elle correspond parmi cette liste :
+
+1 = Vue d'ensemble (60 jours) : vues des publications, vues du profil, likes, commentaires, partages, abonnés
+2 = Détail d'une vidéo : indicateurs d'une seule vidéo, courbe ou taux de rétention, durée de visionnage, sources de trafic
+3 = Top contenus : une liste de plusieurs vidéos avec leurs vues
+4 = Audience : répartition par âge, sexe, pays/emplacements
+0 = Autre : tout ce qui n'est aucune des quatre ci-dessus (photo personnelle, autre application, image illisible, capture sans rapport)
+
+RÈGLES (lis-les attentivement, elles évitent des erreurs fréquentes) :
+
+1. LES CAPTURES SE SUIVENT. Elles te sont données dans l'ordre où l'utilisateur les a prises. Un même écran TikTok est souvent trop long pour tenir en une image : il le capture alors en 2 ou 3 fois, en descendant. Ces captures successives appartiennent à la MÊME donnée et reçoivent TOUTES le même numéro.
+
+2. UNE SUITE D'ÉCRAN N'EST PAS UNE IMAGE INCONNUE. Une capture qui montre le bas d'un écran (une courbe de rétention seule, une liste de pays seule, des pourcentages seuls, un tableau sans titre) est la CONTINUATION de la capture précédente, pas une image sans rapport. Regarde la capture qui la précède : si elle en est visiblement la suite, donne-lui le même numéro. Ne la marque JAMAIS 0 seulement parce qu'elle n'a pas d'en-tête ou de titre.
+
+3. LE 0 EST RARE ET RÉSERVÉ À L'ÉVIDENCE. Ne mets 0 que si l'image n'a manifestement rien à voir avec des statistiques TikTok : une photo personnelle, une autre application, une image illisible ou floue, une capture sans rapport. En cas d'hésitation entre deux numéros de données, choisis le plus probable — mais ne bascule pas sur 0. Un 0 injustifié inquiète l'utilisateur pour rien.
+
+Réponds UNIQUEMENT avec un tableau JSON de nombres, un par capture, dans l'ordre reçu. Exemple pour 3 captures : [1,2,0]
+Aucun texte avant ou après.`;
+
 const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 12 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
 
 CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes recommandations) :
@@ -24,15 +46,19 @@ TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
 - DÉTAIL D'UNE VIDÉO : une courbe de rétention, durée moyenne de visionnage, temps total, sources de trafic. S'il y en a deux, la plus performante = "meilleure", l'autre = "pire".
 
 SOURCES DE TRAFIC (si une capture les montre — souvent "Pour toi / FYP", "Abonnés", "Recherche", "Hashtags", "Son") : c'est une donnée précieuse. Une part élevée de "Pour toi" indique que l'algorithme pousse le contenu à de nouvelles personnes (bon signe de portée). Une part dominée par les "Abonnés" indique que le contenu tourne surtout auprès de l'audience existante sans conquérir de nouveaux spectateurs. Quand tu as cette donnée, dis clairement au créateur d'où vient sa visibilité et ce que ça implique. Si elle est absente, ne l'invente pas.
-- TOP CONTENUS (60 j) : une liste de plusieurs vidéos avec leurs vues.
+- TOP CONTENUS (60 j) : une liste de plusieurs vidéos avec leurs vues. IMPORTANT : ce sont les vidéos ayant fait le plus de vues PENDANT la période, qu'elles soient récentes ou anciennes (une vidéo d'il y a un an qui tourne encore y figure). Les vues affichées sont celles réalisées SUR LA PÉRIODE, pas le total depuis la publication.
 - AUDIENCE : répartition par âge, sexe, pays/emplacements.
 - COMPARATIF déjà fait par l'utilisateur : un tableau "Meilleure / Pire".
 
 REPRÉSENTATIVITÉ DES DEUX VIDÉOS ANALYSÉES : l'audit se concentre sur la vidéo la plus performante et la moins performante, choisies par le créateur. Ces deux vidéos sont des EXTRÊMES : elles ne représentent pas forcément la production habituelle du compte. Utilise la liste "top contenus" (si fournie) pour les situer par rapport à l'ensemble des publications, dans les DEUX sens :
 - La meilleure vidéo est-elle un pic isolé loin devant les autres (coup de chance ponctuel, pas encore une méthode reproductible), ou une performance dans la norme de ce que le compte produit régulièrement ?
 - La pire vidéo est-elle un flop isolé bien en dessous du reste (accident ponctuel : mauvais horaire, sujet hors sujet, algorithme défavorable), ou au contraire représentative du niveau habituel du compte (problème de fond, pas d'accident) ?
-Compare les nombres de vues réellement visibles dans la liste, sans deviner au-delà. Cette distinction change complètement le conseil à donner : un accident isolé ne se corrige pas comme un problème structurel. Si le top contenus est absent ou trop court pour trancher, dis-le explicitement plutôt que d'affirmer une tendance.
-ATTENTION — VIDÉO ABSENTE DE LA LISTE : la capture "top contenus" est classée par vues décroissantes et ne montre souvent que les MEILLEURES vidéos. La vidéo la moins performante peut donc ne pas y figurer du tout. Si tu ne retrouves pas la vidéo faible dans la liste, ne déduis rien sur sa représentativité : écris simplement qu'elle n'apparaît pas dans le top fourni et que sa place réelle dans la production ne peut pas être établie. Ne remplace JAMAIS une donnée absente par une estimation.
+COMMENT COMPARER SANS TE TROMPER (règle critique) : le top contenus liste les vidéos qui ont fait le plus de vues PENDANT la période, anciennes comme récentes — ce ne sont donc PAS leurs vues totales depuis publication. L'écran de détail d'une vidéo, lui, affiche son cumul depuis sa mise en ligne. Ces deux chiffres ne sont pas de même nature et ne se comparent JAMAIS directement.
+Pour juger la représentativité, raisonne UNIQUEMENT à l'intérieur de la liste top contenus, en comparant ses vidéos entre elles (toutes sur la même période) :
+- L'écart entre la première vidéo de la liste et les suivantes est-il énorme (une vidéo qui écrase toutes les autres = pic isolé) ou les vues sont-elles rapprochées (production régulière) ?
+- La vidéo faible identifiée par le créateur apparaît-elle dans cette liste ? Si oui, situe-la par rapport aux autres. Si non, dis-le et n'en déduis rien.
+Cette distinction change complètement le conseil à donner : un accident isolé ne se corrige pas comme un problème structurel. Si le top contenus est absent ou trop court pour trancher, dis-le explicitement plutôt que d'affirmer une tendance.
+ATTENTION — VIDÉO ABSENTE DE LA LISTE : la capture "top contenus" est classée par vues décroissantes et ne montre souvent que les MEILLEURES vidéos de la période. La vidéo la moins performante peut donc ne pas y figurer du tout. Si tu ne la retrouves pas dans la liste, ne déduis rien sur sa représentativité : écris simplement qu'elle n'apparaît pas dans le top fourni. Ne remplace JAMAIS une donnée absente par une estimation.
 CONSÉQUENCE SUR TOUTES TES RECOMMANDATIONS : ce constat de représentativité doit être respecté dans TOUT le reste de l'audit, pas seulement dans le comparatif.
 - Si la meilleure vidéo est un pic isolé : n'en tire PAS une "formule" présentée comme une méthode reproductible. Formule-la comme une piste à confirmer ("cette vidéo a marché, mais une seule occurrence ne suffit pas à en faire une règle — teste 2 ou 3 contenus du même type pour vérifier"). N'appuie pas tout le plan d'action 30 jours dessus.
 - Si la vidéo faible est un flop isolé : ne présente PAS son problème comme une faiblesse structurelle du compte. Dis clairement que c'est un cas particulier et cherche la cause ponctuelle, au lieu de recommander de tout changer.
@@ -185,10 +211,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces } = req.body || {};
+    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces, mode } = req.body || {};
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: { message: 'Aucune image reçue' } });
+    }
+
+    // ── Mode CLASSIFICATION : reconnaît le type de chaque capture au chargement.
+    // Tâche simple et bon marché (Haiku), sans analyse : sert à guider l'utilisateur.
+    if (mode === 'classify') {
+      const contenuC = [];
+      let numC = 0;
+      for (const img of images) {
+        if (!img || !img.base64) continue;
+        numC++;
+        // On numérote chaque capture : le modèle doit pouvoir raisonner sur
+        // l'ordre pour reconnaître qu'une image est la suite de la précédente.
+        contenuC.push({ type: 'text', text: 'Capture ' + numC + ' :' });
+        contenuC.push({
+          type: 'image',
+          source: { type: 'base64', media_type: img.mediaType || 'image/jpeg', data: img.base64 }
+        });
+      }
+      contenuC.push({ type: 'text', text: CLASSIFY_PROMPT });
+
+      const repC = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: contenuC }]
+        })
+      });
+      const dataC = await repC.json();
+      if (!repC.ok) return res.status(repC.status).json(dataC);
+      return res.status(200).json(dataC);
     }
 
     // Verrou serveur : refuser si l'abonnement est expiré ou désactivé
