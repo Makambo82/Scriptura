@@ -3531,14 +3531,9 @@ function genererIdeesDepuisRappel() {
   const audit = _rappelAuditCourant;
   fermerRappelAudit();
   const contenu = (audit && audit.contenu) ? audit.contenu : {};
-  const niche = contenu.niche || '';
-  const objectif = contenu.objectif || '';
-  if (!niche) {
-    // Pas de niche sauvegardée : on ouvre simplement le mode idées
-    chooseMode('ideas');
-    return;
-  }
-  lancerIdeesDepuisAudit(niche, objectif);
+  // Si la niche n'est pas dans l'audit sauvegardé, lancerIdeesDepuisAudit
+  // ouvrira le formulaire vierge au lieu de générer à l'aveugle.
+  lancerIdeesDepuisAudit(contenu.niche || '', contenu.objectif || '');
 }
 
 function auditRappelRepondre(aCommence) {
@@ -5235,8 +5230,11 @@ function affinerAudit() {
 
 function genererIdeesCorrectives() {
   if (!lastAudit) return;
-  const niche = document.getElementById('auditNiche')?.value || '';
-  const objectif = document.getElementById('auditObjectif')?.value || '';
+  // La niche et l'objectif viennent D'ABORD de l'audit lui-même : c'est la
+  // seule source fiable quand on rouvre un audit depuis "Mes générations"
+  // (dans ce cas le formulaire d'audit est vide, on n'y a rien saisi).
+  const niche = lastAudit.niche || document.getElementById('auditNiche')?.value || '';
+  const objectif = lastAudit.objectif || document.getElementById('auditObjectif')?.value || '';
   lancerIdeesDepuisAudit(niche, objectif);
 }
 
@@ -5248,7 +5246,21 @@ function lancerIdeesDepuisAudit(niche, objectif) {
   const nicheField = document.getElementById('ideaNiche');
   const geoField = document.getElementById('ideaGeo');
   if (geoField) geoField.value = ''; // ne jamais hériter d'une ancienne saisie
-  if (nicheField && niche) {
+
+  // Niche inconnue (audit ancien, enregistré avant qu'on la sauvegarde) :
+  // on ouvre le formulaire vierge pour que l'utilisateur la choisisse,
+  // plutôt que de générer avec une valeur résiduelle qui n'est pas la sienne.
+  if (!niche) {
+    if (nicheField) {
+      nicheField.selectedIndex = 0;
+      nicheField.dispatchEvent(new Event('change'));
+    }
+    const info = document.getElementById('ideasFlow');
+    if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  if (nicheField) {
     nicheField.value = niche;
     nicheField.dispatchEvent(new Event('change')); // met à jour l'affichage du champ géo lié
   }
