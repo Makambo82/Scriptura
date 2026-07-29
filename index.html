@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1186,11 +1185,11 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 .sidebar-counter-value{font-family:'Playfair Display',serif;font-size:1.15rem;color:#fff}
 .sidebar-nav{display:flex;flex-direction:column;gap:6px;flex:1}
 .sidebar-item{
-  display:flex;align-items:center;gap:12px;
+  display:flex;align-items:center;justify-content:flex-start;gap:12px;
   background:transparent;border:none;text-align:left;
   color:rgba(255,255,255,0.85);font-family:'Tenor Sans',sans-serif;font-size:0.95rem;
   padding:14px 14px;border-radius:8px;cursor:pointer;transition:background 0.2s;
-  text-decoration:none;
+  text-decoration:none;width:100%;
 }
 .sidebar-item:hover{background:rgba(255,255,255,0.05)}
 .sidebar-icon{font-size:1.1rem;width:24px;text-align:center}
@@ -1199,6 +1198,20 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   color:rgba(255,255,255,0.3);text-align:center;padding-top:20px;
 }
 body.is-unlocked .sidebar-item.nav-code-btn{display:none}
+.sidebar-logout{
+  border-top:1px solid var(--border-soft);
+  padding-top:10px;
+  margin-top:8px;
+  display:none;
+}
+body.is-unlocked .sidebar-logout{display:block}
+.sidebar-item.nav-logout-btn{
+  color:rgba(255,120,120,0.85);
+}
+.sidebar-item.nav-logout-btn:hover{
+  background:rgba(255,80,80,0.08);
+  color:rgba(255,150,150,1);
+}
 
 /* Texte "Appuie pour rouvrir" — discret */
 .history-reopen{
@@ -1779,6 +1792,12 @@ body.is-unlocked .sidebar-item.nav-code-btn{display:none}
       <span class="sidebar-icon">💬</span> Nous contacter
     </a>
   </nav>
+
+  <div class="sidebar-logout">
+    <button class="sidebar-item nav-logout-btn" onclick="seDeconnecter()">
+      <span class="sidebar-icon">🚪</span> Se déconnecter
+    </button>
+  </div>
 
   <div class="sidebar-footer">Scriptura · L'OS du créateur francophone</div>
 </aside>
@@ -4122,6 +4141,16 @@ function sidebarGo(action) {
     window.open('https://wa.me/22995056424?text=Bonjour%20!%20je%20veux%20m%27abonner%20%C3%A0%20Scriptura%20pour%205%20000%20FCFA%2Fmois', '_blank');
   }
 }
+function seDeconnecter() {
+  unlocked = false;
+  localStorage.setItem('scriptura_unlocked', 'false');
+  localStorage.removeItem('scriptura_code');
+  localStorage.removeItem('scriptura_expire');
+  document.body.classList.remove('is-unlocked');
+  closeSidebar();
+  location.reload();
+}
+
 // Met à jour le compteur affiché dans la sidebar
 async function updateSidebarCounter() {
   const el = document.getElementById('sidebarCounterValue');
