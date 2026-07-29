@@ -1183,7 +1183,7 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 .sidebar-counter-label{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);opacity:0.7;margin-bottom:6px}
 .sidebar-counter-value{font-family:'Playfair Display',serif;font-size:1.15rem;color:#fff}
-.sidebar-nav{display:flex;flex-direction:column;gap:6px}
+.sidebar-nav{display:flex;flex-direction:column;gap:6px;flex:1}
 .sidebar-item{
   display:flex;align-items:center;justify-content:flex-start;gap:12px;
   background:transparent;border:none;text-align:left;
@@ -1198,11 +1198,10 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   color:rgba(255,255,255,0.3);text-align:center;padding-top:20px;
 }
 body.is-unlocked .sidebar-item.nav-code-btn{display:none}
-body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
 .sidebar-logout{
   border-top:1px solid var(--border-soft);
-  padding-top:4px;
-  margin-top:16px;
+  padding-top:10px;
+  margin-top:8px;
   display:none;
 }
 body.is-unlocked .sidebar-logout{display:block}
@@ -1786,7 +1785,7 @@ body.is-unlocked .sidebar-logout{display:block}
     <button class="sidebar-item nav-code-btn" onclick="sidebarGo('code')">
       <span class="sidebar-icon">🔓</span> J'ai un code
     </button>
-    <button class="sidebar-item nav-subscribe-btn" onclick="sidebarGo('subscribe')">
+    <button class="sidebar-item" onclick="sidebarGo('subscribe')">
       <span class="sidebar-icon">✦</span> S'abonner
     </button>
     <a class="sidebar-item" href="https://wa.me/22995056424?text=Bonjour%20!%20J%27ai%20une%20question%20sur%20Scriptura" target="_blank" rel="noopener" onclick="closeSidebar()">
