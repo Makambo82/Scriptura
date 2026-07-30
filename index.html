@@ -4319,7 +4319,21 @@ async function verifyCode() {
         }
       }
 
-      // Code valide !
+      // Code "jeton seul" : achat d'une ou plusieurs analyses à l'unité,
+      // sans abonnement. On NE bascule PAS en "unlocked" : l'utilisateur
+      // reste sur le statut non-abonné (5 générations gratuites, pas
+      // d'accès aux modes Pro), on stocke juste le code pour que le
+      // système de jetons (lireJetonsAudit / consommerJetonAudit) le
+      // retrouve et le décompte à l'usage.
+      if (String(data.plan || '').trim().toLowerCase() === 'jeton') {
+        localStorage.setItem('scriptura_code', code);
+        closeModal();
+        renderGenCounter();
+        closePaywall();
+        return;
+      }
+
+      // Code valide ! (abonnement normal : Creator ou Pro)
       unlocked = true;
       localStorage.setItem('scriptura_unlocked', 'true');
       localStorage.setItem('scriptura_code', code);
