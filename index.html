@@ -5785,16 +5785,23 @@ async function ouvrirSerie(id) {
       </div>`;
 
     eps.forEach(ep => {
-      const scriptCopie = storeCopyText((ep.titre ? ep.titre + '\n\n' : '') + (ep.script || '') + (ep.directives ? '\n\n' + ep.directives : ''));
+      // Normalisation rétroactive : si script/directives ont été sauvegardés comme objet
+      const scriptStr = typeof ep.script === 'string' ? ep.script :
+        (ep.script && typeof ep.script === 'object' ?
+          Object.entries(ep.script).map(([k,v]) => k.replace(/_/g,' ').toUpperCase() + '\n' + v).join('\n\n') : '');
+      const directivesStr = typeof ep.directives === 'string' ? ep.directives :
+        (ep.directives && typeof ep.directives === 'object' ?
+          Object.values(ep.directives).filter(Boolean).join('\n\n') : (ep.directives || ''));
+      const scriptCopie = storeCopyText((ep.titre ? ep.titre + '\n\n' : '') + scriptStr + (directivesStr ? '\n\n' + directivesStr : ''));
       html += `<div class="serie-episode">
         <div class="serie-episode-num">Épisode ${ep.num} sur ${total}</div>
         <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
-        <div class="serie-episode-txt">${serieEsc(ep.script)}</div>`;
+        <div class="serie-episode-txt">${serieEsc(scriptStr)}</div>`;
       // Directives de tournage (adaptées au style)
-      if (ep.directives) {
+      if (directivesStr) {
         html += `<div class="serie-directives">
           <div class="serie-directives-titre">${estFaceless ? '🎬 Quoi filmer / montrer' : '🎥 Comment te filmer'}</div>
-          <div class="serie-episode-txt">${serieEsc(ep.directives)}</div>
+          <div class="serie-episode-txt">${serieEsc(directivesStr)}</div>
         </div>`;
       }
       // Copier / Partager le script de l'épisode
@@ -6065,6 +6072,15 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 
     const raw = await callAI(MODEL_CREATIF, 3000, prompt);
     const ep = serieParseJSON(raw);
+    // Normalisation : si l'IA retourne script ou directives comme objet, on convertit en texte
+    if (ep && ep.script !== null && typeof ep.script === 'object') {
+      const v = ep.script.voix_off || ep.script.voix || '';
+      const t = ep.script.texte_ecran || ep.script.texte || ep.script.text || '';
+      ep.script = [v ? 'VOIX OFF\n' + v : '', t ? 'TEXTE À L\'ÉCRAN\n' + t : ''].filter(Boolean).join('\n\n') || JSON.stringify(ep.script);
+    }
+    if (ep && ep.directives !== null && typeof ep.directives === 'object') {
+      ep.directives = Object.values(ep.directives).filter(Boolean).join('\n\n');
+    }
     if (!ep || !ep.script) throw new Error('réponse illisible');
 
     const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script }]);
