@@ -5676,6 +5676,7 @@ async function creerSerie() {
   const niche = document.getElementById('serieNiche')?.value || '';
   const style = document.getElementById('serieStyle')?.value || '';
   const genre = document.getElementById('serieGenre')?.value || '';
+  const geo = document.getElementById('serieGeo')?.value.trim() || '';
   if (!niche) { err.textContent = 'Choisis ta niche.'; err.style.display = 'block'; return; }
   if (!style) { err.textContent = 'Choisis ton style de contenu : la série sera écrite pour ce format.'; err.style.display = 'block'; return; }
   if (!genre) { err.textContent = 'Choisis le genre de ta série.'; err.style.display = 'block'; return; }
