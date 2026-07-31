@@ -284,7 +284,7 @@ async function lancerAudit() {
       return;
     }
 
-    renderAudit(parsed);
+    renderAudit(parsed, niche, objectif, style);
 
     if (typeof saveGeneration === 'function') {
       const scoreTitre = parsed.mesures
@@ -762,7 +762,7 @@ function auditTexteBrut(a, ts) {
   return L.join('\n');
 }
 
-function renderAudit(a) {
+function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   lastAudit = a;
   const out = document.getElementById('auditOutput');
   if (!out) return;
@@ -770,6 +770,13 @@ function renderAudit(a) {
     out.innerHTML = '<div class="err" style="display:block">Réponse illisible.</div>';
     return;
   }
+
+  // Contexte du compte analysé, pour les opportunités personnalisées en fin de rapport.
+  // Priorité aux valeurs passées par l'appelant (audit qui vient d'être lancé), puis à
+  // celles enregistrées avec l'audit (audit rouvert depuis l'historique), puis au formulaire.
+  const oppNiche = nicheCtx || a.niche || document.getElementById('auditNiche')?.value || '';
+  const oppObjectif = objectifCtx || a.objectif || document.getElementById('auditObjectif')?.value || '';
+  const oppStyle = styleCtx || document.getElementById('auditStyle')?.value || '';
 
   let html = '<div class="audit-result">';
 
@@ -961,11 +968,16 @@ function renderAudit(a) {
     <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
       Trouver des idées de contenu virales pour corriger ça
     </button>
+    <div id="auditOpportunites"></div>
   </div>`;
 
   out.innerHTML = html;
   animerScoreAudit(global, RING_C);
   out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Section "opportunités" : générée après coup, en tâche de fond, pour ne
+  // jamais retarder l'affichage du rapport lui-même.
+  genererOpportunitesAudit(a, ts, oppNiche, oppObjectif, oppStyle);
 }
 
 // Fait apparaître la forme du radar en fondu, une fois le SVG dans le DOM.
@@ -1155,6 +1167,188 @@ function lancerIdeesDepuisAudit(niche, objectif) {
 
   generateIdeas();
 
+}
+
+// ═══════════════════════════════════════════════════════════
+//  OPPORTUNITÉS PERSONNALISÉES — pont audit → script
+//  À la fin de chaque analyse, propose 10 idées de contenu qui découlent
+//  directement du diagnostic (stats, points forts/faibles, meilleures et
+//  moins bonnes vidéos, audience) plutôt que du générateur d'idées générique.
+//  Ne consomme aucun quota : c'est un prolongement de l'audit déjà payé.
+// ═══════════════════════════════════════════════════════════
+
+// Reformule le diagnostic déjà affiché en texte compact pour le prompt —
+// on ne réutilise que des champs déjà lus ailleurs dans ce fichier (piliers,
+// plan d'action), sans toucher aux règles d'analyse ni au prompt de l'audit.
+function texteDiagnosticOpportunites(a, ts) {
+  const P = a.piliers || {};
+  const lignes = [];
+  if (ts && ts.global != null) {
+    lignes.push('Score ADN TikTok global : ' + ts.global + '/100' + (ts.levier_dim ? ' (levier principal : ' + ts.levier_dim + ')' : ''));
+  }
+  if (P.performance_globale) {
+    if (P.performance_globale.constat) lignes.push('Performance globale : ' + P.performance_globale.constat);
+    if (P.performance_globale.blocage) lignes.push('Blocage identifié : ' + P.performance_globale.blocage);
+  }
+  if (P.meilleure_video) {
+    if (P.meilleure_video.constat) lignes.push('Meilleure vidéo : ' + P.meilleure_video.constat);
+    if (P.meilleure_video.formule) lignes.push('Formule qui marche chez ce créateur : ' + P.meilleure_video.formule);
+  }
+  if (P.pire_video && P.pire_video.constat) lignes.push('Vidéo la plus faible : ' + P.pire_video.constat);
+  if (P.comparatif && P.comparatif.conclusion) lignes.push('Comparatif meilleure/pire vidéo : ' + P.comparatif.conclusion);
+  if (P.editorial) {
+    if (Array.isArray(P.editorial.sujets_notes) && P.editorial.sujets_notes.length) {
+      lignes.push('Sujets déjà traités : ' + P.editorial.sujets_notes.map(s => (s.sujet || '') + ' (' + (s.note || '') + ')').join(', '));
+    }
+    if (P.editorial.recommandation) lignes.push('Recommandation éditoriale : ' + P.editorial.recommandation);
+  }
+  if (P.audience) {
+    if (P.audience.constat) lignes.push('Audience : ' + P.audience.constat);
+    if (P.audience.alignement) lignes.push('Alignement audience/contenu : ' + P.audience.alignement);
+  }
+  const pa = a.plan_action_30j;
+  if (pa && typeof pa === 'object') {
+    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length) lignes.push('Sujets à explorer selon le plan : ' + pa.sujets_a_faire.join(', '));
+    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length) lignes.push('Erreurs à éviter : ' + pa.erreurs_a_eviter.join(', '));
+    if (pa.type_hook) lignes.push('Type de hook recommandé pour ce compte : ' + pa.type_hook);
+  }
+  return lignes.filter(Boolean).join('\n');
+}
+
+// Idées générées + contexte du compte (pour le bouton "Créer le script")
+let auditOpportunites = [];
+let auditOpportunitesCtx = { niche: '', objectif: '' };
+
+async function genererOpportunitesAudit(a, ts, niche, objectif, style) {
+  const zone = document.getElementById('auditOpportunites');
+  if (!zone) return;
+
+  zone.innerHTML = '<div class="audit-section-label">🎯 Les meilleures opportunités pour ton compte</div>'
+    + '<div class="audit-diag-constat">Scriptura identifie tes meilleures opportunités de contenu…</div>';
+
+  const diagnostic = texteDiagnosticOpportunites(a, ts);
+
+  const prompt = `Tu es le Directeur Éditorial de Scriptura. Tu viens de terminer l'analyse du compte TikTok d'un créateur. Ta mission maintenant : transformer ce diagnostic en opportunités de contenu concrètes et personnalisées — pas des idées génériques, mais des idées qui découlent directement de CE diagnostic précis.
+
+PROFIL DU CRÉATEUR :
+- Niche : ${niche || 'non précisée'}
+- Objectif : ${objectif || 'non précisé'}
+- Style de contenu : ${style || 'non précisé'}
+
+DIAGNOSTIC DE SON COMPTE (statistiques, points forts, points faibles, meilleures et moins bonnes vidéos, audience) :
+${diagnostic || 'Diagnostic limité, base-toi sur le profil ci-dessus.'}
+
+MISSION : à partir UNIQUEMENT de ce diagnostic et de ce profil, génère exactement 10 idées de contenu qui exploitent les opportunités détectées. Chaque idée doit être justifiée par un élément concret du diagnostic ci-dessus (le point fort à capitaliser, le point faible à corriger, la formule de la meilleure vidéo à réutiliser, le sujet qui a sous-performé à éviter, l'audience identifiée…). Interdiction absolue de proposer une idée générique qui pourrait s'appliquer à n'importe quel compte.
+
+Pour CHAQUE idée, fournis :
+1. Un TITRE fort et accrocheur
+2. L'ANGLE recommandé : l'approche précise à adopter et pourquoi elle est différente
+3. POURQUOI : en une ou deux phrases, pourquoi cette idée est pertinente PRÉCISÉMENT pour ce compte — cite l'élément du diagnostic qui la justifie
+4. LE POTENTIEL attendu pour ce compte, en une phrase courte (ex : "Fort — exploite directement ta meilleure formule")
+5. Un TON conseillé, à choisir EXACTEMENT parmi ces mots : Analytique, Inspirant, Provocateur, Éducatif, Humoristique, Storytelling
+6. Un HOOK recommandé : la phrase d'accroche exacte pour démarrer la vidéo, percutante et prête à l'emploi
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"opportunites":[{"titre":"...","angle":"...","pourquoi":"...","potentiel":"...","ton_conseille":"Storytelling","hook":"..."}]}
+
+Génère exactement 10 opportunités, toutes différentes, toutes ancrées dans le diagnostic de ce compte précis.`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt);
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !Array.isArray(parsed.opportunites) || !parsed.opportunites.length) throw new Error('réponse invalide');
+    auditOpportunitesCtx = { niche: niche || '', objectif: objectif || '' };
+    renderOpportunitesAudit(parsed.opportunites);
+  } catch (e) {
+    // Section purement additive : en cas d'échec, elle disparaît sans
+    // perturber le reste du rapport, déjà affiché et intact.
+    zone.innerHTML = '';
+    console.warn('Opportunités audit indisponibles', e);
+  }
+}
+
+function renderOpportunitesAudit(idees) {
+  auditOpportunites = idees;
+  const zone = document.getElementById('auditOpportunites');
+  if (!zone) return;
+
+  zone.innerHTML = '<div class="audit-section-label">🎯 Les meilleures opportunités pour ton compte</div>'
+    + idees.map((idea, i) => `
+      <div class="out-card idea-card">
+        <div class="out-header" onclick="toggleCard(this.parentElement)">
+          <div class="out-title idea-titre">${auditEsc(idea.titre)}</div>
+          <div class="out-toggle">+</div>
+        </div>
+        <div class="out-body">
+          <div class="idea-section">
+            <div class="idea-section-label">◆ L'angle</div>
+            <div class="idea-section-text">${auditEsc(idea.angle)}</div>
+          </div>
+          <div class="idea-section">
+            <div class="idea-section-label">◆ Pourquoi pour ton compte</div>
+            <div class="idea-section-text">${auditEsc(idea.pourquoi)}</div>
+          </div>
+          <div class="idea-section">
+            <div class="idea-section-label">◆ Potentiel attendu</div>
+            <div class="idea-section-text">${auditEsc(idea.potentiel)}</div>
+          </div>
+          <div class="idea-actions">
+            <button class="idea-btn-script" onclick="creerScriptDepuisOpportunite(${i})">🎬 Créer le script</button>
+          </div>
+        </div>
+      </div>`).join('');
+}
+
+// Pont opportunité → mode script : transmet sujet, angle, hook, niche,
+// objectif et ton conseillé, puis ouvre directement le récapitulatif —
+// il ne reste plus qu'à cliquer "Générer" (le générateur lui-même n'est
+// pas modifié, seuls ses champs sont pré-remplis, comme pour useIdeaForScript).
+function creerScriptDepuisOpportunite(index) {
+  const idea = auditOpportunites[index];
+  if (!idea) return;
+
+  const auditFlowEl = document.getElementById('auditFlow');
+  if (auditFlowEl) auditFlowEl.style.display = 'none';
+  document.getElementById('flow').style.display = 'block';
+
+  // 1. Sujet = titre + angle + hook conseillé, comme matière de départ pour le Directeur Éditorial
+  const parts = [idea.titre];
+  if (idea.angle) parts.push('Angle : ' + idea.angle);
+  if (idea.hook) parts.push('Hook suggéré : "' + idea.hook + '"');
+  document.getElementById('sujet').value = parts.filter(Boolean).join('. ');
+
+  // 2. Niche : celle du compte analysé
+  const nicheSelect = document.getElementById('niche');
+  if (nicheSelect && auditOpportunitesCtx.niche) {
+    for (let opt of nicheSelect.options) {
+      if (opt.value === auditOpportunitesCtx.niche || opt.text === auditOpportunitesCtx.niche) { nicheSelect.value = opt.value; break; }
+    }
+  }
+
+  // 3. Objectif : celui déjà renseigné pour l'audit (même formulation que state.objectif)
+  if (auditOpportunitesCtx.objectif) state.objectif = auditOpportunitesCtx.objectif;
+
+  // 4. Plateforme : l'analyse porte sur TikTok
+  state.plateforme = 'TikTok';
+
+  // 5. Ton conseillé : on simule le clic sur le bouton correspondant, pour
+  // rester sur le même mécanisme que si l'utilisateur l'avait choisi lui-même.
+  if (idea.ton_conseille) {
+    const toneBtns = Array.from(document.querySelectorAll('#toneGrid .grid-btn'));
+    const match = toneBtns.find(b => b.textContent.trim().toLowerCase() === String(idea.ton_conseille).trim().toLowerCase());
+    if (match) match.click();
+  }
+
+  state.depart = 'un sujet précis que je veux développer';
+
+  if (state.objectif && state.plateforme) {
+    showStep(4);
+    renderSummary();
+  } else {
+    showStep(1);
+  }
+
+  window.scrollTo({ top: document.getElementById('flow').offsetTop - 20, behavior: 'smooth' });
 }
 
 // Fait apparaître un écran en fondu + légère montée.
