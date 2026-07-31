@@ -1,0 +1,1169 @@
+let auditCaptures = []; // { nom, dataUrl, mediaType, base64 }
+const AUDIT_MAX = 16;
+
+// Ajoute les fichiers choisis (galerie ou appareil photo)
+async function ajouterCaptures(files) {
+  const err = document.getElementById('auditError');
+  err.style.display = 'none';
+  const liste = Array.from(files || []);
+  for (const f of liste) {
+    if (auditCaptures.length >= AUDIT_MAX) {
+      err.textContent = 'Maximum ' + AUDIT_MAX + ' captures.';
+      err.style.display = 'block';
+      break;
+    }
+    if (!f.type.startsWith('image/')) continue;
+    try {
+      const compresse = await compresserImage(f);
+      auditCaptures.push(compresse);
+    } catch(e) { console.warn('Capture ignorée', e); }
+  }
+  document.getElementById('auditInput').value = '';
+  renderCaptures();
+  detecterTypesCaptures(); // reconnaissance en arrière-plan, sans bloquer
+}
+
+// Types de données attendues, pour l'affichage
+const AUDIT_TYPES = {
+  1: "Vue d'ensemble",
+  2: "Détail vidéo",
+  3: "Top contenus",
+  4: "Audience"
+};
+
+// Demande à l'IA (Haiku, rapide et bon marché) de reconnaître chaque capture.
+// N'analyse rien : sert juste à confirmer à l'utilisateur que Scriptura
+// a bien identifié ce qu'il envoie. N'empêche jamais de lancer l'audit.
+async function detecterTypesCaptures() {
+  if (!auditCaptures.length) return;
+  // On marque tout comme "en cours" pour un retour visuel immédiat
+  auditCaptures.forEach(c => { if (c.type === undefined) c.type = 'attente'; });
+  renderCaptures();
+  try {
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'classify',
+        images: auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType })),
+        code_acces: localStorage.getItem('scriptura_code') || null
+      })
+    });
+    if (!res.ok) throw new Error('classification indisponible');
+    const data = await res.json();
+    const brut = (data.content || []).map(b => b.text || '').join('');
+    const types = JSON.parse(brut.replace(/```json|```/g, '').trim());
+    if (!Array.isArray(types)) throw new Error('réponse illisible');
+    auditCaptures.forEach((c, i) => { c.type = (types[i] != null) ? types[i] : null; });
+  } catch(e) {
+    // En cas d'échec, on n'affiche aucun symbole plutôt qu'une fausse info
+    console.warn('Détection des captures indisponible', e);
+    auditCaptures.forEach(c => { c.type = null; });
+  }
+  renderCaptures();
+}
+
+// Réduit la taille de l'image avant envoi (les captures de téléphone sont lourdes)
+function compresserImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('lecture impossible'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('image invalide'));
+      img.onload = () => {
+        // Compression adaptative : au-delà de 8 captures, on réduit un peu plus
+        // pour que le poids TOTAL de l'envoi reste dans les limites du serveur.
+        // 1100 px reste largement suffisant pour lire des chiffres de statistiques.
+        const beaucoup = auditCaptures.length >= 8;
+        const MAX = beaucoup ? 1100 : 1400;
+        const QUALITE = beaucoup ? 0.72 : 0.82;
+        let { width, height } = img;
+        if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', QUALITE);
+        resolve({
+          nom: file.name || 'capture',
+          dataUrl: dataUrl,
+          mediaType: 'image/jpeg',
+          base64: dataUrl.split(',')[1]
+        });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Affiche les vignettes des captures ajoutées
+function renderCaptures() {
+  const zone = document.getElementById('auditThumbs');
+  const btn = document.getElementById('auditBtn');
+  if (!zone) return;
+  zone.innerHTML = auditCaptures.map((c, i) => {
+    let badge = '';
+    if (c.type === 'attente') {
+      badge = '<span class="thumb-badge attente">…</span>';
+    } else if (c.type === 0) {
+      badge = '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">⚠️</span>';
+    } else if (AUDIT_TYPES[c.type]) {
+      badge = `<span class="thumb-badge ok" title="${AUDIT_TYPES[c.type]} reconnue">✅</span>`;
+    }
+    return `
+    <div class="audit-thumb">
+      <img src="${c.dataUrl}" alt="capture ${i+1}"/>
+      ${badge}
+      <button class="audit-thumb-del" onclick="retirerCapture(${i})" title="Retirer">✕</button>
+    </div>`;
+  }).join('');
+  renderCouverture();
+  if (btn) btn.style.display = auditCaptures.length ? 'flex' : 'none';
+}
+
+// Récapitule les données reconnues et celles qui manquent encore.
+function renderCouverture() {
+  const zone = document.getElementById('auditCouverture');
+  if (!zone) return;
+  const typesVus = new Set(auditCaptures.map(c => c.type).filter(t => AUDIT_TYPES[t]));
+  const enAttente = auditCaptures.some(c => c.type === 'attente');
+  if (!auditCaptures.length || enAttente) { zone.innerHTML = ''; return; }
+  // Le "détail vidéo" couvre 2 des 5 données (meilleure + pire) : on ne peut pas
+  // les distinguer visuellement, donc on reste factuel sur ce qui est reconnu.
+  const lignes = Object.keys(AUDIT_TYPES).map(k => {
+    const vu = typesVus.has(Number(k));
+    return `<div class="couv-ligne ${vu ? 'vue' : 'manque'}">${vu ? '✅' : '○'} ${AUDIT_TYPES[k]}</div>`;
+  }).join('');
+  const nbAlerte = auditCaptures.filter(c => c.type === 0).length;
+  const note = nbAlerte
+    ? `<div class="couv-note">${formaterNombre(nbAlerte)} capture${nbAlerte > 1 ? 's' : ''} non reconnue${nbAlerte > 1 ? 's' : ''}. Tu peux quand même lancer l'analyse : Scriptura te dira à la fin ce qui lui a manqué.</div>`
+    : '';
+  zone.innerHTML = `<div class="couv-titre">Ce que Scriptura a reconnu</div>${lignes}${note}`;
+}
+
+function retirerCapture(i) {
+  auditCaptures.splice(i, 1);
+  renderCaptures();
+}
+
+
+// ═══════════════════════════════════════════════════════════
+//  AUDIT — Prompt d'analyse + branchement IA + affichage
+// ═══════════════════════════════════════════════════════════
+
+// Échappe le HTML pour un affichage sûr
+function auditEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function lancerAudit() {
+  const err = document.getElementById('auditError');
+  const out = document.getElementById('auditOutput');
+  const btn = document.getElementById('auditBtn');
+  const spin = document.getElementById('auditSpinner');
+  const btnText = document.getElementById('auditBtnText');
+
+  if (!auditCaptures.length) {
+    err.textContent = 'Ajoute au moins une capture de tes statistiques.';
+    err.style.display = 'block';
+    return;
+  }
+
+  // Le style de contenu est requis : sans lui, les recommandations peuvent
+  // supposer un format inadapté (ex : "filme-toi" pour un créateur faceless).
+  if (!document.getElementById('auditStyle')?.value) {
+    err.textContent = 'Choisis ton style de contenu pour une analyse adaptée à ton format.';
+    err.style.display = 'block';
+    document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  // Droit d'auditer : 'pro' (analyse incluse), 'jeton' (à décompter),
+  // 'illimite' (code VIP), ou false (peutAuditer a déjà proposé l'achat).
+  const moyenAudit = await peutAuditer();
+  if (!moyenAudit) return;
+
+  err.style.display = 'none';
+  out.innerHTML = '';
+
+  if (spin) spin.style.display = 'inline-block';
+  if (btnText) btnText.textContent = 'Analyse en cours…';
+  if (btn) btn.disabled = true;
+  startGenAnimation('audit');
+
+  try {
+    const images = auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType }));
+    // Garde-fou : le serveur refuse les envois trop lourds. On vérifie AVANT
+    // d'envoyer pour donner un message clair plutôt qu'une erreur technique.
+    const poidsMo = images.reduce((t, im) => t + (im.base64 ? im.base64.length : 0), 0) / (1024 * 1024);
+    if (poidsMo > 4) {
+      throw new Error('Tes captures sont trop lourdes au total (' + poidsMo.toFixed(1) + ' Mo). Retire les captures les moins utiles et relance l\'analyse.');
+    }
+    const objectif = document.getElementById('auditObjectif')?.value || '';
+    const niche = document.getElementById('auditNiche')?.value || '';
+    const frequence = document.getElementById('auditFrequence')?.value || '';
+    const style = document.getElementById('auditStyle')?.value || '';
+
+    const res = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODEL_AUDIT,
+        max_tokens: 8000,
+        images: images,
+        objectif: objectif,
+        niche: niche,
+        frequence: frequence,
+        style: style,
+        code_acces: localStorage.getItem('scriptura_code') || null
+      })
+    });
+
+    if (res.status === 403) {
+      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+      throw new Error('Ton abonnement a expiré. Renouvelle pour relancer une analyse.');
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error?.message || 'erreur serveur');
+    }
+
+    const raw = (data.content?.map(b => b.text || '').join('') || '').trim();
+    if (!raw) throw new Error('Réponse vide du modèle.');
+
+    // Isole le JSON même si le modèle ajoute du texte autour
+    let jsonStr = raw;
+    const d = raw.indexOf('{'), f = raw.lastIndexOf('}');
+    if (d !== -1 && f !== -1) jsonStr = raw.slice(d, f + 1);
+
+    let parsed;
+    try { parsed = JSON.parse(jsonStr); }
+    catch (e) { throw new Error('Le modèle a mal formaté sa réponse. Réessaie.'); }
+
+    // ── Contrôle de couverture ──
+    // Les 5 données sont exigées. Un audit partiel présenté comme complet
+    // serait trompeur, donc on préfère refuser et dire ce qui manque.
+    // Tolérant sur le format (true, "true", 1) car le modèle varie parfois.
+    // Si le champ "couverture" est totalement absent, on n'a rien à vérifier :
+    // on laisse passer plutôt que de bloquer tout le monde sur un oubli du modèle.
+    const REQUIS = [
+      ['vue_ensemble_60j', "Vue d'ensemble · 60 jours"],
+      ['meilleure_video',  "Analyse complète de ta vidéo la plus performante"],
+      ['pire_video',       "Analyse complète de ta vidéo la moins performante"],
+      ['top_contenus_60j', "Top contenus · 60 jours"],
+      ['audience',         "Ton audience (âge, sexe, emplacements)"]
+    ];
+    const estVrai = v => v === true || v === 'true' || v === 1 || v === '1';
+    const couv = parsed.couverture;
+    const couvFournie = couv && typeof couv === 'object';
+    const manquantes = couvFournie
+      ? REQUIS.filter(([k]) => !estVrai(couv[k])).map(([, label]) => label)
+      : [];
+    const horsSujet = couvFournie ? (parseInt(couv.captures_hors_sujet) || 0) : 0;
+
+    if (manquantes.length) {
+      let m = '<div class="audit-result"><div class="audit-block">';
+      m += '<div class="audit-block-title">Analyse impossible pour le moment</div>';
+      m += '<div class="audit-diag-constat">Il manque ' + manquantes.length +
+           ' donnée' + (manquantes.length > 1 ? 's' : '') +
+           ' sur 5 pour faire un diagnostic fiable. Plutôt que de te donner une analyse bancale, voici ce qu\'il reste à envoyer :</div>';
+      m += '<ul style="margin:14px 0 0;padding-left:18px;line-height:1.7">';
+      manquantes.forEach(x => { m += '<li>' + auditEsc(x) + '</li>'; });
+      m += '</ul>';
+      if (horsSujet > 0) {
+        m += '<div class="audit-diag-interp" style="margin-top:14px">' + horsSujet +
+             ' capture' + (horsSujet > 1 ? 's' : '') + ' ne correspond' + (horsSujet > 1 ? 'ent' : '') +
+             ' pas à un écran de statistiques TikTok.</div>';
+      }
+      m += '<div class="audit-diag-action" style="margin-top:14px">→ Ajoute les captures manquantes, puis relance l\'analyse. Si un écran est trop long, tu peux le couper en plusieurs captures.</div>';
+      m += '</div></div>';
+      out.innerHTML = m;
+      out.style.display = 'block';
+      return;
+    }
+
+    renderAudit(parsed);
+
+    if (typeof saveGeneration === 'function') {
+      const scoreTitre = parsed.mesures
+        ? (calculerScores(parsed.mesures).global ?? '?')
+        : (parsed.tiktok_score?.global ?? '?');
+      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + scoreTitre, Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
+      catch(e) { /* silencieux */ }
+    }
+
+    // Si l'audit a été payé avec un jeton, on le décompte maintenant (après succès)
+    if (moyenAudit === 'jeton') {
+      try { await consommerJetonAudit(); } catch(e) { /* silencieux */ }
+    }
+
+  } catch (e) {
+    err.textContent = 'Analyse impossible : ' + (e.message || 'réessaie dans un instant');
+    err.style.display = 'block';
+  } finally {
+    stopGenAnimation();
+    if (spin) spin.style.display = 'none';
+    if (btnText) btnText.textContent = 'Analyser mon compte';
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Dernier audit affiché (pour le bouton "idées correctives")
+let lastAudit = null;
+
+const SCORE_DIMS = [
+  { key: 'engagement',   label: 'Engagement',       max: 20 },
+  { key: 'retention',    label: 'Rétention',        max: 20 },
+  { key: 'storytelling', label: 'Accroche & rythme',     max: 20 },
+  { key: 'sujets',       label: 'Choix des sujets', max: 20 },
+  { key: 'regularite',   label: 'Régularité',       max: 20 }
+];
+
+// ═══════════════════════════════════════════════════════════
+//  MOTEUR DE SCORING
+//  Le modèle n'attribue aucune note : il extrait des mesures brutes et
+//  répond OUI / PARTIEL / NON à des critères fermés. Tout le calcul est
+//  fait ici, donc deux analyses des mêmes captures donnent le même score.
+//  Les seuils sont des repères de marché, ajustables en un seul endroit.
+// ═══════════════════════════════════════════════════════════
+
+// Formate un nombre au format Scriptura : point pour les milliers,
+// virgule pour les décimales (ex : 102.450,74). Pas de décimales si entier.
+function formaterNombre(n) {
+  if (n == null || n === '' || isNaN(n)) return '';
+  n = Number(n);
+  const neg = n < 0;
+  n = Math.abs(n);
+  const [entier, decimales] = n.toFixed(2).split('.');
+  const avecMilliers = entier.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const dec = (decimales === '00') ? '' : ',' + decimales;
+  return (neg ? '-' : '') + avecMilliers + dec;
+}
+
+function sNum(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const n = (typeof v === 'number')
+    ? v
+    : parseFloat(String(v).replace(',', '.').replace(/[^\d.\-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+// Interpolation linéaire entre paliers, où PLUS HAUT est MEILLEUR.
+// Les paliers sont des repères, pas des marches : 2,99 % et 3,00 % donnent
+// des notes quasi identiques au lieu de basculer d'un cran.
+// Format : [[seuil, points], ...] du plus exigeant au moins exigeant,
+// le dernier seuil devant être 0.
+function sPalierHaut(v, paliers) {
+  if (v === null) return null;
+  if (v >= paliers[0][0]) return paliers[0][1];
+  for (let i = 0; i < paliers.length - 1; i++) {
+    const [sHaut, pHaut] = paliers[i];
+    const [sBas, pBas]   = paliers[i + 1];
+    if (v >= sBas) {
+      if (sHaut === sBas) return pBas;
+      return pBas + ((v - sBas) / (sHaut - sBas)) * (pHaut - pBas);
+    }
+  }
+  return paliers[paliers.length - 1][1];
+}
+
+// Même principe, mais PLUS BAS est MEILLEUR.
+// Format : [[seuil, points], ...] du plus exigeant au moins exigeant.
+function sPalierBas(v, paliers) {
+  if (v === null) return null;
+  if (v <= paliers[0][0]) return paliers[0][1];
+  for (let i = 0; i < paliers.length - 1; i++) {
+    const [sBas, pHaut]  = paliers[i];
+    const [sHaut, pBas]  = paliers[i + 1];
+    if (v <= sHaut) {
+      if (sHaut === sBas) return pBas;
+      return pHaut + ((v - sBas) / (sHaut - sBas)) * (pBas - pHaut);
+    }
+  }
+  return paliers[paliers.length - 1][1];
+}
+
+// Note en bande : plein score dans la zone optimale, dégradation douce en
+// dehors. Sert à la régularité, où publier PLUS n'est pas publier MIEUX.
+function sBande(v, min, max, ptsMax) {
+  if (v === null) return null;
+  if (v >= min && v <= max) return ptsMax;
+  const ecart = v < min ? (min - v) / Math.max(min, 0.001) : (v - max) / Math.max(max, 0.001);
+  return Math.max(ptsMax * 0.15, ptsMax * (1 - Math.min(1, ecart) * 0.75));
+}
+
+// Critère fermé : OUI = plein, PARTIEL = moitié, NON = 0, sinon non mesurable
+function sCritere(rep, max) {
+  if (rep === null || rep === undefined) return null;
+  const k = String(rep).trim().toUpperCase();
+  if (k === 'OUI') return max;
+  if (k === 'PARTIEL') return max / 2;
+  if (k === 'NON') return 0;
+  return null;
+}
+
+// Agrège les sous-critères mesurables et ramène sur le total de la dimension.
+// Un critère non mesurable est ignoré au lieu de compter zéro, sinon une
+// donnée manquante ferait chuter la note comme si elle était mauvaise.
+function sAgrege(parts, maxDim) {
+  const ok = parts.filter(p => p.obtenu !== null);
+  if (!ok.length) return null;
+  const maxDispo = ok.reduce((s, p) => s + p.max, 0);
+  const obtenu   = ok.reduce((s, p) => s + p.obtenu, 0);
+  return Math.round((obtenu / maxDispo) * maxDim);
+}
+
+function scoreEngagement(m) {
+  const e = (m && m.engagement) || {};
+  const vues = sNum(e.vues);
+  if (!vues || vues <= 0) return null;
+  const likes = sNum(e.likes), coms = sNum(e.commentaires), parts = sNum(e.partages);
+  const ratio = x => x === null ? null : (x / vues) * 100;
+
+  // Taux d'engagement par vues = (likes + commentaires + partages) / vues.
+  // C'est la mesure de référence du secteur. Moyenne TikTok 2026 : 3,85 %,
+  // zone correcte pour un petit compte : 3 à 5 %.
+  const dispo = [likes, coms, parts].filter(x => x !== null);
+  const tauxGlobal = dispo.length ? (dispo.reduce((a, b) => a + b, 0) / vues) * 100 : null;
+
+  return sAgrege([
+    { obtenu: sPalierHaut(tauxGlobal,   [[8,12],[6,10.5],[5,9],[3.85,7.5],[2.5,5.5],[1.5,3.5],[0,1]]), max: 12 },
+    { obtenu: sPalierHaut(ratio(coms),  [[1,4],[0.5,3.4],[0.25,2.8],[0.1,2],[0.03,1.2],[0,0.4]]),      max: 4 },
+    { obtenu: sPalierHaut(ratio(parts), [[2,4],[1,3.4],[0.5,2.8],[0.25,2.2],[0.1,1.4],[0,0.4]]),       max: 4 }
+  ], 20);
+}
+
+function scoreRetention(m) {
+  const src = [(m && m.retention_meilleure) || {}, (m && m.retention_pire) || {}];
+  const moyenne = cle => {
+    const v = src.map(o => sNum(o[cle])).filter(x => x !== null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  // Repère du secteur : les vidéos qui dépassent 40 à 60 % de complétion
+  // gardent une exposition durable dans le fil "Pour toi".
+  return sAgrege([
+    { obtenu: sPalierHaut(moyenne('taux_moyen_pct'), [[60,12],[45,10.5],[35,8.5],[25,6],[15,3.5],[0,1]]), max: 12 },
+    { obtenu: sPalierHaut(moyenne('completion_pct'), [[30,8],[20,6.5],[10,5],[5,3.5],[2,2],[0,0.5]]),     max: 8 }
+  ], 20);
+}
+
+function scoreStorytelling(m) {
+  const s = (m && m.storytelling) || {};
+  // Le point de décrochage a été retiré du score après vérification sur des
+  // données réelles : une vidéo virale décrochait à 0:01 et un échec à 0:02.
+  // Sur TikTok, la masse quitte dans la première seconde même sur un bon
+  // contenu, donc cette seconde ne distingue rien. Ce qui sépare vraiment les
+  // deux, c'est le taux moyen et la complétion — déjà notés en Rétention.
+  return sAgrege([
+    { obtenu: sCritere(s.hook_present,       5), max: 5 },
+    { obtenu: sCritere(s.faible_chute_debut, 5), max: 5 },
+    { obtenu: sCritere(s.retention_stable,   5), max: 5 },
+    { obtenu: sCritere(s.bonne_fin,          5), max: 5 }
+  ], 20);
+}
+
+function scoreSujets(m) {
+  const s = (m && m.sujets) || {};
+  return sAgrege([
+    { obtenu: sCritere(s.themes_repetes,          5), max: 5 },
+    { obtenu: sCritere(s.coherence_editoriale,    5), max: 5 },
+    { obtenu: sCritere(s.adequation_objectif,     5), max: 5 },
+    { obtenu: sCritere(s.performances_homogenes,  5), max: 5 }
+  ], 20);
+}
+
+function scoreRegularite(m) {
+  const r = (m && m.regularite) || {};
+  const nb    = sNum(r.nb_videos_periode);
+  const jours = sNum(r.periode_jours);
+  const trou  = sNum(r.plus_long_trou_jours);
+  // Ramené à une cadence hebdomadaire pour rester comparable d'une période à l'autre
+  const parSemaine = (nb !== null && jours !== null && jours > 0) ? (nb / jours) * 7 : null;
+  // Ne PAS récompenser la surpublication : les comptes qui publient moins de
+  // six fois par semaine obtiennent nettement plus d'engagement que ceux qui
+  // saturent. La zone optimale est donc une bande, pas une échelle croissante.
+  return sAgrege([
+    { obtenu: sBande(parSemaine, 3, 6, 10),                          max: 10 },
+    { obtenu: sPalierBas(trou, [[2,10],[4,8.5],[7,7],[14,4.5],[30,2],[90,0]]), max: 10 }
+  ], 20);
+}
+
+function calculerScores(mesures) {
+  const s = {
+    engagement:   scoreEngagement(mesures),
+    retention:    scoreRetention(mesures),
+    storytelling: scoreStorytelling(mesures),
+    sujets:       scoreSujets(mesures),
+    regularite:   scoreRegularite(mesures)
+  };
+  const mesurees = SCORE_DIMS.filter(d => s[d.key] !== null);
+  const maxDispo = mesurees.reduce((a, d) => a + d.max, 0);
+  const obtenu   = mesurees.reduce((a, d) => a + s[d.key], 0);
+  s.global = maxDispo > 0 ? Math.round((obtenu / maxDispo) * 100) : null;
+  // Le levier est la dimension mesurée la plus faible en proportion de son total
+  let levier = null, plusBas = 2;
+  mesurees.forEach(d => {
+    const part = s[d.key] / d.max;
+    if (part < plusBas) { plusBas = part; levier = d.label; }
+  });
+  s.levier_dim = levier;
+  return s;
+}
+
+function auditNum(v) {
+  return Number.isFinite(v) ? v : (parseInt(v) || 0);
+}
+
+// Version texte de l'audit, pour les boutons Copier et Partager.
+// Reprend le même contenu que l'affichage, sans le HTML.
+// ══════════════════════════════════════
+//  EXPORT PDF DE L'AUDIT
+//  Met en page le diagnostic aux couleurs de Scriptura, avec gestion
+//  automatique des sauts de page pour ne jamais couper une phrase.
+// ══════════════════════════════════════
+function telechargerAuditPDF() {
+  const lib = window.jspdf || window.jsPDF;
+  if (!lib) {
+    alert("Le module PDF n'a pas pu être chargé. Vérifie ta connexion et réessaie.");
+    return;
+  }
+  const { jsPDF } = lib;
+  const a = lastAudit;
+  if (!a) return;
+  const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const LARGEUR = 210, HAUTEUR = 297;
+  const MARGE = 18;
+  const UTILE = LARGEUR - MARGE * 2;
+  let y = 0;
+
+  const OR = [201, 168, 76];
+  const OR_CLAIR = [226, 200, 122];
+  const FOND = [28, 28, 30];
+  const BLANC = [255, 255, 255];
+  const GRIS = [175, 175, 178];
+
+  // Peint le fond sombre sur la page courante
+  function fondPage() {
+    doc.setFillColor(FOND[0], FOND[1], FOND[2]);
+    doc.rect(0, 0, LARGEUR, HAUTEUR, 'F');
+  }
+  // Ajoute une page si la place manque
+  function place(h) {
+    if (y + h > HAUTEUR - MARGE) {
+      doc.addPage();
+      fondPage();
+      y = MARGE;
+    }
+  }
+  function titreSection(txt) {
+    place(14);
+    y += 4;
+    doc.setTextColor(OR[0], OR[1], OR[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(String(txt).toUpperCase(), MARGE, y);
+    y += 2;
+    doc.setDrawColor(OR[0], OR[1], OR[2]);
+    doc.setLineWidth(0.3);
+    doc.line(MARGE, y, MARGE + UTILE, y);
+    y += 6;
+  }
+  function paragraphe(txt, couleur, taille, gras) {
+    if (!txt) return;
+    doc.setFont('helvetica', gras ? 'bold' : 'normal');
+    doc.setFontSize(taille || 10);
+    const c = couleur || BLANC;
+    doc.setTextColor(c[0], c[1], c[2]);
+    const lignes = doc.splitTextToSize(String(txt), UTILE);
+    lignes.forEach(l => {
+      place(6);
+      doc.text(l, MARGE, y);
+      y += 5;
+    });
+    y += 1.5;
+  }
+
+  // ── Page 1 : en-tête ──
+  fondPage();
+  y = MARGE + 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
+  doc.text('SCRIPT', MARGE, y);
+  const largeurScript = doc.getTextWidth('SCRIPT');
+  doc.setTextColor(OR[0], OR[1], OR[2]);
+  doc.text('URA', MARGE + largeurScript, y);
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
+  doc.text('Analyse de compte TikTok', MARGE, y);
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  doc.text(dateStr, MARGE + UTILE, y, { align: 'right' });
+  y += 8;
+
+  // ── Le score ──
+  if (ts && ts.global != null) {
+    place(30);
+    doc.setFillColor(38, 38, 41);
+    doc.roundedRect(MARGE, y, UTILE, 24, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
+    doc.text(String(ts.global) + '/100', MARGE + 8, y + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
+    doc.text('ADN TikTok Score', MARGE + 8, y + 21);
+    y += 30;
+  }
+
+  // ── Les dimensions ──
+  if (typeof SCORE_DIMS !== 'undefined' && Array.isArray(SCORE_DIMS)) {
+    titreSection('Détail par dimension');
+    SCORE_DIMS.forEach(d => {
+      const v = (ts && ts[d.key] != null) ? (ts[d.key] + ' / ' + d.max) : 'non mesuré';
+      place(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
+      doc.text(String(d.label), MARGE, y);
+      doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
+      doc.text(String(v), MARGE + UTILE, y, { align: 'right' });
+      y += 6.5;
+    });
+    if (ts && ts.levier_dim) {
+      y += 2;
+      paragraphe('Levier principal : ' + ts.levier_dim, OR_CLAIR, 10, true);
+    }
+  }
+
+  // ── Les piliers ──
+  const P = a.piliers || {};
+  const ajouteBloc = (titre, lignes) => {
+    const utiles = (lignes || []).filter(Boolean);
+    if (!utiles.length) return;
+    titreSection(titre);
+    utiles.forEach(x => paragraphe(x, BLANC, 10));
+  };
+
+  ajouteBloc('Performance globale', [
+    P.performance_globale && P.performance_globale.constat,
+    P.performance_globale && P.performance_globale.blocage,
+    (P.performance_globale && P.performance_globale.action) ? 'À faire : ' + P.performance_globale.action : null
+  ]);
+  ajouteBloc('Meilleure vidéo', [
+    P.meilleure_video && P.meilleure_video.constat,
+    P.meilleure_video && P.meilleure_video.formule
+  ]);
+  ajouteBloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
+  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.representativite]);
+
+  const ed = P.editorial;
+  if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
+    titreSection('Analyse éditoriale');
+    (ed.sujets_notes || []).forEach(s => paragraphe((s.sujet || '') + ' : ' + (s.note || ''), BLANC, 10));
+    if (ed.recommandation) paragraphe('À faire : ' + ed.recommandation, OR_CLAIR, 10);
+  }
+
+  ajouteBloc('Audience', [
+    P.audience && P.audience.constat,
+    P.audience && P.audience.alignement
+  ]);
+
+  // ── Plan d'action ──
+  const pa = a.plan_action_30j;
+  if (pa) {
+    titreSection("Plan d'action 30 jours");
+    if (pa.frequence) paragraphe('Fréquence : ' + pa.frequence, BLANC, 10);
+    if (pa.duree_ideale) paragraphe('Durée idéale : ' + pa.duree_ideale, BLANC, 10);
+    (pa.sujets_a_faire || []).forEach(s => paragraphe('• ' + s, BLANC, 10));
+    if ((pa.erreurs_a_eviter || []).length) {
+      y += 2;
+      paragraphe('À éviter :', OR_CLAIR, 10, true);
+      (pa.erreurs_a_eviter || []).forEach(s => paragraphe('• ' + s, GRIS, 10));
+    }
+  }
+
+  // ── Pied de page sur chaque page ──
+  const total = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 124);
+    doc.text('Scriptura — Analyse de compte TikTok', MARGE, HAUTEUR - 10);
+    doc.text(p + ' / ' + total, MARGE + UTILE, HAUTEUR - 10, { align: 'right' });
+  }
+
+  const nom = 'Analyse-TikTok-Scriptura-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  doc.save(nom);
+}
+
+function auditTexteBrut(a, ts) {
+  const L = [];
+  L.push('ANALYSE DE COMPTE TIKTOK · SCRIPTURA');
+  L.push('');
+  if (ts && ts.global != null) L.push('ADN TikTok Score : ' + ts.global + '/100');
+  SCORE_DIMS.forEach(d => {
+    const v = (ts && ts[d.key] != null) ? (ts[d.key] + '/' + d.max) : 'non mesuré';
+    L.push('  ' + d.label + ' : ' + v);
+  });
+  if (ts && ts.levier_dim) L.push('Levier principal : ' + ts.levier_dim);
+
+  const P = a.piliers || {};
+  const bloc = (titre, lignes) => {
+    const utiles = lignes.filter(Boolean);
+    if (!utiles.length) return;
+    L.push('', titre.toUpperCase());
+    utiles.forEach(x => L.push(x));
+  };
+
+  bloc('Performance globale', [
+    P.performance_globale && P.performance_globale.constat,
+    P.performance_globale && P.performance_globale.blocage,
+    (P.performance_globale && P.performance_globale.action) ? '→ ' + P.performance_globale.action : null
+  ]);
+  bloc('Meilleure vidéo', [
+    P.meilleure_video && P.meilleure_video.constat,
+    P.meilleure_video && P.meilleure_video.formule
+  ]);
+  bloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
+  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.representativite]);
+
+  const ed = P.editorial;
+  if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
+    L.push('', 'ANALYSE ÉDITORIALE');
+    (ed.sujets_notes || []).forEach(s => L.push('  ' + (s.sujet || '') + ' : ' + (s.note || '')));
+    if (ed.recommandation) L.push('→ ' + ed.recommandation);
+  }
+
+  bloc('Audience', [
+    P.audience && P.audience.constat,
+    P.audience && P.audience.alignement
+  ]);
+
+  const pa = a.plan_action_30j;
+  if (pa && typeof pa === 'object') {
+    const lignes = [];
+    if (pa.frequence) lignes.push('Fréquence : ' + pa.frequence);
+    if (pa.duree_ideale) lignes.push('Durée idéale : ' + pa.duree_ideale);
+    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length)
+      lignes.push('Sujets à faire : ' + pa.sujets_a_faire.join(', '));
+    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length)
+      lignes.push('À éviter : ' + pa.erreurs_a_eviter.join(', '));
+    bloc('Plan des 30 prochains jours', lignes);
+  }
+
+  return L.join('\n');
+}
+
+function renderAudit(a) {
+  lastAudit = a;
+  const out = document.getElementById('auditOutput');
+  if (!out) return;
+  if (!a || typeof a !== 'object') {
+    out.innerHTML = '<div class="err" style="display:block">Réponse illisible.</div>';
+    return;
+  }
+
+  let html = '<div class="audit-result">';
+
+  // ── TikTok Score ──
+  // Si le modèle a fourni des mesures brutes, le score est calculé ici par
+  // le moteur (reproductible). Sinon c'est un audit enregistré avant le
+  // moteur : on relit l'ancien champ tiktok_score tel quel.
+  const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
+
+  // Une dimension n'est notée que si le modèle a renvoyé un vrai nombre.
+  // Sinon elle est "non mesurée" — surtout pas 0/20, qui ferait croire
+  // à une mauvaise note alors que c'est la donnée qui manque.
+  const dimValeur = v => {
+    const n = (typeof v === 'number') ? v : parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // Le score global est recalculé ici à partir des seules dimensions
+  // réellement mesurées, puis ramené sur 100. Sans ça, un compte à qui
+  // il manque une capture plafonnerait mécaniquement (ex. 80/100 maximum).
+  // On ne se fie pas à l'arithmétique du modèle.
+  const dimsMesurees = SCORE_DIMS.filter(d => dimValeur(ts[d.key]) !== null);
+  const maxMesure = dimsMesurees.reduce((s, d) => s + d.max, 0);
+  const obtenu = dimsMesurees.reduce((s, d) => s + dimValeur(ts[d.key]), 0);
+  const global = maxMesure > 0 ? Math.round((obtenu / maxMesure) * 100) : auditNum(ts.global);
+  const partiel = dimsMesurees.length > 0 && dimsMesurees.length < SCORE_DIMS.length;
+
+  // Circonférence de l'anneau (rayon 74) pour le calcul du remplissage
+  const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
+  const scoreAffiche = (global == null || Number.isNaN(global)) ? '—' : global;
+
+  html += `
+    <div class="audit-score-card">
+      <div class="audit-score-label">ADN TIKTOK SCORE</div>
+      <div class="audit-ring-wrap">
+        <svg class="audit-ring" viewBox="0 0 170 170">
+          <defs>
+            <linearGradient id="auditRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--gold)"/>
+              <stop offset="100%" stop-color="var(--gold-light)"/>
+            </linearGradient>
+          </defs>
+          <circle class="audit-ring-track" cx="85" cy="85" r="${RING_R}"/>
+          <circle class="audit-ring-fill" id="auditRingFill" cx="85" cy="85" r="${RING_R}"
+            stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
+        </svg>
+        <div class="audit-ring-center">
+          <div class="audit-score-num"><span id="auditScoreNum">0</span><span>/100</span></div>
+        </div>
+      </div>
+      ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
+      ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>`
+        : (ts.levier_dim ? `<div class="audit-score-phrase">Ton levier le plus fort aujourd'hui : ${auditEsc(ts.levier_dim)}.</div>` : '')}
+    </div>`;
+
+  // Dimensions du score
+  const hasDims = dimsMesurees.length > 0;
+  if (hasDims) {
+    html += '<div class="audit-axes">';
+    SCORE_DIMS.forEach(d => {
+      const v = dimValeur(ts[d.key]);
+      if (v === null) {
+        html += `
+        <div class="audit-axe" style="opacity:.45">
+          <div class="audit-axe-head"><span>${d.label}</span><b>non mesuré</b></div>
+          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:0%"></div></div>
+        </div>`;
+        return;
+      }
+      const pct = Math.max(0, Math.min(100, (v / d.max) * 100));
+      html += `
+        <div class="audit-axe">
+          <div class="audit-axe-head"><span>${d.label}</span><b>${v}/${d.max}</b></div>
+          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:${pct}%"></div></div>
+        </div>`;
+    });
+    html += '</div>';
+  }
+
+  const P = a.piliers || {};
+  const dispo = p => p && p.disponible !== false && (p.constat || p.conclusion || p.formule || (p.sujets_notes && p.sujets_notes.length));
+
+  // Intertitre : ouvre la partie diagnostic, pour séparer visuellement le
+  // score (le verdict) de son explication détaillée.
+  const yaDiagnostic = dispo(P.performance_globale) || dispo(P.meilleure_video)
+    || dispo(P.pire_video) || dispo(P.comparatif) || dispo(P.editorial) || dispo(P.audience);
+  if (yaDiagnostic) html += '<div class="audit-section-label">Le diagnostic</div>';
+
+  // ── Pilier : performance globale ──
+  if (dispo(P.performance_globale)) {
+    const p = P.performance_globale;
+    html += auditBlock('📊 Performance globale', `
+      ${p.constat ? `<div class="audit-diag-constat">${auditEsc(p.constat)}</div>` : ''}
+      ${p.blocage ? `<div class="audit-diag-interp">🚧 ${auditEsc(p.blocage)}</div>` : ''}
+      ${p.action ? `<div class="audit-diag-action">→ ${auditEsc(p.action)}</div>` : ''}
+    `);
+  }
+
+  // ── Comparatif meilleure / pire ──
+  const mv = P.meilleure_video, pv = P.pire_video, comp = P.comparatif;
+  if (dispo(mv) || dispo(pv) || dispo(comp)) {
+    let inner = '';
+    if (dispo(mv)) {
+      inner += `<div class="audit-vs-col audit-vs-best">
+        <div class="audit-vs-tag">✅ Meilleure vidéo</div>
+        ${mv.constat ? `<div class="audit-vs-text">${auditEsc(mv.constat)}</div>` : ''}
+        ${mv.formule ? `<div class="audit-vs-formule">💡 ${auditEsc(mv.formule)}</div>` : ''}
+      </div>`;
+    }
+    if (dispo(pv)) {
+      const sec = pv.seconde_decrochage;
+      inner += `<div class="audit-vs-col audit-vs-worst">
+        <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ' — décroche à ' + auditEsc(sec) + 's' : ''}</div>
+        ${pv.constat ? `<div class="audit-vs-text">${auditEsc(pv.constat)}</div>` : ''}
+      </div>`;
+    }
+    html += auditBlock('⚡ Comparatif', `<div class="audit-vs">${inner}</div>
+      ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}
+      ${dispo(comp) && comp.representativite ? `<div class="audit-vs-repres">📊 ${auditEsc(comp.representativite)}</div>` : ''}`);
+  }
+
+  // ── Éditorial ──
+  if (dispo(P.editorial)) {
+    const e = P.editorial;
+    let inner = '';
+    if (Array.isArray(e.sujets_notes) && e.sujets_notes.length) {
+      inner += '<div class="audit-sujets">';
+      e.sujets_notes.forEach(s => {
+        inner += `<div class="audit-sujet"><span>${auditEsc(s.sujet)}</span><b>${auditEsc(s.note)}</b></div>`;
+      });
+      inner += '</div>';
+    }
+    if (e.recommandation) inner += `<div class="audit-diag-action">→ ${auditEsc(e.recommandation)}</div>`;
+    html += auditBlock('📝 Analyse éditoriale', inner);
+  }
+
+  // ── Audience ──
+  if (dispo(P.audience)) {
+    const au = P.audience;
+    html += auditBlock('👥 Audience', `
+      ${au.constat ? `<div class="audit-diag-constat">${auditEsc(au.constat)}</div>` : ''}
+      ${au.alignement ? `<div class="audit-diag-interp">${auditEsc(au.alignement)}</div>` : ''}
+    `);
+  }
+
+  // ── Plan d'action 30 jours ──
+  const pa = a.plan_action_30j;
+  if (pa && typeof pa === 'object') {
+    html += '<div class="audit-section-label">Passe à l\'action</div>';
+    let items = '';
+    if (pa.frequence) items += `<li><b>Fréquence :</b> ${auditEsc(pa.frequence)}</li>`;
+    if (pa.duree_ideale) items += `<li><b>Durée idéale :</b> ${auditEsc(pa.duree_ideale)}</li>`;
+    if (pa.type_hook) items += `<li><b>Hook :</b> ${auditEsc(pa.type_hook)}</li>`;
+    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length)
+      items += `<li><b>Sujets à faire :</b> ${pa.sujets_a_faire.map(auditEsc).join(', ')}</li>`;
+    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length)
+      items += `<li><b>À éviter :</b> ${pa.erreurs_a_eviter.map(auditEsc).join(', ')}</li>`;
+    if (items) {
+      html += `<div class="audit-block audit-plan">
+        <div class="audit-block-title">🎯 Ton plan des 30 prochains jours</div>
+        <ul class="audit-plan-list">${items}</ul>
+      </div>`;
+    }
+  }
+
+  // ── Données manquantes ──
+  // ── Pour un audit plus complet ──
+  // Liste ce qui a manqué à Scriptura pour aller plus loin. S'affiche seulement
+  // s'il manque vraiment quelque chose : un audit complet n'affiche rien.
+  const manquantes = Array.isArray(a.donnees_manquantes) ? a.donnees_manquantes.filter(Boolean) : [];
+  if (manquantes.length) {
+    html += auditBlock('📋 Pour un audit plus complet',
+      '<ul class="audit-manquantes">' +
+      manquantes.map(m => `<li>${auditEsc(m)}</li>`).join('') +
+      '</ul>' +
+      '<button class="btn-storyboard audit-refaire" onclick="affinerAudit()">Refaire l\'audit avec les captures manquantes</button>');
+  }
+
+  // ── Copier / Partager ──
+  const txtAudit = auditTexteBrut(a, ts);
+  html += `<div class="sb-actions-fin">
+    <button class="icon-btn" title="Copier l'audit" onclick="copyText(this, '${storeCopyText(txtAudit)}')">${ICON_COPY}</button>
+    <button class="icon-btn" title="Partager l'audit" onclick="shareText(this, '${storeCopyText(txtAudit)}')">${ICON_SHARE}</button>
+    <button class="icon-btn" title="Télécharger en PDF" onclick="telechargerAuditPDF()">${ICON_PDF}</button>
+  </div>`;
+
+  // ── Pont vers le contenu ──
+  html += `
+    <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
+      Trouver des idées de contenu virales pour corriger ça
+    </button>
+  </div>`;
+
+  out.innerHTML = html;
+  animerScoreAudit(global, RING_C);
+  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Fait apparaître la forme du radar en fondu, une fois le SVG dans le DOM.
+function animerRadar() {
+  const shape = document.getElementById('auditRadarShape');
+  if (!shape) return;
+  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduit) { shape.style.opacity = '1'; return; }
+  shape.style.opacity = '0';
+  shape.style.transform = 'scale(0.4)';
+  requestAnimationFrame(() => {
+    shape.style.opacity = '1';
+    shape.style.transform = 'scale(1)';
+  });
+}
+
+// Dessine un radar (toile d'araignée) des dimensions du score.
+// SVG pur, sans librairie. Chaque branche = une dimension, la distance au
+// centre = la note en proportion de son maximum.
+function radarSVG(ts, dimValeur) {
+  const cx = 160, cy = 130, rayonMax = 74;
+  const dims = SCORE_DIMS;
+  const n = dims.length;
+  const point = (i, rayon) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+    return [cx + rayon * Math.cos(angle), cy + rayon * Math.sin(angle)];
+  };
+
+  let grille = '';
+  [0.25, 0.5, 0.75, 1].forEach(f => {
+    const pts = dims.map((_, i) => point(i, rayonMax * f).map(v => v.toFixed(1)).join(',')).join(' ');
+    grille += `<polygon class="audit-radar-grid" points="${pts}"/>`;
+  });
+  let branches = '', labels = '';
+  dims.forEach((d, i) => {
+    const [bx, by] = point(i, rayonMax);
+    branches += `<line class="audit-radar-spoke" x1="${cx}" y1="${cy}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"/>`;
+    const [lx, ly] = point(i, rayonMax + 16);
+    const v = dimValeur(ts[d.key]);
+    const ancre = Math.abs(lx - cx) < 5 ? 'middle' : (lx > cx ? 'start' : 'end');
+    labels += `<text class="audit-radar-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${ancre}" dominant-baseline="middle">${d.label}</text>`;
+    if (v !== null) {
+      labels += `<text class="audit-radar-val" x="${lx.toFixed(1)}" y="${(ly + 12).toFixed(1)}" text-anchor="${ancre}" dominant-baseline="middle">${v}/${d.max}</text>`;
+    }
+  });
+  const pts = dims.map((d, i) => {
+    const v = dimValeur(ts[d.key]);
+    const frac = v === null ? 0 : Math.max(0, Math.min(1, v / d.max));
+    return point(i, rayonMax * frac).map(x => x.toFixed(1)).join(',');
+  }).join(' ');
+  const dots = dims.map((d, i) => {
+    const v = dimValeur(ts[d.key]);
+    if (v === null) return '';
+    const [px, py] = point(i, rayonMax * Math.max(0, Math.min(1, v / d.max)));
+    return `<circle class="audit-radar-dot" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3"/>`;
+  }).join('');
+
+  return `<div class="audit-radar-wrap">
+    <svg class="audit-radar" viewBox="0 0 320 260" id="auditRadarSvg">
+      ${grille}${branches}
+      <polygon class="audit-radar-shape" id="auditRadarShape" points="${pts}" style="opacity:0"/>
+      ${dots}
+      ${labels}
+    </svg>
+  </div>`;
+}
+
+// Anime l'anneau de score et le compteur de 0 jusqu'à la valeur finale.
+// Respecte la préférence système "réduire les animations".
+function animerScoreAudit(valeur, circonference) {
+  const numEl = document.getElementById('auditScoreNum');
+  const ringEl = document.getElementById('auditRingFill');
+  if (valeur == null || Number.isNaN(valeur)) {
+    if (numEl) numEl.textContent = '—';
+    return;
+  }
+  const cible = Math.max(0, Math.min(100, valeur));
+  const offsetFinal = circonference * (1 - cible / 100);
+
+  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduit) {
+    if (numEl) numEl.textContent = cible;
+    if (ringEl) ringEl.style.strokeDashoffset = offsetFinal;
+    return;
+  }
+
+  // L'anneau part sur sa transition CSS après un court délai (sinon le
+  // navigateur applique la valeur finale sans transition au premier rendu).
+  if (ringEl) requestAnimationFrame(() => { ringEl.style.strokeDashoffset = offsetFinal; });
+
+  // Le chiffre monte en parallèle, calé sur la même durée que l'anneau.
+  const duree = 1300;
+  const debut = performance.now();
+  function tick(maintenant) {
+    const t = Math.min(1, (maintenant - debut) / duree);
+    const adouci = 1 - Math.pow(1 - t, 3); // easing cubic-out, comme l'anneau
+    if (numEl) numEl.textContent = Math.round(cible * adouci);
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function auditBlock(titre, inner) {
+  return `<div class="audit-block"><div class="audit-block-title">${titre}</div>${inner}</div>`;
+}
+
+// Pont audit → mode idées : envoie le problème principal vers le générateur d'idées
+// Ramène à la zone d'upload en gardant les captures déjà chargées, pour en
+// ajouter d'autres (ex : sources de trafic) puis relancer. Le relancement
+// passe par lancerAudit → peutAuditer, donc il consomme bien un audit du mois.
+function affinerAudit() {
+  const out = document.getElementById('auditOutput');
+  if (out) out.innerHTML = ''; // on efface l'ancien résultat, les captures restent
+
+  // Le contexte (objectif, niche, fréquence, style) est déjà rempli et
+  // conservé : inutile de le redemander. On masque le bloc pour ne pas
+  // encombrer, et on affiche un rappel discret.
+  const ctx = document.getElementById('auditContextCard');
+  if (ctx) ctx.style.display = 'none';
+  const rappel = document.getElementById('auditAffineNote');
+  if (rappel) rappel.style.display = 'block';
+
+  const drop = document.getElementById('auditDrop');
+  if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const input = document.getElementById('auditInput');
+  if (input) setTimeout(() => input.click(), 400);
+}
+
+function genererIdeesCorrectives() {
+  if (!lastAudit) return;
+  // La niche et l'objectif viennent D'ABORD de l'audit lui-même : c'est la
+  // seule source fiable quand on rouvre un audit depuis "Mes générations"
+  // (dans ce cas le formulaire d'audit est vide, on n'y a rien saisi).
+  const niche = lastAudit.niche || document.getElementById('auditNiche')?.value || '';
+  const objectif = lastAudit.objectif || document.getElementById('auditObjectif')?.value || '';
+  lancerIdeesDepuisAudit(niche, objectif);
+}
+
+// Pré-remplit le mode idées à partir d'une niche + objectif connus (issus d'un
+// audit, à l'écran ou sauvegardé) et lance directement la génération.
+function lancerIdeesDepuisAudit(niche, objectif) {
+  chooseMode('ideas');
+
+  const nicheField = document.getElementById('ideaNiche');
+  const geoField = document.getElementById('ideaGeo');
+  if (geoField) geoField.value = ''; // ne jamais hériter d'une ancienne saisie
+
+  // Niche inconnue (audit ancien, enregistré avant qu'on la sauvegarde) :
+  // on ouvre le formulaire vierge pour que l'utilisateur la choisisse,
+  // plutôt que de générer avec une valeur résiduelle qui n'est pas la sienne.
+  if (!niche) {
+    if (nicheField) {
+      nicheField.selectedIndex = 0;
+      nicheField.dispatchEvent(new Event('change'));
+    }
+    const info = document.getElementById('ideasFlow');
+    if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  if (nicheField) {
+    nicheField.value = niche;
+    nicheField.dispatchEvent(new Event('change')); // met à jour l'affichage du champ géo lié
+  }
+
+  const mapObjectif = {
+    'Faire plus de vues et maximiser la portée': 'faire des vues',
+    'Gagner des abonnés qualifiés rapidement': 'gagner des abonnés',
+    'Générer des ventes via mon contenu': 'générer des ventes',
+    'Renforcer mon expertise et ma crédibilité': 'renforcer mon expertise'
+  };
+  const goalVal = mapObjectif[objectif];
+  if (goalVal) {
+    const btn = document.querySelector('#ideaGoalGrid .grid-btn[data-val="' + goalVal + '"]');
+    if (btn) btn.click();
+  }
+
+  // Exception : si la niche exige une zone géo et qu'on ne l'a pas, on laisse
+  // le formulaire ouvert pour que l'utilisateur la précise (sinon échec).
+  const geoRequise = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'];
+  const geoVal = document.getElementById('ideaGeo')?.value.trim();
+  if (niche && geoRequise.includes(niche) && !geoVal) {
+    const info = document.getElementById('ideasFlow');
+    if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  generateIdeas();
+
+}
+
+// Fait apparaître un écran en fondu + légère montée.
+// On retire puis remet la classe (avec un reflow forcé) pour que l'animation
+// se relance à chaque navigation, et pas seulement la première fois.
+function animerEntreeEcran(el) {
+  if (!el) return;
+  el.classList.remove('screen-appear');
+  void el.offsetWidth; // force le navigateur à recalculer : relance l'animation
+  el.classList.add('screen-appear');
+}
+
