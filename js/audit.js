@@ -286,13 +286,26 @@ async function lancerAudit() {
 
     renderAudit(parsed, niche, objectif, style);
 
+    const scoreObtenu = parsed.mesures
+      ? (calculerScores(parsed.mesures).global ?? null)
+      : (parsed.tiktok_score?.global ?? null);
+
     if (typeof saveGeneration === 'function') {
-      const scoreTitre = parsed.mesures
-        ? (calculerScores(parsed.mesures).global ?? '?')
-        : (parsed.tiktok_score?.global ?? '?');
-      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + scoreTitre, Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
+      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
       catch(e) { /* silencieux */ }
     }
+
+    // Mémoire du créateur : ce que cet audit vient de révéler, comme "leçons
+    // apprises" (tâche de fond, silencieuse). Ne modifie ni ne relit les
+    // règles d'analyse elles-mêmes — uniquement le résultat déjà produit.
+    const P = parsed.piliers || {};
+    const leconsAudit = [P.meilleure_video?.formule, P.comparatif?.conclusion].filter(Boolean);
+    const aEviterAudit = Array.isArray(parsed.plan_action_30j?.erreurs_a_eviter) ? parsed.plan_action_30j.erreurs_a_eviter : [];
+    mettreAJourProfilCreateur({
+      declare: { niche_principale: niche, style_contenu: style, objectifs: objectif },
+      observe: { themes_a_eviter: aEviterAudit, plateformes: 'TikTok' },
+      lecons: { recommandations_permanentes: leconsAudit, dernier_score_audit: scoreObtenu }
+    });
 
     // Si l'audit a été payé avec un jeton, on le décompte maintenant (après succès)
     if (moyenAudit === 'jeton') {

@@ -97,6 +97,10 @@ async function generateIdeas() {
   setIdeaLoading(true);
   document.getElementById('ideasResults').style.display = 'none';
 
+  // Mémoire du créateur : voir js/profil.js — n'ajoute qu'une ligne de plus
+  // au bloc de contexte déjà présent, ne modifie aucune règle de ce prompt.
+  const profilLigneIdees = ligneProfilPourPrompt(await chargerProfilCreateur());
+
   const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour un créateur.
 
 PROFIL DU CRÉATEUR :
@@ -107,6 +111,7 @@ ${ideaPlatform ? '- Plateforme : ' + ideaPlatform : ''}
 ${ideaGoal ? '- Objectif : ' + ideaGoal : ''}
 ${ideaTone ? '- Style/angle : ' + ideaTone : ''}
 ${theme ? '- Thème précis à explorer : ' + theme : ''}
+${profilLigneIdees ? '- ' + profilLigneIdees : ''}
 
 ${geo ? `CONTRAINTE GÉOGRAPHIQUE ABSOLUE — TU ES UN EXPERT LOCAL DE : ${geo}
 Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne reste JAMAIS vague ou générique.
@@ -156,6 +161,19 @@ Génère exactement 12 idées, toutes différentes et toutes à fort potentiel.`
     setTimeout(updateScrollBtn, 300);
     saveGeneration('ideas', 'Idées : ' + niche, { idees: parsed.idees, niche: niche });
     updateQuotaJour();
+
+    // Mémoire du créateur (tâche de fond, silencieuse).
+    mettreAJourProfilCreateur({
+      declare: {
+        niche_principale: niche,
+        ton_prefere: toneCourtDepuisGrille('ideaToneGrid'),
+        objectifs: ideaGoal ? (OBJECTIF_COURT_VERS_LONG[ideaGoal] || ideaGoal) : undefined
+      },
+      observe: {
+        themes_traites: (parsed.idees || []).slice(0, 3).map(i => i.titre).filter(Boolean),
+        plateformes: ideaPlatform
+      }
+    });
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
@@ -477,6 +495,11 @@ async function generate() {
   };
   const wt = wordTargets[selectedDuree] || wordTargets['1 minute'];
 
+  // Mémoire du créateur : une ligne de contexte factuelle en plus, construite
+  // depuis le profil déjà connu (voir js/profil.js). N'existe que si des
+  // informations sont déjà connues ; ne modifie aucune règle du prompt.
+  const profilLigneScript = ligneProfilPourPrompt(await chargerProfilCreateur());
+
   try {
     // ════════════════════════════════════════════
     //  PHASE 1 — LE DIRECTEUR ÉDITORIAL (raisonnement)
@@ -494,6 +517,7 @@ CONTEXTE :
 ${audience ? '- Audience : ' + audience : ''}
 ${style ? '- Style : ' + style : ''}
 ${selectedTone ? '- Ton souhaité : ' + selectedTone : ''}
+${profilLigneScript ? '- ' + profilLigneScript : ''}
 ${isViralMode ? '\\n- MODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\\n[DEBUT]\\n' + viralVideo + '\\n[FIN]\\nDécode sa structure et sa mécanique pour la réappliquer.' : ''}
 
 TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différence) :
@@ -804,6 +828,21 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // Sauvegarder la génération complète + le contexte (pour rouvrir et générer le storyboard plus tard)
     saveGeneration('script', sujet, Object.assign({}, parsed, { niche: niche, context: { sujet: sujet, plateforme: state.plateforme, objectif: state.objectif } }));
     updateQuotaJour();
+
+    // Mémoire du créateur : la génération vient de réussir, on affine le
+    // profil avec ce qu'on vient d'apprendre (tâche de fond, silencieuse).
+    mettreAJourProfilCreateur({
+      declare: {
+        niche_principale: niche,
+        ton_prefere: toneCourtDepuisGrille('toneGrid'),
+        duree_moyenne: selectedDuree,
+        objectifs: state.objectif
+      },
+      observe: {
+        themes_traites: sujet.slice(0, 80),
+        plateformes: state.plateforme
+      }
+    });
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;

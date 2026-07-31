@@ -146,6 +146,10 @@ async function creerSerie() {
   if (txt) txt.textContent = 'Construction de ta série…';
   startGenAnimation('serie_creation');
 
+  // Mémoire du créateur : voir js/profil.js — une ligne de contexte en plus,
+  // sans toucher aux principes d'écriture ci-dessous.
+  const profilLigneSerie = ligneProfilPourPrompt(await chargerProfilCreateur());
+
   try {
     // 1. La bible : prémisse, univers, ton, règle récurrente, et l'arc épisode par épisode
     const promptBible = `Tu es un architecte de séries pour créateurs TikTok francophones d'Afrique.
@@ -157,6 +161,7 @@ ZONE GÉOGRAPHIQUE / CONTEXTE CULTUREL : ${geo || 'non précisée — reste gén
 GENRE : ${genre}
 STYLE DE CONTENU : ${style}
 NOMBRE D'ÉPISODES : ${serieNbEpisodes}
+${profilLigneSerie ? profilLigneSerie : ''}
 
 Principes à respecter (méthode d'écriture épisodique courte) :
 - La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
@@ -197,6 +202,13 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     if (error) throw error;
     document.getElementById('serieCreation').style.display = 'none';
     document.getElementById('serieConcept').value = '';
+
+    // Mémoire du créateur (tâche de fond, silencieuse).
+    mettreAJourProfilCreateur({
+      declare: { niche_principale: niche, style_contenu: style, structure_narrative: genre, duree_moyenne: serieDuree },
+      observe: { themes_traites: titre, plateformes: 'TikTok' }
+    });
+
     ouvrirSerie(data.id);
   } catch(e) {
     err.textContent = 'Création impossible : ' + (e.message || 'réessaie');
@@ -622,4 +634,9 @@ async function chooseMode(mode) {
   // On remet la page en haut AVANT d'animer, pour que le fondu soit visible
   window.scrollTo({ top: 0, behavior: 'auto' });
   animerEntreeEcran(document.getElementById(ecranDuMode[mode]));
+
+  // Pré-remplit les champs déjà connus du créateur (mémoire du profil).
+  // Asynchrone et sans effet si rien n'est encore connu : ne retarde jamais
+  // l'ouverture de l'écran et ne touche jamais un champ déjà rempli.
+  if (typeof appliquerProfilCreateur === 'function') appliquerProfilCreateur(mode);
 }

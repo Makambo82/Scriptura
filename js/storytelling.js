@@ -130,6 +130,10 @@ ${modele.script}
     }
   } catch(e) { /* si modeles.js absent, on continue avec la méthode seule */ }
 
+  // Mémoire du créateur : voir js/profil.js — une ligne de contexte en plus,
+  // sans toucher à la méthode narrative ni aux règles ci-dessous.
+  const profilLigneStory = ligneProfilPourPrompt(await chargerProfilCreateur());
+
   const storyPrompt = `Tu es le meilleur storyteller narratif francophone, spécialisé dans les récits immersifs, critiques et stylisés pour les réseaux sociaux. Tu produis un script qui capte l'attention immédiatement, la maintient jusqu'à la fin, et marque émotionnellement le spectateur. Le spectateur doit VIVRE la scène, pas seulement la regarder.
 
 SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
@@ -137,6 +141,7 @@ SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
 ${input}
 """
 ${storyPlatform ? 'PLATEFORME : ' + storyPlatform : ''}
+${profilLigneStory ? profilLigneStory : ''}
 ${modeleRef}
 ${longueurInstruction}
 
@@ -230,6 +235,15 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     setTimeout(updateScrollBtn, 300);
     saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
     updateQuotaJour();
+
+    // Mémoire du créateur (tâche de fond, silencieuse).
+    mettreAJourProfilCreateur({
+      declare: { duree_moyenne: storyFormat === 'court' ? storyDuree : 'format long' },
+      observe: {
+        themes_traites: (parsed.titre || input.slice(0, 80)),
+        plateformes: storyPlatform
+      }
+    });
 
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
