@@ -94,6 +94,11 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGenCounter();
   setupIdeaButtons();
   setupStoryButtons();
+
+  // Recommandation IA de l'accueil (fonctionnalité Premium) : purement
+  // additive, ne touche à rien d'autre. Ne fait rien pour un utilisateur
+  // non abonné (voir initAccueilPremium, js/recommandations.js).
+  if (typeof initAccueilPremium === 'function') initAccueilPremium();
 });
 
 // ── BOUTONS TON & DURÉE — GROUPES INDÉPENDANTS ──
