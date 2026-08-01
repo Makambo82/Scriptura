@@ -5,7 +5,7 @@
 //
 //  Prérequis (voir supabase/videos.sql) :
 //  - Table `videos` + bucket de stockage public `videos` dans Supabase.
-//  - Variables d'environnement Vercel : GEMINI_API_KEY, ELEVENLABS_API_KEY,
+//  - Variables d'environnement Vercel : OPENAI_API_KEY, ELEVENLABS_API_KEY,
 //    en plus de SUPABASE_URL / SUPABASE_ANON_KEY déjà utilisées ailleurs.
 //
 //  Reçoit une liste de segments {texte, visuel} (texte parlé + description
@@ -23,16 +23,15 @@ import path from 'path';
 
 const runFfmpeg = promisify(execFile);
 
-// Bornes de sécurité pour rester dans la fenêtre de temps Vercel et dans le
-// quota gratuit Gemini (10 requêtes/minute sur le palier gratuit).
+// Borne de sécurité pour rester dans la fenêtre de temps Vercel.
 const MAX_SEGMENTS = 14;
 const FPS = 25;
 const LARGEUR = 1080, HAUTEUR = 1920; // 9:16 (format TikTok)
 
 // Noms de modèles configurables par variable d'environnement : ce sont des
-// modèles "preview" côté fournisseurs, susceptibles de changer de nom sans
-// préavis — un changement de variable Vercel suffit alors, pas de redéploiement.
-const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview';
+// modèles susceptibles de changer de nom sans préavis — un changement de
+// variable Vercel suffit alors, pas de redéploiement.
+const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
 const ELEVENLABS_MODEL = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
 
 async function verifierAcces(code) {
@@ -64,19 +63,20 @@ async function verifierAcces(code) {
 }
 
 async function genererImage(prompt) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`, {
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.OPENAI_API_KEY },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ['IMAGE'] }
+      model: OPENAI_IMAGE_MODEL,
+      prompt,
+      size: '1024x1536' // portrait, le plus proche du 9:16 parmi les tailles supportées
     })
   });
   if (!res.ok) throw new Error('Génération image échouée (' + res.status + ') : ' + (await res.text()).slice(0, 200));
   const data = await res.json();
-  const part = ((data?.candidates?.[0]?.content?.parts) || []).find(p => p.inlineData);
-  if (!part) throw new Error('Aucune image renvoyée par Gemini pour ce plan');
-  return Buffer.from(part.inlineData.data, 'base64');
+  const image = (data.data || [])[0];
+  if (!image || !image.b64_json) throw new Error('Aucune image renvoyée par OpenAI pour ce plan');
+  return Buffer.from(image.b64_json, 'base64');
 }
 
 async function obtenirVoixParDefaut() {
@@ -213,8 +213,8 @@ export default async function handler(req, res) {
     if (segments.length > MAX_SEGMENTS) {
       return res.status(400).json({ error: { message: 'Storyboard trop long pour la création automatique (maximum ' + MAX_SEGMENTS + ' plans pour l\'instant).' } });
     }
-    if (!process.env.GEMINI_API_KEY || !process.env.ELEVENLABS_API_KEY) {
-      return res.status(500).json({ error: { message: 'Clés vidéo absentes côté serveur (GEMINI_API_KEY / ELEVENLABS_API_KEY)' } });
+    if (!process.env.OPENAI_API_KEY || !process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: { message: 'Clés vidéo absentes côté serveur (OPENAI_API_KEY / ELEVENLABS_API_KEY)' } });
     }
 
     const acces = await verifierAcces(code_acces);
@@ -245,8 +245,8 @@ export default async function handler(req, res) {
     const voix = await genererVoixAvecMinutage(texteComplet, voiceId);
     const minutages = minutageParSegment(voix.alignment, bornes);
 
-    // ── 2. Une image par segment, l'UNE APRÈS L'AUTRE (pas en parallèle :
-    //      le palier gratuit Gemini limite à 10 requêtes/minute). ──
+    // ── 2. Une image par segment, l'UNE APRÈS L'AUTRE (évite de heurter
+    //      les limites de débit du compte OpenAI). ──
     const images = [];
     for (const seg of segments) {
       images.push(await genererImage(seg.visuel));
