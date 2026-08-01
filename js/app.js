@@ -18,12 +18,33 @@ async function syncServerQuota() {
   } catch(e) { console.warn('syncServerQuota', e); }
 }
 
+// ═══════════════════════════════════════════════════════════
+//  PRÉSENCE — signal "je suis encore là" pour le statut en ligne
+//  du Tableau de bord (voir js/admin.js et supabase/presence.sql).
+//  Envoyé par TOUS les visiteurs (abonnés ou non), uniquement pendant que
+//  l'onglet est visible à l'écran — un onglet en arrière-plan ne compte
+//  pas comme "en ligne". Échoue silencieusement si la table n'existe pas
+//  encore (comme le reste des fonctionnalités Supabase de l'app).
+// ═══════════════════════════════════════════════════════════
+function envoyerPresence() {
+  if (!supabaseClient || document.visibilityState !== 'visible') return;
+  try {
+    supabaseClient.from('presence').upsert(
+      { ref: getUserRef(), derniere_activite: new Date().toISOString(), abonne: !!unlocked },
+      { onConflict: 'ref' }
+    );
+  } catch (e) { /* silencieux */ }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
   syncServerQuota();
+  envoyerPresence();
+  setInterval(envoyerPresence, 60000);
+  document.addEventListener('visibilitychange', envoyerPresence);
   // Contrôle d'expiration dès l'ouverture : un abonné expiré est déconnecté
   // sans attendre qu'il tente de générer.
   if (unlocked) {
