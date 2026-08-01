@@ -976,13 +976,9 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     <button class="icon-btn" title="Télécharger en PDF" onclick="telechargerAuditPDF()">${ICON_PDF}</button>
   </div>`;
 
-  // ── Pont vers le contenu ──
-  html += `
-    <button class="btn-generate audit-idees-btn" onclick="genererIdeesCorrectives()">
-      Trouver des idées de contenu virales pour corriger ça
-    </button>
-    <div id="auditOpportunites"></div>
-  </div>`;
+  // ── Pont vers le contenu ── (la recommandation IA ci-dessous propose déjà
+  // "Créer le script" et "Voir d'autres recommandations", ce bouton faisait doublon)
+  html += `<div id="auditOpportunites"></div></div>`;
 
   out.innerHTML = html;
   animerScoreAudit(global, RING_C);
@@ -1120,16 +1116,6 @@ function affinerAudit() {
   if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
   const input = document.getElementById('auditInput');
   if (input) setTimeout(() => input.click(), 400);
-}
-
-function genererIdeesCorrectives() {
-  if (!lastAudit) return;
-  // La niche et l'objectif viennent D'ABORD de l'audit lui-même : c'est la
-  // seule source fiable quand on rouvre un audit depuis "Mes générations"
-  // (dans ce cas le formulaire d'audit est vide, on n'y a rien saisi).
-  const niche = lastAudit.niche || document.getElementById('auditNiche')?.value || '';
-  const objectif = lastAudit.objectif || document.getElementById('auditObjectif')?.value || '';
-  lancerIdeesDepuisAudit(niche, objectif);
 }
 
 // Pré-remplit le mode idées à partir d'une niche + objectif connus (issus d'un
