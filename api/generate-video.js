@@ -69,7 +69,8 @@ async function genererImage(prompt) {
     body: JSON.stringify({
       model: OPENAI_IMAGE_MODEL,
       prompt,
-      size: '1024x1536' // portrait, le plus proche du 9:16 parmi les tailles supportées
+      size: '1024x1536', // portrait, le plus proche du 9:16 parmi les tailles supportées
+      quality: process.env.OPENAI_IMAGE_QUALITY || 'low' // coût minimal par défaut (~0,016$/image)
     })
   });
   if (!res.ok) throw new Error('Génération image échouée (' + res.status + ') : ' + (await res.text()).slice(0, 200));
