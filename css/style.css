@@ -927,6 +927,16 @@ footer strong{color:var(--gold)}
    .btn-regenerate, en plus compact car ces boutons se répètent souvent. */
 .btn-regenerate.mini{padding:5px 12px;font-size:0.54rem}
 .retouche-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+/* Retouche libre en bas du script : le créateur décrit en texte libre ce
+   qu'il veut changer (un hook, un segment, plusieurs à la fois...). */
+.script-retouche-libre{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+.script-retouche-libre .ctx-textarea{min-height:64px}
+.script-retouche-libre .btn-regenerate{align-self:flex-start}
+.retouche-flash{animation:retoucheFlash 1.8s ease;border-radius:4px}
+@keyframes retoucheFlash{
+  0%{background:rgba(201,168,76,0.3)}
+  100%{background:transparent}
+}
 
 /* Cartes d'idées */
 .idea-card{

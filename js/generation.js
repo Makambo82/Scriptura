@@ -1170,7 +1170,7 @@ function renderResults(d, niche, sujet) {
       num: "02",
       content: `<div class="out-section">
         <div class="out-section-label">Hooks · Plusieurs styles</div>
-        <div class="hooks-list">${(d.hooks || []).map((h, i) => `
+        <div class="hooks-list" id="hooksList">${(d.hooks || []).map((h, i) => `
           <div class="hook-item" data-idx="${i}">
             <span class="hook-style">${h.style}</span>
             <span id="hookText${i}">${h.texte}</span>
@@ -1187,11 +1187,12 @@ function renderResults(d, niche, sujet) {
         <div class="script-block" id="scriptBlock">${(d.script || []).map((s, i) => `
           <div class="script-row" data-idx="${i}">
             <div class="script-text" id="scriptText${i}">${s.texte}</div>
-            <div class="retouche-actions">
-              <button class="btn-regenerate mini" onclick="retoucherSegment(${i}, 'raccourcir')">✂️ Raccourcir</button>
-              <button class="btn-regenerate mini" onclick="retoucherSegment(${i}, 'direct')">🎯 Plus direct</button>
-            </div>
           </div>`).join('')}
+        </div>
+        <div class="script-retouche-libre">
+          <label class="idea-section-label" for="scriptRetoucheInput">✏️ Demander une retouche</label>
+          <textarea class="ctx-textarea" id="scriptRetoucheInput" placeholder="Ex : le hook est trop long, raccourcis-le. Change la formulation du 3e paragraphe."></textarea>
+          <button class="btn-regenerate mini" id="scriptRetoucheBtn" onclick="retoucherScriptLibre()">Appliquer les retouches</button>
         </div>
       </div>`
     },
@@ -1317,46 +1318,103 @@ function nettoyerTexteRetouche(raw) {
   return t.trim();
 }
 
-async function retoucherSegment(index, action) {
-  if (!currentScript || !currentScript[index]) return;
-  const row = document.querySelector('.script-row[data-idx="' + index + '"]');
-  const textEl = document.getElementById('scriptText' + index);
-  if (!row || !textEl) return;
-  const boutons = row.querySelectorAll('.retouche-actions button');
+// Ré-affiche le script (et signale, via une classe temporaire, les segments
+// dont le texte a effectivement changé par rapport à `avant`).
+function rerenderScriptBlock(avant) {
+  const block = document.getElementById('scriptBlock');
+  if (!block || !currentScript) return;
+  block.innerHTML = currentScript.map((s, i) => `
+    <div class="script-row" data-idx="${i}">
+      <div class="script-text${avant && avant[i] !== s.texte ? ' retouche-flash' : ''}" id="scriptText${i}">${s.texte}</div>
+    </div>`).join('');
+}
 
-  const original = currentScript[index].texte;
-  const consigne = action === 'raccourcir'
-    ? 'Raccourcis ce passage : garde le sens et l\'essentiel, élimine tout mot superflu, sans perdre d\'information importante.'
-    : 'Rends ce passage plus direct et percutant : phrases plus courtes, moins de détours, va droit à l\'essentiel, garde le même sens.';
+// Ré-affiche les hooks (même principe de signalement des éléments modifiés).
+function rerenderHooksList(avant) {
+  const list = document.getElementById('hooksList');
+  if (!list || !currentHooks) return;
+  list.innerHTML = currentHooks.map((h, i) => `
+    <div class="hook-item" data-idx="${i}">
+      <span class="hook-style">${h.style}</span>
+      <span id="hookText${i}"${avant && avant[i] !== h.texte ? ' class="retouche-flash"' : ''}>${h.texte}</span>
+      <div class="retouche-actions"><button class="btn-regenerate mini hook-retouche-btn" onclick="changerHook(${i})">🔄 Changer ce hook</button></div>
+    </div>`).join('');
+}
 
-  boutons.forEach(b => b.disabled = true);
-  textEl.style.opacity = '0.5';
+// Retouche libre : le créateur décrit en langage naturel ce qu'il veut changer
+// (un ou plusieurs hooks, un ou plusieurs segments du script, ou les deux) et
+// Scriptura applique UNIQUEMENT ces demandes, en recopiant le reste à l'identique.
+async function retoucherScriptLibre() {
+  const input = document.getElementById('scriptRetoucheInput');
+  const btn = document.getElementById('scriptRetoucheBtn');
+  if (!input || !btn || !currentScript) return;
+  const instructions = input.value.trim();
+  if (!instructions) { input.focus(); return; }
+
+  const avantScript = currentScript.map(s => s.texte);
+  const avantHooks = (currentHooks || []).map(h => h.texte);
+
+  const label = btn.textContent;
+  btn.disabled = true;
+  input.disabled = true;
+  btn.textContent = 'Application des retouches…';
 
   const ctx = lastGenContext || {};
-  const prompt = `Tu es le Réviseur en Chef de Scriptura. Retouche UNIQUEMENT le passage suivant, sans rien ajouter d'autre autour.
+  const hooksNum = (currentHooks || []).map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n');
+  const scriptNum = currentScript.map((s, i) => '[segment ' + i + ' — ' + s.temps + '] ' + s.texte).join('\n');
+
+  const prompt = `Tu es le Réviseur en Chef de Scriptura. Le créateur a relu son contenu et te demande des retouches précises, en langage libre. Applique UNIQUEMENT ce qu'il demande — ne touche à rien d'autre.
 
 CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}, objectif "${ctx.objectif || ''}".
 
-PASSAGE ACTUEL :
-${original}
+HOOKS ACTUELS (numérotés) :
+${hooksNum || 'aucun'}
 
-CONSIGNE : ${consigne}
+SCRIPT ACTUEL (segments numérotés, ne change jamais leur numéro) :
+${scriptNum}
 
-Réponds UNIQUEMENT avec le nouveau texte du passage, sans guillemets, sans commentaire, sans rien avant ni après.`;
+DEMANDES DU CRÉATEUR (peuvent viser un ou plusieurs hooks, un ou plusieurs segments du script, ou les deux — identifie précisément ce qui est visé par chaque demande) :
+"${instructions}"
+
+RÈGLES :
+- N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
+- Tout ce qui n'est concerné par aucune demande doit être recopié EXACTEMENT à l'identique (même texte, même minutage, même style de hook).
+- Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
+- Renvoie la liste COMPLÈTE des hooks et des segments du script, dans le même ordre, avec exactement le même nombre de chaque qu'actuellement.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"hooks":[{"style":"...","texte":"..."}],"script":[{"temps":"...","texte":"...","visuel":"..."}]}`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 600, prompt);
-    const nouveau = nettoyerTexteRetouche(raw);
-    if (!nouveau) throw new Error('réponse vide');
-    currentScript[index].texte = nouveau;
-    textEl.textContent = nouveau;
-    copyTexts[2] = (currentScript || []).map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n');
+    const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !Array.isArray(parsed.script) || parsed.script.length !== currentScript.length) {
+      throw new Error('réponse invalide');
+    }
+    if (Array.isArray(parsed.hooks) && currentHooks && parsed.hooks.length === currentHooks.length) {
+      currentHooks.forEach((h, i) => {
+        if (parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
+        if (parsed.hooks[i].style) h.style = parsed.hooks[i].style;
+      });
+    }
+    currentScript.forEach((s, i) => { if (parsed.script[i].texte) s.texte = parsed.script[i].texte; });
+
+    rerenderScriptBlock(avantScript);
+    rerenderHooksList(avantHooks);
+    copyTexts[1] = (currentHooks || []).map(h => h.style + ' :\n' + h.texte).join('\n\n');
+    copyTexts[2] = currentScript.map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n');
     sauvegarderRetouche();
+
+    const inputApres = document.getElementById('scriptRetoucheInput');
+    if (inputApres) inputApres.value = '';
+    toastRegen('Retouches appliquées');
   } catch (e) {
     toastRegen('Retouche impossible, réessaie');
   } finally {
-    textEl.style.opacity = '';
-    boutons.forEach(b => b.disabled = false);
+    const btnApres = document.getElementById('scriptRetoucheBtn');
+    const inputApres = document.getElementById('scriptRetoucheInput');
+    if (btnApres) { btnApres.disabled = false; btnApres.textContent = label; }
+    if (inputApres) inputApres.disabled = false;
   }
 }
 
