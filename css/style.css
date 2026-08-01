@@ -922,6 +922,11 @@ footer strong{color:var(--gold)}
   padding:9px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
 .btn-regenerate:hover{background:var(--gold-pale);border-color:var(--gold)}
+.btn-regenerate:disabled{opacity:0.5;cursor:default}
+/* Retouche ciblée d'un segment de script ou d'un hook : même style que
+   .btn-regenerate, en plus compact car ces boutons se répètent souvent. */
+.btn-regenerate.mini{padding:5px 12px;font-size:0.54rem}
+.retouche-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
 
 /* Cartes d'idées */
 .idea-card{

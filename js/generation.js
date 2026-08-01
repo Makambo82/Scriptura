@@ -877,6 +877,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // Sauvegarder le contexte pour l'ajustement du script
     lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, style, tone: selectedTone, duree: selectedDuree, brief: brief, critique: critique };
     currentScript = parsed.script;
+    currentHooks = parsed.hooks;
 
     renderResults(parsed, niche, sujet);
     setTimeout(updateScrollBtn, 300);
@@ -1169,10 +1170,11 @@ function renderResults(d, niche, sujet) {
       num: "02",
       content: `<div class="out-section">
         <div class="out-section-label">Hooks · Plusieurs styles</div>
-        <div class="hooks-list">${(d.hooks || []).map(h => `
-          <div class="hook-item">
+        <div class="hooks-list">${(d.hooks || []).map((h, i) => `
+          <div class="hook-item" data-idx="${i}">
             <span class="hook-style">${h.style}</span>
-            ${h.texte}
+            <span id="hookText${i}">${h.texte}</span>
+            <div class="retouche-actions"><button class="btn-regenerate mini hook-retouche-btn" onclick="changerHook(${i})">🔄 Changer ce hook</button></div>
           </div>`).join('')}
         </div>
       </div>`
@@ -1182,9 +1184,13 @@ function renderResults(d, niche, sujet) {
       num: "03",
       content: `<div class="out-section">
         <div class="out-section-label">Script · ${state.plateforme}</div>
-        <div class="script-block" id="scriptBlock">${(d.script || []).map(s => `
-          <div class="script-row">
-            <div class="script-text">${s.texte}</div>
+        <div class="script-block" id="scriptBlock">${(d.script || []).map((s, i) => `
+          <div class="script-row" data-idx="${i}">
+            <div class="script-text" id="scriptText${i}">${s.texte}</div>
+            <div class="retouche-actions">
+              <button class="btn-regenerate mini" onclick="retoucherSegment(${i}, 'raccourcir')">✂️ Raccourcir</button>
+              <button class="btn-regenerate mini" onclick="retoucherSegment(${i}, 'direct')">🎯 Plus direct</button>
+            </div>
           </div>`).join('')}
         </div>
       </div>`
@@ -1233,14 +1239,15 @@ function renderResults(d, niche, sujet) {
     }
   ];
 
-  // Textes pour les boutons copier
+  // Textes pour les boutons copier (même ordre que le tableau `sections` juste
+  // en dessous : chaque copyTexts[i] doit correspondre à sections[i]).
   copyTexts = [
     d.analyse || '',
     (d.hooks || []).map(h => h.style + ' :\n' + h.texte).join('\n\n'),
     (d.script || []).map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n'),
     (d.legende || '') + '\n\n' + (d.hashtags || []).join(' '),
-    (d.storyboard || []).map(s => s.segment + ' | ' + s.texte_dit + '\nVISUEL: ' + s.prompt_visuel).join('\n\n'),
-    (d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n')
+    (d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'),
+    (d.storyboard || []).map(s => s.segment + ' | ' + s.texte_dit + '\nVISUEL: ' + s.prompt_visuel).join('\n\n')
   ];
 
   sections.forEach((sec, i) => {
@@ -1297,6 +1304,101 @@ function copySection(id, text) {
     });
   };
   copy(text);
+}
+
+// ── RETOUCHE CIBLÉE (script) ──
+// Corrige un seul passage ou un seul hook sans relancer toute la génération.
+// Gratuit et illimité (pas de vérification de quota) : c'est une petite
+// retouche de texte, pas une nouvelle génération.
+function nettoyerTexteRetouche(raw) {
+  let t = (raw || '').trim();
+  t = t.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
+  t = t.replace(/^["«]\s*/, '').replace(/\s*["»]$/, '');
+  return t.trim();
+}
+
+async function retoucherSegment(index, action) {
+  if (!currentScript || !currentScript[index]) return;
+  const row = document.querySelector('.script-row[data-idx="' + index + '"]');
+  const textEl = document.getElementById('scriptText' + index);
+  if (!row || !textEl) return;
+  const boutons = row.querySelectorAll('.retouche-actions button');
+
+  const original = currentScript[index].texte;
+  const consigne = action === 'raccourcir'
+    ? 'Raccourcis ce passage : garde le sens et l\'essentiel, élimine tout mot superflu, sans perdre d\'information importante.'
+    : 'Rends ce passage plus direct et percutant : phrases plus courtes, moins de détours, va droit à l\'essentiel, garde le même sens.';
+
+  boutons.forEach(b => b.disabled = true);
+  textEl.style.opacity = '0.5';
+
+  const ctx = lastGenContext || {};
+  const prompt = `Tu es le Réviseur en Chef de Scriptura. Retouche UNIQUEMENT le passage suivant, sans rien ajouter d'autre autour.
+
+CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}, objectif "${ctx.objectif || ''}".
+
+PASSAGE ACTUEL :
+${original}
+
+CONSIGNE : ${consigne}
+
+Réponds UNIQUEMENT avec le nouveau texte du passage, sans guillemets, sans commentaire, sans rien avant ni après.`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 600, prompt);
+    const nouveau = nettoyerTexteRetouche(raw);
+    if (!nouveau) throw new Error('réponse vide');
+    currentScript[index].texte = nouveau;
+    textEl.textContent = nouveau;
+    copyTexts[2] = (currentScript || []).map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n');
+    sauvegarderRetouche();
+  } catch (e) {
+    toastRegen('Retouche impossible, réessaie');
+  } finally {
+    textEl.style.opacity = '';
+    boutons.forEach(b => b.disabled = false);
+  }
+}
+
+async function changerHook(index) {
+  if (!currentHooks || !currentHooks[index]) return;
+  const item = document.querySelector('.hook-item[data-idx="' + index + '"]');
+  const textEl = document.getElementById('hookText' + index);
+  if (!item || !textEl) return;
+  const btn = item.querySelector('.hook-retouche-btn');
+
+  const original = currentHooks[index];
+  const autresHooks = currentHooks.map(h => h.texte).filter((t, i) => i !== index && t);
+
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  textEl.style.opacity = '0.5';
+
+  const ctx = lastGenContext || {};
+  const prompt = `Tu es le Rédacteur en Chef de Scriptura. Propose UNE nouvelle version du hook suivant, dans le même style ("${original.style || ''}"), mais avec une formulation différente et plus forte.
+
+CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}, objectif "${ctx.objectif || ''}".
+
+HOOK ACTUEL : "${original.texte || ''}"
+${autresHooks.length ? 'AUTRES HOOKS DÉJÀ PROPOSÉS, à ne surtout pas reproduire : ' + autresHooks.join(' / ') : ''}
+
+CONSIGNE : le nouveau hook doit arrêter le scroll en 2 secondes, créer une vraie tension ou curiosité, ne jamais ressembler à une formule générique ("Voici pourquoi...", "Saviez-vous que...", "Dans cette vidéo...").
+
+Réponds UNIQUEMENT avec le nouveau texte du hook, sans guillemets, sans commentaire.`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 300, prompt);
+    const nouveau = nettoyerTexteRetouche(raw);
+    if (!nouveau) throw new Error('réponse vide');
+    currentHooks[index].texte = nouveau;
+    textEl.textContent = nouveau;
+    copyTexts[1] = currentHooks.map(h => h.style + ' :\n' + h.texte).join('\n\n');
+    sauvegarderRetouche();
+  } catch (e) {
+    toastRegen('Impossible de changer ce hook, réessaie');
+  } finally {
+    textEl.style.opacity = '';
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Changer ce hook'; }
+  }
 }
 
 async function generateStoryboard() {

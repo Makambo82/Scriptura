@@ -41,6 +41,20 @@ async function updateGenerationStoryboard(storyboardData) {
   } catch(e) { console.warn('Maj storyboard échouée', e); }
 }
 
+// Sauvegarde une retouche ciblée (segment de script ou hook modifié) sur la
+// génération déjà enregistrée, pour qu'elle reste visible en rouvrant depuis
+// l'historique — même mécanisme que updateGenerationStoryboard ci-dessus.
+async function sauvegarderRetouche() {
+  if (!supabaseClient || !currentGenId) return;
+  try {
+    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
+    if (data && data.contenu) {
+      const nouveauContenu = Object.assign({}, data.contenu, { script: currentScript, hooks: currentHooks });
+      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
+    }
+  } catch(e) { console.warn('Sauvegarde de la retouche échouée', e); }
+}
+
 // Réaffiche un storyboard déjà généré (depuis Mes générations), sans régénérer.
 function reafficherStoryboard(sbData, isStory) {
   if (!sbData || !sbData.storyboard) return;
@@ -624,6 +638,7 @@ function reopenGeneration(i) {
   if (g.mode === 'script') {
     document.getElementById('flow').style.display = 'block';
     currentScript = g.contenu.script;
+    currentHooks = g.contenu.hooks;
     lastGenContext = g.contenu.context || { sujet: g.titre, plateforme: 'TikTok' };
     renderResults(g.contenu, g.contenu.niche || '', g.titre || '');
     // Réafficher le storyboard sauvegardé s'il existe
