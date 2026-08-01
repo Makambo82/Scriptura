@@ -6,6 +6,7 @@ const state = { objectif:'', depart:'', plateforme:'' };
 let lastGenContext = null;
 let currentScript = null;
 let currentHooks = null;
+let lastStoryContext = null;
 
 // ══════════════════════════════════════
 //  NAVIGATION ENTRE MODES

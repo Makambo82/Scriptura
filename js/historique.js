@@ -55,6 +55,19 @@ async function sauvegarderRetouche() {
   } catch(e) { console.warn('Sauvegarde de la retouche échouée', e); }
 }
 
+// Même principe que sauvegarderRetouche, pour le mode Storytelling
+// (currentStory.recit / currentStory.hooks au lieu de currentScript / currentHooks).
+async function sauvegarderRetoucheStory() {
+  if (!supabaseClient || !currentGenId || !currentStory) return;
+  try {
+    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
+    if (data && data.contenu) {
+      const nouveauContenu = Object.assign({}, data.contenu, { recit: currentStory.recit, hooks: currentStory.hooks });
+      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
+    }
+  } catch(e) { console.warn('Sauvegarde de la retouche (récit) échouée', e); }
+}
+
 // Réaffiche un storyboard déjà généré (depuis Mes générations), sans régénérer.
 function reafficherStoryboard(sbData, isStory) {
   if (!sbData || !sbData.storyboard) return;
@@ -647,6 +660,7 @@ function reopenGeneration(i) {
     }
   } else if (g.mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
+    lastStoryContext = { sujet: g.titre || '', plateforme: '' };
     renderStory(g.contenu);
     if (g.contenu.storyboard_genere) {
       setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, true), 200);

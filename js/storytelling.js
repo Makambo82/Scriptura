@@ -233,6 +233,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       checkRappelAbonnement();
     }
 
+    lastStoryContext = { sujet: input, plateforme: storyPlatform };
     renderStory(parsed);
     setTimeout(updateScrollBtn, 300);
     saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
@@ -318,12 +319,13 @@ function renderStory(d) {
       content: `
       <div class="out-section">
         <div class="out-section-label">Accroches · Plusieurs styles</div>
-        <div class="hooks-list">${d.hooks.map((h, i) => `
-          <div class="hook-item">
+        <div class="hooks-list" id="storyHooksList">${d.hooks.map((h, i) => `
+          <div class="hook-item" data-idx="${i}">
             <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
-            <div class="hook-text">${h.texte || ''}</div>
+            <div class="hook-text" id="storyHookText${i}">${h.texte || ''}</div>
+            <div class="retouche-actions"><button class="btn-regenerate mini story-hook-retouche-btn" onclick="changerHookStory(${i})">🔄 Changer ce hook</button></div>
           </div>`).join('')}</div>
-        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((d.hooks || []).map(h => h.texte||'').join('\n\n'))}')">${ICON_SHARE}</button></div>
+        <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, texteHooksStory())">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, texteHooksStory())">${ICON_SHARE}</button></div>
       </div>`
     });
   }
@@ -333,10 +335,15 @@ function renderStory(d) {
     titre: 'Le récit',
     content: `
       <div class="out-section">
-        <div class="story-block">${(d.recit || []).map(s => `
-          <div class="story-segment">
-            <div class="story-segment-text">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
+        <div class="story-block" id="storyRecitBlock">${(d.recit || []).map((s, i) => `
+          <div class="story-segment" data-idx="${i}">
+            <div class="story-segment-text" id="storySegText${i}">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
           </div>`).join('')}</div>
+        <div class="script-retouche-libre">
+          <label class="idea-section-label" for="storyRetoucheInput">✏️ Demander une retouche</label>
+          <textarea class="ctx-textarea" id="storyRetoucheInput" placeholder="Ex : le hook est trop long, raccourcis-le. Change la formulation du passage sur la tension."></textarea>
+          <button class="btn-regenerate mini" id="storyRetoucheBtn" onclick="retoucherRecitLibre()">Appliquer les retouches</button>
+        </div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyStory(this)">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareStory(this)">${ICON_SHARE}</button></div>
       </div>`
   });
@@ -417,5 +424,150 @@ function renderStory(d) {
   pushNav();
   document.getElementById('storyResults').style.display = 'block';
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── RETOUCHE CIBLÉE (storytelling) ──
+// Même principe que le mode script (js/generation.js) : un bouton par hook
+// pour le régénérer, et un champ de texte libre pour retoucher le récit sans
+// tout relancer. Gratuit et illimité, sauvegardé dans l'historique.
+
+// Texte des hooks, calculé en direct (jamais figé au moment du rendu) pour
+// que copier/partager reflète toujours la dernière version après retouche.
+function texteHooksStory() {
+  return ((currentStory && currentStory.hooks) || []).map(h => h.texte || '').join('\n\n');
+}
+
+async function changerHookStory(index) {
+  if (!currentStory || !currentStory.hooks || !currentStory.hooks[index]) return;
+  const item = document.querySelector('#storyHooksList .hook-item[data-idx="' + index + '"]');
+  const textEl = document.getElementById('storyHookText' + index);
+  if (!item || !textEl) return;
+  const btn = item.querySelector('.story-hook-retouche-btn');
+
+  const original = currentStory.hooks[index];
+  const autresHooks = currentStory.hooks.map(h => h.texte).filter((t, i) => i !== index && t);
+
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  textEl.style.opacity = '0.5';
+
+  const ctx = lastStoryContext || {};
+  const prompt = `Tu es le meilleur storyteller narratif francophone de Scriptura. Propose UNE nouvelle version du hook suivant, dans le même style ("${original.style || ''}"), mais avec une formulation différente et plus forte — paradoxale, choquante, dérangeante, fataliste ou intrigante, comme "Il n'a pas fait un braquage. Il a juste pris une décision."
+
+CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}.
+
+HOOK ACTUEL : "${original.texte || ''}"
+${autresHooks.length ? 'AUTRES HOOKS DÉJÀ PROPOSÉS, à ne surtout pas reproduire : ' + autresHooks.join(' / ') : ''}
+
+Réponds UNIQUEMENT avec le nouveau texte du hook, sans guillemets, sans commentaire.`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 300, prompt);
+    const nouveau = nettoyerTexteRetouche(raw);
+    if (!nouveau) throw new Error('réponse vide');
+    currentStory.hooks[index].texte = nouveau;
+    textEl.textContent = nouveau;
+    sauvegarderRetoucheStory();
+  } catch (e) {
+    toastRegen('Impossible de changer ce hook, réessaie');
+  } finally {
+    textEl.style.opacity = '';
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Changer ce hook'; }
+  }
+}
+
+function rerenderStoryHooksList(avant) {
+  const list = document.getElementById('storyHooksList');
+  if (!list || !currentStory || !currentStory.hooks) return;
+  list.innerHTML = currentStory.hooks.map((h, i) => `
+    <div class="hook-item" data-idx="${i}">
+      <div class="hook-style">${h.style || ('Hook ' + (i + 1))}</div>
+      <div class="hook-text${avant && avant[i] !== h.texte ? ' retouche-flash' : ''}" id="storyHookText${i}">${h.texte || ''}</div>
+      <div class="retouche-actions"><button class="btn-regenerate mini story-hook-retouche-btn" onclick="changerHookStory(${i})">🔄 Changer ce hook</button></div>
+    </div>`).join('');
+}
+
+function rerenderRecitBlock(avant) {
+  const block = document.getElementById('storyRecitBlock');
+  if (!block || !currentStory || !currentStory.recit) return;
+  block.innerHTML = currentStory.recit.map((s, i) => `
+    <div class="story-segment" data-idx="${i}">
+      <div class="story-segment-text${avant && avant[i] !== s.texte ? ' retouche-flash' : ''}" id="storySegText${i}">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
+    </div>`).join('');
+}
+
+async function retoucherRecitLibre() {
+  const input = document.getElementById('storyRetoucheInput');
+  const btn = document.getElementById('storyRetoucheBtn');
+  if (!input || !btn || !currentStory || !currentStory.recit) return;
+  const instructions = input.value.trim();
+  if (!instructions) { input.focus(); return; }
+
+  const avantRecit = currentStory.recit.map(s => s.texte);
+  const avantHooks = ((currentStory.hooks) || []).map(h => h.texte);
+
+  const label = btn.textContent;
+  btn.disabled = true;
+  input.disabled = true;
+  btn.textContent = 'Application des retouches…';
+
+  const ctx = lastStoryContext || {};
+  const hooksNum = (currentStory.hooks || []).map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n');
+  const recitNum = currentStory.recit.map((s, i) => '[segment ' + i + ' — ' + (s.segment || '') + '] ' + s.texte).join('\n');
+
+  const prompt = `Tu es le meilleur storyteller narratif francophone de Scriptura. Le créateur a relu son récit et te demande des retouches précises, en langage libre. Applique UNIQUEMENT ce qu'il demande — ne touche à rien d'autre.
+
+CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}.
+
+HOOKS ACTUELS (numérotés) :
+${hooksNum || 'aucun'}
+
+RÉCIT ACTUEL (segments numérotés, ne change jamais leur numéro ni leur fonction narrative) :
+${recitNum}
+
+DEMANDES DU CRÉATEUR (peuvent viser un ou plusieurs hooks, un ou plusieurs segments du récit, ou les deux — identifie précisément ce qui est visé par chaque demande) :
+"${instructions}"
+
+RÈGLES :
+- N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
+- Tout ce qui n'est concerné par aucune demande doit être recopié EXACTEMENT à l'identique (même texte, même style de hook).
+- Si le segment "Clôture" est retouché, conserve impérativement la triple question miroir et la signature métapoétique qui y figurent, sauf si la demande porte explicitement dessus.
+- Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
+- Renvoie la liste COMPLÈTE des hooks et des segments du récit, dans le même ordre, avec exactement le même nombre de chaque qu'actuellement.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"...","texte":"..."}]}`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !Array.isArray(parsed.recit) || parsed.recit.length !== currentStory.recit.length) {
+      throw new Error('réponse invalide');
+    }
+    if (Array.isArray(parsed.hooks) && currentStory.hooks && parsed.hooks.length === currentStory.hooks.length) {
+      currentStory.hooks.forEach((h, i) => {
+        if (parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
+        if (parsed.hooks[i].style) h.style = parsed.hooks[i].style;
+      });
+    }
+    currentStory.recit.forEach((s, i) => { if (parsed.recit[i].texte) s.texte = parsed.recit[i].texte; });
+
+    rerenderRecitBlock(avantRecit);
+    rerenderStoryHooksList(avantHooks);
+    currentStoryText = currentStory.recit.map(s => s.texte).join('\n\n');
+    const out = document.getElementById('storyOutput');
+    if (out) out.dataset.fulltext = currentStoryText;
+    sauvegarderRetoucheStory();
+
+    const inputApres = document.getElementById('storyRetoucheInput');
+    if (inputApres) inputApres.value = '';
+    toastRegen('Retouches appliquées');
+  } catch (e) {
+    toastRegen('Retouche impossible, réessaie');
+  } finally {
+    const btnApres = document.getElementById('storyRetoucheBtn');
+    const inputApres = document.getElementById('storyRetoucheInput');
+    if (btnApres) { btnApres.disabled = false; btnApres.textContent = label; }
+    if (inputApres) inputApres.disabled = false;
+  }
 }
 
