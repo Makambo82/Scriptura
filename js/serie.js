@@ -126,6 +126,18 @@ function serieParseJSON(txt) {
 
 // Crée la série : Scriptura construit d'abord la bible + l'arc narratif,
 // puis enregistre le tout. C'est la bible qui garantit la cohérence ensuite.
+// Par quel moyen l'utilisateur crée une série :
+// 'illimite' (fondateur), 'pro' (inclus dans l'abonnement Pro),
+// 'jeton' (à décompter), ou false (aucun droit).
+async function moyenSerie() {
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return 'illimite';
+  if (aAccesMode('serie')) return 'pro'; // Pro : la série est incluse
+  const jetons = await lireJetonsAudit();
+  if (jetons > 0) return 'jeton';
+  return false;
+}
+
 async function creerSerie() {
   const err = document.getElementById('serieError');
   const concept = document.getElementById('serieConcept')?.value.trim() || '';
@@ -138,6 +150,14 @@ async function creerSerie() {
   if (!genre) { err.textContent = 'Choisis le genre de ta série.'; err.style.display = 'block'; return; }
   if (!concept) { err.textContent = 'Décris ton concept, ou demande des propositions.'; err.style.display = 'block'; return; }
   err.style.display = 'none';
+
+  // Par quel droit cette série est-elle créée ? (Pro incluse, jeton, fondateur)
+  // Un jeton ne sera décompté qu'APRÈS une création réussie.
+  const moyen = await moyenSerie();
+  if (!moyen) {
+    openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne');
+    return;
+  }
 
   const btn = document.getElementById('serieCreerBtn');
   const spin = document.getElementById('serieSpinner');
@@ -201,6 +221,12 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
       episodes: []
     }).select().single();
     if (error) throw error;
+
+    // Série créée avec succès : si l'accès venait d'un jeton, on le décompte.
+    if (moyen === 'jeton') {
+      try { await consommerJetonAudit(); } catch (e) { /* silencieux */ }
+    }
+
     document.getElementById('serieCreation').style.display = 'none';
     document.getElementById('serieConcept').value = '';
 
@@ -594,7 +620,7 @@ async function chooseMode(mode) {
       const jetonsDispo = await lireJetonsAudit();
       if (jetonsDispo <= 0) {
         document.getElementById('homePage').style.display = 'block';
-        openPlans(unlocked ? 'achat-audit-creator' : 'achat-audit-nonabonne');
+        openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne');
         return;
       }
       // Il possède des jetons achetés : il entre et pourra les utiliser.
@@ -607,11 +633,16 @@ async function chooseMode(mode) {
     const affineNote = document.getElementById('auditAffineNote');
     if (affineNote) affineNote.style.display = 'none';
   } else if (mode === 'serie') {
-    // Réservé au plan Pro (comme l'audit)
+    // Inclus dans le plan Pro. Un Creator ou un non-abonné y accède aussi
+    // s'il a acheté des jetons (1 jeton = 1 série) ; sinon on présente l'offre.
     if (!aAccesMode('serie')) {
-      document.getElementById('homePage').style.display = 'block';
-      openPlans('serie-pro');
-      return;
+      const jetonsDispo = await lireJetonsAudit();
+      if (jetonsDispo <= 0) {
+        document.getElementById('homePage').style.display = 'block';
+        openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne');
+        return;
+      }
+      // Il possède des jetons : il entre, un jeton sera décompté à la création.
     }
     if (sf) sf.style.display = 'block';
     initSerieSelects();

@@ -1012,10 +1012,10 @@
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div class="modal-tag">Accès Abonné</div>
     <h3>Entrer ton<br/>code d'accès</h3>
-    <p>Ton code personnel t'a été envoyé par WhatsApp après ton paiement. Saisis-le pour débloquer l'accès illimité et retrouver tes générations.</p>
+    <p>Ton code personnel t'a été envoyé par WhatsApp après ton paiement. Saisis-le pour débloquer ton accès et retrouver tes générations.</p>
     <div class="modal-error" id="modalError">Code invalide. Vérifie et réessaie.</div>
     <input class="modal-input" id="codeInput" placeholder="Entrer ton code ici" maxlength="40" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()"/>
-    <button class="modal-btn" onclick="verifyCode()">Débloquer l'accès illimité</button>
+    <button class="modal-btn" onclick="verifyCode()">Débloquer mon accès</button>
     <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+m%27abonner+%C3%A0+Scriptura+pour+5+000+FCFA%2Fmois" target="_blank" class="modal-wa">
       💬 Je n'ai pas encore de code — S'abonner
     </a>
@@ -1043,12 +1043,12 @@
 <div class="paywall-overlay" id="paywall">
   <div class="paywall-modal">
     <button class="paywall-close" onclick="closePaywall()" aria-label="Fermer">✕</button>
-    <div class="paywall-tag">Accès Illimité</div>
+    <div class="paywall-tag">Continuer à créer</div>
     <h3>Tu as utilisé tes<br/>5 générations gratuites.</h3>
-    <p>Pour continuer à générer des scripts viraux sans limite, passe à l'accès illimité Scriptura.</p>
+    <p>Pour continuer à générer des scripts viraux, passe à un abonnement Scriptura.</p>
     <div class="paywall-price">5.000 FCFA</div>
     <div class="paywall-period">par mois · Mobile Money accepté</div>
-    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+l%27acc%C3%A8s+illimit%C3%A9+%C3%A0+Scriptura+%E2%80%94+5+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
+    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+m%27abonner+%C3%A0+Scriptura+%E2%80%94+5+000+FCFA%2Fmois" target="_blank" class="paywall-wa">
       S'abonner via WhatsApp →
     </a>
     <span class="paywall-unlock" onclick="openModal()">J'ai déjà un code d'accès</span>
@@ -1126,7 +1126,7 @@
 
     <!-- Packs d'analyses à l'unité (jetons) — affichés seulement en contexte d'achat -->
     <div class="packs-audit" id="packsAudit" style="display:none">
-      <div class="packs-sep" id="packsSep">ou achète des analyses à l'unité</div>
+      <div class="packs-sep" id="packsSep">ou achète des jetons — 1 jeton = 1 analyse ou 1 série</div>
       <div class="packs-grid" id="packsGrid"></div>
     </div>
 

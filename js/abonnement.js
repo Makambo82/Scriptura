@@ -27,6 +27,27 @@ function resetRegen(type) {
 let usedGen = parseInt(localStorage.getItem('scriptura_used') || '0');
 let unlocked = localStorage.getItem('scriptura_unlocked') === 'true';
 
+// Ligne "Ton code" à afficher dans le pop-up d'infos : le code personnel de
+// l'utilisateur (abonné OU acheteur de jetons). Rien si aucun code enregistré.
+function ligneCodeInfos() {
+  const code = (localStorage.getItem('scriptura_code') || '').trim();
+  if (!code) return '';
+  const codeEchappe = code.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return '<div class="infos-ligne"><span class="infos-label">Ton code</span>'
+    + '<span class="infos-val" style="cursor:pointer;user-select:all" title="Toucher pour copier"'
+    + ' onclick="copierCodeInfos(this, \'' + codeEchappe + '\')">' + code + ' ⧉</span></div>';
+}
+
+// Copie le code dans le presse-papier, avec un retour visuel bref.
+function copierCodeInfos(el, code) {
+  try {
+    if (navigator.clipboard) navigator.clipboard.writeText(code);
+    const avant = el.textContent;
+    el.textContent = 'Copié ✓';
+    setTimeout(function () { el.textContent = avant; }, 1200);
+  } catch (e) { /* silencieux */ }
+}
+
 // Pop-up d'informations sur l'abonnement (plan, expiration, décompte)
 async function ouvrirInfosAbonne() {
   const overlay = document.getElementById('infosAbonneOverlay');
@@ -43,6 +64,7 @@ async function ouvrirInfosAbonne() {
 
   // ── CAS 1 : accès illimité (fondateur) ──
   if (estIllimite) {
+    html += ligneCodeInfos();
     html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès complet</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">Illimitée</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">Illimitées</span></div>`;
@@ -56,9 +78,10 @@ async function ouvrirInfosAbonne() {
   // ── CAS 2 : non-abonné (avec ou sans jetons achetés) ──
   if (!unlocked) {
     const resteGratuit = Math.max(0, MAX_FREE - usedGen);
+    html += ligneCodeInfos();
     html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Plan gratuit</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Générations gratuites</span><span class="infos-val">${formaterNombre(usedGen)} / ${formaterNombre(MAX_FREE)} · ${formaterNombre(resteGratuit)} restantes</span></div>`;
-    html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Jetons</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
     corps.innerHTML = html;
     return;
   }
@@ -66,6 +89,7 @@ async function ouvrirInfosAbonne() {
   // ── CAS 3 : abonné (Creator ou Pro) ──
   const plan = (typeof monPalier === 'function') ? monPalier() : 'creator';
   const planNom = plan === 'pro' ? 'Pro' : 'Creator';
+  html += ligneCodeInfos();
   html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Plan ${planNom}</span></div>`;
 
   // Validité : lue en direct depuis Supabase (fiable pour tous)
@@ -100,7 +124,7 @@ async function ouvrirInfosAbonne() {
   }
 
   // Jetons achetés à l'unité : séparés, sans plafond, ne périment pas
-  html += `<div class="infos-ligne"><span class="infos-label">Jetons d'analyse</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
+  html += `<div class="infos-ligne"><span class="infos-label">Jetons</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
 
   corps.innerHTML = html;
 }
@@ -245,33 +269,22 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Fonctionnalité Pro';
     if (titre) titre.innerHTML = 'L\'analyse de compte<br/>TikTok est dans le Pro';
     if (intro) { intro.textContent = 'Cette analyse fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
-  } else if (contexte === 'serie-pro') {
-    // Mode Série : réservé au Pro. On n'affiche QUE le plan qui y donne accès,
-    // et on ne parle jamais de générations gratuites (hors sujet ici).
-    if (tag) tag.textContent = 'Fonctionnalité Pro';
-    if (titre) titre.innerHTML = 'Le mode Série<br/>est dans le plan Pro';
-    if (intro) {
-      intro.textContent = unlocked
-        ? 'Tu as déjà le plan Creator. Le plan Pro ajoute Crée-moi une série : des feuilletons qui font revenir ton audience épisode après épisode.'
-        : 'Crée-moi une série fait partie du plan Pro : des feuilletons qui font revenir ton audience épisode après épisode.';
-      intro.style.display = 'block';
-    }
-    if (cardCreator) cardCreator.style.display = 'none';
-    if (proBadge) proBadge.style.display = 'none';
-  } else if (contexte === 'achat-audit-creator') {
-    // Abonné Creator qui veut une analyse : on dit que c'est du Pro,
-    // et on propose aussi les packs au tarif Creator (moins cher).
-    if (tag) tag.textContent = 'Fonctionnalité Pro';
-    if (titre) titre.innerHTML = 'L\'analyse de compte<br/>est dans le plan Pro';
-    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok, propulsée par notre IA la plus avancée. Tu peux aussi acheter juste le nombre d\'analyses dont tu as besoin.'; intro.style.display = 'block'; }
+  } else if (contexte === 'achat-jeton-creator') {
+    // Abonné Creator qui veut une analyse OU une série : c'est du Pro,
+    // et on propose aussi les jetons au tarif Creator (moins cher).
+    // 1 jeton = 1 analyse OU 1 série.
+    if (tag) tag.textContent = 'Analyse & Série';
+    if (titre) titre.innerHTML = 'Débloque l\'analyse<br/>et le mode Série';
+    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok et le mode Crée-moi une série. Sinon, achète des jetons : 1 jeton = 1 analyse OU 1 série.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('creator'); packsBloc.style.display = 'block'; }
-  } else if (contexte === 'achat-audit-nonabonne') {
-    // Non-abonné : Pro complet OU packs au tarif non-abonné.
-    if (tag) tag.textContent = 'Fonctionnalité Pro';
-    if (titre) titre.innerHTML = 'L\'analyse de compte<br/>est dans le plan Pro';
-    if (intro) { intro.textContent = 'L\'analyse de compte TikTok fait partie du plan Pro, propulsée par notre IA la plus avancée. Prends le Pro pour tout débloquer, ou achète simplement une ou plusieurs analyses.'; intro.style.display = 'block'; }
+  } else if (contexte === 'achat-jeton-nonabonne') {
+    // Non-abonné : Pro complet OU jetons au tarif non-abonné.
+    // 1 jeton = 1 analyse OU 1 série.
+    if (tag) tag.textContent = 'Analyse & Série';
+    if (titre) titre.innerHTML = 'Débloque l\'analyse<br/>et le mode Série';
+    if (intro) { intro.textContent = 'L\'analyse de compte TikTok et le mode Crée-moi une série font partie du plan Pro. Prends le Pro pour tout débloquer, ou achète des jetons : 1 jeton = 1 analyse OU 1 série.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
@@ -308,17 +321,18 @@ const PLANS = {
   }
 };
 
-// Packs d'analyses a l'unite (jetons), tarifes selon le profil de l'acheteur.
+// Packs de jetons a l'unite, tarifes selon le profil de l'acheteur.
+// 1 jeton = 1 analyse de compte OU 1 série.
 const PACKS_AUDIT = {
   creator: [
-    { qte: 1, prix: 2500, label: '1 analyse' },
-    { qte: 2, prix: 4000, label: '2 analyses' },
-    { qte: 3, prix: 6000, label: '3 analyses' }
+    { qte: 1, prix: 2500, label: '1 jeton' },
+    { qte: 2, prix: 4000, label: '2 jetons' },
+    { qte: 3, prix: 6000, label: '3 jetons' }
   ],
   nonabonne: [
-    { qte: 1, prix: 3500, label: '1 analyse' },
-    { qte: 2, prix: 6000, label: '2 analyses' },
-    { qte: 3, prix: 9000, label: '3 analyses' }
+    { qte: 1, prix: 3500, label: '1 jeton' },
+    { qte: 2, prix: 6000, label: '2 jetons' },
+    { qte: 3, prix: 9000, label: '3 jetons' }
   ]
 };
 
@@ -342,7 +356,7 @@ function acheterPack(index) {
   const p = packs[index];
   if (!p) return;
   const prixFmt = formaterNombre(p.prix) + ' FCFA';
-  const msg = 'Bonjour, je veux acheter ' + p.label + ' de compte TikTok sur Scriptura — ' + prixFmt;
+  const msg = 'Bonjour, je veux acheter ' + p.label + ' Scriptura (analyse ou série) — ' + prixFmt;
   window.open('https://wa.me/22995056424?text=' + encodeURIComponent(msg), '_blank');
 }
 

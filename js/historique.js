@@ -320,7 +320,7 @@ async function peutAuditer() {
   if (jetons > 0) return 'jeton';
 
   // 3. Rien de disponible : on propose d'acheter selon le profil
-  openPlans(unlocked ? 'achat-audit-creator' : 'achat-audit-nonabonne');
+  openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne');
   return false;
 }
 
