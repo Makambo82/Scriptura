@@ -70,8 +70,13 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
     && !texteAuditFrais;
   if (rienDeConnu) return { onboarding: true };
 
-  const prompt = `Tu es le Directeur Éditorial de Scriptura, l'assistant IA personnel d'un créateur de contenu francophone. Tu le connais grâce à sa mémoire accumulée dans Scriptura (générations passées, préférences, audits). Ta mission : lui dire précisément quoi créer aujourd'hui.
+  // Recherche web : uniquement si la niche du créateur touche l'actualité/la
+  // géopolitique (voir js/api.js) — c'est exactement le cas qui a produit une
+  // recommandation datée à tort ("2024 sera décisif" alors qu'on est en 2026).
+  const rechercheWebReco = nicheNecessiteRecherche(profil.declare.niche_principale);
 
+  const prompt = `Tu es le Directeur Éditorial de Scriptura, l'assistant IA personnel d'un créateur de contenu francophone. Tu le connais grâce à sa mémoire accumulée dans Scriptura (générations passées, préférences, audits). Ta mission : lui dire précisément quoi créer aujourd'hui.
+${rechercheWebReco ? '\nSUJET D\'ACTUALITÉ : avant de recommander, utilise la recherche web pour vérifier que les faits, personnes ou situations que tu mentionnes sont toujours d\'actualité — jamais une situation qui a pu changer depuis tes connaissances d\'entraînement.\n' : ''}
 CE QUE TU SAIS DE CE CRÉATEUR :
 ${texteProfil || 'Peu d\'historique pour l\'instant.'}
 ${texteAuditFrais ? '\nDIAGNOSTIC DE SON DERNIER AUDIT (tout juste terminé) :\n' + texteAuditFrais : ''}
@@ -92,7 +97,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"niveau_confiance":"faible|moyenne|élevée","recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"..."}]}`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebReco);
     const parsed = parseAIResponse(raw);
     if (!parsed || !Array.isArray(parsed.recommandations) || !parsed.recommandations.length) return null;
     return parsed;

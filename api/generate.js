@@ -65,12 +65,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, messages, code_acces } = req.body;
+    const { model, max_tokens, messages, code_acces, web_search } = req.body;
 
     // Vérifier l'abonnement AVANT d'appeler l'IA (verrou serveur incontournable)
     const acces = await verifierAcces(code_acces);
     if (!acces.ok) {
       return res.status(403).json({ error: { message: 'Accès refusé : ' + acces.raison, code: 'ACCES_REFUSE' } });
+    }
+
+    const bodyAnthropic = {
+      model: model || 'claude-haiku-4-5-20251001',
+      max_tokens: max_tokens || 4000,
+      system: systemDateActuelle(),
+      messages: messages
+    };
+    // Recherche web : réservée par le client aux sujets d'actualité/géopolitique
+    // (voir NICHES_ACTUALITE côté client, js/api.js) — jamais activée par défaut,
+    // pour ne pas ralentir/coûter plus cher sur les sujets qui n'en ont pas besoin.
+    // max_uses borne le coût et le temps d'un même appel.
+    if (web_search) {
+      bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }];
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -80,12 +94,7 @@ export default async function handler(req, res) {
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
-        model: model || 'claude-haiku-4-5-20251001',
-        max_tokens: max_tokens || 4000,
-        system: systemDateActuelle(),
-        messages: messages
-      })
+      body: JSON.stringify(bodyAnthropic)
     });
 
     const data = await response.json();

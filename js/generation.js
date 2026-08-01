@@ -101,7 +101,11 @@ async function generateIdeas() {
   // au bloc de contexte déjà présent, ne modifie aucune règle de ce prompt.
   const profilLigneIdees = ligneProfilPourPrompt(await chargerProfilCreateur());
 
+  // Recherche web : uniquement pour les niches d'actualité/géopolitique (voir js/api.js).
+  const rechercheWebIdees = nicheNecessiteRecherche(niche);
+
   const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis — jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
+${rechercheWebIdees ? '\nSUJET D\'ACTUALITÉ : avant de proposer des idées, utilise la recherche web pour t\'appuyer sur des faits, personnes ou événements réellement récents et vérifiés — jamais une situation qui a pu changer depuis tes connaissances d\'entraînement.\n' : ''}
 
 PROFIL DU CRÉATEUR :
 - Niche : ${niche}
@@ -157,7 +161,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnemen
 Génère exactement 12 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdees);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 
@@ -517,6 +521,11 @@ async function generate() {
   // informations sont déjà connues ; ne modifie aucune règle du prompt.
   const profilLigneScript = ligneProfilPourPrompt(await chargerProfilCreateur());
 
+  // Recherche web : uniquement pour les niches d'actualité/géopolitique (voir
+  // js/api.js), pour vérifier les faits avant de rédiger. Aucun impact sur les
+  // autres niches (ni coût, ni lenteur supplémentaires).
+  const rechercheWeb = nicheNecessiteRecherche(niche);
+
   try {
     // ════════════════════════════════════════════
     //  PHASE 1 — LE DIRECTEUR ÉDITORIAL (raisonnement)
@@ -574,6 +583,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     //  s'auto-critique et livre la version finale calibrée.
     // ════════════════════════════════════════════
     const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. RÈGLE FONDAMENTALE, au-dessus de toutes les autres : ce script doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
+${rechercheWeb ? '\nSUJET D\'ACTUALITÉ : avant de rédiger, utilise la recherche web pour vérifier les faits récents, noms, dates, fonctions et statistiques que tu comptes citer. Ne présente jamais comme actuel un statut, un poste ou une situation qui a pu changer depuis tes connaissances d\'entraînement — vérifie-le.\n' : ''}
 
 BRIEF STRATÉGIQUE À SUIVRE :
 - Analyse : ${brief.analyse_strategique || sujet}
@@ -635,7 +645,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
-    const writeRaw = await callAI(MODEL_CREATIF, 8000, writePrompt);
+    const writeRaw = await callAI(MODEL_CREATIF, 8000, writePrompt, undefined, rechercheWeb);
     let parsed = parseAIResponse(writeRaw);
     if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
 
@@ -648,7 +658,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     }
     if (scoreGlobal(parsed) < 90) {
       try {
-        const writeRaw2 = await callAI(MODEL_CREATIF, 8000, writePrompt);
+        const writeRaw2 = await callAI(MODEL_CREATIF, 8000, writePrompt, undefined, rechercheWeb);
         const parsed2 = parseAIResponse(writeRaw2);
         // On garde la meilleure des deux versions
         if (parsed2 && parsed2.score && scoreGlobal(parsed2) > scoreGlobal(parsed)) {

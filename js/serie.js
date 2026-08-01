@@ -90,7 +90,7 @@ Un bon concept de série : un fil conducteur clair, chaque épisode autonome mai
 Réponds UNIQUEMENT en JSON, sans texte autour :
 [{"titre":"...","pitch":"une phrase qui explique le fil conducteur"}]`;
   try {
-    const raw = await callAI(MODEL_CREATIF, 1500, prompt);
+    const raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, nicheNecessiteRecherche(niche));
     const concepts = serieParseJSON(raw);
     if (!Array.isArray(concepts) || !concepts.length) throw new Error('vide');
     zone.innerHTML = concepts.map(c =>
@@ -181,7 +181,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 }
 L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
 
-    const rawBible = await callAI(MODEL_CREATIF, 2500, promptBible);
+    const rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche));
     const bible = serieParseJSON(rawBible);
     if (!bible || !bible.premisse) throw new Error('construction impossible');
     bible.duree_episode = serieDuree; // mémorisée pour tous les épisodes à venir
@@ -538,7 +538,7 @@ Le créateur est à l'écran et s'adresse directement à sa caméra.
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au style (voir ci-dessus)"}`;
 
-    const raw = await callAI(MODEL_CREATIF, 3000, prompt);
+    const raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche));
     const ep = serieParseJSON(raw);
     // Normalisation : si l'IA retourne script ou directives comme objet, on convertit en texte
     if (ep && ep.script !== null && typeof ep.script === 'object') {

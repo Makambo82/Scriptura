@@ -38,12 +38,23 @@ const PLAN_PAR_DEFAUT = 'creator';
 const MODES_PRO = ['audit', 'serie'];
 const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite journalière (VIP/admin)
 
+// ── Niches nécessitant une vérification par recherche web ──
+// Le modèle n'a aucune connaissance des faits postérieurs à son entraînement :
+// pour ces niches précises (actualité, politique, faits divers récents), une
+// erreur factuelle est probable ET coûteuse en crédibilité. Pour toutes les
+// autres niches (Histoire, Business, Bien-être...), la recherche n'apporte
+// rien et ralentirait/coûterait pour rien : on la réserve à ce petit périmètre.
+const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime'];
+function nicheNecessiteRecherche(niche) {
+  return NICHES_ACTUALITE.includes(niche);
+}
+
 // ═══════════════════════════════════════════════════════════
 //  APPEL IA AVEC REPRISE AUTOMATIQUE
 //  Retente jusqu'à 3 fois si le modèle est surchargé (529) ou
 //  si la réponse est vide/coupée. Attente croissante entre essais.
 // ═══════════════════════════════════════════════════════════
-async function callAI(model, maxTokens, prompt, maxRetries) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   async function tryOnce(useModel) {
     const res = await fetch("/api/generate", {
@@ -53,7 +64,8 @@ async function callAI(model, maxTokens, prompt, maxRetries) {
         model: useModel,
         max_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
-        code_acces: localStorage.getItem('scriptura_code') || null
+        code_acces: localStorage.getItem('scriptura_code') || null,
+        web_search: !!webSearch
       })
     });
     // Abonnement expiré/désactivé refusé par le serveur

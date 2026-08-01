@@ -18,6 +18,10 @@ function systemDateActuelle() {
   return `Nous sommes le ${dateStr}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir. Si le contenu du créateur touche à l'actualité récente ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes constats avec prudence plutôt qu'avec une certitude que tu n'as pas.`;
 }
 
+// Même périmètre restreint que côté client (js/api.js, NICHES_ACTUALITE) :
+// recherche web réservée aux niches où une erreur factuelle est probable.
+const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime'];
+
 // Prompt court et bon marché : sert uniquement à reconnaître le TYPE de chaque
 // capture au moment du chargement, pour guider l'utilisateur avant l'audit.
 // Ne fait AUCUNE analyse : il classe, c'est tout.
@@ -303,12 +307,12 @@ export default async function handler(req, res) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: max_tokens || 8000,
         system: systemDateActuelle(),
         messages: [{ role: 'user', content: content }]
-      })
+      }, NICHES_ACTUALITE.includes(niche) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] } : {}))
     });
 
     const data = await reponse.json();
