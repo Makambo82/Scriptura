@@ -226,18 +226,29 @@ function creerScriptDepuisRecommandation(index) {
   window.scrollTo({ top: document.getElementById('flow').offsetTop - 20, behavior: 'smooth' });
 }
 
-// ── Accueil (fonctionnalité Premium) ──
+// ── Accueil (dynamique selon le statut) ──
 function salutationAccueil(profil) {
   const dejaActif = profil && profil.observe && profil.observe.nb_generations > 0;
   return dejaActif ? 'Bon retour 👋' : 'Bonjour 👋';
 }
 
 async function initAccueilPremium() {
-  // CAS 1 (utilisateur non identifié / gratuit) : on ne touche à rien,
-  // l'accueil reste exactement celui d'aujourd'hui.
-  if (!unlocked) return;
   const zone = document.getElementById('accueilPremium');
   if (!zone) return;
+
+  // Non-abonné (visiteur anonyme OU acheteur de jetons à l'unité, qui reste
+  // non-abonné dans Scriptura) : même emplacement que la carte des abonnés,
+  // mais un simple message d'accueil — jamais de recommandation
+  // personnalisée, réservée aux abonnés (fonctionnalité Premium). Le titre
+  // principal de la page ("Ton contenu, réinventé.") n'est pas touché.
+  if (!unlocked) {
+    zone.innerHTML = `
+      <div class="results-heading">Bienvenue sur Scriptura.</div>
+      <div class="ideas-sub" style="margin:6px 0 20px">Que souhaites-tu créer aujourd'hui ?</div>
+    `;
+    zone.style.display = 'block';
+    return;
+  }
 
   const profil = await chargerProfilCreateur();
   const entete = `<div class="results-heading">${salutationAccueil(profil)}</div>
