@@ -350,11 +350,22 @@ async function initAccueilPremium() {
 async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
   const zone = document.getElementById('auditOpportunites');
   if (!zone) return;
+
+  // Audit rouvert depuis "Mes générations" : la recommandation a déjà été
+  // générée et sauvegardée la première fois (voir plus bas) — on la
+  // réaffiche telle quelle. Sans ça, chaque réouverture en produisait une
+  // nouvelle, différente de celle vue initialement.
+  if (auditFrais && auditFrais.recommandation_ia) {
+    rendreRecommandations('auditOpportunites', auditFrais.recommandation_ia, '<div class="audit-section-label">Et maintenant ?</div>');
+    return;
+  }
+
   zone.innerHTML = '<div class="audit-section-label">Et maintenant ?</div><div class="audit-diag-interp">Scriptura cherche la meilleure recommandation pour ton compte…</div>';
 
   const data = await genererRecommandations(auditFrais, ts, niche, objectif);
   // rienDeConnu ne devrait jamais arriver ici (l'audit tout juste terminé
   // fournit toujours un diagnostic), mais on s'en protège par cohérence.
   if (!data || data.onboarding) { zone.innerHTML = ''; return; }
+  if (typeof sauvegarderRecommandationAudit === 'function') sauvegarderRecommandationAudit(data);
   rendreRecommandations('auditOpportunites', data, '<div class="audit-section-label">Et maintenant ?</div>');
 }

@@ -284,16 +284,20 @@ async function lancerAudit() {
       return;
     }
 
-    renderAudit(parsed, niche, objectif, style);
-
     const scoreObtenu = parsed.mesures
       ? (calculerScores(parsed.mesures).global ?? null)
       : (parsed.tiktok_score?.global ?? null);
 
+    // Sauvegardé et attendu AVANT renderAudit() : cette fonction déclenche en
+    // tâche de fond la génération de "Et maintenant ?" (voir js/recommandations.js,
+    // afficherEtMaintenant), qui a besoin de currentGenId déjà positionné sur
+    // CET audit pour pouvoir y rattacher sa recommandation une fois prête.
     if (typeof saveGeneration === 'function') {
-      try { saveGeneration('audit', 'Analyse compte TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
+      try { await saveGeneration('audit', 'Analyse compte TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
       catch(e) { /* silencieux */ }
     }
+
+    renderAudit(parsed, niche, objectif, style);
 
     // Mémoire du créateur : ce que cet audit vient de révéler, comme "leçons
     // apprises" (tâche de fond, silencieuse). Ne modifie ni ne relit les

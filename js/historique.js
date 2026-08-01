@@ -68,6 +68,20 @@ async function sauvegarderRetoucheStory() {
   } catch(e) { console.warn('Sauvegarde de la retouche (récit) échouée', e); }
 }
 
+// Sauvegarde la recommandation "Et maintenant ?" générée après un audit tout
+// juste terminé, pour qu'elle reste identique en rouvrant cet audit depuis
+// l'historique (même mécanisme que sauvegarderRetouche/updateGenerationStoryboard).
+async function sauvegarderRecommandationAudit(data) {
+  if (!supabaseClient || !currentGenId) return;
+  try {
+    const { data: row } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
+    if (row && row.contenu) {
+      const nouveauContenu = Object.assign({}, row.contenu, { recommandation_ia: data });
+      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
+    }
+  } catch(e) { console.warn('Sauvegarde de la recommandation IA échouée', e); }
+}
+
 // Réaffiche un storyboard déjà généré (depuis Mes générations), sans régénérer.
 function reafficherStoryboard(sbData, isStory) {
   if (!sbData || !sbData.storyboard) return;
