@@ -99,6 +99,7 @@ async function verifyCode() {
       localStorage.setItem('scriptura_plan',
         String(data.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
       document.body.classList.add('is-unlocked');
+      appliquerClasseAdmin();
       closeModal();
       renderGenCounter();
       closePaywall();
@@ -119,6 +120,7 @@ async function verifyCode() {
     // Codes en dur : ce sont des accès internes ou de secours, donc palier complet
     localStorage.setItem('scriptura_plan', 'pro');
     document.body.classList.add('is-unlocked');
+    appliquerClasseAdmin();
     closeModal();
     renderGenCounter();
     closePaywall();

@@ -42,6 +42,9 @@
     <button class="sidebar-item" onclick="sidebarGo('history')">
       <span class="sidebar-icon">📁</span> Mes générations
     </button>
+    <button class="sidebar-item nav-admin-btn" onclick="sidebarGo('admin')">
+      <span class="sidebar-icon">📊</span> Tableau de bord
+    </button>
     <button class="sidebar-item nav-code-btn" onclick="sidebarGo('code')">
       <span class="sidebar-icon">🔓</span> J'ai un code
     </button>
@@ -84,6 +87,20 @@
 
     <div id="historyToolbar" class="history-toolbar" style="display:none"></div>
     <div id="historyList"></div>
+  </div>
+</section>
+
+<!-- ══ TABLEAU DE BORD (visible uniquement avec le code fondateur) ══ -->
+<section id="adminFlow" style="display:none">
+  <div class="ideas-container" style="max-width:720px;margin:0 auto;padding:100px 24px 80px">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Vue d'ensemble</div>
+      <h2 class="ideas-title">Tableau de<br/><strong>bord.</strong></h2>
+      <p class="ideas-sub">Abonnés et activité de Scriptura, en direct depuis la base de données.</p>
+    </div>
+    <button class="btn-generate" style="width:auto;padding:0 24px;margin-bottom:24px" onclick="chargerTableauDeBord()">↻ Actualiser</button>
+    <div id="adminStats"></div>
   </div>
 </section>
 
@@ -969,6 +986,7 @@
 <script src="js/auth.js"></script>
 <script src="js/state.js"></script>
 <script src="js/audit.js"></script>
+<script src="js/admin.js"></script>
 <script src="js/serie.js"></script>
 <script src="js/navigation.js"></script>
 <script src="js/storytelling.js"></script>

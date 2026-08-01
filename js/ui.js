@@ -63,6 +63,7 @@ function closeSidebar() {
 function sidebarGo(action) {
   closeSidebar();
   if (action === 'history') { openHistory(); }
+  else if (action === 'admin') { ouvrirTableauDeBord(); }
   else if (action === 'code') { openModal(); }
   else if (action === 'subscribe') {
     // Ouvre WhatsApp pour s'abonner

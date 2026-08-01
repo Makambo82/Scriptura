@@ -38,6 +38,17 @@ const PLAN_PAR_DEFAUT = 'creator';
 const MODES_PRO = ['audit', 'serie'];
 const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite journalière (VIP/admin)
 
+// Seul ce code voit le Tableau de bord dans le menu (voir css/style.css,
+// body.is-admin). Volontairement séparé de CODES_ILLIMITES : un futur code
+// VIP illimité ne doit pas automatiquement obtenir l'accès au tableau de bord.
+const CODE_ADMIN = "SCRIPTURA-CELINE";
+function estCodeAdmin() {
+  return (localStorage.getItem('scriptura_code') || '').trim().toUpperCase() === CODE_ADMIN;
+}
+function appliquerClasseAdmin() {
+  document.body.classList.toggle('is-admin', estCodeAdmin());
+}
+
 // ── Niches nécessitant une vérification par recherche web ──
 // Le modèle n'a aucune connaissance des faits postérieurs à son entraînement :
 // pour ces niches précises (actualité, politique, faits divers récents), une

@@ -1210,6 +1210,11 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
+/* Tableau de bord : cache pour tout le monde, visible uniquement pour le
+   code fondateur (voir CODE_ADMIN, js/api.js, et body.is-admin ajouté par
+   js/app.js et js/auth.js). */
+.sidebar-item.nav-admin-btn{display:none}
+body.is-admin .sidebar-item.nav-admin-btn{display:flex}
 .sidebar-logout{
   border-top:1px solid var(--border-soft);
   padding-top:10px;

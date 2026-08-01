@@ -20,6 +20,7 @@ async function syncServerQuota() {
 
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
+  appliquerClasseAdmin();
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
   syncServerQuota();

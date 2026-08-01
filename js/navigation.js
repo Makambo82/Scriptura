@@ -15,7 +15,7 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'serieFlow', 'historyFlow']) {
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'serieFlow', 'historyFlow', 'adminFlow']) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }
@@ -34,7 +34,7 @@ function pushNav() {
 // Affiche un écran donné (sans toucher à la pile)
 function showScreen(screen) {
   // Masquer tout
-  ['homePage','flow','ideasFlow','storyFlow','auditFlow','serieFlow','historyFlow'].forEach(id => {
+  ['homePage','flow','ideasFlow','storyFlow','auditFlow','serieFlow','historyFlow','adminFlow'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -87,6 +87,8 @@ function goHome() {
   if (sfh) sfh.style.display = 'none';
   const hist = document.getElementById('historyFlow');
   if (hist) hist.style.display = 'none';
+  const adm = document.getElementById('adminFlow');
+  if (adm) adm.style.display = 'none';
   // Masquer aussi le paywall s'il était ouvert
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');
