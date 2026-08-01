@@ -1,0 +1,9 @@
+{
+  "name": "scriptura",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Scriptura — L'OS du créateur francophone",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+  }
+}

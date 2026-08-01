@@ -367,7 +367,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
-      </div></div>`;
+      </div>
+      <button class="btn-generate" style="margin-top:14px" onclick="creerVideoDepuisStoryboard(currentStoryboardStory, 'story', null, 'videoZoneStory')">🎥 Créer la vidéo</button>
+      <div id="videoZoneStory"></div>
+      </div>`;
+    currentStoryboardStory = parsed.storyboard;
     // Masquer le bouton + le texte descriptif après génération (le bouton Régénérer prend le relais)
     if (btn) {
       btn.style.display = 'none';
