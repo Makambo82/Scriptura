@@ -227,9 +227,33 @@ function creerScriptDepuisRecommandation(index) {
 }
 
 // ── Accueil (dynamique selon le statut) ──
+// Codes personnels qui ne suivent pas le format standard (prénom + 4
+// caractères alphanumériques), à mapper à la main. Le code est toujours
+// comparé en MAJUSCULES (voir verifyCode, qui stocke scriptura_code ainsi).
+const PRENOM_CODE_EXCEPTIONS = {
+  'SCRIPTURA-CELINE': 'Rey'
+};
+
+// Déduit le prénom du créateur à partir de son code d'accès personnel
+// (format : prénom + 4 caractères alphanumériques, ex. MARIE7F2A → Marie).
+// Renvoie null si le code ne suit pas ce format (codes génériques type
+// CODES_VALIDES, jetons, etc.) : dans ce cas, pas de prénom affiché plutôt
+// que d'en deviner un faux.
+function prenomDepuisCode() {
+  const code = (localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
+  if (!code) return null;
+  if (PRENOM_CODE_EXCEPTIONS[code]) return PRENOM_CODE_EXCEPTIONS[code];
+  if (code.length <= 4) return null;
+  const brut = code.slice(0, -4);
+  if (!/^[A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]+$/.test(brut)) return null;
+  return brut.charAt(0) + brut.slice(1).toLowerCase();
+}
+
 function salutationAccueil(profil) {
   const dejaActif = profil && profil.observe && profil.observe.nb_generations > 0;
-  return dejaActif ? 'Bon retour 👋' : 'Bonjour 👋';
+  const base = dejaActif ? 'Bon retour' : 'Bonjour';
+  const prenom = prenomDepuisCode();
+  return prenom ? (base + ' ' + prenom + ' 👋') : (base + ' 👋');
 }
 
 async function initAccueilPremium() {
