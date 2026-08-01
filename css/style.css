@@ -1106,6 +1106,8 @@ footer strong{color:var(--gold)}
 .modal-btn-ghost:hover{color:rgba(255,255,255,0.9)}
 /* Bouton "J'ai un code" dans le nav — masqué si déjà abonné */
 body.is-unlocked .nav-code-btn{display:none}
+/* Bouton "S'abonner" dans le nav — masqué si déjà abonné */
+body.is-unlocked .nav-subscribe-btn{display:none}
 
 /* ── BARRE D'ACTIONS (sous le ticker) ── */
 .action-bar{
@@ -1192,6 +1194,7 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   color:rgba(255,255,255,0.3);text-align:center;padding-top:20px;
 }
 body.is-unlocked .sidebar-item.nav-code-btn{display:none}
+body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
 .sidebar-logout{
   border-top:1px solid var(--border-soft);
   padding-top:10px;
