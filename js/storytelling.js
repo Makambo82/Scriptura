@@ -529,33 +529,36 @@ DEMANDES DU CRÉATEUR (peuvent viser un ou plusieurs hooks, un ou plusieurs segm
 
 RÈGLES :
 - N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
-- Tout ce qui n'est concerné par aucune demande doit être recopié EXACTEMENT à l'identique (même texte, même style de hook).
+- Ne renvoie QUE les éléments que tu modifies réellement — n'inclus JAMAIS un hook ou un segment inchangé dans ta réponse.
 - Si le segment "Clôture" est retouché, conserve impérativement la triple question miroir et la signature métapoétique qui y figurent, sauf si la demande porte explicitement dessus.
 - Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- Renvoie OBLIGATOIREMENT EXACTEMENT ${(currentStory.hooks || []).length} hooks et EXACTEMENT ${currentStory.recit.length} segments de récit, ni plus ni moins, dans le même ordre — même pour les éléments non modifiés, qui doivent être recopiés tels quels.
+- "index" désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"...","texte":"..."}]}`;
+{"hooks_modifies":[{"index":0,"texte":"le nouveau texte de ce hook"}],"segments_modifies":[{"index":2,"texte":"le nouveau texte de ce segment"}]}
+
+Si aucune demande ne concerne les hooks, renvoie "hooks_modifies":[]. Si aucune ne concerne le récit, renvoie "segments_modifies":[].`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
     const parsed = parseAIResponse(raw);
-    const hooksAttendus = (currentStory.hooks || []).length;
-    if (!parsed
-      || !Array.isArray(parsed.recit) || parsed.recit.length !== currentStory.recit.length
-      || (hooksAttendus > 0 && (!Array.isArray(parsed.hooks) || parsed.hooks.length !== hooksAttendus))) {
+    if (!parsed || !Array.isArray(parsed.hooks_modifies) || !Array.isArray(parsed.segments_modifies)) {
       throw new Error('réponse invalide');
     }
-    if (Array.isArray(parsed.hooks) && currentStory.hooks) {
-      currentStory.hooks.forEach((h, i) => {
-        if (parsed.hooks[i] && parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
-        if (parsed.hooks[i] && parsed.hooks[i].style) h.style = parsed.hooks[i].style;
-      });
-    }
-    currentStory.recit.forEach((s, i) => { if (parsed.recit[i].texte) s.texte = parsed.recit[i].texte; });
 
-    const recitChange = currentStory.recit.some((s, i) => s.texte !== avantRecit[i]);
-    const hooksChange = (currentStory.hooks || []).some((h, i) => h.texte !== avantHooks[i]);
+    let recitChange = false, hooksChange = false;
+    parsed.segments_modifies.forEach(item => {
+      const i = item && item.index;
+      if (Number.isInteger(i) && i >= 0 && i < currentStory.recit.length && item.texte) {
+        if (currentStory.recit[i].texte !== item.texte) { currentStory.recit[i].texte = item.texte; recitChange = true; }
+      }
+    });
+    parsed.hooks_modifies.forEach(item => {
+      const i = item && item.index;
+      if (currentStory.hooks && Number.isInteger(i) && i >= 0 && i < currentStory.hooks.length && item.texte) {
+        if (currentStory.hooks[i].texte !== item.texte) { currentStory.hooks[i].texte = item.texte; hooksChange = true; }
+      }
+    });
     if (!recitChange && !hooksChange) throw new Error('aucun changement identifié');
 
     rerenderRecitBlock(avantRecit);
