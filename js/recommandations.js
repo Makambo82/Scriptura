@@ -239,19 +239,36 @@ const PRENOM_CODE_EXCEPTIONS = {
   'SCRIPTURA-CELINE': 'Rey'
 };
 
-// Déduit le prénom du créateur à partir de son code d'accès personnel
-// (format : prénom + 4 caractères alphanumériques, ex. MARIE7F2A → Marie).
-// Renvoie null si le code ne suit pas ce format (codes génériques type
-// CODES_VALIDES, jetons, etc.) : dans ce cas, pas de prénom affiché plutôt
-// que d'en deviner un faux.
+// Déduit le prénom du créateur à partir de son code d'accès personnel.
+// Deux formats reconnus :
+// 1. Format standard généré automatiquement : prénom + 4 caractères
+//    alphanumériques, ex. MARIE7F2A → Marie. Le suffixe généré contient
+//    toujours au moins un chiffre : c'est ce qui permet de le distinguer
+//    d'un prénom entier écrit sans suffixe (voir cas 2) — sans ce repère,
+//    "PAULINE" serait mal coupé en "Pau" + "LINE".
+// 2. Codes créés à la main, sans suffixe (ex. "FIFA") : Rey en crée
+//    parfois directement à partir du seul prénom. Dans ce cas, le code
+//    entier EST le prénom, à condition qu'il ne contienne que des lettres
+//    (ça exclut les codes génériques type SCRIPTURA-JUIL-2026, qui ont des
+//    tirets, sans avoir à les lister un par un).
+// Renvoie null si rien de tout ça ne correspond : pas de prénom affiché
+// plutôt que d'en deviner un faux.
 function prenomDepuisCode() {
   const code = (localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
   if (!code) return null;
   if (PRENOM_CODE_EXCEPTIONS[code]) return PRENOM_CODE_EXCEPTIONS[code];
-  if (code.length <= 4) return null;
-  const brut = code.slice(0, -4);
-  if (!/^[A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]+$/.test(brut)) return null;
-  return brut.charAt(0) + brut.slice(1).toLowerCase();
+
+  const LETTRES = /^[A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]+$/;
+
+  if (code.length > 4 && /[0-9]/.test(code.slice(-4))) {
+    const brut = code.slice(0, -4);
+    if (LETTRES.test(brut)) return brut.charAt(0) + brut.slice(1).toLowerCase();
+    return null;
+  }
+
+  if (LETTRES.test(code)) return code.charAt(0) + code.slice(1).toLowerCase();
+
+  return null;
 }
 
 function salutationAccueil(profil) {
