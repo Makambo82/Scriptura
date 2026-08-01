@@ -80,9 +80,10 @@ async function proposerConceptsSerie() {
   const style = document.getElementById('serieStyle')?.value || '';
   const genre = document.getElementById('serieGenre')?.value || '';
   const geo = document.getElementById('serieGeo')?.value.trim() || '';
-  const prompt = `Tu es un stratège de contenu pour créateurs TikTok francophones d'Afrique.
+  const prompt = `Tu es un stratège de contenu pour créateurs TikTok francophones.
 Propose 3 concepts de SÉRIE (feuilleton en plusieurs épisodes) pour un créateur.
 Niche : ${niche}
+Zone géographique / contexte culturel : ${geo || 'non précisée — reste général, n\'ancre pas les concepts dans une région particulière'}
 Genre souhaité : ${genre || 'libre'}
 Style de contenu : ${style}
 Un bon concept de série : un fil conducteur clair, chaque épisode autonome mais donnant envie du suivant, et un titre qui promet une suite.
@@ -152,7 +153,7 @@ async function creerSerie() {
 
   try {
     // 1. La bible : prémisse, univers, ton, règle récurrente, et l'arc épisode par épisode
-    const promptBible = `Tu es un architecte de séries pour créateurs TikTok francophones d'Afrique.
+    const promptBible = `Tu es un architecte de séries pour créateurs TikTok francophones.
 Construis la BIBLE d'une série courte, puis son ARC narratif.
 
 CONCEPT DONNÉ PAR LE CRÉATEUR : ${concept}
@@ -492,7 +493,7 @@ async function genererEpisode() {
     const arc = Array.isArray(b.arc) ? b.arc : [];
     const plan = arc.find(a => a.episode === num) || {};
 
-    const prompt = `Tu écris l'épisode d'une série pour un créateur TikTok francophone d'Afrique.
+    const prompt = `Tu écris l'épisode d'une série pour un créateur TikTok francophone.
 
 BIBLE DE LA SÉRIE
 Titre : ${serie.titre}
