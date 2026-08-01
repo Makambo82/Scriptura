@@ -5,8 +5,9 @@
 //
 //  Prérequis (voir supabase/videos.sql) :
 //  - Table `videos` + bucket de stockage public `videos` dans Supabase.
-//  - Variables d'environnement Vercel : HUGGINGFACE_API_KEY, ELEVENLABS_API_KEY,
+//  - Variable d'environnement Vercel : ELEVENLABS_API_KEY (pour la voix),
 //    en plus de SUPABASE_URL / SUPABASE_ANON_KEY déjà utilisées ailleurs.
+//    Les images passent par Pollinations, qui ne demande AUCUNE clé.
 //
 //  Reçoit une liste de segments {texte, visuel} (texte parlé + description
 //  de l'image pour ce plan), et renvoie l'URL de la vidéo finale une fois
@@ -31,7 +32,7 @@ const LARGEUR = 1080, HAUTEUR = 1920; // 9:16 (format TikTok)
 // Noms de modèles configurables par variable d'environnement : ce sont des
 // modèles susceptibles de changer de nom sans préavis — un changement de
 // variable Vercel suffit alors, pas de redéploiement.
-const HUGGINGFACE_IMAGE_MODEL = process.env.HUGGINGFACE_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
+const POLLINATIONS_MODEL = process.env.POLLINATIONS_MODEL || 'flux';
 const ELEVENLABS_MODEL = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
 
 async function verifierAcces(code) {
@@ -62,26 +63,46 @@ async function verifierAcces(code) {
   }
 }
 
-// Palier gratuit Hugging Face : le modèle peut être "endormi" et mettre
-// quelques secondes à se réveiller (503 "currently loading") — on retente
-// une fois après l'attente indiquée plutôt que d'échouer immédiatement.
-async function genererImage(prompt, tentative) {
-  const res = await fetch('https://api-inference.huggingface.co/models/' + HUGGINGFACE_IMAGE_MODEL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.HUGGINGFACE_API_KEY },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: { width: 1024, height: 1536 } // portrait, le plus proche du 9:16
-    })
+// Pollinations : génération d'image gratuite, sans clé ni carte. Simple GET
+// dont l'URL contient le prompt ; la réponse EST directement l'image (octets).
+// Le palier anonyme est limité en débit (~1 requête / 15 s) : sur 429 ou 5xx
+// on patiente puis on retente quelques fois. Une variable POLLINATIONS_TOKEN
+// (facultative) permet, si un compte gratuit Pollinations est créé plus tard,
+// d'augmenter le débit — sans elle, ça marche quand même.
+async function genererImage(prompt, tentative = 0) {
+  const params = new URLSearchParams({
+    width: '1024',
+    height: '1536', // portrait, le plus proche du 9:16
+    model: POLLINATIONS_MODEL,
+    nologo: 'true'
   });
-  if (res.status === 503 && !tentative) {
-    const detail = await res.json().catch(() => ({}));
-    const attente = Math.min(Math.ceil(detail.estimated_time || 15), 25);
-    await new Promise(r => setTimeout(r, attente * 1000));
-    return genererImage(prompt, 1);
+  const url = 'https://image.pollinations.ai/prompt/' + encodeURIComponent(prompt) + '?' + params.toString();
+  const headers = {};
+  if (process.env.POLLINATIONS_TOKEN) headers.Authorization = 'Bearer ' + process.env.POLLINATIONS_TOKEN;
+
+  let res;
+  try {
+    res = await fetch(url, { headers });
+  } catch (e) {
+    if (tentative < 3) { await new Promise(r => setTimeout(r, 8000)); return genererImage(prompt, tentative + 1); }
+    throw new Error('Génération image échouée (réseau) : ' + (e.message || e));
+  }
+
+  // Débit dépassé ou surcharge temporaire : on patiente et on retente.
+  if ((res.status === 429 || res.status >= 500) && tentative < 4) {
+    await new Promise(r => setTimeout(r, 16000));
+    return genererImage(prompt, tentative + 1);
   }
   if (!res.ok) throw new Error('Génération image échouée (' + res.status + ') : ' + (await res.text()).slice(0, 200));
+
+  const contentType = res.headers.get('content-type') || '';
   const arrayBuffer = await res.arrayBuffer();
+  // Pollinations peut renvoyer une page d'erreur en 200 : on vérifie que
+  // c'est bien une image (et pas un HTML/JSON) avant de la garder.
+  if (!contentType.startsWith('image/') || arrayBuffer.byteLength < 1000) {
+    if (tentative < 4) { await new Promise(r => setTimeout(r, 16000)); return genererImage(prompt, tentative + 1); }
+    throw new Error('Aucune image renvoyée par le générateur pour ce plan');
+  }
   return Buffer.from(arrayBuffer);
 }
 
@@ -219,8 +240,8 @@ export default async function handler(req, res) {
     if (segments.length > MAX_SEGMENTS) {
       return res.status(400).json({ error: { message: 'Storyboard trop long pour la création automatique (maximum ' + MAX_SEGMENTS + ' plans pour l\'instant).' } });
     }
-    if (!process.env.HUGGINGFACE_API_KEY || !process.env.ELEVENLABS_API_KEY) {
-      return res.status(500).json({ error: { message: 'Clés vidéo absentes côté serveur (HUGGINGFACE_API_KEY / ELEVENLABS_API_KEY)' } });
+    if (!process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: { message: 'Clé voix absente côté serveur (ELEVENLABS_API_KEY)' } });
     }
 
     const acces = await verifierAcces(code_acces);
@@ -252,7 +273,7 @@ export default async function handler(req, res) {
     const minutages = minutageParSegment(voix.alignment, bornes);
 
     // ── 2. Une image par segment, l'UNE APRÈS L'AUTRE (évite de heurter
-    //      les limites de débit du palier gratuit Hugging Face). ──
+    //      les limites de débit du service d'images gratuit). ──
     const images = [];
     for (const seg of segments) {
       images.push(await genererImage(seg.visuel));
