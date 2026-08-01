@@ -5,7 +5,7 @@
 //
 //  Prérequis (voir supabase/videos.sql) :
 //  - Table `videos` + bucket de stockage public `videos` dans Supabase.
-//  - Variables d'environnement Vercel : OPENAI_API_KEY, ELEVENLABS_API_KEY,
+//  - Variables d'environnement Vercel : HUGGINGFACE_API_KEY, ELEVENLABS_API_KEY,
 //    en plus de SUPABASE_URL / SUPABASE_ANON_KEY déjà utilisées ailleurs.
 //
 //  Reçoit une liste de segments {texte, visuel} (texte parlé + description
@@ -31,7 +31,7 @@ const LARGEUR = 1080, HAUTEUR = 1920; // 9:16 (format TikTok)
 // Noms de modèles configurables par variable d'environnement : ce sont des
 // modèles susceptibles de changer de nom sans préavis — un changement de
 // variable Vercel suffit alors, pas de redéploiement.
-const OPENAI_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1';
+const HUGGINGFACE_IMAGE_MODEL = process.env.HUGGINGFACE_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
 const ELEVENLABS_MODEL = process.env.ELEVENLABS_MODEL || 'eleven_multilingual_v2';
 
 async function verifierAcces(code) {
@@ -62,22 +62,27 @@ async function verifierAcces(code) {
   }
 }
 
-async function genererImage(prompt) {
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
+// Palier gratuit Hugging Face : le modèle peut être "endormi" et mettre
+// quelques secondes à se réveiller (503 "currently loading") — on retente
+// une fois après l'attente indiquée plutôt que d'échouer immédiatement.
+async function genererImage(prompt, tentative) {
+  const res = await fetch('https://api-inference.huggingface.co/models/' + HUGGINGFACE_IMAGE_MODEL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.OPENAI_API_KEY },
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.HUGGINGFACE_API_KEY },
     body: JSON.stringify({
-      model: OPENAI_IMAGE_MODEL,
-      prompt,
-      size: '1024x1536', // portrait, le plus proche du 9:16 parmi les tailles supportées
-      quality: process.env.OPENAI_IMAGE_QUALITY || 'low' // coût minimal par défaut (~0,016$/image)
+      inputs: prompt,
+      parameters: { width: 1024, height: 1536 } // portrait, le plus proche du 9:16
     })
   });
+  if (res.status === 503 && !tentative) {
+    const detail = await res.json().catch(() => ({}));
+    const attente = Math.min(Math.ceil(detail.estimated_time || 15), 25);
+    await new Promise(r => setTimeout(r, attente * 1000));
+    return genererImage(prompt, 1);
+  }
   if (!res.ok) throw new Error('Génération image échouée (' + res.status + ') : ' + (await res.text()).slice(0, 200));
-  const data = await res.json();
-  const image = (data.data || [])[0];
-  if (!image || !image.b64_json) throw new Error('Aucune image renvoyée par OpenAI pour ce plan');
-  return Buffer.from(image.b64_json, 'base64');
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 async function obtenirVoixParDefaut() {
@@ -214,8 +219,8 @@ export default async function handler(req, res) {
     if (segments.length > MAX_SEGMENTS) {
       return res.status(400).json({ error: { message: 'Storyboard trop long pour la création automatique (maximum ' + MAX_SEGMENTS + ' plans pour l\'instant).' } });
     }
-    if (!process.env.OPENAI_API_KEY || !process.env.ELEVENLABS_API_KEY) {
-      return res.status(500).json({ error: { message: 'Clés vidéo absentes côté serveur (OPENAI_API_KEY / ELEVENLABS_API_KEY)' } });
+    if (!process.env.HUGGINGFACE_API_KEY || !process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: { message: 'Clés vidéo absentes côté serveur (HUGGINGFACE_API_KEY / ELEVENLABS_API_KEY)' } });
     }
 
     const acces = await verifierAcces(code_acces);
@@ -247,7 +252,7 @@ export default async function handler(req, res) {
     const minutages = minutageParSegment(voix.alignment, bornes);
 
     // ── 2. Une image par segment, l'UNE APRÈS L'AUTRE (évite de heurter
-    //      les limites de débit du compte OpenAI). ──
+    //      les limites de débit du palier gratuit Hugging Face). ──
     const images = [];
     for (const seg of segments) {
       images.push(await genererImage(seg.visuel));
