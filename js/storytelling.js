@@ -529,32 +529,31 @@ DEMANDES DU CRÉATEUR (peuvent viser un ou plusieurs hooks, un ou plusieurs segm
 
 RÈGLES :
 - N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
-- Ne renvoie QUE les éléments que tu modifies réellement — n'inclus JAMAIS un hook ou un segment inchangé dans ta réponse.
+- Ne réponds QUE pour les éléments que tu modifies réellement — n'écris rien pour un hook ou un segment inchangé.
 - Si le segment "Clôture" est retouché, conserve impérativement la triple question miroir et la signature métapoétique qui y figurent, sauf si la demande porte explicitement dessus.
 - Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- "index" désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
+- L'index désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
 
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"hooks_modifies":[{"index":0,"texte":"le nouveau texte de ce hook"}],"segments_modifies":[{"index":2,"texte":"le nouveau texte de ce segment"}]}
+Réponds STRICTEMENT selon ce format texte, une ligne par élément modifié, RIEN D'AUTRE (pas de JSON, pas d'introduction, pas de commentaire) :
+HOOK <index> :: <nouveau texte complet de ce hook, sur une seule ligne>
+SEGMENT <index> :: <nouveau texte complet de ce segment, sur une seule ligne>
 
-Si aucune demande ne concerne les hooks, renvoie "hooks_modifies":[]. Si aucune ne concerne le récit, renvoie "segments_modifies":[].`;
+Le segment "Clôture" contient plusieurs phrases sur des lignes séparées (triple question + signature) : si tu le modifies, remplace chaque retour à la ligne par la séquence \n (2 caractères, pas un vrai retour à la ligne) pour rester sur une seule ligne de réponse.
+N'écris aucune ligne HOOK si aucune demande ne concerne les hooks. N'écris aucune ligne SEGMENT si aucune ne concerne le récit.`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
-    const parsed = parseAIResponse(raw);
-    if (!parsed || !Array.isArray(parsed.hooks_modifies) || !Array.isArray(parsed.segments_modifies)) {
-      throw new Error('réponse invalide');
-    }
+    const parsed = parseLignesRetouche(raw);
 
     let recitChange = false, hooksChange = false;
-    parsed.segments_modifies.forEach(item => {
-      const i = item && item.index;
+    parsed.segments.forEach(item => {
+      const i = item.index;
       if (Number.isInteger(i) && i >= 0 && i < currentStory.recit.length && item.texte) {
         if (currentStory.recit[i].texte !== item.texte) { currentStory.recit[i].texte = item.texte; recitChange = true; }
       }
     });
-    parsed.hooks_modifies.forEach(item => {
-      const i = item && item.index;
+    parsed.hooks.forEach(item => {
+      const i = item.index;
       if (currentStory.hooks && Number.isInteger(i) && i >= 0 && i < currentStory.hooks.length && item.texte) {
         if (currentStory.hooks[i].texte !== item.texte) { currentStory.hooks[i].texte = item.texte; hooksChange = true; }
       }

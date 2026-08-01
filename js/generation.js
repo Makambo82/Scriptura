@@ -1318,6 +1318,27 @@ function nettoyerTexteRetouche(raw) {
   return t.trim();
 }
 
+// Format texte simple (une ligne par élément modifié) au lieu de JSON pour la
+// retouche libre : le JSON s'est montré peu fiable pour ce cas (le modèle
+// rapide a du mal à le produire correctement quand le texte est long et
+// contient beaucoup de ponctuation), alors qu'un format ligne par ligne, très
+// tolérant, se comporte comme le bouton "Changer ce hook" (texte brut) qui
+// lui fonctionne de façon fiable. Le \n littéral permet de coder un retour à
+// la ligne À L'INTÉRIEUR d'un élément (ex. la clôture d'un récit) sans casser
+// le format une-ligne-par-élément.
+function parseLignesRetouche(raw) {
+  const hooks = [];
+  const segments = [];
+  const lignes = (raw || '').split('\n');
+  for (const ligne of lignes) {
+    let m = ligne.match(/^\s*HOOK\s+(\d+)\s*::\s*(.+?)\s*$/i);
+    if (m) { hooks.push({ index: parseInt(m[1], 10), texte: m[2].replace(/\\n/g, '\n').trim() }); continue; }
+    m = ligne.match(/^\s*SEGMENT\s+(\d+)\s*::\s*(.+?)\s*$/i);
+    if (m) { segments.push({ index: parseInt(m[1], 10), texte: m[2].replace(/\\n/g, '\n').trim() }); continue; }
+  }
+  return { hooks, segments };
+}
+
 // Ré-affiche le script (et signale, via une classe temporaire, les segments
 // dont le texte a effectivement changé par rapport à `avant`).
 function rerenderScriptBlock(avant) {
@@ -1378,31 +1399,30 @@ DEMANDES DU CRÉATEUR (peuvent viser un ou plusieurs hooks, un ou plusieurs segm
 
 RÈGLES :
 - N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
-- Ne renvoie QUE les éléments que tu modifies réellement — n'inclus JAMAIS un hook ou un segment inchangé dans ta réponse.
+- Ne réponds QUE pour les éléments que tu modifies réellement — n'écris rien pour un hook ou un segment inchangé.
 - Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- "index" désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
+- L'index désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
 
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"hooks_modifies":[{"index":0,"texte":"le nouveau texte de ce hook"}],"segments_modifies":[{"index":2,"texte":"le nouveau texte de ce segment"}]}
+Réponds STRICTEMENT selon ce format texte, une ligne par élément modifié, RIEN D'AUTRE (pas de JSON, pas d'introduction, pas de commentaire) :
+HOOK <index> :: <nouveau texte complet de ce hook, sur une seule ligne>
+SEGMENT <index> :: <nouveau texte complet de ce segment, sur une seule ligne>
 
-Si aucune demande ne concerne les hooks, renvoie "hooks_modifies":[]. Si aucune ne concerne le script, renvoie "segments_modifies":[].`;
+Si un texte modifié doit contenir un retour à la ligne, remplace-le par la séquence \n (2 caractères, pas un vrai retour à la ligne) pour rester sur une seule ligne.
+N'écris aucune ligne HOOK si aucune demande ne concerne les hooks. N'écris aucune ligne SEGMENT si aucune ne concerne le script.`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
-    const parsed = parseAIResponse(raw);
-    if (!parsed || !Array.isArray(parsed.hooks_modifies) || !Array.isArray(parsed.segments_modifies)) {
-      throw new Error('réponse invalide');
-    }
+    const parsed = parseLignesRetouche(raw);
 
     let scriptChange = false, hooksChange = false;
-    parsed.segments_modifies.forEach(item => {
-      const i = item && item.index;
+    parsed.segments.forEach(item => {
+      const i = item.index;
       if (Number.isInteger(i) && i >= 0 && i < currentScript.length && item.texte) {
         if (currentScript[i].texte !== item.texte) { currentScript[i].texte = item.texte; scriptChange = true; }
       }
     });
-    parsed.hooks_modifies.forEach(item => {
-      const i = item && item.index;
+    parsed.hooks.forEach(item => {
+      const i = item.index;
       if (currentHooks && Number.isInteger(i) && i >= 0 && i < currentHooks.length && item.texte) {
         if (currentHooks[i].texte !== item.texte) { currentHooks[i].texte = item.texte; hooksChange = true; }
       }
