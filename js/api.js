@@ -9,8 +9,11 @@ const MODEL_CREATIF = "claude-haiku-4-5-20251001";    // Haiku partout (rapide e
 const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, storyboards (vitesse)
 const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : tâche complexe, qualité premium
 
-// false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents).
-const CRITIQUE_ACTIVE = false;
+// false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents,
+// avec critique sévère + réécriture ciblée + contrôle anti-générique, voir
+// generate() dans js/generation.js). Activé : la qualité prime sur la
+// vitesse — chaque script passe par un vrai contrôle avant d'être livré.
+const CRITIQUE_ACTIVE = true;
 // ── Limites journalières par plan ──
 // La création (idées, script, storytelling) et l'audit ont des compteurs
 // séparés : un audit ne consomme pas le quota de création et inversement.

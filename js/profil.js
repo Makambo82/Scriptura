@@ -29,6 +29,9 @@ function profilVide() {
       themes_traites: [],
       themes_a_eviter: [],
       plateformes: [],
+      hooks_recents: [],        // anti-répétition : hooks déjà utilisés
+      angles_recents: [],       // anti-répétition : angles déjà exploités
+      structures_recentes: [],  // anti-répétition : structures narratives déjà produites
       nb_generations: 0
     },
     lecons: {
@@ -119,6 +122,10 @@ async function mettreAJourProfilCreateur(patch) {
       if (patch.observe.themes_traites) profil.observe.themes_traites = ajouterListeProfil(profil.observe.themes_traites, patch.observe.themes_traites, 20);
       if (patch.observe.themes_a_eviter) profil.observe.themes_a_eviter = ajouterListeProfil(profil.observe.themes_a_eviter, patch.observe.themes_a_eviter, 10);
       if (patch.observe.plateformes) profil.observe.plateformes = ajouterListeProfil(profil.observe.plateformes, patch.observe.plateformes, 5);
+      // Anti-répétition : hooks/angles/structures déjà produits récemment.
+      if (patch.observe.hooks_recents) profil.observe.hooks_recents = ajouterListeProfil(profil.observe.hooks_recents, patch.observe.hooks_recents, 10);
+      if (patch.observe.angles_recents) profil.observe.angles_recents = ajouterListeProfil(profil.observe.angles_recents, patch.observe.angles_recents, 10);
+      if (patch.observe.structures_recentes) profil.observe.structures_recentes = ajouterListeProfil(profil.observe.structures_recentes, patch.observe.structures_recentes, 8);
       profil.observe.nb_generations = (profil.observe.nb_generations || 0) + 1;
     }
     if (patch.lecons) {
@@ -216,6 +223,9 @@ function ligneProfilPourPrompt(profil) {
   if (d.duree_moyenne) bouts.push('durée qu\'il choisit le plus souvent : ' + d.duree_moyenne);
   if (o.themes_traites && o.themes_traites.length) bouts.push('sujets déjà traités récemment, à ne pas répéter à l\'identique : ' + o.themes_traites.slice(0, 5).join(', '));
   if (o.themes_a_eviter && o.themes_a_eviter.length) bouts.push('à éviter pour ce créateur : ' + o.themes_a_eviter.slice(0, 5).join(', '));
+  if (o.angles_recents && o.angles_recents.length) bouts.push('angles déjà exploités récemment, à ne jamais reprendre à l\'identique : ' + o.angles_recents.slice(0, 4).join(' · '));
+  if (o.hooks_recents && o.hooks_recents.length) bouts.push('hooks déjà utilisés récemment, à ne jamais réutiliser ni paraphraser : ' + o.hooks_recents.slice(0, 4).join(' · '));
+  if (o.structures_recentes && o.structures_recentes.length) bouts.push('structures narratives déjà produites récemment, à varier : ' + o.structures_recentes.slice(0, 4).join(', '));
   if (l.recommandations_permanentes && l.recommandations_permanentes.length) bouts.push('leçons retenues de ses audits précédents : ' + l.recommandations_permanentes.slice(0, 3).join(' · '));
   if (!bouts.length) return '';
   return 'Profil connu de ce créateur (pour rester cohérent avec ses habitudes, sans le lui redemander) : ' + bouts.join(' ; ') + '.';

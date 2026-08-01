@@ -508,6 +508,8 @@ async function generate() {
     // ════════════════════════════════════════════
     const briefPrompt = `Tu es le Directeur Éditorial de Scriptura, le meilleur stratège de contenu viral francophone. Tu ne rédiges PAS encore. Tu réfléchis comme un directeur créatif de haut niveau avant toute écriture.
 
+RÈGLE FONDAMENTALE, au-dessus de toutes les autres : le script final doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Chaque choix que tu fais ci-dessous doit servir cette règle.
+
 CONTEXTE :
 - ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles)' : 'Sujet'} : ${sujet}
 - Niche : ${niche}
@@ -522,22 +524,24 @@ ${isViralMode ? '\\n- MODE ANALYSE : le créateur veut reproduire la recette de 
 
 TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différence) :
 
-1. ANALYSE DU SUJET : Quel est l'enjeu réel, la tension cachée, ce qui rend ce sujet émotionnellement puissant ? Quel est l'angle mort que personne n'exploite ?
+1. ANALYSE DU SUJET : Quel est l'enjeu réel, la tension cachée, ce qui rend ce sujet émotionnellement puissant ? Quel est l'angle mort que personne n'exploite ? Si le profil du créateur ci-dessus contient des leçons tirées de ses audits précédents, utilise-les activement pour orienter cette analyse.
 
-2. TROIS ANGLES NARRATIFS DIFFÉRENTS : Propose 3 angles VRAIMENT distincts (pas 3 variantes du même). Par exemple : un angle contre-intuitif, un angle émotionnel/personnel, un angle révélation/coulisses. Chaque angle doit attaquer le sujet différemment.
+2. TROIS ANGLES NARRATIFS DIFFÉRENTS : Propose 3 angles VRAIMENT distincts (pas 3 variantes du même). Pour CHAQUE angle, cherche activement au moins un de ces leviers puissants : l'élément inattendu, la contradiction, la révélation, le conflit, la surprise, le paradoxe, le coût caché, le secret, le risque. Un angle qui n'exploite aucun de ces leviers est un angle faible — remplace-le. Par exemple : un angle contre-intuitif, un angle émotionnel/personnel, un angle révélation/coulisses. Chaque angle doit attaquer le sujet différemment.
 
-3. COMPARAISON ET SÉLECTION : Compare les 3 angles pour ${state.plateforme} et l'objectif "${state.objectif}". Lequel a le plus fort potentiel d'arrêt du scroll ET de rétention ? Choisis-en UN et justifie en une phrase.
+3. COMPARAISON ET SÉLECTION : Compare les 3 angles pour ${state.plateforme} et l'objectif "${state.objectif}". L'angle choisi ne doit jamais être simplement "intéressant" : il doit être le PLUS PUISSANT des trois — celui qui a le plus fort potentiel d'arrêt du scroll ET de rétention. Choisis-en UN et justifie en une phrase pourquoi il est le plus fort, pas seulement pourquoi il convient.
 
 4. STRUCTURE NARRATIVE OPTIMALE : Quelle structure sert le mieux cet angle ? (ex: problème→agitation→solution, boucle ouverte, storytelling chronologique, liste à tension croissante, mythe→réalité...). Choisis la meilleure.
 
 5. STRATÉGIE ÉMOTIONNELLE : Quelle émotion dominante veux-tu déclencher ? Quels moments de tension placer, et où mettre les "retention hooks" (relances qui réaccrochent) ?
 
-6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Donne la direction (pas encore la formulation finale).
+6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Le hook ne doit jamais être seulement accrocheur : il doit provoquer une envie IRRÉPRESSIBLE de continuer. Teste mentalement la direction envisagée : est-elle prévisible ? Ressemble-t-elle à un hook ChatGPT générique ("Voici pourquoi...", "Vous ne devinerez jamais...") ? Crée-t-elle une vraie tension et une boucle de curiosité ? Si elle échoue à l'un de ces tests, cherche une meilleure direction. Donne la direction (pas encore la formulation finale).
 
 7. STRATÉGIE DE CTA : Quel appel à l'action final servira le mieux l'objectif "${state.objectif}" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s'abonner pour une raison précise) ?
 
+8. ANTI-RÉPÉTITION : Si le profil du créateur ci-dessus mentionne des angles, hooks ou structures déjà utilisés récemment, ton angle et ta structure choisis DOIVENT en être nettement différents. Ne recycle jamais ce qui a déjà été fait pour ce créateur.
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant","strategie_retention":"où placer les relances pour tenir jusqu'au bout","strategie_cta":"l'action précise à demander en fin de script"}`;
+{"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase : pourquoi c'est le PLUS PUISSANT des 3, pas juste pourquoi il convient","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant, déjà validée contre le test de prévisibilité","strategie_retention":"où placer les relances pour tenir jusqu'au bout","strategie_cta":"l'action précise à demander en fin de script"}`;
 
     const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt);
     const brief = parseAIResponse(briefRaw) || {};
@@ -552,7 +556,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     //  Reçoit le brief stratégique, écrit le meilleur contenu,
     //  s'auto-critique et livre la version finale calibrée.
     // ════════════════════════════════════════════
-    const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
+    const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. RÈGLE FONDAMENTALE, au-dessus de toutes les autres : ce script doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
 
 BRIEF STRATÉGIQUE À SUIVRE :
 - Analyse : ${brief.analyse_strategique || sujet}
@@ -587,7 +591,7 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 - Objectif autorité → inciter à commenter son avis ou sauvegarder
 Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA.
 
-5. HOOKS DIFFÉRENCIANTS : Génère 5 hooks qui suivent la direction du brief. INTERDIT les formules génériques ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo"). Chaque hook doit créer une tension psychologique immédiate et être IMPOSSIBLE à confondre avec du ChatGPT basique.
+5. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ — remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
 6. ADAPTÉ À ${state.plateforme} : respecte les codes de rythme de cette plateforme.
 
@@ -637,19 +641,43 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     }
 
     // ══════════════════════════════════════
-    //  PHASES 3-4 (Critique + Réviseur) — optionnelles
-    //  Désactivées par défaut car le Rédacteur Sonnet écrit déjà très bien.
+    //  PHASES 3-4 (Critique + Réviseur) — le cœur du renforcement qualité.
+    //  Le Critique cherche ACTIVEMENT les faiblesses, y compris en essayant
+    //  de RÉFUTER le script (pourquoi un spectateur scrollerait avant la
+    //  fin ?). Tant qu'un problème significatif ressort, le Réviseur
+    //  réécrit UNIQUEMENT les segments faibles identifiés — jamais tout le
+    //  script — puis un nouveau contrôle repasse. Borné à 2 passes : au-delà,
+    //  on livre la meilleure version obtenue plutôt que de boucler sans fin
+    //  (coût et temps de génération doivent rester raisonnables).
     // ══════════════════════════════════════
     let critique = null;
     if (CRITIQUE_ACTIVE) {
-    // ══════════════════════════════════════
-    //  PHASE 3 — LE CRITIQUE (agent indépendant)
-    //  Juge le travail du rédacteur sans l'avoir écrit. Objectif.
-    // ══════════════════════════════════════
-    const scriptForReview = (parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n');
-    const hooksForReview = (parsed.hooks || []).map((h, i) => (i+1) + '. ' + h.texte).join('\n');
+      // Un problème "significatif" déclenche une révision : verdict négatif,
+      // script jugé générique/IA, une raison concrète de décrochage trouvée,
+      // ou une moyenne de viralité en dessous du niveau d'exigence attendu.
+      function critiqueIndiqueProbleme(c) {
+        if (!c) return false;
+        if (c.verdict === 'à améliorer') return true;
+        if (c.ia_generique === true) return true;
+        if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length > 0) return true;
+        if (c.viralite && typeof c.viralite === 'object') {
+          const vals = Object.values(c.viralite).filter(v => typeof v === 'number');
+          if (vals.length && (vals.reduce((a, b) => a + b, 0) / vals.length) < 14) return true; // moyenne sur 20
+        }
+        return false;
+      }
 
-    const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un expert exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script — ton rôle est de l'évaluer objectivement et sans complaisance, comme un directeur de création qui review le travail de son équipe.
+      const MAX_PASSES_QUALITE = 2;
+      for (let passe = 0; passe < MAX_PASSES_QUALITE; passe++) {
+        // ══════════════════════════════════════
+        //  PHASE 3 — LE CRITIQUE (agent indépendant)
+        //  Juge le travail du rédacteur sans l'avoir écrit. Cherche
+        //  volontairement les faiblesses plutôt que de valider par défaut.
+        // ══════════════════════════════════════
+        const scriptForReview = (parsed.script || []).map((s, i) => '[segment ' + i + ' — ' + s.temps + '] ' + s.texte).join('\n');
+        const hooksForReview = (parsed.hooks || []).map((h, i) => (i + 1) + '. ' + h.texte).join('\n');
+
+        const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script — ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
 
 CONTEXTE :
 - Sujet : ${sujetCourt}
@@ -658,97 +686,103 @@ CONTEXTE :
 - Durée cible : ${wt.desc} (${wt.min}-${wt.max} mots)
 - Angle stratégique prévu : ${brief.angle_choisi || 'non précisé'}
 
-HOOKS PROPOSÉS :
+HOOKS PROPOSÉS (numérotés) :
 ${hooksForReview}
 
-SCRIPT PROPOSÉ :
+SCRIPT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
 ${scriptForReview}
 
-TON ÉVALUATION CRITIQUE (sois honnête, sévère si nécessaire) :
-1. Le hook arrête-t-il vraiment le scroll dès la 1ère seconde ? Ou est-il tiède ?
-2. La tension tient-elle du début à la fin, ou y a-t-il des moments où on décroche ?
-3. Y a-t-il des phrases de remplissage qui ne servent à rien ?
-4. Le script est-il vraiment supérieur à ce qu'un simple ChatGPT donnerait, ou est-ce générique ?
-5. Le CTA final est-il présent, clair et adapté à l'objectif ?
-6. Le script respecte-t-il l'angle stratégique prévu ?
-7. Y a-t-il des formulations plates, clichées ou faibles à signaler précisément ?
+TON TRAVAIL, EN TROIS TEMPS :
 
-Identifie les FAIBLESSES CONCRÈTES avec précision (cite les passages problématiques). Ne sois pas complaisant : si c'est excellent, dis-le ; si c'est moyen, liste exactement ce qui cloche.
+1. DÉTECTION DES FAIBLESSES — cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Pour chaque faiblesse, indique le numéro du segment concerné.
+
+2. RÉFUTATION — LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
+
+3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE — note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise 1 avec le passage concerné","faiblesse 2"],"points_forts":["ce qui marche"],"instructions_revision":"instructions précises et actionnables pour le réviseur : quoi corriger exactement et comment"}`;
+{"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise avec le numéro de segment concerné"],"points_forts":["ce qui marche"],"segments_faibles":[{"index":2,"probleme":"description précise et actionnable du problème de ce segment"}],"raisons_de_scroll":["raison concrète 1","raison concrète 2"],"ia_generique":true,"justification_ia_generique":"pourquoi, en une phrase (chaîne vide si non générique)","viralite":{"hook":15,"curiosite":14,"rythme":16,"progression":15,"transitions":14,"revelation":13,"memorisation":15},"instructions_revision":"instructions précises et actionnables pour le réviseur, segment par segment"}`;
 
-    critique = null;
-    try {
-      const critiqueRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL_RAPIDE,
-          max_tokens: 2000,
-          messages: [{ role: "user", content: critiquePrompt }]
-        })
-      });
-      if (critiqueRes.ok) {
-        const critiqueData = await critiqueRes.json();
-        const critiqueRaw = critiqueData.content?.map(b => b.text || '').join('') || '';
-        critique = parseAIResponse(critiqueRaw);
-      }
-    } catch(e) { /* si le critique échoue, on garde le script tel quel */ }
+        let nouvelleCritique = null;
+        try {
+          const critiqueRes = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: MODEL_RAPIDE,
+              max_tokens: 2500,
+              messages: [{ role: "user", content: critiquePrompt }]
+            })
+          });
+          if (critiqueRes.ok) {
+            const critiqueData = await critiqueRes.json();
+            const critiqueRaw = critiqueData.content?.map(b => b.text || '').join('') || '';
+            nouvelleCritique = parseAIResponse(critiqueRaw);
+          }
+        } catch(e) { /* si le critique échoue, on garde la meilleure version obtenue */ }
 
-    // ══════════════════════════════════════
-    //  PHASE 4 — LE RÉVISEUR (agent indépendant)
-    //  Corrige le script selon les critiques. N'est pas le rédacteur.
-    //  Ne s'active QUE si le critique a trouvé des faiblesses.
-    // ══════════════════════════════════════
-    if (critique && critique.verdict === 'à améliorer' && critique.instructions_revision) {
-      const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture de contenu viral. Un critique indépendant a évalué le script ci-dessous et identifié des faiblesses. Ta mission : appliquer ses corrections pour produire une version nettement meilleure.
+        if (!nouvelleCritique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
+        critique = nouvelleCritique;
+
+        if (!critiqueIndiqueProbleme(critique)) break; // le script passe le contrôle qualité : terminé
+
+        // ══════════════════════════════════════
+        //  PHASE 4 — LE RÉVISEUR (agent indépendant)
+        //  Réécrit UNIQUEMENT les segments identifiés comme faibles —
+        //  jamais le script entier — pour ne jamais perdre ce qui marche.
+        // ══════════════════════════════════════
+        const segmentsFaiblesTxt = (critique.segments_faibles || [])
+          .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
+          || (critique.faiblesses || []).map(f => '- ' + f).join('\n')
+          || 'Aucun segment précis signalé — applique les instructions générales ci-dessous à l\'ensemble.';
+        const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
+
+        const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de contenu viral. Un critique indépendant a évalué le script ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel) — ce sont les points forts du script, ne les abîme pas.
 
 SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
 DURÉE CIBLE : ${wt.desc} (${wt.min}-${wt.max} mots au total)
 
-SCRIPT ACTUEL :
+SCRIPT ACTUEL (segments numérotés) :
 ${scriptForReview}
 
-FAIBLESSES IDENTIFIÉES PAR LE CRITIQUE :
-${(critique.faiblesses || []).map(f => '- ' + f).join('\n')}
+SEGMENTS À RÉÉCRIRE (uniquement ceux-ci) :
+${segmentsFaiblesTxt}
 
-INSTRUCTIONS DE RÉVISION À APPLIQUER :
-${critique.instructions_revision}
+${raisonsScrollTxt ? 'RAISONS POUR LESQUELLES UN SPECTATEUR DÉCROCHERAIT, À ÉLIMINER :\n' + raisonsScrollTxt + '\n' : ''}${critique.ia_generique ? 'ATTENTION : ce script a été jugé trop générique, proche d\'une IA généraliste (' + (critique.justification_ia_generique || '') + '). Les segments réécrits doivent avoir une voix beaucoup plus spécifique et incarnée, jamais neutre.\n' : ''}${critique.instructions_revision ? 'INSTRUCTIONS SUPPLÉMENTAIRES DU CRITIQUE :\n' + critique.instructions_revision : ''}
 
 RÈGLES :
-- Corrige précisément les faiblesses signalées, garde ce qui marche déjà.
-- Respecte la durée cible ${wt.min}-${wt.max} mots et le nombre de blocs.
+- Ne touche JAMAIS un segment qui n'est pas listé ci-dessus comme à réécrire.
+- Renvoie la liste COMPLÈTE des segments (les inchangés recopiés à l'identique, les faibles réécrits), dans le même ordre, avec le même nombre total de segments.
+- Respecte la durée cible ${wt.min}-${wt.max} mots au total et ${wt.blocs} blocs.
 - Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, le CTA final être présent et clair.
-- Garde le même format de blocs (temps + texte + visuel).
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}
 
-Fournis les 5 hooks améliorés et le script révisé complet.`;
+Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème de hook, sinon garde les meilleurs) et le script complet, segment par segment, dans le même ordre.`;
 
-      try {
-        const reviseRes = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: MODEL_CREATIF,
-            max_tokens: 8000,
-            messages: [{ role: "user", content: revisePrompt }]
-          })
-        });
-        if (reviseRes.ok) {
+        try {
+          const reviseRes = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: MODEL_CREATIF,
+              max_tokens: 8000,
+              messages: [{ role: "user", content: revisePrompt }]
+            })
+          });
+          if (!reviseRes.ok) break;
           const reviseData = await reviseRes.json();
           const reviseRaw = reviseData.content?.map(b => b.text || '').join('') || '';
           const revised = parseAIResponse(reviseRaw);
           if (revised && revised.script) {
             parsed.script = revised.script;
             if (revised.hooks) parsed.hooks = revised.hooks;
+          } else {
+            break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
           }
-        }
-      } catch(e) { /* si la révision échoue, on garde la version du rédacteur */ }
-    }
-
+        } catch(e) { break; /* si la révision échoue, on garde la version précédente */ }
+      }
     }
 
     // ══════════════════════════════════════
@@ -840,7 +874,13 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       },
       observe: {
         themes_traites: sujet.slice(0, 80),
-        plateformes: state.plateforme
+        plateformes: state.plateforme,
+        // Anti-répétition (voir renforcement du pipeline) : mémorise l'angle,
+        // la structure et le hook principal pour ne jamais les recycler
+        // à l'identique lors d'une prochaine génération pour ce créateur.
+        angles_recents: brief && brief.angle_choisi ? String(brief.angle_choisi).slice(0, 120) : undefined,
+        structures_recentes: brief && brief.structure ? String(brief.structure).slice(0, 100) : undefined,
+        hooks_recents: (parsed.hooks && parsed.hooks[0] && parsed.hooks[0].texte) ? String(parsed.hooks[0].texte).slice(0, 140) : undefined
       }
     });
 
