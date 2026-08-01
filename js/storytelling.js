@@ -107,23 +107,25 @@ async function generateStory() {
     ? `LONGUEUR : Le récit doit faire ${storyDuree}, soit entre ${wt.min} et ${wt.max} mots au total. Compte tes mots et respecte impérativement cette cible. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact.`
     : `LONGUEUR : Format narratif long. Déploie pleinement ton histoire, sans restriction de durée. Prends le temps de développer l'immersion, la tension et les rebondissements comme dans un vrai récit captivant.`;
 
-  // Choisir le modèle de référence le plus proche du sujet (via modeles.js)
+  // Présélection rapide (locale, sans appel IA) de plusieurs modèles de
+  // référence candidats — voir choisirTopModeles() dans js/modeles.js. Le
+  // choix final entre ces candidats est fait par le moteur Storytelling
+  // lui-même, en silence, dans ce même appel (aucun appel supplémentaire).
   let modeleRef = '';
   try {
-    if (typeof choisirModele === 'function') {
-      const modele = choisirModele(input);
-      if (modele) {
+    if (typeof choisirTopModeles === 'function') {
+      const candidats = choisirTopModeles(input, 3);
+      if (candidats.length) {
+        const blocsCandidats = candidats.map((m, i) =>
+          `── CANDIDAT ${i + 1} ──\nTITRE : ${m.titre}\nTON : ${m.ton}\nSCRIPT :\n${m.script}`
+        ).join('\n\n');
         modeleRef = `
 
 ════════════════════════════════════════════
-MODÈLE DE RÉFÉRENCE (ta signature narrative sur un sujet proche)
-Voici l'un de tes propres scripts, à utiliser comme RÉFÉRENCE ABSOLUE de style, de rythme, de ton et de structure. Ne le copie pas, mais IMPRÈGNE-toi de sa manière : la façon dont le hook frappe, dont les phrases sont courtes et rythmées, dont la tension monte, dont l'ironie affleure, dont la triple question et la signature closent le récit. Ton nouveau récit doit avoir EXACTEMENT ce niveau de qualité et cette voix.
+MODÈLES DE RÉFÉRENCE CANDIDATS (ta propre signature narrative — ${candidats.length} option${candidats.length > 1 ? 's' : ''} pertinente${candidats.length > 1 ? 's' : ''} pour ce sujet)
+${candidats.length > 1 ? 'AVANT D\'ÉCRIRE, choisis EN SILENCE (ne l\'annonce jamais dans ta réponse) celui des candidats ci-dessous dont la structure narrative, le rythme, la progression dramatique et la montée en tension serviront le mieux CE récit précis — pas seulement celui dont le thème ressemble le plus au sujet. Une fois ce choix fait, utilise EXCLUSIVEMENT ce modèle unique comme référence absolue de style, de rythme, de ton et de structure : ne mélange JAMAIS plusieurs modèles entre eux.' : 'Utilise ce script comme RÉFÉRENCE ABSOLUE de style, de rythme, de ton et de structure.'} Ne le copie pas, IMPRÈGNE-toi de sa manière : la façon dont le hook frappe, dont les phrases sont courtes et rythmées, dont la tension monte, dont l'ironie affleure, dont la triple question et la signature closent le récit. Ton nouveau récit doit avoir EXACTEMENT ce niveau de qualité et cette voix.
 
-TITRE DU MODÈLE : ${modele.titre}
-TON : ${modele.ton}
-
-SCRIPT MODÈLE :
-${modele.script}
+${blocsCandidats}
 ════════════════════════════════════════════
 `;
       }

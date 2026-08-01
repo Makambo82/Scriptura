@@ -332,6 +332,48 @@ function choisirModele(sujet) {
   return meilleurScore >= 4 ? meilleur : null;
 }
 
+// ── Présélection rapide de plusieurs modèles candidats ──
+// Même algorithme de score que choisirModele() ci-dessus (aucun appel
+// réseau/IA, purement local et donc quasi instantané), mais renvoie les N
+// meilleurs au lieu d'un seul. Sert à transmettre plusieurs candidats
+// crédibles au moteur Storytelling, qui choisit lui-même en interne (dans
+// le même appel IA, sans étape supplémentaire) celui dont la mécanique
+// narrative sert le mieux le récit demandé.
+function choisirTopModeles(sujet, n) {
+  if (!sujet || !SCRIPTURA_MODELES.length) return [];
+  const s = sujet.toLowerCase();
+  const stopwords = ['dans','pour','avec','sans','plus','tout','tous','cette','celui','celle','leur','leurs','mais','donc','entre','chez','comment','pourquoi','quand','était','sont','fait','faire','être','avoir','vers','sous','aussi','très','bien','celui','contre'];
+  const mots = s.split(/[^a-zàâäéèêëïîôöùûüç0-9]+/i)
+    .filter(m => m.length >= 4 && !stopwords.includes(m));
+
+  const scores = SCRIPTURA_MODELES.map(modele => {
+    let score = 0;
+    for (const theme of modele.themes) {
+      const t = theme.toLowerCase();
+      if (s.includes(t)) { score += 8; continue; }
+      const motsTheme = t.split(/\s+/);
+      for (const mot of mots) {
+        for (const mt of motsTheme) {
+          if (mt === mot) { score += 4; }
+          else if (mot.length >= 5 && mt.length >= 5 && mot.substring(0,5) === mt.substring(0,5)) { score += 2; }
+        }
+      }
+    }
+    const motsTitre = modele.titre.toLowerCase().split(/[^a-zàâäéèêëïîôöùûüç0-9]+/i);
+    for (const mot of mots) {
+      if (motsTitre.includes(mot)) { score += 3; }
+    }
+    return { modele, score };
+  });
+
+  return scores
+    .filter(x => x.score >= 4) // même seuil que choisirModele(), évite les faux positifs
+    .sort((a, b) => b.score - a.score)
+    .slice(0, n || 3)
+    .map(x => x.modele);
+}
+
 // Exposer globalement pour que index.html y accède
 window.SCRIPTURA_MODELES = SCRIPTURA_MODELES;
 window.choisirModele = choisirModele;
+window.choisirTopModeles = choisirTopModeles;
