@@ -1380,7 +1380,7 @@ RÈGLES :
 - N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
 - Tout ce qui n'est concerné par aucune demande doit être recopié EXACTEMENT à l'identique (même texte, même minutage, même style de hook).
 - Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- Renvoie la liste COMPLÈTE des hooks et des segments du script, dans le même ordre, avec exactement le même nombre de chaque qu'actuellement.
+- Renvoie OBLIGATOIREMENT EXACTEMENT ${(currentHooks || []).length} hooks et EXACTEMENT ${currentScript.length} segments de script, ni plus ni moins, dans le même ordre — même pour les éléments non modifiés, qui doivent être recopiés tels quels.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"script":[{"temps":"...","texte":"...","visuel":"..."}]}`;
@@ -1388,16 +1388,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   try {
     const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
     const parsed = parseAIResponse(raw);
-    if (!parsed || !Array.isArray(parsed.script) || parsed.script.length !== currentScript.length) {
+    const hooksAttendus = (currentHooks || []).length;
+    if (!parsed
+      || !Array.isArray(parsed.script) || parsed.script.length !== currentScript.length
+      || (hooksAttendus > 0 && (!Array.isArray(parsed.hooks) || parsed.hooks.length !== hooksAttendus))) {
       throw new Error('réponse invalide');
     }
-    if (Array.isArray(parsed.hooks) && currentHooks && parsed.hooks.length === currentHooks.length) {
+    if (Array.isArray(parsed.hooks) && currentHooks) {
       currentHooks.forEach((h, i) => {
-        if (parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
-        if (parsed.hooks[i].style) h.style = parsed.hooks[i].style;
+        if (parsed.hooks[i] && parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
+        if (parsed.hooks[i] && parsed.hooks[i].style) h.style = parsed.hooks[i].style;
       });
     }
     currentScript.forEach((s, i) => { if (parsed.script[i].texte) s.texte = parsed.script[i].texte; });
+
+    const scriptChange = currentScript.some((s, i) => s.texte !== avantScript[i]);
+    const hooksChange = (currentHooks || []).some((h, i) => h.texte !== avantHooks[i]);
+    if (!scriptChange && !hooksChange) throw new Error('aucun changement identifié');
 
     rerenderScriptBlock(avantScript);
     rerenderHooksList(avantHooks);
@@ -1409,7 +1416,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (inputApres) inputApres.value = '';
     toastRegen('Retouches appliquées');
   } catch (e) {
-    toastRegen('Retouche impossible, réessaie');
+    toastRegen(e && e.message === 'aucun changement identifié'
+      ? 'Aucun changement identifié — précise ta demande'
+      : 'Retouche impossible, réessaie');
   } finally {
     const btnApres = document.getElementById('scriptRetoucheBtn');
     const inputApres = document.getElementById('scriptRetoucheInput');

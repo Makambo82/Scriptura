@@ -532,7 +532,7 @@ RÈGLES :
 - Tout ce qui n'est concerné par aucune demande doit être recopié EXACTEMENT à l'identique (même texte, même style de hook).
 - Si le segment "Clôture" est retouché, conserve impérativement la triple question miroir et la signature métapoétique qui y figurent, sauf si la demande porte explicitement dessus.
 - Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- Renvoie la liste COMPLÈTE des hooks et des segments du récit, dans le même ordre, avec exactement le même nombre de chaque qu'actuellement.
+- Renvoie OBLIGATOIREMENT EXACTEMENT ${(currentStory.hooks || []).length} hooks et EXACTEMENT ${currentStory.recit.length} segments de récit, ni plus ni moins, dans le même ordre — même pour les éléments non modifiés, qui doivent être recopiés tels quels.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"...","texte":"..."}]}`;
@@ -540,16 +540,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   try {
     const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
     const parsed = parseAIResponse(raw);
-    if (!parsed || !Array.isArray(parsed.recit) || parsed.recit.length !== currentStory.recit.length) {
+    const hooksAttendus = (currentStory.hooks || []).length;
+    if (!parsed
+      || !Array.isArray(parsed.recit) || parsed.recit.length !== currentStory.recit.length
+      || (hooksAttendus > 0 && (!Array.isArray(parsed.hooks) || parsed.hooks.length !== hooksAttendus))) {
       throw new Error('réponse invalide');
     }
-    if (Array.isArray(parsed.hooks) && currentStory.hooks && parsed.hooks.length === currentStory.hooks.length) {
+    if (Array.isArray(parsed.hooks) && currentStory.hooks) {
       currentStory.hooks.forEach((h, i) => {
-        if (parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
-        if (parsed.hooks[i].style) h.style = parsed.hooks[i].style;
+        if (parsed.hooks[i] && parsed.hooks[i].texte) h.texte = parsed.hooks[i].texte;
+        if (parsed.hooks[i] && parsed.hooks[i].style) h.style = parsed.hooks[i].style;
       });
     }
     currentStory.recit.forEach((s, i) => { if (parsed.recit[i].texte) s.texte = parsed.recit[i].texte; });
+
+    const recitChange = currentStory.recit.some((s, i) => s.texte !== avantRecit[i]);
+    const hooksChange = (currentStory.hooks || []).some((h, i) => h.texte !== avantHooks[i]);
+    if (!recitChange && !hooksChange) throw new Error('aucun changement identifié');
 
     rerenderRecitBlock(avantRecit);
     rerenderStoryHooksList(avantHooks);
@@ -562,7 +569,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (inputApres) inputApres.value = '';
     toastRegen('Retouches appliquées');
   } catch (e) {
-    toastRegen('Retouche impossible, réessaie');
+    toastRegen(e && e.message === 'aucun changement identifié'
+      ? 'Aucun changement identifié — précise ta demande'
+      : 'Retouche impossible, réessaie');
   } finally {
     const btnApres = document.getElementById('storyRetoucheBtn');
     const inputApres = document.getElementById('storyRetoucheInput');
