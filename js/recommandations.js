@@ -261,6 +261,37 @@ function salutationAccueil(profil) {
   return prenom ? (base + ' ' + prenom + ' 👋') : (base + ' 👋');
 }
 
+// ── Cache journalier de la recommandation d'accueil ──
+// initAccueilPremium() se déclenche à CHAQUE ouverture de la page d'accueil :
+// sans cache, un abonné qui rouvre l'app plusieurs fois par jour relance
+// autant d'appels au modèle pour un contenu qui n'a aucune raison d'avoir
+// changé entre deux visites de la même journée. Stocké côté navigateur
+// (localStorage, par code d'accès) : pas de changement de schéma Supabase,
+// et la recommandation reste correcte même hors-ligne le temps de la journée.
+function cleRecoJour() {
+  const d = new Date();
+  const jour = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return 'scriptura_reco_' + getUserRef() + '_' + jour;
+}
+function lireRecoCache() {
+  try {
+    const brut = localStorage.getItem(cleRecoJour());
+    return brut ? JSON.parse(brut) : null;
+  } catch (e) { return null; }
+}
+function ecrireRecoCache(data) {
+  try {
+    const cleDuJour = cleRecoJour();
+    localStorage.setItem(cleDuJour, JSON.stringify(data));
+    // Nettoyage léger : les entrées des jours précédents ne servent plus à rien.
+    const prefixe = 'scriptura_reco_' + getUserRef() + '_';
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefixe) && k !== cleDuJour) localStorage.removeItem(k);
+    }
+  } catch (e) { /* stockage plein ou indisponible : tant pis, pas bloquant */ }
+}
+
 async function initAccueilPremium() {
   const zone = document.getElementById('accueilPremium');
   if (!zone) return;
@@ -283,7 +314,16 @@ async function initAccueilPremium() {
   const entete = `<div class="results-heading">${salutationAccueil(profil)}</div>
     <div class="ideas-sub" style="margin:6px 0 20px">Voici ce que je te recommande aujourd'hui.</div>`;
 
-  const data = await genererRecommandations(null, null);
+  // Une recommandation déjà générée aujourd'hui pour ce créateur : on la
+  // réaffiche telle quelle plutôt que de refaire un appel identique.
+  let data = lireRecoCache();
+  if (!data) {
+    data = await genererRecommandations(null, null);
+    // On ne met en cache que les réponses exploitables (recommandations
+    // réelles ou message d'onboarding) — jamais un échec technique (null),
+    // pour qu'un simple problème réseau ne bloque pas toute la journée.
+    if (data) ecrireRecoCache(data);
+  }
 
   if (data && data.onboarding) {
     // Pas assez de mémoire encore : message honnête plutôt que rien du
