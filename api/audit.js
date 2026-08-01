@@ -7,6 +7,17 @@
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
 
+// Date réelle du jour, injectée dans l'appel d'audit principal (même principe
+// que api/generate.js) : sans repère temporel, le modèle peut analyser un
+// sujet d'actualité (niche "Géopolitique & Actualité", etc.) en présentant
+// des faits ou une année déjà passés comme encore à venir.
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function systemDateActuelle() {
+  const now = new Date();
+  const dateStr = now.getUTCDate() + ' ' + MOIS_FR[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
+  return `Nous sommes le ${dateStr}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir. Si le contenu du créateur touche à l'actualité récente ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes constats avec prudence plutôt qu'avec une certitude que tu n'as pas.`;
+}
+
 // Prompt court et bon marché : sert uniquement à reconnaître le TYPE de chaque
 // capture au moment du chargement, pour guider l'utilisateur avant l'audit.
 // Ne fait AUCUNE analyse : il classe, c'est tout.
@@ -295,6 +306,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: max_tokens || 8000,
+        system: systemDateActuelle(),
         messages: [{ role: 'user', content: content }]
       })
     });

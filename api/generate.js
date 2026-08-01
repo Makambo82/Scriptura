@@ -45,6 +45,20 @@ async function verifierAcces(code) {
   }
 }
 
+// Date réelle du jour, injectée dans CHAQUE appel modèle (voir handler ci-dessous).
+// Le modèle n'a autrement aucun moyen de savoir qu'on n'est plus à la date de
+// ses connaissances d'entraînement : sans ce repère, il peut présenter une
+// année déjà passée comme "à venir" ou "décisive" (ex. "2024 sera décisif"
+// alors qu'on est en 2026). Formatage manuel (pas de dépendance ICU/locale).
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function dateDuJourFr() {
+  const now = new Date();
+  return now.getUTCDate() + ' ' + MOIS_FR[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
+}
+function systemDateActuelle() {
+  return `Nous sommes le ${dateDuJourFr()}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir ou "décisifs" pour l'avenir. Si un sujet touche à l'actualité récente, à la politique ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes affirmations avec prudence plutôt qu'avec une certitude que tu n'as pas — et signale-le si c'est pertinent pour le créateur.`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
@@ -69,6 +83,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: model || 'claude-haiku-4-5-20251001',
         max_tokens: max_tokens || 4000,
+        system: systemDateActuelle(),
         messages: messages
       })
     });
