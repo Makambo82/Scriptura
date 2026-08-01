@@ -61,12 +61,14 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
   const texteAuditFrais = auditFrais ? texteDiagnosticOpportunites(auditFrais, ts || {}) : '';
 
   // Mémoire trop mince pour recommander quoi que ce soit d'honnête : on
-  // n'invente rien, on ne génère simplement pas de recommandation.
+  // n'invente rien. Signalé distinctement d'un échec technique (voir plus
+  // bas) pour que l'accueil puisse afficher un message honnête plutôt que
+  // de disparaître sans explication.
   const rienDeConnu = !profil.declare.niche_principale
     && !(profil.observe.themes_traites && profil.observe.themes_traites.length)
     && !(profil.lecons.recommandations_permanentes && profil.lecons.recommandations_permanentes.length)
     && !texteAuditFrais;
-  if (rienDeConnu) return null;
+  if (rienDeConnu) return { onboarding: true };
 
   const prompt = `Tu es le Directeur Éditorial de Scriptura, l'assistant IA personnel d'un créateur de contenu francophone. Tu le connais grâce à sa mémoire accumulée dans Scriptura (générations passées, préférences, audits). Ta mission : lui dire précisément quoi créer aujourd'hui.
 
@@ -242,6 +244,21 @@ async function initAccueilPremium() {
     <div class="ideas-sub" style="margin:6px 0 20px">Voici ce que je te recommande aujourd'hui.</div>`;
 
   const data = await genererRecommandations(null, null);
+
+  if (data && data.onboarding) {
+    // Pas assez de mémoire encore : message honnête plutôt que rien du
+    // tout (sinon la fonctionnalité paraît absente/cassée, voir consigne
+    // "niveau de confiance adapté plutôt que d'inventer des certitudes").
+    zone.innerHTML = `${entete}
+      <div class="score-card">
+        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-diag-constat">Scriptura apprend encore tes habitudes.</div>
+        <div class="audit-diag-interp">Fais une première génération ou une analyse de compte : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
+      </div>`;
+    zone.style.display = 'block';
+    return;
+  }
+
   if (!data) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
   rendreRecommandations('accueilPremium', data, entete);
 }
@@ -256,6 +273,8 @@ async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
   zone.innerHTML = '<div class="audit-section-label">Et maintenant ?</div><div class="audit-diag-interp">Scriptura cherche la meilleure recommandation pour ton compte…</div>';
 
   const data = await genererRecommandations(auditFrais, ts, niche, objectif);
-  if (!data) { zone.innerHTML = ''; return; }
+  // rienDeConnu ne devrait jamais arriver ici (l'audit tout juste terminé
+  // fournit toujours un diagnostic), mais on s'en protège par cohérence.
+  if (!data || data.onboarding) { zone.innerHTML = ''; return; }
   rendreRecommandations('auditOpportunites', data, '<div class="audit-section-label">Et maintenant ?</div>');
 }
