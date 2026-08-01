@@ -7,8 +7,6 @@ let lastGenContext = null;
 let currentScript = null;
 let currentHooks = null;
 let lastStoryContext = null;
-let currentStoryboardScript = null;
-let currentStoryboardStory = null;
 
 // ══════════════════════════════════════
 //  NAVIGATION ENTRE MODES

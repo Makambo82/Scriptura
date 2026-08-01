@@ -117,11 +117,7 @@ function reafficherStoryboard(sbData, isStory) {
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_SHARE}</button>
-      </div>
-      <button class="btn-generate" style="margin-top:14px" onclick="creerVideoDepuisStoryboard(currentStoryboardStory, 'story', null, 'videoZoneStory')">🎥 Créer la vidéo</button>
-      <div id="videoZoneStory"></div>
-      </div>`;
-    currentStoryboardStory = board;
+      </div></div>`;
     // Cacher le bouton "Générer le storyboard" puisqu'il est déjà là
     const btn = document.getElementById('storyStoryboardBtn');
     if (btn) btn.style.display = 'none';
@@ -155,11 +151,7 @@ function reafficherStoryboard(sbData, isStory) {
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_SHARE}</button>
-      </div>
-      <button class="btn-generate" style="margin-top:14px" onclick="creerVideoDepuisStoryboard(currentStoryboardScript, 'script', null, 'videoZoneScript')">🎥 Créer la vidéo</button>
-      <div id="videoZoneScript"></div>
-      </div>`;
-    currentStoryboardScript = board;
+      </div></div>`;
     // Cacher le bouton générer
     const btn = document.getElementById('sbGenerateBtn');
     if (btn) btn.style.display = 'none';

@@ -1038,16 +1038,6 @@ const GEN_STEPS = {
     'Développement du récit…',
     'Pose de la tension finale…',
     'Calibrage de la durée…'
-  ],
-  video: [
-    'Écriture de la voix off…',
-    'Calcul du minutage précis…',
-    'Génération des images, plan par plan…',
-    'Animation de chaque plan…',
-    'Assemblage du montage…',
-    'Incrustation des sous-titres…',
-    'Ajout de la voix…',
-    'Export de la vidéo finale…'
   ]
 };
 const GEN_TAGLINE = {
@@ -1056,8 +1046,7 @@ const GEN_TAGLINE = {
   story: 'Ton storyteller écrit ton récit',
   audit: 'Ton consultant TikTok analyse ton compte',
   serie_creation: 'Ton architecte narratif construit ta série',
-  serie_episode: 'Ton scénariste écrit ton épisode',
-  video: 'Ton monteur vidéo IA au travail — ça peut prendre quelques minutes'
+  serie_episode: 'Ton scénariste écrit ton épisode'
 };
 
 function startGenAnimation(mode) {
@@ -1605,13 +1594,9 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
-      </div>
-      <button class="btn-generate" style="margin-top:14px" onclick="creerVideoDepuisStoryboard(currentStoryboardScript, 'script', null, 'videoZoneScript')">🎥 Créer la vidéo</button>
-      <div id="videoZoneScript"></div>
-      </div>`;
+      </div></div>`;
     // Le bouton "Générer le storyboard" a été remplacé par le storyboard lui-même.
     // Le bouton "Régénérer" (en bas du storyboard) prend désormais le relais.
-    currentStoryboardScript = parsed.storyboard;
 
   } catch(e) {
     if (typeof prog !== 'undefined') prog.stop();

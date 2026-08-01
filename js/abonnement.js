@@ -245,12 +245,6 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Fonctionnalité Pro';
     if (titre) titre.innerHTML = 'L\'analyse de compte<br/>TikTok est dans le Pro';
     if (intro) { intro.textContent = 'Cette analyse fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
-  } else if (contexte === 'video') {
-    // Non-abonné qui clique sur "Créer la vidéo" : réservé aux abonnés
-    // (coût réel par vidéo), sans distinction de palier — Creator ou Pro.
-    if (tag) tag.textContent = 'Réservé aux abonnés';
-    if (titre) titre.innerHTML = 'La création vidéo<br/>est réservée aux abonnés';
-    if (intro) { intro.textContent = 'Transformer un storyboard en vidéo prête à publier fait partie des avantages abonné, Creator comme Pro.'; intro.style.display = 'block'; }
   } else if (contexte === 'serie-pro') {
     // Mode Série : réservé au Pro. On n'affiche QUE le plan qui y donne accès,
     // et on ne parle jamais de générations gratuites (hors sujet ici).
