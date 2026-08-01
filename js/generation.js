@@ -644,11 +644,11 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     //  PHASES 3-4 (Critique + Réviseur) — le cœur du renforcement qualité.
     //  Le Critique cherche ACTIVEMENT les faiblesses, y compris en essayant
     //  de RÉFUTER le script (pourquoi un spectateur scrollerait avant la
-    //  fin ?). Tant qu'un problème significatif ressort, le Réviseur
-    //  réécrit UNIQUEMENT les segments faibles identifiés — jamais tout le
-    //  script — puis un nouveau contrôle repasse. Borné à 2 passes : au-delà,
-    //  on livre la meilleure version obtenue plutôt que de boucler sans fin
-    //  (coût et temps de génération doivent rester raisonnables).
+    //  fin ?). Si un problème significatif ressort, le Réviseur réécrit
+    //  UNIQUEMENT les segments faibles identifiés — jamais tout le script.
+    //  Bornée à 1 passe (voir MAX_PASSES_QUALITE) pour garder un temps de
+    //  génération raisonnable : au-delà, on livre la meilleure version
+    //  obtenue plutôt que de multiplier les allers-retours.
     // ══════════════════════════════════════
     let critique = null;
     if (CRITIQUE_ACTIVE) {
@@ -667,7 +667,11 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         return false;
       }
 
-      const MAX_PASSES_QUALITE = 2;
+      // Bornée à 1 passe (critique + révision au maximum une fois) pour
+      // garder un temps de génération raisonnable : au pire 4 appels IA au
+      // lieu de 2 avant, plutôt que 6. Toujours au moins un vrai contrôle
+      // qualité indépendant, sans le temps d'attente d'une 2e itération.
+      const MAX_PASSES_QUALITE = 1;
       for (let passe = 0; passe < MAX_PASSES_QUALITE; passe++) {
         // ══════════════════════════════════════
         //  PHASE 3 — LE CRITIQUE (agent indépendant)
