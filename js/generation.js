@@ -101,7 +101,7 @@ async function generateIdeas() {
   // au bloc de contexte déjà présent, ne modifie aucune règle de ce prompt.
   const profilLigneIdees = ligneProfilPourPrompt(await chargerProfilCreateur());
 
-  const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour un créateur.
+  const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis — jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
 
 PROFIL DU CRÉATEUR :
 - Niche : ${niche}
@@ -122,7 +122,19 @@ Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne res
 - Si la niche est géopolitique : ancre dans les enjeux, tensions, alliances et réalités actuelles et historiques réelles de ${geo}
 Une idée qui pourrait s'appliquer à n'importe quelle région est une idée ÉCHOUÉE. Chaque idée doit être impossible à imaginer sans connaître ${geo}.` : ''}
 
-MISSION : Génère 12 idées de vidéos à FORT POTENTIEL VIRAL. 
+AVANT D'ÉCRIRE LA MOINDRE IDÉE, RAISONNE EN SILENCE — ce raisonnement ne doit JAMAIS apparaître dans ta réponse, seul le résultat final compte :
+
+1. OPPORTUNITÉS : à partir du profil ci-dessus (niche, historique, leçons d'audit, objectif), identifie les sujets offrant le plus fort potentiel pour CE créateur précis — pas pour n'importe qui dans cette niche. Cherche activement : les contradictions, les paradoxes, les idées reçues à démonter, les secrets, les erreurs coûteuses, les conséquences inattendues, les révélations méconnues, les histoires peu racontées, les angles rarement utilisés. Ne retiens jamais un sujet évident quand un angle plus fort existe sur le même thème.
+
+2. ANTI-RÉPÉTITION : si le profil ci-dessus mentionne des sujets, angles, structures ou hooks déjà utilisés pour ce créateur, écarte-les activement — ne les reformule pas, ne les paraphrase pas.
+
+3. FILTRE ANTI-GÉNÉRIQUE : pour chaque idée envisagée, vérifie-la contre ces questions avant de la retenir — ressemble-t-elle à ce qu'une IA généraliste proposerait spontanément ? Est-elle trop évidente ? Manque-t-elle de surprise ou de curiosité ? Ressemble-t-elle à une idée déjà générée pour ce créateur ? Si la réponse est oui à l'une de ces questions, rejette-la et cherche mieux.
+
+4. TEST DU FIL D'ACTUALITÉ : pour chaque idée retenue, imagine-la apparaître sur le fil ${ideaPlatform || 'TikTok'} de l'audience visée. Susciterait-elle IMMÉDIATEMENT l'envie de cliquer ou de continuer à regarder ? Si non, rejette-la au profit d'une meilleure.
+
+5. CLASSEMENT : une fois les meilleures idées retenues, classe-les de la plus forte opportunité à la moins forte pour CE créateur. La première idée de ta réponse doit être celle que tu juges la meilleure.
+
+MISSION : Génère 12 idées de vidéos à FORT POTENTIEL VIRAL, dans cet ordre de pertinence.
 
 RÈGLES ABSOLUES :
 - INTERDIT les idées génériques ("Les 5 erreurs à éviter", "Comment réussir en...", "Mon top 10"). Ça, tout le monde le fait.
@@ -131,17 +143,18 @@ RÈGLES ABSOLUES :
 - Adapte au style ${ideaTone || 'de la niche'} et à la plateforme ${ideaPlatform || 'sociale'}
 - Chaque idée doit donner envie de cliquer IMMÉDIATEMENT
 - Varie les angles : certaines révélations, certaines contre-intuitions, certaines histoires, certains débats
+- Deux créateurs différents de la même niche ne doivent jamais recevoir la même liste : personnalise réellement à partir du profil ci-dessus, pas seulement de la niche.
 
 Pour CHAQUE idée, fournis :
 1. Un TITRE accrocheur (comme il apparaîtrait en accroche)
-2. L'ANGLE : quelle est l'approche unique, pourquoi c'est différent
-3. POURQUOI ÇA MARCHE : le mécanisme psychologique qui rend cette idée virale
-4. UN HOOK DE DÉPART : la première phrase exacte pour lancer la vidéo (percutante, arrête le scroll)
+2. L'ANGLE : quelle est l'approche unique, pourquoi c'est différent — et pourquoi cet angle précis plutôt qu'un plus évident sur le même sujet
+3. POURQUOI ÇA MARCHE POUR CE CRÉATEUR : le mécanisme psychologique qui rend cette idée virale, ET en quoi elle est pertinente pour SON profil précis. Ne mentionne JAMAIS une performance ou une statistique que tu ne connais pas réellement — base-toi uniquement sur les informations disponibles ci-dessus.
+4. UN HOOK DE DÉPART cohérent avec l'angle : la première phrase exacte pour lancer la vidéo. Vérifie-le avant de le retenir : est-il prévisible ou générique ? S'il échoue à ce test, remplace-le.
 
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnement visible, uniquement le résultat) :
 {"idees":[{"titre":"...","angle":"...","pourquoi":"...","hook":"..."}]}
 
-Génère exactement 12 idées, toutes différentes et toutes à fort potentiel.`;
+Génère exactement 12 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 6000, prompt);
@@ -171,7 +184,11 @@ Génère exactement 12 idées, toutes différentes et toutes à fort potentiel.`
       },
       observe: {
         themes_traites: (parsed.idees || []).slice(0, 3).map(i => i.titre).filter(Boolean),
-        plateformes: ideaPlatform
+        plateformes: ideaPlatform,
+        // Anti-répétition croisée avec les autres modes (voir generate()) :
+        // mémorise l'angle et le hook de la meilleure idée retenue.
+        angles_recents: (parsed.idees && parsed.idees[0] && parsed.idees[0].angle) ? String(parsed.idees[0].angle).slice(0, 120) : undefined,
+        hooks_recents: (parsed.idees && parsed.idees[0] && parsed.idees[0].hook) ? String(parsed.idees[0].hook).slice(0, 140) : undefined
       }
     });
 
