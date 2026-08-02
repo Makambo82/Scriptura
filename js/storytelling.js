@@ -205,8 +205,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique.`;
 
   try {
-    const raw = await callAI(MODEL_CREATIF, 8000, storyPrompt);
+    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt);
     let parsed = parseAIResponse(raw);
+    // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
+    // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
+    if (!parsed || !parsed.recit) {
+      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt);
+      parsed = parseAIResponse(rawRetry);
+    }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
 
     // ── SCORE RÉEL : régénère UNE fois si le score global est < 90 ──
@@ -218,7 +224,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     }
     if (scoreGlobalStory(parsed) < 90) {
       try {
-        const raw2 = await callAI(MODEL_CREATIF, 8000, storyPrompt);
+        const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt);
         const parsed2 = parseAIResponse(raw2);
         if (parsed2 && parsed2.recit && parsed2.score && scoreGlobalStory(parsed2) > scoreGlobalStory(parsed)) {
           parsed = parsed2;

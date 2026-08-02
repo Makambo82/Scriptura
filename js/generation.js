@@ -673,9 +673,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
-    const writeRaw = await callAI(MODEL_CREATIF, 8000, writePrompt, undefined, rechercheWeb);
+    function scriptEstComplet(p) {
+      return !!p && Array.isArray(p.script) && p.script.length > 0 && Array.isArray(p.hooks) && p.hooks.length > 0;
+    }
+
+    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
     let parsed = parseAIResponse(writeRaw);
-    if (!parsed) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
+    // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
+    // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
+    // parsed peut être un objet "vrai" mais incomplet (ex: {score:{...}} sans script)
+    // si la réparation JSON a dû tronquer avant la fin — on vérifie donc les champs
+    // essentiels, pas juste la présence de l'objet.
+    if (!scriptEstComplet(parsed)) {
+      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
+      const parsedRetry = parseAIResponse(writeRawRetry);
+      if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
+    }
+    if (!scriptEstComplet(parsed)) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
 
     // ── SCORE RÉEL : régénère UNE fois si le score global est < 90 ──
     function scoreGlobal(p) {
@@ -686,10 +700,10 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     }
     if (scoreGlobal(parsed) < 90) {
       try {
-        const writeRaw2 = await callAI(MODEL_CREATIF, 8000, writePrompt, undefined, rechercheWeb);
+        const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
         const parsed2 = parseAIResponse(writeRaw2);
-        // On garde la meilleure des deux versions
-        if (parsed2 && parsed2.score && scoreGlobal(parsed2) > scoreGlobal(parsed)) {
+        // On garde la meilleure des deux versions (jamais une version tronquée)
+        if (scriptEstComplet(parsed2) && scoreGlobal(parsed2) > scoreGlobal(parsed)) {
           parsed = parsed2;
         }
       } catch(e) { /* si la 2e tentative échoue, on garde la première */ }
