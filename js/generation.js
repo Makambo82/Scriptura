@@ -495,6 +495,13 @@ async function generate() {
     errorBox.style.display = 'block'; return;
   }
 
+  // Cette génération correspond-elle à la recommandation d'accueil ? Capturé
+  // ici (une seule fois, avant les vérifications de quota) puis remis à false
+  // : ne s'applique qu'à la toute prochaine tentative, jamais à une génération
+  // sans rapport plus tard dans la session.
+  const depuisRecommandation = (typeof _recoEnCoursDaction !== 'undefined') && _recoEnCoursDaction;
+  if (typeof _recoEnCoursDaction !== 'undefined') _recoEnCoursDaction = false;
+
   // ── VÉRIFICATION LIMITE ──
   if (!unlocked && usedGen >= MAX_FREE) {
     openPlans('nouveau');
@@ -904,6 +911,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, format, tone: selectedTone, duree: selectedDuree, brief: brief, critique: critique };
     currentScript = parsed.script;
     currentHooks = parsed.hooks;
+
+    // Ce script vient bien de la recommandation d'accueil : elle est
+    // désormais suivie d'effet, donc potentiellement obsolète.
+    if (depuisRecommandation && typeof viderRecoCache === 'function') viderRecoCache();
 
     renderResults(parsed, niche, sujet);
     setTimeout(updateScrollBtn, 300);

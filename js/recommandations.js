@@ -15,6 +15,12 @@
 // ═══════════════════════════════════════════════════════════
 
 let _recommandations = [];
+// true UNIQUEMENT quand la prochaine génération de script provient du bouton
+// "Créer le script" de la recommandation (voir creerScriptDepuisRecommandation
+// et generate(), js/generation.js). Consommé (remis à false) par le tout
+// premier generate() qui suit, réussi ou non — jamais laissé traîner sur une
+// génération sans rapport avec la recommandation affichée.
+let _recoEnCoursDaction = false;
 
 // Texte descriptif complet du profil pour ce prompt dédié (plus détaillé
 // que la ligne courte ajoutée aux autres prompts, voir ligneProfilPourPrompt
@@ -187,6 +193,8 @@ function toggleAutresRecommandations(id) {
 function creerScriptDepuisRecommandation(index) {
   const reco = _recommandations[index];
   if (!reco) return;
+
+  _recoEnCoursDaction = true; // la prochaine génération de script correspond à cette recommandation
 
   pushNav(); // capture l'écran d'où on vient (accueil ou rapport d'audit) avant de le masquer
 

@@ -2,11 +2,6 @@
 let currentGenId = null; // id de la génération en cours (pour y rattacher le storyboard)
 
 async function saveGeneration(mode, titre, contenu) {
-  // Toute nouvelle activité rend la recommandation du jour potentiellement
-  // obsolète (le créateur vient peut-être d'agir dessus) : on la vide, la
-  // prochaine visite de l'accueil en calculera une fraîche.
-  if (typeof viderRecoCache === 'function') viderRecoCache();
-
   if (!supabaseClient) { currentGenId = null; return; }
 
   // Régénération GRATUITE : on met à jour la ligne existante au lieu d'en créer une
