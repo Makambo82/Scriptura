@@ -616,10 +616,10 @@ function lancerGenImage(cible) {
 // La barre monte de façon crédible vers 90% pendant que l'IA travaille,
 // puis saute à 100% PILE quand le storyboard est prêt et affiché.
 // 100% = storyboard visible, toujours.
-function createProgress(setLabel) {
+function createProgress(setLabel, dureeEstimee) {
   let pct = 0;
   let timer = null;
-  const DUREE_ESTIMEE = 9000; // ~9s, durée moyenne d'une génération
+  const DUREE_ESTIMEE = dureeEstimee || 9000; // durée moyenne estimée (défaut ~9s)
   const debut = Date.now();
 
   function tick() {

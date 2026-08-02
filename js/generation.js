@@ -1019,6 +1019,16 @@ async function regenererContenu(type) {
 }
 
 let genInterval = null;
+let genProgressCtl = null;
+// Durée estimée (ms) de chaque type de génération, pour calibrer la montée de la barre vers 90%.
+const GEN_DUREE = {
+  script: 60000,
+  story: 60000,
+  ideas: 12000,
+  audit: 18000,
+  serie_creation: 30000,
+  serie_episode: 30000
+};
 
 function setLoading(on) {
   const btn = document.getElementById('generateBtn');
@@ -1100,7 +1110,6 @@ function startGenAnimation(mode) {
   mode = mode || 'script';
   const overlay = document.getElementById('genOverlay');
   const stepsContainer = document.getElementById('genSteps');
-  const progress = document.getElementById('genProgress');
   const tagline = document.querySelector('.gen-tagline');
 
   // Reconstruire les étapes selon le mode
@@ -1116,21 +1125,29 @@ function startGenAnimation(mode) {
   overlay.classList.add('active');
 
   steps.forEach(s => s.classList.remove('active', 'done'));
-  progress.style.width = '0%';
 
   let current = 0;
   const total = steps.length;
-
   steps[0].classList.add('active');
-  progress.style.width = (100 / total) + '%';
 
+  // Barre de progression IDENTIQUE au storyboard : monte jusqu'à 90% puis
+  // saute à 100% pile quand le résultat est prêt (voir stopGenAnimation).
+  const fill = document.getElementById('genProgressFill');
+  const pctEl = document.getElementById('genProgressPct');
+  if (genProgressCtl) genProgressCtl.stop();
+  genProgressCtl = createProgress((p) => {
+    if (fill) fill.style.width = p + '%';
+    if (pctEl) pctEl.textContent = p + '%';
+  }, GEN_DUREE[mode] || 45000);
+  genProgressCtl.start();
+
+  // Défilement des étapes textuelles (indépendant de la barre)
   genInterval = setInterval(() => {
     if (current < total - 1) {
       steps[current].classList.remove('active');
       steps[current].classList.add('done');
       current++;
       steps[current].classList.add('active');
-      progress.style.width = ((current + 1) / total * 100) + '%';
     }
   }, 3200);
 }
@@ -1138,15 +1155,19 @@ function startGenAnimation(mode) {
 function stopGenAnimation() {
   const overlay = document.getElementById('genOverlay');
   const steps = document.querySelectorAll('.gen-step');
-  const progress = document.getElementById('genProgress');
 
   if (genInterval) { clearInterval(genInterval); genInterval = null; }
 
+  // La barre saute à 100% (résultat prêt), puis on ferme l'overlay.
+  if (genProgressCtl) genProgressCtl.finish();
+
   // Compléter toutes les étapes
   steps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
-  progress.style.width = '100%';
 
-  setTimeout(() => { overlay.classList.remove('active'); }, 400);
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    if (genProgressCtl) { genProgressCtl.stop(); genProgressCtl = null; }
+  }, 400);
 }
 
 // ── RENDER ──
