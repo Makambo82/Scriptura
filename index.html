@@ -959,11 +959,11 @@
   <!-- RÉSULTATS -->
   <div id="results">
     <div class="results-top">
-      <div>
+      <div class="results-top-row">
         <div class="results-heading">Ton contenu est prêt.</div>
-        <div class="results-meta" id="resultsMeta"></div>
+        <button class="btn-regenerate" onclick="regenererContenu('script')">↻ Régénérer</button>
       </div>
-      <button class="btn-regenerate" onclick="regenererContenu('script')">↻ Régénérer</button>
+      <div class="results-meta" id="resultsMeta"></div>
     </div>
     <div id="outputList"></div>
     <button class="btn-restart" onclick="restart()">↺ Générer un nouveau contenu</button>

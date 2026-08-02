@@ -232,11 +232,19 @@ nav{
 /* RESULTS */
 #results{margin-top:56px;display:none}
 .results-top{
-  display:flex;align-items:flex-end;justify-content:space-between;
   margin-bottom:32px;padding-bottom:24px;
   border-bottom:1px solid var(--border-soft);
 }
+/* Titre + bouton Régénérer sur une seule et même ligne, mention en dessous. */
+.results-top-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+}
+.results-top-row .btn-regenerate{flex-shrink:0}
+.results-top .results-meta{margin-top:8px}
 .results-heading{font-family:'Playfair Display',serif;font-weight:400;font-style:italic;font-size:1.6rem}
+/* Sur les petits écrans, le titre rétrécit légèrement pour rester sur une ligne
+   à côté du bouton, au lieu de se casser en deux. */
+.results-top-row .results-heading{white-space:nowrap;font-size:clamp(1rem,5.6vw,1.6rem)}
 .results-meta{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;color:var(--gold);opacity:0.6;text-transform:uppercase}
 
 /* OUTPUT CARD */
