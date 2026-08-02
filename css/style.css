@@ -944,6 +944,18 @@ footer strong{color:var(--gold)}
 }
 .btn-regenerate:hover{background:var(--gold-pale);border-color:var(--gold)}
 .btn-regenerate:disabled{opacity:0.5;cursor:default}
+/* Bouton « Nouvelle recommandation » : le doré remplit le bouton pendant que
+   Scriptura change de reco, et le libellé passe en blanc pour rester lisible. */
+.reco-refresh{position:relative;overflow:hidden}
+.reco-refresh::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:0;z-index:0;
+  background:linear-gradient(90deg,var(--gold),var(--gold-light));
+}
+.reco-refresh .reco-refresh-label{position:relative;z-index:1;transition:color 0.25s ease}
+.reco-refresh.reco-refresh-loading{opacity:1;border-color:var(--gold)}
+.reco-refresh.reco-refresh-loading .reco-refresh-label{color:#fff}
+.reco-refresh.reco-refresh-loading::before{animation:recoRefreshFill 4.5s ease-out forwards}
+@keyframes recoRefreshFill{from{width:0}to{width:90%}}
 /* Retouche ciblée d'un segment de script ou d'un hook : même style que
    .btn-regenerate, en plus compact car ces boutons se répètent souvent. */
 .btn-regenerate.mini{padding:5px 12px;font-size:0.54rem}

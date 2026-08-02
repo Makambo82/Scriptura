@@ -169,7 +169,7 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
       <button class="btn-generate" style="margin-top:20px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
       <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:10px" onclick="toggleAutresRecommandations('${autresId}')">Voir d'autres recommandations</button>
       <div id="${autresId}" style="display:none;margin-top:18px"></div>
-      ${avecRafraichir ? '<button class="btn-regenerate" style="width:100%;justify-content:center;margin-top:10px" id="btnRafraichirReco" onclick="rafraichirRecommandationAccueil()">↻ Nouvelle recommandation</button>' : ''}
+      ${avecRafraichir ? '<button class="btn-regenerate reco-refresh" style="width:100%;justify-content:center;margin-top:10px" id="btnRafraichirReco" onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>' : ''}
     </div>
   `;
   zone.style.display = 'block';
@@ -385,7 +385,10 @@ async function initAccueilPremium() {
 // de jour (vide le cache du jour puis relance l'initialisation normale).
 async function rafraichirRecommandationAccueil() {
   const btn = document.getElementById('btnRafraichirReco');
-  if (btn) { btn.disabled = true; btn.textContent = '↻ Nouvelle recommandation…'; }
+  // Le doré remplit progressivement le bouton (via .reco-refresh-loading) et le
+  // texte passe en blanc, le temps que Scriptura trouve une nouvelle reco.
+  // Le re-render de initAccueilPremium() remplace ensuite le bouton (fin de l'anim).
+  if (btn) { btn.disabled = true; btn.classList.add('reco-refresh-loading'); }
   viderRecoCache();
   await initAccueilPremium();
 }
