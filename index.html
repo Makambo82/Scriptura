@@ -372,17 +372,19 @@
           <p class="ctx-note">Le format change la façon d'écrire : en faceless, la voix off et le texte à l'écran portent tout ; en face caméra, tu parles directement à ta caméra.</p>
         </div>
         <div class="ctx-field">
-          <label class="ctx-label">Le ton de ta série</label>
+          <label class="ctx-label">Ton & voix</label>
           <select class="ctx-input" id="serieStyle">
-            <option value="">Choisir le ton…</option>
-            <option>Storytelling narratif</option>
-            <option>Éducatif &amp; pédagogue</option>
-            <option>Provocateur &amp; direct</option>
-            <option>Humoristique &amp; décalé</option>
-            <option>Inspirant &amp; motivationnel</option>
-            <option>Documentaire &amp; analytique</option>
-            <option>Réaction &amp; commentaire</option>
-            <option>Tutoriel &amp; how-to</option>
+            <option value="">Choisir ton & voix…</option>
+            <option value="analytique et froid, comme un documentaire">Analytique</option>
+            <option value="inspirant et chaleureux, qui touche l'émotion">Inspirant</option>
+            <option value="provocateur et direct, qui choque et interpelle">Provocateur</option>
+            <option value="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</option>
+            <option value="humoristique et décalé, avec légèreté">Humoristique</option>
+            <option value="storytelling narratif, qui raconte une histoire captivante">Storytelling</option>
+            <option value="orienté réaction et commentaire, qui réagit à chaud à un sujet">Réaction</option>
+            <option value="tutoriel et how-to, qui explique étape par étape">Tutoriel</option>
+            <option value="satirique et ironique, qui tourne en dérision avec un second degré assumé">Satirique</option>
+            <option value="émotionnel et sensible, qui va chercher le ressenti, l'empathie ou les larmes">Émotionnel</option>
           </select>
         </div>
         <div class="ctx-field">
@@ -607,14 +609,20 @@
       </div>
 
       <div class="ctx-field">
-        <label class="ctx-label">Ton style / ton angle</label>
-        <div class="btn-grid" id="ideaToneGrid">
-          <button type="button" class="grid-btn" data-val="analytique et factuel">Analytique</button>
-          <button type="button" class="grid-btn" data-val="inspirant et émotionnel">Inspirant</button>
-          <button type="button" class="grid-btn" data-val="provocateur et cash">Provocateur</button>
-          <button type="button" class="grid-btn" data-val="éducatif et pédagogue">Éducatif</button>
-          <button type="button" class="grid-btn" data-val="storytelling narratif">Storytelling</button>
-        </div>
+        <label class="ctx-label">Ton & voix</label>
+        <select class="ctx-input" id="ideaTone">
+          <option value="">Choisir ton & voix…</option>
+          <option value="analytique et froid, comme un documentaire">Analytique</option>
+          <option value="inspirant et chaleureux, qui touche l'émotion">Inspirant</option>
+          <option value="provocateur et direct, qui choque et interpelle">Provocateur</option>
+          <option value="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</option>
+          <option value="humoristique et décalé, avec légèreté">Humoristique</option>
+          <option value="storytelling narratif, qui raconte une histoire captivante">Storytelling</option>
+          <option value="orienté réaction et commentaire, qui réagit à chaud à un sujet">Réaction</option>
+          <option value="tutoriel et how-to, qui explique étape par étape">Tutoriel</option>
+          <option value="satirique et ironique, qui tourne en dérision avec un second degré assumé">Satirique</option>
+          <option value="émotionnel et sensible, qui va chercher le ressenti, l'empathie ou les larmes">Émotionnel</option>
+        </select>
       </div>
 
       <div class="ctx-field">
@@ -912,16 +920,19 @@
 
       <div class="ctx-field">
         <label class="ctx-label">Ton & voix</label>
-        <div class="btn-grid" id="toneGrid">
-          <button type="button" class="grid-btn" data-val="analytique et froid, comme un documentaire">Analytique</button>
-          <button type="button" class="grid-btn" data-val="inspirant et chaleureux, qui touche l'émotion">Inspirant</button>
-          <button type="button" class="grid-btn" data-val="provocateur et direct, qui choque et interpelle">Provocateur</button>
-          <button type="button" class="grid-btn" data-val="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</button>
-          <button type="button" class="grid-btn" data-val="humoristique et décalé, avec légèreté">Humoristique</button>
-          <button type="button" class="grid-btn" data-val="storytelling narratif, qui raconte une histoire captivante">Storytelling</button>
-          <button type="button" class="grid-btn" data-val="orienté réaction et commentaire, qui réagit à chaud à un sujet">Réaction</button>
-          <button type="button" class="grid-btn" data-val="tutoriel et how-to, qui explique étape par étape">Tutoriel</button>
-        </div>
+        <select class="ctx-input" id="tone">
+          <option value="">Choisir ton & voix…</option>
+          <option value="analytique et froid, comme un documentaire">Analytique</option>
+          <option value="inspirant et chaleureux, qui touche l'émotion">Inspirant</option>
+          <option value="provocateur et direct, qui choque et interpelle">Provocateur</option>
+          <option value="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</option>
+          <option value="humoristique et décalé, avec légèreté">Humoristique</option>
+          <option value="storytelling narratif, qui raconte une histoire captivante">Storytelling</option>
+          <option value="orienté réaction et commentaire, qui réagit à chaud à un sujet">Réaction</option>
+          <option value="tutoriel et how-to, qui explique étape par étape">Tutoriel</option>
+          <option value="satirique et ironique, qui tourne en dérision avec un second degré assumé">Satirique</option>
+          <option value="émotionnel et sensible, qui va chercher le ressenti, l'empathie ou les larmes">Émotionnel</option>
+        </select>
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Durée de la vidéo</label>

@@ -96,7 +96,7 @@ Pour CHAQUE recommandation, fournis :
 2. L'ANGLE recommandé : l'approche précise à adopter
 3. 2 à 4 JUSTIFICATIONS courtes prouvant la pertinence pour CE créateur — chacune doit citer un élément concret connu de lui ci-dessus (sa niche, un thème à ne pas répéter, une leçon d'audit, son objectif...). Si les éléments concrets manquent, formule une justification honnête et générale plutôt que d'inventer un fait précis.
 4. Le POTENTIEL estimé pour ce créateur, exactement un de ces 4 mots : Faible, Moyen, Élevé, Très élevé
-5. Un TON conseillé, à choisir EXACTEMENT parmi : Analytique, Inspirant, Provocateur, Éducatif, Humoristique, Storytelling
+5. Un TON conseillé, à choisir EXACTEMENT parmi : Analytique, Inspirant, Provocateur, Éducatif, Humoristique, Storytelling, Réaction, Tutoriel, Satirique, Émotionnel
 6. Un HOOK recommandé : la phrase d'accroche exacte pour démarrer la vidéo
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -223,9 +223,12 @@ function creerScriptDepuisRecommandation(index) {
   state.plateforme = (profil && profil.observe.plateformes && profil.observe.plateformes[0]) || 'TikTok';
 
   if (reco.ton_conseille) {
-    const toneBtns = Array.from(document.querySelectorAll('#toneGrid .grid-btn'));
-    const match = toneBtns.find(b => b.textContent.trim().toLowerCase() === String(reco.ton_conseille).trim().toLowerCase());
-    if (match) match.click();
+    const toneSel = document.getElementById('tone');
+    if (toneSel) {
+      const cible = String(reco.ton_conseille).trim().toLowerCase();
+      const opt = Array.from(toneSel.options).find(o => o.text.trim().toLowerCase() === cible);
+      if (opt) { toneSel.value = opt.value; selectedTone = opt.value; }
+    }
   }
 
   state.depart = 'un sujet précis que je veux développer';

@@ -8,9 +8,9 @@ let serieNbEpisodes = 5;      // choix par défaut
 let serieDuree = '45 à 60 secondes'; // durée cible de chaque épisode
 let serieCouranteId = null;   // série ouverte dans le détail
 
-// Recopie les listes niche/style depuis le mode audit (mêmes options partout)
+// Recopie la liste des niches depuis le mode audit (mêmes options partout)
 function initSerieSelects() {
-  const paires = [['auditNiche','serieNiche'], ['auditStyle','serieStyle']];
+  const paires = [['auditNiche','serieNiche']];
   paires.forEach(([src, dest]) => {
     const s = document.getElementById(src), d = document.getElementById(dest);
     if (s && d && !d.options.length) d.innerHTML = s.innerHTML;
@@ -190,6 +190,7 @@ ${profilLigneSerie ? profilLigneSerie : ''}
 Principes à respecter (méthode d'écriture épisodique courte) :
 - La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
 - Adapte la règle récurrente et le ton au FORMAT : en faceless (sans visage), la signature peut être visuelle ou textuelle (un mot-clé à l'écran, un type de plan récurrent) ; en face caméra, une signature de présence (une accroche parlée, un rituel d'ouverture face public).
+- RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${style}". Le champ "ton" de la bible doit décrire fidèlement CE ton précis, pas un autre — c'est une consigne explicite du créateur, pas une suggestion.
 - Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
 - L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
 - Épisodes pensés pour une durée de ${serieDuree}.
@@ -237,7 +238,7 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
 
     // Mémoire du créateur (tâche de fond, silencieuse).
     mettreAJourProfilCreateur({
-      declare: { niche_principale: niche, style_contenu: format, structure_narrative: genre, duree_moyenne: serieDuree },
+      declare: { niche_principale: niche, style_contenu: format, ton_prefere: toneCourtDepuisSelect('serieStyle'), structure_narrative: genre, duree_moyenne: serieDuree },
       observe: { themes_traites: titre, plateformes: 'TikTok' }
     });
 
@@ -581,7 +582,7 @@ Le créateur est à l'écran et s'adresse directement à sa caméra, avec un vra
 - AUCUNE mention de "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" : ce sont des codes faceless, interdits ici.
 - Le champ "directives" dit COMMENT se filmer : cadrage (gros plan, plan poitrine), décor, énergie et ton, où regarder, quand marquer une pause, quel geste ou expression appuyer le propos.`}
 
-Le TON à respecter dans l'écriture : ${serie.style}.
+TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton pour toute la série : "${serie.style}". Écris l'INTÉGRALITÉ de cet épisode dans CE ton, sans jamais dévier vers un autre registre — même partiellement. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique.
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;

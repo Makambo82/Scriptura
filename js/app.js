@@ -123,16 +123,13 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof initAccueilPremium === 'function') initAccueilPremium();
 });
 
-// ── BOUTONS TON & DURÉE — GROUPES INDÉPENDANTS ──
+// ── TON (menu déroulant) & DURÉE (grille de boutons) — GROUPES INDÉPENDANTS ──
 let selectedDuree = '';
 
-document.querySelectorAll('#toneGrid .grid-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#toneGrid .grid-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    selectedTone = btn.dataset.val;
-  });
-});
+const toneSelectEl = document.getElementById('tone');
+if (toneSelectEl) {
+  toneSelectEl.addEventListener('change', function() { selectedTone = this.value; });
+}
 
 document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {

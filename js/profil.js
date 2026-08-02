@@ -164,12 +164,13 @@ function preRemplirSiVide(id, valeur) {
   }
 }
 
-// Lit le libellé court du bouton actif d'une grille de choix (ex: "Storytelling"),
-// seul format stable et commun à toutes les grilles de ton de l'app.
-function toneCourtDepuisGrille(gridId) {
-  const grid = document.getElementById(gridId);
-  const actif = grid ? grid.querySelector('.grid-btn.active') : null;
-  return actif ? actif.textContent.trim() : null;
+// Lit le libellé court de l'option choisie dans un menu de ton (ex: "Storytelling",
+// pas la valeur descriptive longue) — seul format stable mémorisé dans le profil.
+function toneCourtDepuisSelect(selectId) {
+  const el = document.getElementById(selectId);
+  if (!el || !el.value) return null;
+  const opt = el.options[el.selectedIndex];
+  return opt ? opt.text.trim() : null;
 }
 
 function preSelectionnerGrilleSiVide(gridId, valeurCible) {
@@ -194,11 +195,11 @@ async function appliquerProfilCreateur(mode) {
   if (mode === 'script') {
     preRemplirSiVide('niche', d.niche_principale);
     preRemplirSiVide('format', d.style_contenu);
-    preSelectionnerGrilleSiVide('toneGrid', d.ton_prefere);
+    preRemplirSiVide('tone', d.ton_prefere);
     preSelectionnerGrilleSiVide('dureeGrid', d.duree_moyenne);
   } else if (mode === 'ideas') {
     preRemplirSiVide('ideaNiche', d.niche_principale);
-    preSelectionnerGrilleSiVide('ideaToneGrid', d.ton_prefere);
+    preRemplirSiVide('ideaTone', d.ton_prefere);
   } else if (mode === 'audit') {
     preRemplirSiVide('auditNiche', d.niche_principale);
     preRemplirSiVide('auditObjectif', d.objectifs && d.objectifs[0]);
@@ -207,6 +208,7 @@ async function appliquerProfilCreateur(mode) {
     // initSerieSelects() copie les options juste avant : les selects sont déjà prêts.
     preRemplirSiVide('serieNiche', d.niche_principale);
     preRemplirSiVide('serieFormat', d.style_contenu); // style_contenu = format habituel (faceless / face caméra)
+    preRemplirSiVide('serieStyle', d.ton_prefere);
     preRemplirSiVide('serieGenre', d.structure_narrative);
     preSelectionnerGrilleSiVide('serieDureeGrid', d.duree_moyenne);
   }

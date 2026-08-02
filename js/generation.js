@@ -5,9 +5,12 @@ let ideaTone = '';
 function setupIdeaButtons() {
   const groups = [
     { id: 'ideaPlatformGrid', setter: v => ideaPlatform = v },
-    { id: 'ideaGoalGrid', setter: v => ideaGoal = v },
-    { id: 'ideaToneGrid', setter: v => ideaTone = v }
+    { id: 'ideaGoalGrid', setter: v => ideaGoal = v }
   ];
+  const ideaToneSelectEl = document.getElementById('ideaTone');
+  if (ideaToneSelectEl) {
+    ideaToneSelectEl.addEventListener('change', function() { ideaTone = this.value; });
+  }
   groups.forEach(g => {
     const container = document.getElementById(g.id);
     if (!container) return;
@@ -144,7 +147,7 @@ RÈGLES ABSOLUES :
 - INTERDIT les idées génériques ("Les 5 erreurs à éviter", "Comment réussir en...", "Mon top 10"). Ça, tout le monde le fait.
 - Chaque idée doit avoir un ANGLE UNIQUE, une tension, quelque chose de surprenant ou contre-intuitif
 - Les idées doivent exploiter des déclencheurs émotionnels (curiosité, choc, indignation, fascination, peur de rater)
-- Adapte au style ${ideaTone || 'de la niche'} et à la plateforme ${ideaPlatform || 'sociale'}
+${ideaTone ? `- RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${ideaTone}". Chaque angle et chaque hook proposés doivent rester dans CE ton exact, sans dérive vers un autre registre — c'est une consigne explicite, pas une suggestion.` : `- Adapte au style de la niche`} et à la plateforme ${ideaPlatform || 'sociale'}
 - Chaque idée doit donner envie de cliquer IMMÉDIATEMENT
 - Varie les angles : certaines révélations, certaines contre-intuitions, certaines histoires, certains débats
 - Deux créateurs différents de la même niche ne doivent jamais recevoir la même liste : personnalise réellement à partir du profil ci-dessus, pas seulement de la niche.
@@ -183,7 +186,7 @@ Génère exactement 12 idées, toutes différentes, classées de la meilleure op
     mettreAJourProfilCreateur({
       declare: {
         niche_principale: niche,
-        ton_prefere: toneCourtDepuisGrille('ideaToneGrid'),
+        ton_prefere: toneCourtDepuisSelect('ideaTone'),
         objectifs: ideaGoal ? (OBJECTIF_COURT_VERS_LONG[ideaGoal] || ideaGoal) : undefined
       },
       observe: {
@@ -645,6 +648,8 @@ Le "texte" de chaque bloc est la VOIX OFF (ce qu'on entend) — jamais une adres
 Le "visuel" de chaque bloc décrit précisément ce qui apparaît à l'écran pendant cette voix off (images, texte animé, plans d'illustration, archives).` : `>> FORMAT FACE CAMÉRA (le créateur se filme et parle) :
 Le "texte" de chaque bloc est PARLÉ à la première personne, comme si le créateur s'adressait directement à sa caméra — fluide et naturel, jamais de mention "VOIX OFF" ou "TEXTE À L'ÉCRAN" (ce sont des codes faceless, interdits ici).
 Le "visuel" de chaque bloc dit COMMENT se filmer : cadrage (gros plan, plan poitrine), énergie et ton, où regarder, quel geste ou expression appuyer le propos.`}
+${selectedTone ? `
+TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton : "${selectedTone}". Écris l'INTÉGRALITÉ du script dans CE ton, du hook à la chute, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique. Chaque phrase doit rester fidèle au ton choisi, pas seulement le hook ou l'intro.` : ''}
 
 RÈGLES DE QUALITÉ À RESPECTER :
 - Un simple prompt ChatGPT ne doit JAMAIS pouvoir reproduire ça. Sois nettement supérieur.
@@ -928,7 +933,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       declare: {
         niche_principale: niche,
         style_contenu: format || undefined,
-        ton_prefere: toneCourtDepuisGrille('toneGrid'),
+        ton_prefere: toneCourtDepuisSelect('tone'),
         duree_moyenne: selectedDuree,
         objectifs: state.objectif
       },
