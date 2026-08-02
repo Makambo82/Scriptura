@@ -272,8 +272,10 @@ function prenomDepuisCode() {
 }
 
 function salutationAccueil(profil) {
-  const dejaActif = profil && profil.observe && profil.observe.nb_generations > 0;
-  const base = dejaActif ? 'Bon retour' : 'Bonjour';
+  // Salutation selon l'heure LOCALE du téléphone de l'utilisateur :
+  // 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
+  const h = new Date().getHours();
+  const base = h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir');
   const prenom = prenomDepuisCode();
   return prenom ? (base + ' ' + prenom + ' 👋') : (base + ' 👋');
 }
