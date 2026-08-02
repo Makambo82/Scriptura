@@ -1802,6 +1802,12 @@ body.is-unlocked .sidebar-logout{display:block}
 .audit-vs-tag{font-size:0.84rem;font-weight:700;color:#fff;margin-bottom:9px}
 .audit-vs-text{font-size:0.89rem;color:var(--text-secondary);line-height:1.55}
 .audit-vs-formule{font-size:0.89rem;color:var(--gold-light);margin-top:9px;line-height:1.55}
+/* Abonnés gagnés par une vidéo (conversion spectateur → abonné) */
+.audit-vs-fol{
+  display:inline-block;margin-top:11px;padding:5px 11px;border-radius:999px;
+  font-size:0.82rem;font-weight:600;color:var(--gold-light);
+  background:rgba(201,168,76,0.10);border:1px solid var(--border-soft);line-height:1.4;
+}
 .audit-vs-concl{margin-top:14px;font-size:0.94rem;color:#fff;font-weight:600;line-height:1.55;text-align:center;padding-top:14px;border-top:1px solid var(--border-soft)}
 .audit-vs-repres{margin-top:10px;font-size:0.85rem;color:var(--muted);line-height:1.5;text-align:center}
 /* Éditorial : notes par sujet */

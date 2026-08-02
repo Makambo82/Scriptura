@@ -183,7 +183,7 @@ const AUDIT_ETAPES = [
   {
     titre: "Ta vidéo la plus performante · analyse complète",
     path: "Depuis ton profil, ouvre ta MEILLEURE vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
-    tip: "Sur l'écran des données, descends jusqu'à la courbe de rétention. Si tout ne tient pas, prends deux captures : les indicateurs en haut, puis la courbe plus bas.",
+    tip: "Sur l'écran des données, descends jusqu'à la courbe de rétention. Si tout ne tient pas, prends deux captures : les indicateurs en haut (dont les nouveaux abonnés gagnés par la vidéo), puis la courbe plus bas.",
     label: "Ajouter : meilleure vidéo",
     schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,28 44,40 70,56 100,60 140,62 184,66" stroke="#E2C87A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
   },
@@ -892,7 +892,7 @@ function telechargerAuditPDF() {
     P.meilleure_video && P.meilleure_video.formule
   ]);
   ajouteBloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
-  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.representativite]);
+  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.conversion, P.comparatif && P.comparatif.representativite]);
 
   const ed = P.editorial;
   if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
@@ -964,7 +964,7 @@ function auditTexteBrut(a, ts) {
     P.meilleure_video && P.meilleure_video.formule
   ]);
   bloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
-  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.representativite]);
+  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.conversion, P.comparatif && P.comparatif.representativite]);
 
   const ed = P.editorial;
   if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
@@ -1108,6 +1108,13 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
 
   // ── Comparatif meilleure / pire ──
   const mv = P.meilleure_video, pv = P.pire_video, comp = P.comparatif;
+  // Abonnés gagnés par chaque vidéo (donnée extraite des captures détail — fiable,
+  // pas une estimation du modèle). Affiché tel quel si visible.
+  const M = a.mesures || {};
+  const foll = v => (v != null && v !== '' && !isNaN(v)) ? Number(v) : null;
+  const folBest = foll(M.retention_meilleure && M.retention_meilleure.nouveaux_followers);
+  const folWorst = foll(M.retention_pire && M.retention_pire.nouveaux_followers);
+  const badgeFoll = n => `<div class="audit-vs-fol">🧲 ${formaterNombre(n)} abonné${n > 1 ? 's' : ''} gagné${n > 1 ? 's' : ''} par cette vidéo</div>`;
   if (dispo(mv) || dispo(pv) || dispo(comp)) {
     let inner = '';
     if (dispo(mv)) {
@@ -1115,6 +1122,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
         <div class="audit-vs-tag">✅ Meilleure vidéo</div>
         ${mv.constat ? `<div class="audit-vs-text">${auditEsc(mv.constat)}</div>` : ''}
         ${mv.formule ? `<div class="audit-vs-formule">💡 ${auditEsc(mv.formule)}</div>` : ''}
+        ${folBest != null ? badgeFoll(folBest) : ''}
       </div>`;
     }
     if (dispo(pv)) {
@@ -1122,10 +1130,12 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
       inner += `<div class="audit-vs-col audit-vs-worst">
         <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ' — décroche à ' + auditEsc(sec) + 's' : ''}</div>
         ${pv.constat ? `<div class="audit-vs-text">${auditEsc(pv.constat)}</div>` : ''}
+        ${folWorst != null ? badgeFoll(folWorst) : ''}
       </div>`;
     }
     html += auditBlock('⚡ Comparatif', `<div class="audit-vs">${inner}</div>
       ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}
+      ${dispo(comp) && comp.conversion ? `<div class="audit-vs-repres">🧲 ${auditEsc(comp.conversion)}</div>` : ''}
       ${dispo(comp) && comp.representativite ? `<div class="audit-vs-repres">📊 ${auditEsc(comp.representativite)}</div>` : ''}`);
   }
 

@@ -140,13 +140,15 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
       "taux_moyen_pct": <le "en moyenne les spectateurs ont regardé X % de ta vidéo", ou null>,
       "completion_pct": <le "a regardé toute la vidéo" en %, ou null>,
       "seconde_decrochage": <la seconde où la plupart cessent de regarder, ou null>,
-      "duree_video_s": <durée totale de la vidéo en secondes, ou null>
+      "duree_video_s": <durée totale de la vidéo en secondes, ou null>,
+      "nouveaux_followers": <le nombre de "Nouveaux followers" gagnés par cette vidéo, tel qu'il apparaît dans les indicateurs clés de la capture détail, ou null si non visible>
     },
     "retention_pire": {
       "taux_moyen_pct": <idem pour la vidéo la moins performante, ou null>,
       "completion_pct": <ou null>,
       "seconde_decrochage": <ou null>,
-      "duree_video_s": <ou null>
+      "duree_video_s": <ou null>,
+      "nouveaux_followers": <le nombre de "Nouveaux followers" gagnés par la vidéo la moins performante, ou null si non visible>
     },
     "storytelling": {
       "hook_present": "<OUI|PARTIEL|NON|null — la vidéo ouvre-t-elle sur une accroche identifiable ?>",
@@ -172,7 +174,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     "performance_globale": { "disponible": <true/false>, "constat": "<...chiffré...>", "blocage": "<...>", "action": "<...>" },
     "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : sujet, durée, et hook/rétention UNIQUEMENT si une capture détail vidéo le montre>", "formule": "<la formule extraite. Si le top contenus montre plusieurs vidéos du même type qui marchent, tu peux l'affirmer comme une tendance (ex: 'Tes histoires personnelles font 2,5x plus de vues'). Si cette vidéo est un pic isolé, formule-la comme une piste à tester et non comme une règle établie (ex: 'Cette vidéo a marché — à confirmer sur 2-3 contenus du même type avant d'en faire ta ligne').>" },
     "pire_video":         { "disponible": <true/false>, "constat": "<où et pourquoi les gens décrochent, UNIQUEMENT si une capture détail vidéo le montre>", "seconde_decrochage": <nombre ou null, uniquement si visible dans une capture, jamais estimé> },
-    "comparatif":         { "disponible": <true/false>, "conclusion": "<ce que l audience préfère, tiré de meilleure VS pire>", "representativite": "<à partir du top contenus : situe LES DEUX vidéos par rapport à l ensemble. Dis si la meilleure est un pic isolé ou une performance normale du compte, ET si la pire est un flop isolé ou le niveau habituel. Sois factuel en comparant les vues visibles. Si le top contenus ne permet pas de trancher, indique-le clairement au lieu de deviner.>" },
+    "comparatif":         { "disponible": <true/false>, "conclusion": "<ce que l audience préfère, tiré de meilleure VS pire>", "representativite": "<à partir du top contenus : situe LES DEUX vidéos par rapport à l ensemble. Dis si la meilleure est un pic isolé ou une performance normale du compte, ET si la pire est un flop isolé ou le niveau habituel. Sois factuel en comparant les vues visibles. Si le top contenus ne permet pas de trancher, indique-le clairement au lieu de deviner.>", "conversion": "<UNIQUEMENT si 'nouveaux_followers' est visible pour au moins une des deux vidéos : compare les abonnés gagnés par la meilleure et par la moins bonne, et dis ce que ça révèle sur le type de contenu qui transforme le spectateur en abonné (une vidéo peut faire beaucoup de vues sans convertir, ou peu de vues mais recruter des abonnés fidèles). Une phrase concrète et actionnable. null si aucun des deux chiffres n est visible.>" },
     "editorial":          { "disponible": <true/false>, "sujets_notes": [ {"sujet":"<...>","note":"<ex: 4/5>"} ], "recommandation": "<ex: arrête les vidéos marketing 30 jours>" },
     "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? ex: 70% France mais références 100% béninoises>" }
   },
