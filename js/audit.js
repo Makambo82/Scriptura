@@ -176,7 +176,7 @@ const AUDIT_ETAPES = [
   {
     titre: "Vue d'ensemble · 60 jours",
     path: "TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours",
-    tip: "Cet écran montre tes vues, tes abonnés, tes likes, commentaires et partages sur la période.",
+    tip: "Cet écran montre tes vues de publication, tes vues de profil, tes J'aime, tes commentaires et tes partages sur la période.",
     label: "Ajouter : vue d'ensemble",
     schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><rect x="34" y="62" width="16" height="30" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="66" y="48" width="16" height="44" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="98" y="54" width="16" height="38" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="130" y="34" width="16" height="58" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="162" y="22" width="16" height="70" rx="2" fill="#E2C87A"/></svg>`
   },
