@@ -685,6 +685,8 @@ function reopenGeneration(i) {
   } else if (g.mode === 'audit') {
     const af = document.getElementById('auditFlow');
     if (af) af.style.display = 'block';
+    // On rouvre un audit déjà fait : pas de capture ici, on montre le résultat.
+    if (typeof masquerUICaptureAudit === 'function') masquerUICaptureAudit();
     renderAudit(g.contenu);
   } else if (g.mode === 'serie') {
     // Un épisode de série : on le réaffiche seul, dans le module série

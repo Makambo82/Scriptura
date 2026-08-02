@@ -119,7 +119,10 @@ function renderCaptures() {
     </div>`;
   }).join('');
   renderCouverture();
-  if (btn) btn.style.display = auditCaptures.length ? 'flex' : 'none';
+  // La visibilité du bouton dépend de l'étape (bouton visible seulement à
+  // l'étape finale, ou en mode affiner) — géré par l'assistant guidé.
+  if (typeof majAffichageBoutonAudit === 'function') majAffichageBoutonAudit();
+  else if (btn) btn.style.display = auditCaptures.length ? 'flex' : 'none';
 }
 
 // Récapitule les données reconnues et celles qui manquent encore.
@@ -145,6 +148,155 @@ function renderCouverture() {
 function retirerCapture(i) {
   auditCaptures.splice(i, 1);
   renderCaptures();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ASSISTANT DE CAPTURE GUIDÉ — une donnée TikTok à la fois
+//  Même exigence qu'avant (5 données, jusqu'à 16 captures) : on ne fait que
+//  guider l'utilisateur écran par écran pour réduire la confusion. Toute la
+//  mécanique (auditCaptures, reconnaissance IA, lancerAudit) reste inchangée.
+// ═══════════════════════════════════════════════════════════
+const AUDIT_ETAPES = [
+  {
+    titre: "Vue d'ensemble · 60 jours",
+    path: "TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours",
+    tip: "Cet écran montre tes vues, tes abonnés, tes likes, commentaires et partages sur la période.",
+    label: "Ajouter : vue d'ensemble",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><rect x="34" y="62" width="16" height="30" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="66" y="48" width="16" height="44" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="98" y="54" width="16" height="38" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="130" y="34" width="16" height="58" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="162" y="22" width="16" height="70" rx="2" fill="#E2C87A"/></svg>`
+  },
+  {
+    titre: "Ta vidéo la plus performante · analyse complète",
+    path: "TikTok Studio → Analyses → Contenu → ouvre ta MEILLEURE vidéo des 60 derniers jours, puis descends jusqu'à la courbe de rétention.",
+    tip: "Si tout ne tient pas sur un écran, prends deux captures : les indicateurs en haut, puis la courbe de rétention plus bas.",
+    label: "Ajouter : meilleure vidéo",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,28 44,40 70,56 100,60 140,62 184,66" stroke="#E2C87A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
+  },
+  {
+    titre: "Ta vidéo la moins performante · analyse complète",
+    path: "TikTok Studio → Analyses → Contenu → ouvre ta MOINS bonne vidéo des 60 derniers jours, puis descends jusqu'à la courbe de rétention.",
+    tip: "Même chose : deux captures si l'écran est trop long. C'est la comparaison des deux qui révèle ce qui marche.",
+    label: "Ajouter : vidéo la moins performante",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,26 40,52 60,74 90,84 140,88 184,90" stroke="#C9A84C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
+  },
+  {
+    titre: "Top contenus · 60 jours",
+    path: "TikTok Studio → Analyses → Contenu → Période : 60 jours → classé par vues",
+    tip: "La liste de tes vidéos classées par vues : elle situe tes deux vidéos par rapport au reste de ton compte.",
+    label: "Ajouter : top contenus",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><rect x="20" y="16" width="30" height="22" rx="3" fill="rgba(201,168,76,0.28)"/><rect x="58" y="20" width="110" height="6" rx="3" fill="#E2C87A"/><rect x="58" y="30" width="70" height="5" rx="3" fill="rgba(255,255,255,0.25)"/><rect x="20" y="46" width="30" height="22" rx="3" fill="rgba(201,168,76,0.22)"/><rect x="58" y="50" width="90" height="6" rx="3" fill="#C9A84C"/><rect x="58" y="60" width="60" height="5" rx="3" fill="rgba(255,255,255,0.22)"/><rect x="20" y="76" width="30" height="22" rx="3" fill="rgba(201,168,76,0.16)"/><rect x="58" y="80" width="70" height="6" rx="3" fill="rgba(201,168,76,0.6)"/><rect x="58" y="90" width="45" height="5" rx="3" fill="rgba(255,255,255,0.2)"/></svg>`
+  },
+  {
+    titre: "Ton audience",
+    path: "TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements",
+    tip: "Qui te regarde : âge, sexe, pays. Indispensable pour savoir si ton contenu parle à la bonne audience.",
+    label: "Ajouter : audience",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><circle cx="58" cy="55" r="28" stroke="rgba(255,255,255,0.15)" stroke-width="12" fill="none"/><circle cx="58" cy="55" r="28" stroke="#C9A84C" stroke-width="12" fill="none" stroke-dasharray="105 71" transform="rotate(-90 58 55)"/><circle cx="58" cy="55" r="28" stroke="#E2C87A" stroke-width="12" fill="none" stroke-dasharray="48 128" stroke-dashoffset="-105" transform="rotate(-90 58 55)"/><rect x="104" y="34" width="66" height="8" rx="4" fill="#E2C87A"/><rect x="104" y="51" width="48" height="8" rx="4" fill="#C9A84C"/><rect x="104" y="68" width="30" height="8" rx="4" fill="rgba(201,168,76,0.5)"/></svg>`
+  }
+];
+
+let auditEtapeIndex = 0;   // 0..AUDIT_ETAPES.length (la dernière = profil + lancement)
+let auditAffineMode = false;
+
+function auditSurEtapeFinale() { return auditEtapeIndex >= AUDIT_ETAPES.length; }
+
+// Prépare l'écran audit : mode normal (parcours guidé) ou mode "affiner"
+// (ajout direct de captures + relance, sans re-parcourir les 5 étapes).
+function initAuditWizard(affine) {
+  auditAffineMode = !!affine;
+  auditEtapeIndex = affine ? AUDIT_ETAPES.length : 0;
+  renderAuditWizard();
+}
+
+// Masque toute l'UI de capture (utilisé pour afficher un audit déjà enregistré).
+function masquerUICaptureAudit() {
+  ['auditWizard', 'auditContextCard', 'auditAffineNote', 'auditDrop', 'auditThumbs', 'auditCouverture', 'auditBtn']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+}
+
+function majAffichageBoutonAudit() {
+  const btn = document.getElementById('auditBtn');
+  if (!btn) return;
+  const pret = auditCaptures.length > 0 && (auditSurEtapeFinale() || auditAffineMode);
+  btn.style.display = pret ? 'flex' : 'none';
+}
+
+function renderAuditWizard() {
+  const wiz = document.getElementById('auditWizard');
+  const card = document.getElementById('awCard');
+  const nav = document.getElementById('awNav');
+  const count = document.getElementById('awCount');
+  const barFill = document.getElementById('awBarFill');
+  const ctx = document.getElementById('auditContextCard');
+  const affineNote = document.getElementById('auditAffineNote');
+  const drop = document.getElementById('auditDrop');
+  const thumbs = document.getElementById('auditThumbs');
+  const couv = document.getElementById('auditCouverture');
+  const dropLabel = drop ? drop.querySelector('.audit-drop-label') : null;
+
+  if (thumbs) thumbs.style.display = '';
+  if (drop) drop.style.display = '';
+
+  // ── Mode "affiner" : pas de re-parcours, on montre l'ajout + le rappel ──
+  if (auditAffineMode) {
+    if (wiz) wiz.style.display = 'none';
+    if (ctx) ctx.style.display = 'none';
+    if (affineNote) affineNote.style.display = 'block';
+    if (couv) couv.style.display = '';
+    if (dropLabel) dropLabel.textContent = 'Ajouter une capture';
+    majAffichageBoutonAudit();
+    return;
+  }
+
+  if (affineNote) affineNote.style.display = 'none';
+  const finale = auditSurEtapeFinale();
+
+  if (!finale) {
+    // ── Étapes de capture guidées (une donnée à la fois) ──
+    const e = AUDIT_ETAPES[auditEtapeIndex];
+    if (wiz) wiz.style.display = '';
+    if (count) count.textContent = 'Étape ' + (auditEtapeIndex + 1) + ' / ' + AUDIT_ETAPES.length;
+    if (barFill) barFill.style.width = Math.round((auditEtapeIndex / AUDIT_ETAPES.length) * 100) + '%';
+    if (card) card.innerHTML =
+      '<div class="aw-schema">' + e.schema + '</div>' +
+      '<div class="aw-schema-note">schéma indicatif</div>' +
+      '<div class="aw-title">' + e.titre + '</div>' +
+      '<div class="aw-path">' + e.path + '</div>' +
+      (e.tip ? '<div class="aw-tip">' + e.tip + '</div>' : '');
+    if (nav) {
+      let b = '';
+      if (auditEtapeIndex > 0) b += '<button onclick="auditStepPrecedent()">← Précédent</button>';
+      b += '<button class="aw-primary" onclick="auditStepSuivant()">' +
+        (auditEtapeIndex === AUDIT_ETAPES.length - 1 ? 'Terminer →' : 'Suivant →') + '</button>';
+      nav.innerHTML = b;
+    }
+    if (ctx) ctx.style.display = 'none';
+    if (couv) couv.style.display = 'none';
+    if (dropLabel) dropLabel.textContent = e.label;
+  } else {
+    // ── Étape finale : récap + retour possible, puis profil + lancement ──
+    if (wiz) wiz.style.display = '';
+    if (count) count.textContent = 'Dernière étape';
+    if (barFill) barFill.style.width = '100%';
+    if (card) card.innerHTML =
+      '<div class="aw-title">Presque terminé 🎯</div>' +
+      '<div class="aw-tip">Renseigne ton profil ci-dessous, vérifie tes captures, puis lance l\'analyse. Il te manque une donnée ? Ajoute-la, ou reviens en arrière.</div>';
+    if (nav) nav.innerHTML = '<button onclick="auditStepPrecedent()">← Revoir mes captures</button>';
+    if (ctx) ctx.style.display = '';
+    if (couv) couv.style.display = '';
+    if (dropLabel) dropLabel.textContent = 'Ajouter une capture oubliée';
+  }
+  majAffichageBoutonAudit();
+}
+
+function auditStepSuivant() {
+  if (auditEtapeIndex < AUDIT_ETAPES.length) auditEtapeIndex++;
+  renderAuditWizard();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function auditStepPrecedent() {
+  if (auditEtapeIndex > 0) auditEtapeIndex--;
+  renderAuditWizard();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 
@@ -1109,12 +1261,9 @@ function affinerAudit() {
   if (out) out.innerHTML = ''; // on efface l'ancien résultat, les captures restent
 
   // Le contexte (objectif, niche, fréquence, style) est déjà rempli et
-  // conservé : inutile de le redemander. On masque le bloc pour ne pas
-  // encombrer, et on affiche un rappel discret.
-  const ctx = document.getElementById('auditContextCard');
-  if (ctx) ctx.style.display = 'none';
-  const rappel = document.getElementById('auditAffineNote');
-  if (rappel) rappel.style.display = 'block';
+  // conservé : inutile de re-parcourir les 5 étapes. Le mode "affiner" de
+  // l'assistant montre directement l'ajout de captures + le rappel + la relance.
+  initAuditWizard(true);
 
   const drop = document.getElementById('auditDrop');
   if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });

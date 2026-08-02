@@ -1633,6 +1633,25 @@ body.is-unlocked .sidebar-logout{display:block}
   font-size:0.8rem;color:rgba(255,255,255,0.45);line-height:1.5;
 }
 
+/* Assistant de capture guidé (mode audit) : une donnée à la fois */
+.audit-wizard{margin-bottom:22px}
+.aw-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.aw-count{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.aw-bar{flex:1;height:4px;border-radius:3px;background:rgba(201,168,76,0.15);overflow:hidden}
+.aw-bar-fill{height:100%;background:var(--gold);border-radius:3px;transition:width 0.35s ease}
+.aw-card{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:14px;padding:22px 20px}
+.aw-schema{display:flex;justify-content:center}
+.aw-schema svg{width:100%;max-width:220px;height:auto}
+.aw-schema-note{text-align:center;font-size:0.68rem;color:rgba(255,255,255,0.35);margin-top:4px;margin-bottom:16px;font-style:italic}
+.aw-title{font-family:'Tenor Sans',sans-serif;font-size:1.02rem;color:#F5F3EE;line-height:1.35;margin-bottom:12px;text-align:center}
+.aw-path{font-size:0.85rem;color:var(--text-secondary);line-height:1.55;text-align:center;background:rgba(201,168,76,0.06);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
+.aw-tip{font-size:0.8rem;color:rgba(255,255,255,0.45);line-height:1.5;text-align:center;margin-top:12px}
+.aw-nav{display:flex;gap:12px;margin-top:16px}
+.aw-nav button{flex:1;padding:13px 16px;border-radius:10px;font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:border-color 0.2s,color 0.2s,background 0.2s;border:1px solid var(--border-soft);background:transparent;color:var(--text-secondary)}
+.aw-nav button:hover{border-color:var(--gold);color:var(--gold-light)}
+.aw-nav button.aw-primary{background:var(--gold);color:var(--bg);border-color:var(--gold)}
+.aw-nav button.aw-primary:hover{background:var(--gold-light)}
+
 .audit-drop{
   border:1px dashed rgba(201,168,76,0.35);border-radius:12px;
   padding:34px 20px;text-align:center;cursor:pointer;

@@ -626,12 +626,8 @@ async function chooseMode(mode) {
       // Il possède des jetons achetés : il entre et pourra les utiliser.
     }
     if (af) af.style.display = 'block';
-    // Ouverture normale du mode : le formulaire de contexte est visible,
-    // la note d'affinage est masquée (elle ne sert qu'après un premier audit).
-    const ctxCard = document.getElementById('auditContextCard');
-    if (ctxCard) ctxCard.style.display = '';
-    const affineNote = document.getElementById('auditAffineNote');
-    if (affineNote) affineNote.style.display = 'none';
+    // Ouverture normale : on démarre l'assistant de capture guidé à l'étape 1.
+    if (typeof initAuditWizard === 'function') initAuditWizard(false);
   } else if (mode === 'serie') {
     // Inclus dans le plan Pro. Un Creator ou un non-abonné y accède aussi
     // s'il a acheté des jetons (1 jeton = 1 série) ; sinon on présente l'offre.

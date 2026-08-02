@@ -209,16 +209,14 @@
       <p class="ideas-sub">Envoie les captures de tes statistiques TikTok. Scriptura analyse tes chiffres, identifie le point de rupture et te dit exactement quoi corriger.</p>
     </div>
 
-    <div class="audit-guide">
-      <div class="audit-guide-title">Les 5 données à envoyer</div>
-      <ol class="audit-steps">
-        <li><b>Vue d'ensemble · 60 jours</b><span>TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours</span></li>
-        <li><b>Ta vidéo la plus performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la plus performante des 60 derniers jours et descends jusqu'à la courbe de rétention. Si tout ne tient pas sur un écran, prends-en deux</span></li>
-        <li><b>Ta vidéo la moins performante · Analyse complète</b><span>TikTok Studio → Analyses → Contenu → Ouvre la vidéo la moins performante des 60 derniers jours et descends jusqu'à la courbe de rétention. Même chose si l'écran est trop long</span></li>
-        <li><b>Top contenus · 60 jours</b><span>TikTok Studio → Analyses → Contenu → Période : 60 jours → Classé par vues</span></li>
-        <li><b>Ton audience</b><span>TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements</span></li>
-      </ol>
-      <p class="audit-note">Les 5 données sont nécessaires : sans elles, l'analyse ne peut pas être faite. Peu importe le nombre de captures que ça te prend, du moment que l'information y est. Jusqu'à 16 captures au total.</p>
+    <!-- Assistant de capture guidé : une donnée à la fois (contenu rendu par js/audit.js) -->
+    <div class="audit-wizard" id="auditWizard">
+      <div class="aw-head">
+        <span class="aw-count" id="awCount">Étape 1 / 5</span>
+        <div class="aw-bar"><div class="aw-bar-fill" id="awBarFill"></div></div>
+      </div>
+      <div class="aw-card" id="awCard"></div>
+      <div class="aw-nav" id="awNav"></div>
     </div>
 
     <div class="context-card" id="auditContextCard">
