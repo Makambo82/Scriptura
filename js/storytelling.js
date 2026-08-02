@@ -215,14 +215,17 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
 
-    // ── SCORE RÉEL : régénère UNE fois si le score global est < 90 ──
+    // ── SCORE RÉEL : régénère UNE fois SEULEMENT si le récit est vraiment faible ──
+    // Le récit n'a pas de passe Critique/Réviseur comme le script : on garde donc
+    // ce filet de sécurité, mais on ne le déclenche plus que sous 75 (au lieu de 90).
+    // Entre 75 et 89, une 2e écriture complète coûtait ~30s pour un gain marginal.
     function scoreGlobalStory(p) {
       if (!p || !p.score) return 100;
       const s = p.score;
       const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
       return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
     }
-    if (scoreGlobalStory(parsed) < 90) {
+    if (scoreGlobalStory(parsed) < 75) {
       try {
         const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt);
         const parsed2 = parseAIResponse(raw2);

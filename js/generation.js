@@ -691,23 +691,11 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     }
     if (!scriptEstComplet(parsed)) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
 
-    // ── SCORE RÉEL : régénère UNE fois si le score global est < 90 ──
-    function scoreGlobal(p) {
-      if (!p || !p.score) return 100; // pas de score = on ne bloque pas
-      const s = p.score;
-      const vals = [s.viral, s.hook, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
-      return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
-    }
-    if (scoreGlobal(parsed) < 90) {
-      try {
-        const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
-        const parsed2 = parseAIResponse(writeRaw2);
-        // On garde la meilleure des deux versions (jamais une version tronquée)
-        if (scriptEstComplet(parsed2) && scoreGlobal(parsed2) > scoreGlobal(parsed)) {
-          parsed = parsed2;
-        }
-      } catch(e) { /* si la 2e tentative échoue, on garde la première */ }
-    }
+    // NOTE VITESSE : on ne relance PLUS une 2e écriture complète sur simple
+    // auto-notation < 90. C'était redondant avec le Critique + Réviseur
+    // ci-dessous, qui améliore le script de façon bien plus ciblée (il corrige
+    // les faiblesses précises au lieu de tout refaire au hasard). Suppression
+    // de cette passe = ~30-40s gagnées, qualité quasi inchangée.
 
     // ══════════════════════════════════════
     //  PHASES 3-4 (Critique + Réviseur) — le cœur du renforcement qualité.
