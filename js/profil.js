@@ -205,7 +205,7 @@ async function appliquerProfilCreateur(mode) {
   } else if (mode === 'serie') {
     // initSerieSelects() copie les options juste avant : les selects sont déjà prêts.
     preRemplirSiVide('serieNiche', d.niche_principale);
-    preRemplirSiVide('serieStyle', d.style_contenu);
+    preRemplirSiVide('serieFormat', d.style_contenu); // style_contenu = format habituel (faceless / face caméra)
     preRemplirSiVide('serieGenre', d.structure_narrative);
     preSelectionnerGrilleSiVide('serieDureeGrid', d.duree_moyenne);
   }

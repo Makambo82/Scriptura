@@ -142,11 +142,13 @@ async function creerSerie() {
   const err = document.getElementById('serieError');
   const concept = document.getElementById('serieConcept')?.value.trim() || '';
   const niche = document.getElementById('serieNiche')?.value || '';
+  const format = document.getElementById('serieFormat')?.value || '';
   const style = document.getElementById('serieStyle')?.value || '';
   const genre = document.getElementById('serieGenre')?.value || '';
   const geo = document.getElementById('serieGeo')?.value.trim() || '';
   if (!niche) { err.textContent = 'Choisis ta niche.'; err.style.display = 'block'; return; }
-  if (!style) { err.textContent = 'Choisis ton style de contenu : la série sera écrite pour ce format.'; err.style.display = 'block'; return; }
+  if (!format) { err.textContent = 'Choisis le format : faceless ou face caméra. La série sera écrite pour ce format.'; err.style.display = 'block'; return; }
+  if (!style) { err.textContent = 'Choisis le ton de ta série.'; err.style.display = 'block'; return; }
   if (!genre) { err.textContent = 'Choisis le genre de ta série.'; err.style.display = 'block'; return; }
   if (!concept) { err.textContent = 'Décris ton concept, ou demande des propositions.'; err.style.display = 'block'; return; }
   err.style.display = 'none';
@@ -180,12 +182,14 @@ CONCEPT DONNÉ PAR LE CRÉATEUR : ${concept}
 NICHE : ${niche}
 ZONE GÉOGRAPHIQUE / CONTEXTE CULTUREL : ${geo || 'non précisée — reste général, n\'ancre pas la série dans une région particulière'}
 GENRE : ${genre}
-STYLE DE CONTENU : ${style}
+FORMAT DE PRÉSENTATION : ${format}
+TON D'ÉCRITURE : ${style}
 NOMBRE D'ÉPISODES : ${serieNbEpisodes}
 ${profilLigneSerie ? profilLigneSerie : ''}
 
 Principes à respecter (méthode d'écriture épisodique courte) :
 - La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
+- Adapte la règle récurrente et le ton au FORMAT : en faceless (sans visage), la signature peut être visuelle ou textuelle (un mot-clé à l'écran, un type de plan récurrent) ; en face caméra, une signature de présence (une accroche parlée, un rituel d'ouverture face public).
 - Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
 - L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
 - Épisodes pensés pour une durée de ${serieDuree}.
@@ -206,6 +210,7 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     if (!bible || !bible.premisse) throw new Error('construction impossible');
     bible.duree_episode = serieDuree; // mémorisée pour tous les épisodes à venir
     bible.zone_geo = geo;               // contexte culturel, repris à chaque épisode
+    bible.format = format;              // faceless / face caméra : dicte l'écriture de chaque épisode
 
     const titre = (bible.titre || concept.split('—')[0]).trim().slice(0, 90);
     const { data, error } = await supabaseClient.from('series').insert({
@@ -232,7 +237,7 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
 
     // Mémoire du créateur (tâche de fond, silencieuse).
     mettreAJourProfilCreateur({
-      declare: { niche_principale: niche, style_contenu: style, structure_narrative: genre, duree_moyenne: serieDuree },
+      declare: { niche_principale: niche, style_contenu: format, structure_narrative: genre, duree_moyenne: serieDuree },
       observe: { themes_traites: titre, plateformes: 'TikTok' }
     });
 
@@ -519,6 +524,12 @@ async function genererEpisode() {
     const arc = Array.isArray(b.arc) ? b.arc : [];
     const plan = arc.find(a => a.episode === num) || {};
 
+    // Format de présentation : depuis la bible (nouvelles séries) ; repli pour
+    // les séries créées avant le champ Format (on déduit du style enregistré).
+    const formatSerie = b.format
+      || ((serie.style || '').toLowerCase().includes('faceless') ? 'Faceless' : 'Face caméra');
+    const estFaceless = /faceless|voix off|sans visage/i.test(formatSerie);
+
     const prompt = `Tu écris l'épisode d'une série pour un créateur TikTok francophone.
 
 BIBLE DE LA SÉRIE
@@ -530,7 +541,8 @@ Règle récurrente à respecter absolument : ${b.regle_recurrente || 'aucune'}
 Genre : ${serie.genre || ''}
 Niche : ${serie.niche}
 Zone géographique / contexte culturel : ${b.zone_geo || 'non précisée — reste général'}
-Style de contenu : ${serie.style}
+Format de présentation : ${formatSerie}
+Ton d'écriture : ${serie.style}
 
 ÉPISODE À ÉCRIRE : ${num} sur ${total}
 Fonction narrative de cet épisode : ${plan.fonction || 'faire avancer l\'histoire'}
@@ -548,21 +560,26 @@ RÈGLES D'ÉCRITURE :
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
 
-FORMAT SELON LE STYLE — RÈGLE ABSOLUE, les deux formats ne se ressemblent JAMAIS :
+FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
-${serie.style === 'Faceless (sans visage)' ? `>> STYLE FACELESS (sans visage) :
-Le créateur n'apparaît pas. Le script et le texte à l'écran portent tout.
-- Écris en DEUX temps clairement séparés : la VOIX OFF (ce qu'on entend) et le TEXTE À L'ÉCRAN (ce qu'on lit).
-- Utilise des images concrètes et sensorielles : le script doit faire voir, pas juste dire. Bannis les adjectifs vagues ("intense", "incroyable").
-- Pense en plans courts : une nouvelle idée visuelle toutes les 2-3 secondes.
-- Le champ "directives" doit expliquer quel type d'images ou de séquences filmer/trouver (archives, plans d'illustration, etc.).` : `>> STYLE AVEC VISAGE (le créateur se filme et parle) :
-Le créateur est à l'écran et s'adresse directement à sa caméra.
-- Écris un texte PARLÉ, à la première personne, fluide et naturel, comme une personne qui raconte. Découpe en courtes phrases (chaque saut de ligne = une respiration).
+${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :
+Le script et le texte à l'écran portent 100 % du récit.
+- Écris en DEUX temps clairement séparés : la VOIX OFF (ce qu'on entend) et le TEXTE À L'ÉCRAN (mots-clés forts et courts, ce qu'on lit).
+- Accroche dans les 5 PREMIERS MOTS. Phrases courtes, UNE idée par ligne — jamais un paragraphe.
+- Fais VOIR par des images concrètes et sensorielles ; bannis les adjectifs vagues ("intense", "incroyable").
+- Pense en plans courts : une nouvelle idée visuelle toutes les 2-3 secondes ; une relance d'attention toutes les ~20 secondes.
+- AUCUNE adresse directe du type "regarde-moi", "je vais te montrer face caméra".
+- Le champ "directives" explique quelles images/séquences filmer ou trouver (archives, plans d'illustration, texte animé).` : `>> FORMAT FACE CAMÉRA (le créateur se filme et parle) :
+Le créateur est à l'écran et s'adresse directement à sa caméra, avec un vrai point de vue humain.
+- Texte PARLÉ, à la première personne, fluide et naturel, comme quelqu'un qui raconte. Phrases courtes (chaque saut de ligne = une respiration).
+- Accroche forte dès la première phrase ; personnalité et énergie assumées.
 - AUCUNE mention de "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" : ce sont des codes faceless, interdits ici.
-- Le champ "directives" doit dire au créateur COMMENT se filmer : cadrage (gros plan, plan poitrine), décor, énergie et ton à adopter, où regarder, quand marquer une pause, quel geste ou expression appuyer le propos.`}
+- Le champ "directives" dit COMMENT se filmer : cadrage (gros plan, plan poitrine), décor, énergie et ton, où regarder, quand marquer une pause, quel geste ou expression appuyer le propos.`}
+
+Le TON à respecter dans l'écriture : ${serie.style}.
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
-{"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au style (voir ci-dessus)"}`;
+{"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
 
     const raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche));
     const ep = serieParseJSON(raw);
