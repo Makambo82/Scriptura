@@ -609,20 +609,22 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
 2. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
 
-3. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
+3. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase — ou petit groupe de phrases très courtes — doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
 
-4. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair et adapté à l'objectif "${state.objectif}". Jamais un "abonne-toi" générique. Le CTA doit dire précisément quoi faire ensuite :
+4. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
+
+5. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair et adapté à l'objectif "${state.objectif}". Jamais un "abonne-toi" générique. Le CTA doit dire précisément quoi faire ensuite :
 - Objectif ventes → inciter à passer à l'action commerciale (lien, DM, commentaire déclencheur, offre)
 - Objectif vues → inciter au partage ou à regarder une autre vidéo
 - Objectif abonnés → donner une raison concrète de s'abonner (promesse de valeur future)
 - Objectif autorité → inciter à commenter son avis ou sauvegarder
 Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA.
 
-5. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ — remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
+6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ — remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
-6. ADAPTÉ À ${state.plateforme} : respecte les codes de rythme de cette plateforme.
+7. ADAPTÉ À ${state.plateforme} : respecte les codes de rythme de cette plateforme.
 
-7. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
+8. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
 
 RÈGLES DE QUALITÉ À RESPECTER :
 - Un simple prompt ChatGPT ne doit JAMAIS pouvoir reproduire ça. Sois nettement supérieur.
@@ -630,6 +632,7 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Le compte de mots doit être dans la cible ${wt.min}-${wt.max}.
 - Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.
 - Chaque phrase a une fonction, aucun remplissage.
+- Une seule image mentale par phrase, changement toutes les 3 à 5 secondes.
 Écris ta MEILLEURE version — vise l'excellence absolue (score global 90-100). Chaque script doit être digne d'un créateur professionnel.
 
 EVALUATION HONNETE DU SCORE : après avoir écrit, évalue ton propre travail avec RIGUEUR et HONNETETE, comme un critique exigeant. Ne gonfle pas les chiffres artificiellement : un bon score doit être MERITE par la qualité réelle du script.

@@ -182,6 +182,7 @@ STYLE ET LANGUE :
 - Français courant, compréhensible par un ado de 12 ans, avec de subtiles touches d'ironie qui font sourire.
 - Phrases brèves et moyennes. Rythme soutenu. Images fortes. Ruptures marquées.
 - AUCUN ton générique. Aucune formule plate.
+- UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase — ou petit groupe de phrases très courtes — doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image.
 
 EXIGENCE DE PERFECTION : Avant de livrer, relis ton récit. S'il n'atteint pas un niveau où un storyteller professionnel ne trouverait rien à améliorer, réécris-le. Vérifie que le hook arrête le scroll, que la tension tient du début à la fin, que la triple question et la signature sont présentes et percutantes.
 
