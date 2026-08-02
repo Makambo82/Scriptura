@@ -531,6 +531,19 @@ footer strong{color:var(--gold)}
   background:linear-gradient(90deg,var(--gold),var(--gold-light));
   transition:width 0.6s ease;
 }
+/* ── Bouton « Répondre maintenant » (échappement rapide) ── */
+.gen-skip-zone{margin-top:28px;text-align:center}
+.gen-skip-btn{
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:rgba(255,255,255,0.75);background:transparent;border:1px solid var(--border);
+  padding:10px 22px;border-radius:999px;cursor:pointer;transition:all 0.2s;
+}
+.gen-skip-btn:hover{color:var(--gold);border-color:var(--gold)}
+.gen-skip-btn:disabled{opacity:0.55;cursor:default}
+.gen-skip-note{
+  margin-top:10px;font-size:0.72rem;line-height:1.5;
+  color:rgba(255,255,255,0.4);max-width:340px;margin-left:auto;margin-right:auto;
+}
 
 /* ── COMPTEUR ── */
 .gen-counter{

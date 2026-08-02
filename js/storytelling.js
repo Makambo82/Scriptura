@@ -216,15 +216,14 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
 
     // ── SCORE RÉEL : régénère UNE fois si le récit n'est pas excellent (< 90) ──
-    // Le récit n'a PAS de passe Critique/Réviseur comme le script : cette
-    // double-écriture est sa seule sécurité qualité, donc on la garde pleine.
+    // Filet de variance créative : parfois un 2e jet est simplement meilleur.
     function scoreGlobalStory(p) {
       if (!p || !p.score) return 100;
       const s = p.score;
       const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
       return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
     }
-    if (scoreGlobalStory(parsed) < 90) {
+    if (!repondreMaintenant && scoreGlobalStory(parsed) < 90) {
       try {
         const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt);
         const parsed2 = parseAIResponse(raw2);
@@ -232,6 +231,75 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
           parsed = parsed2;
         }
       } catch(e) { /* garde la première version si échec */ }
+    }
+
+    // ── CRITIQUE + RÉVISEUR (comme le mode script) ──
+    // Le récit avait longtemps ce maillon manquant. Un Critique indépendant
+    // cherche les faiblesses segment par segment ; si un problème ressort, un
+    // Réviseur réécrit UNIQUEMENT les segments faibles. Sauté si l'utilisateur
+    // a demandé « Répondre maintenant ».
+    if (!repondreMaintenant) {
+      try {
+        const recitForReview = (parsed.recit || []).map((s, i) => '[segment ' + i + ' — ' + (s.segment || '') + '] ' + s.texte).join('\n');
+        const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit — ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
+
+SUJET : ${input}
+RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
+${recitForReview}
+
+TON TRAVAIL :
+1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
+2. RÉFUTATION — cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
+3. Le hook et la clôture (triple question miroir + signature) doivent être PUISSANTS : signale-les s'ils sont faibles.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
+
+        const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt);
+        const critique = parseAIResponse(critiqueRaw);
+
+        function critiqueRecitProbleme(c) {
+          if (!c) return false;
+          if (c.verdict === 'à améliorer') return true;
+          if (c.ia_generique === true) return true;
+          if (Array.isArray(c.segments_faibles) && c.segments_faibles.length > 0) return true;
+          if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length > 0) return true;
+          return false;
+        }
+
+        if (!repondreMaintenant && critique && critiqueRecitProbleme(critique)) {
+          const segmentsFaiblesTxt = (critique.segments_faibles || [])
+            .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
+            || 'Applique les instructions générales ci-dessous.';
+          const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
+
+          const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de récits viraux. Un critique indépendant a évalué le récit ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même fonction narrative) — ce sont les points forts, ne les abîme pas.
+
+SUJET : ${input}
+RÉCIT ACTUEL (segments numérotés) :
+${recitForReview}
+
+SEGMENTS À RÉÉCRIRE (uniquement ceux-ci) :
+${segmentsFaiblesTxt}
+${raisonsScrollTxt ? '\nRAISONS DE DÉCROCHAGE À ÉLIMINER :\n' + raisonsScrollTxt : ''}${critique.ia_generique ? '\nATTENTION : récit jugé trop générique. Les segments réécrits doivent avoir une voix beaucoup plus incarnée, jamais neutre.' : ''}${critique.instructions_revision ? '\nINSTRUCTIONS DU CRITIQUE :\n' + critique.instructions_revision : ''}
+
+RÈGLES :
+- Ne touche JAMAIS un segment non listé ci-dessus.
+- Renvoie la liste COMPLÈTE des segments dans le même ordre, avec le même nombre total et les mêmes valeurs de "segment" (fonction narrative).
+- Si le dernier segment (clôture) est réécrit, conserve la triple question miroir ET la signature métapoétique.
+- Réécris aussi les 5 hooks si le critique a signalé un hook faible, sinon garde-les.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"Hook","texte":"..."}]}`;
+
+          const reviseRaw = await callAI(MODEL_CREATIF, 16000, revisePrompt);
+          const revised = parseAIResponse(reviseRaw);
+          if (revised && Array.isArray(revised.recit) && revised.recit.length) {
+            parsed.recit = revised.recit;
+            if (Array.isArray(revised.hooks) && revised.hooks.length) parsed.hooks = revised.hooks;
+          }
+        }
+      } catch(e) { /* si la critique/révision échoue, on garde la meilleure version obtenue */ }
     }
 
     if (!unlocked && !_regenGratuiteEnCours) {

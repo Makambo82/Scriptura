@@ -701,7 +701,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       const vals = [s.viral, s.hook, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
       return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
     }
-    if (scoreGlobal(parsed) < 90) {
+    if (!repondreMaintenant && scoreGlobal(parsed) < 90) {
       try {
         const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
         const parsed2 = parseAIResponse(writeRaw2);
@@ -739,12 +739,12 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         return false;
       }
 
-      // Bornée à 1 passe (critique + révision au maximum une fois) pour
-      // garder un temps de génération raisonnable : au pire 4 appels IA au
-      // lieu de 2 avant, plutôt que 6. Toujours au moins un vrai contrôle
-      // qualité indépendant, sans le temps d'attente d'une 2e itération.
-      const MAX_PASSES_QUALITE = 1;
+      // Qualité maximale : jusqu'à 2 rondes de critique + révision. Le créateur
+      // peut couper court à tout moment via « Répondre maintenant » (le drapeau
+      // repondreMaintenant, vérifié en tête de boucle).
+      const MAX_PASSES_QUALITE = 2;
       for (let passe = 0; passe < MAX_PASSES_QUALITE; passe++) {
+        if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
         // ══════════════════════════════════════
         //  PHASE 3 — LE CRITIQUE (agent indépendant)
         //  Juge le travail du rédacteur sans l'avoir écrit. Cherche
@@ -877,7 +877,7 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
     const hardMin = Math.round(wt.min * 0.9);
     const hardMax = Math.round(wt.max * 1.1);
 
-    while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 2) {
+    while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 2 && !repondreMaintenant) {
       correctionAttempts++;
       const tooShort = wordCount < hardMin;
       const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
@@ -1025,13 +1025,32 @@ let genInterval = null;
 let genProgressCtl = null;
 // Durée estimée (ms) de chaque type de génération, pour calibrer la montée de la barre vers 90%.
 const GEN_DUREE = {
-  script: 60000,
-  story: 60000,
+  script: 78000,
+  story: 66000,
   ideas: 12000,
   audit: 18000,
   serie_creation: 30000,
   serie_episode: 30000
 };
+
+// ── « RÉPONDRE MAINTENANT » : interruption coopérative ──
+// Drapeau partagé (script + récit). Quand l'utilisateur appuie sur le bouton
+// pendant l'attente, on le passe à true ; le pipeline le vérifie entre chaque
+// phase et, s'il est levé, livre le brouillon en cours SANS les étapes de
+// perfectionnement restantes. Il ne peut pas interrompre l'appel déjà en vol
+// (le premier brouillon est incompressible), seulement sauter la suite.
+let repondreMaintenant = false;
+// Modes où le bouton d'échappement a un sens (pipelines à plusieurs passes).
+const MODES_REPONSE_IMMEDIATE = ['script', 'story'];
+
+function demanderReponseImmediate() {
+  repondreMaintenant = true;
+  const btn = document.getElementById('genSkipBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Scriptura termine ton brouillon…';
+  }
+}
 
 function setLoading(on) {
   const btn = document.getElementById('generateBtn');
@@ -1144,6 +1163,19 @@ function startGenAnimation(mode) {
   }, GEN_DUREE[mode] || 45000);
   genProgressCtl.start();
 
+  // « Répondre maintenant » : nouveau départ = drapeau baissé. Le bouton
+  // n'apparaît que sur les modes à plusieurs passes (script, récit).
+  repondreMaintenant = false;
+  const skipBtn = document.getElementById('genSkipBtn');
+  const skipNote = document.getElementById('genSkipNote');
+  const avecSkip = MODES_REPONSE_IMMEDIATE.indexOf(mode) !== -1;
+  if (skipBtn) {
+    skipBtn.disabled = false;
+    skipBtn.textContent = 'Répondre maintenant';
+    skipBtn.style.display = avecSkip ? 'inline-block' : 'none';
+  }
+  if (skipNote) skipNote.style.display = avecSkip ? 'block' : 'none';
+
   // Défilement des étapes textuelles (indépendant de la barre)
   genInterval = setInterval(() => {
     if (current < total - 1) {
@@ -1160,6 +1192,12 @@ function stopGenAnimation() {
   const steps = document.querySelectorAll('.gen-step');
 
   if (genInterval) { clearInterval(genInterval); genInterval = null; }
+
+  // Masquer le bouton « Répondre maintenant » dès que le résultat arrive.
+  const skipBtn = document.getElementById('genSkipBtn');
+  const skipNote = document.getElementById('genSkipNote');
+  if (skipBtn) skipBtn.style.display = 'none';
+  if (skipNote) skipNote.style.display = 'none';
 
   // La barre saute à 100% (résultat prêt), puis on ferme l'overlay.
   if (genProgressCtl) genProgressCtl.finish();
