@@ -15,7 +15,11 @@ const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet
 function systemDateActuelle() {
   const now = new Date();
   const dateStr = now.getUTCDate() + ' ' + MOIS_FR[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
-  return `Nous sommes le ${dateStr}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir. Si le contenu du créateur touche à l'actualité récente ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes constats avec prudence plutôt qu'avec une certitude que tu n'as pas.`;
+  return `Nous sommes le ${dateStr}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir. Si le contenu du créateur touche à l'actualité récente ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes constats avec prudence plutôt qu'avec une certitude que tu n'as pas.
+
+RÈGLE DE MAJUSCULES (toujours) : une majuscule uniquement en début de phrase et pour les noms propres (personnes, lieux, marques, institutions, acronymes). N'utilise JAMAIS de majuscule au milieu d'une phrase sur un nom commun, même pour insister ou donner de l'importance à un mot (interdit par exemple : "la Vérité", "le Pouvoir", "une Stratégie", "cette Décision").
+
+RÈGLE DE FORMAT DES NOMBRES (toujours) : quand tu écris un nombre avec un séparateur de milliers et/ou une décimale, utilise EXACTEMENT ce format : le point comme séparateur de milliers, la virgule comme séparateur décimal. Exemple : 107.453,98 — jamais "107 453,98" (espace), jamais "107,453.98" (format anglo-saxon).`;
 }
 
 // Même périmètre restreint que côté client (js/api.js, NICHES_ACTUALITE) :
