@@ -182,15 +182,15 @@ const AUDIT_ETAPES = [
   },
   {
     titre: "Ta vidéo la plus performante · analyse complète",
-    path: "TikTok Studio → Analyses → Contenu → ouvre ta MEILLEURE vidéo des 60 derniers jours, puis descends jusqu'à la courbe de rétention.",
-    tip: "Si tout ne tient pas sur un écran, prends deux captures : les indicateurs en haut, puis la courbe de rétention plus bas.",
+    path: "Depuis ton profil, ouvre ta MEILLEURE vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
+    tip: "Sur l'écran des données, descends jusqu'à la courbe de rétention. Si tout ne tient pas, prends deux captures : les indicateurs en haut, puis la courbe plus bas.",
     label: "Ajouter : meilleure vidéo",
     schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,28 44,40 70,56 100,60 140,62 184,66" stroke="#E2C87A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
   },
   {
     titre: "Ta vidéo la moins performante · analyse complète",
-    path: "TikTok Studio → Analyses → Contenu → ouvre ta MOINS bonne vidéo des 60 derniers jours, puis descends jusqu'à la courbe de rétention.",
-    tip: "Même chose : deux captures si l'écran est trop long. C'est la comparaison des deux qui révèle ce qui marche.",
+    path: "Depuis ton profil, ouvre ta MOINS bonne vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
+    tip: "Même chose : descends jusqu'à la courbe de rétention, deux captures si l'écran est trop long. C'est la comparaison des deux qui révèle ce qui marche.",
     label: "Ajouter : vidéo la moins performante",
     schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,26 40,52 60,74 90,84 140,88 184,90" stroke="#C9A84C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
   },
