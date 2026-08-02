@@ -1572,8 +1572,10 @@ async function generateStoryboard() {
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
   // Nombre de segments proportionnel à la longueur du script
   const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
-  const segMin = Math.max(3, Math.round(nbMots / 18));   // ~18 mots par segment
-  const segMax = Math.max(segMin + 1, Math.round(nbMots / 11)); // ~11 mots par segment
+  // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
+  // pour que l'IA fournisse un visuel DISTINCT à (presque) chaque plan re-segmenté.
+  const segMin = Math.max(3, Math.round(nbMots / 14));
+  const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
 
   const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral.
 
@@ -1604,7 +1606,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 {"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
     const parsed = parseAIResponse(raw);
     // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
     if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);

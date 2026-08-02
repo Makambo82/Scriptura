@@ -200,8 +200,21 @@ function segmentNarrativeStoryboard(texte) {
 // on le re-découpe selon la NARRATION, puis on réassocie les prompts visuels.
 // Chaque plan reçoit un prompt DISTINCT (jamais le même recopié).
 
-// Associe à chaque nouveau plan le prompt de l'IA qui couvrait son texte,
-// en évitant d'attribuer deux fois le même prompt.
+// Fusionne deux étiquettes de durée consécutives : "0-3 sec" + "4-5 sec" -> "0-5 sec".
+function _fusionnerDurees(a, b) {
+  const nums = s => (String(s || '').match(/\d+/g) || []).map(Number);
+  const na = nums(a), nb = nums(b);
+  if (!na.length) return b || a || '';
+  if (!nb.length) return a || b || '';
+  return na[0] + '-' + nb[nb.length - 1] + ' sec';
+}
+
+// Associe à chaque nouveau plan le prompt de l'IA qui couvrait son texte.
+// RÈGLE ABSOLUE : un prompt visuel n'est JAMAIS attribué à deux plans. Chaque
+// plan affiché a donc une image DISTINCTE.
+// Quand la re-segmentation produit plus de plans que l'IA n'a fourni de visuels,
+// le plan en trop ne recopie PAS le visuel du voisin (ce qui créait des doublons) :
+// il est FUSIONNÉ dans le plan précédent, puisqu'ils partagent la même image mentale.
 function _reassocierVisuels(plans, segmentsIA, cleTexte, cleVisuel) {
   const sources = segmentsIA.map(s => ({
     texte: (s[cleTexte] || '').trim().toLowerCase(),
@@ -211,11 +224,12 @@ function _reassocierVisuels(plans, segmentsIA, cleTexte, cleVisuel) {
 
   const motsDe = t => new Set((t || '').toLowerCase().split(/\s+/).filter(w => w.length > 3));
 
-  return plans.map(plan => {
+  const resultat = [];
+  plans.forEach(plan => {
     const motsPlan = motsDe(plan.text);
     let best = -1, bestScore = -1;
 
-    // 1er passage : chercher parmi les prompts NON encore attribués
+    // Chercher UNIQUEMENT parmi les prompts encore libres (un visuel = un seul plan)
     sources.forEach((src, idx) => {
       if (src.pris) return;
       const motsSrc = motsDe(src.texte);
@@ -224,20 +238,25 @@ function _reassocierVisuels(plans, segmentsIA, cleTexte, cleVisuel) {
       if (common > bestScore) { bestScore = common; best = idx; }
     });
 
-    // Repli : si tout est pris, prendre le meilleur global (rare)
-    if (best === -1) {
-      sources.forEach((src, idx) => {
-        const motsSrc = motsDe(src.texte);
-        let common = 0;
-        motsSrc.forEach(w => { if (motsPlan.has(w)) common++; });
-        if (common > bestScore) { bestScore = common; best = idx; }
-      });
+    if (best >= 0) {
+      // Un visuel libre existe : ce plan est distinct.
+      sources[best].pris = true;
+      resultat.push({ text: plan.text, duree: plan.duree, visuel: sources[best].visuel });
+    } else if (resultat.length) {
+      // Plus aucun visuel libre : ce fragment partage l'image du plan précédent.
+      // On le fusionne au lieu de recopier le même prompt (fini les doublons).
+      const prev = resultat[resultat.length - 1];
+      prev.text = (prev.text + ' ' + plan.text).trim();
+      prev.duree = _fusionnerDurees(prev.duree, plan.duree);
+    } else {
+      // Cas extrême (1er plan, aucun visuel encore libre) : prendre le 1er disponible.
+      const v = sources.length ? sources[0].visuel : '';
+      if (sources.length) sources[0].pris = true;
+      resultat.push({ text: plan.text, duree: plan.duree, visuel: v });
     }
-
-    let visuel = '';
-    if (best >= 0) { visuel = sources[best].visuel; sources[best].pris = true; }
-    return { text: plan.text, duree: plan.duree, visuel: visuel };
   });
+
+  return resultat;
 }
 
 // MODE STORYTELLING : { segment, duree, texte, visuel }
@@ -293,8 +312,10 @@ async function generateStoryStoryboard() {
   const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
   // Nombre de segments proportionnel à la longueur du récit
   const nbMotsRecit = (currentStoryText || '').split(/\s+/).filter(Boolean).length;
-  const segMinR = Math.max(3, Math.round(nbMotsRecit / 18));
-  const segMaxR = Math.max(segMinR + 1, Math.round(nbMotsRecit / 11));
+  // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
+  // pour que l'IA fournisse un visuel DISTINCT à (presque) chaque plan re-segmenté.
+  const segMinR = Math.max(3, Math.round(nbMotsRecit / 14));
+  const segMaxR = Math.max(segMinR + 1, Math.round(nbMotsRecit / 9));
 
   const prompt = `Tu es un directeur artistique expert en storyboard vidéo cinématique pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt d'image d'une richesse exceptionnelle.
 
@@ -331,7 +352,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
     const parsed = parseAIResponse(raw);
     // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
     if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardStory(parsed.storyboard);
