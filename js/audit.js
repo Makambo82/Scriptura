@@ -15,11 +15,16 @@ async function ajouterCaptures(files) {
     if (!f.type.startsWith('image/')) continue;
     try {
       const compresse = await compresserImage(f);
+      // On mémorise l'étape où la capture a été ajoutée : ça permet de dire
+      // si elle correspond bien à la donnée demandée à ce moment-là.
+      compresse.etape = (typeof auditAffineMode !== 'undefined' && auditAffineMode) ? null : auditEtapeIndex;
       auditCaptures.push(compresse);
     } catch(e) { console.warn('Capture ignorée', e); }
   }
   document.getElementById('auditInput').value = '';
+  awConfirmSaut = false; // une capture vient d'arriver : on lève un éventuel avertissement de saut
   renderCaptures();
+  if (typeof renderAuditWizard === 'function') renderAuditWizard();
   detecterTypesCaptures(); // reconnaissance en arrière-plan, sans bloquer
 }
 
@@ -103,18 +108,10 @@ function renderCaptures() {
   const btn = document.getElementById('auditBtn');
   if (!zone) return;
   zone.innerHTML = auditCaptures.map((c, i) => {
-    let badge = '';
-    if (c.type === 'attente') {
-      badge = '<span class="thumb-badge attente">…</span>';
-    } else if (c.type === 0) {
-      badge = '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">⚠️</span>';
-    } else if (AUDIT_TYPES[c.type]) {
-      badge = `<span class="thumb-badge ok" title="${AUDIT_TYPES[c.type]} reconnue">✅</span>`;
-    }
     return `
     <div class="audit-thumb">
       <img src="${c.dataUrl}" alt="capture ${i+1}"/>
-      ${badge}
+      ${badgeCapture(c)}
       <button class="audit-thumb-del" onclick="retirerCapture(${i})" title="Retirer">✕</button>
     </div>`;
   }).join('');
@@ -123,6 +120,25 @@ function renderCaptures() {
   // l'étape finale, ou en mode affiner) — géré par l'assistant guidé.
   if (typeof majAffichageBoutonAudit === 'function') majAffichageBoutonAudit();
   else if (btn) btn.style.display = auditCaptures.length ? 'flex' : 'none';
+  // Met à jour le statut ✅/⏳ de l'étape courante (la reconnaissance IA est async).
+  if (typeof majStatutEtape === 'function') majStatutEtape();
+}
+
+// Badge d'une vignette : ✅ si c'est bien la donnée demandée à l'étape où elle
+// a été ajoutée, ⚠️ si l'image n'est pas reconnue OU ne correspond pas à cette
+// étape, … pendant l'analyse. (Reconnaissance globale via detecterTypesCaptures.)
+function badgeCapture(c) {
+  if (c.type === 'attente') return '<span class="thumb-badge attente">…</span>';
+  if (c.type === 0) return '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">⚠️</span>';
+  if (AUDIT_TYPES[c.type]) {
+    const attendu = (c.etape != null) ? AUDIT_ETAPE_TYPE[c.etape] : null;
+    if (attendu && c.type !== attendu) {
+      const t = 'Cette capture ressemble à : ' + AUDIT_TYPES[c.type] + ', pas à la donnée demandée à cette étape';
+      return '<span class="thumb-badge alerte" title="' + t + '">⚠️</span>';
+    }
+    return '<span class="thumb-badge ok" title="' + AUDIT_TYPES[c.type] + ' reconnue">✅</span>';
+  }
+  return '';
 }
 
 // Récapitule les données reconnues et celles qui manquent encore.
@@ -194,16 +210,39 @@ const AUDIT_ETAPES = [
   }
 ];
 
+// Type de donnée attendu à chaque étape (voir AUDIT_TYPES) : les étapes 2 et 3
+// (meilleure/pire vidéo) demandent toutes deux un "détail vidéo" (type 2), que
+// la reconnaissance ne sait pas distinguer — c'est normal et sans conséquence.
+const AUDIT_ETAPE_TYPE = [1, 2, 2, 3, 4];
+
 let auditEtapeIndex = 0;   // 0..AUDIT_ETAPES.length (la dernière = profil + lancement)
 let auditAffineMode = false;
+let awConfirmSaut = false; // true quand on demande "continuer sans la capture ?"
 
 function auditSurEtapeFinale() { return auditEtapeIndex >= AUDIT_ETAPES.length; }
+
+// Statut ✅/⏳ de l'étape courante, mis à jour quand la reconnaissance IA arrive.
+function majStatutEtape() {
+  if (awConfirmSaut) return; // ne pas écraser l'avertissement de saut
+  const el = document.getElementById('awStatut');
+  if (!el) return;
+  if (auditAffineMode || auditSurEtapeFinale()) { el.innerHTML = ''; return; }
+  const attendu = AUDIT_ETAPE_TYPE[auditEtapeIndex];
+  if (auditCaptures.some(c => c.type === 'attente')) {
+    el.innerHTML = '<span class="aw-statut attente">⏳ Scriptura lit ta capture…</span>';
+  } else if (auditCaptures.some(c => c.type === attendu)) {
+    el.innerHTML = '<span class="aw-statut ok">✅ Cette donnée est bien reconnue</span>';
+  } else {
+    el.innerHTML = '';
+  }
+}
 
 // Prépare l'écran audit : mode normal (parcours guidé) ou mode "affiner"
 // (ajout direct de captures + relance, sans re-parcourir les 5 étapes).
 function initAuditWizard(affine) {
   auditAffineMode = !!affine;
   auditEtapeIndex = affine ? AUDIT_ETAPES.length : 0;
+  awConfirmSaut = false; // repart propre à chaque entrée dans l'audit
   renderAuditWizard();
 }
 
@@ -261,17 +300,26 @@ function renderAuditWizard() {
       '<div class="aw-schema-note">schéma indicatif</div>' +
       '<div class="aw-title">' + e.titre + '</div>' +
       '<div class="aw-path">' + e.path + '</div>' +
-      (e.tip ? '<div class="aw-tip">' + e.tip + '</div>' : '');
+      (e.tip ? '<div class="aw-tip">' + e.tip + '</div>' : '') +
+      '<div id="awStatut"></div>';
     if (nav) {
       let b = '';
       if (auditEtapeIndex > 0) b += '<button onclick="auditStepPrecedent()">← Précédent</button>';
-      b += '<button class="aw-primary" onclick="auditStepSuivant()">' +
-        (auditEtapeIndex === AUDIT_ETAPES.length - 1 ? 'Terminer →' : 'Suivant →') + '</button>';
+      const labelSuite = awConfirmSaut ? 'Continuer quand même →'
+        : (auditEtapeIndex === AUDIT_ETAPES.length - 1 ? 'Terminer →' : 'Suivant →');
+      b += '<button class="aw-primary" onclick="auditStepSuivant()">' + labelSuite + '</button>';
       nav.innerHTML = b;
     }
     if (ctx) ctx.style.display = 'none';
     if (couv) couv.style.display = 'none';
     if (dropLabel) dropLabel.textContent = e.label;
+    // Statut de l'étape : avertissement de saut prioritaire, sinon ✅/⏳.
+    if (awConfirmSaut) {
+      const st = document.getElementById('awStatut');
+      if (st) st.innerHTML = '<span class="aw-statut alerte">⚠️ Tu n\'as pas ajouté « ' + e.titre + ' ». Ajoute-la maintenant, ou continue quand même.</span>';
+    } else {
+      majStatutEtape();
+    }
   } else {
     // ── Étape finale : récap + retour possible, puis profil + lancement ──
     if (wiz) wiz.style.display = '';
@@ -289,11 +337,25 @@ function renderAuditWizard() {
 }
 
 function auditStepSuivant() {
+  // Avant d'avancer : la donnée de cette étape est-elle bien présente ?
+  if (!auditSurEtapeFinale()) {
+    const attendu = AUDIT_ETAPE_TYPE[auditEtapeIndex];
+    const enAttente = auditCaptures.some(c => c.type === 'attente');
+    const present = auditCaptures.some(c => c.type === attendu);
+    if (!present && !enAttente && !awConfirmSaut) {
+      // Rien pour cette donnée : on prévient, sans bloquer. Un 2e clic passe.
+      awConfirmSaut = true;
+      renderAuditWizard();
+      return;
+    }
+  }
+  awConfirmSaut = false;
   if (auditEtapeIndex < AUDIT_ETAPES.length) auditEtapeIndex++;
   renderAuditWizard();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function auditStepPrecedent() {
+  awConfirmSaut = false;
   if (auditEtapeIndex > 0) auditEtapeIndex--;
   renderAuditWizard();
   window.scrollTo({ top: 0, behavior: 'smooth' });
