@@ -140,7 +140,7 @@ function carteRecommandationSecondaire(reco, index) {
 // Affiche la recommandation principale + le bouton pour révéler les autres,
 // dans le conteneur donné. `entete` (optionnel) est inséré avant la carte
 // (utilisé pour la salutation d'accueil ou le titre "Et maintenant ?").
-function rendreRecommandations(containerId, data, entete) {
+function rendreRecommandations(containerId, data, entete, avecRafraichir) {
   const zone = document.getElementById(containerId);
   if (!zone) return;
   if (!data || !data.recommandations || !data.recommandations.length) {
@@ -163,6 +163,7 @@ function rendreRecommandations(containerId, data, entete) {
       <button class="btn-generate" style="margin-top:20px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
       <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:10px" onclick="toggleAutresRecommandations('${autresId}')">Voir d'autres recommandations</button>
       <div id="${autresId}" style="display:none;margin-top:18px"></div>
+      ${avecRafraichir ? '<button class="btn-regenerate" style="width:100%;justify-content:center;margin-top:10px" id="btnRafraichirReco" onclick="rafraichirRecommandationAccueil()">↻ Nouvelle recommandation</button>' : ''}
     </div>
   `;
   zone.style.display = 'block';
@@ -310,6 +311,13 @@ function ecrireRecoCache(data) {
     }
   } catch (e) { /* stockage plein ou indisponible : tant pis, pas bloquant */ }
 }
+// Invalide la recommandation du jour : appelée après toute nouvelle
+// génération (voir saveGeneration, js/historique.js), pour qu'un créateur
+// qui vient d'agir sur la reco n'en revoie pas une devenue obsolète le
+// reste de la journée. Sans effet si aucune reco n'était en cache.
+function viderRecoCache() {
+  try { localStorage.removeItem(cleRecoJour()); } catch (e) { /* silencieux */ }
+}
 
 async function initAccueilPremium() {
   const zone = document.getElementById('accueilPremium');
@@ -359,7 +367,16 @@ async function initAccueilPremium() {
   }
 
   if (!data) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
-  rendreRecommandations('accueilPremium', data, entete);
+  rendreRecommandations('accueilPremium', data, entete, true);
+}
+
+// Force une nouvelle recommandation d'accueil, sans attendre le changement
+// de jour (vide le cache du jour puis relance l'initialisation normale).
+async function rafraichirRecommandationAccueil() {
+  const btn = document.getElementById('btnRafraichirReco');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Nouvelle recommandation…'; }
+  viderRecoCache();
+  await initAccueilPremium();
 }
 
 // ── Fin d'un rapport d'audit : "Et maintenant ?" ──
