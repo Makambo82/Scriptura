@@ -68,7 +68,7 @@ async function ouvrirInfosAbonne() {
     html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès complet</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">Illimitée</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">Illimitées</span></div>`;
-    html += `<div class="infos-ligne"><span class="infos-label">Analyses de compte</span><span class="infos-val">Illimitées</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Diagnostics TikTok</span><span class="infos-val">Illimités</span></div>`;
     corps.innerHTML = html;
     return;
   }
@@ -120,7 +120,7 @@ async function ouvrirInfosAbonne() {
   if (limites.audit > 0) {
     const faitsAudit = await countMonthGenerations('audit');
     const resteAudit = Math.max(0, limites.audit - faitsAudit);
-    html += `<div class="infos-ligne"><span class="infos-label">Analyses de compte</span><span class="infos-val">${formaterNombre(faitsAudit)} / ${formaterNombre(limites.audit)} · ${formaterNombre(resteAudit)} restantes</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Diagnostics TikTok</span><span class="infos-val">${formaterNombre(faitsAudit)} / ${formaterNombre(limites.audit)} · ${formaterNombre(resteAudit)} restants</span></div>`;
   }
 
   // Jetons achetés à l'unité : séparés, sans plafond, ne périment pas
@@ -204,7 +204,7 @@ function openPaywall() {
   const wa = document.querySelector('#paywall .paywall-wa');
   if (tag) tag.textContent = 'Accès Créateur';
   if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois.';
-  if (desc) desc.textContent = 'Passe au plan Creator pour continuer à générer chaque mois, ou au plan Pro pour débloquer aussi l\'analyse de compte TikTok.';
+  if (desc) desc.textContent = 'Passe au plan Creator pour continuer à générer chaque mois, ou au plan Pro pour débloquer aussi le diagnostic TikTok.';
   if (prix) prix.textContent = '5.000 FCFA';
   if (wa) wa.href = 'https://wa.me/22995056424?text=' + encodeURIComponent(PLANS.creator.wa);
   document.getElementById('paywall').classList.add('active');
@@ -243,7 +243,7 @@ function openPlans(contexte) {
     // Abonné Creator qui veut l'analyse TikTok : on ne remontre pas Creator
     if (tag) tag.textContent = 'Passe au Pro';
     if (titre) titre.innerHTML = 'Cette fonctionnalité<br/>est dans le plan Pro';
-    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok (propulsée par notre IA la plus avancée) et le mode Crée-moi une série.'; intro.style.display = 'block'; }
+    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute le diagnostic TikTok (propulsé par notre IA la plus avancée) et le mode Crée-moi une série.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'quota') {
@@ -267,24 +267,24 @@ function openPlans(contexte) {
     // Non-abonné qui clique sur l'audit : c'est une fonctionnalité Pro, on le
     // dit sans prétendre qu'il a épuisé ses générations gratuites.
     if (tag) tag.textContent = 'Fonctionnalité Pro';
-    if (titre) titre.innerHTML = 'L\'analyse de compte<br/>TikTok est dans le Pro';
-    if (intro) { intro.textContent = 'Cette analyse fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
+    if (titre) titre.innerHTML = 'Le diagnostic<br/>TikTok est dans le Pro';
+    if (intro) { intro.textContent = 'Ce diagnostic fait partie du plan Pro. Voici les deux offres pour débloquer Scriptura.'; intro.style.display = 'block'; }
   } else if (contexte === 'achat-jeton-creator') {
     // Abonné Creator qui veut une analyse OU une série : c'est du Pro,
     // et on propose aussi les jetons au tarif Creator (moins cher).
     // 1 jeton = 1 analyse OU 1 série.
-    if (tag) tag.textContent = 'Analyse & Série';
-    if (titre) titre.innerHTML = 'Débloque l\'analyse<br/>et le mode Série';
-    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute l\'analyse de compte TikTok et le mode Crée-moi une série. Sinon, achète des jetons : 1 jeton = 1 analyse OU 1 série.'; intro.style.display = 'block'; }
+    if (tag) tag.textContent = 'Diagnostic & Série';
+    if (titre) titre.innerHTML = 'Débloque le diagnostic<br/>et le mode Série';
+    if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute le diagnostic TikTok et le mode Crée-moi une série. Sinon, achète des jetons : 1 jeton = 1 diagnostic OU 1 série.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('creator'); packsBloc.style.display = 'block'; }
   } else if (contexte === 'achat-jeton-nonabonne') {
     // Non-abonné : Pro complet OU jetons au tarif non-abonné.
     // 1 jeton = 1 analyse OU 1 série.
-    if (tag) tag.textContent = 'Analyse & Série';
-    if (titre) titre.innerHTML = 'Débloque l\'analyse<br/>et le mode Série';
-    if (intro) { intro.textContent = 'L\'analyse de compte TikTok et le mode Crée-moi une série font partie du plan Pro. Prends le Pro pour tout débloquer, ou achète des jetons : 1 jeton = 1 analyse OU 1 série.'; intro.style.display = 'block'; }
+    if (tag) tag.textContent = 'Diagnostic & Série';
+    if (titre) titre.innerHTML = 'Débloque le diagnostic<br/>et le mode Série';
+    if (intro) { intro.textContent = 'Le diagnostic TikTok et le mode Crée-moi une série font partie du plan Pro. Prends le Pro pour tout débloquer, ou achète des jetons : 1 jeton = 1 diagnostic OU 1 série.'; intro.style.display = 'block'; }
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
@@ -316,7 +316,7 @@ const PLANS = {
     nom: 'Pro',
     prix: '10.000 FCFA',
     titre: 'Passe au plan Pro',
-    desc: 'Tout Creator + l\'analyse de compte TikTok et le mode Crée-moi une série. 70 générations + 5 analyses par mois.',
+    desc: 'Tout Creator + le diagnostic TikTok et le mode Crée-moi une série. 70 générations + 5 diagnostics par mois.',
     wa: 'Bonjour, je veux le plan Pro de Scriptura — 10.000 FCFA/mois'
   }
 };
@@ -356,7 +356,7 @@ function acheterPack(index) {
   const p = packs[index];
   if (!p) return;
   const prixFmt = formaterNombre(p.prix) + ' FCFA';
-  const msg = 'Bonjour, je veux acheter ' + p.label + ' Scriptura (analyse ou série) — ' + prixFmt;
+  const msg = 'Bonjour, je veux acheter ' + p.label + ' Scriptura (diagnostic ou série) — ' + prixFmt;
   window.open('https://wa.me/22995056424?text=' + encodeURIComponent(msg), '_blank');
 }
 

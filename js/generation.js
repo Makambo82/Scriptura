@@ -1123,7 +1123,7 @@ const GEN_TAGLINE = {
   script: 'Ton équipe éditoriale IA au travail',
   ideas: 'Ton directeur éditorial cherche tes idées',
   story: 'Ton storyteller écrit ton récit',
-  audit: 'Ton consultant TikTok analyse ton compte',
+  audit: 'Ton consultant TikTok établit ton diagnostic',
   serie_creation: 'Ton architecte narratif construit ta série',
   serie_episode: 'Ton scénariste écrit ton épisode'
 };

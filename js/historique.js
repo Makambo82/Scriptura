@@ -481,7 +481,7 @@ async function renderHistory() {
   toolbar.style.display = 'flex';
   updateHistoryToolbar();
 
-  const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Analyse', serie: '🎞️ Série' };
+  const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Diagnostic', serie: '🎞️ Série' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C' };
 
   // Séries et générations sont fusionnées dans UNE seule liste,

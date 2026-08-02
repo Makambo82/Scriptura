@@ -156,7 +156,7 @@ function renderCouverture() {
   }).join('');
   const nbAlerte = auditCaptures.filter(c => c.type === 0).length;
   const note = nbAlerte
-    ? `<div class="couv-note">${formaterNombre(nbAlerte)} capture${nbAlerte > 1 ? 's' : ''} non reconnue${nbAlerte > 1 ? 's' : ''}. Tu peux quand même lancer l'analyse : Scriptura te dira à la fin ce qui lui a manqué.</div>`
+    ? `<div class="couv-note">${formaterNombre(nbAlerte)} capture${nbAlerte > 1 ? 's' : ''} non reconnue${nbAlerte > 1 ? 's' : ''}. Tu peux quand même lancer le diagnostic : Scriptura te dira à la fin ce qui lui a manqué.</div>`
     : '';
   zone.innerHTML = `<div class="couv-titre">Ce que Scriptura a reconnu</div>${lignes}${note}`;
 }
@@ -327,7 +327,7 @@ function renderAuditWizard() {
     if (barFill) barFill.style.width = '100%';
     if (card) card.innerHTML =
       '<div class="aw-title">Presque terminé 🎯</div>' +
-      '<div class="aw-tip">Renseigne ton profil ci-dessous, vérifie tes captures, puis lance l\'analyse. Il te manque une donnée ? Ajoute-la, ou reviens en arrière.</div>';
+      '<div class="aw-tip">Renseigne ton profil ci-dessous, vérifie tes captures, puis lance le diagnostic. Il te manque une donnée ? Ajoute-la, ou reviens en arrière.</div>';
     if (nav) nav.innerHTML = '<button onclick="auditStepPrecedent()">← Revoir mes captures</button>';
     if (ctx) ctx.style.display = '';
     if (couv) couv.style.display = '';
@@ -388,7 +388,7 @@ async function lancerAudit() {
   // Le style de contenu est requis : sans lui, les recommandations peuvent
   // supposer un format inadapté (ex : "filme-toi" pour un créateur faceless).
   if (!document.getElementById('auditStyle')?.value) {
-    err.textContent = 'Choisis ton format de contenu pour une analyse adaptée.';
+    err.textContent = 'Choisis ton format de contenu pour un diagnostic adapté.';
     err.style.display = 'block';
     document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
@@ -403,7 +403,7 @@ async function lancerAudit() {
   out.innerHTML = '';
 
   if (spin) spin.style.display = 'inline-block';
-  if (btnText) btnText.textContent = 'Analyse en cours…';
+  if (btnText) btnText.textContent = 'Diagnostic en cours…';
   if (btn) btn.disabled = true;
   startGenAnimation('audit');
 
@@ -413,7 +413,7 @@ async function lancerAudit() {
     // d'envoyer pour donner un message clair plutôt qu'une erreur technique.
     const poidsMo = images.reduce((t, im) => t + (im.base64 ? im.base64.length : 0), 0) / (1024 * 1024);
     if (poidsMo > 4) {
-      throw new Error('Tes captures sont trop lourdes au total (' + poidsMo.toFixed(1) + ' Mo). Retire les captures les moins utiles et relance l\'analyse.');
+      throw new Error('Tes captures sont trop lourdes au total (' + poidsMo.toFixed(1) + ' Mo). Retire les captures les moins utiles et relance le diagnostic.');
     }
     const objectif = document.getElementById('auditObjectif')?.value || '';
     const niche = document.getElementById('auditNiche')?.value || '';
@@ -437,7 +437,7 @@ async function lancerAudit() {
 
     if (res.status === 403) {
       if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
-      throw new Error('Ton abonnement a expiré. Renouvelle pour relancer une analyse.');
+      throw new Error('Ton abonnement a expiré. Renouvelle pour relancer un diagnostic.');
     }
     const data = await res.json();
     if (!res.ok) {
@@ -479,7 +479,7 @@ async function lancerAudit() {
 
     if (manquantes.length) {
       let m = '<div class="audit-result"><div class="audit-block">';
-      m += '<div class="audit-block-title">Analyse impossible pour le moment</div>';
+      m += '<div class="audit-block-title">Diagnostic impossible pour le moment</div>';
       m += '<div class="audit-diag-constat">Il manque ' + manquantes.length +
            ' donnée' + (manquantes.length > 1 ? 's' : '') +
            ' sur 5 pour faire un diagnostic fiable. Plutôt que de te donner une analyse bancale, voici ce qu\'il reste à envoyer :</div>';
@@ -491,7 +491,7 @@ async function lancerAudit() {
              ' capture' + (horsSujet > 1 ? 's' : '') + ' ne correspond' + (horsSujet > 1 ? 'ent' : '') +
              ' pas à un écran de statistiques TikTok.</div>';
       }
-      m += '<div class="audit-diag-action" style="margin-top:14px">→ Ajoute les captures manquantes, puis relance l\'analyse. Si un écran est trop long, tu peux le couper en plusieurs captures.</div>';
+      m += '<div class="audit-diag-action" style="margin-top:14px">→ Ajoute les captures manquantes, puis relance le diagnostic. Si un écran est trop long, tu peux le couper en plusieurs captures.</div>';
       m += '</div></div>';
       out.innerHTML = m;
       out.style.display = 'block';
@@ -507,7 +507,7 @@ async function lancerAudit() {
     // afficherEtMaintenant), qui a besoin de currentGenId déjà positionné sur
     // CET audit pour pouvoir y rattacher sa recommandation une fois prête.
     if (typeof saveGeneration === 'function') {
-      try { await saveGeneration('audit', 'Analyse compte TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
+      try { await saveGeneration('audit', 'Diagnostic TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
       catch(e) { /* silencieux */ }
     }
 
@@ -531,12 +531,12 @@ async function lancerAudit() {
     }
 
   } catch (e) {
-    err.textContent = 'Analyse impossible : ' + (e.message || 'réessaie dans un instant');
+    err.textContent = 'Diagnostic impossible : ' + (e.message || 'réessaie dans un instant');
     err.style.display = 'block';
   } finally {
     stopGenAnimation();
     if (spin) spin.style.display = 'none';
-    if (btnText) btnText.textContent = 'Analyser mon compte';
+    if (btnText) btnText.textContent = 'Faire mon diagnostic';
     if (btn) btn.disabled = false;
   }
 }
@@ -832,7 +832,7 @@ function telechargerAuditPDF() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
-  doc.text('Analyse de compte TikTok', MARGE, y);
+  doc.text('Diagnostic TikTok', MARGE, y);
   const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   doc.text(dateStr, MARGE + UTILE, y, { align: 'right' });
   y += 8;
@@ -927,17 +927,17 @@ function telechargerAuditPDF() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 124);
-    doc.text('Scriptura — Analyse de compte TikTok', MARGE, HAUTEUR - 10);
+    doc.text('Scriptura — Diagnostic TikTok', MARGE, HAUTEUR - 10);
     doc.text(p + ' / ' + total, MARGE + UTILE, HAUTEUR - 10, { align: 'right' });
   }
 
-  const nom = 'Analyse-TikTok-Scriptura-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  const nom = 'Diagnostic-TikTok-Scriptura-' + new Date().toISOString().slice(0, 10) + '.pdf';
   doc.save(nom);
 }
 
 function auditTexteBrut(a, ts) {
   const L = [];
-  L.push('ANALYSE DE COMPTE TIKTOK · SCRIPTURA');
+  L.push('DIAGNOSTIC TIKTOK · SCRIPTURA');
   L.push('');
   if (ts && ts.global != null) L.push('ADN TikTok Score : ' + ts.global + '/100');
   SCORE_DIMS.forEach(d => {

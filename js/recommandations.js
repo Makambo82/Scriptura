@@ -158,7 +158,7 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
   _recommandations = data.recommandations;
   const autresId = containerId + 'Autres';
   const confianceNote = (data.niveau_confiance === 'faible')
-    ? '<div class="audit-diag-interp" style="margin-top:14px">Scriptura te connaît encore peu — ces recommandations s\'affineront à mesure que tu génères et analyses davantage.</div>'
+    ? '<div class="audit-diag-interp" style="margin-top:14px">Scriptura te connaît encore peu — ces recommandations s\'affineront à mesure que tu utilises Scriptura davantage.</div>'
     : '';
 
   zone.innerHTML = `
@@ -371,7 +371,7 @@ async function initAccueilPremium() {
       <div class="score-card">
         <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Scriptura apprend encore tes habitudes.</div>
-        <div class="audit-diag-interp">Fais une première génération ou une analyse de compte : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
+        <div class="audit-diag-interp">Fais une première génération ou un diagnostic : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
       </div>`;
     zone.style.display = 'block';
     return;

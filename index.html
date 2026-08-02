@@ -160,7 +160,7 @@
     <button class="hero-mode-btn audit" onclick="chooseMode('audit')">
       <span class="mode-icon">📊</span>
       <span class="mode-body">
-        <span class="mode-label">Analyse mon compte TikTok</span>
+        <span class="mode-label">Fais mon diagnostic TikTok</span>
         <span class="mode-desc">Découvre ce qui bloque ta croissance</span>
       </span>
     </button>
@@ -204,7 +204,7 @@
   <div class="ideas-container">
     <button class="btn-back" onclick="navBack()">← Retour</button>
     <div class="ideas-header">
-      <div class="ideas-eyebrow">Analyse de compte · TikTok</div>
+      <div class="ideas-eyebrow">Diagnostic · TikTok</div>
       <h2 class="ideas-title">Découvre ce qui<br/><strong>bloque ta croissance.</strong></h2>
       <p class="ideas-sub">Envoie les captures de tes statistiques TikTok. Scriptura analyse tes chiffres, identifie le point de rupture et te dit exactement quoi corriger.</p>
     </div>
@@ -284,7 +284,7 @@
       </div>
     </div>
 
-    <p class="audit-affine-note" id="auditAffineNote" style="display:none">✓ Ton profil est déjà renseigné. Ajoute simplement tes nouvelles captures, puis relance l'analyse.</p>
+    <p class="audit-affine-note" id="auditAffineNote" style="display:none">✓ Ton profil est déjà renseigné. Ajoute simplement tes nouvelles captures, puis relance le diagnostic.</p>
 
     <div class="audit-drop" id="auditDrop" onclick="document.getElementById('auditInput').click()">
       <input type="file" id="auditInput" accept="image/*" multiple style="display:none" onchange="ajouterCaptures(this.files)"/>
@@ -298,7 +298,7 @@
 
     <button class="btn-generate" id="auditBtn" onclick="lancerAudit()" style="display:none">
       <span class="spinner" id="auditSpinner" style="display:none"></span>
-      <span id="auditBtnText">Analyser mon compte</span>
+      <span id="auditBtnText">Faire mon diagnostic</span>
     </button>
 
     <div class="err" id="auditError" style="display:none"></div>
@@ -1138,9 +1138,9 @@
       <div class="plan-price">10.000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
         <li>Tout le plan Creator</li>
-        <li>+ Analyse de compte TikTok, propulsée par notre IA la plus avancée</li>
+        <li>+ Diagnostic TikTok, propulsé par notre IA la plus avancée</li>
         <li>+ Crée-moi une série : des feuilletons qui font revenir ton audience</li>
-        <li>70 générations de création + 5 analyses par mois</li>
+        <li>70 générations de création + 5 diagnostics par mois</li>
         <li>Mobile Money accepté</li>
       </ul>
       <button class="plan-btn plan-btn-pro" onclick="choisirPlan('pro')">Choisir Pro</button>
@@ -1148,7 +1148,7 @@
 
     <!-- Packs d'analyses à l'unité (jetons) — affichés seulement en contexte d'achat -->
     <div class="packs-audit" id="packsAudit" style="display:none">
-      <div class="packs-sep" id="packsSep">ou achète des jetons — 1 jeton = 1 analyse ou 1 série</div>
+      <div class="packs-sep" id="packsSep">ou achète des jetons — 1 jeton = 1 diagnostic ou 1 série</div>
       <div class="packs-grid" id="packsGrid"></div>
     </div>
 
