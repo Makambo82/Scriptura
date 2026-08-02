@@ -479,7 +479,7 @@ async function generate() {
     ? sujetBrut.slice(0, 2000)
     : sujetBrut;
   const audience = document.getElementById('audience').value.trim();
-  const style    = document.getElementById('style').value.trim();
+  const format   = document.getElementById('format').value.trim();
   const viralVideo = document.getElementById('viralVideo').value.trim();
   const isViralMode = state.depart && state.depart.includes('analyser une vidéo virale');
   const errorBox = document.getElementById('errorBox');
@@ -543,7 +543,7 @@ CONTEXTE :
 - Objectif du créateur : ${state.objectif}
 - Durée cible : ${wt.desc}
 ${audience ? '- Audience : ' + audience : ''}
-${style ? '- Style : ' + style : ''}
+${format ? '- Format : ' + format : ''}
 ${selectedTone ? '- Ton souhaité : ' + selectedTone : ''}
 ${profilLigneScript ? '- ' + profilLigneScript : ''}
 ${isViralMode ? '\\n- MODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\\n[DEBUT]\\n' + viralVideo + '\\n[FIN]\\nDécode sa structure et sa mécanique pour la réappliquer.' : ''}
@@ -582,6 +582,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     //  Reçoit le brief stratégique, écrit le meilleur contenu,
     //  s'auto-critique et livre la version finale calibrée.
     // ════════════════════════════════════════════
+    // Format optionnel ici (contrairement au mode Série) : par défaut, on
+    // écrit pour un créateur qui se filme, le cas le plus courant.
+    const estFaceless = /faceless|voix off|sans visage/i.test(format);
+
     const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. RÈGLE FONDAMENTALE, au-dessus de toutes les autres : ce script doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
 ${rechercheWeb ? '\nSUJET D\'ACTUALITÉ : avant de rédiger, utilise la recherche web pour vérifier les faits récents, noms, dates, fonctions et statistiques que tu comptes citer. Ne présente jamais comme actuel un statut, un poste ou une situation qui a pu changer depuis tes connaissances d\'entraînement — vérifie-le.\n' : ''}
 
@@ -599,6 +603,7 @@ CONTEXTE :
 - Niche : ${niche}
 - Plateforme : ${state.plateforme}
 - Objectif : ${state.objectif}
+- Format : ${format || 'non précisé — écris par défaut pour un créateur qui se filme (face caméra)'}
 ${selectedTone ? '- Ton : ' + selectedTone : ''}
 
 RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
@@ -626,6 +631,14 @@ Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est l
 
 8. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
 
+FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
+
+${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :
+Le "texte" de chaque bloc est la VOIX OFF (ce qu'on entend) — jamais une adresse du type "regarde-moi" ou "je vais te montrer face caméra".
+Le "visuel" de chaque bloc décrit précisément ce qui apparaît à l'écran pendant cette voix off (images, texte animé, plans d'illustration, archives).` : `>> FORMAT FACE CAMÉRA (le créateur se filme et parle) :
+Le "texte" de chaque bloc est PARLÉ à la première personne, comme si le créateur s'adressait directement à sa caméra — fluide et naturel, jamais de mention "VOIX OFF" ou "TEXTE À L'ÉCRAN" (ce sont des codes faceless, interdits ici).
+Le "visuel" de chaque bloc dit COMMENT se filmer : cadrage (gros plan, plan poitrine), énergie et ton, où regarder, quel geste ou expression appuyer le propos.`}
+
 RÈGLES DE QUALITÉ À RESPECTER :
 - Un simple prompt ChatGPT ne doit JAMAIS pouvoir reproduire ça. Sois nettement supérieur.
 - Le hook doit vraiment arrêter le scroll.
@@ -644,7 +657,7 @@ EVALUATION HONNETE DU SCORE : après avoir écrit, évalue ton propre travail av
 Si ton script ne mérite pas 90+, réécris-le AVANT de répondre jusqu'à ce qu'il soit réellement excellent.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"ce qu'on voit à l'écran"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
+{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
@@ -888,7 +901,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // Sauvegarder le contexte pour l'ajustement du script
-    lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, style, tone: selectedTone, duree: selectedDuree, brief: brief, critique: critique };
+    lastGenContext = { objectif: state.objectif, plateforme: state.plateforme, niche, sujet, audience, format, tone: selectedTone, duree: selectedDuree, brief: brief, critique: critique };
     currentScript = parsed.script;
     currentHooks = parsed.hooks;
 
@@ -903,6 +916,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     mettreAJourProfilCreateur({
       declare: {
         niche_principale: niche,
+        style_contenu: format || undefined,
         ton_prefere: toneCourtDepuisGrille('toneGrid'),
         duree_moyenne: selectedDuree,
         objectifs: state.objectif
@@ -1620,7 +1634,7 @@ function restart() {
   document.getElementById('niche').value = '';
   document.getElementById('sujet').value = '';
   document.getElementById('audience').value = '';
-  document.getElementById('style').value = '';
+  document.getElementById('format').value = '';
   document.getElementById('viralVideo').value = '';
   document.getElementById('viralVideoField').style.display = 'none';
   document.getElementById('results').style.display = 'none';

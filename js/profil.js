@@ -193,6 +193,7 @@ async function appliquerProfilCreateur(mode) {
 
   if (mode === 'script') {
     preRemplirSiVide('niche', d.niche_principale);
+    preRemplirSiVide('format', d.style_contenu);
     preSelectionnerGrilleSiVide('toneGrid', d.ton_prefere);
     preSelectionnerGrilleSiVide('dureeGrid', d.duree_moyenne);
   } else if (mode === 'ideas') {

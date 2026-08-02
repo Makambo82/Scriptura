@@ -388,7 +388,7 @@ async function lancerAudit() {
   // Le style de contenu est requis : sans lui, les recommandations peuvent
   // supposer un format inadapté (ex : "filme-toi" pour un créateur faceless).
   if (!document.getElementById('auditStyle')?.value) {
-    err.textContent = 'Choisis ton style de contenu pour une analyse adaptée à ton format.';
+    err.textContent = 'Choisis ton format de contenu pour une analyse adaptée.';
     err.style.display = 'block';
     document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;

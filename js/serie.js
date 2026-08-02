@@ -269,7 +269,12 @@ async function ouvrirSerie(id) {
     if (error) throw error;
     const total = data.nb_episodes || 5;
     const eps = Array.isArray(data.episodes) ? data.episodes : [];
-    const estFaceless = data.style === 'Faceless (sans visage)';
+    // Format réel de la série (bible.format) — data.style est le TON depuis
+    // l'ajout du champ Format séparé ; repli pour les séries plus anciennes.
+    const b = data.bible || {};
+    const formatSerieDetail = b.format
+      || ((data.style || '').toLowerCase().includes('faceless') ? 'Faceless' : 'Face caméra');
+    const estFaceless = /faceless|voix off|sans visage/i.test(formatSerieDetail);
     const fait = eps.length;
     const pct = Math.min(100, Math.round((fait / total) * 100));
     const fini = fait >= total;

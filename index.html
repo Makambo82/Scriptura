@@ -275,19 +275,11 @@
         </select>
       </div>
       <div class="ctx-field">
-        <label class="ctx-label">Ton style de contenu</label>
+        <label class="ctx-label">Ton format de contenu</label>
         <select class="ctx-input" id="auditStyle">
-          <option value="">Choisir ton style…</option>
-          <option>Faceless (sans visage)</option>
-          <option>Avec visage — talking head</option>
-          <option>Storytelling narratif</option>
-          <option>Éducatif & pédagogue</option>
-          <option>Provocateur & direct</option>
-          <option>Humoristique & décalé</option>
-          <option>Inspirant & motivationnel</option>
-          <option>Documentaire & analytique</option>
-          <option>Réaction & commentaire</option>
-          <option>Tutoriel & how-to</option>
+          <option value="">Choisir ton format…</option>
+          <option value="Faceless">Faceless — sans visage (voix off + texte à l'écran)</option>
+          <option value="Face caméra">Face caméra — tu te filmes et tu parles</option>
         </select>
       </div>
     </div>
@@ -909,20 +901,13 @@
         </select>
       </div>
       <div class="ctx-field">
-        <label class="ctx-label">Ton style de contenu (optionnel)</label>
-        <select class="ctx-input" id="style">
-          <option value="">Choisir ton style…</option>
-          <option>Faceless (sans visage)</option>
-          <option>Avec visage — talking head</option>
-          <option>Storytelling narratif</option>
-          <option>Éducatif & pédagogue</option>
-          <option>Provocateur & direct</option>
-          <option>Humoristique & décalé</option>
-          <option>Inspirant & motivationnel</option>
-          <option>Documentaire & analytique</option>
-          <option>Réaction & commentaire</option>
-          <option>Tutoriel & how-to</option>
+        <label class="ctx-label">Format (optionnel)</label>
+        <select class="ctx-input" id="format">
+          <option value="">Choisir le format…</option>
+          <option value="Faceless">Faceless — sans visage (voix off + texte à l'écran)</option>
+          <option value="Face caméra">Face caméra — tu te filmes et tu parles</option>
         </select>
+        <p class="ctx-note">Le format change la façon d'écrire : en faceless, la voix off et le texte à l'écran portent tout ; en face caméra, tu parles directement à ta caméra.</p>
       </div>
 
       <div class="ctx-field">
@@ -934,6 +919,8 @@
           <button type="button" class="grid-btn" data-val="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</button>
           <button type="button" class="grid-btn" data-val="humoristique et décalé, avec légèreté">Humoristique</button>
           <button type="button" class="grid-btn" data-val="storytelling narratif, qui raconte une histoire captivante">Storytelling</button>
+          <button type="button" class="grid-btn" data-val="orienté réaction et commentaire, qui réagit à chaud à un sujet">Réaction</button>
+          <button type="button" class="grid-btn" data-val="tutoriel et how-to, qui explique étape par étape">Tutoriel</button>
         </div>
       </div>
       <div class="ctx-field">
