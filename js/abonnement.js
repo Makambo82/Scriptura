@@ -147,11 +147,21 @@ function renderGenCounter() {
     if (!c.counter) continue;
 
     if (unlocked) {
-      c.counter.classList.remove('pulse'); // abonné actif : bandeau sobre
-      c.counter.innerHTML = '<span style="color:var(--gold-light);cursor:pointer" onclick="ouvrirInfosAbonne()"><span class="star-pulse">✦</span> Accès abonné actif</span><span class="quota-jour" style="color:rgba(255,255,255,0.5);font-size:0.82rem"></span>';
+      // Abonné actif : bandeau PREMIUM (pastille dorée + halo + scintillement),
+      // pour qu'il se sente distingué du non-abonné.
+      c.counter.classList.remove('pulse');
+      c.counter.classList.add('is-premium');
+      const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
+      const badgeTxt = (palier === 'pro') ? 'Membre Pro' : 'Membre';
+      c.counter.innerHTML =
+        '<span class="abonne-badge"><span class="abonne-star">★</span> ' + badgeTxt + '</span>' +
+        '<span class="quota-jour" style="color:rgba(255,255,255,0.55);font-size:0.82rem"></span>';
+      c.counter.style.cursor = 'pointer';
+      c.counter.onclick = ouvrirInfosAbonne;
       continue;
     }
     // Non-abonné (ou abonnement expiré, qui repasse unlocked=false) : on attire l'œil
+    c.counter.classList.remove('is-premium');
     c.counter.classList.add('pulse');
 
     // Reconstruire le contenu (au cas où il aurait été remplacé par "illimité")
