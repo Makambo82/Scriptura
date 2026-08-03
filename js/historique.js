@@ -457,6 +457,19 @@ function initSwipeHistorique() {
   });
 }
 
+// Titre court et propre pour la liste « Mes générations ».
+// Un script lancé depuis une recommandation reçoit un « sujet » composé
+// (« Titre. Angle : … Hook suggéré : … ») qui était enregistré tel quel comme
+// titre : dans la liste, on ne garde que le titre, sans l'angle ni le hook.
+// Le contexte complet reste stocké à part et sert quand on rouvre la génération.
+function histTitreCourt(titre) {
+  let t = String(titre == null ? '' : titre);
+  t = t.split(/\s*\.?\s*(?:Angle\s*:|Hook\s+suggéré\s*:|Pourquoi\s+ça\s+marche\s*:)/i)[0];
+  t = t.replace(/\s+/g, ' ').trim();
+  if (t.length > 90) t = t.slice(0, 90).replace(/\s+\S*$/, '') + '…';
+  return t || 'Sans titre';
+}
+
 async function renderHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:40px">Chargement…</p>';
@@ -529,7 +542,7 @@ async function renderHistory() {
             <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || g.mode}</span>
             <span class="history-date">${dateStr}</span>
           </div>
-          <div class="history-title">${g.titre || 'Sans titre'}</div>
+          <div class="history-title">${serieEsc(histTitreCourt(g.titre))}</div>
           ${!_selectMode ? '<div class="history-reopen">Appuie pour rouvrir cette génération →</div>' : ''}
         </div>
         ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')">🗑</button>` : ''}
