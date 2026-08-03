@@ -168,10 +168,10 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
     <div class="score-card">
       ${carteRecommandationHero(data.recommandations[0])}
       ${confianceNote}
-      <button class="btn-generate" style="margin-top:20px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
+      ${avecRafraichir ? '<button class="btn-regenerate reco-refresh" style="width:100%;justify-content:center;margin-top:20px" id="btnRafraichirReco" onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>' : ''}
+      <button class="btn-generate" style="margin-top:10px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
       <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:10px" onclick="toggleAutresRecommandations('${autresId}')">Voir d'autres recommandations</button>
       <div id="${autresId}" style="display:none;margin-top:18px"></div>
-      ${avecRafraichir ? '<button class="btn-regenerate reco-refresh" style="width:100%;justify-content:center;margin-top:10px" id="btnRafraichirReco" onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>' : ''}
     </div>
   `;
   zone.style.display = 'block';
