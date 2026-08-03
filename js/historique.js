@@ -484,7 +484,22 @@ async function renderHistory() {
   // Les épisodes de série ne s'affichent pas isolément : masqués ici
   // (ils restent enregistrés pour le comptage du quota).
   gens = gens.filter(g => g.mode !== 'serie');
-  let series = await chargerSeriesHistorique();
+  const series = await chargerSeriesHistorique();
+
+  // Cache complet (non filtré) : permet de redessiner instantanément après un
+  // changement de favori, sans nouvel aller-retour serveur.
+  window._historyDataAll = gens;
+  window._historySeriesAll = series;
+  dessinerHistorique();
+}
+
+// Dessine la liste à partir du cache mémoire (aucun rechargement réseau).
+// Appelée par renderHistory après chargement, et directement après un
+// changement de favori pour un affichage immédiat.
+function dessinerHistorique() {
+  const list = document.getElementById('historyList');
+  let gens = (window._historyDataAll || []).slice();
+  let series = (window._historySeriesAll || []).slice();
 
   // Rien du tout (aucune génération ni série) : état vide global.
   if (!gens.length && !series.length) {
@@ -616,59 +631,52 @@ function toggleFavFilter() {
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
-// Retrouve un élément (génération ou série) et son état favori depuis le cache.
+// Retrouve un élément (génération ou série) dans le cache complet.
 function _histItem(id) {
   const estSerie = String(id).startsWith('serie:');
-  const arr = estSerie ? window._historySeries : window._historyData;
+  const arr = estSerie ? window._historySeriesAll : window._historyDataAll;
   const item = (arr || []).find(x => (estSerie ? ('serie:' + x.id) : x.id) === id);
   return { estSerie, rawId: estSerie ? id.slice(6) : id, item };
 }
 
-// Ajoute/retire UNE génération (ou série) des favoris. Le favori remonte en haut.
-async function toggleFavori(id) {
-  if (!supabaseClient) return;
+// Enregistre l'état favori côté serveur, en arrière-plan (ne bloque jamais
+// l'interface). L'affichage, lui, a déjà été mis à jour tout de suite.
+function _persisterFavori(table, ids, valeur) {
+  if (!supabaseClient || !ids.length) return;
+  try {
+    supabaseClient.from(table).update({ favori: valeur }).in('id', ids)
+      .then(function (r) { if (r && r.error) console.warn('Favori non enregistré', r.error); })
+      .catch(function (e) { console.warn('Favori non enregistré', e); });
+  } catch (e) { console.warn('Favori non enregistré', e); }
+}
+
+// Ajoute/retire UNE génération (ou série) des favoris. Réponse INSTANTANÉE :
+// l'étoile devient dorée et l'élément remonte en haut tout de suite ;
+// l'enregistrement se fait en arrière-plan.
+function toggleFavori(id) {
   const { estSerie, rawId, item } = _histItem(id);
   if (!item) return;
   const nouveau = !item.favori;
-  try {
-    const { error } = await supabaseClient
-      .from(estSerie ? 'series' : 'generations')
-      .update({ favori: nouveau })
-      .eq('id', rawId);
-    if (error) throw error;
-    item.favori = nouveau; // maj cache pour un rendu cohérent immédiat
-    renderHistory();
-  } catch (e) {
-    console.warn('Favori échoué', e);
-    alert('Action favori impossible pour le moment. Réessaie.');
-  }
+  item.favori = nouveau;          // maj optimiste du cache
+  dessinerHistorique();           // affichage immédiat (doré + épinglé)
+  _persisterFavori(estSerie ? 'series' : 'generations', [rawId], nouveau);
 }
 
-// Met en favori (ou retire) toutes les cartes cochées en une fois.
-async function favoriSelected() {
+// Met en favori (ou retire) toutes les cartes cochées, en une fois et sans délai.
+function favoriSelected() {
   const ids = Array.from(_selectedIds);
-  if (!ids.length || !supabaseClient) return;
+  if (!ids.length) return;
   // Si tout le lot est déjà en favori → on retire ; sinon → on met en favori.
   const tousDejaFav = ids.every(id => { const r = _histItem(id); return r.item && r.item.favori; });
   const nouveau = !tousDejaFav;
+  ids.forEach(id => { const r = _histItem(id); if (r.item) r.item.favori = nouveau; });
+  _selectMode = false;
+  _selectedIds.clear();
+  dessinerHistorique();           // affichage immédiat
   const idsSeries = ids.filter(x => String(x).startsWith('serie:')).map(x => x.slice(6));
   const idsGen = ids.filter(x => !String(x).startsWith('serie:'));
-  try {
-    if (idsGen.length) {
-      const { error } = await supabaseClient.from('generations').update({ favori: nouveau }).in('id', idsGen);
-      if (error) throw error;
-    }
-    if (idsSeries.length) {
-      const { error } = await supabaseClient.from('series').update({ favori: nouveau }).in('id', idsSeries);
-      if (error) throw error;
-    }
-    _selectMode = false;
-    _selectedIds.clear();
-    renderHistory();
-  } catch (e) {
-    console.warn('Favori multiple échoué', e);
-    alert('Action favori impossible pour le moment. Réessaie.');
-  }
+  _persisterFavori('generations', idsGen, nouveau);
+  _persisterFavori('series', idsSeries, nouveau);
 }
 
 function enterSelectMode() {
