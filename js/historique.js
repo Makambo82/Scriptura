@@ -1,6 +1,10 @@
 // Sauvegarde une génération dans Supabase (silencieux, ne bloque jamais l'app)
 let currentGenId = null; // id de la génération en cours (pour y rattacher le storyboard)
 
+// Icône marque-page (favori), style TikTok « Enregistrer ». La couleur
+// (gris → or quand c'est un favori) est pilotée par la classe .actif en CSS.
+const ICON_FAV = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17.06a.6.6 0 0 1-.94.5L12 17.8l-6.06 3.76A.6.6 0 0 1 5 21.06V4a1 1 0 0 1 1-1z"/></svg>';
+
 async function saveGeneration(mode, titre, contenu) {
   if (!supabaseClient) { currentGenId = null; return; }
 
@@ -365,6 +369,7 @@ async function deleteMixte(ids) {
 async function openHistory() {
   pushNav(); // mémoriser l'écran d'où on vient
   _selectMode = false;
+  _favFilter = false;
   if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('flow').style.display = 'none';
@@ -392,6 +397,7 @@ async function syncHistory() {
 // Affiche la liste des générations
 let _selectMode = false;
 let _selectedIds = new Set();
+let _favFilter = false; // filtre "Favoris" en haut : n'afficher que les favoris
 
 // ══════════════════════════════════════
 //  GLISSEMENT POUR SUPPRIMER (Mes générations)
@@ -478,21 +484,36 @@ async function renderHistory() {
   // Les épisodes de série ne s'affichent pas isolément : masqués ici
   // (ils restent enregistrés pour le comptage du quota).
   gens = gens.filter(g => g.mode !== 'serie');
-  const series = await chargerSeriesHistorique();
+  let series = await chargerSeriesHistorique();
 
+  // Rien du tout (aucune génération ni série) : état vide global.
   if (!gens.length && !series.length) {
     list.innerHTML = '<div class="history-empty"><p>Aucune génération pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Tes scripts, idées et récits apparaîtront ici automatiquement.</p></div>';
     document.getElementById('historyToolbar').style.display = 'none';
+    _favFilter = false;
+    document.body.classList.remove('hist-select');
     return;
+  }
+
+  // Filtre "Favoris" (bouton en haut) : ne garder que les favoris.
+  if (_favFilter) {
+    gens = gens.filter(g => g.favori);
+    series = series.filter(s => s.favori);
   }
 
   window._historyData = gens;
   window._historySeries = series;
 
-  // Barre d'outils (sélection multiple)
+  // Barre d'outils (sélection multiple + filtre favoris)
   const toolbar = document.getElementById('historyToolbar');
   toolbar.style.display = 'flex';
   updateHistoryToolbar();
+
+  // Filtre actif mais aucun favori : message dédié, on garde la barre pour ressortir.
+  if (_favFilter && !gens.length && !series.length) {
+    list.innerHTML = '<div class="history-empty"><p>Aucun favori pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Appuie sur le marque-page d\'une génération pour l\'ajouter à tes favoris.</p></div>';
+    return;
+  }
 
   const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Diagnostic', serie: '🎞️ Série' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C' };
@@ -509,10 +530,11 @@ async function renderHistory() {
     const sid = 'serie:' + s.id;
     const checked = _selectedIds.has(sid) ? 'checked' : '';
     const selectClass = _selectMode ? ' selecting' : '';
+    const estFav = !!s.favori;
     const html = `
       <div class="swipe-wrap" data-swipe="${sid}">
       ${!_selectMode ? `<button class="swipe-action" onclick="deleteOneSerie('${s.id}')">Supprimer</button>` : ''}
-      <div class="history-card${selectClass}${_selectedIds.has(sid) ? ' selected' : ''}" data-id="${sid}">
+      <div class="history-card${selectClass}${estFav ? ' favori' : ''}${_selectedIds.has(sid) ? ' selected' : ''}" data-id="${sid}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${sid}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
           <div class="history-card-head">
@@ -522,9 +544,12 @@ async function renderHistory() {
           <div class="history-title">${serieEsc(s.titre || 'Série sans titre')}</div>
           <div class="serie-progress-bar" style="margin-top:10px"><span class="serie-progress-fill" style="width:${pct}%"></span></div>
         </div>
-        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')">🗑</button>` : ''}
+        ${!_selectMode ? `<div class="history-actions">
+          <button class="history-fav${estFav ? ' actif' : ''}" onclick="event.stopPropagation(); toggleFavori('${sid}')" title="${estFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="Favori">${ICON_FAV}</button>
+          <button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')" aria-label="Supprimer">🗑</button>
+        </div>` : ''}
       </div></div>`;
-    items.push({ t: new Date(s.cree_le).getTime() || 0, html: html });
+    items.push({ t: new Date(s.cree_le).getTime() || 0, fav: estFav, html: html });
   });
 
   gens.forEach((g, i) => {
@@ -532,10 +557,11 @@ async function renderHistory() {
     const dateStr = date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const checked = _selectedIds.has(g.id) ? 'checked' : '';
     const selectClass = _selectMode ? ' selecting' : '';
+    const estFav = !!g.favori;
     const html = `
       <div class="swipe-wrap" data-swipe="${g.id}">
       ${!_selectMode ? `<button class="swipe-action" onclick="deleteOne('${g.id}')">Supprimer</button>` : ''}
-      <div class="history-card${selectClass}" data-id="${g.id}">
+      <div class="history-card${selectClass}${estFav ? ' favori' : ''}" data-id="${g.id}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
           <div class="history-card-head">
@@ -545,12 +571,16 @@ async function renderHistory() {
           <div class="history-title">${serieEsc(histTitreCourt(g.titre))}</div>
           ${!_selectMode ? '<div class="history-reopen">Appuie pour rouvrir cette génération →</div>' : ''}
         </div>
-        ${!_selectMode ? `<button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')">🗑</button>` : ''}
+        ${!_selectMode ? `<div class="history-actions">
+          <button class="history-fav${estFav ? ' actif' : ''}" onclick="event.stopPropagation(); toggleFavori('${g.id}')" title="${estFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="Favori">${ICON_FAV}</button>
+          <button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')" aria-label="Supprimer">🗑</button>
+        </div>` : ''}
       </div></div>`;
-    items.push({ t: date.getTime() || 0, html: html });
+    items.push({ t: date.getTime() || 0, fav: estFav, html: html });
   });
 
-  items.sort((a, b) => b.t - a.t); // le plus récent en premier
+  // Les favoris (épinglés) d'abord, puis le plus récent au plus ancien.
+  items.sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || b.t - a.t);
   list.innerHTML = items.map(x => x.html).join('');
   initSwipeHistorique();
 }
@@ -558,6 +588,10 @@ async function renderHistory() {
 function updateHistoryToolbar() {
   const toolbar = document.getElementById('historyToolbar');
   if (!toolbar) return;
+  // En mode sélection, la barre flotte en bas de l'écran (toujours accessible
+  // pendant le défilement) ; sinon elle reste en ligne en haut de la liste.
+  toolbar.classList.toggle('flottant', _selectMode);
+  document.body.classList.toggle('hist-select', _selectMode);
   if (_selectMode) {
     const n = _selectedIds.size;
     const totalDispo = (window._historyData ? window._historyData.length : 0) + (window._historySeries ? window._historySeries.length : 0);
@@ -566,9 +600,74 @@ function updateHistoryToolbar() {
       <button class="hist-tool-btn" onclick="exitSelectMode()">Annuler</button>
       <button class="hist-tool-btn" onclick="${toutCoche ? 'toutDeselectionner()' : 'toutSelectionner()'}">${toutCoche ? 'Aucun' : 'Tout'}</button>
       <span class="hist-tool-count">${n}</span>
-      <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''}>🗑 Supprimer</button>`;
+      <button class="hist-tool-btn fav" onclick="favoriSelected()" ${n === 0 ? 'disabled' : ''} title="Mettre en favori">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>
+      <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''} title="Supprimer">🗑<span class="hist-tool-lbl">Supprimer</span></button>`;
   } else {
-    toolbar.innerHTML = `<button class="hist-tool-btn" onclick="enterSelectMode()">Sélectionner</button>`;
+    toolbar.innerHTML = `
+      <button class="hist-tool-btn" onclick="enterSelectMode()">Sélectionner</button>
+      <button class="hist-tool-btn fav${_favFilter ? ' actif' : ''}" onclick="toggleFavFilter()" title="N'afficher que les favoris">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>`;
+  }
+}
+
+// Filtre "Favoris" en haut : bascule entre "tout" et "seulement les favoris".
+function toggleFavFilter() {
+  _favFilter = !_favFilter;
+  renderHistory();
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+// Retrouve un élément (génération ou série) et son état favori depuis le cache.
+function _histItem(id) {
+  const estSerie = String(id).startsWith('serie:');
+  const arr = estSerie ? window._historySeries : window._historyData;
+  const item = (arr || []).find(x => (estSerie ? ('serie:' + x.id) : x.id) === id);
+  return { estSerie, rawId: estSerie ? id.slice(6) : id, item };
+}
+
+// Ajoute/retire UNE génération (ou série) des favoris. Le favori remonte en haut.
+async function toggleFavori(id) {
+  if (!supabaseClient) return;
+  const { estSerie, rawId, item } = _histItem(id);
+  if (!item) return;
+  const nouveau = !item.favori;
+  try {
+    const { error } = await supabaseClient
+      .from(estSerie ? 'series' : 'generations')
+      .update({ favori: nouveau })
+      .eq('id', rawId);
+    if (error) throw error;
+    item.favori = nouveau; // maj cache pour un rendu cohérent immédiat
+    renderHistory();
+  } catch (e) {
+    console.warn('Favori échoué', e);
+    alert('Action favori impossible pour le moment. Réessaie.');
+  }
+}
+
+// Met en favori (ou retire) toutes les cartes cochées en une fois.
+async function favoriSelected() {
+  const ids = Array.from(_selectedIds);
+  if (!ids.length || !supabaseClient) return;
+  // Si tout le lot est déjà en favori → on retire ; sinon → on met en favori.
+  const tousDejaFav = ids.every(id => { const r = _histItem(id); return r.item && r.item.favori; });
+  const nouveau = !tousDejaFav;
+  const idsSeries = ids.filter(x => String(x).startsWith('serie:')).map(x => x.slice(6));
+  const idsGen = ids.filter(x => !String(x).startsWith('serie:'));
+  try {
+    if (idsGen.length) {
+      const { error } = await supabaseClient.from('generations').update({ favori: nouveau }).in('id', idsGen);
+      if (error) throw error;
+    }
+    if (idsSeries.length) {
+      const { error } = await supabaseClient.from('series').update({ favori: nouveau }).in('id', idsSeries);
+      if (error) throw error;
+    }
+    _selectMode = false;
+    _selectedIds.clear();
+    renderHistory();
+  } catch (e) {
+    console.warn('Favori multiple échoué', e);
+    alert('Action favori impossible pour le moment. Réessaie.');
   }
 }
 

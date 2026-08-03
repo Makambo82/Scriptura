@@ -41,6 +41,14 @@ function showScreen(screen) {
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');
 
+  // En quittant l'historique, on sort proprement du mode sélection (sinon la
+  // barre flottante continuerait de masquer le bouton "haut/bas" ailleurs).
+  if (screen !== 'historyFlow') {
+    if (typeof _selectMode !== 'undefined') _selectMode = false;
+    if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
+    document.body.classList.remove('hist-select');
+  }
+
   // Cas d'un sous-écran résultat
   const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
   if (resultParent[screen]) {
@@ -76,6 +84,10 @@ function navBack() {
 
 function goHome() {
   navStack = []; // réinitialiser l'historique quand on revient à l'accueil
+  // Sortir du mode sélection de l'historique s'il était actif
+  if (typeof _selectMode !== 'undefined') _selectMode = false;
+  if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
+  document.body.classList.remove('hist-select');
   // Réafficher la page d'accueil, masquer tous les modules
   document.getElementById('homePage').style.display = 'block';
   document.getElementById('flow').style.display = 'none';

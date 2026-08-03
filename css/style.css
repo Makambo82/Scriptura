@@ -1234,10 +1234,41 @@ footer strong{color:var(--gold)}
 .history-check input{width:20px;height:20px;accent-color:var(--gold);cursor:pointer}
 .history-delete{
   background:transparent;border:none;color:rgba(255,255,255,0.35);
-  font-size:1.1rem;cursor:pointer;padding:0 4px;align-self:flex-start;
+  font-size:1.1rem;cursor:pointer;padding:0 4px;
   transition:color 0.2s;
 }
 .history-delete:hover{color:#E88}
+
+/* Colonne d'actions à droite d'une carte : favori (marque-page) + corbeille */
+.history-actions{display:flex;flex-direction:column;align-items:center;gap:14px;padding-left:6px}
+.history-fav{
+  background:transparent;border:none;color:rgba(255,255,255,0.38);
+  cursor:pointer;padding:0 4px;line-height:0;
+  transition:color 0.2s,transform 0.12s;
+}
+.history-fav svg{fill:currentColor;display:block}
+.history-fav:hover{color:rgba(255,255,255,0.7)}
+.history-fav.actif{color:var(--gold)}
+.history-fav.actif:hover{color:var(--gold-light)}
+.history-fav:active{transform:scale(0.85)}
+.history-card.favori{border-color:rgba(201,168,76,0.45)}
+
+/* Icône + libellé dans les boutons de la barre d'outils */
+.hist-tool-btn.fav svg{width:13px;height:13px;fill:currentColor;vertical-align:-2px;margin-right:4px}
+.hist-tool-btn.actif{border-color:var(--gold);background:rgba(201,168,76,0.16);color:var(--gold-light)}
+
+/* Barre d'outils flottante en bas (mode sélection) : toujours atteignable */
+.history-toolbar.flottant{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:120;
+  margin-bottom:0;background:rgba(20,18,14,0.94);backdrop-filter:blur(10px);
+  border:1px solid var(--border-soft);border-radius:999px;
+  padding:8px 12px;box-shadow:0 16px 40px -10px rgba(0,0,0,0.7);
+  max-width:calc(100% - 24px);
+}
+body.hist-select #historyList{padding-bottom:96px}
+/* La barre flottante occupe le bas : on masque le bouton "haut/bas" pour éviter le chevauchement */
+body.hist-select #scrollTopBtn{display:none !important}
+@media(max-width:400px){.history-toolbar.flottant .hist-tool-lbl{display:none}}
 
 /* Bouton "Plus tard" du pop-up rappel */
 .modal-btn-ghost{
