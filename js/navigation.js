@@ -48,6 +48,8 @@ function showScreen(screen) {
     if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
     document.body.classList.remove('hist-select');
   }
+  // Revenir à l'accueil = accueil complet, jamais le mode focus.
+  if (screen === 'homePage' && typeof resetAccueilFocus === 'function') resetAccueilFocus();
 
   // Cas d'un sous-écran résultat
   const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
@@ -88,6 +90,8 @@ function goHome() {
   if (typeof _selectMode !== 'undefined') _selectMode = false;
   if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
   document.body.classList.remove('hist-select');
+  // Accueil complet (pas le mode focus des 5 boutons)
+  if (typeof resetAccueilFocus === 'function') resetAccueilFocus();
   // Réafficher la page d'accueil, masquer tous les modules
   document.getElementById('homePage').style.display = 'block';
   document.getElementById('flow').style.display = 'none';

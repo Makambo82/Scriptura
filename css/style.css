@@ -937,6 +937,28 @@ footer strong{color:var(--gold)}
   .hero-cta::after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.55),transparent);transform:skewX(-18deg);animation:goldSheen 4.5s ease-in-out infinite}
 }
 
+/* ── Mode FOCUS de l'accueil (après clic sur « Commencer ») ── */
+.hero-retour{display:none}
+body.hero-focus .hero-retour{
+  display:inline-flex;align-items:center;gap:6px;
+  position:fixed;top:74px;left:16px;z-index:90;
+  background:rgba(28,28,30,0.9);border:1px solid var(--border-soft);
+  color:var(--gold-light);font-family:'Cinzel',serif;font-size:0.6rem;
+  letter-spacing:0.12em;text-transform:uppercase;
+  padding:9px 15px;border-radius:999px;cursor:pointer;transition:all .2s;
+}
+body.hero-focus .hero-retour:hover{border-color:var(--gold);background:rgba(201,168,76,0.12)}
+body.hero-focus .ticker-wrap,
+body.hero-focus .hero-eyebrow,
+body.hero-focus .hero h1,
+body.hero-focus .hero-rule,
+body.hero-focus .hero-sub,
+body.hero-focus #accueilPremium,
+body.hero-focus .how,
+body.hero-focus .why,
+body.hero-focus .pricing,
+body.hero-focus .faq{display:none !important}
+
 .hero-modes{
   display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;
   width:100%;max-width:420px;margin-left:auto;margin-right:auto;

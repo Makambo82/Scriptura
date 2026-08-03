@@ -1,11 +1,30 @@
-// ── BOUTON D'ACCUEIL « Commencer » → révèle les 5 modes ──
-// Au clic, le bouton s'efface et laisse la place aux boutons de mode (qui
-// jouent leur animation d'entrée). Une fois révélés, ils restent affichés.
+// ── BOUTON D'ACCUEIL « Commencer » → mode « focus » ──
+// Au clic, l'accueil passe en mode focus : on masque tout le reste (grand
+// titre, sections « Comment ça marche / Pourquoi / Tarifs / FAQ », salutation)
+// et il ne reste que le cadre du statut, les 5 modes et le footer. Un bouton
+// « ← Retour » (haut-gauche) revient à l'accueil complet.
 function revelerModes() {
   const cta = document.getElementById('heroCta');
   const modes = document.getElementById('heroModes');
   if (cta) cta.style.display = 'none';
   if (modes) modes.style.display = ''; // retombe sur le display:grid du CSS
+  document.body.classList.add('hero-focus');
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+// Remet l'accueil dans son état complet (bouton Commencer visible, modes cachés).
+function resetAccueilFocus() {
+  document.body.classList.remove('hero-focus');
+  const cta = document.getElementById('heroCta');
+  const modes = document.getElementById('heroModes');
+  if (modes) modes.style.display = 'none';
+  if (cta) cta.style.display = '';
+}
+
+// « ← Retour » : quitte le mode focus et revient à l'accueil complet.
+function quitterFocus() {
+  resetAccueilFocus();
+  window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
 // Libellé du bouton selon le statut : un abonné voit une invitation à agir,
