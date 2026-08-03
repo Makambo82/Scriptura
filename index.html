@@ -157,7 +157,12 @@
 
   <div id="accueilPremium" style="display:none;width:100%;max-width:640px;margin:0 auto 28px;text-align:left"></div>
 
-  <div class="hero-modes">
+  <button class="hero-cta" id="heroCta" onclick="revelerModes()">
+    <span class="hero-cta-label" id="heroCtaLabel">Commencer gratuitement</span>
+    <span class="hero-cta-arrow" aria-hidden="true">→</span>
+  </button>
+
+  <div class="hero-modes" id="heroModes" style="display:none">
     <button class="hero-mode-btn audit" onclick="chooseMode('audit')">
       <span class="mode-icon">📊</span>
       <span class="mode-body">

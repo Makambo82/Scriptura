@@ -135,6 +135,9 @@ function fermerInfosAbonne() {
 }
 
 function renderGenCounter() {
+  // Le libellé du bouton d'accueil dépend du statut abonné : on le met à jour ici,
+  // là où on connaît déjà `unlocked`.
+  if (typeof majHeroCta === 'function') majHeroCta();
   // Liste de tous les conteneurs de compteur (les 3 modes)
   const counters = [
     { counter: document.getElementById('genCounter'), dots: document.getElementById('genCounterDots'), num: document.getElementById('usedNum') },

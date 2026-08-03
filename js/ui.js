@@ -1,3 +1,23 @@
+// ── BOUTON D'ACCUEIL « Commencer » → révèle les 5 modes ──
+// Au clic, le bouton s'efface et laisse la place aux boutons de mode (qui
+// jouent leur animation d'entrée). Une fois révélés, ils restent affichés.
+function revelerModes() {
+  const cta = document.getElementById('heroCta');
+  const modes = document.getElementById('heroModes');
+  if (cta) cta.style.display = 'none';
+  if (modes) modes.style.display = ''; // retombe sur le display:grid du CSS
+}
+
+// Libellé du bouton selon le statut : un abonné voit une invitation à agir,
+// un nouveau visiteur voit l'offre gratuite.
+function majHeroCta() {
+  const lbl = document.getElementById('heroCtaLabel');
+  if (!lbl) return;
+  lbl.textContent = (typeof unlocked !== 'undefined' && unlocked)
+    ? 'Que veux-tu faire aujourd’hui ?'
+    : 'Commencer gratuitement';
+}
+
 function openModal() {
   // Fermer le paywall et le rappel s'ils sont ouverts (sinon ils masquent cette modal)
   const pw = document.getElementById('paywall');
