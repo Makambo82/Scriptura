@@ -1281,6 +1281,36 @@ footer strong{color:var(--gold)}
 .hist-tool-btn.fav svg{width:13px;height:13px;fill:currentColor;vertical-align:-2px;margin-right:4px}
 .hist-tool-btn.actif{border-color:var(--gold);background:rgba(201,168,76,0.16);color:var(--gold-light)}
 
+/* Boutons-icônes (recherche, filtre) dans la barre d'outils de l'historique */
+.hist-tool-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:32px;flex:0 0 auto;
+  background:transparent;border:1px solid rgba(201,168,76,0.3);border-radius:999px;
+  color:var(--gold-light);cursor:pointer;transition:all 0.2s;
+}
+.hist-tool-icon:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+.hist-tool-icon.actif{border-color:var(--gold);background:rgba(201,168,76,0.16)}
+.hist-tool-icon svg{display:block;fill:none}
+.hist-tool-icon svg circle[fill]{fill:var(--bg)}
+.hist-tool-right{margin-left:auto}
+
+/* Rangée sous la barre : recherche + puces de type */
+.history-filters{margin:-6px 0 16px}
+.hist-search{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:8px 12px}
+.hist-search-ico{display:inline-flex;color:var(--gold);flex:0 0 auto}
+.hist-search-input{flex:1;background:transparent;border:none;outline:none;color:#F5F3EE;font-family:'Tenor Sans',sans-serif;font-size:0.95rem}
+.hist-search-input::placeholder{color:rgba(255,255,255,0.4)}
+.hist-search-clear{background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:0.9rem;cursor:pointer;padding:0 4px}
+.hist-search-clear:hover{color:var(--gold-light)}
+.hist-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.hist-chip{
+  background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:999px;
+  color:var(--text-secondary);font-family:'Tenor Sans',sans-serif;font-size:0.82rem;
+  padding:6px 13px;cursor:pointer;transition:all 0.2s;white-space:nowrap;
+}
+.hist-chip:hover{border-color:var(--gold)}
+.hist-chip.actif{border-color:var(--gold);background:rgba(201,168,76,0.16);color:var(--gold-light)}
+
 /* Barre d'outils flottante en bas (mode sélection) : toujours atteignable */
 .history-toolbar.flottant{
   position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:120;

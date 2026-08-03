@@ -4,6 +4,23 @@ let currentGenId = null; // id de la génération en cours (pour y rattacher le 
 // Icône marque-page (favori), style TikTok « Enregistrer ». La couleur
 // (gris → or quand c'est un favori) est pilotée par la classe .actif en CSS.
 const ICON_FAV = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17.06a.6.6 0 0 1-.94.5L12 17.8l-6.06 3.76A.6.6 0 0 1 5 21.06V4a1 1 0 0 1 1-1z"/></svg>';
+// Loupe (recherche) et curseurs (filtre par type) — style trait, couleur héritée.
+const ICON_SEARCH = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><line x1="15.6" y1="15.6" x2="21" y2="21"/></svg>';
+const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><circle cx="16" cy="6" r="2.6" fill="var(--bg)"/><circle cx="8" cy="12" r="2.6" fill="var(--bg)"/><circle cx="13" cy="18" r="2.6" fill="var(--bg)"/></svg>';
+
+// Types disponibles pour le filtre "par mode" (menu ouvert par l'icône curseurs).
+const HIST_MODES_FILTRE = [
+  { v: null,     label: 'Tous' },
+  { v: 'audit',  label: '📊 Diagnostic' },
+  { v: 'serie',  label: '🎞️ Série' },
+  { v: 'ideas',  label: '💡 Idées' },
+  { v: 'script', label: '🎬 Script' },
+  { v: 'story',  label: '✍️ Récit' }
+];
+// Normalise pour une recherche insensible à la casse ET aux accents.
+function _normaliserRecherche(s) {
+  return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 
 async function saveGeneration(mode, titre, contenu) {
   if (!supabaseClient) { currentGenId = null; return; }
@@ -370,6 +387,10 @@ async function openHistory() {
   pushNav(); // mémoriser l'écran d'où on vient
   _selectMode = false;
   _favFilter = false;
+  _modeFilter = null;
+  _searchQuery = '';
+  _searchOpen = false;
+  _filterOpen = false;
   if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
   document.getElementById('homePage').style.display = 'none';
   document.getElementById('flow').style.display = 'none';
@@ -397,7 +418,11 @@ async function syncHistory() {
 // Affiche la liste des générations
 let _selectMode = false;
 let _selectedIds = new Set();
-let _favFilter = false; // filtre "Favoris" en haut : n'afficher que les favoris
+let _favFilter = false;   // filtre "Favoris" : n'afficher que les favoris
+let _modeFilter = null;   // filtre par type ('audit'|'serie'|'ideas'|'script'|'story') ou null
+let _searchQuery = '';    // texte de recherche (titres)
+let _searchOpen = false;  // champ de recherche déployé ?
+let _filterOpen = false;  // menu de filtre par type déployé ?
 
 // ══════════════════════════════════════
 //  GLISSEMENT POUR SUPPRIMER (Mes générations)
@@ -497,36 +522,57 @@ async function renderHistory() {
 // Appelée par renderHistory après chargement, et directement après un
 // changement de favori pour un affichage immédiat.
 function dessinerHistorique() {
-  const list = document.getElementById('historyList');
-  let gens = (window._historyDataAll || []).slice();
-  let series = (window._historySeriesAll || []).slice();
+  const gensAll = window._historyDataAll || [];
+  const seriesAll = window._historySeriesAll || [];
 
   // Rien du tout (aucune génération ni série) : état vide global.
-  if (!gens.length && !series.length) {
-    list.innerHTML = '<div class="history-empty"><p>Aucune génération pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Tes scripts, idées et récits apparaîtront ici automatiquement.</p></div>';
+  if (!gensAll.length && !seriesAll.length) {
+    document.getElementById('historyList').innerHTML = '<div class="history-empty"><p>Aucune génération pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Tes scripts, idées et récits apparaîtront ici automatiquement.</p></div>';
     document.getElementById('historyToolbar').style.display = 'none';
-    _favFilter = false;
+    const fb = document.getElementById('historyFilters'); if (fb) fb.style.display = 'none';
+    _favFilter = false; _modeFilter = null; _searchOpen = false; _filterOpen = false; _searchQuery = '';
     document.body.classList.remove('hist-select');
     return;
   }
 
-  // Filtre "Favoris" (bouton en haut) : ne garder que les favoris.
+  // Barre d'outils (sélection + favoris + recherche + filtre) puis la liste.
+  document.getElementById('historyToolbar').style.display = 'flex';
+  updateHistoryToolbar();
+  _afficherListeFiltree();
+}
+
+// Applique les filtres actifs (mode, favoris, recherche) et remplit la liste.
+// Séparé du reste pour pouvoir rafraîchir la liste pendant la frappe dans la
+// recherche sans reconstruire la barre (donc sans perdre le focus du champ).
+function _afficherListeFiltree() {
+  const list = document.getElementById('historyList');
+  let gens = (window._historyDataAll || []).slice();
+  let series = (window._historySeriesAll || []).slice();
+
+  // Filtre par type (menu curseurs) : un seul mode à la fois.
+  if (_modeFilter) {
+    if (_modeFilter === 'serie') gens = [];
+    else { gens = gens.filter(g => g.mode === _modeFilter); series = []; }
+  }
+  // Filtre favoris.
   if (_favFilter) {
     gens = gens.filter(g => g.favori);
     series = series.filter(s => s.favori);
+  }
+  // Recherche par titre (insensible à la casse et aux accents).
+  const q = (_searchQuery && _searchQuery.trim()) ? _normaliserRecherche(_searchQuery.trim()) : '';
+  if (q) {
+    gens = gens.filter(g => _normaliserRecherche(histTitreCourt(g.titre)).includes(q));
+    series = series.filter(s => _normaliserRecherche(s.titre || '').includes(q));
   }
 
   window._historyData = gens;
   window._historySeries = series;
 
-  // Barre d'outils (sélection multiple + filtre favoris)
-  const toolbar = document.getElementById('historyToolbar');
-  toolbar.style.display = 'flex';
-  updateHistoryToolbar();
-
-  // Filtre actif mais aucun favori : message dédié, on garde la barre pour ressortir.
-  if (_favFilter && !gens.length && !series.length) {
-    list.innerHTML = '<div class="history-empty"><p>Aucun favori pour l\'instant.</p><p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Appuie sur le marque-page d\'une génération pour l\'ajouter à tes favoris.</p></div>';
+  // Aucun résultat pour les filtres en cours.
+  if (!gens.length && !series.length) {
+    const filtres = _favFilter || _modeFilter || q;
+    list.innerHTML = '<div class="history-empty"><p>' + (filtres ? 'Aucun résultat pour ces filtres.' : 'Aucune génération pour l\'instant.') + '</p>' + (filtres ? '<p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Modifie ou retire les filtres pour voir plus de résultats.</p>' : '') + '</div>';
     return;
   }
 
@@ -620,14 +666,79 @@ function updateHistoryToolbar() {
   } else {
     toolbar.innerHTML = `
       <button class="hist-tool-btn" onclick="enterSelectMode()">Sélectionner</button>
-      <button class="hist-tool-btn fav${_favFilter ? ' actif' : ''}" onclick="toggleFavFilter()" title="N'afficher que les favoris">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>`;
+      <button class="hist-tool-btn fav${_favFilter ? ' actif' : ''}" onclick="toggleFavFilter()" title="N'afficher que les favoris">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>
+      <button class="hist-tool-icon${(_searchOpen || _searchQuery) ? ' actif' : ''}" onclick="toggleSearch()" title="Rechercher" aria-label="Rechercher">${ICON_SEARCH}</button>
+      <button class="hist-tool-icon hist-tool-right${(_modeFilter || _filterOpen) ? ' actif' : ''}" onclick="toggleFilterMenu()" title="Filtrer par type" aria-label="Filtrer par type">${ICON_FILTER}</button>`;
   }
+  renderHistoryFilters();
 }
 
-// Filtre "Favoris" en haut : bascule entre "tout" et "seulement les favoris".
+// Rangée sous la barre : champ de recherche (si déployé) et/ou puces de type.
+function renderHistoryFilters() {
+  const box = document.getElementById('historyFilters');
+  if (!box) return;
+  if (_selectMode) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  let html = '';
+  if (_searchOpen) {
+    html += '<div class="hist-search"><span class="hist-search-ico">' + ICON_SEARCH + '</span>'
+      + '<input type="text" id="histSearchInput" class="hist-search-input" placeholder="Rechercher un titre…" value="' + serieEsc(_searchQuery) + '" oninput="onHistSearch(this.value)"/>'
+      + (_searchQuery ? '<button class="hist-search-clear" onclick="clearHistSearch()" aria-label="Effacer">✕</button>' : '')
+      + '</div>';
+  }
+  if (_filterOpen) {
+    html += '<div class="hist-chips">' + HIST_MODES_FILTRE.map(function (m) {
+      const arg = m.v ? ("'" + m.v + "'") : 'null';
+      return '<button class="hist-chip' + (_modeFilter === m.v ? ' actif' : '') + '" onclick="setModeFilter(' + arg + ')">' + m.label + '</button>';
+    }).join('') + '</div>';
+  }
+  box.innerHTML = html;
+  box.style.display = html ? 'block' : 'none';
+}
+
+// Filtre "Favoris" : bascule entre "tout" et "seulement les favoris".
 function toggleFavFilter() {
   _favFilter = !_favFilter;
-  renderHistory();
+  updateHistoryToolbar();
+  _afficherListeFiltree();
+  window.scrollTo({ top: 0, behavior: 'auto' });
+}
+
+// Loupe : déploie/replie le champ de recherche.
+function toggleSearch() {
+  _searchOpen = !_searchOpen;
+  if (_searchOpen) _filterOpen = false; else _searchQuery = '';
+  updateHistoryToolbar();
+  _afficherListeFiltree();
+  if (_searchOpen) { const inp = document.getElementById('histSearchInput'); if (inp) inp.focus(); }
+}
+
+// Saisie dans la recherche : on ne rafraîchit QUE la liste (le champ garde le focus).
+function onHistSearch(val) {
+  _searchQuery = val;
+  _afficherListeFiltree();
+}
+
+function clearHistSearch() {
+  _searchQuery = '';
+  const inp = document.getElementById('histSearchInput');
+  if (inp) { inp.value = ''; inp.focus(); }
+  updateHistoryToolbar();
+  _afficherListeFiltree();
+}
+
+// Curseurs : déploie/replie le menu de filtre par type.
+function toggleFilterMenu() {
+  _filterOpen = !_filterOpen;
+  if (_filterOpen) _searchOpen = false;
+  updateHistoryToolbar();
+  _afficherListeFiltree();
+}
+
+// Choix d'un type dans le menu (null = tous).
+function setModeFilter(m) {
+  _modeFilter = m;
+  updateHistoryToolbar();
+  _afficherListeFiltree();
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
