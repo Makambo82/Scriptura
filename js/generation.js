@@ -141,7 +141,7 @@ AVANT D'ÉCRIRE LA MOINDRE IDÉE, RAISONNE EN SILENCE — ce raisonnement ne doi
 
 5. CLASSEMENT : une fois les meilleures idées retenues, classe-les de la plus forte opportunité à la moins forte pour CE créateur. La première idée de ta réponse doit être celle que tu juges la meilleure.
 
-MISSION : Génère 12 idées de vidéos à FORT POTENTIEL VIRAL, dans cet ordre de pertinence.
+MISSION : Génère 10 idées de vidéos à FORT POTENTIEL VIRAL, dans cet ordre de pertinence.
 
 RÈGLES ABSOLUES :
 - INTERDIT les idées génériques ("Les 5 erreurs à éviter", "Comment réussir en...", "Mon top 10"). Ça, tout le monde le fait.
@@ -161,7 +161,7 @@ Pour CHAQUE idée, fournis :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnement visible, uniquement le résultat) :
 {"idees":[{"titre":"...","angle":"...","pourquoi":"...","hook":"..."}]}
 
-Génère exactement 12 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
+Génère exactement 10 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdees);

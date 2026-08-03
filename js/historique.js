@@ -779,7 +779,7 @@ async function verifierRappelAudit() {
 }
 
 // Depuis le pop-up de rappel (le lendemain d'un audit) : génère directement
-// les 12 idées à partir de la niche et l'objectif de l'audit sauvegardé.
+// les 10 idées à partir de la niche et l'objectif de l'audit sauvegardé.
 function genererIdeesDepuisRappel() {
   const audit = _rappelAuditCourant;
   fermerRappelAudit();
