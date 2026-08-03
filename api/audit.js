@@ -94,6 +94,8 @@ Dans tous les cas où le hook n'est pas calculable mais que d'autres données su
 
 Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
 
+AXES PRIORITAIRES (synthèse) : après ton analyse, identifie les 3 axes d'amélioration les PLUS PRIORITAIRES pour faire progresser CE compte — ceux à plus fort impact sur la croissance, du plus important au moins important. Chacun doit s'appuyer sur ce que tu as réellement vu dans les captures (jamais une généralité applicable à n'importe qui). Si les données ne permettent d'en fonder que 1 ou 2 solidement, n'en donne que 1 ou 2 : ne complète jamais avec du remplissage. Ces axes sont un résumé actionnable, pas une redite mot pour mot des piliers.
+
 CONTRÔLE DE COUVERTURE (à faire AVANT toute analyse) : l'audit exige 5 données distinctes. Le nombre de captures ne compte pas, seule l'information compte : une donnée peut tenir sur une seule capture, ou être étalée sur plusieurs si l'écran était trop long. À l'inverse, une seule capture peut contenir deux données. Déclare pour chacune si tu l'as réellement vue :
 1. Vue d'ensemble sur 60 jours
 2. Analyse complète de la vidéo la plus performante (indicateurs + courbe ou taux de rétention)
@@ -178,6 +180,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     "editorial":          { "disponible": <true/false>, "sujets_notes": [ {"sujet":"<...>","note":"<ex: 4/5>"} ], "recommandation": "<ex: arrête les vidéos marketing 30 jours>" },
     "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? ex: 70% France mais références 100% béninoises>" }
   },
+  "axes_prioritaires": [
+    { "titre": "<max 6 mots, l'axe à travailler — ex: 'Retenir dans les 3 premières secondes'>", "pourquoi": "<1 phrase, ce que montrent les données de CE compte (pas de généralité)>", "action": "<1 phrase, quoi faire concrètement dès cette semaine, réalisable dans le format déclaré>" }
+  ],
   "plan_action_30j": {
     "frequence": "<recommandation de fréquence, en tenant compte de la fréquence actuelle déclarée par le créateur>",
     "duree_ideale": "<ex: 40-55 s, uniquement si déductible des données ; sinon 'non déterminable avec les données fournies'>",

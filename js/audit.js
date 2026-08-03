@@ -590,6 +590,17 @@ const SCORE_DIMS = [
   { key: 'regularite',   label: 'Régularité',       max: 20 }
 ];
 
+// Conseils génériques par dimension, utilisés UNIQUEMENT en repli quand le
+// modèle n'a pas renvoyé d'axes prioritaires : on prend alors les 3 dimensions
+// les plus faibles du score et on leur associe une piste concrète.
+const AXE_CONSEILS = {
+  engagement:   { pourquoi: "Peu de likes, commentaires ou partages au regard des vues.", action: "Termine chaque vidéo par une question ou un appel clair à commenter et partager." },
+  retention:    { pourquoi: "Les spectateurs décrochent avant la fin de la vidéo.", action: "Raccourcis, coupe les temps morts et relance l'intérêt toutes les quelques secondes." },
+  storytelling: { pourquoi: "L'accroche ou le rythme ne retiennent pas assez tôt.", action: "Soigne les 3 premières secondes et garde un rythme serré, sans intro molle." },
+  sujets:       { pourquoi: "Les sujets ne servent pas assez ton objectif ou ton audience.", action: "Réutilise le mécanisme qui a déjà fait réagir ton audience, sur des sujets variés." },
+  regularite:   { pourquoi: "Le rythme de publication est irrégulier.", action: "Fixe une cadence tenable (ex. 3 à 4 vidéos par semaine) et tiens-la." }
+};
+
 // ═══════════════════════════════════════════════════════════
 //  MOTEUR DE SCORING
 //  Le modèle n'attribue aucune note : il extrait des mesures brutes et
@@ -1100,6 +1111,35 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
       ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>`
         : (ts.levier_dim ? `<div class="audit-score-phrase">Ton levier le plus fort aujourd'hui : ${auditEsc(ts.levier_dim)}.</div>` : '')}
     </div>`;
+
+  // ── Tes 3 axes prioritaires (digest actionnable, juste sous le score) ──
+  // On prend d'abord ce que le modèle a renvoyé ; à défaut, on retombe sur les
+  // dimensions les plus faibles du score, pour que le bloc s'affiche toujours.
+  let axesPrio = Array.isArray(a.axes_prioritaires)
+    ? a.axes_prioritaires.filter(x => x && (x.titre || x.action || x.pourquoi))
+    : [];
+  if (!axesPrio.length && dimsMesurees.length) {
+    axesPrio = dimsMesurees
+      .map(d => ({ d, part: dimValeur(ts[d.key]) / d.max }))
+      .sort((x, y) => x.part - y.part)
+      .slice(0, 3)
+      .map(({ d }) => ({ titre: d.label, pourquoi: (AXE_CONSEILS[d.key] || {}).pourquoi || '', action: (AXE_CONSEILS[d.key] || {}).action || '' }));
+  }
+  if (axesPrio.length) {
+    const n = Math.min(3, axesPrio.length);
+    html += `<div class="audit-prio"><div class="audit-prio-titre">Tes ${n} axe${n > 1 ? 's' : ''} prioritaire${n > 1 ? 's' : ''}</div>`;
+    axesPrio.slice(0, 3).forEach((ax, i) => {
+      html += `<div class="audit-prio-item">
+        <div class="audit-prio-num">${i + 1}</div>
+        <div class="audit-prio-body">
+          <div class="audit-prio-t">${auditEsc(ax.titre || ('Axe ' + (i + 1)))}</div>
+          ${ax.pourquoi ? `<div class="audit-prio-why">${auditEsc(ax.pourquoi)}</div>` : ''}
+          ${ax.action ? `<div class="audit-prio-action">→ ${auditEsc(ax.action)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  }
 
   // Dimensions du score
   const hasDims = dimsMesurees.length > 0;
