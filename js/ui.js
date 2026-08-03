@@ -14,7 +14,7 @@ function majHeroCta() {
   const lbl = document.getElementById('heroCtaLabel');
   if (!lbl) return;
   lbl.textContent = (typeof unlocked !== 'undefined' && unlocked)
-    ? 'Que veux-tu faire aujourd’hui ?'
+    ? 'Que veux-tu faire ?'
     : 'Commencer gratuitement';
 }
 

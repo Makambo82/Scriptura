@@ -1161,7 +1161,7 @@
     <div class="modal-error" id="modalError">Code invalide. Vérifie et réessaie.</div>
     <input class="modal-input" id="codeInput" placeholder="Entrer ton code ici" maxlength="40" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()"/>
     <button class="modal-btn" onclick="verifyCode()">Débloquer mon accès</button>
-    <a href="https://wa.me/22995056424?text=Bonjour%2C+je+veux+m%27abonner+%C3%A0+Scriptura+pour+5+000+FCFA%2Fmois" target="_blank" class="modal-wa">
+    <a class="modal-wa" style="cursor:pointer" onclick="closeModal(); openPlans('abonnement'); return false;">
       💬 Je n'ai pas encore de code — S'abonner
     </a>
   </div>

@@ -426,7 +426,7 @@ async function initAccueilPremium() {
   if (!unlocked && !aUnCode) {
     zone.innerHTML = `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
-      <div class="ideas-sub" style="margin:6px 0 20px">Que souhaites-tu créer aujourd'hui ?</div>
+      <div class="ideas-sub" style="margin:6px 0 20px">Que souhaites-tu créer ?</div>
     `;
     zone.style.display = 'block';
     return;

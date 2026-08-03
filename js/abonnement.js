@@ -308,6 +308,12 @@ function openPlans(contexte) {
     if (cardCreator) cardCreator.style.display = 'none';
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
+  } else if (contexte === 'abonnement') {
+    // Entrée neutre « Je veux m'abonner » (depuis la fenêtre de code) : on
+    // présente simplement les offres, sans sous-entendre que le quota est épuisé.
+    if (tag) tag.textContent = 'Choisis ton offre';
+    if (titre) titre.innerHTML = 'Deux façons de<br/>propulser ton contenu';
+    if (intro) { intro.textContent = 'Débloque Scriptura avec le plan qui te convient.'; intro.style.display = 'block'; }
   } else {
     // Non-abonné qui a épuisé ses générations gratuites (sans jetons affichés)
     if (tag) tag.textContent = 'Choisis ton offre';
