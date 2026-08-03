@@ -910,15 +910,15 @@ footer strong{color:var(--gold)}
 @media(min-width:600px){
   .hero-modes{grid-template-columns:1fr 1fr;max-width:680px}
 }
-.hero-mode-btn:hover{border-color:rgba(201,168,76,0.55);background:rgba(201,168,76,0.05);transform:translateY(-3px);box-shadow:0 14px 30px -18px rgba(201,168,76,0.5)}
+.hero-mode-btn:hover{border-color:var(--gold);background:rgba(201,168,76,0.08);transform:translateY(-4px);box-shadow:0 20px 40px -20px rgba(201,168,76,0.75)}
 .hero-mode-btn:active{transform:translateY(-1px)}
-.hero-mode-btn .mode-icon{transition:transform 0.3s ease,background 0.3s ease}
-.hero-mode-btn:hover .mode-icon{transform:scale(1.08);background:rgba(201,168,76,0.16)}
+.hero-mode-btn .mode-icon{transition:transform 0.3s ease,background 0.3s ease,box-shadow 0.3s ease}
+.hero-mode-btn:hover .mode-icon{transform:scale(1.12);background:rgba(201,168,76,0.2);box-shadow:0 0 16px -2px rgba(201,168,76,0.5)}
 /* Apparition en cascade des cartes de modes (accueil) — désactivée si l'utilisateur
    préfère moins d'animations. "backwards" (pas "forwards") : la carte est cachée
    pendant son délai puis révélée, et revient à son état de base ensuite — le survol
    (transform) continue donc de fonctionner normalement. */
-@keyframes modeCardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes modeCardIn{from{opacity:0;transform:translateY(24px) scale(.975)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:no-preference){
   .hero-mode-btn{animation:modeCardIn 0.55s cubic-bezier(.2,.7,.2,1) backwards}
   .hero-mode-btn:nth-child(1){animation-delay:0.05s}
@@ -926,6 +926,35 @@ footer strong{color:var(--gold)}
   .hero-mode-btn:nth-child(3){animation-delay:0.21s}
   .hero-mode-btn:nth-child(4){animation-delay:0.29s}
   .hero-mode-btn:nth-child(5){animation-delay:0.37s}
+}
+
+/* ═══ Système d'animation "vivant" (premium, coupé si mouvement réduit) ═══ */
+@keyframes goldSheen{0%{left:-60%}55%,100%{left:150%}}
+@keyframes wmShine{0%{background-position:100% 0}100%{background-position:0% 0}}
+@keyframes liftIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+/* Reflet doré sur les mots-marques (logo en-tête, mot "réinventé") */
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .logo .logo-s,.logo em,.hero-shimmer{
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+    background-size:250% 100%;background-repeat:no-repeat;
+  }
+  .logo .logo-s{background-image:linear-gradient(100deg,#f4f1ea 0%,#f4f1ea 44%,#ffffff 50%,#f4f1ea 56%,#f4f1ea 100%)}
+  .logo em{background-image:linear-gradient(100deg,var(--gold) 0%,var(--gold) 44%,#fff3cf 50%,var(--gold) 56%,var(--gold) 100%)}
+  .hero-shimmer{background-image:linear-gradient(100deg,var(--gold-light) 0%,var(--gold-light) 44%,#fff6d8 50%,var(--gold-light) 56%,var(--gold-light) 100%)}
+}
+/* Reflet qui traverse les boutons dorés principaux */
+.btn-generate,.plan-btn-pro{position:relative;overflow:hidden}
+.btn-generate::after,.plan-btn-pro::after{
+  content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:skewX(-18deg);pointer-events:none;
+}
+@media (prefers-reduced-motion:no-preference){
+  .logo .logo-s{animation:wmShine 6.5s ease-in-out infinite}
+  .logo em{animation:wmShine 6.5s ease-in-out .2s infinite}
+  .hero-shimmer{animation:wmShine 5.5s ease-in-out infinite}
+  .btn-generate::after,.plan-btn-pro::after{animation:goldSheen 5s ease-in-out infinite}
+  .audit-block{animation:liftIn .5s cubic-bezier(.2,.7,.2,1) backwards}
 }
 .hero-mode-btn.primary{background:rgba(201,168,76,0.10);border-color:rgba(201,168,76,0.45)}
 .hero-mode-btn.primary:hover{background:rgba(201,168,76,0.15);border-color:var(--gold)}
