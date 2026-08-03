@@ -938,16 +938,17 @@ footer strong{color:var(--gold)}
 }
 
 /* ── Mode FOCUS de l'accueil (après clic sur « Commencer ») ── */
+/* Retour au même format que le bouton des modes (.btn-back) : sans cadre,
+   dans le flux, aligné à gauche avec le contenu, bien espacé du header. */
 .hero-retour{display:none}
 body.hero-focus .hero-retour{
-  display:inline-flex;align-items:center;gap:6px;
-  position:fixed;top:74px;left:16px;z-index:90;
-  background:rgba(28,28,30,0.9);border:1px solid var(--border-soft);
-  color:var(--gold-light);font-family:'Cinzel',serif;font-size:0.6rem;
-  letter-spacing:0.12em;text-transform:uppercase;
-  padding:9px 15px;border-radius:999px;cursor:pointer;transition:all .2s;
+  display:flex;align-items:center;gap:8px;justify-content:flex-start;
+  width:100%;max-width:420px;margin:0 auto 32px;
+  background:transparent;border:none;padding:0;cursor:pointer;
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:rgba(255,255,255,0.7);transition:color .2s;
 }
-body.hero-focus .hero-retour:hover{border-color:var(--gold);background:rgba(201,168,76,0.12)}
+body.hero-focus .hero-retour:hover{color:var(--gold)}
 body.hero-focus .ticker-wrap,
 body.hero-focus .hero-eyebrow,
 body.hero-focus .hero h1,
@@ -958,9 +959,9 @@ body.hero-focus .how,
 body.hero-focus .why,
 body.hero-focus .pricing,
 body.hero-focus .faq{display:none !important}
-/* On aligne le contenu en haut et on le pousse sous le bouton Retour, pour
-   laisser une marge nette entre le Retour et le cadre du statut. */
-body.hero-focus .hero{justify-content:flex-start;padding-top:128px}
+/* Contenu aligné en haut, avec le même retrait sous le header que les autres
+   écrans (mode Idées, etc.) : le Retour n'est plus collé à l'en-tête. */
+body.hero-focus .hero{justify-content:flex-start;padding-top:100px}
 
 .hero-modes{
   display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;
