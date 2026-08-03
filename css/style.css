@@ -985,6 +985,18 @@ footer strong{color:var(--gold)}
 .how-step-title{font-family:'Cinzel',serif;font-size:0.82rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#fff;line-height:1.35;margin-bottom:10px}
 .how-step-desc{font-size:0.9rem;color:var(--text-secondary);font-family:'Tenor Sans',sans-serif;line-height:1.6}
 
+/* ── FAQ (accueil) — accordéon natif <details>, aucun JS ── */
+.faq{max-width:760px;margin:0 auto;padding:48px 24px 32px;text-align:center}
+.faq-list{text-align:left;margin-top:8px}
+.faq-item{border:1px solid var(--border-soft);border-radius:12px;margin-bottom:12px;background:rgba(255,255,255,0.02);overflow:hidden;transition:border-color 0.25s ease}
+.faq-item[open]{border-color:rgba(201,168,76,0.4)}
+.faq-item summary{list-style:none;cursor:pointer;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'Tenor Sans',sans-serif;font-size:0.95rem;letter-spacing:0.01em;color:#F5F3EE;line-height:1.4;transition:color 0.2s ease}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary:hover{color:var(--gold-light)}
+.faq-chev{flex:0 0 auto;color:var(--gold);transition:transform 0.25s ease;font-size:0.8rem}
+.faq-item[open] .faq-chev{transform:rotate(180deg)}
+.faq-a{padding:0 20px 20px;font-family:'Tenor Sans',sans-serif;font-size:0.92rem;color:var(--text-secondary);line-height:1.7}
+
 /* ── GÉNÉRATEUR D'IDÉES ── */
 #ideasFlow,#storyFlow,#auditFlow,#serieFlow{max-width:680px;margin:0 auto;padding:100px 24px 80px}
 .ideas-container{}
