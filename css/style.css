@@ -903,14 +903,30 @@ footer strong{color:var(--gold)}
   display:flex;flex-direction:row;align-items:center;gap:16px;text-align:left;
   background:rgba(255,255,255,0.02);border:1px solid rgba(201,168,76,0.18);
   border-radius:14px;padding:20px 22px;cursor:pointer;
-  transition:border-color 0.3s ease,background 0.3s ease,transform 0.3s ease;
+  transition:border-color 0.3s ease,background 0.3s ease,transform 0.3s ease,box-shadow 0.3s ease;
   width:100%;box-sizing:border-box;
 }
 .hero-mode-btn .mode-body{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
 @media(min-width:600px){
   .hero-modes{grid-template-columns:1fr 1fr;max-width:680px}
 }
-.hero-mode-btn:hover{border-color:rgba(201,168,76,0.55);background:rgba(201,168,76,0.05);transform:translateY(-2px)}
+.hero-mode-btn:hover{border-color:rgba(201,168,76,0.55);background:rgba(201,168,76,0.05);transform:translateY(-3px);box-shadow:0 14px 30px -18px rgba(201,168,76,0.5)}
+.hero-mode-btn:active{transform:translateY(-1px)}
+.hero-mode-btn .mode-icon{transition:transform 0.3s ease,background 0.3s ease}
+.hero-mode-btn:hover .mode-icon{transform:scale(1.08);background:rgba(201,168,76,0.16)}
+/* Apparition en cascade des cartes de modes (accueil) — désactivée si l'utilisateur
+   préfère moins d'animations. "backwards" (pas "forwards") : la carte est cachée
+   pendant son délai puis révélée, et revient à son état de base ensuite — le survol
+   (transform) continue donc de fonctionner normalement. */
+@keyframes modeCardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:no-preference){
+  .hero-mode-btn{animation:modeCardIn 0.55s cubic-bezier(.2,.7,.2,1) backwards}
+  .hero-mode-btn:nth-child(1){animation-delay:0.05s}
+  .hero-mode-btn:nth-child(2){animation-delay:0.13s}
+  .hero-mode-btn:nth-child(3){animation-delay:0.21s}
+  .hero-mode-btn:nth-child(4){animation-delay:0.29s}
+  .hero-mode-btn:nth-child(5){animation-delay:0.37s}
+}
 .hero-mode-btn.primary{background:rgba(201,168,76,0.10);border-color:rgba(201,168,76,0.45)}
 .hero-mode-btn.primary:hover{background:rgba(201,168,76,0.15);border-color:var(--gold)}
 .hero-mode-btn.primary .mode-label{color:var(--gold-light)}
