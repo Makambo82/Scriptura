@@ -172,48 +172,76 @@ function retirerCapture(i) {
 //  guider l'utilisateur écran par écran pour réduire la confusion. Toute la
 //  mécanique (auditCaptures, reconnaissance IA, lancerAudit) reste inchangée.
 // ═══════════════════════════════════════════════════════════
+// ORDRE DES ÉTAPES — pensé pour que l'utilisateur enchaîne les onglets de
+// l'écran "Analytique" sans quitter TikTok Studio : Vue d'ensemble → Contenu →
+// Spectateurs sont trois onglets voisins. La meilleure/pire vidéo passe EN
+// DERNIER car elle oblige à sortir d'Analytique pour ouvrir chaque vidéo.
+//
+// Chaque étape peut porter des "exemples" : de vraies captures TikTok Studio,
+// annotées d'une flèche rouge, montrant précisément l'écran à photographier.
+// Elles s'affichent SOUS le schéma indicatif (voir renderAuditWizard) et sont
+// chargées en différé (loading="lazy") pour ne pas ralentir la page.
 const AUDIT_ETAPES = [
   {
     titre: "Vue d'ensemble · 60 jours",
     path: "TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours",
-    tip: "Cet écran montre tes vues de publication, tes vues de profil, tes J'aime, tes commentaires et tes partages sur la période.",
+    tip: "Cet écran montre tes vues de publication, tes vues de profil, tes J'aime, tes commentaires et tes partages sur la période. Pense bien à sélectionner « 60 jours ».",
     label: "Ajouter : vue d'ensemble",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><rect x="34" y="62" width="16" height="30" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="66" y="48" width="16" height="44" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="98" y="54" width="16" height="38" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="130" y="34" width="16" height="58" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="162" y="22" width="16" height="70" rx="2" fill="#E2C87A"/></svg>`
+    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><rect x="34" y="62" width="16" height="30" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="66" y="48" width="16" height="44" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="98" y="54" width="16" height="38" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="130" y="34" width="16" height="58" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="162" y="22" width="16" height="70" rx="2" fill="#E2C87A"/></svg>`,
+    exemples: [
+      { src: "assets/audit/ov.webp", cap: "Onglet « Vue d'ensemble », période 60 jours." }
+    ]
+  },
+  {
+    titre: "Top contenus · 60 jours",
+    path: "TikTok Studio → Analyses → Contenu → Période : 60 jours → « Les plus vues »",
+    tip: "La liste de tes vidéos classées par vues : elle situe tes deux vidéos par rapport au reste de ton compte. Descends jusqu'en bas (10 vidéos) : le plus souvent, il faut deux captures.",
+    label: "Ajouter : top contenus",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><rect x="20" y="16" width="30" height="22" rx="3" fill="rgba(201,168,76,0.28)"/><rect x="58" y="20" width="110" height="6" rx="3" fill="#E2C87A"/><rect x="58" y="30" width="70" height="5" rx="3" fill="rgba(255,255,255,0.25)"/><rect x="20" y="46" width="30" height="22" rx="3" fill="rgba(201,168,76,0.22)"/><rect x="58" y="50" width="90" height="6" rx="3" fill="#C9A84C"/><rect x="58" y="60" width="60" height="5" rx="3" fill="rgba(255,255,255,0.22)"/><rect x="20" y="76" width="30" height="22" rx="3" fill="rgba(201,168,76,0.16)"/><rect x="58" y="80" width="70" height="6" rx="3" fill="rgba(201,168,76,0.6)"/><rect x="58" y="90" width="45" height="5" rx="3" fill="rgba(255,255,255,0.2)"/></svg>`,
+    exemples: [
+      { src: "assets/audit/top-1.webp", cap: "Onglet « Contenu » → « Les plus vues » (n° 1 à 5)." },
+      { src: "assets/audit/top-2.webp", cap: "Descends pour la suite (jusqu'à la n° 10)." }
+    ]
+  },
+  {
+    titre: "Ton audience",
+    path: "TikTok Studio → Analyses → Spectateurs → Sexe, Âge et Emplacements",
+    tip: "Qui te regarde : sexe, âge, pays. En bas de l'écran, appuie tour à tour sur « Sexe », « Âge » puis « Emplacements » et prends une capture de chacun — l'emplacement (pays) est le plus important pour savoir si ton contenu parle à la bonne audience.",
+    label: "Ajouter : audience",
+    schema: `<svg viewBox="0 0 200 110" fill="none"><circle cx="58" cy="55" r="28" stroke="rgba(255,255,255,0.15)" stroke-width="12" fill="none"/><circle cx="58" cy="55" r="28" stroke="#C9A84C" stroke-width="12" fill="none" stroke-dasharray="105 71" transform="rotate(-90 58 55)"/><circle cx="58" cy="55" r="28" stroke="#E2C87A" stroke-width="12" fill="none" stroke-dasharray="48 128" stroke-dashoffset="-105" transform="rotate(-90 58 55)"/><rect x="104" y="34" width="66" height="8" rx="4" fill="#E2C87A"/><rect x="104" y="51" width="48" height="8" rx="4" fill="#C9A84C"/><rect x="104" y="68" width="30" height="8" rx="4" fill="rgba(201,168,76,0.5)"/></svg>`,
+    exemples: [
+      { src: "assets/audit/audience.webp", cap: "Onglet « Spectateurs » → une capture par onglet : Sexe, Âge, Emplacements." }
+    ]
   },
   {
     titre: "Ta vidéo la plus performante · analyse complète",
     path: "Depuis ton profil, ouvre ta MEILLEURE vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
     tip: "Sur l'écran des données, descends jusqu'à la courbe de rétention. Si tout ne tient pas, prends deux captures : les indicateurs en haut (dont les nouveaux abonnés gagnés par la vidéo), puis la courbe plus bas.",
     label: "Ajouter : meilleure vidéo",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,28 44,40 70,56 100,60 140,62 184,66" stroke="#E2C87A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
+    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,28 44,40 70,56 100,60 140,62 184,66" stroke="#E2C87A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+    exemples: [
+      { src: "assets/audit/video-indicateurs.webp", cap: "Les indicateurs de la vidéo (dont les nouveaux abonnés gagnés)." },
+      { src: "assets/audit/video-retention.webp", cap: "Plus bas sur le même écran : la courbe de rétention." }
+    ]
   },
   {
     titre: "Ta vidéo la moins performante · analyse complète",
     path: "Depuis ton profil, ouvre ta MOINS bonne vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
-    tip: "Même chose : descends jusqu'à la courbe de rétention, deux captures si l'écran est trop long. C'est la comparaison des deux qui révèle ce qui marche.",
+    tip: "Même écran que pour ta meilleure vidéo : les indicateurs en haut, puis la courbe de rétention plus bas (deux captures si nécessaire). C'est la comparaison des deux qui révèle ce qui marche.",
     label: "Ajouter : vidéo la moins performante",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,26 40,52 60,74 90,84 140,88 184,90" stroke="#C9A84C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`
-  },
-  {
-    titre: "Top contenus · 60 jours",
-    path: "TikTok Studio → Analyses → Contenu → Période : 60 jours → classé par vues",
-    tip: "La liste de tes vidéos classées par vues : elle situe tes deux vidéos par rapport au reste de ton compte.",
-    label: "Ajouter : top contenus",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><rect x="20" y="16" width="30" height="22" rx="3" fill="rgba(201,168,76,0.28)"/><rect x="58" y="20" width="110" height="6" rx="3" fill="#E2C87A"/><rect x="58" y="30" width="70" height="5" rx="3" fill="rgba(255,255,255,0.25)"/><rect x="20" y="46" width="30" height="22" rx="3" fill="rgba(201,168,76,0.22)"/><rect x="58" y="50" width="90" height="6" rx="3" fill="#C9A84C"/><rect x="58" y="60" width="60" height="5" rx="3" fill="rgba(255,255,255,0.22)"/><rect x="20" y="76" width="30" height="22" rx="3" fill="rgba(201,168,76,0.16)"/><rect x="58" y="80" width="70" height="6" rx="3" fill="rgba(201,168,76,0.6)"/><rect x="58" y="90" width="45" height="5" rx="3" fill="rgba(255,255,255,0.2)"/></svg>`
-  },
-  {
-    titre: "Ton audience",
-    path: "TikTok Studio → Analyses → Spectateurs → Âge, Sexe et Emplacements",
-    tip: "Qui te regarde : âge, sexe, pays. Indispensable pour savoir si ton contenu parle à la bonne audience.",
-    label: "Ajouter : audience",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><circle cx="58" cy="55" r="28" stroke="rgba(255,255,255,0.15)" stroke-width="12" fill="none"/><circle cx="58" cy="55" r="28" stroke="#C9A84C" stroke-width="12" fill="none" stroke-dasharray="105 71" transform="rotate(-90 58 55)"/><circle cx="58" cy="55" r="28" stroke="#E2C87A" stroke-width="12" fill="none" stroke-dasharray="48 128" stroke-dashoffset="-105" transform="rotate(-90 58 55)"/><rect x="104" y="34" width="66" height="8" rx="4" fill="#E2C87A"/><rect x="104" y="51" width="48" height="8" rx="4" fill="#C9A84C"/><rect x="104" y="68" width="30" height="8" rx="4" fill="rgba(201,168,76,0.5)"/></svg>`
+    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,26 40,52 60,74 90,84 140,88 184,90" stroke="#C9A84C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
+    exemples: [
+      { src: "assets/audit/video-indicateurs.webp", cap: "Mêmes écrans, pour ta vidéo la moins bonne : les indicateurs…" },
+      { src: "assets/audit/video-retention.webp", cap: "…puis la courbe de rétention plus bas." }
+    ]
   }
 ];
 
-// Type de donnée attendu à chaque étape (voir AUDIT_TYPES) : les étapes 2 et 3
-// (meilleure/pire vidéo) demandent toutes deux un "détail vidéo" (type 2), que
-// la reconnaissance ne sait pas distinguer — c'est normal et sans conséquence.
-const AUDIT_ETAPE_TYPE = [1, 2, 2, 3, 4];
+// Type de donnée attendu à chaque étape (voir AUDIT_TYPES), dans le MÊME ordre
+// que AUDIT_ETAPES ci-dessus : 1 = vue d'ensemble, 3 = top contenus,
+// 4 = audience, 2 = détail vidéo (meilleure ET pire, que la reconnaissance ne
+// sait pas distinguer — c'est normal et sans conséquence).
+const AUDIT_ETAPE_TYPE = [1, 3, 4, 2, 2];
 
 let auditEtapeIndex = 0;   // 0..AUDIT_ETAPES.length (la dernière = profil + lancement)
 let auditAffineMode = false;
@@ -295,12 +323,22 @@ function renderAuditWizard() {
     if (wiz) wiz.style.display = '';
     if (count) count.textContent = 'Étape ' + (auditEtapeIndex + 1) + ' / ' + AUDIT_ETAPES.length;
     if (barFill) barFill.style.width = Math.round((auditEtapeIndex / AUDIT_ETAPES.length) * 100) + '%';
+    // Exemples réels (captures TikTok Studio annotées d'une flèche rouge) :
+    // montrent l'écran exact à photographier. Chargés en différé (lazy).
+    const exHtml = (e.exemples && e.exemples.length)
+      ? '<div class="aw-ex"><div class="aw-ex-titre">📸 L\'écran exact à capturer</div><div class="aw-ex-grid">' +
+        e.exemples.map(x =>
+          '<figure class="aw-ex-item"><img src="' + x.src + '" loading="lazy" decoding="async" alt="Exemple : ' + auditEsc(e.titre) + '" class="aw-ex-img"><figcaption>' + x.cap + '</figcaption></figure>'
+        ).join('') +
+        '</div></div>'
+      : '';
     if (card) card.innerHTML =
       '<div class="aw-schema">' + e.schema + '</div>' +
       '<div class="aw-schema-note">schéma indicatif</div>' +
       '<div class="aw-title">' + e.titre + '</div>' +
       '<div class="aw-path">' + e.path + '</div>' +
       (e.tip ? '<div class="aw-tip">' + e.tip + '</div>' : '') +
+      exHtml +
       '<div id="awStatut"></div>';
     if (nav) {
       let b = '';

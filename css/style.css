@@ -1731,6 +1731,12 @@ body.is-unlocked .sidebar-logout{display:block}
 .aw-title{font-family:'Tenor Sans',sans-serif;font-size:1.02rem;color:#F5F3EE;line-height:1.35;margin-bottom:12px;text-align:center}
 .aw-path{font-size:0.85rem;color:var(--text-secondary);line-height:1.55;text-align:center;background:rgba(201,168,76,0.06);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
 .aw-tip{font-size:0.8rem;color:rgba(255,255,255,0.45);line-height:1.5;text-align:center;margin-top:12px}
+.aw-ex{margin-top:18px}
+.aw-ex-titre{font-family:'Cinzel',serif;font-size:0.64rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold-light);text-align:center;margin-bottom:12px}
+.aw-ex-grid{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.aw-ex-item{flex:1 1 150px;max-width:200px;margin:0}
+.aw-ex-img{width:100%;height:auto;border-radius:12px;border:1px solid var(--border-soft);display:block;background:#000}
+.aw-ex-item figcaption{font-size:0.72rem;color:rgba(255,255,255,0.5);line-height:1.4;text-align:center;margin-top:8px}
 .aw-statut{display:block;text-align:center;margin-top:14px;font-size:0.82rem;line-height:1.5;border-radius:10px;padding:10px 14px}
 .aw-statut.ok{color:#8FE0A0;background:rgba(80,200,120,0.08);border:1px solid rgba(80,200,120,0.25)}
 .aw-statut.attente{color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.04);border:1px solid var(--border-soft)}
