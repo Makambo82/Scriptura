@@ -301,13 +301,30 @@ function prenomDepuisCode() {
   if (PRENOM_CODE_EXCEPTIONS[code]) return PRENOM_CODE_EXCEPTIONS[code];
 
   const LETTRES = /^[A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]+$/;
+  const CONTIENT_LETTRE = /[A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/;
 
-  if (code.length > 4 && /[0-9]/.test(code.slice(-4))) {
+  // Format standard auto-généré (SANS tiret) : prénom + 4 caractères
+  // alphanumériques, ex. MARIE7F2A → Marie.
+  if (!code.includes('-') && code.length > 4 && /[0-9]/.test(code.slice(-4))) {
     const brut = code.slice(0, -4);
     if (LETTRES.test(brut)) return brut.charAt(0) + brut.slice(1).toLowerCase();
     return null;
   }
 
+  // Code manuel à UN seul tiret : PRÉFIXE-HANDLE (ex. TIKTOK-F18 → F18).
+  // Le segment après le tiret est le prénom/pseudo, s'il contient au moins une
+  // lettre. Les codes de campagne à plusieurs tirets (SCRIPTURA-JUIL-2026) sont
+  // volontairement exclus : aucun prénom deviné.
+  const segments = code.split('-');
+  if (segments.length === 2) {
+    const h = segments[1];
+    if (h && h.length <= 14 && CONTIENT_LETTRE.test(h)) {
+      return h.charAt(0) + h.slice(1).toLowerCase();
+    }
+    return null;
+  }
+
+  // Code entièrement en lettres, sans suffixe (ex. FIFA → Fifa).
   if (LETTRES.test(code)) return code.charAt(0) + code.slice(1).toLowerCase();
 
   return null;
@@ -401,7 +418,12 @@ async function initAccueilPremium() {
   // mais un simple message d'accueil — jamais de recommandation
   // personnalisée, réservée aux abonnés (fonctionnalité Premium). Le titre
   // principal de la page ("Ton contenu, réinventé.") n'est pas touché.
-  if (!unlocked) {
+  // Acheteur de jetons : code "jeton" enregistré (scriptura_code) mais pas
+  // "unlocked". C'est un mini-compte identifié — il a droit à l'accueil
+  // personnalisé et aux recommandations, comme un abonné. Seul le visiteur
+  // VRAIMENT anonyme (aucun code enregistré) voit le simple mot de bienvenue.
+  const aUnCode = !!(localStorage.getItem('scriptura_code') || '').trim();
+  if (!unlocked && !aUnCode) {
     zone.innerHTML = `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Que souhaites-tu créer aujourd'hui ?</div>
