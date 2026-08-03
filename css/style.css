@@ -196,6 +196,13 @@ nav{
   background:var(--gold-pale);border:1px solid var(--border-soft);
   padding:5px 14px;border-radius:999px;
 }
+/* Étiquette "d'où vient la reco" (diagnostic / créations / les deux) */
+.reco-tags{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.reco-source-tag{
+  display:inline-block;padding:5px 12px;border-radius:999px;
+  font-size:0.72rem;color:var(--text-secondary);line-height:1.3;
+  background:rgba(255,255,255,0.04);border:1px solid var(--border-soft);
+}
 
 /* GENERATE BTN */
 .btn-generate{

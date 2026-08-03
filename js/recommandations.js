@@ -100,9 +100,10 @@ Pour CHAQUE recommandation, fournis :
 4. Le POTENTIEL estimé pour ce créateur, exactement un de ces 4 mots : Faible, Moyen, Élevé, Très élevé
 5. Un TON conseillé, à choisir EXACTEMENT parmi : Analytique, Inspirant, Provocateur, Éducatif, Humoristique, Storytelling, Réaction, Tutoriel, Satirique, Émotionnel
 6. Un HOOK recommandé : la phrase d'accroche exacte pour démarrer la vidéo
+7. La SOURCE de cette recommandation, exactement un de ces trois mots : "diagnostic" (elle se fonde surtout sur les leçons ou le score de son audit TikTok), "creations" (elle se fonde surtout sur sa niche, son ton, son format ou ses sujets déjà traités), ou "mixte" (les deux à part égale). Sois honnête : indique ce sur quoi tu t'es RÉELLEMENT appuyé pour CETTE reco. S'il n'y a pas de diagnostic connu, ce ne peut jamais être "diagnostic" ni "mixte".
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"niveau_confiance":"faible|moyenne|élevée","recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"..."}]}`;
+{"niveau_confiance":"faible|moyenne|élevée","recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"...","source":"mixte"}]}`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebReco);
@@ -117,6 +118,20 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 function escaperReco(s) { return (typeof auditEsc === 'function') ? auditEsc(s) : String(s == null ? '' : s); }
 
+// Source d'une recommandation (renseignée par le modèle) : sur quoi elle se
+// fonde. Retourne null si absente (anciennes recos en cache) -> aucune étiquette.
+function infoSourceReco(reco) {
+  const s = (reco && reco.source ? String(reco.source) : '').trim().toLowerCase();
+  if (s === 'diagnostic') return { icone: '📊', texte: "D'après ton diagnostic TikTok" };
+  if (s === 'creations' || s === 'créations') return { icone: '🎬', texte: "D'après tes créations" };
+  if (s === 'mixte' || s.includes('deux')) return { icone: '🧭', texte: "D'après ton diagnostic et tes créations" };
+  return null;
+}
+function badgeSourceReco(reco) {
+  const i = infoSourceReco(reco);
+  return i ? `<span class="reco-source-tag">${i.icone} ${i.texte}</span>` : '';
+}
+
 function carteRecommandationHero(reco) {
   const justifs = (reco.justifications || []).map(j => `<div class="audit-diag-interp">✔ ${escaperReco(j)}</div>`).join('');
   return `
@@ -125,7 +140,7 @@ function carteRecommandationHero(reco) {
     <div class="audit-diag-constat">${escaperReco(reco.angle)}</div>
     <div class="audit-section-label" style="margin-top:18px">Pourquoi cette recommandation ?</div>
     <div style="margin:10px 0 4px">${justifs}</div>
-    <span class="summary-tag">🔥 Potentiel estimé : ${escaperReco(reco.potentiel || 'Moyen')}</span>
+    <div class="reco-tags">${badgeSourceReco(reco)}<span class="summary-tag">🔥 Potentiel estimé : ${escaperReco(reco.potentiel || 'Moyen')}</span></div>
   `;
 }
 
@@ -140,6 +155,7 @@ function carteRecommandationSecondaire(reco, index) {
       <div class="idea-section"><div class="idea-section-label">◆ L'angle</div><div class="idea-section-text">${escaperReco(reco.angle)}</div></div>
       <div class="idea-section"><div class="idea-section-label">◆ Pourquoi</div><div class="idea-section-text">${justifs}</div></div>
       <div class="idea-section"><div class="idea-section-label">◆ Potentiel</div><div class="idea-section-text">${escaperReco(reco.potentiel || 'Moyen')}</div></div>
+      ${infoSourceReco(reco) ? `<div class="idea-section"><div class="idea-section-label">◆ Basé sur</div><div class="idea-section-text">${infoSourceReco(reco).icone} ${infoSourceReco(reco).texte}</div></div>` : ''}
       <div class="idea-actions"><button class="idea-btn-script" onclick="creerScriptDepuisRecommandation(${index})">🎬 Créer le script</button></div>
     </div>
   </div>`;
