@@ -145,6 +145,18 @@ function carteRecommandationSecondaire(reco, index) {
   </div>`;
 }
 
+// Bouton "Nouvelle recommandation" : actif tant qu'il reste des essais du jour,
+// désactivé (+ note) une fois le plafond quotidien atteint (voir RECO_REFRESH_MAX).
+function boutonNouvelleReco() {
+  const restants = (typeof recoRefreshRestants === 'function') ? recoRefreshRestants() : RECO_REFRESH_MAX;
+  const base = 'class="btn-regenerate reco-refresh" style="width:100%;justify-content:center;margin-top:20px" id="btnRafraichirReco"';
+  if (restants > 0) {
+    return `<button ${base} onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>`;
+  }
+  return `<button ${base} disabled><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>`
+    + `<div class="ideas-sub" style="text-align:center;margin-top:8px;font-size:0.76rem;opacity:0.65">Tu as atteint ta limite du jour — de nouvelles recommandations demain.</div>`;
+}
+
 // Affiche la recommandation principale + le bouton pour révéler les autres,
 // dans le conteneur donné. `entete` (optionnel) est inséré avant la carte
 // (utilisé pour la salutation d'accueil ou le titre "Et maintenant ?").
@@ -168,7 +180,7 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
     <div class="score-card">
       ${carteRecommandationHero(data.recommandations[0])}
       ${confianceNote}
-      ${avecRafraichir ? '<button class="btn-regenerate reco-refresh" style="width:100%;justify-content:center;margin-top:20px" id="btnRafraichirReco" onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>' : ''}
+      ${avecRafraichir ? boutonNouvelleReco() : ''}
       <button class="btn-generate" style="margin-top:10px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
       <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:10px" onclick="toggleAutresRecommandations('${autresId}')">Voir d'autres recommandations</button>
       <div id="${autresId}" style="display:none;margin-top:18px"></div>
@@ -332,6 +344,38 @@ function viderRecoCache() {
   try { localStorage.removeItem(cleRecoJour()); } catch (e) { /* silencieux */ }
 }
 
+// ── Plafond quotidien du bouton "Nouvelle recommandation" ──
+// Pour maîtriser les coûts API : chaque clic sur "Nouvelle recommandation"
+// relance un appel au modèle. On en autorise au plus RECO_REFRESH_MAX par jour
+// et par créateur (la 1re reco du jour, elle, ne compte pas). Compteur stocké
+// côté navigateur, clé par jour — recharger l'app ne le remet donc PAS à zéro
+// (sinon le plafond serait contournable et n'économiserait rien). Repart à 0 le
+// lendemain, en phase avec le cache de reco déjà journalier.
+const RECO_REFRESH_MAX = 2;
+function cleRecoRefresh() {
+  const d = new Date();
+  const jour = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return 'scriptura_reco_refresh_' + getUserRef() + '_' + jour;
+}
+function recoRefreshUtilises() {
+  try { return parseInt(localStorage.getItem(cleRecoRefresh()) || '0', 10) || 0; } catch (e) { return 0; }
+}
+function recoRefreshRestants() {
+  return Math.max(0, RECO_REFRESH_MAX - recoRefreshUtilises());
+}
+function incrementerRecoRefresh() {
+  try {
+    const cle = cleRecoRefresh();
+    localStorage.setItem(cle, String(recoRefreshUtilises() + 1));
+    // Nettoyage des compteurs des jours précédents (ne servent plus).
+    const prefixe = 'scriptura_reco_refresh_' + getUserRef() + '_';
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefixe) && k !== cle) localStorage.removeItem(k);
+    }
+  } catch (e) { /* silencieux */ }
+}
+
 async function initAccueilPremium() {
   const zone = document.getElementById('accueilPremium');
   if (!zone) return;
@@ -386,11 +430,15 @@ async function initAccueilPremium() {
 // Force une nouvelle recommandation d'accueil, sans attendre le changement
 // de jour (vide le cache du jour puis relance l'initialisation normale).
 async function rafraichirRecommandationAccueil() {
+  // Plafond quotidien atteint : le bouton ne répond plus (économie d'API).
+  if (recoRefreshRestants() <= 0) return;
   const btn = document.getElementById('btnRafraichirReco');
   // Le doré remplit progressivement le bouton (via .reco-refresh-loading) et le
   // texte passe en blanc, le temps que Scriptura trouve une nouvelle reco.
   // Le re-render de initAccueilPremium() remplace ensuite le bouton (fin de l'anim).
   if (btn) { btn.disabled = true; btn.classList.add('reco-refresh-loading'); }
+  // On compte l'appel AVANT de le lancer : c'est le coût API qu'on plafonne.
+  incrementerRecoRefresh();
   viderRecoCache();
   await initAccueilPremium();
 }
