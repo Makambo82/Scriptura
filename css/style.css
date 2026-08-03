@@ -958,6 +958,9 @@ body.hero-focus .how,
 body.hero-focus .why,
 body.hero-focus .pricing,
 body.hero-focus .faq{display:none !important}
+/* On aligne le contenu en haut et on le pousse sous le bouton Retour, pour
+   laisser une marge nette entre le Retour et le cadre du statut. */
+body.hero-focus .hero{justify-content:flex-start;padding-top:128px}
 
 .hero-modes{
   display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;
