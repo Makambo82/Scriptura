@@ -151,8 +151,15 @@ function renderGenCounter() {
       // pour qu'il se sente distingué du non-abonné.
       c.counter.classList.remove('pulse');
       c.counter.classList.add('is-premium');
-      const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
-      const badgeTxt = (palier === 'pro') ? 'Membre Pro' : 'Membre';
+      // Libellé de la pastille : Fondateur pour le compte admin, sinon
+      // "Abonné Creator" / "Abonné Pro" selon le plan.
+      let badgeTxt;
+      if (typeof estCodeAdmin === 'function' && estCodeAdmin()) {
+        badgeTxt = 'Fondateur';
+      } else {
+        const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
+        badgeTxt = (palier === 'pro') ? 'Abonné Pro' : 'Abonné Creator';
+      }
       c.counter.innerHTML =
         '<span class="abonne-badge"><span class="abonne-star">★</span> ' + badgeTxt + '</span>' +
         '<span class="quota-jour" style="color:rgba(255,255,255,0.55);font-size:0.82rem"></span>';
