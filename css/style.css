@@ -176,14 +176,14 @@ nav{
   text-transform:uppercase;color:var(--gold-light);opacity:1;
 }
 .ctx-input,.ctx-textarea{
-  font-family:'Poppins',sans-serif;font-size:0.92rem;
+  font-family:'Poppins',sans-serif;font-size:0.86rem;
   background:#3A3A3D;
   border:1px solid rgba(255,255,255,0.15);border-radius:6px;
   padding:13px 16px;color:#FFFFFF;outline:none;
   transition:border-color 0.2s;width:100%;
 }
 .ctx-input:focus,.ctx-textarea:focus{border-color:rgba(201,168,76,0.45)}
-.ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.45);font-size:0.88rem}
+.ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.45);font-size:0.82rem}
 .ctx-textarea{resize:vertical;min-height:90px;line-height:1.7}
 
 /* SUMMARY ROW */
