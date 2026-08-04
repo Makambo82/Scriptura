@@ -1,4 +1,3 @@
-
 // ═══════════════════════════════════════════════════════════
 //  HISTORIQUE DE NAVIGATION (pile) — pour un vrai "Retour" pas à pas
 // ═══════════════════════════════════════════════════════════
@@ -19,6 +18,8 @@ function currentScreen() {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }
+  // Page d'accueil : distinguer le mode focus (les 5 choix révélés) de l'accueil complet.
+  if (document.body.classList.contains('hero-focus')) return 'heroFocus';
   return 'homePage';
 }
 
@@ -58,6 +59,11 @@ function showScreen(screen) {
     document.getElementById(screen).style.display = 'block';
   } else if (screen === 'homePage') {
     document.getElementById('homePage').style.display = 'block';
+  } else if (screen === 'heroFocus') {
+    // Retour depuis un mode : on réaffiche le héro avec les 5 choix déjà révélés,
+    // pas l'accueil complet depuis le tout début.
+    document.getElementById('homePage').style.display = 'block';
+    if (typeof revelerModes === 'function') revelerModes();
   } else {
     document.getElementById(screen).style.display = 'block';
     // Masquer les résultats de ce module (on revient au formulaire)
@@ -71,7 +77,8 @@ function showScreen(screen) {
   }
   // On remet la page en haut AVANT d'animer, pour que le fondu soit visible
   window.scrollTo({ top: 0, behavior: 'auto' });
-  animerEntreeEcran(document.getElementById(resultParent[screen] || screen));
+  const cibleAnim = (screen === 'heroFocus') ? 'homePage' : (resultParent[screen] || screen);
+  animerEntreeEcran(document.getElementById(cibleAnim));
 }
 
 // Retour pas à pas : revient à l'écran précédent de la pile
@@ -132,4 +139,3 @@ function backToHome() {
   // Sinon, retour à l'accueil
   goHome();
 }
-
