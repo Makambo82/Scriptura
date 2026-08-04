@@ -317,7 +317,7 @@ async function ouvrirSerie(id) {
       // Storyboard visuel : uniquement pour le faceless
       if (estFaceless) {
         if (ep.storyboard) {
-          html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard, ep.miniature)}</div>`;
+          html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num)}</div>`;
         } else {
           html += `<div id="serieSbZone${ep.num}"></div>
           <button class="btn-storyboard serie-sb-btn" onclick="genererStoryboardEpisode(${ep.num})">
@@ -348,9 +348,20 @@ async function ouvrirSerie(id) {
 
 // Affiche un storyboard de série (liste de plans)
 // Génère le storyboard visuel d'un épisode faceless (même moteur que les autres modes)
-async function genererStoryboardEpisode(numEp) {
+async function genererStoryboardEpisode(numEp, isRegen) {
   if (!serieCouranteId) return;
   const err = document.getElementById('serieDetailError');
+  if (!isRegen) resetRegen('storyboardSerie');
+  const gratuite = regenEstGratuite('storyboardSerie');
+  _regenGratuiteEnCours = gratuite;
+  if (isRegen) {
+    const restantes = REGEN_GRATUITES - regenCount.storyboardSerie;
+    if (gratuite) {
+      toastRegen('Régénération gratuite · ' + restantes + ' restante' + (restantes > 1 ? 's' : ''));
+    } else {
+      toastRegen('Cette régénération compte dans ton quota');
+    }
+  }
   try {
     const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
     if (error) throw error;
@@ -378,8 +389,11 @@ async function genererStoryboardEpisode(numEp) {
 
     const scriptText = ep.script || '';
     const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
-    const segMin = Math.max(3, Math.round(nbMots / 18));
-    const segMax = Math.max(segMin + 1, Math.round(nbMots / 11));
+    // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
+    // identique aux modes Script et Récit, pour que l'IA fournisse un visuel DISTINCT
+    // à (presque) chaque plan re-segmenté.
+    const segMin = Math.max(3, Math.round(nbMots / 14));
+    const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
 
     const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral vertical.
 
@@ -409,8 +423,11 @@ MINIATURE : cree aussi UN prompt special pour la miniature (couverture) : captiv
 Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 {"miniature":"le prompt de miniature se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche se terminant par 9:16"}]}`;
 
-    const raw = await callAI(MODEL_RAPIDE, 8000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
     const parsed = parseAIResponse(raw);
+    // Moteur de découpage par image mentale (narration d'abord, durée en dernier) —
+    // exactement le même que pour les modes Script et Récit.
+    if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
     if (!parsed || !Array.isArray(parsed.storyboard)) throw new Error('storyboard illisible');
 
     prog.finish();
@@ -425,11 +442,13 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     const zone2 = document.getElementById('serieSbZone' + numEp);
     if (zone2) zone2.innerHTML = '';
     if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'reessaie'); err.style.display = 'block'; }
+  } finally {
+    _regenGratuiteEnCours = false;
   }
 }
 
 // Affiche un storyboard de serie (miniature + segments, avec boutons image et copie)
-function renderSerieStoryboard(sb, miniature) {
+function renderSerieStoryboard(sb, miniature, numEp) {
   if (!Array.isArray(sb) || !sb.length) return '';
   const miniHtml = miniature ? `
     <div class="sb-segment sb-miniature">
@@ -451,6 +470,7 @@ function renderSerieStoryboard(sb, miniature) {
         ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
+        <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
       </div></div>`;
