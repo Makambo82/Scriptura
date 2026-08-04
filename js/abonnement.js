@@ -9,7 +9,7 @@ const MAX_FREE = 5;
 // Au-delà, la régénération compte comme une génération normale (soustraite du quota).
 const REGEN_GRATUITES = 2;
 // Compteur par type de contenu (réinitialisé à chaque NOUVELLE génération de ce type)
-let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0 };
+let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0, storyboardSerie: 0 };
 // Flag : la génération en cours est-elle une régénération gratuite ? (ne compte pas au quota)
 let _regenGratuiteEnCours = false;
 
