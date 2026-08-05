@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGenCounter();
   setupIdeaButtons();
   setupStoryButtons();
+  setupStoryboardSeulButtons();
 
   // Recommandation IA de l'accueil (fonctionnalité Premium) : purement
   // additive, ne touche à rien d'autre. Ne fait rien pour un utilisateur
