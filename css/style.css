@@ -287,6 +287,9 @@ nav{
 }
 .out-card.open .out-toggle{background:var(--gold-pale);transform:rotate(45deg)}
 .out-body{display:none;padding:0 28px 28px;border-top:1px solid var(--border-soft)}
+.out-body .legende-block{background:none;border:none;padding:0}
+.out-body .hook-item{background:none;border:none}
+.out-body .prompt-item{background:none;border:none}
 .out-card.open .out-body{display:block}
 
 /* SECTIONS DANS LE CARD */
