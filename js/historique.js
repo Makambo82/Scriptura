@@ -15,7 +15,8 @@ const HIST_MODES_FILTRE = [
   { v: 'serie',  label: '🎞️ Série' },
   { v: 'ideas',  label: '💡 Idées' },
   { v: 'script', label: '🎬 Script' },
-  { v: 'story',  label: '✍️ Récit' }
+  { v: 'story',  label: '✍️ Récit' },
+  { v: 'storyboardSeul', label: '🗂️ Storyboard' }
 ];
 // Normalise pour une recherche insensible à la casse ET aux accents.
 function _normaliserRecherche(s) {
@@ -576,8 +577,8 @@ function _afficherListeFiltree() {
     return;
   }
 
-  const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Diagnostic', serie: '🎞️ Série' };
-  const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C' };
+  const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Diagnostic', serie: '🎞️ Série', storyboardSeul: '🗂️ Storyboard' };
+  const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C', storyboardSeul: '#E2C87A' };
 
   // Séries et générations sont fusionnées dans UNE seule liste,
   // triée du plus récent au plus ancien (peu importe le type).
@@ -889,6 +890,8 @@ function reopenGeneration(i) {
   if (afh) afh.style.display = 'none';
   const sfh0 = document.getElementById('serieFlow');
   if (sfh0) sfh0.style.display = 'none';
+  const sbsh0 = document.getElementById('storyboardSeulFlow');
+  if (sbsh0) sbsh0.style.display = 'none';
 
   // Mémoriser l'id pour pouvoir re-rattacher un storyboard généré ensuite
   currentGenId = g.id || null;
@@ -919,6 +922,13 @@ function reopenGeneration(i) {
     // On rouvre un audit déjà fait : pas de capture ici, on montre le résultat.
     if (typeof masquerUICaptureAudit === 'function') masquerUICaptureAudit();
     renderAudit(g.contenu);
+  } else if (g.mode === 'storyboardSeul') {
+    const sbsh = document.getElementById('storyboardSeulFlow');
+    if (sbsh) sbsh.style.display = 'block';
+    document.getElementById('sbSeulInput').value = g.contenu.script || '';
+    if (g.contenu.storyboard_genere) {
+      afficherStoryboardSeulResultat(g.contenu.storyboard_genere.storyboard, g.contenu.storyboard_genere.miniature || null);
+    }
   } else if (g.mode === 'serie') {
     // Un épisode de série : on le réaffiche seul, dans le module série
     const sfh = document.getElementById('serieFlow');
@@ -1058,5 +1068,3 @@ async function loadGenerations() {
     return data || [];
   } catch(e) { console.warn('Chargement échoué', e); return []; }
 }
-
-
