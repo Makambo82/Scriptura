@@ -106,8 +106,9 @@ function sidebarGo(action) {
   else if (action === 'code') { openModal(); }
   else if (action === 'storyboardSeul') { if (typeof openStoryboardSeul === 'function') openStoryboardSeul(); }
   else if (action === 'subscribe') {
-    // Ouvre WhatsApp pour s'abonner
-    window.open('https://wa.me/22995056424?text=Bonjour%20!%20je%20veux%20m%27abonner%20%C3%A0%20Scriptura%20pour%205%20000%20FCFA%2Fmois', '_blank');
+    // Ouvre le pop-up de choix des plans (Creator / Pro) ; l'utilisateur
+    // choisit son plan avant d'être redirigé vers WhatsApp.
+    if (typeof openPlans === 'function') openPlans('abonnement');
   }
 }
 function seDeconnecter() {
