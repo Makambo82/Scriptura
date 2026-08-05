@@ -42,6 +42,9 @@
     <button class="sidebar-item" onclick="sidebarGo('history')">
       <span class="sidebar-icon">📁</span> Mes générations
     </button>
+    <button class="sidebar-item" onclick="sidebarGo('storyboardSeul')">
+      <span class="sidebar-icon">🗂️</span> Storyboard d'un script
+    </button>
     <button class="sidebar-item nav-admin-btn" onclick="sidebarGo('admin')">
       <span class="sidebar-icon">📊</span> Tableau de bord
     </button>
@@ -645,6 +648,59 @@
   </div>
 </section>
 
+<!-- ══ MODULE STORYBOARD SEUL (script déjà écrit ailleurs) ══ -->
+<section id="storyboardSeulFlow" style="display:none">
+  <div class="ideas-container">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Storyboard seul</div>
+      <h2 class="ideas-title">Colle ton script,<br/><strong>Scriptura le storyboarde.</strong></h2>
+      <p class="ideas-sub">Tu as déjà un script écrit ailleurs (pas généré par Scriptura) ? Colle-le tel quel : il sera découpé et transformé en prompts visuels avec exactement la même méthode que pour un script, un récit ou un épisode de série Scriptura.</p>
+    </div>
+
+    <div class="gen-counter" id="genCounterStoryboardSeul">
+      <span>Générations gratuites · <strong class="usedNumShared">0</strong> / 5 utilisées</span>
+      <div class="gen-counter-dots genCounterDotsShared"></div>
+    </div>
+
+    <div class="context-card">
+      <div class="ctx-field">
+        <label class="ctx-label">Ton script (texte complet, tel quel)</label>
+        <textarea class="ctx-textarea" id="sbSeulInput" style="min-height:200px" placeholder="Colle ici l'intégralité de ton script ou de ton texte narré — pas besoin de le formater, Scriptura s'occupe du découpage en plans."></textarea>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Plateforme</label>
+        <div class="btn-grid" id="sbSeulPlatformGrid">
+          <button type="button" class="grid-btn" data-val="TikTok">TikTok</button>
+          <button type="button" class="grid-btn" data-val="Instagram Reels">Instagram</button>
+          <button type="button" class="grid-btn" data-val="YouTube">YouTube</button>
+          <button type="button" class="grid-btn" data-val="Facebook">Facebook</button>
+        </div>
+      </div>
+
+      <div class="error-box" id="sbSeulErrorBox"></div>
+
+      <button class="btn-storyboard" id="sbSeulGenerateBtn" onclick="generateStoryboardSeul()">
+        <span class="sb-gen-spinner" id="sbSeulGenSpinner"></span>
+        <span id="sbSeulBtnText">🎬 Générer le storyboard</span>
+      </button>
+      <div class="sb-progress-bar" id="sbProgBar3" style="display:none">
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill3"></div></div>
+        <div class="sb-progress-bar-pct" id="sbProgPct3">0%</div>
+      </div>
+    </div>
+
+    <!-- RÉSULTATS -->
+    <div id="sbSeulResults" style="display:none">
+      <div class="ideas-results-header">
+        <h3 class="results-heading">Ton storyboard</h3>
+      </div>
+      <div id="storyboardSeulOutput"></div>
+    </div>
+  </div>
+</section>
+
 <!-- ══ MODULE GÉNÉRATEUR D'IDÉES ══ -->
 <section id="ideasFlow" style="display:none">
   <div class="ideas-container">
@@ -1143,6 +1199,7 @@
 <script src="js/navigation.js"></script>
 <script src="js/storytelling.js"></script>
 <script src="js/storyboard.js"></script>
+<script src="js/storyboard-seul.js"></script>
 <script src="js/generation.js"></script>
 <script src="js/app.js"></script>
 
