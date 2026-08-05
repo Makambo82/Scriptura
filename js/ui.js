@@ -104,6 +104,7 @@ function sidebarGo(action) {
   if (action === 'history') { openHistory(); }
   else if (action === 'admin') { ouvrirTableauDeBord(); }
   else if (action === 'code') { openModal(); }
+  else if (action === 'storyboardSeul') { if (typeof openStoryboardSeul === 'function') openStoryboardSeul(); }
   else if (action === 'subscribe') {
     // Ouvre WhatsApp pour s'abonner
     window.open('https://wa.me/22995056424?text=Bonjour%20!%20je%20veux%20m%27abonner%20%C3%A0%20Scriptura%20pour%205%20000%20FCFA%2Fmois', '_blank');
@@ -138,4 +139,3 @@ async function updateSidebarCounter() {
     el.textContent = faitesAff + ' / ' + MAX_FREE + ' gratuites';
   }
 }
-
