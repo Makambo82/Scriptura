@@ -290,6 +290,8 @@ nav{
 .out-body .legende-block{background:none;border:none;padding:0}
 .out-body .hook-item{background:none;border:none;border-bottom:1px solid var(--border-soft);border-radius:0}
 .out-body .prompt-item{background:none;border:none}
+.out-body .script-block{background:none;border:none;padding:0}
+.out-body .story-segment{border-left:none;padding-left:0}
 .out-card.open .out-body{display:block}
 
 /* SECTIONS DANS LE CARD */
