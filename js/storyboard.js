@@ -294,7 +294,7 @@ async function generateStoryStoryboard() {
   const btn = document.getElementById('storyStoryboardBtn');
   const out = document.getElementById('storyStoryboardOutput');
   btn.disabled = true;
-  document.getElementById('storyboardSpinner2').style.display = 'none';
+  document.getElementById('storyboardSpinner2').style.display = 'block';
   document.getElementById('storyStoryboardText').textContent = 'Création du storyboard…';
   const progBar2 = document.getElementById('sbProgBar2');
   if (progBar2) progBar2.style.display = 'flex';
@@ -659,4 +659,3 @@ function copyStory(btn) {
     setTimeout(() => btn.innerHTML = label, 2000);
   });
 }
-
