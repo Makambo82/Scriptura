@@ -1312,34 +1312,26 @@
     <div class="plans-title" id="plansTitle">Deux façons de<br/>propulser ton contenu</div>
     <p class="plans-intro" id="plansIntro" style="display:none"></p>
 
-    <div class="plan-card" id="planCardCreator">
-      <div class="plan-card-head">
-        <span class="plan-name">CREATOR</span>
-      </div>
-      <div class="plan-price">5.000 FCFA <span>/ mois</span></div>
-      <ul class="plan-includes">
-        <li>Les 3 modes de création : idées, script, storytelling</li>
-        <li>50 générations par mois</li>
-        <li>Mobile Money accepté</li>
-      </ul>
-      <button class="plan-btn plan-btn-creator" onclick="choisirPlan('creator')">Choisir Creator</button>
+    <!-- Sélecteur des 2 plans : nom + prix seulement, sans détails -->
+    <div class="plans-toggle" id="plansToggle">
+      <button type="button" class="plan-toggle-btn" id="planToggleCreator" onclick="selectionnerPlan('creator')">
+        <span class="plan-toggle-name">Creator</span>
+        <span class="plan-toggle-price">5.000 FCFA<span>/mois</span></span>
+      </button>
+      <button type="button" class="plan-toggle-btn pro" id="planTogglePro" onclick="selectionnerPlan('pro')">
+        <span class="plan-toggle-badge" id="planProBadge">Recommandé</span>
+        <span class="plan-toggle-name">Pro</span>
+        <span class="plan-toggle-price">10.000 FCFA<span>/mois</span></span>
+      </button>
     </div>
 
-    <div class="plan-card pro" id="planCardPro">
-      <div class="plan-card-head">
-        <span class="plan-name">PRO</span>
-        <span class="plan-badge" id="planProBadge">Recommandé</span>
-      </div>
-      <div class="plan-price">10.000 FCFA <span>/ mois</span></div>
-      <ul class="plan-includes">
-        <li>Tout le plan Creator</li>
-        <li>+ Diagnostic TikTok, propulsé par notre IA la plus avancée</li>
-        <li>+ Crée-moi une série : des feuilletons qui font revenir ton audience</li>
-        <li>70 générations de création + 5 diagnostics par mois</li>
-        <li>Mobile Money accepté</li>
-      </ul>
-      <button class="plan-btn plan-btn-pro" onclick="choisirPlan('pro')">Choisir Pro</button>
+    <!-- Détails du plan sélectionné, affichés au clic -->
+    <div class="plan-details" id="planDetails">
+      <ul class="plan-includes" id="planIncludes"></ul>
     </div>
+
+    <!-- Bouton d'action unique, adapté au plan sélectionné -->
+    <button type="button" class="plan-btn" id="planCtaBtn" onclick="choisirPlanSelectionne()">Commencer avec Pro</button>
 
     <!-- Packs d'analyses à l'unité (jetons) — affichés seulement en contexte d'achat -->
     <div class="packs-audit" id="packsAudit" style="display:none">
