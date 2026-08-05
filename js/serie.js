@@ -320,8 +320,9 @@ async function ouvrirSerie(id) {
           html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num)}</div>`;
         } else {
           html += `<div id="serieSbZone${ep.num}"></div>
-          <button class="btn-storyboard serie-sb-btn" onclick="genererStoryboardEpisode(${ep.num})">
-            🎬 Générer le storyboard de cet épisode
+          <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})">
+            <span class="sb-gen-spinner" id="serieSbSpinner${ep.num}"></span>
+            <span id="serieSbBtnText${ep.num}">🎬 Générer le storyboard de cet épisode</span>
           </button>`;
         }
       }
@@ -368,6 +369,14 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
     const ep = eps.find(e => e.num === numEp);
     if (!ep) return;
+
+    // Bouton : mêmes petit rond qui tourne + libellé que les autres modes storyboard
+    const btn = document.getElementById('serieSbBtn' + numEp);
+    const spinner = document.getElementById('serieSbSpinner' + numEp);
+    const btnText = document.getElementById('serieSbBtnText' + numEp);
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.style.display = 'block';
+    if (btnText) btnText.textContent = 'Scriptura crée le storyboard…';
 
     // Barre de progression animée (même système que J'ai une idée / Storytelling)
     const barId = 'serieSbBar' + numEp;
@@ -441,6 +450,12 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
   } catch(e) {
     const zone2 = document.getElementById('serieSbZone' + numEp);
     if (zone2) zone2.innerHTML = '';
+    const btn = document.getElementById('serieSbBtn' + numEp);
+    const spinner = document.getElementById('serieSbSpinner' + numEp);
+    const btnText = document.getElementById('serieSbBtnText' + numEp);
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+    if (btnText) btnText.textContent = '🎬 Générer le storyboard de cet épisode';
     if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'reessaie'); err.style.display = 'block'; }
   } finally {
     _regenGratuiteEnCours = false;
