@@ -1015,6 +1015,8 @@ async function regenererContenu(type) {
       await generateStoryboard();
     } else if (type === 'storyboardStory') {
       await generateStoryStoryboard();
+    } else if (type === 'storyboardSeul') {
+      await generateStoryboardSeul();
     }
   } finally {
     _regenGratuiteEnCours = false;
@@ -1734,4 +1736,3 @@ function restart() {
   document.getElementById('results').style.display = 'none';
   showStep(1);
 }
-
