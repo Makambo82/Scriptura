@@ -746,6 +746,29 @@ footer strong{color:var(--gold)}
 .plan-btn-creator{background:rgba(255,255,255,0.08);color:var(--gold-light);border:1px solid var(--border-soft)}
 .plan-btn-creator:hover{background:rgba(255,255,255,0.13)}
 
+/* ── SÉLECTEUR DE PLAN DANS LE POP-UP (nom + prix, sans détails) ── */
+.plans-toggle{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.plan-toggle-btn{
+  position:relative;border:1px solid var(--border-soft);border-radius:14px;
+  background:rgba(255,255,255,0.02);padding:16px 10px 13px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  transition:border-color .2s,background .2s;font-family:inherit;
+}
+.plan-toggle-btn:hover{border-color:var(--border)}
+.plan-toggle-btn.active{
+  border-color:var(--gold);background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.04));
+}
+.plan-toggle-badge{
+  position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  font-family:'Poppins',sans-serif;font-size:0.56rem;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--bg);background:var(--gold);padding:3px 9px;border-radius:20px;white-space:nowrap;
+}
+.plan-toggle-name{font-family:'Cinzel',serif;font-size:0.88rem;letter-spacing:0.08em;color:var(--gold-light)}
+.plan-toggle-price{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700;color:#fff}
+.plan-toggle-price span{font-size:0.68rem;font-weight:500;color:rgba(255,255,255,0.5);margin-left:2px}
+.plan-details{margin-bottom:4px}
+#planCtaBtn{margin-bottom:16px}
+
 /* ── MODAL CODE ── */
 .modal-overlay{
   display:none;position:fixed;inset:0;z-index:400;
