@@ -243,17 +243,25 @@ function openPlans(contexte) {
   const tag = document.getElementById('plansTag');
   const titre = document.getElementById('plansTitle');
   const intro = document.getElementById('plansIntro');
-  const cardCreator = document.getElementById('planCardCreator');
-  const cardPro = document.getElementById('planCardPro');
+  const toggle = document.getElementById('plansToggle');
+  const btnCreator = document.getElementById('planToggleCreator');
+  const btnPro = document.getElementById('planTogglePro');
+  const details = document.getElementById('planDetails');
+  const cta = document.getElementById('planCtaBtn');
   const proBadge = document.getElementById('planProBadge');
 
   // Réglages par défaut, puis on ajuste selon le contexte
-  if (cardCreator) cardCreator.style.display = '';
-  if (cardPro) cardPro.style.display = '';
+  if (toggle) toggle.style.display = '';
+  if (btnCreator) btnCreator.style.display = '';
+  if (btnPro) btnPro.style.display = '';
+  if (details) details.style.display = '';
+  if (cta) cta.style.display = '';
   if (intro) intro.style.display = 'none';
   if (proBadge) { proBadge.textContent = 'Recommandé'; proBadge.style.display = ''; }
   const packsBloc = document.getElementById('packsAudit');
   if (packsBloc) packsBloc.style.display = 'none'; // masqué sauf en contexte d'achat
+
+  let seulementPro = false; // contextes où Creator n'est pas proposé au choix
 
   if (contexte === 'expire') {
     // Ancien abonné dont l'abonnement est arrivé à échéance : on propose de renouveler.
@@ -265,7 +273,7 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Passe au Pro';
     if (titre) titre.innerHTML = 'Cette fonctionnalité<br/>est dans le plan Pro';
     if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute le diagnostic TikTok (propulsé par notre IA la plus avancée) et le mode Crée-moi une série.'; intro.style.display = 'block'; }
-    if (cardCreator) cardCreator.style.display = 'none';
+    seulementPro = true;
     if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'quota') {
     // Quota mensuel atteint : on explique, et on propose une éventuelle
@@ -274,14 +282,15 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Limite du mois atteinte';
     if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois';
     if (palier === 'pro') {
-      // Aucun plan au-dessus : message seul, pas de carte.
+      // Aucun plan au-dessus : message seul, pas de sélecteur.
       if (intro) { intro.textContent = 'Ton quota se recharge au début du mois prochain.'; intro.style.display = 'block'; }
-      if (cardCreator) cardCreator.style.display = 'none';
-      if (cardPro) cardPro.style.display = 'none';
+      if (toggle) toggle.style.display = 'none';
+      if (details) details.style.display = 'none';
+      if (cta) cta.style.display = 'none';
     } else {
       // Creator : on masque Creator (déjà pris) et on propose Pro.
       if (intro) { intro.textContent = 'Ton quota se recharge au début du mois prochain. Ou passe au plan Pro pour en faire plus, dès maintenant.'; intro.style.display = 'block'; }
-      if (cardCreator) cardCreator.style.display = 'none';
+      seulementPro = true;
       if (proBadge) proBadge.style.display = 'none';
     }
   } else if (contexte === 'decouverte-audit') {
@@ -297,7 +306,7 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Diagnostic & Série';
     if (titre) titre.innerHTML = 'Débloque le diagnostic<br/>et le mode Série';
     if (intro) { intro.textContent = 'Tu as déjà le plan Creator. Le plan Pro ajoute le diagnostic TikTok et le mode Crée-moi une série. Sinon, achète des jetons : 1 jeton = 1 diagnostic OU 1 série.'; intro.style.display = 'block'; }
-    if (cardCreator) cardCreator.style.display = 'none';
+    seulementPro = true;
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('creator'); packsBloc.style.display = 'block'; }
   } else if (contexte === 'achat-jeton-nonabonne') {
@@ -306,7 +315,7 @@ function openPlans(contexte) {
     if (tag) tag.textContent = 'Diagnostic & Série';
     if (titre) titre.innerHTML = 'Débloque le diagnostic<br/>et le mode Série';
     if (intro) { intro.textContent = 'Le diagnostic TikTok et le mode Crée-moi une série font partie du plan Pro. Prends le Pro pour tout débloquer, ou achète des jetons : 1 jeton = 1 diagnostic OU 1 série.'; intro.style.display = 'block'; }
-    if (cardCreator) cardCreator.style.display = 'none';
+    seulementPro = true;
     if (proBadge) proBadge.style.display = 'none';
     if (packsBloc) { remplirPacks('nonabonne'); packsBloc.style.display = 'block'; }
   } else if (contexte === 'abonnement') {
@@ -322,12 +331,49 @@ function openPlans(contexte) {
     if (intro) { intro.textContent = 'Pour continuer à créer sans attendre, choisis le plan qui te convient.'; intro.style.display = 'block'; }
   }
 
+  if (seulementPro && btnCreator) btnCreator.style.display = 'none';
+
+  // Plan affiché par défaut à l'ouverture : toujours Pro.
+  selectionnerPlan('pro');
+
   const el = document.getElementById('plansOverlay');
   if (el) el.classList.add('active');
 }
 function closePlans() {
   const el = document.getElementById('plansOverlay');
   if (el) el.classList.remove('active');
+}
+
+// ── Sélection d'un plan dans le pop-up : met en avant le plan choisi en
+// haut, affiche ses détails en dessous, et adapte le bouton d'action. ──
+let _planAffiche = 'pro';
+function selectionnerPlan(cle) {
+  if (!PLANS[cle]) return;
+  _planAffiche = cle;
+
+  const btnCreator = document.getElementById('planToggleCreator');
+  const btnPro = document.getElementById('planTogglePro');
+  if (btnCreator) btnCreator.classList.toggle('active', cle === 'creator');
+  if (btnPro) btnPro.classList.toggle('active', cle === 'pro');
+
+  const ul = document.getElementById('planIncludes');
+  if (ul) {
+    ul.innerHTML = (PLANS[cle].features || []).map(function (f) {
+      return '<li>' + f + '</li>';
+    }).join('');
+  }
+
+  const cta = document.getElementById('planCtaBtn');
+  if (cta) {
+    cta.textContent = 'Commencer avec ' + PLANS[cle].nom;
+    cta.classList.toggle('plan-btn-pro', cle === 'pro');
+    cta.classList.toggle('plan-btn-creator', cle === 'creator');
+  }
+}
+
+// Le bouton d'action unique choisit le plan actuellement sélectionné.
+function choisirPlanSelectionne() {
+  choisirPlan(_planAffiche);
 }
 
 // Détails de chaque plan, source unique pour l'affichage et le message WhatsApp
@@ -337,14 +383,26 @@ const PLANS = {
     prix: '5.000 FCFA',
     titre: 'Passe au plan Creator',
     desc: 'Les 3 modes de création, 50 générations par mois.',
-    wa: 'Bonjour, je veux le plan Creator de Scriptura — 5.000 FCFA/mois'
+    wa: 'Bonjour, je veux le plan Creator de Scriptura — 5.000 FCFA/mois',
+    features: [
+      'Les 3 modes de création : idées, script, storytelling',
+      '50 générations par mois',
+      'Mobile Money accepté'
+    ]
   },
   pro: {
     nom: 'Pro',
     prix: '10.000 FCFA',
     titre: 'Passe au plan Pro',
     desc: 'Tout Creator + le diagnostic TikTok et le mode Crée-moi une série. 70 générations + 5 diagnostics par mois.',
-    wa: 'Bonjour, je veux le plan Pro de Scriptura — 10.000 FCFA/mois'
+    wa: 'Bonjour, je veux le plan Pro de Scriptura — 10.000 FCFA/mois',
+    features: [
+      'Tout le plan Creator',
+      '+ Diagnostic TikTok, propulsé par notre IA la plus avancée',
+      '+ Crée-moi une série : des feuilletons qui font revenir ton audience',
+      '70 générations de création + 5 diagnostics par mois',
+      'Mobile Money accepté'
+    ]
   }
 };
 
