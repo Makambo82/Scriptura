@@ -1620,7 +1620,7 @@ async function generateStoryboard() {
   const spinner = document.getElementById('sbGenSpinner');
   const genText = document.getElementById('sbGenText');
   btn.disabled = true;
-  spinner.style.display = 'none';
+  spinner.style.display = 'block';
   genText.textContent = 'Scriptura crée le storyboard…';
   const progBar = document.getElementById('sbProgBar1');
   if (progBar) progBar.style.display = 'flex';
