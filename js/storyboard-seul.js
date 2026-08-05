@@ -12,6 +12,55 @@
 
 let sbSeulPlatform = '';
 
+// ═══════════════════════════════════════════════════════════
+//  DÉTECTION : script déjà découpé et numéroté par l'utilisateur
+//  Formats reconnus : "1.", "1)", "1 -", "1:", "1\n" en tête de segment,
+//  avec au minimum 2 numéros non consécutifs détectés (ex. 1, 3, 5…).
+//  Dès la détection, Scriptura BASCULE en mode "prompts seuls" :
+//  aucun re-découpage, l'utilisateur est maître du séquençage.
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Tente de parser un script numéroté.
+ * Retourne un tableau [{num, texte}] ou null si le script n'est pas numéroté.
+ */
+function parseScriptNumerote(input) {
+  // Regex : une ligne qui commence par un chiffre (seul ou multiple) suivi d'un séparateur
+  const SEP = /^(\d+)\s*[.)\-:]\s+/;
+  const lignes = input.split('\n');
+
+  const segments = [];
+  let numCourant = null;
+  let texteCourant = [];
+
+  for (const ligne of lignes) {
+    const m = ligne.match(SEP);
+    if (m) {
+      // Sauvegarder le segment précédent
+      if (numCourant !== null && texteCourant.join('').trim()) {
+        segments.push({ num: numCourant, texte: texteCourant.join('\n').trim() });
+      }
+      numCourant = parseInt(m[1], 10);
+      texteCourant = [ligne.replace(SEP, '').trim()];
+    } else if (numCourant !== null) {
+      // Suite du segment courant (texte multi-ligne)
+      if (ligne.trim()) texteCourant.push(ligne.trim());
+    }
+  }
+  // Dernier segment
+  if (numCourant !== null && texteCourant.join('').trim()) {
+    segments.push({ num: numCourant, texte: texteCourant.join('\n').trim() });
+  }
+
+  // Validation : au moins 2 segments détectés
+  if (segments.length < 2) return null;
+
+  // Validation : les numéros ne sont pas tous consécutifs de 1 (sinon c'est peut-être
+  // une liste ordinaire, pas un storyboard numéroté). On accepte les deux cas —
+  // l'important c'est qu'on a bien un découpage explicite.
+  return segments;
+}
+
 function setupStoryboardSeulButtons() {
   const pfContainer = document.getElementById('sbSeulPlatformGrid');
   if (!pfContainer) return;
@@ -60,6 +109,16 @@ async function generateStoryboardSeul() {
   }
   // Limite mensuelle pour les abonnés (anti-abus)
   if (!(await peutGenerer('sbSeulErrorBox'))) return;
+
+  // ── DÉTECTION : script déjà numéroté ? ──────────────────────────────────
+  const segmentsNumerotes = parseScriptNumerote(input);
+  if (segmentsNumerotes) {
+    // MODE PROMPTS SEULS : l'utilisateur a déjà découpé — Scriptura génère
+    // uniquement les prompts visuels pour chaque segment tel quel.
+    await generatePromptsSeulementPourSegmentsNumerotes(input, segmentsNumerotes);
+    return;
+  }
+  // ── MODE NORMAL : l'IA découpe ET génère les prompts ────────────────────
 
   const btn = document.getElementById('sbSeulGenerateBtn');
   const spinner = document.getElementById('sbSeulGenSpinner');
@@ -166,6 +225,127 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     updateQuotaJour();
 
     afficherStoryboardSeulResultat(parsed.storyboard, parsed.miniature || null);
+
+  } catch (e) {
+    errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
+    errorBox.style.display = 'block';
+  } finally {
+    if (typeof prog !== 'undefined') prog.stop();
+    const pb = document.getElementById('sbProgBar3'); if (pb) setTimeout(() => { pb.style.display = 'none'; }, 600);
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    btnText.textContent = '🎬 Générer le storyboard';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODE SCRIPT PRÉ-DÉCOUPÉ : génère uniquement les prompts visuels
+//  L'utilisateur a numéroté ses segments → Scriptura ne redécoupe RIEN.
+//  Il génère un prompt visuel pour chaque segment tel quel.
+// ═══════════════════════════════════════════════════════════
+
+async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
+  const errorBox = document.getElementById('sbSeulErrorBox');
+  const btn = document.getElementById('sbSeulGenerateBtn');
+  const spinner = document.getElementById('sbSeulGenSpinner');
+  const btnText = document.getElementById('sbSeulBtnText');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  btnText.textContent = 'Génération des prompts visuels…';
+  document.getElementById('sbSeulResults').style.display = 'none';
+
+  const progBar = document.getElementById('sbProgBar3');
+  if (progBar) progBar.style.display = 'flex';
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('sbProgFill3');
+    const pct = document.getElementById('sbProgPct3');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  });
+  prog.start();
+
+  const plat = sbSeulPlatform || 'TikTok';
+
+  // On liste les segments numérotés pour l'IA avec leur numéro d'origine
+  const listeSegments = segments
+    .map(s => `Segment ${s.num} : "${s.texte}"`)
+    .join('\n');
+
+  const prompt = `Tu es un directeur artistique expert en storyboard vidéo cinématique pour ${plat}.
+
+L'utilisateur a déjà découpé son script en ${segments.length} segments numérotés. TON SEUL TRAVAIL est de générer un prompt visuel cinématographique pour chaque segment, dans l'ordre exact fourni. Tu ne modifies pas le découpage, tu ne fusionnes ni ne divises aucun segment.
+
+SEGMENTS À ILLUSTRER :
+${listeSegments}
+
+STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
+1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
+2. LA MATIÈRE : les détails de structure, les matériaux, les textures
+3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures
+4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
+
+Le prompt doit se lire comme une description cinématographique fluide et immersive, pas comme une liste. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll. Adapte l'ambiance au ton du script.
+
+RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si un plan montre plusieurs scènes ou plusieurs moments sur une même image, ne les sépare JAMAIS par une ligne nette, un cadre, un split-screen graphique ou une bordure. Les différentes scènes doivent être FONDUES ensemble par une transition douce : un fondu stylisé en dégradé, une fusion progressive des lumières et des couleurs, ou un raccord visuel fluide. Précise explicitement dans le prompt que les scènes se fondent l'une dans l'autre par un dégradé harmonieux, sans séparation graphique visible.
+
+FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).
+
+MINIATURE : crée également UN prompt visuel spécial pour la MINIATURE (image de couverture). Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Termine ce prompt par " 9:16".
+
+CONSIGNE CRITIQUE : le tableau "storyboard" doit contenir EXACTEMENT ${segments.length} entrées, dans le même ordre, avec les mêmes numéros de segment que ceux fournis (${segments.map(s => s.num).join(', ')}). Ne modifie, ne fusionne, ne supprime aucun segment.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"${segments[0].num}","texte":"le texte exact du segment tel que fourni","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
+    const parsed = parseAIResponse(raw);
+
+    // Vérification : on s'assure que l'IA n'a pas trahi le découpage
+    // Si le nombre de segments retournés ne correspond pas, on reconstruit à partir de nos segments
+    if (!parsed || !Array.isArray(parsed.storyboard)) throw new Error('Réponse incomplète');
+
+    // Garantie absolue : si l'IA a renvoyé un nombre différent de segments,
+    // on force le respect du découpage utilisateur en réassociant les prompts.
+    let board = parsed.storyboard;
+    if (board.length !== segments.length) {
+      board = segments.map((seg, i) => {
+        const match = parsed.storyboard.find(s => String(s.segment) === String(seg.num))
+                   || parsed.storyboard[i]
+                   || {};
+        return {
+          segment: String(seg.num),
+          duree: match.duree || '',
+          texte: seg.texte,
+          visuel: match.visuel || ''
+        };
+      });
+    } else {
+      // Forcer le texte original de l'utilisateur (l'IA ne doit pas le modifier)
+      board = board.map((s, i) => ({
+        ...s,
+        segment: String(segments[i].num),
+        texte: segments[i].texte
+      }));
+    }
+
+    prog.finish();
+    setTimeout(() => { const pb = document.getElementById('sbProgBar3'); if (pb) pb.style.display = 'none'; }, 600);
+
+    if (!unlocked && !_regenGratuiteEnCours) {
+      usedGen++;
+      localStorage.setItem('scriptura_used', usedGen);
+      bumpServerQuota(usedGen);
+      renderGenCounter();
+      checkRappelAbonnement();
+    }
+
+    const titre = 'Storyboard · ' + input.slice(0, 50).trim() + (input.length > 50 ? '…' : '');
+    saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: parsed.miniature || null } });
+    updateQuotaJour();
+
+    afficherStoryboardSeulResultat(board, parsed.miniature || null);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
