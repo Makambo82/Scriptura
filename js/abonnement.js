@@ -9,7 +9,7 @@ const MAX_FREE = 5;
 // Au-delà, la régénération compte comme une génération normale (soustraite du quota).
 const REGEN_GRATUITES = 2;
 // Compteur par type de contenu (réinitialisé à chaque NOUVELLE génération de ce type)
-let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0, storyboardSerie: 0 };
+let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0, storyboardSerie: 0, storyboardSeul: 0 };
 // Flag : la génération en cours est-elle une régénération gratuite ? (ne compte pas au quota)
 let _regenGratuiteEnCours = false;
 
@@ -143,6 +143,7 @@ function renderGenCounter() {
     { counter: document.getElementById('genCounter'), dots: document.getElementById('genCounterDots'), num: document.getElementById('usedNum') },
     { counter: document.getElementById('genCounterIdeas'), dots: document.querySelector('#genCounterIdeas .genCounterDotsShared'), num: document.querySelector('#genCounterIdeas .usedNumShared') },
     { counter: document.getElementById('genCounterStory'), dots: document.querySelector('#genCounterStory .genCounterDotsShared'), num: document.querySelector('#genCounterStory .usedNumShared') },
+    { counter: document.getElementById('genCounterStoryboardSeul'), dots: document.querySelector('#genCounterStoryboardSeul .genCounterDotsShared'), num: document.querySelector('#genCounterStoryboardSeul .usedNumShared') },
     { counter: document.getElementById('genCounterHome'), dots: document.getElementById('genCounterDotsHome'), num: document.getElementById('usedNumHome') }
   ];
 
@@ -396,4 +397,3 @@ function choisirPlan(cle) {
   closePlans();
   window.open('https://wa.me/22995056424?text=' + encodeURIComponent(p.wa), '_blank');
 }
-
