@@ -99,14 +99,14 @@ nav{
 .step{display:none}
 .step.active{display:block}
 
-.step-header{text-align:center;margin-bottom:52px}
+.step-header{text-align:left;margin-bottom:52px}
 /* Le bouton retour reste à gauche, comme dans les autres modes,
    même si le reste de l'en-tête d'étape est centré. */
 .step-header .btn-back{display:flex;margin-right:auto}
 .step-indicator{
   font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;
   color:var(--gold);opacity:0.6;margin-bottom:20px;
-  display:flex;align-items:center;justify-content:center;gap:16px;
+  display:flex;align-items:center;justify-content:flex-start;gap:16px;
 }
 .step-dots{display:flex;gap:8px;align-items:center}
 .sdot{width:6px;height:6px;border-radius:50%;background:var(--border);transition:all 0.3s}
