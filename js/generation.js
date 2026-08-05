@@ -1666,6 +1666,26 @@ FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
 
 MINIATURE (TRES IMPORTANT) : en plus des segments, cree UN prompt visuel special pour la MINIATURE (image de couverture) de la video. Cette miniature doit etre CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immediatement envie de cliquer, avec un sujet central percutant, une emotion visible, des couleurs contrastees, une composition qui accroche l'oeil en une fraction de seconde. Elle resume la promesse de la video. Termine ce prompt par " 9:16".
 
+EXEMPLE DE DECOUPAGE ATTENDU (respecte exactement cette granularite) :
+
+Script source :
+"Mnangagwa n'etait pas juste un garde du corps. C'etait l'ombre de Mugabe au sens litteral : present a chaque execution extrajudiciaire, a chaque seance d'interrogatoire aux sous-sols du palais, a chaque decision de disparition. Trente-sept ans a observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on preserve le pouvoir en transformant la peur en routine."
+
+Decoupage CORRECT (chaque terme d'une serie rhetorique = plan distinct) :
+- "Mnangagwa n'etait pas juste un garde du corps. C'etait l'ombre de Mugabe au sens litteral :"
+- "present a chaque execution extrajudiciaire,"
+- "a chaque seance d'interrogatoire aux sous-sols du palais,"
+- "a chaque decision de disparition."
+- "Trente-sept ans a observer comment on brise un homme sans laisser de trace."
+- "Comment on terrorise une nation en silence."
+- "Comment on preserve le pouvoir en transformant la peur en routine."
+
+Decoupage INTERDIT (ne jamais fusionner les termes d'une anaphore) :
+- "Mnangagwa n'etait pas juste un garde du corps. C'etait l'ombre de Mugabe au sens litteral : present a chaque execution extrajudiciaire, a chaque seance d'interrogatoire aux sous-sols du palais, a chaque decision de disparition."
+- "Trente-sept ans a observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on preserve le pouvoir en transformant la peur en routine."
+
+REGLE : des que deux phrases consecutives ouvrent sur le meme mot ou le meme patron (Comment…, Ces…, Que…, a chaque…, present a…, Les…), chacune forme un plan a part entiere, quelle que soit sa longueur.
+
 Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
 {"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
 
