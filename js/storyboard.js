@@ -44,8 +44,34 @@ function empreinteVisuelle(phrase) {
   return { actions: [...new Set(actions)], sujets: [...new Set(sujets)] };
 }
 
+// Détecte une série rhétorique intentionnelle : deux phrases consécutives
+// qui ouvrent sur le même patron (anaphore). Dans ce cas, chaque terme
+// mérite son propre plan, même s'il est court ou sans image propre.
+function detecteSerieRhethorique(precedente, courante) {
+  if (!precedente || !courante) return false;
+  const prev = (precedente || '').trim().toLowerCase();
+  const cur  = (courante  || '').trim().toLowerCase();
+
+  // Mêmes 2 premiers mots → patron anaphorique explicite
+  const w = s => s.split(/\s+/).slice(0, 2).join(' ');
+  if (w(prev) === w(cur) && w(prev).length > 4) return true;
+
+  // Séries connues
+  if (/^comment /.test(prev) && /^comment /.test(cur)) return true;
+  if (/^ces /.test(prev)     && /^ces /.test(cur))     return true;
+  if (/^(que |ou que )/.test(prev) && /^(que |ou que )/.test(cur)) return true;
+  if (/^(à chaque|a chaque|présent à|present a)/.test(prev) &&
+      /^(à chaque|a chaque|présent à|present a)/.test(cur))  return true;
+  if (/^(les |chaque )/.test(prev) && /^(les |chaque )/.test(cur)) return true;
+
+  return false;
+}
+
 // CONTINUITÉ : cette phrase prolonge-t-elle la même image ? (ne JAMAIS couper)
 function prolongeLaMemeImage(precedente, courante) {
+  // Exception prioritaire : série rhétorique = chaque terme = plan distinct
+  if (detecteSerieRhethorique(precedente, courante)) return false;
+
   const t = (courante || '').trim().toLowerCase();
   // Subordonnée ou énumération parallèle
   if (/^(qui |que |dont |où |ou |et qui |et que |lequel|laquelle)/.test(t) && !t.includes('?')) return true;
@@ -105,6 +131,9 @@ function computeNarrativeBreakScore(precedente, courante) {
 
   // Situation explicite : "Nous sommes à…", "On est à…", "Direction…"
   if (/^(nous sommes|on est|direction |retour |cap sur)/.test(t)) { score += 45; changementScene = true; }
+
+  // Série rhétorique (anaphore intentionnelle) : martelage = rupture = nouveau plan
+  if (detecteSerieRhethorique(precedente, courante)) score += 45;
 
   // Priorité 3 — connecteurs narratifs (indices forts, non mécaniques)
   if (/^(mais|pourtant|cependant|sauf que|c'est alors que|jusqu'au jour où|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
@@ -186,6 +215,31 @@ function estimateDuration(texte) {
   const haut = Math.max(bas + 1, Math.round(sec) + 1);
   return { seconds: sec, label: bas + '-' + haut + ' sec' };
 }
+
+// ── EXEMPLE FEW-SHOT injecté dans chaque prompt IA ──
+// Apprend à l'IA la granularité attendue : chaque terme d'une série
+// rhétorique (anaphore) = plan distinct, quelle que soit sa longueur.
+const FEWSHOT_DECOUPAGE = `
+EXEMPLE DE DÉCOUPAGE ATTENDU (respecte exactement cette granularité) :
+
+Script source :
+"Mnangagwa n'était pas juste un garde du corps. C'était l'ombre de Mugabe au sens littéral : présent à chaque exécution extrajudiciaire, à chaque séance d'interrogatoire aux sous-sols du palais, à chaque décision de disparition. Trente-sept ans à observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on préserve le pouvoir en transformant la peur en routine."
+
+Découpage CORRECT (chaque terme d'une série rhétorique = plan distinct) :
+- "Mnangagwa n'était pas juste un garde du corps. C'était l'ombre de Mugabe au sens littéral :"
+- "présent à chaque exécution extrajudiciaire,"
+- "à chaque séance d'interrogatoire aux sous-sols du palais,"
+- "à chaque décision de disparition."
+- "Trente-sept ans à observer comment on brise un homme sans laisser de trace."
+- "Comment on terrorise une nation en silence."
+- "Comment on préserve le pouvoir en transformant la peur en routine."
+
+Découpage INTERDIT (ne jamais fusionner les termes d'une anaphore) :
+- "Mnangagwa n'était pas juste un garde du corps. C'était l'ombre de Mugabe au sens littéral : présent à chaque exécution extrajudiciaire, à chaque séance d'interrogatoire aux sous-sols du palais, à chaque décision de disparition."
+- "Trente-sept ans à observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on préserve le pouvoir en transformant la peur en routine."
+
+RÈGLE : dès que deux phrases consécutives ouvrent sur le même mot ou le même patron (Comment…, Ces…, Que…, à chaque…, présent à…, Les…), chacune forme un plan à part entière, quelle que soit sa longueur.
+`;
 
 // Fonction centrale partagée par les deux modes
 function segmentNarrativeStoryboard(texte) {
@@ -348,6 +402,7 @@ FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le form
 
 MINIATURE (TRÈS IMPORTANT) : en plus des segments, crée UN prompt visuel spécial pour la MINIATURE (image de couverture). Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Elle résume la promesse du récit. Termine ce prompt par " 9:16".
 
+${FEWSHOT_DECOUPAGE}
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
 
