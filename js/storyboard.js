@@ -371,7 +371,7 @@ async function generateStoryStoryboard() {
   const segMinR = Math.max(3, Math.round(nbMotsRecit / 14));
   const segMaxR = Math.max(segMinR + 1, Math.round(nbMotsRecit / 9));
 
-  const prompt = `Tu es un directeur artistique expert en storyboard vidéo cinématique pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt d'image d'une richesse exceptionnelle.
+  const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt destiné à un générateur d'images (Midjourney, Firefly, Imagen…), d'une richesse exceptionnelle.
 
 RÉCIT :
 """
@@ -394,9 +394,9 @@ STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de faç
 3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures
 4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
 
-Le prompt doit se lire comme une description cinématographique fluide et immersive, pas comme une liste. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll. Adapte l'ambiance au ton du récit.
+Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée. Écris une description spatiale et sensorielle immersive, comme si tu décrivais une peinture ou une photographie à couper le souffle. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll. Adapte l'ambiance au ton du récit.
 
-RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si un plan montre plusieurs scènes ou plusieurs moments sur une même image, ne les sépare JAMAIS par une ligne nette, un cadre, un split-screen graphique ou une bordure. Les différentes scènes doivent être FONDUES ensemble par une transition douce : un fondu stylisé en dégradé, une fusion progressive des lumières et des couleurs, ou un raccord visuel fluide. Précise explicitement dans le prompt que les scènes se fondent l'une dans l'autre par un dégradé harmonieux, sans séparation graphique visible.
+RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si plusieurs éléments ou lieux doivent coexister, NE FAIS PAS de split, de double cadre, de juxtaposition ni aucune séparation visuelle. Garde LA SCÈNE PRINCIPALE et intègre les éléments secondaires de façon organique dans la même composition (arrière-plan, reflet, détail dans le décor…). Une seule image cohérente, pas de collage.
 
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).
 
