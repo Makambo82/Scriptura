@@ -1655,7 +1655,7 @@ REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE et naturelle, en une description continue, SANS jamais ecrire les etiquettes) :
 1. LE DECOR : le lieu precis, l'epoque, l'ambiance globale de la scene
 2. LA MATIERE : les details de structure, les materiaux, les textures
-3. LES PERSONNAGES : leur titre/fonction, age, apparence physique, et SURTOUT leurs vetements precis ainsi que leurs gestes et postures
+3. LES PERSONNAGES : leur titre/fonction, age, apparence physique, et SURTOUT leurs vetements precis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait reference a un personnage precis (historique, public, fictif), nomme-le explicitement dans le prompt.
 4. LA VIE DE LA SCENE : les elements secondaires (inscriptions, objets, foule…), la gestion de la lumiere et des ombres
 
 Le prompt decrit une IMAGE FIXE unique — un instant fige, pas une sequence. Pas de mouvement de camera, pas de transition, pas de duree. Description spatiale et sensorielle immersive, comme une peinture ou une photographie a couper le souffle. Riche, precis, anti-scroll, illustre les mots exacts prononces pour maximiser la retention. JAMAIS generique (interdit : "une personne qui parle", "un fond").
