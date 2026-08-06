@@ -1641,7 +1641,7 @@ async function generateStoryboard() {
   const segMin = Math.max(3, Math.round(nbMots / 14));
   const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
 
-  const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral.
+  const prompt = `Tu es Scriptura, directeur artistique IA expert en creation d'images fixes pour contenu viral.
 
 Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
 
@@ -1658,9 +1658,9 @@ STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon
 3. LES PERSONNAGES : leur titre/fonction, age, apparence physique, et SURTOUT leurs vetements precis ainsi que leurs gestes et postures
 4. LA VIE DE LA SCENE : les elements secondaires (inscriptions, objets, foule…), la gestion de la lumiere et des ombres
 
-Le prompt doit se lire comme une description cinematographique fluide et immersive, jamais comme une liste. Il doit etre riche, precis, anti-scroll, et illustrer les mots exacts prononces pour maximiser la retention. JAMAIS generique (interdit : "une personne qui parle", "un fond").
+Le prompt decrit une IMAGE FIXE unique — un instant fige, pas une sequence. Pas de mouvement de camera, pas de transition, pas de duree. Description spatiale et sensorielle immersive, comme une peinture ou une photographie a couper le souffle. Riche, precis, anti-scroll, illustre les mots exacts prononces pour maximiser la retention. JAMAIS generique (interdit : "une personne qui parle", "un fond").
 
-REGLE SUR LES SCENES MULTIPLES (IMPORTANT) : Si un plan montre plusieurs scenes ou plusieurs moments sur une meme image, ne les separe JAMAIS par une ligne nette, un cadre, un split-screen graphique ou une bordure. Les differentes scenes doivent etre FONDUES ensemble par une transition douce : un fondu stylise en degrade, une fusion progressive des lumieres et des couleurs, ou un raccord visuel fluide. Precise explicitement dans le prompt que les scenes se fondent l'une dans l'autre par un degrade harmonieux, sans separation graphique visible.
+REGLE SUR LES SCENES MULTIPLES (IMPORTANT) : Si plusieurs elements ou lieux doivent coexister, PAS de split, de double cadre, de juxtaposition ni aucune separation visuelle. Garde LA SCENE PRINCIPALE et integre les elements secondaires de facon organique dans la meme composition (arriere-plan, reflet, detail dans le decor…). Une seule image coherente, pas de collage.
 
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
 
