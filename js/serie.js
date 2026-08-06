@@ -438,6 +438,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     // exactement le même que pour les modes Script et Récit.
     if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
     if (!parsed || !Array.isArray(parsed.storyboard)) throw new Error('storyboard illisible');
+    assainirStoryboard(parsed);
 
     prog.finish();
 
