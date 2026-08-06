@@ -208,6 +208,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // Même moteur de découpage par image mentale que les autres modes
     if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardStory(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
+    assainirStoryboard(parsed);
 
     prog.finish();
     setTimeout(() => { const pb = document.getElementById('sbProgBar3'); if (pb) pb.style.display = 'none'; }, 600);
@@ -330,6 +331,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       }));
     }
 
+    // Assainir tous les prompts du board reconstruit
+    const parsedFinal = { storyboard: board, miniature: parsed.miniature || null };
+    assainirStoryboard(parsedFinal);
+    board = parsedFinal.storyboard;
+
     prog.finish();
     setTimeout(() => { const pb = document.getElementById('sbProgBar3'); if (pb) pb.style.display = 'none'; }, 600);
 
@@ -342,10 +348,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     const titre = 'Storyboard · ' + input.slice(0, 50).trim() + (input.length > 50 ? '…' : '');
-    saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: parsed.miniature || null } });
+    saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: parsedFinal.miniature || null } });
     updateQuotaJour();
 
-    afficherStoryboardSeulResultat(board, parsed.miniature || null);
+    afficherStoryboardSeulResultat(board, parsedFinal.miniature || null);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
