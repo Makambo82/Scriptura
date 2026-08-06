@@ -168,7 +168,7 @@ RÈGLES DE DÉCOUPAGE (TRÈS IMPORTANT) :
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
 1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
 2. LA MATIÈRE : les détails de structure, les matériaux, les textures
-3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures
+3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait référence à un personnage précis (historique, public, fictif), nomme-le explicitement dans le prompt.
 4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
 
 Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée. Écris une description spatiale et sensorielle immersive, comme si tu décrivais une peinture ou une photographie à couper le souffle. Chaque prompt doit permettre de générer une image spectaculaire qui empêche le scroll.
@@ -282,7 +282,7 @@ ${listeSegments}
 STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
 1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
 2. LA MATIÈRE : les détails de structure, les matériaux, les textures
-3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures
+3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait référence à un personnage précis (historique, public, fictif), nomme-le explicitement dans le prompt.
 4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
 
 Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée. Écris une description spatiale et sensorielle immersive, comme si tu décrivais une peinture ou une photographie à couper le souffle. Chaque prompt doit permettre de générer une image spectaculaire qui empêche le scroll.
