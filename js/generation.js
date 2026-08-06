@@ -1695,6 +1695,7 @@ Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
     // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
     if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
+    assainirStoryboard(parsed);
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
     setTimeout(() => { const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none'; }, 600);
