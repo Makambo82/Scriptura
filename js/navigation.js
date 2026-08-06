@@ -51,6 +51,13 @@ function showScreen(screen) {
   }
   // Revenir à l'accueil = accueil complet, jamais le mode focus.
   if (screen === 'homePage' && typeof resetAccueilFocus === 'function') resetAccueilFocus();
+  // Rafraîchir la recommandation IA à chaque retour à l'accueil complet (pas
+  // en mode heroFocus, où #accueilPremium reste masqué par CSS) : sans ça,
+  // une reco consommée (cache vidé après "Créer le script", voir
+  // js/generation.js) resterait affichée telle quelle jusqu'au prochain
+  // rechargement complet de la page. initAccueilPremium() relit d'abord le
+  // cache journalier, donc ceci n'appelle l'IA que si nécessaire.
+  if (screen === 'homePage' && typeof initAccueilPremium === 'function') initAccueilPremium();
 
   // Cas d'un sous-écran résultat
   const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
@@ -99,6 +106,10 @@ function goHome() {
   document.body.classList.remove('hist-select');
   // Accueil complet (pas le mode focus des 5 boutons)
   if (typeof resetAccueilFocus === 'function') resetAccueilFocus();
+  // Rafraîchir la recommandation IA (voir même appel + explication dans
+  // showScreen ci-dessus — goHome() est un chemin de retour distinct, ex.
+  // clic sur le logo, qui doit bénéficier du même rafraîchissement).
+  if (typeof initAccueilPremium === 'function') initAccueilPremium();
   // Réafficher la page d'accueil, masquer tous les modules
   document.getElementById('homePage').style.display = 'block';
   document.getElementById('flow').style.display = 'none';
