@@ -412,6 +412,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
     if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardStory(parsed.storyboard);
     if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
+    assainirStoryboard(parsed);
 
     prog.finish(); // 100% pile au moment où le storyboard s'affiche
     setTimeout(() => { const pb = document.getElementById('sbProgBar2'); if (pb) pb.style.display = 'none'; }, 600);
