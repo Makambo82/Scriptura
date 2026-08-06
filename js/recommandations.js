@@ -461,7 +461,20 @@ async function initAccueilPremium() {
     return;
   }
 
-  if (!data) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
+  if (!data) {
+    // Échec technique (API indisponible, timeout, JSON invalide...) : on
+    // garde quand même la salutation plutôt que de vider toute la zone
+    // (sinon l'accueil paraît cassé alors que ce n'est qu'un souci
+    // ponctuel — voir le cas "onboarding" juste au-dessus, qui applique
+    // déjà ce principe pour l'autre cas de figure).
+    zone.innerHTML = `${entete}
+      <div class="score-card">
+        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-diag-interp">Scriptura n'a pas pu préparer ta recommandation du jour pour le moment. Réessaie un peu plus tard.</div>
+      </div>`;
+    zone.style.display = 'block';
+    return;
+  }
   rendreRecommandations('accueilPremium', data, entete, true);
 }
 
