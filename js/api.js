@@ -239,6 +239,126 @@ async function fetchServerQuota() {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+//  ASSAINISSEUR DE PROMPTS VISUELS
+//  Appliqué sur chaque prompt après retour de l'IA.
+//  Garantit côté code les règles que l'IA peut oublier :
+//  1. Footer 9:16 présent
+//  2. Zéro langage vidéo (mouvement caméra, transition, durée)
+//  3. Zéro étiquettes structurelles écrites par l'IA
+//  4. Détection des prompts suspects (trop courts = pauvres)
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Nettoie et sécurise un prompt visuel unique.
+ * @param {string} prompt - Le prompt brut retourné par l'IA
+ * @param {string} [contexte] - Identifiant pour le log (ex. "Plan 3")
+ * @returns {string} Le prompt nettoyé et garanti conforme
+ */
+function assainirPromptVisuel(prompt, contexte) {
+  if (!prompt || typeof prompt !== 'string') return '';
+  let p = prompt.trim();
+
+  // ── 1. Supprimer les étiquettes structurelles si l'IA les a écrites ────────
+  // Formes possibles : "Décor :", "1. Le Décor :", "DÉCOR :", etc.
+  const etiquettes = [
+    /^\s*\d*\.?\s*LE\s+DÉ?COR\s*:\s*/gim,
+    /^\s*\d*\.?\s*LA\s+MATI[EÈ]RE\s*:\s*/gim,
+    /^\s*\d*\.?\s*LES\s+PERSONNAGES\s*:\s*/gim,
+    /^\s*\d*\.?\s*LA\s+VIE\s+DE\s+LA\s+SC[EÈ]NE\s*:\s*/gim,
+    /^\s*\d*\.?\s*DÉCOR\s*:\s*/gim,
+    /^\s*\d*\.?\s*MATIÈRE\s*:\s*/gim,
+    /^\s*\d*\.?\s*PERSONNAGES\s*:\s*/gim,
+    /^\s*\d*\.?\s*AMBIANCE\s*:\s*/gim,
+    /^\s*\d*\.?\s*LUMIÈRE\s*:\s*/gim,
+    /^\s*\d*\.?\s*DECOR\s*:\s*/gim,
+    /^\s*\d*\.?\s*MATIERE\s*:\s*/gim,
+    /^\s*\d*\.?\s*LUMIERE\s*:\s*/gim,
+  ];
+  etiquettes.forEach(re => { p = p.replace(re, ''); });
+  // Nettoyer les sauts de ligne multiples créés par la suppression des étiquettes
+  p = p.replace(/\n{3,}/g, '\n\n').trim();
+
+  // ── 2. Remplacer le langage vidéo par des équivalents image fixe ────────────
+  const remplacementsVideo = [
+    // Mouvements de caméra
+    [/\b(la caméra|the camera)\s+(zoome?|s'attarde?|panoramique|recule?|avance?|suit|survole?|plonge?|monte?|descend)\b/gi, 'le regard du spectateur est attiré vers'],
+    [/\bcoup de zoom\b/gi, 'gros plan sur'],
+    [/\bpanoramique\s+(lent|rapide|vers)?\b/gi, 'vue panoramique de'],
+    [/\btravelling\b/gi, 'cadrage immersif'],
+    [/\bfondu (au noir|enchaîné|vers)\b/gi, 'atmosphère'],
+    [/\btransition (douce|vers|entre)\b/gi, 'composition fusionnant'],
+    [/\bscène suivante\b/gi, 'scène'],
+    [/\ben mouvement\b/gi, 'dans une posture dynamique'],
+    [/\bau fil de la séquence\b/gi, 'dans la composition'],
+    // Durées et temporalité vidéo
+    [/\bpendant \d+\s*(sec(onde)?s?|min(utes?)?)\b/gi, ''],
+    [/\bdure \d+\s*(sec(onde)?s?|min(utes?)?)\b/gi, ''],
+    [/\b\d+\s*secondes?\s*(de|d')\b/gi, ''],
+    [/\bon voit ensuite\b/gi, 'on distingue aussi'],
+    [/\bpuis (la caméra|on)\b/gi, 'dans l\'arrière-plan,'],
+    // Coupures et montage
+    [/\bcoupe (vers|sur|nette)\b/gi, 'contraste visuel avec'],
+    [/\bplan (américain|rapproché|large|séquence|fixe)\b/gi, 'cadrage'],
+    [/\béclairage (qui change|évolutif|progressif)\b/gi, 'éclairage'],
+  ];
+  remplacementsVideo.forEach(([re, remplacement]) => {
+    p = p.replace(re, remplacement);
+  });
+  // Nettoyer les espaces multiples créés par les suppressions
+  p = p.replace(/  +/g, ' ').trim();
+
+  // ── 3. Garantir le footer 9:16 ───────────────────────────────────────────────
+  // Normaliser les variantes possibles : "9/16", "9 : 16", "9:16.", "ratio 9:16", etc.
+  p = p.replace(/\s*(ratio\s*)?\b9[\s:\/]+16\b\.?\s*$/i, '');
+  p = p.trim();
+  if (!p.endsWith('9:16')) {
+    p = p + ' 9:16';
+  }
+
+  // ── 4. Détecter les prompts suspects (trop courts) ────────────────────────────
+  const nbMots = p.split(/\s+/).filter(Boolean).length;
+  if (nbMots < 30) {
+    console.warn(`[Scriptura] Prompt suspect (${nbMots} mots)${contexte ? ' — ' + contexte : ''} : "${p.slice(0, 80)}…"`);
+  }
+
+  return p;
+}
+
+/**
+ * Applique assainirPromptVisuel() sur tout un storyboard retourné par l'IA.
+ * Gère les deux structures JSON possibles (visuel vs prompt_visuel).
+ * Assainit aussi la miniature si présente.
+ * @param {object} parsed - L'objet JSON parsé retourné par l'IA
+ * @returns {object} Le même objet avec tous les prompts nettoyés
+ */
+function assainirStoryboard(parsed) {
+  if (!parsed) return parsed;
+
+  // Miniature
+  if (parsed.miniature) {
+    parsed.miniature = assainirPromptVisuel(parsed.miniature, 'Miniature');
+  }
+
+  // Segments — deux structures possibles selon le mode
+  if (Array.isArray(parsed.storyboard)) {
+    parsed.storyboard = parsed.storyboard.map((seg, i) => {
+      const label = 'Plan ' + (seg.segment || (i + 1));
+      // Mode Récit / Storyboard Seul : champ "visuel"
+      if (seg.visuel !== undefined) {
+        seg.visuel = assainirPromptVisuel(seg.visuel, label);
+      }
+      // Mode Script / Série : champ "prompt_visuel"
+      if (seg.prompt_visuel !== undefined) {
+        seg.prompt_visuel = assainirPromptVisuel(seg.prompt_visuel, label);
+      }
+      return seg;
+    });
+  }
+
+  return parsed;
+}
+
 // Enregistre/incrémente le quota côté serveur (empreinte ET IP)
 async function bumpServerQuota(newValue) {
   if (!supabaseClient) return;
