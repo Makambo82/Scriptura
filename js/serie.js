@@ -404,7 +404,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const segMin = Math.max(3, Math.round(nbMots / 14));
     const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
 
-    const prompt = `Tu es Scriptura, directeur artistique IA expert en storyboard cinematique pour contenu viral vertical.
+    const prompt = `Tu es Scriptura, directeur artistique IA expert en creation d'images fixes pour contenu viral vertical.
 
 Voici le script d'un episode de serie TikTok (format faceless, sans visage) :
 
@@ -421,9 +421,9 @@ STRUCTURE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE, san
 3. LES PERSONNAGES : fonction, age, apparence, vetements precis, gestes, postures
 4. LA VIE DE LA SCENE : elements secondaires, lumiere, ombres
 
-Le prompt se lit comme une description cinematographique fluide et immersive, jamais une liste. Riche, precis, anti-scroll. JAMAIS generique.
+Le prompt decrit une IMAGE FIXE unique — un instant fige, pas une sequence. Pas de mouvement de camera, pas de transition, pas de duree. Description spatiale et sensorielle immersive, comme une peinture ou une photographie a couper le souffle. Riche, precis, anti-scroll. JAMAIS generique.
 
-SCENES MULTIPLES : si un plan montre plusieurs moments, fonds-les par une transition douce (degrade, fusion des lumieres), jamais de split-screen ni bordure nette.
+SCENES MULTIPLES : si plusieurs elements ou lieux doivent coexister, PAS de split, de double cadre ni de separation visuelle. Garde LA SCENE PRINCIPALE et integre les elements secondaires de facon organique dans la meme composition (arriere-plan, reflet, detail du decor…). Une seule image coherente, pas de collage.
 
 FOOTER OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
 
