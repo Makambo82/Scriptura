@@ -64,6 +64,37 @@ nav{
   letter-spacing:0.26em;text-transform:uppercase;
   color:var(--gold);opacity:0.75;margin-bottom:32px;
 }
+/* Badge logo au-dessus du texte "Propulsé par l'IA" : éclair dans un cadre
+   arrondi avec un filet doré qui tourne en continu — même mécanique que
+   .hero-mode-btn.audit (voir plus bas), pour lier visuellement le logo au
+   mode diagnostic, le plus "haut de gamme" des modes de Scriptura. */
+.hero-logo-badge{
+  position:relative;width:52px;height:52px;border-radius:14px;overflow:hidden;
+  isolation:isolate;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;
+}
+.hero-logo-badge::before{
+  content:'';position:absolute;top:50%;left:50%;width:150%;aspect-ratio:1;
+  background:conic-gradient(from 0deg,
+    rgba(201,168,76,0.18) 0deg,
+    rgba(201,168,76,0.18) 240deg,
+    rgba(201,168,76,0.55) 300deg,
+    #E2C87A 332deg,
+    rgba(201,168,76,0.55) 346deg,
+    rgba(201,168,76,0.18) 360deg);
+  animation:heroLogoSpin 3.5s linear infinite;z-index:0;
+}
+.hero-logo-badge::after{
+  content:'';position:absolute;inset:1px;border-radius:13px;
+  background:linear-gradient(rgba(201,168,76,0.08),rgba(201,168,76,0.08)),var(--bg);z-index:1;
+}
+.hero-logo-badge svg{position:relative;z-index:2}
+@keyframes heroLogoSpin{
+  from{transform:translate(-50%,-50%) rotate(0deg)}
+  to{transform:translate(-50%,-50%) rotate(360deg)}
+}
+@media(prefers-reduced-motion:reduce){
+  .hero-logo-badge::before{animation:none;background:rgba(201,168,76,0.5)}
+}
 .hero h1{
   font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
   font-size:clamp(3rem,8vw,6rem);
