@@ -9,6 +9,13 @@
   --gold-pale:rgba(201,168,76,0.12);
   --border:rgba(201,168,76,0.28);
   --border-soft:rgba(201,168,76,0.16);
+  /* Troisième couleur, réservée aux accents premium (palier Pro, réussite) —
+     jamais en fond ni en remplacement du doré, seulement pour signaler
+     ce qui est "le niveau au-dessus". */
+  --emerald:#1F6B4C;
+  --emerald-light:#3E9B75;
+  --emerald-pale:rgba(46,125,91,0.14);
+  --emerald-border:rgba(46,125,91,0.35);
   --muted:rgba(255,255,255,0.62);
   --text:#FFFFFF;
   --text-secondary:rgba(255,255,255,0.75);
@@ -202,6 +209,12 @@ nav{
   display:inline-block;padding:5px 12px;border-radius:999px;
   font-size:0.72rem;color:var(--text-secondary);line-height:1.3;
   background:rgba(255,255,255,0.04);border:1px solid var(--border-soft);
+}
+/* Badge basé sur le diagnostic (ou diagnostic + créations) : émeraude, pour
+   signaler une recommandation nourrie par une analyse Pro plutôt que par
+   les seules préférences déclarées. */
+.reco-source-tag.premium{
+  color:var(--emerald-light);background:var(--emerald-pale);border-color:var(--emerald-border);
 }
 
 /* GENERATE BTN */
@@ -583,6 +596,12 @@ footer strong{color:var(--gold)}
   position:relative;overflow:hidden;
 }
 .abonne-star{font-size:0.74rem;line-height:1}
+/* Badge Fondateur : émeraude plutôt que doré, pour marquer le rang
+   au-dessus même des abonnés Pro/Creator (voir js/abonnement.js). */
+.abonne-badge.fondateur{
+  background:linear-gradient(120deg,var(--emerald),var(--emerald-light));
+  box-shadow:0 2px 12px -2px rgba(46,125,91,0.55);
+}
 @media(prefers-reduced-motion:no-preference){
   .abonne-star{display:inline-block;animation:star-pulse 1.9s ease-in-out infinite}
   .abonne-badge::after{
@@ -724,14 +743,14 @@ footer strong{color:var(--gold)}
   background:rgba(255,255,255,0.02);transition:border-color .2s,background .2s;
 }
 .plan-card.pro{
-  border-color:var(--border);
-  background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.03));
+  border-color:var(--emerald-border);
+  background:linear-gradient(135deg,var(--emerald-pale),rgba(46,125,91,0.03));
 }
 .plan-card-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
 .plan-name{font-family:'Cinzel',serif;font-size:0.9rem;letter-spacing:0.08em;color:var(--gold-light)}
 .plan-badge{
   font-family:'Poppins',sans-serif;font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;
-  color:var(--bg);background:var(--gold);padding:3px 8px;border-radius:20px;
+  color:#fff;background:var(--emerald-light);padding:3px 8px;border-radius:20px;
 }
 .plan-price{font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:700;color:var(--gold-light);line-height:1;margin-bottom:2px}
 .plan-price span{font-size:0.82rem;font-weight:500;color:rgba(255,255,255,0.5)}
@@ -743,6 +762,9 @@ footer strong{color:var(--gold)}
 .plan-includes li::before{
   content:'✓';position:absolute;left:0;top:0;color:var(--gold);font-size:0.9rem;font-weight:700;
 }
+/* Carte Pro : coches en émeraude plutôt qu'en doré, pour rester cohérent
+   avec le contour et le badge "Recommandé" du même palier. */
+.plan-card.pro .plan-includes li::before{color:var(--emerald-light)}
 .plan-btn{
   display:block;width:100%;text-align:center;padding:13px;border-radius:30px;border:none;
   font-family:'Cinzel',serif;font-size:0.78rem;letter-spacing:0.1em;cursor:pointer;
