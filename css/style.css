@@ -1535,6 +1535,30 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   #scrollTopBtn{bottom:18px;right:18px;width:44px;height:44px;font-size:1.2rem}
 }
 
+/* Bouton "S'abonner" dans le nav, juste à gauche du bouton menu — même
+   effet (cadre doré + reflet animé) que .hero-cta ("Commencer gratuitement"),
+   texte en noir. Masqué automatiquement si déjà abonné (règle .nav-subscribe-btn
+   plus haut). */
+.nav-subscribe-cta{
+  display:flex;align-items:center;justify-content:center;
+  height:42px;padding:0 20px;cursor:pointer;
+  border:1px solid var(--gold);border-radius:999px;
+  background:linear-gradient(120deg,var(--gold),var(--gold-light));
+  color:#000;font-family:'Cinzel',serif;font-size:0.72rem;font-weight:500;
+  letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;
+  box-shadow:0 10px 26px -10px rgba(201,168,76,0.6);
+  transition:transform .2s ease,box-shadow .2s ease;
+  position:relative;overflow:hidden;
+}
+.nav-subscribe-cta:hover{transform:translateY(-2px);box-shadow:0 14px 32px -10px rgba(201,168,76,0.75)}
+.nav-subscribe-cta:active{transform:translateY(0)}
+@media(prefers-reduced-motion:no-preference){
+  .nav-subscribe-cta::after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.55),transparent);transform:skewX(-18deg);animation:goldSheen 4.5s ease-in-out infinite}
+}
+@media(max-width:480px){
+  .nav-subscribe-cta{padding:0 14px;font-size:0.62rem}
+}
+
 /* ── MENU LATÉRAL (SIDEBAR) ── */
 .menu-toggle{
   background:transparent;border:1px solid rgba(201,168,76,0.35);
