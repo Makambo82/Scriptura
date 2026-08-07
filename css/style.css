@@ -1164,8 +1164,19 @@ body.hero-focus .hero-focus-rule{display:block}
 }
 .btn-regenerate:hover{background:var(--gold-pale);border-color:var(--gold)}
 .btn-regenerate:disabled{opacity:0.5;cursor:default}
+/* En-tête de la carte "RECOMMANDATION IA" : le label à gauche, le bouton
+   "Actualiser" discret à droite (remplace l'ancien bouton pleine largeur). */
+.reco-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.btn-actualiser{
+  font-family:'Cinzel',serif;font-size:0.52rem;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--gold);background:transparent;border:1px solid var(--border);
+  padding:5px 12px;border-radius:999px;cursor:pointer;transition:all 0.2s;flex-shrink:0;
+}
+.btn-actualiser:hover{background:var(--gold-pale);border-color:var(--gold)}
+.btn-actualiser:disabled{opacity:0.4;cursor:default}
 /* Bouton « Nouvelle recommandation » : le doré remplit le bouton pendant que
-   Scriptura change de reco, et le libellé passe en blanc pour rester lisible. */
+   Scriptura change de reco, et le libellé passe en blanc pour rester lisible.
+   Réutilisé tel quel par .btn-actualiser (même classe .reco-refresh). */
 .reco-refresh{position:relative;overflow:hidden}
 .reco-refresh::before{
   content:'';position:absolute;left:0;top:0;bottom:0;width:0;z-index:0;
