@@ -596,12 +596,6 @@ footer strong{color:var(--gold)}
   position:relative;overflow:hidden;
 }
 .abonne-star{font-size:0.74rem;line-height:1}
-/* Badge Fondateur : émeraude plutôt que doré, pour marquer le rang
-   au-dessus même des abonnés Pro/Creator (voir js/abonnement.js). */
-.abonne-badge.fondateur{
-  background:linear-gradient(120deg,var(--emerald),var(--emerald-light));
-  box-shadow:0 2px 12px -2px rgba(46,125,91,0.55);
-}
 @media(prefers-reduced-motion:no-preference){
   .abonne-star{display:inline-block;animation:star-pulse 1.9s ease-in-out infinite}
   .abonne-badge::after{
