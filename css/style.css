@@ -43,7 +43,7 @@ nav{
 .hero{
   min-height:100vh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;
-  text-align:center;padding:50px 24px 80px;
+  text-align:center;padding:50px 12px 80px;
   position:relative;overflow:hidden;
 }
 .hero-bg{
@@ -131,7 +131,7 @@ nav{
 @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
 /* FLOW SECTION */
-#flow{padding:100px 24px 120px;max-width:780px;margin:0 auto}
+#flow{padding:100px 12px 120px;max-width:780px;margin:0 auto}
 
 /* STEP */
 .step{display:none}
@@ -440,7 +440,7 @@ footer strong{color:var(--gold)}
   .action-btn{font-size:0.55rem;padding:8px 12px}
   .action-btn.icon-only{font-size:0.95rem;padding:7px 10px}
   .logo{font-size:1.25rem}
-  #flow{padding:100px 24px 100px}
+  #flow{padding:100px 12px 100px}
   .context-card{padding:24px 20px}
   .out-header{padding:20px 20px}
   .out-body{padding:0 20px 24px}
@@ -1135,7 +1135,7 @@ body.hero-focus .hero-focus-rule{display:block}
 }
 
 /* ── COMMENT ÇA MARCHE (accueil) ── */
-.how{max-width:960px;margin:0 auto;padding:56px 24px 16px;text-align:center}
+.how{max-width:960px;margin:0 auto;padding:56px 12px 16px;text-align:center}
 .how-eyebrow{font-family:'Cinzel',serif;font-size:0.65rem;font-weight:400;letter-spacing:0.26em;text-transform:uppercase;color:var(--gold);opacity:0.75;margin-bottom:16px}
 .how-title{font-family:'Playfair Display',serif;font-weight:400;font-style:italic;font-size:clamp(1.7rem,5.2vw,2.5rem);line-height:1.15;letter-spacing:-0.01em;color:#fff;margin:0 auto 40px}
 .how-title strong{font-style:normal;font-weight:700;color:var(--gold-light)}
@@ -1158,13 +1158,13 @@ body.hero-focus .hero-focus-rule{display:block}
 .how-step-desc{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6}
 
 /* ── POURQUOI SCRIPTURA (différenciateurs, réutilise les cartes .how-step) ── */
-.why{max-width:960px;margin:0 auto;padding:48px 24px 24px;text-align:center}
+.why{max-width:960px;margin:0 auto;padding:48px 12px 24px;text-align:center}
 .why-intro{font-size:0.95rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.65;max-width:600px;margin:-24px auto 34px}
 .why-grid{display:grid;grid-template-columns:1fr;gap:16px;text-align:left}
 @media(min-width:720px){.why-grid{grid-template-columns:1fr 1fr;gap:20px}}
 
 /* ── FAQ (accueil) — accordéon natif <details>, aucun JS ── */
-.faq{max-width:760px;margin:0 auto;padding:48px 24px 32px;text-align:center}
+.faq{max-width:760px;margin:0 auto;padding:48px 12px 32px;text-align:center}
 .faq-list{text-align:left;margin-top:8px}
 .faq-item{border:1px solid var(--border-soft);border-radius:12px;margin-bottom:12px;background:rgba(255,255,255,0.02);overflow:hidden;transition:border-color 0.25s ease}
 .faq-item[open]{border-color:rgba(201,168,76,0.4)}
@@ -1176,7 +1176,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .faq-a{padding:0 20px 20px;font-family:'Poppins',sans-serif;font-size:0.92rem;color:var(--text-secondary);line-height:1.7}
 
 /* ── TARIFS (accueil) — réutilise les cartes .plan-card existantes ── */
-.pricing{max-width:820px;margin:0 auto;padding:48px 24px 32px;text-align:center}
+.pricing{max-width:820px;margin:0 auto;padding:48px 12px 32px;text-align:center}
 .pricing-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin:-24px auto 26px;max-width:460px}
 .pricing-grid{display:grid;grid-template-columns:1fr;gap:16px;text-align:left}
 @media(min-width:720px){.pricing-grid{grid-template-columns:1fr 1fr;gap:20px;align-items:start}}
@@ -1186,7 +1186,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .pricing-jeton button:hover{color:var(--gold)}
 
 /* ── GÉNÉRATEUR D'IDÉES ── */
-#ideasFlow,#storyFlow,#auditFlow,#serieFlow,#storyboardSeulFlow{max-width:680px;margin:0 auto;padding:100px 24px 80px}
+#ideasFlow,#storyFlow,#auditFlow,#serieFlow,#storyboardSeulFlow{max-width:680px;margin:0 auto;padding:100px 12px 80px}
 .ideas-container{}
 .ideas-header{margin-bottom:32px;margin-top:20px}
 .ideas-eyebrow{
@@ -1554,11 +1554,6 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 @media(max-width:480px){
   .nav-subscribe-cta{padding:0 14px;font-size:0.62rem}
-  /* Réduit la marge latérale de la carte "RECOMMANDATION IA" sur mobile :
-     elle déborde volontairement du padding de .hero (24px) pour se
-     rapprocher des bords de l'écran, sans toucher au reste du hero
-     (titre, CTA, modes) qui garde son padding habituel. */
-  #accueilPremium{width:calc(100% + 24px) !important;margin-left:-12px !important;margin-right:-12px !important}
 }
 
 /* ── MENU LATÉRAL (SIDEBAR) ── */
