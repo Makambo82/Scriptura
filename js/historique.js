@@ -12,6 +12,7 @@ const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none"
 const HIST_MODES_FILTRE = [
   { v: null,     label: 'Tous' },
   { v: 'audit',  label: '📊 Diagnostic' },
+  { v: 'diagnosticSommaire', label: '@ Diagnostic rapide' },
   { v: 'serie',  label: '🎞️ Série' },
   { v: 'ideas',  label: '💡 Idées' },
   { v: 'script', label: '🎬 Script' },
@@ -195,8 +196,12 @@ async function countMonthGenerations(typeVoulu) {
       .gte('cree_le', debutMois.toISOString());
     if (typeVoulu === 'audit') {
       req = req.eq('mode', 'audit');
+    } else if (typeVoulu === 'diagnosticSommaire') {
+      req = req.eq('mode', 'diagnosticSommaire');
     } else if (typeVoulu === 'creation') {
-      req = req.neq('mode', 'audit');
+      // Ni l'audit complet ni le diagnostic sommaire ne comptent dans le
+      // quota de création : chacun a son propre compteur mensuel.
+      req = req.not('mode', 'in', '(audit,diagnosticSommaire)');
     }
     const { count, error } = await req;
     if (error) throw error;
@@ -283,6 +288,38 @@ async function peutGenerer(errorBoxId) {
   const faitesCeMois = await countMonthGenerations('creation');
   if (faitesCeMois >= limite) {
     openPlans('quota');
+    return false;
+  }
+  return true;
+}
+
+// Vérifie si l'utilisateur peut lancer un diagnostic sommaire (@nom
+// d'utilisateur, sans captures). Non-abonné : limité à UNE seule fois au
+// total (même s'il lui reste des générations gratuites) — ensuite il faut
+// s'abonner. Abonné : quota mensuel séparé de la création et de l'audit
+// complet (voir LIMITES_MOIS.diagnosticSommaire, js/api.js).
+async function peutFaireDiagnosticSommaire() {
+  if (!unlocked) {
+    if (localStorage.getItem('scriptura_diag_sommaire_utilise') === 'true') {
+      openPlans('diagnostic-sommaire-utilise');
+      return false;
+    }
+    if (usedGen >= MAX_FREE) {
+      openPlans('nouveau');
+      return false;
+    }
+    return true;
+  }
+
+  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
+
+  if (await abonnementExpire()) { gererAbonnementExpire(); return false; }
+
+  const limite = limitesDuPalier().diagnosticSommaire;
+  const faitesCeMois = await countMonthGenerations('diagnosticSommaire');
+  if (faitesCeMois >= limite) {
+    openPlans('quota-diagnostic-sommaire');
     return false;
   }
   return true;
@@ -892,6 +929,8 @@ function reopenGeneration(i) {
   if (sfh0) sfh0.style.display = 'none';
   const sbsh0 = document.getElementById('storyboardSeulFlow');
   if (sbsh0) sbsh0.style.display = 'none';
+  const dsfh0 = document.getElementById('diagSommaireFlow');
+  if (dsfh0) dsfh0.style.display = 'none';
 
   // Mémoriser l'id pour pouvoir re-rattacher un storyboard généré ensuite
   currentGenId = g.id || null;
@@ -922,6 +961,13 @@ function reopenGeneration(i) {
     // On rouvre un audit déjà fait : pas de capture ici, on montre le résultat.
     if (typeof masquerUICaptureAudit === 'function') masquerUICaptureAudit();
     renderAudit(g.contenu);
+  } else if (g.mode === 'diagnosticSommaire') {
+    const dsf = document.getElementById('diagSommaireFlow');
+    if (dsf) dsf.style.display = 'block';
+    const cds = g.contenu || {};
+    if (typeof afficherDiagnosticSommaireResultat === 'function') {
+      afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '');
+    }
   } else if (g.mode === 'storyboardSeul') {
     const sbsh = document.getElementById('storyboardSeulFlow');
     if (sbsh) sbsh.style.display = 'block';

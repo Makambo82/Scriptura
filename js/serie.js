@@ -670,23 +670,17 @@ async function chooseMode(mode) {
   document.getElementById('storyFlow').style.display = 'none';
   const af = document.getElementById('auditFlow');
   if (af) af.style.display = 'none';
+  const dsf = document.getElementById('diagSommaireFlow');
+  if (dsf) dsf.style.display = 'none';
   const sf = document.getElementById('serieFlow');
   if (sf) sf.style.display = 'none';
   if (mode === 'audit') {
-    // L'analyse est réservée au Pro. Un Creator ou un non-abonné n'y accède
-    // que s'il a acheté des jetons ; sinon on lui présente l'offre.
-    if (!aAccesMode('audit')) {
-      const jetonsDispo = await lireJetonsAudit();
-      if (jetonsDispo <= 0) {
-        document.getElementById('homePage').style.display = 'block';
-        openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne');
-        return;
-      }
-      // Il possède des jetons achetés : il entre et pourra les utiliser.
-    }
-    if (af) af.style.display = 'block';
-    // Ouverture normale : on démarre l'assistant de capture guidé à l'étape 1.
-    if (typeof initAuditWizard === 'function') initAuditWizard(false);
+    // Écran de choix, ouvert à tous (abonné ou non) : diagnostic sommaire
+    // via @nom d'utilisateur, ou diagnostic complet par captures (celui-ci
+    // reste réservé au Pro/jetons — vérifié dans ouvrirCapturesDepuisChoix,
+    // js/diagnostic-sommaire.js, au moment où l'utilisateur choisit cette option).
+    if (dsf) dsf.style.display = 'block';
+    if (typeof resetDiagnosticSommaireForm === 'function') resetDiagnosticSommaireForm();
   } else if (mode === 'serie') {
     // Inclus dans le plan Pro. Un Creator ou un non-abonné y accède aussi
     // s'il a acheté des jetons (1 jeton = 1 série) ; sinon on présente l'offre.

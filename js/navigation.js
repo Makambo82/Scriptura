@@ -14,7 +14,7 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow']) {
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow']) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }
@@ -35,7 +35,7 @@ function pushNav() {
 // Affiche un écran donné (sans toucher à la pile)
 function showScreen(screen) {
   // Masquer tout
-  ['homePage','flow','ideasFlow','storyFlow','auditFlow','serieFlow','storyboardSeulFlow','historyFlow','adminFlow'].forEach(id => {
+  ['homePage','flow','ideasFlow','storyFlow','auditFlow','diagSommaireFlow','serieFlow','storyboardSeulFlow','historyFlow','adminFlow'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -117,6 +117,8 @@ function goHome() {
   document.getElementById('storyFlow').style.display = 'none';
   const afh = document.getElementById('auditFlow');
   if (afh) afh.style.display = 'none';
+  const dsfh = document.getElementById('diagSommaireFlow');
+  if (dsfh) dsfh.style.display = 'none';
   const sfh = document.getElementById('serieFlow');
   if (sfh) sfh.style.display = 'none';
   const sbsh = document.getElementById('storyboardSeulFlow');

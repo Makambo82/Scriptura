@@ -346,6 +346,35 @@
 
 <!-- FLOW -->
 
+<!-- ══ MODULE DIAGNOSTIC SOMMAIRE (@nom d'utilisateur, sans captures) ══ -->
+<section id="diagSommaireFlow" style="display:none">
+  <div class="ds-wrap">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header" style="text-align:center">
+      <div class="ds-tiktok"><svg viewBox="0 0 24 24" fill="#fff"><path d="M16.6 5.82a4.28 4.28 0 0 1-1.06-2.82h-3.02v11.9a2.44 2.44 0 1 1-2.44-2.44c.14 0 .27.02.4.04V9.4a5.6 5.6 0 0 0-.4-.02 5.44 5.44 0 1 0 5.44 5.44V8.9a7.3 7.3 0 0 0 4.02 1.2V7.08a4.28 4.28 0 0 1-2.94-1.26z"/></svg></div>
+      <div class="ideas-eyebrow">Diagnostic · TikTok</div>
+      <h2 class="ideas-title">Ton diagnostic,<br/><strong>sans captures.</strong></h2>
+      <p class="ideas-sub">Entre ton @nom d'utilisateur TikTok : Scriptura lit ton profil public et repère en quelques secondes ce qui bloque ta croissance.</p>
+    </div>
+
+    <div class="ds-field">
+      <span class="ds-at">@</span>
+      <input class="ds-input" id="diagSommaireInput" placeholder="nom.utilisateur" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();lancerDiagnosticSommaire();}"/>
+      <button class="ds-go" id="diagSommaireGoBtn" aria-label="Analyser" onclick="lancerDiagnosticSommaire()">
+        <span class="sb-gen-spinner" id="diagSommaireSpinner"></span>
+        <span id="diagSommaireGoArrow">→</span>
+      </button>
+    </div>
+    <div class="err" id="diagSommaireErrorBox" style="display:none"></div>
+    <p class="ds-note"><span>🔒</span><span>Aucune connexion, aucun mot de passe. On lit uniquement ce qui est <strong style="color:rgba(255,255,255,0.7)">public</strong> sur ton profil.</span></p>
+
+    <div class="ds-sep">ou</div>
+    <div class="ds-alt">Tu veux l'analyse la plus poussée — <strong>rétention, sources de trafic, abonnés gagnés</strong> ? <a onclick="ouvrirCapturesDepuisChoix()">Envoie tes captures →</a></div>
+
+    <div id="diagSommaireResults" style="display:none;margin-top:32px"></div>
+  </div>
+</section>
+
 <!-- ══ MODULE AUDIT TIKTOK ══ -->
 <section id="auditFlow" style="display:none">
   <div class="ideas-container">
@@ -1207,6 +1236,7 @@
 <script src="js/storytelling.js"></script>
 <script src="js/storyboard.js"></script>
 <script src="js/storyboard-seul.js"></script>
+<script src="js/diagnostic-sommaire.js"></script>
 <script src="js/generation.js"></script>
 <script src="js/app.js"></script>
 

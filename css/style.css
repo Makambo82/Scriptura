@@ -2219,3 +2219,29 @@ body.is-unlocked .sidebar-logout{display:block}
 .audit-affiner-btn{margin-top:14px;background:rgba(255,255,255,0.06);color:var(--gold-light);border:1px solid var(--border-soft)}
 .audit-affiner-btn:hover{background:rgba(255,255,255,0.1)}
 .audit-affine-note{background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:12px;padding:14px 16px;font-size:0.9rem;color:var(--gold-light);line-height:1.5;margin-bottom:18px}
+
+/* ── DIAGNOSTIC SOMMAIRE (@nom d'utilisateur, sans captures) ── */
+.ds-wrap{max-width:560px;margin:0 auto;padding:100px 12px 80px}
+.ds-tiktok{width:66px;height:66px;border-radius:18px;background:#000;display:flex;align-items:center;justify-content:center;margin:0 auto 22px;box-shadow:0 0 30px -6px rgba(201,168,76,0.35);border:1px solid var(--border-soft)}
+.ds-tiktok svg{width:34px;height:34px}
+.ds-field{display:flex;align-items:center;gap:10px;background:#3A3A3D;border:1px solid rgba(201,168,76,0.35);border-radius:999px;padding:8px 8px 8px 20px;margin-top:26px;transition:border-color .2s}
+.ds-field:focus-within{border-color:var(--gold)}
+.ds-at{font-family:'Poppins',sans-serif;font-size:1.15rem;color:var(--gold);font-weight:600}
+.ds-input{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'Poppins',sans-serif;font-size:1rem;min-width:0}
+.ds-input::placeholder{color:rgba(255,255,255,0.4)}
+.ds-go{flex:0 0 auto;width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;background:linear-gradient(120deg,var(--gold),var(--gold-light));color:var(--bg);font-size:1.3rem;display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.ds-go:hover{transform:scale(1.05)}
+.ds-go:disabled{opacity:0.6;cursor:default;transform:none}
+.ds-note{display:flex;align-items:flex-start;gap:8px;font-family:'Poppins',sans-serif;font-size:0.82rem;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:16px;text-align:left}
+.ds-sep{display:flex;align-items:center;gap:14px;margin:34px 0 22px;color:rgba(255,255,255,0.35);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase}
+.ds-sep::before,.ds-sep::after{content:'';flex:1;height:1px;background:var(--border-soft)}
+.ds-alt{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:18px 20px;text-align:left;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.55}
+.ds-alt strong{color:var(--gold-light);font-weight:600}
+.ds-alt a{color:var(--gold-light);text-decoration:underline;cursor:pointer;white-space:nowrap}
+/* Résultat du diagnostic sommaire : réutilise .score-card (même carte que
+   les recommandations IA de l'accueil) pour rester visuellement cohérent. */
+.ds-result-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:18px 0}
+.ds-result-stat{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:12px;padding:14px;text-align:center}
+.ds-result-stat b{display:block;font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold-light);margin-bottom:2px}
+.ds-result-stat span{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em}
+.ds-result-subscribe{margin-top:18px;padding:16px 18px;background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:12px;font-size:0.88rem;color:var(--gold-light);line-height:1.55}

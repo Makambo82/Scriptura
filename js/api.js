@@ -19,9 +19,13 @@ const CRITIQUE_ACTIVE = true;
 // séparés : un audit ne consomme pas le quota de création et inversement.
 // Ces limites sont indicatives côté client (anti-abus), la vérité reste
 // le comptage Supabase par type.
+// diagnosticSommaire : le diagnostic léger via @nom d'utilisateur (sans
+// captures). Contrairement à "audit" (réservé Pro), il est inclus dès le
+// palier Creator ; Pro en a davantage. Les non-abonnés y ont droit une
+// seule fois, gérée séparément (voir peutFaireDiagnosticSommaire, js/historique.js).
 const LIMITES_MOIS = {
-  creator: { creation: 50, audit: 0 },
-  pro:     { creation: 70, audit: 5 }
+  creator: { creation: 50, audit: 0, diagnosticSommaire: 5 },
+  pro:     { creation: 70, audit: 5, diagnosticSommaire: 10 }
 };
 // Repli si le plan n'est pas reconnu : on applique le moins-disant (Creator).
 function limitesDuPalier() {

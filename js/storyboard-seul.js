@@ -83,6 +83,7 @@ function openStoryboardSeul() {
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('storyFlow').style.display = 'none';
   const afh = document.getElementById('auditFlow'); if (afh) afh.style.display = 'none';
+  const dsfh = document.getElementById('diagSommaireFlow'); if (dsfh) dsfh.style.display = 'none';
   const sfh = document.getElementById('serieFlow'); if (sfh) sfh.style.display = 'none';
   const hfh = document.getElementById('historyFlow'); if (hfh) hfh.style.display = 'none';
   const adm = document.getElementById('adminFlow'); if (adm) adm.style.display = 'none';
