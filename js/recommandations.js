@@ -109,10 +109,70 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebReco);
     const parsed = parseAIResponse(raw);
     if (!parsed || !Array.isArray(parsed.recommandations) || !parsed.recommandations.length) return null;
-    return parsed;
+    // Vérification systématique avant affichage : passe best-effort, ne bloque
+    // jamais l'affichage (voir verifierRecommandations juste en dessous).
+    return await verifierRecommandations(parsed);
   } catch (e) {
     console.warn('Recommandations IA indisponibles', e);
     return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VÉRIFICATION POST-GÉNÉRATION — filet de sécurité anti-hallucination
+//  Un second appel IA, avec recherche web systématique, relit les
+//  recommandations tout juste générées et corrige deux types d'erreurs
+//  que le premier appel peut produire :
+//  1. INCOHÉRENCE INTERNE : le titre parle d'un pays/d'une personne et
+//     l'angle ou les justifications en citent un autre (c'est exactement
+//     le bug constaté : titre "alliance béninoise" pour un contenu qui
+//     parle en réalité du Sénégal ou du Gabon).
+//  2. ERREUR FACTUELLE : un nom, un poste, un pays ou un fait d'actualité
+//     cité est faux ou périmé — vérifié par recherche web.
+//  Best-effort : si cette passe échoue (réseau, JSON invalide, etc.), on
+//  renvoie les recommandations d'origine plutôt que de bloquer
+//  l'affichage — une reco non vérifiée vaut mieux qu'aucune reco.
+// ═══════════════════════════════════════════════════════════
+async function verifierRecommandations(parsed) {
+  try {
+    const verifPrompt = `Tu es un vérificateur factuel strict. On te donne une liste de recommandations de contenu générées automatiquement pour un créateur TikTok francophone. Ta mission : les relire une par une et corriger deux types d'erreurs, AVANT qu'elles ne soient publiées.
+
+1. COHÉRENCE INTERNE (vérifie en premier, sans recherche) : pour CHAQUE recommandation, le titre, l'angle, les justifications et le hook doivent tous parler EXACTEMENT du même pays, des mêmes personnes et des mêmes faits. Un titre qui mentionne un pays alors que l'angle ou les justifications en développent un autre est une erreur grave à corriger immédiatement (ex : un titre qui parle d'une "alliance béninoise" alors que les noms cités sont ceux de dirigeants sénégalais — c'est incohérent et faux, il faut corriger le pays dans le titre pour qu'il corresponde à la réalité du contenu).
+
+2. EXACTITUDE FACTUELLE (utilise la recherche web) : pour chaque nom de personne, poste, pays ou fait d'actualité cité, vérifie par une recherche web qu'il est exact et toujours d'actualité aujourd'hui. Corrige tout ce qui est faux, daté ou périmé.
+
+Voici les recommandations à vérifier, au format JSON :
+${JSON.stringify(parsed.recommandations)}
+
+RÈGLES :
+- Ne réécris QUE ce qui doit être corrigé (incohérence ou erreur factuelle) ; laisse le reste strictement identique.
+- Ne supprime aucune recommandation et n'en ajoute aucune : renvoie exactement le même nombre, dans le même ordre.
+- Garde exactement la même structure JSON pour chaque recommandation (mêmes clés : titre, angle, justifications, potentiel, ton_conseille, hook, source).
+- Si tout est déjà cohérent et exact, renvoie la liste telle quelle.
+
+Réponds UNIQUEMENT avec le JSON corrigé, sans texte avant ni après, structure EXACTE :
+{"recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"...","source":"mixte"}]}`;
+
+    // Recherche web systématique pour cette passe, quelle que soit la niche :
+    // c'est elle qui doit attraper les erreurs de noms/pays/faits, y compris
+    // sur des niches où la génération initiale n'utilisait pas la recherche.
+    const rawVerif = await callAI(MODEL_RAPIDE, 6000, verifPrompt, undefined, true);
+    const verifie = parseAIResponse(rawVerif);
+
+    // Filet de sécurité : la vérification doit renvoyer le même nombre de
+    // recommandations, sinon on ne lui fait pas confiance et on garde
+    // l'original plutôt que de risquer un décalage d'affichage.
+    if (
+      verifie &&
+      Array.isArray(verifie.recommandations) &&
+      verifie.recommandations.length === parsed.recommandations.length
+    ) {
+      parsed.recommandations = verifie.recommandations;
+    }
+    return parsed;
+  } catch (e) {
+    console.warn('Vérification des recommandations indisponible, affichage sans vérification', e);
+    return parsed;
   }
 }
 
@@ -132,10 +192,13 @@ function badgeSourceReco(reco) {
   return i ? `<span class="reco-source-tag">${i.icone} ${i.texte}</span>` : '';
 }
 
-function carteRecommandationHero(reco) {
+function carteRecommandationHero(reco, avecRafraichir) {
   const justifs = (reco.justifications || []).map(j => `<div class="audit-diag-interp">✔ ${escaperReco(j)}</div>`).join('');
   return `
-    <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+    <div class="reco-header-row">
+      <div class="audit-score-label" style="margin-bottom:0">🎯 RECOMMANDATION IA</div>
+      ${avecRafraichir ? boutonActualiserReco() : ''}
+    </div>
     <div class="idea-titre" style="font-size:1.25rem;margin-bottom:10px">${escaperReco(reco.titre)}</div>
     <div class="audit-diag-constat">${escaperReco(reco.angle)}</div>
     <div class="audit-section-label" style="margin-top:18px">Pourquoi cette recommandation ?</div>
@@ -161,16 +224,28 @@ function carteRecommandationSecondaire(reco, index) {
   </div>`;
 }
 
-// Bouton "Nouvelle recommandation" : actif tant qu'il reste des essais du jour,
-// désactivé (+ note) une fois le plafond quotidien atteint (voir RECO_REFRESH_MAX).
-function boutonNouvelleReco() {
+// Bouton "Actualiser" : version compacte et discrète, intégrée à l'en-tête
+// de la carte (à droite du texte "RECOMMANDATION IA"), à la place de
+// l'ancien bouton pleine largeur "↻ Nouvelle recommandation". Même
+// fonction (rafraichirRecommandationAccueil, même id), juste plus discret.
+// Actif tant qu'il reste des essais du jour, désactivé une fois le
+// plafond quotidien atteint (voir RECO_REFRESH_MAX) ; la note de limite
+// est affichée séparément par noteLimiteReco(), sous la carte.
+function boutonActualiserReco() {
   const restants = (typeof recoRefreshRestants === 'function') ? recoRefreshRestants() : RECO_REFRESH_MAX;
-  const base = 'class="btn-regenerate reco-refresh" style="width:100%;justify-content:center;margin-top:20px" id="btnRafraichirReco"';
+  const base = 'class="btn-actualiser reco-refresh" id="btnRafraichirReco" title="Actualiser la recommandation"';
   if (restants > 0) {
-    return `<button ${base} onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>`;
+    return `<button ${base} onclick="rafraichirRecommandationAccueil()"><span class="reco-refresh-label">↻ Actualiser</span></button>`;
   }
-  return `<button ${base} disabled><span class="reco-refresh-label">↻ Nouvelle recommandation</span></button>`
-    + `<div class="ideas-sub" style="text-align:center;margin-top:8px;font-size:0.76rem;opacity:0.65">Tu as atteint ta limite du jour — de nouvelles recommandations demain.</div>`;
+  return `<button ${base} disabled><span class="reco-refresh-label">↻ Actualiser</span></button>`;
+}
+
+// Note affichée sous la carte une fois le plafond quotidien de rafraîchissements
+// atteint (séparée du bouton, désormais logé dans l'en-tête — voir ci-dessus).
+function noteLimiteReco() {
+  const restants = (typeof recoRefreshRestants === 'function') ? recoRefreshRestants() : RECO_REFRESH_MAX;
+  if (restants > 0) return '';
+  return `<div class="ideas-sub" style="text-align:center;margin-top:8px;font-size:0.76rem;opacity:0.65">Tu as atteint ta limite du jour — de nouvelles recommandations demain.</div>`;
 }
 
 // Affiche la recommandation principale + le bouton pour révéler les autres,
@@ -194,9 +269,9 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
   zone.innerHTML = `
     ${entete || ''}
     <div class="score-card">
-      ${carteRecommandationHero(data.recommandations[0])}
+      ${carteRecommandationHero(data.recommandations[0], avecRafraichir)}
       ${confianceNote}
-      ${avecRafraichir ? boutonNouvelleReco() : ''}
+      ${avecRafraichir ? noteLimiteReco() : ''}
       <button class="btn-generate" style="margin-top:10px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
       <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:10px" onclick="toggleAutresRecommandations('${autresId}')">Voir d'autres recommandations</button>
       <div id="${autresId}" style="display:none;margin-top:18px"></div>
@@ -331,10 +406,21 @@ function prenomDepuisCode() {
 }
 
 function salutationAccueil(profil) {
-  // Salutation selon l'heure LOCALE du téléphone de l'utilisateur :
-  // 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
-  const h = new Date().getHours();
-  const base = h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir');
+  // Salutation selon le jour ET l'heure LOCALE du téléphone de l'utilisateur :
+  // - Lundi à jeudi : 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
+  // - Vendredi : "Bon vendredi" toute la journée, quelle que soit l'heure.
+  // - Samedi et dimanche : "Bon week-end" toute la journée, quelle que soit l'heure.
+  const maintenant = new Date();
+  const jour = maintenant.getDay(); // 0 = dimanche, 1 = lundi, ..., 5 = vendredi, 6 = samedi
+  let base;
+  if (jour === 5) {
+    base = 'Bon vendredi';
+  } else if (jour === 0 || jour === 6) {
+    base = 'Bon week-end';
+  } else {
+    const h = maintenant.getHours();
+    base = h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir');
+  }
   const prenom = prenomDepuisCode();
   return prenom ? (base + ' ' + prenom + ' 👋') : (base + ' 👋');
 }
