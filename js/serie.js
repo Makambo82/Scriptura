@@ -353,9 +353,9 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   if (!serieCouranteId) return;
   const err = document.getElementById('serieDetailError');
   if (!isRegen) resetRegen('storyboardSerie');
-  const gratuite = regenEstGratuite('storyboardSerie');
-  _regenGratuiteEnCours = gratuite;
   if (isRegen) {
+    const gratuite = regenEstGratuite('storyboardSerie');
+    _regenGratuiteEnCours = gratuite;
     const restantes = REGEN_GRATUITES - regenCount.storyboardSerie;
     if (gratuite) {
       toastRegen('Régénération gratuite · ' + restantes + ' restante' + (restantes > 1 ? 's' : ''));

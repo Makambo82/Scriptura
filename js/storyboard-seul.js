@@ -85,6 +85,7 @@ function openStoryboardSeul() {
   const afh = document.getElementById('auditFlow'); if (afh) afh.style.display = 'none';
   const sfh = document.getElementById('serieFlow'); if (sfh) sfh.style.display = 'none';
   const hfh = document.getElementById('historyFlow'); if (hfh) hfh.style.display = 'none';
+  const adm = document.getElementById('adminFlow'); if (adm) adm.style.display = 'none';
   document.getElementById('storyboardSeulFlow').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -377,7 +378,7 @@ function afficherStoryboardSeulResultat(board, miniature) {
         <span class="sb-index">Couverture</span>
       </div>
       <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-      <div class="sb-visual">${miniature}</div>
+      <div class="sb-visual">${serieEsc(miniature)}</div>
       ${blocGenImage(storeCopyText(miniature || ''))}
     </div>` : '';
   const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + board.map((s, i) => `Plan ${s.segment || (i + 1)} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
@@ -387,9 +388,9 @@ function afficherStoryboardSeulResultat(board, miniature) {
         <span class="sb-time">${s.duree || ''}</span>
         <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
       </div>
-      <div class="sb-dit">"${s.texte || ''}"</div>
+      <div class="sb-dit">"${serieEsc(s.texte)}"</div>
       <div class="sb-visual-label">🖼️ Prompt visuel</div>
-      <div class="sb-visual">${s.visuel || ''}</div>
+      <div class="sb-visual">${serieEsc(s.visuel)}</div>
       ${blocGenImage(storeCopyText(s.visuel || ''))}
     </div>`).join('')}
     <div class="sb-actions-fin">

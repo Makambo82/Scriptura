@@ -337,8 +337,6 @@ nav{
 .out-body .prompt-item{background:none;border:none}
 .out-body .script-block{background:none;border:none;padding:0}
 .out-body .story-segment{border-left:none;padding-left:0}
-.serie-episode{background:none;border:none;padding:0}
-.serie-directives{background:none;border:none}
 .out-card.open .out-body{display:block}
 
 /* SECTIONS DANS LE CARD */

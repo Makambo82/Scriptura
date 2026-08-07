@@ -925,9 +925,17 @@ function reopenGeneration(i) {
   } else if (g.mode === 'storyboardSeul') {
     const sbsh = document.getElementById('storyboardSeulFlow');
     if (sbsh) sbsh.style.display = 'block';
-    document.getElementById('sbSeulInput').value = g.contenu.script || '';
-    if (g.contenu.storyboard_genere) {
-      afficherStoryboardSeulResultat(g.contenu.storyboard_genere.storyboard, g.contenu.storyboard_genere.miniature || null);
+    const csb = g.contenu || {};
+    document.getElementById('sbSeulInput').value = csb.script || '';
+    if (typeof sbSeulPlatform !== 'undefined') sbSeulPlatform = csb.plateforme || '';
+    const pfContainer = document.getElementById('sbSeulPlatformGrid');
+    if (pfContainer) {
+      pfContainer.querySelectorAll('.grid-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.val === csb.plateforme);
+      });
+    }
+    if (csb.storyboard_genere) {
+      afficherStoryboardSeulResultat(csb.storyboard_genere.storyboard, csb.storyboard_genere.miniature || null);
     }
   } else if (g.mode === 'serie') {
     // Un épisode de série : on le réaffiche seul, dans le module série
