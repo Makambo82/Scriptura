@@ -1601,10 +1601,15 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   text-decoration:none;width:100%;
 }
 .sidebar-item:hover{background:rgba(255,255,255,0.05)}
-.sidebar-icon{font-size:1.1rem;width:24px;text-align:center}
+/* Largeur fixe + flex-shrink:0 pour que tous les libellés démarrent exactement
+   à la même position, quelle que soit la largeur visuelle de l'émoji utilisé. */
+.sidebar-icon{
+  font-size:1.1rem;width:24px;flex:0 0 24px;
+  display:inline-flex;align-items:center;justify-content:center;
+}
 .sidebar-footer{
   font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;
-  color:rgba(255,255,255,0.3);text-align:center;padding-top:20px;
+  color:rgba(255,255,255,0.3);text-align:left;padding:20px 14px 0;
 }
 body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
@@ -1613,10 +1618,17 @@ body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
    js/app.js et js/auth.js). */
 .sidebar-item.nav-admin-btn{display:none}
 body.is-admin .sidebar-item.nav-admin-btn{display:flex}
+/* "Nous contacter" masqué uniquement pour le fondateur (remplacé par
+   "Se déconnecter" en bas de la barre latérale). */
+body.is-admin .sidebar-item.nav-contact-btn{display:none}
+/* "Se déconnecter" : uniquement pour les abonnés et le fondateur (un
+   non-abonné n'a pas de code, donc rien dont se déconnecter). Ancré en bas
+   de la barre latérale — .sidebar-nav garde flex:1 pour pousser ce bloc
+   tout en bas quel que soit le nombre d'items au-dessus. */
 .sidebar-logout{
   border-top:1px solid var(--border-soft);
   padding-top:10px;
-  margin-top:8px;
+  margin-top:auto;
   display:none;
 }
 body.is-unlocked .sidebar-logout{display:block}
