@@ -180,16 +180,19 @@ function escaperReco(s) { return (typeof auditEsc === 'function') ? auditEsc(s) 
 
 // Source d'une recommandation (renseignée par le modèle) : sur quoi elle se
 // fonde. Retourne null si absente (anciennes recos en cache) -> aucune étiquette.
+// `premium` : true quand la source s'appuie au moins en partie sur le
+// diagnostic (fonctionnalité Pro) -> traitement émeraude du badge, voir
+// badgeSourceReco et css/style.css (.reco-source-tag.premium).
 function infoSourceReco(reco) {
   const s = (reco && reco.source ? String(reco.source) : '').trim().toLowerCase();
-  if (s === 'diagnostic') return { icone: '📊', texte: "D'après ton diagnostic TikTok" };
-  if (s === 'creations' || s === 'créations') return { icone: '🎬', texte: "D'après tes créations" };
-  if (s === 'mixte' || s.includes('deux')) return { icone: '🧭', texte: "D'après ton diagnostic et tes créations" };
+  if (s === 'diagnostic') return { icone: '📊', texte: "D'après ton diagnostic TikTok", premium: true };
+  if (s === 'creations' || s === 'créations') return { icone: '🎬', texte: "D'après tes créations", premium: false };
+  if (s === 'mixte' || s.includes('deux')) return { icone: '🧭', texte: "D'après ton diagnostic et tes créations", premium: true };
   return null;
 }
 function badgeSourceReco(reco) {
   const i = infoSourceReco(reco);
-  return i ? `<span class="reco-source-tag">${i.icone} ${i.texte}</span>` : '';
+  return i ? `<span class="reco-source-tag${i.premium ? ' premium' : ''}">${i.icone} ${i.texte}</span>` : '';
 }
 
 function carteRecommandationHero(reco, avecRafraichir) {
