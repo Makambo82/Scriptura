@@ -156,16 +156,20 @@ function renderGenCounter() {
       c.counter.classList.remove('pulse');
       c.counter.classList.add('is-premium');
       // Libellé de la pastille : Fondateur pour le compte admin, sinon
-      // "Abonné Creator" / "Abonné Pro" selon le plan.
-      let badgeTxt;
+      // "Abonné Creator" / "Abonné Pro" selon le plan. Le badge Fondateur
+      // reçoit en plus la classe "fondateur" (voir css/style.css) pour un
+      // traitement émeraude, au-dessus même du doré des abonnés Pro/Creator.
+      let badgeTxt, estFondateur;
       if (typeof estCodeAdmin === 'function' && estCodeAdmin()) {
         badgeTxt = 'Fondateur';
+        estFondateur = true;
       } else {
         const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
         badgeTxt = (palier === 'pro') ? 'Abonné Pro' : 'Abonné Creator';
+        estFondateur = false;
       }
       c.counter.innerHTML =
-        '<span class="abonne-badge"><span class="abonne-star">★</span> ' + badgeTxt + '</span>' +
+        '<span class="abonne-badge' + (estFondateur ? ' fondateur' : '') + '"><span class="abonne-star">★</span> ' + badgeTxt + '</span>' +
         '<span class="quota-jour" style="color:rgba(255,255,255,0.55);font-size:0.82rem"></span>';
       c.counter.style.cursor = 'pointer';
       c.counter.onclick = ouvrirInfosAbonne;
