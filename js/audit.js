@@ -1,1534 +1,342 @@
-let auditCaptures = []; // { nom, dataUrl, mediaType, base64 }
-const AUDIT_MAX = 16;
-
-// Ajoute les fichiers choisis (galerie ou appareil photo)
-async function ajouterCaptures(files) {
-  const err = document.getElementById('auditError');
-  err.style.display = 'none';
-  const liste = Array.from(files || []);
-  for (const f of liste) {
-    if (auditCaptures.length >= AUDIT_MAX) {
-      err.textContent = 'Maximum ' + AUDIT_MAX + ' captures.';
-      err.style.display = 'block';
-      break;
-    }
-    if (!f.type.startsWith('image/')) continue;
-    try {
-      const compresse = await compresserImage(f);
-      // On mémorise l'étape où la capture a été ajoutée : ça permet de dire
-      // si elle correspond bien à la donnée demandée à ce moment-là.
-      compresse.etape = (typeof auditAffineMode !== 'undefined' && auditAffineMode) ? null : auditEtapeIndex;
-      auditCaptures.push(compresse);
-    } catch(e) { console.warn('Capture ignorée', e); }
-  }
-  document.getElementById('auditInput').value = '';
-  awConfirmSaut = false; // une capture vient d'arriver : on lève un éventuel avertissement de saut
-  renderCaptures();
-  if (typeof renderAuditWizard === 'function') renderAuditWizard();
-  detecterTypesCaptures(); // reconnaissance en arrière-plan, sans bloquer
-}
-
-// Types de données attendues, pour l'affichage
-const AUDIT_TYPES = {
-  1: "Vue d'ensemble",
-  2: "Détail vidéo",
-  3: "Top contenus",
-  4: "Audience"
-};
-
-// Demande à l'IA (Haiku, rapide et bon marché) de reconnaître chaque capture.
-// N'analyse rien : sert juste à confirmer à l'utilisateur que Scriptura
-// a bien identifié ce qu'il envoie. N'empêche jamais de lancer l'audit.
-async function detecterTypesCaptures() {
-  if (!auditCaptures.length) return;
-  // On marque tout comme "en cours" pour un retour visuel immédiat
-  auditCaptures.forEach(c => { if (c.type === undefined) c.type = 'attente'; });
-  renderCaptures();
-  try {
-    const res = await fetch('/api/audit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mode: 'classify',
-        images: auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType })),
-        code_acces: localStorage.getItem('scriptura_code') || null
-      })
-    });
-    if (!res.ok) throw new Error('classification indisponible');
-    const data = await res.json();
-    const brut = (data.content || []).map(b => b.text || '').join('');
-    const types = JSON.parse(brut.replace(/```json|```/g, '').trim());
-    if (!Array.isArray(types)) throw new Error('réponse illisible');
-    auditCaptures.forEach((c, i) => { c.type = (types[i] != null) ? types[i] : null; });
-  } catch(e) {
-    // En cas d'échec, on n'affiche aucun symbole plutôt qu'une fausse info
-    console.warn('Détection des captures indisponible', e);
-    auditCaptures.forEach(c => { c.type = null; });
-  }
-  renderCaptures();
-}
-
-// Réduit la taille de l'image avant envoi (les captures de téléphone sont lourdes)
-function compresserImage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('lecture impossible'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('image invalide'));
-      img.onload = () => {
-        // Compression adaptative : au-delà de 8 captures, on réduit un peu plus
-        // pour que le poids TOTAL de l'envoi reste dans les limites du serveur.
-        // 1100 px reste largement suffisant pour lire des chiffres de statistiques.
-        const beaucoup = auditCaptures.length >= 8;
-        const MAX = beaucoup ? 1100 : 1400;
-        const QUALITE = beaucoup ? 0.72 : 0.82;
-        let { width, height } = img;
-        if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', QUALITE);
-        resolve({
-          nom: file.name || 'capture',
-          dataUrl: dataUrl,
-          mediaType: 'image/jpeg',
-          base64: dataUrl.split(',')[1]
-        });
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// Affiche les vignettes des captures ajoutées
-function renderCaptures() {
-  const zone = document.getElementById('auditThumbs');
-  const btn = document.getElementById('auditBtn');
-  if (!zone) return;
-  zone.innerHTML = auditCaptures.map((c, i) => {
-    return `
-    <div class="audit-thumb">
-      <img src="${c.dataUrl}" alt="capture ${i+1}"/>
-      ${badgeCapture(c)}
-      <button class="audit-thumb-del" onclick="retirerCapture(${i})" title="Retirer">✕</button>
-    </div>`;
-  }).join('');
-  renderCouverture();
-  // La visibilité du bouton dépend de l'étape (bouton visible seulement à
-  // l'étape finale, ou en mode affiner) — géré par l'assistant guidé.
-  if (typeof majAffichageBoutonAudit === 'function') majAffichageBoutonAudit();
-  else if (btn) btn.style.display = auditCaptures.length ? 'flex' : 'none';
-  // Met à jour le statut ✅/⏳ de l'étape courante (la reconnaissance IA est async).
-  if (typeof majStatutEtape === 'function') majStatutEtape();
-}
-
-// Badge d'une vignette : ✅ si c'est bien la donnée demandée à l'étape où elle
-// a été ajoutée, ⚠️ si l'image n'est pas reconnue OU ne correspond pas à cette
-// étape, … pendant l'analyse. (Reconnaissance globale via detecterTypesCaptures.)
-function badgeCapture(c) {
-  if (c.type === 'attente') return '<span class="thumb-badge attente">…</span>';
-  if (c.type === 0) return '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">⚠️</span>';
-  if (AUDIT_TYPES[c.type]) {
-    const attendu = (c.etape != null) ? AUDIT_ETAPE_TYPE[c.etape] : null;
-    if (attendu && c.type !== attendu) {
-      const t = 'Cette capture ressemble à : ' + AUDIT_TYPES[c.type] + ', pas à la donnée demandée à cette étape';
-      return '<span class="thumb-badge alerte" title="' + t + '">⚠️</span>';
-    }
-    return '<span class="thumb-badge ok" title="' + AUDIT_TYPES[c.type] + ' reconnue">✅</span>';
-  }
-  return '';
-}
-
-// Récapitule les données reconnues et celles qui manquent encore.
-function renderCouverture() {
-  const zone = document.getElementById('auditCouverture');
-  if (!zone) return;
-  const typesVus = new Set(auditCaptures.map(c => c.type).filter(t => AUDIT_TYPES[t]));
-  const enAttente = auditCaptures.some(c => c.type === 'attente');
-  if (!auditCaptures.length || enAttente) { zone.innerHTML = ''; return; }
-  // Le "détail vidéo" couvre 2 des 5 données (meilleure + pire) : on ne peut pas
-  // les distinguer visuellement, donc on reste factuel sur ce qui est reconnu.
-  const lignes = Object.keys(AUDIT_TYPES).map(k => {
-    const vu = typesVus.has(Number(k));
-    return `<div class="couv-ligne ${vu ? 'vue' : 'manque'}">${vu ? '✅' : '○'} ${AUDIT_TYPES[k]}</div>`;
-  }).join('');
-  const nbAlerte = auditCaptures.filter(c => c.type === 0).length;
-  const note = nbAlerte
-    ? `<div class="couv-note">${formaterNombre(nbAlerte)} capture${nbAlerte > 1 ? 's' : ''} non reconnue${nbAlerte > 1 ? 's' : ''}. Tu peux quand même lancer le diagnostic : Scriptura te dira à la fin ce qui lui a manqué.</div>`
-    : '';
-  zone.innerHTML = `<div class="couv-titre">Ce que Scriptura a reconnu</div>${lignes}${note}`;
-}
-
-function retirerCapture(i) {
-  auditCaptures.splice(i, 1);
-  renderCaptures();
-}
-
 // ═══════════════════════════════════════════════════════════
-//  ASSISTANT DE CAPTURE GUIDÉ — une donnée TikTok à la fois
-//  Même exigence qu'avant (5 données, jusqu'à 16 captures) : on ne fait que
-//  guider l'utilisateur écran par écran pour réduire la confusion. Toute la
-//  mécanique (auditCaptures, reconnaissance IA, lancerAudit) reste inchangée.
-// ═══════════════════════════════════════════════════════════
-// ORDRE DES ÉTAPES — pensé pour que l'utilisateur enchaîne les onglets de
-// l'écran "Analytique" sans quitter TikTok Studio : Vue d'ensemble → Contenu →
-// Spectateurs sont trois onglets voisins. La meilleure/pire vidéo passe EN
-// DERNIER car elle oblige à sortir d'Analytique pour ouvrir chaque vidéo.
+//  /api/audit — Fonction dédiée au mode "Analyse mon compte TikTok"
+//  Reçoit des captures d'écran (images) + le contexte du créateur
+//  (objectif, niche, fréquence), les transmet à l'API Anthropic
+//  avec le prompt d'audit, renvoie la réponse.
 //
-// Chaque étape peut porter des "exemples" : de vraies captures TikTok Studio,
-// annotées d'une flèche rouge, montrant précisément l'écran à photographier.
-// Elles s'affichent SOUS le schéma indicatif (voir renderAuditWizard) et sont
-// chargées en différé (loading="lazy") pour ne pas ralentir la page.
-const AUDIT_ETAPES = [
-  {
-    titre: "Vue d'ensemble · 60 jours",
-    path: "TikTok Studio → Analyses → Vue d'ensemble → Période : 60 jours",
-    tip: "Cet écran montre tes vues de publication, tes vues de profil, tes J'aime, tes commentaires et tes partages sur la période. Pense bien à sélectionner « 60 jours ».",
-    label: "Ajouter : vue d'ensemble",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><rect x="34" y="62" width="16" height="30" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="66" y="48" width="16" height="44" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="98" y="54" width="16" height="38" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="130" y="34" width="16" height="58" rx="2" fill="#C9A84C" opacity="0.8"/><rect x="162" y="22" width="16" height="70" rx="2" fill="#E2C87A"/></svg>`,
-    exemples: [
-      { src: "assets/audit/ov.webp", cap: "Onglet « Vue d'ensemble », période 60 jours." }
-    ]
-  },
-  {
-    titre: "Top contenus · 60 jours",
-    path: "TikTok Studio → Analyses → Contenu → Période : 60 jours → « Les plus vues »",
-    tip: "La liste de tes vidéos classées par vues : elle situe tes deux vidéos par rapport au reste de ton compte. Descends jusqu'en bas (10 vidéos) : le plus souvent, il faut deux captures.",
-    label: "Ajouter : top contenus",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><rect x="20" y="16" width="30" height="22" rx="3" fill="rgba(201,168,76,0.28)"/><rect x="58" y="20" width="110" height="6" rx="3" fill="#E2C87A"/><rect x="58" y="30" width="70" height="5" rx="3" fill="rgba(255,255,255,0.25)"/><rect x="20" y="46" width="30" height="22" rx="3" fill="rgba(201,168,76,0.22)"/><rect x="58" y="50" width="90" height="6" rx="3" fill="#C9A84C"/><rect x="58" y="60" width="60" height="5" rx="3" fill="rgba(255,255,255,0.22)"/><rect x="20" y="76" width="30" height="22" rx="3" fill="rgba(201,168,76,0.16)"/><rect x="58" y="80" width="70" height="6" rx="3" fill="rgba(201,168,76,0.6)"/><rect x="58" y="90" width="45" height="5" rx="3" fill="rgba(255,255,255,0.2)"/></svg>`,
-    exemples: [
-      { src: "assets/audit/top-1.webp", cap: "Onglet « Contenu » → « Les plus vues » (n° 1 à 5)." },
-      { src: "assets/audit/top-2.webp", cap: "Descends pour la suite (jusqu'à la n° 10)." }
-    ]
-  },
-  {
-    titre: "Ton audience",
-    path: "TikTok Studio → Analyses → Spectateurs → Sexe, Âge et Emplacements",
-    tip: "Qui te regarde : sexe, âge, pays. En bas de l'écran, appuie tour à tour sur « Sexe », « Âge » puis « Emplacements » et prends une capture de chacun — l'emplacement (pays) est le plus important pour savoir si ton contenu parle à la bonne audience.",
-    label: "Ajouter : audience",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><circle cx="58" cy="55" r="28" stroke="rgba(255,255,255,0.15)" stroke-width="12" fill="none"/><circle cx="58" cy="55" r="28" stroke="#C9A84C" stroke-width="12" fill="none" stroke-dasharray="105 71" transform="rotate(-90 58 55)"/><circle cx="58" cy="55" r="28" stroke="#E2C87A" stroke-width="12" fill="none" stroke-dasharray="48 128" stroke-dashoffset="-105" transform="rotate(-90 58 55)"/><rect x="104" y="34" width="66" height="8" rx="4" fill="#E2C87A"/><rect x="104" y="51" width="48" height="8" rx="4" fill="#C9A84C"/><rect x="104" y="68" width="30" height="8" rx="4" fill="rgba(201,168,76,0.5)"/></svg>`,
-    exemples: [
-      { src: "assets/audit/audience.webp", cap: "Onglet « Spectateurs » → une capture par onglet : Sexe, Âge, Emplacements." }
-    ]
-  },
-  {
-    titre: "Ta vidéo la plus performante · analyse complète",
-    path: "Depuis ton profil, ouvre ta MEILLEURE vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
-    tip: "Sur l'écran des données, descends jusqu'à la courbe de rétention. Si tout ne tient pas, prends deux captures : les indicateurs en haut (dont les nouveaux abonnés gagnés par la vidéo), puis la courbe plus bas.",
-    label: "Ajouter : meilleure vidéo",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,28 44,40 70,56 100,60 140,62 184,66" stroke="#E2C87A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
-    exemples: [
-      { src: "assets/audit/video-indicateurs.webp", cap: "Les indicateurs de la vidéo (dont les nouveaux abonnés gagnés)." },
-      { src: "assets/audit/video-retention.webp", cap: "Plus bas sur le même écran : la courbe de rétention." }
-    ]
-  },
-  {
-    titre: "Ta vidéo la moins performante · analyse complète",
-    path: "Depuis ton profil, ouvre ta MOINS bonne vidéo, puis appuie sur « Plus de données » (bandeau du bas). Autre méthode : les trois points « ⋯ » à droite de la vidéo → « Données analytiques ».",
-    tip: "Même écran que pour ta meilleure vidéo : les indicateurs en haut, puis la courbe de rétention plus bas (deux captures si nécessaire). C'est la comparaison des deux qui révèle ce qui marche.",
-    label: "Ajouter : vidéo la moins performante",
-    schema: `<svg viewBox="0 0 200 110" fill="none"><line x1="20" y1="92" x2="188" y2="92" stroke="rgba(255,255,255,0.15)"/><polyline points="24,26 40,52 60,74 90,84 140,88 184,90" stroke="#C9A84C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`,
-    exemples: [
-      { src: "assets/audit/video-indicateurs.webp", cap: "Mêmes écrans, pour ta vidéo la moins bonne : les indicateurs…" },
-      { src: "assets/audit/video-retention.webp", cap: "…puis la courbe de rétention plus bas." }
-    ]
-  }
-];
-
-// Type de donnée attendu à chaque étape (voir AUDIT_TYPES), dans le MÊME ordre
-// que AUDIT_ETAPES ci-dessus : 1 = vue d'ensemble, 3 = top contenus,
-// 4 = audience, 2 = détail vidéo (meilleure ET pire, que la reconnaissance ne
-// sait pas distinguer — c'est normal et sans conséquence).
-const AUDIT_ETAPE_TYPE = [1, 3, 4, 2, 2];
-
-let auditEtapeIndex = 0;   // 0..AUDIT_ETAPES.length (la dernière = profil + lancement)
-let auditAffineMode = false;
-let awConfirmSaut = false; // true quand on demande "continuer sans la capture ?"
-
-function auditSurEtapeFinale() { return auditEtapeIndex >= AUDIT_ETAPES.length; }
-
-// Statut ✅/⏳ de l'étape courante, mis à jour quand la reconnaissance IA arrive.
-function majStatutEtape() {
-  if (awConfirmSaut) return; // ne pas écraser l'avertissement de saut
-  const el = document.getElementById('awStatut');
-  if (!el) return;
-  if (auditAffineMode || auditSurEtapeFinale()) { el.innerHTML = ''; return; }
-  const attendu = AUDIT_ETAPE_TYPE[auditEtapeIndex];
-  if (auditCaptures.some(c => c.type === 'attente')) {
-    el.innerHTML = '<span class="aw-statut attente">⏳ Scriptura lit ta capture…</span>';
-  } else if (auditCaptures.some(c => c.type === attendu)) {
-    el.innerHTML = '<span class="aw-statut ok">✅ Cette donnée est bien reconnue</span>';
-  } else {
-    el.innerHTML = '';
-  }
-}
-
-// Prépare l'écran audit : mode normal (parcours guidé) ou mode "affiner"
-// (ajout direct de captures + relance, sans re-parcourir les 5 étapes).
-function initAuditWizard(affine) {
-  auditAffineMode = !!affine;
-  auditEtapeIndex = affine ? AUDIT_ETAPES.length : 0;
-  awConfirmSaut = false; // repart propre à chaque entrée dans l'audit
-  renderAuditWizard();
-}
-
-// Masque toute l'UI de capture (utilisé pour afficher un audit déjà enregistré).
-function masquerUICaptureAudit() {
-  ['auditWizard', 'auditContextCard', 'auditAffineNote', 'auditDrop', 'auditThumbs', 'auditCouverture', 'auditBtn']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-}
-
-function majAffichageBoutonAudit() {
-  const btn = document.getElementById('auditBtn');
-  if (!btn) return;
-  const pret = auditCaptures.length > 0 && (auditSurEtapeFinale() || auditAffineMode);
-  btn.style.display = pret ? 'flex' : 'none';
-}
-
-function renderAuditWizard() {
-  const wiz = document.getElementById('auditWizard');
-  const card = document.getElementById('awCard');
-  const nav = document.getElementById('awNav');
-  const count = document.getElementById('awCount');
-  const barFill = document.getElementById('awBarFill');
-  const ctx = document.getElementById('auditContextCard');
-  const affineNote = document.getElementById('auditAffineNote');
-  const drop = document.getElementById('auditDrop');
-  const thumbs = document.getElementById('auditThumbs');
-  const couv = document.getElementById('auditCouverture');
-  const dropLabel = drop ? drop.querySelector('.audit-drop-label') : null;
-
-  if (thumbs) thumbs.style.display = '';
-  if (drop) drop.style.display = '';
-
-  // ── Mode "affiner" : pas de re-parcours, on montre l'ajout + le rappel ──
-  if (auditAffineMode) {
-    if (wiz) wiz.style.display = 'none';
-    if (ctx) ctx.style.display = 'none';
-    if (affineNote) affineNote.style.display = 'block';
-    if (couv) couv.style.display = '';
-    if (dropLabel) dropLabel.textContent = 'Ajouter une capture';
-    majAffichageBoutonAudit();
-    return;
-  }
-
-  if (affineNote) affineNote.style.display = 'none';
-  const finale = auditSurEtapeFinale();
-
-  if (!finale) {
-    // ── Étapes de capture guidées (une donnée à la fois) ──
-    const e = AUDIT_ETAPES[auditEtapeIndex];
-    if (wiz) wiz.style.display = '';
-    if (count) count.textContent = 'Étape ' + (auditEtapeIndex + 1) + ' / ' + AUDIT_ETAPES.length;
-    if (barFill) barFill.style.width = Math.round((auditEtapeIndex / AUDIT_ETAPES.length) * 100) + '%';
-    // Exemples réels (captures TikTok Studio annotées d'une flèche rouge) :
-    // montrent l'écran exact à photographier. Chargés en différé (lazy).
-    const exHtml = (e.exemples && e.exemples.length)
-      ? '<div class="aw-ex"><div class="aw-ex-titre">📸 L\'écran exact à capturer</div><div class="aw-ex-grid">' +
-        e.exemples.map(x =>
-          '<figure class="aw-ex-item"><img src="' + x.src + '" loading="lazy" decoding="async" alt="Exemple : ' + auditEsc(e.titre) + '" class="aw-ex-img"><figcaption>' + x.cap + '</figcaption></figure>'
-        ).join('') +
-        '</div></div>'
-      : '';
-    if (card) card.innerHTML =
-      '<div class="aw-schema">' + e.schema + '</div>' +
-      '<div class="aw-schema-note">schéma indicatif</div>' +
-      '<div class="aw-title">' + e.titre + '</div>' +
-      '<div class="aw-path">' + e.path + '</div>' +
-      (e.tip ? '<div class="aw-tip">' + e.tip + '</div>' : '') +
-      exHtml +
-      '<div id="awStatut"></div>';
-    if (nav) {
-      let b = '';
-      if (auditEtapeIndex > 0) b += '<button onclick="auditStepPrecedent()">← Précédent</button>';
-      const labelSuite = awConfirmSaut ? 'Continuer quand même →'
-        : (auditEtapeIndex === AUDIT_ETAPES.length - 1 ? 'Terminer →' : 'Suivant →');
-      b += '<button class="aw-primary" onclick="auditStepSuivant()">' + labelSuite + '</button>';
-      nav.innerHTML = b;
-    }
-    if (ctx) ctx.style.display = 'none';
-    if (couv) couv.style.display = 'none';
-    if (dropLabel) dropLabel.textContent = e.label;
-    // Statut de l'étape : avertissement de saut prioritaire, sinon ✅/⏳.
-    if (awConfirmSaut) {
-      const st = document.getElementById('awStatut');
-      if (st) st.innerHTML = '<span class="aw-statut alerte">⚠️ Tu n\'as pas ajouté « ' + e.titre + ' ». Ajoute-la maintenant, ou continue quand même.</span>';
-    } else {
-      majStatutEtape();
-    }
-  } else {
-    // ── Étape finale : récap + retour possible, puis profil + lancement ──
-    if (wiz) wiz.style.display = '';
-    if (count) count.textContent = 'Dernière étape';
-    if (barFill) barFill.style.width = '100%';
-    if (card) card.innerHTML =
-      '<div class="aw-title">Presque terminé 🎯</div>' +
-      '<div class="aw-tip">Renseigne ton profil ci-dessous, vérifie tes captures, puis lance le diagnostic. Il te manque une donnée ? Ajoute-la, ou reviens en arrière.</div>';
-    if (nav) nav.innerHTML = '<button onclick="auditStepPrecedent()">← Revoir mes captures</button>';
-    if (ctx) ctx.style.display = '';
-    if (couv) couv.style.display = '';
-    if (dropLabel) dropLabel.textContent = 'Ajouter une capture oubliée';
-  }
-  majAffichageBoutonAudit();
-}
-
-function auditStepSuivant() {
-  // Avant d'avancer : la donnée de cette étape est-elle bien présente ?
-  if (!auditSurEtapeFinale()) {
-    const attendu = AUDIT_ETAPE_TYPE[auditEtapeIndex];
-    const enAttente = auditCaptures.some(c => c.type === 'attente');
-    const present = auditCaptures.some(c => c.type === attendu);
-    if (!present && !enAttente && !awConfirmSaut) {
-      // Rien pour cette donnée : on prévient, sans bloquer. Un 2e clic passe.
-      awConfirmSaut = true;
-      renderAuditWizard();
-      return;
-    }
-  }
-  awConfirmSaut = false;
-  if (auditEtapeIndex < AUDIT_ETAPES.length) auditEtapeIndex++;
-  renderAuditWizard();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-function auditStepPrecedent() {
-  awConfirmSaut = false;
-  if (auditEtapeIndex > 0) auditEtapeIndex--;
-  renderAuditWizard();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-
-// ═══════════════════════════════════════════════════════════
-//  AUDIT — Prompt d'analyse + branchement IA + affichage
+//  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
 
-// Échappe le HTML pour un affichage sûr
-function auditEsc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Date réelle du jour, injectée dans l'appel d'audit principal (même principe
+// que api/generate.js) : sans repère temporel, le modèle peut analyser un
+// sujet d'actualité (niche "Géopolitique & Actualité", etc.) en présentant
+// des faits ou une année déjà passés comme encore à venir.
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function systemDateActuelle() {
+  const now = new Date();
+  const dateStr = now.getUTCDate() + ' ' + MOIS_FR[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
+  return `Nous sommes le ${dateStr}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir. Si le contenu du créateur touche à l'actualité récente ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes constats avec prudence plutôt qu'avec une certitude que tu n'as pas.
+
+RÈGLE DE MAJUSCULES (toujours, y COMPRIS pour les titres, accroches et hooks) : une majuscule uniquement en début de phrase/titre et pour les noms propres (personnes, lieux, marques, institutions, acronymes). N'utilise JAMAIS de majuscule au milieu d'une phrase ou d'un titre sur un nom commun, même pour insister ou donner de l'importance à un mot (interdit par exemple : "la Vérité", "le Pouvoir", "une Stratégie", "cette Décision"). Un titre en français n'est JAMAIS écrit en "Title Case" à l'anglaise (une majuscule à chaque mot) : c'est une erreur fréquente à éviter absolument. Exemple INTERDIT : "Le Complot Que La Guinée Cache Depuis 2021". Exemple CORRECT : "Le complot que la Guinée cache depuis 2021" (seuls "Le" en début de titre et "Guinée" en nom propre gardent une majuscule).
+
+RÈGLE DE FORMAT DES NOMBRES (toujours) : quand tu écris un nombre avec un séparateur de milliers et/ou une décimale, utilise EXACTEMENT ce format : le point comme séparateur de milliers, la virgule comme séparateur décimal. Exemple : 107.453,98 — jamais "107 453,98" (espace, la norme française habituelle — ne l'utilise PAS ici malgré ce réflexe), jamais "107,453.98" (format anglo-saxon). Exception impérative : une ANNÉE ne prend JAMAIS de séparateur de milliers, quelle qu'elle soit (2026, 2001, 1990…) — écris-la toujours telle quelle, jamais "2.026" ou "1.990".`;
 }
 
-async function lancerAudit() {
-  const err = document.getElementById('auditError');
-  const out = document.getElementById('auditOutput');
-  const btn = document.getElementById('auditBtn');
-  const spin = document.getElementById('auditSpinner');
-  const btnText = document.getElementById('auditBtnText');
+// Même périmètre restreint que côté client (js/api.js, NICHES_ACTUALITE) :
+// recherche web réservée aux niches où une erreur factuelle est probable.
+const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime'];
 
-  if (!auditCaptures.length) {
-    err.textContent = 'Ajoute au moins une capture de tes statistiques.';
-    err.style.display = 'block';
-    return;
+// Prompt court et bon marché : sert uniquement à reconnaître le TYPE de chaque
+// capture au moment du chargement, pour guider l'utilisateur avant l'audit.
+// Ne fait AUCUNE analyse : il classe, c'est tout.
+const CLASSIFY_PROMPT = `On te donne des captures d'écran, dans l'ordre. Pour CHACUNE, dis à quelle donnée TikTok elle correspond parmi cette liste :
+
+1 = Vue d'ensemble (60 jours) : vues des publications, vues du profil, likes, commentaires, partages, abonnés
+2 = Détail d'une vidéo : indicateurs d'une seule vidéo, courbe ou taux de rétention, durée de visionnage, sources de trafic
+3 = Top contenus : une liste de plusieurs vidéos avec leurs vues
+4 = Audience : répartition par âge, sexe, pays/emplacements
+0 = Autre : tout ce qui n'est aucune des quatre ci-dessus (photo personnelle, autre application, image illisible, capture sans rapport)
+
+RÈGLES (lis-les attentivement, elles évitent des erreurs fréquentes) :
+
+1. LES CAPTURES SE SUIVENT. Elles te sont données dans l'ordre où l'utilisateur les a prises. Un même écran TikTok est souvent trop long pour tenir en une image : il le capture alors en 2 ou 3 fois, en descendant. Ces captures successives appartiennent à la MÊME donnée et reçoivent TOUTES le même numéro.
+
+2. UNE SUITE D'ÉCRAN N'EST PAS UNE IMAGE INCONNUE. Une capture qui montre le bas d'un écran (une courbe de rétention seule, une liste de pays seule, des pourcentages seuls, un tableau sans titre) est la CONTINUATION de la capture précédente, pas une image sans rapport. Regarde la capture qui la précède : si elle en est visiblement la suite, donne-lui le même numéro. Ne la marque JAMAIS 0 seulement parce qu'elle n'a pas d'en-tête ou de titre.
+
+3. LE 0 EST RARE ET RÉSERVÉ À L'ÉVIDENCE. Ne mets 0 que si l'image n'a manifestement rien à voir avec des statistiques TikTok : une photo personnelle, une autre application, une image illisible ou floue, une capture sans rapport. En cas d'hésitation entre deux numéros de données, choisis le plus probable — mais ne bascule pas sur 0. Un 0 injustifié inquiète l'utilisateur pour rien.
+
+Réponds UNIQUEMENT avec un tableau JSON de nombres, un par capture, dans l'ordre reçu. Exemple pour 3 captures : [1,2,0]
+Aucun texte avant ou après.`;
+
+const AUDIT_PROMPT = `Tu es un consultant TikTok senior pour créateurs francophones. On te fournit, EN VRAC, entre 1 et 12 captures d'écran de statistiques TikTok. Elles ne sont PAS étiquetées : tu dois d'abord reconnaître ce que chacune montre, puis analyser.
+
+CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes recommandations) :
+- Objectif principal : {{OBJECTIF}}
+- Niche : {{NICHE}}
+- Fréquence de publication actuelle : {{FREQUENCE}}
+- Format de contenu : {{STYLE}}
+
+RÈGLE IMPÉRATIVE SUR LE FORMAT DE CONTENU : adapte TOUTES tes recommandations au format déclaré. Ne propose jamais une action incompatible avec ce format. En particulier, si le format est "Faceless" (sans visage), ne suggère JAMAIS au créateur de se filmer, de se montrer, de faire du face caméra, de soigner sa présence à l'écran ou son expression faciale. Pour un créateur faceless, une accroche se travaille par la voix off, le texte à l'écran, les visuels, le rythme du montage, la musique et la première image — pas par un visage. Vérifie chaque recommandation avant de l'écrire : est-elle réalisable dans le format déclaré ? Si non, reformule-la pour ce format.
+
+Adapte ton diagnostic et tes recommandations à cet objectif précis (ex : si l'objectif est "Générer des ventes", ne recommande pas uniquement d'augmenter les vues — regarde si le contenu convertit). Compare la fréquence de publication déclarée avec ce que les dates de publication des captures montrent réellement, et signale l'écart s'il y en a un.
+
+TYPES DE CAPTURES POSSIBLES (reconnais-les par leur contenu) :
+- VUE D'ENSEMBLE (28 j) : vues publications, vues profil, likes, commentaires, partages, abonnés nets.
+- DÉTAIL D'UNE VIDÉO : une courbe de rétention, durée moyenne de visionnage, temps total, sources de trafic. S'il y en a deux, la plus performante = "meilleure", l'autre = "pire".
+
+SOURCES DE TRAFIC (si une capture les montre — souvent "Pour toi / FYP", "Abonnés", "Recherche", "Hashtags", "Son") : c'est une donnée précieuse. Une part élevée de "Pour toi" indique que l'algorithme pousse le contenu à de nouvelles personnes (bon signe de portée). Une part dominée par les "Abonnés" indique que le contenu tourne surtout auprès de l'audience existante sans conquérir de nouveaux spectateurs. Quand tu as cette donnée, dis clairement au créateur d'où vient sa visibilité et ce que ça implique. Si elle est absente, ne l'invente pas.
+- TOP CONTENUS (60 j) : une liste de plusieurs vidéos avec leurs vues. IMPORTANT : ce sont les vidéos ayant fait le plus de vues PENDANT la période, qu'elles soient récentes ou anciennes (une vidéo d'il y a un an qui tourne encore y figure). Les vues affichées sont celles réalisées SUR LA PÉRIODE, pas le total depuis la publication.
+- AUDIENCE : répartition par âge, sexe, pays/emplacements.
+- COMPARATIF déjà fait par l'utilisateur : un tableau "Meilleure / Pire".
+
+REPRÉSENTATIVITÉ DES DEUX VIDÉOS ANALYSÉES : l'audit se concentre sur la vidéo la plus performante et la moins performante, choisies par le créateur. Ces deux vidéos sont des EXTRÊMES : elles ne représentent pas forcément la production habituelle du compte. Utilise la liste "top contenus" (si fournie) pour les situer par rapport à l'ensemble des publications, dans les DEUX sens :
+- La meilleure vidéo est-elle un pic isolé loin devant les autres (coup de chance ponctuel, pas encore une méthode reproductible), ou une performance dans la norme de ce que le compte produit régulièrement ?
+- La pire vidéo est-elle un flop isolé bien en dessous du reste (accident ponctuel : mauvais horaire, sujet hors sujet, algorithme défavorable), ou au contraire représentative du niveau habituel du compte (problème de fond, pas d'accident) ?
+COMMENT COMPARER SANS TE TROMPER (règle critique) : le top contenus liste les vidéos qui ont fait le plus de vues PENDANT la période, anciennes comme récentes — ce ne sont donc PAS leurs vues totales depuis publication. L'écran de détail d'une vidéo, lui, affiche son cumul depuis sa mise en ligne. Ces deux chiffres ne sont pas de même nature et ne se comparent JAMAIS directement.
+Pour juger la représentativité, raisonne UNIQUEMENT à l'intérieur de la liste top contenus, en comparant ses vidéos entre elles (toutes sur la même période) :
+- L'écart entre la première vidéo de la liste et les suivantes est-il énorme (une vidéo qui écrase toutes les autres = pic isolé) ou les vues sont-elles rapprochées (production régulière) ?
+- La vidéo faible identifiée par le créateur apparaît-elle dans cette liste ? Si oui, situe-la par rapport aux autres. Si non, dis-le et n'en déduis rien.
+Cette distinction change complètement le conseil à donner : un accident isolé ne se corrige pas comme un problème structurel. Si le top contenus est absent ou trop court pour trancher, dis-le explicitement plutôt que d'affirmer une tendance.
+ATTENTION — VIDÉO ABSENTE DE LA LISTE : la capture "top contenus" est classée par vues décroissantes et ne montre souvent que les MEILLEURES vidéos de la période. La vidéo la moins performante peut donc ne pas y figurer du tout. Si tu ne la retrouves pas dans la liste, ne déduis rien sur sa représentativité : écris simplement qu'elle n'apparaît pas dans le top fourni. Ne remplace JAMAIS une donnée absente par une estimation.
+CONSÉQUENCE SUR TOUTES TES RECOMMANDATIONS : ce constat de représentativité doit être respecté dans TOUT le reste de l'audit, pas seulement dans le comparatif.
+- Si la meilleure vidéo est un pic isolé : n'en tire PAS une "formule" présentée comme une méthode reproductible. Formule-la comme une piste à confirmer ("cette vidéo a marché, mais une seule occurrence ne suffit pas à en faire une règle — teste 2 ou 3 contenus du même type pour vérifier"). N'appuie pas tout le plan d'action 30 jours dessus.
+- Si la vidéo faible est un flop isolé : ne présente PAS son problème comme une faiblesse structurelle du compte. Dis clairement que c'est un cas particulier et cherche la cause ponctuelle, au lieu de recommander de tout changer.
+- Si au contraire les performances sont homogènes : tu peux traiter les constats comme des tendances de fond, et t'appuyer dessus pour le plan d'action.
+COHÉRENCE OBLIGATOIRE : ton texte de représentativité et le critère "performances_homogenes" décrivent la même réalité et ne doivent JAMAIS se contredire. Si tu écris que la meilleure vidéo est un pic isolé qui écrase le reste, alors "performances_homogenes" ne peut pas être OUI. Si tu écris que les performances sont régulières, il ne peut pas être NON. Vérifie cette cohérence avant de répondre.
+
+RÈGLE ABSOLUE D'HONNÊTETÉ : n'analyse QUE ce que tu vois réellement. Chaque chiffre que tu cites doit provenir d'une capture. Si une donnée manque (ex. pas de capture audience), NE L'INVENTE PAS : mets le pilier concerné en "disponible": false et explique quelle capture l'utilisateur doit envoyer. Un audit honnête sur 3 piliers vaut mieux qu'un audit inventé sur 7.
+
+CAS PARTICULIER DU HOOK : le hook (les 3 premières secondes) ne peut être chiffré QUE si une capture "détail vidéo" fournit un point de décrochage majoritaire explicite (ex : TikTok indique "la plupart des spectateurs ont cessé de regarder à 0:02"). Applique cette règle stricte :
+- Si le décrochage majoritaire indiqué tombe à 3 secondes ou avant : c'est un signal direct et fiable sur le hook. Utilise-le pour chiffrer la dimension "hook" du score.
+- Si le décrochage majoritaire indiqué tombe après 3 secondes : ce n'est PAS un problème de hook, mais plutôt un problème de rythme ou de contenu plus loin dans la vidéo. N'attribue pas de score hook bas à partir de cette donnée — mentionne plutôt ce décrochage tardif dans le pilier "pire_video" ou "meilleure_video", pas dans le score hook.
+- Si aucune capture détail vidéo n'est fournie, ou si elle ne précise aucun point de décrochage chiffré : le hook n'est pas calculable. N'invente rien, indique "non calculable avec les données fournies" pour cette dimension.
+Dans tous les cas où le hook n'est pas calculable mais que d'autres données suggèrent indirectement un problème d'accroche (par exemple vues de publication en hausse mais vues de profil stagnantes ou en baisse), tu peux mentionner en recommandation le principe général que les 3 premières secondes sont déterminantes sur TikTok — sans le présenter comme une mesure chiffrée de ce compte.
+
+Pour chaque constat, réponds toujours à 3 questions : POURQUOI c'est comme ça, QU'EST-CE QUI bloque, QUOI FAIRE dès demain.
+
+AXES PRIORITAIRES (synthèse) : après ton analyse, identifie les 3 axes d'amélioration les PLUS PRIORITAIRES pour faire progresser CE compte — ceux à plus fort impact sur la croissance, du plus important au moins important. Chacun doit s'appuyer sur ce que tu as réellement vu dans les captures (jamais une généralité applicable à n'importe qui). Si les données ne permettent d'en fonder que 1 ou 2 solidement, n'en donne que 1 ou 2 : ne complète jamais avec du remplissage. Ces axes sont un résumé actionnable, pas une redite mot pour mot des piliers.
+
+CONTRÔLE DE COUVERTURE (à faire AVANT toute analyse) : l'audit exige 5 données distinctes. Le nombre de captures ne compte pas, seule l'information compte : une donnée peut tenir sur une seule capture, ou être étalée sur plusieurs si l'écran était trop long. À l'inverse, une seule capture peut contenir deux données. Déclare pour chacune si tu l'as réellement vue :
+1. Vue d'ensemble sur 60 jours
+2. Analyse complète de la vidéo la plus performante (indicateurs + courbe ou taux de rétention)
+3. Analyse complète de la vidéo la moins performante (indicateurs + courbe ou taux de rétention)
+4. Top contenus sur 60 jours
+5. Audience (âge, sexe, emplacements)
+
+Sois strict, pas complaisant. Ne déclare une donnée présente que si tu la vois vraiment dans une capture. Ne devine pas, ne suppose pas qu'une capture "ressemble" à ce qui est demandé. Si une image n'est pas un écran de statistiques TikTok (photo personnelle, capture d'une autre application, image floue ou illisible), compte-la dans "captures_hors_sujet" et n'en tire aucune conclusion. Ta tendance naturelle à vouloir rendre service ne doit jamais te faire valider une donnée absente : un refus clair vaut mieux qu'un audit bâti sur du vide.
+
+RÈGLE SUR LES ÉCHELLES DE TEMPS (source d'erreurs graves, lis-la deux fois) : les captures ne couvrent pas toutes la même période, et mélanger ces chiffres produit des conclusions absurdes.
+- L'écran de détail d'une vidéo affiche ses chiffres CUMULÉS depuis sa mise en ligne, quelle que soit la période sélectionnée ailleurs.
+- La vue d'ensemble et le top contenus affichent des chiffres LIMITÉS à la période choisie.
+Conséquences que tu dois respecter :
+- Ne calcule JAMAIS le pourcentage qu'une vidéo représente dans le total d'une période, car son cumul peut dépasser ce total. Écrire "cette vidéo représente 95 % des vues" est faux si son chiffre est un cumul et le total une période.
+- Ne compare deux vidéos entre elles que sur des chiffres de même nature (deux cumuls, ou deux chiffres de période). Un ratio entre un cumul de plusieurs mois et une vidéo publiée la semaine dernière n'a aucun sens.
+- Vérifie la date de publication de chaque vidéo analysée. Si elle est antérieure à la période demandée, dis-le explicitement et n'en tire pas de comparaison chiffrée avec les données de la période : signale simplement que la vidéo est hors fenêtre.
+- Recopie toujours les dates telles qu'elles apparaissent, année comprise. Ne déduis pas une année, ne la corrige pas.
+
+RÈGLE DE NOTATION : tu ne donnes AUCUNE note. Tu n'inventes aucun score. Ton rôle est uniquement d'extraire des mesures brutes et de répondre à des critères fermés. C'est l'application qui calcule les notes, pour que deux analyses des mêmes captures donnent exactement le même score.
+
+Pour les mesures chiffrées : recopie le chiffre tel qu'il apparaît dans la capture. Si le chiffre n'est pas visible, mets null. Ne calcule rien, ne convertis rien, n'estime rien. Un "7,7 K" se recopie en 7700. Un "1 h:42 m:50 s" se recopie en secondes.
+
+Pour les critères fermés : réponds exactement "OUI", "PARTIEL", "NON", ou null si la capture ne permet pas de juger. Rien d'autre. Ne réponds pas OUI par complaisance : si tu hésites, c'est PARTIEL ; si tu ne peux pas voir, c'est null.
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
+
+{
+  "couverture": {
+    "vue_ensemble_60j": <true/false>,
+    "meilleure_video": <true/false>,
+    "pire_video": <true/false>,
+    "top_contenus_60j": <true/false>,
+    "audience": <true/false>,
+    "captures_hors_sujet": <nombre de captures fournies qui ne sont pas des statistiques TikTok>
+  },
+  "mesures": {
+    "engagement": {
+      "vues": <nombre total de vues de publication sur la période, ou null>,
+      "likes": <nombre, ou null>,
+      "commentaires": <nombre, ou null>,
+      "partages": <nombre, ou null>
+    },
+    "retention_meilleure": {
+      "taux_moyen_pct": <le "en moyenne les spectateurs ont regardé X % de ta vidéo", ou null>,
+      "completion_pct": <le "a regardé toute la vidéo" en %, ou null>,
+      "seconde_decrochage": <la seconde où la plupart cessent de regarder, ou null>,
+      "duree_video_s": <durée totale de la vidéo en secondes, ou null>,
+      "nouveaux_followers": <le nombre de "Nouveaux followers" gagnés par cette vidéo, tel qu'il apparaît dans les indicateurs clés de la capture détail, ou null si non visible>
+    },
+    "retention_pire": {
+      "taux_moyen_pct": <idem pour la vidéo la moins performante, ou null>,
+      "completion_pct": <ou null>,
+      "seconde_decrochage": <ou null>,
+      "duree_video_s": <ou null>,
+      "nouveaux_followers": <le nombre de "Nouveaux followers" gagnés par la vidéo la moins performante, ou null si non visible>
+    },
+    "storytelling": {
+      "hook_present": "<OUI|PARTIEL|NON|null — la vidéo ouvre-t-elle sur une accroche identifiable ?>",
+      "faible_chute_debut": "<OUI|PARTIEL|NON|null — la courbe de rétention tient-elle sur les premières secondes au lieu de s'effondrer ?>",
+      "retention_stable": "<OUI|PARTIEL|NON|null — après la chute initiale, la courbe reste-t-elle à peu près plate ?>",
+      "bonne_fin": "<OUI|PARTIEL|NON|null — la courbe se maintient-elle jusqu'à la fin, ou y a-t-il un décrochage final marqué ?>"
+    },
+    "sujets": {
+      "themes_repetes": "<OUI|PARTIEL|NON|null — les meilleures publications partagent-elles un thème commun ?>",
+      "coherence_editoriale": "<OUI|PARTIEL|NON|null — l'ensemble du top contenus suit-il une ligne cohérente ?>",
+      "adequation_objectif": "<OUI|PARTIEL|NON|null — les sujets servent-ils l'objectif déclaré par le créateur ?>",
+      "performances_homogenes": "<OUI|PARTIEL|NON|null — les performances du top sont-elles régulières, ou tout repose-t-il sur une seule vidéo ?>"
+    },
+    "regularite": {
+      "nb_videos_periode": <nombre de publications visibles sur la période, ou null>,
+      "periode_jours": <durée de la période analysée en jours, ou null>,
+      "plus_long_trou_jours": <plus long écart en jours entre deux publications d'après les dates visibles, ou null>
+    }
+  },
+  "captures_reconnues": ["<type de chaque capture reçue, ex: 'vue d ensemble 60j', 'détail vidéo (rétention 22%)'>"],
+  "commentaire_score": "<une phrase expliquant ce que les mesures ci-dessus révèlent, sans donner de note>",
+  "piliers": {
+    "performance_globale": { "disponible": <true/false>, "constat": "<...chiffré...>", "blocage": "<...>", "action": "<...>" },
+    "meilleure_video":    { "disponible": <true/false>, "constat": "<pourquoi elle a marché : sujet, durée, et hook/rétention UNIQUEMENT si une capture détail vidéo le montre>", "formule": "<la formule extraite, exprimée comme un MÉCANISME RÉUTILISABLE (le ressort qui a fait réagir l'audience : rivalité entre figures connues, révélation de coulisses, conflit lisible, fierté/identité, retournement...) et non comme un simple sujet. Écris-la de façon transposable à d'autres sujets — 'Ton audience réagit aux rivalités entre personnalités qu'elle connaît déjà' vaut mieux que 'Tes vidéos sur X marchent'. Si le top contenus montre plusieurs vidéos du même type, affirme-la comme une tendance ; si c'est un pic isolé, formule-la comme une piste à tester (ex: 'à confirmer sur 2-3 contenus du même ressort avant d'en faire ta ligne').>" },
+    "pire_video":         { "disponible": <true/false>, "constat": "<où et pourquoi les gens décrochent, UNIQUEMENT si une capture détail vidéo le montre>", "seconde_decrochage": <nombre ou null, uniquement si visible dans une capture, jamais estimé> },
+    "comparatif":         { "disponible": <true/false>, "conclusion": "<ce que l audience préfère, tiré de meilleure VS pire>", "representativite": "<à partir du top contenus : situe LES DEUX vidéos par rapport à l ensemble. Dis si la meilleure est un pic isolé ou une performance normale du compte, ET si la pire est un flop isolé ou le niveau habituel. Sois factuel en comparant les vues visibles. Si le top contenus ne permet pas de trancher, indique-le clairement au lieu de deviner.>", "conversion": "<UNIQUEMENT si 'nouveaux_followers' est visible pour au moins une des deux vidéos : compare les abonnés gagnés par la meilleure et par la moins bonne, et dis ce que ça révèle sur le type de contenu qui transforme le spectateur en abonné (une vidéo peut faire beaucoup de vues sans convertir, ou peu de vues mais recruter des abonnés fidèles). Une phrase concrète et actionnable. null si aucun des deux chiffres n est visible.>" },
+    "editorial":          { "disponible": <true/false>, "sujets_notes": [ {"sujet":"<...>","note":"<ex: 4/5>"} ], "recommandation": "<ex: arrête les vidéos marketing 30 jours>" },
+    "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? évalue l'écart entre le pays/la culture dominante de l'audience et les références culturelles ou géographiques réellement utilisées dans le contenu, EN TE BASANT UNIQUEMENT sur les données réelles de CE compte ci-dessus — jamais un pays ou un exemple par défaut>" }
+  },
+  "axes_prioritaires": [
+    { "titre": "<max 6 mots, l'axe à travailler — ex: 'Retenir dans les 3 premières secondes'>", "pourquoi": "<1 phrase, ce que montrent les données de CE compte (pas de généralité)>", "action": "<1 phrase, quoi faire concrètement dès cette semaine, réalisable dans le format déclaré>" }
+  ],
+  "plan_action_30j": {
+    "frequence": "<recommandation de fréquence, en tenant compte de la fréquence actuelle déclarée par le créateur>",
+    "duree_ideale": "<ex: 40-55 s, uniquement si déductible des données ; sinon 'non déterminable avec les données fournies'>",
+    "sujets_a_faire": ["<...>"],
+    "erreurs_a_eviter": ["<...>"]
+  },
+  "donnees_manquantes": ["<captures à envoyer la prochaine fois pour compléter l audit>"]
+}
+
+Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un consultant qui dit quoi faire.`;
+
+// Vérifie côté serveur qu'un code d'accès correspond à un abonnement valide.
+async function verifierAcces(code) {
+  if (!code) return { ok: true };
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return { ok: true };
+  const CODES_ILLIMITES = ['SCRIPTURA-CELINE'];
+  if (CODES_ILLIMITES.includes(String(code).toUpperCase())) return { ok: true };
+  try {
+    const r = await fetch(
+      url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=actif,expire_le',
+      { headers: { apikey: key, Authorization: 'Bearer ' + key } }
+    );
+    const rows = await r.json();
+    if (!Array.isArray(rows) || rows.length === 0) return { ok: true };
+    const ab = rows[0];
+    if (ab.actif === false) return { ok: false, raison: 'compte désactivé' };
+    if (ab.expire_le) {
+      const ds = String(ab.expire_le).split('T')[0].split(' ')[0].replace(/\//g, '-');
+      const p = ds.split('-');
+      if (p.length === 3) {
+        const exp = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]), 23, 59, 59, 999);
+        if (!isNaN(exp.getTime()) && exp < new Date()) return { ok: false, raison: 'abonnement expiré' };
+      }
+    }
+    return { ok: true };
+  } catch (e) { return { ok: true }; }
+}
+
+export default async function handler(req, res) {
+  // Seules les requêtes POST sont acceptées
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   }
 
-  // Le style de contenu est requis : sans lui, les recommandations peuvent
-  // supposer un format inadapté (ex : "filme-toi" pour un créateur faceless).
-  if (!document.getElementById('auditStyle')?.value) {
-    err.textContent = 'Choisis ton format de contenu pour un diagnostic adapté.';
-    err.style.display = 'block';
-    document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({
+      error: { message: 'Clé API absente côté serveur (ANTHROPIC_API_KEY)' }
+    });
   }
-
-  // Droit d'auditer : 'pro' (analyse incluse), 'jeton' (à décompter),
-  // 'illimite' (code VIP), ou false (peutAuditer a déjà proposé l'achat).
-  const moyenAudit = await peutAuditer();
-  if (!moyenAudit) return;
-
-  err.style.display = 'none';
-  out.innerHTML = '';
-
-  if (spin) spin.style.display = 'inline-block';
-  if (btnText) btnText.textContent = 'Diagnostic en cours…';
-  if (btn) btn.disabled = true;
-  startGenAnimation('audit');
 
   try {
-    const images = auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType }));
-    // Garde-fou : le serveur refuse les envois trop lourds. On vérifie AVANT
-    // d'envoyer pour donner un message clair plutôt qu'une erreur technique.
-    const poidsMo = images.reduce((t, im) => t + (im.base64 ? im.base64.length : 0), 0) / (1024 * 1024);
-    if (poidsMo > 4) {
-      throw new Error('Tes captures sont trop lourdes au total (' + poidsMo.toFixed(1) + ' Mo). Retire les captures les moins utiles et relance le diagnostic.');
-    }
-    const objectif = document.getElementById('auditObjectif')?.value || '';
-    const niche = document.getElementById('auditNiche')?.value || '';
-    const frequence = document.getElementById('auditFrequence')?.value || '';
-    const style = document.getElementById('auditStyle')?.value || '';
+    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces, mode } = req.body || {};
 
-    const res = await fetch('/api/audit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL_AUDIT,
-        max_tokens: 8000,
-        images: images,
-        objectif: objectif,
-        niche: niche,
-        frequence: frequence,
-        style: style,
-        code_acces: localStorage.getItem('scriptura_code') || null
-      })
-    });
-
-    if (res.status === 403) {
-      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
-      throw new Error('Ton abonnement a expiré. Renouvelle pour relancer un diagnostic.');
-    }
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error?.message || 'erreur serveur');
+    if (!Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: { message: 'Aucune image reçue' } });
     }
 
-    const raw = (data.content?.map(b => b.text || '').join('') || '').trim();
-    if (!raw) throw new Error('Réponse vide du modèle.');
-
-    // Isole le JSON même si le modèle ajoute du texte autour
-    let jsonStr = raw;
-    const d = raw.indexOf('{'), f = raw.lastIndexOf('}');
-    if (d !== -1 && f !== -1) jsonStr = raw.slice(d, f + 1);
-
-    let parsed;
-    try { parsed = JSON.parse(jsonStr); }
-    catch (e) { throw new Error('Le modèle a mal formaté sa réponse. Réessaie.'); }
-
-    // ── Contrôle de couverture ──
-    // Les 5 données sont exigées. Un audit partiel présenté comme complet
-    // serait trompeur, donc on préfère refuser et dire ce qui manque.
-    // Tolérant sur le format (true, "true", 1) car le modèle varie parfois.
-    // Si le champ "couverture" est totalement absent, on n'a rien à vérifier :
-    // on laisse passer plutôt que de bloquer tout le monde sur un oubli du modèle.
-    const REQUIS = [
-      ['vue_ensemble_60j', "Vue d'ensemble · 60 jours"],
-      ['meilleure_video',  "Analyse complète de ta vidéo la plus performante"],
-      ['pire_video',       "Analyse complète de ta vidéo la moins performante"],
-      ['top_contenus_60j', "Top contenus · 60 jours"],
-      ['audience',         "Ton audience (âge, sexe, emplacements)"]
-    ];
-    const estVrai = v => v === true || v === 'true' || v === 1 || v === '1';
-    const couv = parsed.couverture;
-    const couvFournie = couv && typeof couv === 'object';
-    const manquantes = couvFournie
-      ? REQUIS.filter(([k]) => !estVrai(couv[k])).map(([, label]) => label)
-      : [];
-    const horsSujet = couvFournie ? (parseInt(couv.captures_hors_sujet) || 0) : 0;
-
-    if (manquantes.length) {
-      let m = '<div class="audit-result"><div class="audit-block">';
-      m += '<div class="audit-block-title">Diagnostic impossible pour le moment</div>';
-      m += '<div class="audit-diag-constat">Il manque ' + manquantes.length +
-           ' donnée' + (manquantes.length > 1 ? 's' : '') +
-           ' sur 5 pour faire un diagnostic fiable. Plutôt que de te donner une analyse bancale, voici ce qu\'il reste à envoyer :</div>';
-      m += '<ul style="margin:14px 0 0;padding-left:18px;line-height:1.7">';
-      manquantes.forEach(x => { m += '<li>' + auditEsc(x) + '</li>'; });
-      m += '</ul>';
-      if (horsSujet > 0) {
-        m += '<div class="audit-diag-interp" style="margin-top:14px">' + horsSujet +
-             ' capture' + (horsSujet > 1 ? 's' : '') + ' ne correspond' + (horsSujet > 1 ? 'ent' : '') +
-             ' pas à un écran de statistiques TikTok.</div>';
+    // ── Mode CLASSIFICATION : reconnaît le type de chaque capture au chargement.
+    // Tâche simple et bon marché (Haiku), sans analyse : sert à guider l'utilisateur.
+    if (mode === 'classify') {
+      const contenuC = [];
+      let numC = 0;
+      for (const img of images) {
+        if (!img || !img.base64) continue;
+        numC++;
+        // On numérote chaque capture : le modèle doit pouvoir raisonner sur
+        // l'ordre pour reconnaître qu'une image est la suite de la précédente.
+        contenuC.push({ type: 'text', text: 'Capture ' + numC + ' :' });
+        contenuC.push({
+          type: 'image',
+          source: { type: 'base64', media_type: img.mediaType || 'image/jpeg', data: img.base64 }
+        });
       }
-      m += '<div class="audit-diag-action" style="margin-top:14px">→ Ajoute les captures manquantes, puis relance le diagnostic. Si un écran est trop long, tu peux le couper en plusieurs captures.</div>';
-      m += '</div></div>';
-      out.innerHTML = m;
-      out.style.display = 'block';
-      return;
+      contenuC.push({ type: 'text', text: CLASSIFY_PROMPT });
+
+      const repC = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 300,
+          messages: [{ role: 'user', content: contenuC }]
+        })
+      });
+      const dataC = await repC.json();
+      if (!repC.ok) return res.status(repC.status).json(dataC);
+      return res.status(200).json(dataC);
     }
 
-    const scoreObtenu = parsed.mesures
-      ? (calculerScores(parsed.mesures).global ?? null)
-      : (parsed.tiktok_score?.global ?? null);
-
-    // Sauvegardé et attendu AVANT renderAudit() : cette fonction déclenche en
-    // tâche de fond la génération de "Et maintenant ?" (voir js/recommandations.js,
-    // afficherEtMaintenant), qui a besoin de currentGenId déjà positionné sur
-    // CET audit pour pouvoir y rattacher sa recommandation une fois prête.
-    if (typeof saveGeneration === 'function') {
-      try { await saveGeneration('audit', 'Diagnostic TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
-      catch(e) { /* silencieux */ }
+    // Verrou serveur : refuser si l'abonnement est expiré ou désactivé
+    const acces = await verifierAcces(code_acces);
+    if (!acces.ok) {
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + acces.raison, code: 'ACCES_REFUSE' } });
     }
 
-    renderAudit(parsed, niche, objectif, style);
+    // Injection du contexte créateur dans le prompt (valeurs de repli si absentes)
+    const promptFinal = AUDIT_PROMPT
+      .replace('{{OBJECTIF}}', objectif || 'non précisé')
+      .replace('{{NICHE}}', niche || 'non précisée')
+      .replace('{{FREQUENCE}}', frequence || 'non précisée')
+      .replace('{{STYLE}}', style || 'non précisé');
 
-    // Mémoire du créateur : ce que cet audit vient de révéler, comme "leçons
-    // apprises" (tâche de fond, silencieuse). Ne modifie ni ne relit les
-    // règles d'analyse elles-mêmes — uniquement le résultat déjà produit.
-    const P = parsed.piliers || {};
-    const leconsAudit = [P.meilleure_video?.formule, P.comparatif?.conclusion].filter(Boolean);
-    const aEviterAudit = Array.isArray(parsed.plan_action_30j?.erreurs_a_eviter) ? parsed.plan_action_30j.erreurs_a_eviter : [];
-    mettreAJourProfilCreateur({
-      declare: { niche_principale: niche, style_contenu: style, objectifs: objectif },
-      observe: { themes_a_eviter: aEviterAudit, plateformes: 'TikTok' },
-      lecons: { recommandations_permanentes: leconsAudit, dernier_score_audit: scoreObtenu }
+    // Construction du contenu : les images d'abord, le prompt d'audit ensuite.
+    // (L'API Anthropic recommande cet ordre pour l'analyse visuelle.)
+    const content = [];
+
+    for (const img of images) {
+      if (!img || !img.base64) continue;
+      content.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: img.mediaType || 'image/jpeg',
+          data: img.base64
+        }
+      });
+    }
+
+    content.push({ type: 'text', text: promptFinal });
+
+    // Appel à l'API Anthropic
+    const reponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(Object.assign({
+        model: model || 'claude-haiku-4-5-20251001',
+        max_tokens: max_tokens || 8000,
+        system: systemDateActuelle(),
+        messages: [{ role: 'user', content: content }]
+      }, NICHES_ACTUALITE.includes(niche) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] } : {}))
     });
 
-    // Si l'audit a été payé avec un jeton, on le décompte maintenant (après succès)
-    if (moyenAudit === 'jeton') {
-      try { await consommerJetonAudit(); } catch(e) { /* silencieux */ }
+    const data = await reponse.json();
+
+    if (!reponse.ok) {
+      return res.status(reponse.status).json(data);
     }
+
+    return res.status(200).json(data);
 
   } catch (e) {
-    err.textContent = 'Diagnostic impossible : ' + (e.message || 'réessaie dans un instant');
-    err.style.display = 'block';
-  } finally {
-    stopGenAnimation();
-    if (spin) spin.style.display = 'none';
-    if (btnText) btnText.textContent = 'Faire mon diagnostic';
-    if (btn) btn.disabled = false;
-  }
-}
-
-// Dernier audit affiché (pour le bouton "idées correctives")
-let lastAudit = null;
-
-const SCORE_DIMS = [
-  { key: 'engagement',   label: 'Engagement',       max: 20 },
-  { key: 'retention',    label: 'Rétention',        max: 20 },
-  { key: 'storytelling', label: 'Accroche & rythme',     max: 20 },
-  { key: 'sujets',       label: 'Choix des sujets', max: 20 },
-  { key: 'regularite',   label: 'Régularité',       max: 20 }
-];
-
-// Conseils génériques par dimension, utilisés UNIQUEMENT en repli quand le
-// modèle n'a pas renvoyé d'axes prioritaires : on prend alors les 3 dimensions
-// les plus faibles du score et on leur associe une piste concrète.
-const AXE_CONSEILS = {
-  engagement:   { pourquoi: "Peu de likes, commentaires ou partages au regard des vues.", action: "Termine chaque vidéo par une question ou un appel clair à commenter et partager." },
-  retention:    { pourquoi: "Les spectateurs décrochent avant la fin de la vidéo.", action: "Raccourcis, coupe les temps morts et relance l'intérêt toutes les quelques secondes." },
-  storytelling: { pourquoi: "L'accroche ou le rythme ne retiennent pas assez tôt.", action: "Soigne les 3 premières secondes et garde un rythme serré, sans intro molle." },
-  sujets:       { pourquoi: "Les sujets ne servent pas assez ton objectif ou ton audience.", action: "Réutilise le mécanisme qui a déjà fait réagir ton audience, sur des sujets variés." },
-  regularite:   { pourquoi: "Le rythme de publication est irrégulier.", action: "Fixe une cadence tenable (ex. 3 à 4 vidéos par semaine) et tiens-la." }
-};
-
-// ═══════════════════════════════════════════════════════════
-//  MOTEUR DE SCORING
-//  Le modèle n'attribue aucune note : il extrait des mesures brutes et
-//  répond OUI / PARTIEL / NON à des critères fermés. Tout le calcul est
-//  fait ici, donc deux analyses des mêmes captures donnent le même score.
-//  Les seuils sont des repères de marché, ajustables en un seul endroit.
-// ═══════════════════════════════════════════════════════════
-
-// Formate un nombre au format Scriptura : point pour les milliers,
-// virgule pour les décimales (ex : 102.450,74). Pas de décimales si entier.
-function formaterNombre(n) {
-  if (n == null || n === '' || isNaN(n)) return '';
-  n = Number(n);
-  const neg = n < 0;
-  n = Math.abs(n);
-  const [entier, decimales] = n.toFixed(2).split('.');
-  const avecMilliers = entier.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const dec = (decimales === '00') ? '' : ',' + decimales;
-  return (neg ? '-' : '') + avecMilliers + dec;
-}
-
-function sNum(v) {
-  if (v === null || v === undefined || v === '') return null;
-  const n = (typeof v === 'number')
-    ? v
-    : parseFloat(String(v).replace(',', '.').replace(/[^\d.\-]/g, ''));
-  return Number.isFinite(n) ? n : null;
-}
-
-// Interpolation linéaire entre paliers, où PLUS HAUT est MEILLEUR.
-// Les paliers sont des repères, pas des marches : 2,99 % et 3,00 % donnent
-// des notes quasi identiques au lieu de basculer d'un cran.
-// Format : [[seuil, points], ...] du plus exigeant au moins exigeant,
-// le dernier seuil devant être 0.
-function sPalierHaut(v, paliers) {
-  if (v === null) return null;
-  if (v >= paliers[0][0]) return paliers[0][1];
-  for (let i = 0; i < paliers.length - 1; i++) {
-    const [sHaut, pHaut] = paliers[i];
-    const [sBas, pBas]   = paliers[i + 1];
-    if (v >= sBas) {
-      if (sHaut === sBas) return pBas;
-      return pBas + ((v - sBas) / (sHaut - sBas)) * (pHaut - pBas);
-    }
-  }
-  return paliers[paliers.length - 1][1];
-}
-
-// Même principe, mais PLUS BAS est MEILLEUR.
-// Format : [[seuil, points], ...] du plus exigeant au moins exigeant.
-function sPalierBas(v, paliers) {
-  if (v === null) return null;
-  if (v <= paliers[0][0]) return paliers[0][1];
-  for (let i = 0; i < paliers.length - 1; i++) {
-    const [sBas, pHaut]  = paliers[i];
-    const [sHaut, pBas]  = paliers[i + 1];
-    if (v <= sHaut) {
-      if (sHaut === sBas) return pBas;
-      return pHaut + ((v - sBas) / (sHaut - sBas)) * (pBas - pHaut);
-    }
-  }
-  return paliers[paliers.length - 1][1];
-}
-
-// Note en bande : plein score dans la zone optimale, dégradation douce en
-// dehors. Sert à la régularité, où publier PLUS n'est pas publier MIEUX.
-function sBande(v, min, max, ptsMax) {
-  if (v === null) return null;
-  if (v >= min && v <= max) return ptsMax;
-  const ecart = v < min ? (min - v) / Math.max(min, 0.001) : (v - max) / Math.max(max, 0.001);
-  return Math.max(ptsMax * 0.15, ptsMax * (1 - Math.min(1, ecart) * 0.75));
-}
-
-// Critère fermé : OUI = plein, PARTIEL = moitié, NON = 0, sinon non mesurable
-function sCritere(rep, max) {
-  if (rep === null || rep === undefined) return null;
-  const k = String(rep).trim().toUpperCase();
-  if (k === 'OUI') return max;
-  if (k === 'PARTIEL') return max / 2;
-  if (k === 'NON') return 0;
-  return null;
-}
-
-// Agrège les sous-critères mesurables et ramène sur le total de la dimension.
-// Un critère non mesurable est ignoré au lieu de compter zéro, sinon une
-// donnée manquante ferait chuter la note comme si elle était mauvaise.
-function sAgrege(parts, maxDim) {
-  const ok = parts.filter(p => p.obtenu !== null);
-  if (!ok.length) return null;
-  const maxDispo = ok.reduce((s, p) => s + p.max, 0);
-  const obtenu   = ok.reduce((s, p) => s + p.obtenu, 0);
-  return Math.round((obtenu / maxDispo) * maxDim);
-}
-
-function scoreEngagement(m) {
-  const e = (m && m.engagement) || {};
-  const vues = sNum(e.vues);
-  if (!vues || vues <= 0) return null;
-  const likes = sNum(e.likes), coms = sNum(e.commentaires), parts = sNum(e.partages);
-  const ratio = x => x === null ? null : (x / vues) * 100;
-
-  // Taux d'engagement par vues = (likes + commentaires + partages) / vues.
-  // C'est la mesure de référence du secteur. Moyenne TikTok 2026 : 3,85 %,
-  // zone correcte pour un petit compte : 3 à 5 %.
-  const dispo = [likes, coms, parts].filter(x => x !== null);
-  const tauxGlobal = dispo.length ? (dispo.reduce((a, b) => a + b, 0) / vues) * 100 : null;
-
-  return sAgrege([
-    { obtenu: sPalierHaut(tauxGlobal,   [[8,12],[6,10.5],[5,9],[3.85,7.5],[2.5,5.5],[1.5,3.5],[0,1]]), max: 12 },
-    { obtenu: sPalierHaut(ratio(coms),  [[1,4],[0.5,3.4],[0.25,2.8],[0.1,2],[0.03,1.2],[0,0.4]]),      max: 4 },
-    { obtenu: sPalierHaut(ratio(parts), [[2,4],[1,3.4],[0.5,2.8],[0.25,2.2],[0.1,1.4],[0,0.4]]),       max: 4 }
-  ], 20);
-}
-
-function scoreRetention(m) {
-  const src = [(m && m.retention_meilleure) || {}, (m && m.retention_pire) || {}];
-  const moyenne = cle => {
-    const v = src.map(o => sNum(o[cle])).filter(x => x !== null);
-    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
-  };
-  // Repère du secteur : les vidéos qui dépassent 40 à 60 % de complétion
-  // gardent une exposition durable dans le fil "Pour toi".
-  return sAgrege([
-    { obtenu: sPalierHaut(moyenne('taux_moyen_pct'), [[60,12],[45,10.5],[35,8.5],[25,6],[15,3.5],[0,1]]), max: 12 },
-    { obtenu: sPalierHaut(moyenne('completion_pct'), [[30,8],[20,6.5],[10,5],[5,3.5],[2,2],[0,0.5]]),     max: 8 }
-  ], 20);
-}
-
-function scoreStorytelling(m) {
-  const s = (m && m.storytelling) || {};
-  // Le point de décrochage a été retiré du score après vérification sur des
-  // données réelles : une vidéo virale décrochait à 0:01 et un échec à 0:02.
-  // Sur TikTok, la masse quitte dans la première seconde même sur un bon
-  // contenu, donc cette seconde ne distingue rien. Ce qui sépare vraiment les
-  // deux, c'est le taux moyen et la complétion — déjà notés en Rétention.
-  return sAgrege([
-    { obtenu: sCritere(s.hook_present,       5), max: 5 },
-    { obtenu: sCritere(s.faible_chute_debut, 5), max: 5 },
-    { obtenu: sCritere(s.retention_stable,   5), max: 5 },
-    { obtenu: sCritere(s.bonne_fin,          5), max: 5 }
-  ], 20);
-}
-
-function scoreSujets(m) {
-  const s = (m && m.sujets) || {};
-  return sAgrege([
-    { obtenu: sCritere(s.themes_repetes,          5), max: 5 },
-    { obtenu: sCritere(s.coherence_editoriale,    5), max: 5 },
-    { obtenu: sCritere(s.adequation_objectif,     5), max: 5 },
-    { obtenu: sCritere(s.performances_homogenes,  5), max: 5 }
-  ], 20);
-}
-
-function scoreRegularite(m) {
-  const r = (m && m.regularite) || {};
-  const nb    = sNum(r.nb_videos_periode);
-  const jours = sNum(r.periode_jours);
-  const trou  = sNum(r.plus_long_trou_jours);
-  // Ramené à une cadence hebdomadaire pour rester comparable d'une période à l'autre
-  const parSemaine = (nb !== null && jours !== null && jours > 0) ? (nb / jours) * 7 : null;
-  // Ne PAS récompenser la surpublication : les comptes qui publient moins de
-  // six fois par semaine obtiennent nettement plus d'engagement que ceux qui
-  // saturent. La zone optimale est donc une bande, pas une échelle croissante.
-  return sAgrege([
-    { obtenu: sBande(parSemaine, 3, 6, 10),                          max: 10 },
-    { obtenu: sPalierBas(trou, [[2,10],[4,8.5],[7,7],[14,4.5],[30,2],[90,0]]), max: 10 }
-  ], 20);
-}
-
-function calculerScores(mesures) {
-  const s = {
-    engagement:   scoreEngagement(mesures),
-    retention:    scoreRetention(mesures),
-    storytelling: scoreStorytelling(mesures),
-    sujets:       scoreSujets(mesures),
-    regularite:   scoreRegularite(mesures)
-  };
-  const mesurees = SCORE_DIMS.filter(d => s[d.key] !== null);
-  const maxDispo = mesurees.reduce((a, d) => a + d.max, 0);
-  const obtenu   = mesurees.reduce((a, d) => a + s[d.key], 0);
-  s.global = maxDispo > 0 ? Math.round((obtenu / maxDispo) * 100) : null;
-  // Le levier est la dimension mesurée la plus faible en proportion de son total
-  let levier = null, plusBas = 2;
-  mesurees.forEach(d => {
-    const part = s[d.key] / d.max;
-    if (part < plusBas) { plusBas = part; levier = d.label; }
-  });
-  s.levier_dim = levier;
-  return s;
-}
-
-function auditNum(v) {
-  return Number.isFinite(v) ? v : (parseInt(v) || 0);
-}
-
-// Version texte de l'audit, pour les boutons Copier et Partager.
-// Reprend le même contenu que l'affichage, sans le HTML.
-// ══════════════════════════════════════
-//  EXPORT PDF DE L'AUDIT
-//  Met en page le diagnostic aux couleurs de Scriptura, avec gestion
-//  automatique des sauts de page pour ne jamais couper une phrase.
-// ══════════════════════════════════════
-function telechargerAuditPDF() {
-  const lib = window.jspdf || window.jsPDF;
-  if (!lib) {
-    alert("Le module PDF n'a pas pu être chargé. Vérifie ta connexion et réessaie.");
-    return;
-  }
-  const { jsPDF } = lib;
-  const a = lastAudit;
-  if (!a) return;
-  const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
-
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const LARGEUR = 210, HAUTEUR = 297;
-  const MARGE = 18;
-  const UTILE = LARGEUR - MARGE * 2;
-  let y = 0;
-
-  const OR = [201, 168, 76];
-  const OR_CLAIR = [226, 200, 122];
-  const FOND = [28, 28, 30];
-  const BLANC = [255, 255, 255];
-  const GRIS = [175, 175, 178];
-
-  // Peint le fond sombre sur la page courante
-  function fondPage() {
-    doc.setFillColor(FOND[0], FOND[1], FOND[2]);
-    doc.rect(0, 0, LARGEUR, HAUTEUR, 'F');
-  }
-  // Ajoute une page si la place manque
-  function place(h) {
-    if (y + h > HAUTEUR - MARGE) {
-      doc.addPage();
-      fondPage();
-      y = MARGE;
-    }
-  }
-  function titreSection(txt) {
-    place(14);
-    y += 4;
-    doc.setTextColor(OR[0], OR[1], OR[2]);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(String(txt).toUpperCase(), MARGE, y);
-    y += 2;
-    doc.setDrawColor(OR[0], OR[1], OR[2]);
-    doc.setLineWidth(0.3);
-    doc.line(MARGE, y, MARGE + UTILE, y);
-    y += 6;
-  }
-  function paragraphe(txt, couleur, taille, gras) {
-    if (!txt) return;
-    doc.setFont('helvetica', gras ? 'bold' : 'normal');
-    doc.setFontSize(taille || 10);
-    const c = couleur || BLANC;
-    doc.setTextColor(c[0], c[1], c[2]);
-    const lignes = doc.splitTextToSize(String(txt), UTILE);
-    lignes.forEach(l => {
-      place(6);
-      doc.text(l, MARGE, y);
-      y += 5;
+    return res.status(500).json({
+      error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') }
     });
-    y += 1.5;
   }
-
-  // ── Page 1 : en-tête ──
-  fondPage();
-  y = MARGE + 6;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
-  doc.text('SCRIPT', MARGE, y);
-  const largeurScript = doc.getTextWidth('SCRIPT');
-  doc.setTextColor(OR[0], OR[1], OR[2]);
-  doc.text('URA', MARGE + largeurScript, y);
-  y += 8;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
-  doc.text('Diagnostic TikTok', MARGE, y);
-  const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  doc.text(dateStr, MARGE + UTILE, y, { align: 'right' });
-  y += 8;
-
-  // ── Le score ──
-  if (ts && ts.global != null) {
-    place(30);
-    doc.setFillColor(38, 38, 41);
-    doc.roundedRect(MARGE, y, UTILE, 24, 3, 3, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(26);
-    doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
-    doc.text(String(ts.global) + '/100', MARGE + 8, y + 15);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
-    doc.text('ADN TikTok Score', MARGE + 8, y + 21);
-    y += 30;
-  }
-
-  // ── Les dimensions ──
-  if (typeof SCORE_DIMS !== 'undefined' && Array.isArray(SCORE_DIMS)) {
-    titreSection('Détail par dimension');
-    SCORE_DIMS.forEach(d => {
-      const v = (ts && ts[d.key] != null) ? (ts[d.key] + ' / ' + d.max) : 'non mesuré';
-      place(7);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
-      doc.text(String(d.label), MARGE, y);
-      doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
-      doc.text(String(v), MARGE + UTILE, y, { align: 'right' });
-      y += 6.5;
-    });
-    if (ts && ts.levier_dim) {
-      y += 2;
-      paragraphe('Levier principal : ' + ts.levier_dim, OR_CLAIR, 10, true);
-    }
-  }
-
-  // ── Les piliers ──
-  const P = a.piliers || {};
-  const ajouteBloc = (titre, lignes) => {
-    const utiles = (lignes || []).filter(Boolean);
-    if (!utiles.length) return;
-    titreSection(titre);
-    utiles.forEach(x => paragraphe(x, BLANC, 10));
-  };
-
-  ajouteBloc('Performance globale', [
-    P.performance_globale && P.performance_globale.constat,
-    P.performance_globale && P.performance_globale.blocage,
-    (P.performance_globale && P.performance_globale.action) ? 'À faire : ' + P.performance_globale.action : null
-  ]);
-  ajouteBloc('Meilleure vidéo', [
-    P.meilleure_video && P.meilleure_video.constat,
-    P.meilleure_video && P.meilleure_video.formule
-  ]);
-  ajouteBloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
-  ajouteBloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.conversion, P.comparatif && P.comparatif.representativite]);
-
-  const ed = P.editorial;
-  if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
-    titreSection('Analyse éditoriale');
-    (ed.sujets_notes || []).forEach(s => paragraphe((s.sujet || '') + ' : ' + (s.note || ''), BLANC, 10));
-    if (ed.recommandation) paragraphe('À faire : ' + ed.recommandation, OR_CLAIR, 10);
-  }
-
-  ajouteBloc('Audience', [
-    P.audience && P.audience.constat,
-    P.audience && P.audience.alignement
-  ]);
-
-  // ── Plan d'action ──
-  const pa = a.plan_action_30j;
-  if (pa) {
-    titreSection("Plan d'action 30 jours");
-    if (pa.frequence) paragraphe('Fréquence : ' + pa.frequence, BLANC, 10);
-    if (pa.duree_ideale) paragraphe('Durée idéale : ' + pa.duree_ideale, BLANC, 10);
-    (pa.sujets_a_faire || []).forEach(s => paragraphe('• ' + s, BLANC, 10));
-    if ((pa.erreurs_a_eviter || []).length) {
-      y += 2;
-      paragraphe('À éviter :', OR_CLAIR, 10, true);
-      (pa.erreurs_a_eviter || []).forEach(s => paragraphe('• ' + s, GRIS, 10));
-    }
-  }
-
-  // ── Pied de page sur chaque page ──
-  const total = doc.internal.getNumberOfPages();
-  for (let p = 1; p <= total; p++) {
-    doc.setPage(p);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 124);
-    doc.text('Scriptura — Diagnostic TikTok', MARGE, HAUTEUR - 10);
-    doc.text(p + ' / ' + total, MARGE + UTILE, HAUTEUR - 10, { align: 'right' });
-  }
-
-  const nom = 'Diagnostic-TikTok-Scriptura-' + new Date().toISOString().slice(0, 10) + '.pdf';
-  doc.save(nom);
 }
-
-function auditTexteBrut(a, ts) {
-  const L = [];
-  L.push('DIAGNOSTIC TIKTOK · SCRIPTURA');
-  L.push('');
-  if (ts && ts.global != null) L.push('ADN TikTok Score : ' + ts.global + '/100');
-  SCORE_DIMS.forEach(d => {
-    const v = (ts && ts[d.key] != null) ? (ts[d.key] + '/' + d.max) : 'non mesuré';
-    L.push('  ' + d.label + ' : ' + v);
-  });
-  if (ts && ts.levier_dim) L.push('Levier principal : ' + ts.levier_dim);
-
-  const P = a.piliers || {};
-  const bloc = (titre, lignes) => {
-    const utiles = lignes.filter(Boolean);
-    if (!utiles.length) return;
-    L.push('', titre.toUpperCase());
-    utiles.forEach(x => L.push(x));
-  };
-
-  bloc('Performance globale', [
-    P.performance_globale && P.performance_globale.constat,
-    P.performance_globale && P.performance_globale.blocage,
-    (P.performance_globale && P.performance_globale.action) ? '→ ' + P.performance_globale.action : null
-  ]);
-  bloc('Meilleure vidéo', [
-    P.meilleure_video && P.meilleure_video.constat,
-    P.meilleure_video && P.meilleure_video.formule
-  ]);
-  bloc('Vidéo la plus faible', [P.pire_video && P.pire_video.constat]);
-  bloc('Comparatif', [P.comparatif && P.comparatif.conclusion, P.comparatif && P.comparatif.conversion, P.comparatif && P.comparatif.representativite]);
-
-  const ed = P.editorial;
-  if (ed && ((ed.sujets_notes && ed.sujets_notes.length) || ed.recommandation)) {
-    L.push('', 'ANALYSE ÉDITORIALE');
-    (ed.sujets_notes || []).forEach(s => L.push('  ' + (s.sujet || '') + ' : ' + (s.note || '')));
-    if (ed.recommandation) L.push('→ ' + ed.recommandation);
-  }
-
-  bloc('Audience', [
-    P.audience && P.audience.constat,
-    P.audience && P.audience.alignement
-  ]);
-
-  const pa = a.plan_action_30j;
-  if (pa && typeof pa === 'object') {
-    const lignes = [];
-    if (pa.frequence) lignes.push('Fréquence : ' + pa.frequence);
-    if (pa.duree_ideale) lignes.push('Durée idéale : ' + pa.duree_ideale);
-    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length)
-      lignes.push('Sujets à faire : ' + pa.sujets_a_faire.join(', '));
-    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length)
-      lignes.push('À éviter : ' + pa.erreurs_a_eviter.join(', '));
-    bloc('Plan des 30 prochains jours', lignes);
-  }
-
-  return L.join('\n');
-}
-
-function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
-  lastAudit = a;
-  const out = document.getElementById('auditOutput');
-  if (!out) return;
-  if (!a || typeof a !== 'object') {
-    out.innerHTML = '<div class="err" style="display:block">Réponse illisible.</div>';
-    return;
-  }
-
-  // Contexte du compte analysé, pour les opportunités personnalisées en fin de rapport.
-  // Priorité aux valeurs passées par l'appelant (audit qui vient d'être lancé), puis à
-  // celles enregistrées avec l'audit (audit rouvert depuis l'historique), puis au formulaire.
-  const oppNiche = nicheCtx || a.niche || document.getElementById('auditNiche')?.value || '';
-  const oppObjectif = objectifCtx || a.objectif || document.getElementById('auditObjectif')?.value || '';
-  const oppStyle = styleCtx || document.getElementById('auditStyle')?.value || '';
-
-  let html = '<div class="audit-result">';
-
-  // ── TikTok Score ──
-  // Si le modèle a fourni des mesures brutes, le score est calculé ici par
-  // le moteur (reproductible). Sinon c'est un audit enregistré avant le
-  // moteur : on relit l'ancien champ tiktok_score tel quel.
-  const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
-
-  // Une dimension n'est notée que si le modèle a renvoyé un vrai nombre.
-  // Sinon elle est "non mesurée" — surtout pas 0/20, qui ferait croire
-  // à une mauvaise note alors que c'est la donnée qui manque.
-  const dimValeur = v => {
-    const n = (typeof v === 'number') ? v : parseFloat(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  // Le score global est recalculé ici à partir des seules dimensions
-  // réellement mesurées, puis ramené sur 100. Sans ça, un compte à qui
-  // il manque une capture plafonnerait mécaniquement (ex. 80/100 maximum).
-  // On ne se fie pas à l'arithmétique du modèle.
-  const dimsMesurees = SCORE_DIMS.filter(d => dimValeur(ts[d.key]) !== null);
-  const maxMesure = dimsMesurees.reduce((s, d) => s + d.max, 0);
-  const obtenu = dimsMesurees.reduce((s, d) => s + dimValeur(ts[d.key]), 0);
-  const global = maxMesure > 0 ? Math.round((obtenu / maxMesure) * 100) : auditNum(ts.global);
-  const partiel = dimsMesurees.length > 0 && dimsMesurees.length < SCORE_DIMS.length;
-
-  // Circonférence de l'anneau (rayon 74) pour le calcul du remplissage
-  const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
-  const scoreAffiche = (global == null || Number.isNaN(global)) ? '—' : global;
-
-  html += `
-    <div class="audit-score-card">
-      <div class="audit-score-label">ADN TIKTOK SCORE</div>
-      <div class="audit-ring-wrap">
-        <svg class="audit-ring" viewBox="0 0 170 170">
-          <defs>
-            <linearGradient id="auditRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="var(--gold)"/>
-              <stop offset="100%" stop-color="var(--gold-light)"/>
-            </linearGradient>
-          </defs>
-          <circle class="audit-ring-track" cx="85" cy="85" r="${RING_R}"/>
-          <circle class="audit-ring-fill" id="auditRingFill" cx="85" cy="85" r="${RING_R}"
-            stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
-        </svg>
-        <div class="audit-ring-center">
-          <div class="audit-score-num"><span id="auditScoreNum">0</span><span>/100</span></div>
-        </div>
-      </div>
-      ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
-      ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>`
-        : (ts.levier_dim ? `<div class="audit-score-phrase">Ton levier le plus fort aujourd'hui : ${auditEsc(ts.levier_dim)}.</div>` : '')}
-    </div>`;
-
-  // ── Tes 3 axes prioritaires (digest actionnable, juste sous le score) ──
-  // On prend d'abord ce que le modèle a renvoyé ; à défaut, on retombe sur les
-  // dimensions les plus faibles du score, pour que le bloc s'affiche toujours.
-  let axesPrio = Array.isArray(a.axes_prioritaires)
-    ? a.axes_prioritaires.filter(x => x && (x.titre || x.action || x.pourquoi))
-    : [];
-  if (!axesPrio.length && dimsMesurees.length) {
-    axesPrio = dimsMesurees
-      .map(d => ({ d, part: dimValeur(ts[d.key]) / d.max }))
-      .sort((x, y) => x.part - y.part)
-      .slice(0, 3)
-      .map(({ d }) => ({ titre: d.label, pourquoi: (AXE_CONSEILS[d.key] || {}).pourquoi || '', action: (AXE_CONSEILS[d.key] || {}).action || '' }));
-  }
-  if (axesPrio.length) {
-    const n = Math.min(3, axesPrio.length);
-    html += `<div class="audit-prio"><div class="audit-prio-titre">Tes ${n} axe${n > 1 ? 's' : ''} prioritaire${n > 1 ? 's' : ''}</div>`;
-    axesPrio.slice(0, 3).forEach((ax, i) => {
-      html += `<div class="audit-prio-item">
-        <div class="audit-prio-num">${i + 1}</div>
-        <div class="audit-prio-body">
-          <div class="audit-prio-t">${auditEsc(ax.titre || ('Axe ' + (i + 1)))}</div>
-          ${ax.pourquoi ? `<div class="audit-prio-why">${auditEsc(ax.pourquoi)}</div>` : ''}
-          ${ax.action ? `<div class="audit-prio-action">→ ${auditEsc(ax.action)}</div>` : ''}
-        </div>
-      </div>`;
-    });
-    html += '</div>';
-  }
-
-  // Dimensions du score
-  const hasDims = dimsMesurees.length > 0;
-  if (hasDims) {
-    html += '<div class="audit-axes">';
-    SCORE_DIMS.forEach(d => {
-      const v = dimValeur(ts[d.key]);
-      if (v === null) {
-        html += `
-        <div class="audit-axe" style="opacity:.45">
-          <div class="audit-axe-head"><span>${d.label}</span><b>non mesuré</b></div>
-          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:0%"></div></div>
-        </div>`;
-        return;
-      }
-      const pct = Math.max(0, Math.min(100, (v / d.max) * 100));
-      html += `
-        <div class="audit-axe">
-          <div class="audit-axe-head"><span>${d.label}</span><b>${v}/${d.max}</b></div>
-          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:${pct}%"></div></div>
-        </div>`;
-    });
-    html += '</div>';
-  }
-
-  const P = a.piliers || {};
-  const dispo = p => p && p.disponible !== false && (p.constat || p.conclusion || p.formule || (p.sujets_notes && p.sujets_notes.length));
-
-  // Intertitre : ouvre la partie diagnostic, pour séparer visuellement le
-  // score (le verdict) de son explication détaillée.
-  const yaDiagnostic = dispo(P.performance_globale) || dispo(P.meilleure_video)
-    || dispo(P.pire_video) || dispo(P.comparatif) || dispo(P.editorial) || dispo(P.audience);
-  if (yaDiagnostic) html += '<div class="audit-section-label">Le diagnostic</div>';
-
-  // ── Pilier : performance globale ──
-  if (dispo(P.performance_globale)) {
-    const p = P.performance_globale;
-    html += auditBlock('📊 Performance globale', `
-      ${p.constat ? `<div class="audit-diag-constat">${auditEsc(p.constat)}</div>` : ''}
-      ${p.blocage ? `<div class="audit-diag-interp">🚧 ${auditEsc(p.blocage)}</div>` : ''}
-      ${p.action ? `<div class="audit-diag-action">→ ${auditEsc(p.action)}</div>` : ''}
-    `);
-  }
-
-  // ── Comparatif meilleure / pire ──
-  const mv = P.meilleure_video, pv = P.pire_video, comp = P.comparatif;
-  // Abonnés gagnés par chaque vidéo (donnée extraite des captures détail — fiable,
-  // pas une estimation du modèle). Affiché tel quel si visible.
-  const M = a.mesures || {};
-  const foll = v => (v != null && v !== '' && !isNaN(v)) ? Number(v) : null;
-  const folBest = foll(M.retention_meilleure && M.retention_meilleure.nouveaux_followers);
-  const folWorst = foll(M.retention_pire && M.retention_pire.nouveaux_followers);
-  const badgeFoll = n => `<div class="audit-vs-fol">🧲 ${formaterNombre(n)} abonné${n > 1 ? 's' : ''} gagné${n > 1 ? 's' : ''} par cette vidéo</div>`;
-  if (dispo(mv) || dispo(pv) || dispo(comp)) {
-    let inner = '';
-    if (dispo(mv)) {
-      inner += `<div class="audit-vs-col audit-vs-best">
-        <div class="audit-vs-tag">✅ Meilleure vidéo</div>
-        ${mv.constat ? `<div class="audit-vs-text">${auditEsc(mv.constat)}</div>` : ''}
-        ${mv.formule ? `<div class="audit-vs-formule">💡 ${auditEsc(mv.formule)}</div>` : ''}
-        ${folBest != null ? badgeFoll(folBest) : ''}
-      </div>`;
-    }
-    if (dispo(pv)) {
-      const sec = pv.seconde_decrochage;
-      inner += `<div class="audit-vs-col audit-vs-worst">
-        <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ' — décroche à ' + auditEsc(sec) + 's' : ''}</div>
-        ${pv.constat ? `<div class="audit-vs-text">${auditEsc(pv.constat)}</div>` : ''}
-        ${folWorst != null ? badgeFoll(folWorst) : ''}
-      </div>`;
-    }
-    html += auditBlock('⚡ Comparatif', `<div class="audit-vs">${inner}</div>
-      ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}
-      ${dispo(comp) && comp.conversion ? `<div class="audit-vs-repres">🧲 ${auditEsc(comp.conversion)}</div>` : ''}
-      ${dispo(comp) && comp.representativite ? `<div class="audit-vs-repres">📊 ${auditEsc(comp.representativite)}</div>` : ''}`);
-  }
-
-  // ── Éditorial ──
-  if (dispo(P.editorial)) {
-    const e = P.editorial;
-    let inner = '';
-    if (Array.isArray(e.sujets_notes) && e.sujets_notes.length) {
-      inner += '<div class="audit-sujets">';
-      e.sujets_notes.forEach(s => {
-        inner += `<div class="audit-sujet"><span>${auditEsc(s.sujet)}</span><b>${auditEsc(s.note)}</b></div>`;
-      });
-      inner += '</div>';
-    }
-    if (e.recommandation) inner += `<div class="audit-diag-action">→ ${auditEsc(e.recommandation)}</div>`;
-    html += auditBlock('📝 Analyse éditoriale', inner);
-  }
-
-  // ── Audience ──
-  if (dispo(P.audience)) {
-    const au = P.audience;
-    html += auditBlock('👥 Audience', `
-      ${au.constat ? `<div class="audit-diag-constat">${auditEsc(au.constat)}</div>` : ''}
-      ${au.alignement ? `<div class="audit-diag-interp">${auditEsc(au.alignement)}</div>` : ''}
-    `);
-  }
-
-  // ── Plan d'action 30 jours ──
-  const pa = a.plan_action_30j;
-  if (pa && typeof pa === 'object') {
-    html += '<div class="audit-section-label">Passe à l\'action</div>';
-    let items = '';
-    if (pa.frequence) items += `<li><b>Fréquence :</b> ${auditEsc(pa.frequence)}</li>`;
-    if (pa.duree_ideale) items += `<li><b>Durée idéale :</b> ${auditEsc(pa.duree_ideale)}</li>`;
-    if (pa.type_hook) items += `<li><b>Hook :</b> ${auditEsc(pa.type_hook)}</li>`;
-    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length)
-      items += `<li><b>Sujets à faire :</b> ${pa.sujets_a_faire.map(auditEsc).join(', ')}</li>`;
-    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length)
-      items += `<li><b>À éviter :</b> ${pa.erreurs_a_eviter.map(auditEsc).join(', ')}</li>`;
-    if (items) {
-      html += `<div class="audit-block audit-plan">
-        <div class="audit-block-title">🎯 Ton plan des 30 prochains jours</div>
-        <ul class="audit-plan-list">${items}</ul>
-      </div>`;
-    }
-  }
-
-  // ── Données manquantes ──
-  // ── Pour un audit plus complet ──
-  // Liste ce qui a manqué à Scriptura pour aller plus loin. S'affiche seulement
-  // s'il manque vraiment quelque chose : un audit complet n'affiche rien.
-  const manquantes = Array.isArray(a.donnees_manquantes) ? a.donnees_manquantes.filter(Boolean) : [];
-  if (manquantes.length) {
-    html += auditBlock('📋 Pour un audit plus complet',
-      '<ul class="audit-manquantes">' +
-      manquantes.map(m => `<li>${auditEsc(m)}</li>`).join('') +
-      '</ul>' +
-      '<button class="btn-storyboard audit-refaire" onclick="affinerAudit()">Refaire l\'audit avec les captures manquantes</button>');
-  }
-
-  // ── Copier / Partager ──
-  const txtAudit = auditTexteBrut(a, ts);
-  html += `<div class="sb-actions-fin">
-    <button class="icon-btn" title="Copier l'audit" onclick="copyText(this, '${storeCopyText(txtAudit)}')">${ICON_COPY}</button>
-    <button class="icon-btn" title="Partager l'audit" onclick="shareText(this, '${storeCopyText(txtAudit)}')">${ICON_SHARE}</button>
-    <button class="icon-btn" title="Télécharger en PDF" onclick="telechargerAuditPDF()">${ICON_PDF}</button>
-  </div>`;
-
-  // ── Pont vers le contenu ── (la recommandation IA ci-dessous propose déjà
-  // "Créer le script" et "Voir d'autres recommandations", ce bouton faisait doublon)
-  html += `<div id="auditOpportunites"></div></div>`;
-
-  out.innerHTML = html;
-  animerScoreAudit(global, RING_C);
-  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  // "Et maintenant ?" : générée après coup, en tâche de fond, pour ne jamais
-  // retarder l'affichage du rapport lui-même. niche/objectif sont transmis
-  // explicitement car, sur un audit tout juste terminé, le Profil Créateur
-  // n'a pas encore fini de les enregistrer en mémoire (ça se fait plus bas,
-  // après cet appel) : on ne veut pas attendre pour les connaître.
-  if (typeof afficherEtMaintenant === 'function') afficherEtMaintenant(a, ts, oppNiche, oppObjectif);
-}
-
-// Fait apparaître la forme du radar en fondu, une fois le SVG dans le DOM.
-function animerRadar() {
-  const shape = document.getElementById('auditRadarShape');
-  if (!shape) return;
-  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduit) { shape.style.opacity = '1'; return; }
-  shape.style.opacity = '0';
-  shape.style.transform = 'scale(0.4)';
-  requestAnimationFrame(() => {
-    shape.style.opacity = '1';
-    shape.style.transform = 'scale(1)';
-  });
-}
-
-// Dessine un radar (toile d'araignée) des dimensions du score.
-// SVG pur, sans librairie. Chaque branche = une dimension, la distance au
-// centre = la note en proportion de son maximum.
-function radarSVG(ts, dimValeur) {
-  const cx = 160, cy = 130, rayonMax = 74;
-  const dims = SCORE_DIMS;
-  const n = dims.length;
-  const point = (i, rayon) => {
-    const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-    return [cx + rayon * Math.cos(angle), cy + rayon * Math.sin(angle)];
-  };
-
-  let grille = '';
-  [0.25, 0.5, 0.75, 1].forEach(f => {
-    const pts = dims.map((_, i) => point(i, rayonMax * f).map(v => v.toFixed(1)).join(',')).join(' ');
-    grille += `<polygon class="audit-radar-grid" points="${pts}"/>`;
-  });
-  let branches = '', labels = '';
-  dims.forEach((d, i) => {
-    const [bx, by] = point(i, rayonMax);
-    branches += `<line class="audit-radar-spoke" x1="${cx}" y1="${cy}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}"/>`;
-    const [lx, ly] = point(i, rayonMax + 16);
-    const v = dimValeur(ts[d.key]);
-    const ancre = Math.abs(lx - cx) < 5 ? 'middle' : (lx > cx ? 'start' : 'end');
-    labels += `<text class="audit-radar-label" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${ancre}" dominant-baseline="middle">${d.label}</text>`;
-    if (v !== null) {
-      labels += `<text class="audit-radar-val" x="${lx.toFixed(1)}" y="${(ly + 12).toFixed(1)}" text-anchor="${ancre}" dominant-baseline="middle">${v}/${d.max}</text>`;
-    }
-  });
-  const pts = dims.map((d, i) => {
-    const v = dimValeur(ts[d.key]);
-    const frac = v === null ? 0 : Math.max(0, Math.min(1, v / d.max));
-    return point(i, rayonMax * frac).map(x => x.toFixed(1)).join(',');
-  }).join(' ');
-  const dots = dims.map((d, i) => {
-    const v = dimValeur(ts[d.key]);
-    if (v === null) return '';
-    const [px, py] = point(i, rayonMax * Math.max(0, Math.min(1, v / d.max)));
-    return `<circle class="audit-radar-dot" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="3"/>`;
-  }).join('');
-
-  return `<div class="audit-radar-wrap">
-    <svg class="audit-radar" viewBox="0 0 320 260" id="auditRadarSvg">
-      ${grille}${branches}
-      <polygon class="audit-radar-shape" id="auditRadarShape" points="${pts}" style="opacity:0"/>
-      ${dots}
-      ${labels}
-    </svg>
-  </div>`;
-}
-
-// Anime l'anneau de score et le compteur de 0 jusqu'à la valeur finale.
-// Respecte la préférence système "réduire les animations".
-function animerScoreAudit(valeur, circonference) {
-  const numEl = document.getElementById('auditScoreNum');
-  const ringEl = document.getElementById('auditRingFill');
-  if (valeur == null || Number.isNaN(valeur)) {
-    if (numEl) numEl.textContent = '—';
-    return;
-  }
-  const cible = Math.max(0, Math.min(100, valeur));
-  const offsetFinal = circonference * (1 - cible / 100);
-
-  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduit) {
-    if (numEl) numEl.textContent = cible;
-    if (ringEl) ringEl.style.strokeDashoffset = offsetFinal;
-    return;
-  }
-
-  // L'anneau part sur sa transition CSS après un court délai (sinon le
-  // navigateur applique la valeur finale sans transition au premier rendu).
-  if (ringEl) requestAnimationFrame(() => { ringEl.style.strokeDashoffset = offsetFinal; });
-
-  // Le chiffre monte en parallèle, calé sur la même durée que l'anneau.
-  const duree = 1300;
-  const debut = performance.now();
-  function tick(maintenant) {
-    const t = Math.min(1, (maintenant - debut) / duree);
-    const adouci = 1 - Math.pow(1 - t, 3); // easing cubic-out, comme l'anneau
-    if (numEl) numEl.textContent = Math.round(cible * adouci);
-    if (t < 1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
-
-function auditBlock(titre, inner) {
-  return `<div class="audit-block"><div class="audit-block-title">${titre}</div>${inner}</div>`;
-}
-
-// Pont audit → mode idées : envoie le problème principal vers le générateur d'idées
-// Ramène à la zone d'upload en gardant les captures déjà chargées, pour en
-// ajouter d'autres (ex : sources de trafic) puis relancer. Le relancement
-// passe par lancerAudit → peutAuditer, donc il consomme bien un audit du mois.
-function affinerAudit() {
-  const out = document.getElementById('auditOutput');
-  if (out) out.innerHTML = ''; // on efface l'ancien résultat, les captures restent
-
-  // Le contexte (objectif, niche, fréquence, style) est déjà rempli et
-  // conservé : inutile de re-parcourir les 5 étapes. Le mode "affiner" de
-  // l'assistant montre directement l'ajout de captures + le rappel + la relance.
-  initAuditWizard(true);
-
-  const drop = document.getElementById('auditDrop');
-  if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  const input = document.getElementById('auditInput');
-  if (input) setTimeout(() => input.click(), 400);
-}
-
-// Pré-remplit le mode idées à partir d'une niche + objectif connus (issus d'un
-// audit, à l'écran ou sauvegardé) et lance directement la génération.
-function lancerIdeesDepuisAudit(niche, objectif) {
-  chooseMode('ideas');
-
-  const nicheField = document.getElementById('ideaNiche');
-  const geoField = document.getElementById('ideaGeo');
-  if (geoField) geoField.value = ''; // ne jamais hériter d'une ancienne saisie
-
-  // Niche inconnue (audit ancien, enregistré avant qu'on la sauvegarde) :
-  // on ouvre le formulaire vierge pour que l'utilisateur la choisisse,
-  // plutôt que de générer avec une valeur résiduelle qui n'est pas la sienne.
-  if (!niche) {
-    if (nicheField) {
-      nicheField.selectedIndex = 0;
-      nicheField.dispatchEvent(new Event('change'));
-    }
-    const info = document.getElementById('ideasFlow');
-    if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
-
-  if (nicheField) {
-    nicheField.value = niche;
-    nicheField.dispatchEvent(new Event('change')); // met à jour l'affichage du champ géo lié
-  }
-
-  const mapObjectif = {
-    'Faire plus de vues et maximiser la portée': 'faire des vues',
-    'Gagner des abonnés qualifiés rapidement': 'gagner des abonnés',
-    'Générer des ventes via mon contenu': 'générer des ventes',
-    'Renforcer mon expertise et ma crédibilité': 'renforcer mon expertise'
-  };
-  const goalVal = mapObjectif[objectif];
-  if (goalVal) {
-    const btn = document.querySelector('#ideaGoalGrid .grid-btn[data-val="' + goalVal + '"]');
-    if (btn) btn.click();
-  }
-
-  // Exception : si la niche exige une zone géo et qu'on ne l'a pas, on laisse
-  // le formulaire ouvert pour que l'utilisateur la précise (sinon échec).
-  const geoRequise = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'];
-  const geoVal = document.getElementById('ideaGeo')?.value.trim();
-  if (niche && geoRequise.includes(niche) && !geoVal) {
-    const info = document.getElementById('ideasFlow');
-    if (info) info.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
-
-  generateIdeas();
-
-}
-
-// ═══════════════════════════════════════════════════════════
-//  "ET MAINTENANT ?" — pont audit → recommandation IA → script
-//  À la fin de chaque analyse, la recommandation personnalisée (titre,
-//  angle, justifications, potentiel) est générée par le moteur partagé
-//  js/recommandations.js (voir afficherEtMaintenant), à partir de ce
-//  diagnostic (stats, points forts/faibles, meilleures et moins bonnes
-//  vidéos, audience) ET de la mémoire du créateur. Ne consomme aucun
-//  quota : c'est un prolongement de l'audit déjà payé.
-// ═══════════════════════════════════════════════════════════
-
-// Reformule le diagnostic déjà affiché en texte compact pour le prompt —
-// on ne réutilise que des champs déjà lus ailleurs dans ce fichier (piliers,
-// plan d'action), sans toucher aux règles d'analyse ni au prompt de l'audit.
-function texteDiagnosticOpportunites(a, ts) {
-  const P = a.piliers || {};
-  const lignes = [];
-  if (ts && ts.global != null) {
-    lignes.push('Score ADN TikTok global : ' + ts.global + '/100' + (ts.levier_dim ? ' (levier principal : ' + ts.levier_dim + ')' : ''));
-  }
-  if (P.performance_globale) {
-    if (P.performance_globale.constat) lignes.push('Performance globale : ' + P.performance_globale.constat);
-    if (P.performance_globale.blocage) lignes.push('Blocage identifié : ' + P.performance_globale.blocage);
-  }
-  if (P.meilleure_video) {
-    if (P.meilleure_video.constat) lignes.push('Meilleure vidéo : ' + P.meilleure_video.constat);
-    if (P.meilleure_video.formule) lignes.push('Formule qui marche chez ce créateur : ' + P.meilleure_video.formule);
-  }
-  if (P.pire_video && P.pire_video.constat) lignes.push('Vidéo la plus faible : ' + P.pire_video.constat);
-  if (P.comparatif && P.comparatif.conclusion) lignes.push('Comparatif meilleure/pire vidéo : ' + P.comparatif.conclusion);
-  if (P.editorial) {
-    if (Array.isArray(P.editorial.sujets_notes) && P.editorial.sujets_notes.length) {
-      lignes.push('Sujets déjà traités : ' + P.editorial.sujets_notes.map(s => (s.sujet || '') + ' (' + (s.note || '') + ')').join(', '));
-    }
-    if (P.editorial.recommandation) lignes.push('Recommandation éditoriale : ' + P.editorial.recommandation);
-  }
-  if (P.audience) {
-    if (P.audience.constat) lignes.push('Audience : ' + P.audience.constat);
-    if (P.audience.alignement) lignes.push('Alignement audience/contenu : ' + P.audience.alignement);
-  }
-  const pa = a.plan_action_30j;
-  if (pa && typeof pa === 'object') {
-    if (Array.isArray(pa.sujets_a_faire) && pa.sujets_a_faire.length) lignes.push('Sujets à explorer selon le plan : ' + pa.sujets_a_faire.join(', '));
-    if (Array.isArray(pa.erreurs_a_eviter) && pa.erreurs_a_eviter.length) lignes.push('Erreurs à éviter : ' + pa.erreurs_a_eviter.join(', '));
-    if (pa.type_hook) lignes.push('Type de hook recommandé pour ce compte : ' + pa.type_hook);
-  }
-  return lignes.filter(Boolean).join('\n');
-}
-
-// Fait apparaître un écran en fondu + légère montée.
-// On retire puis remet la classe (avec un reflow forcé) pour que l'animation
-// se relance à chaque navigation, et pas seulement la première fois.
-function animerEntreeEcran(el) {
-  if (!el) return;
-  el.classList.remove('screen-appear');
-  void el.offsetWidth; // force le navigateur à recalculer : relance l'animation
-  el.classList.add('screen-appear');
-}
-
