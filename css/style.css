@@ -1,3 +1,4 @@
+```css
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#1C1C1E;
@@ -1027,6 +1028,7 @@ body.hero-focus .hero-retour{
 }
 body.hero-focus .hero-retour:hover{color:var(--gold)}
 body.hero-focus .ticker-wrap,
+body.hero-focus .hero-logo-badge,
 body.hero-focus .hero-eyebrow,
 body.hero-focus .hero h1,
 body.hero-focus .hero-rule,
@@ -2184,3 +2186,5 @@ body.is-unlocked .sidebar-logout{display:block}
 .audit-affiner-btn{margin-top:14px;background:rgba(255,255,255,0.06);color:var(--gold-light);border:1px solid var(--border-soft)}
 .audit-affiner-btn:hover{background:rgba(255,255,255,0.1)}
 .audit-affine-note{background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:12px;padding:14px 16px;font-size:0.9rem;color:var(--gold-light);line-height:1.5;margin-bottom:18px}
+
+```
