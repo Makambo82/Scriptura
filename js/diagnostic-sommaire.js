@@ -57,6 +57,49 @@ function diagSommaireEsc(t) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
 
+// Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
+// en cours" — jamais les deux affichés en même temps.
+function toggleDiagSommaireEntree(visible) {
+  document.querySelectorAll('#diagSommaireFlow .ds-field, #diagSommaireFlow .ds-note, #diagSommaireFlow .ds-sep, #diagSommaireFlow .ds-alt').forEach(el => {
+    el.style.display = visible ? '' : 'none';
+  });
+}
+
+// Messages qui défilent sous le pourcentage pendant l'analyse — ce
+// diagnostic est rapide (un seul profil public à lire), contrairement au
+// diagnostic complet par captures qui peut prendre plusieurs minutes.
+const DS_LOADING_MESSAGES = [
+  'On récupère ton profil…',
+  'On calcule ton engagement…',
+  'On analyse ta bio et ta niche…',
+  'On identifie tes leviers prioritaires…'
+];
+let _dsLoadingTimer = null;
+
+function demarrerAnimationChargementDs() {
+  const pctEl = document.getElementById('dsLoadingPct');
+  const statusEl = document.getElementById('dsLoadingStatus');
+  if (statusEl) statusEl.textContent = DS_LOADING_MESSAGES[0];
+  let i = 0;
+  if (_dsLoadingTimer) clearInterval(_dsLoadingTimer);
+  _dsLoadingTimer = setInterval(() => {
+    i = (i + 1) % DS_LOADING_MESSAGES.length;
+    if (statusEl) statusEl.textContent = DS_LOADING_MESSAGES[i];
+  }, 1600);
+  // Réutilise le même moteur de progression estimée que le storyboard
+  // (js/storyboard.js) — durée courte car un seul appel léger est en jeu ici.
+  const prog = (typeof createProgress === 'function')
+    ? createProgress((p) => { if (pctEl) pctEl.textContent = p + '%'; }, 6000)
+    : null;
+  if (prog) prog.start();
+  return prog;
+}
+
+function arreterAnimationChargementDs(prog) {
+  if (_dsLoadingTimer) { clearInterval(_dsLoadingTimer); _dsLoadingTimer = null; }
+  if (prog) prog.finish();
+}
+
 async function lancerDiagnosticSommaire() {
   const inputEl = document.getElementById('diagSommaireInput');
   const errorBox = document.getElementById('diagSommaireErrorBox');
@@ -88,6 +131,11 @@ async function lancerDiagnosticSommaire() {
   spinner.style.display = 'block';
   arrow.style.display = 'none';
   results.style.display = 'none';
+
+  toggleDiagSommaireEntree(false);
+  const loadingEl = document.getElementById('diagSommaireLoading');
+  if (loadingEl) loadingEl.style.display = 'block';
+  const dsProg = demarrerAnimationChargementDs();
 
   try {
     // Récupère le profil public via notre fonction serveur (clé LamaTok
@@ -165,6 +213,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     btn.disabled = false;
     spinner.style.display = 'none';
     arrow.style.display = '';
+    arreterAnimationChargementDs(dsProg);
+    if (loadingEl) loadingEl.style.display = 'none';
+    toggleDiagSommaireEntree(true);
   }
 }
 
@@ -286,6 +337,14 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const subscribeNote = (!unlocked) ? `
     <div class="ds-result-subscribe" id="dsStaticSubscribe">✦ Ce diagnostic rapide est un aperçu. Pour que Scriptura te fasse des recommandations personnalisées et suive ton évolution dans le temps, <a onclick="openPlans('abonnement')" style="color:var(--gold-light);text-decoration:underline;cursor:pointer">abonne-toi</a>.</div>` : '';
 
+  // Invitation vers l'analyse détaillée (captures) — copie différente selon
+  // que l'utilisateur y a déjà accès (Pro/admin) ou doit encore la débloquer
+  // (Creator, non-abonné) ; dans les deux cas, ouvrirCapturesDepuisChoix()
+  // gère déjà le bon routage (paywall, jetons, ou assistant directement).
+  const ctaDetailleHtml = (typeof aAccesMode === 'function' && aAccesMode('audit')) ? `
+    <div class="ds-alt">Ce diagnostic rapide n'est qu'un aperçu. Ton plan te donne accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. <a onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</a></div>` : `
+    <div class="ds-alt">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin — rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. <a onclick="ouvrirCapturesDepuisChoix()">Débloquer l'analyse détaillée →</a></div>`;
+
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
   // mémoire locale — voir afficherOpportuniteDiagSommaire dans recommandations.js).
   const opportuniteHtml = (!unlocked) ? `<div id="diagSommaireOpportunites"></div>` : '';
@@ -325,7 +384,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
     <div class="score-card">
       ${subscribeNote}
-      <button class="btn-generate" style="width:100%;justify-content:center;margin-top:${subscribeNote ? '14px' : '0'}" onclick="resetDiagnosticSommaireForm()">↻ Analyser un autre compte</button>
+      <div style="margin-top:${subscribeNote ? '14px' : '0'}">${ctaDetailleHtml}</div>
     </div>`;
 
   results.style.display = 'block';
