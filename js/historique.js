@@ -442,6 +442,7 @@ async function openHistory() {
   const code = localStorage.getItem('scriptura_code');
   if (code) document.getElementById('historyCodeInput').value = code;
   renderHistory();
+  if (typeof verifierBanniereFusion === 'function') verifierBanniereFusion();
 }
 
 // Synchronise avec le code d'accès saisi

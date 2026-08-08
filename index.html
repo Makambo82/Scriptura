@@ -90,6 +90,9 @@
       </div>
     </div>
 
+    <div id="fusionBanner" class="ds-alt" style="display:none;margin-bottom:20px;cursor:pointer" onclick="ouvrirFusionDiagnostics()">
+      🔗 Tu as fait tes deux diagnostics — <strong>découvre le rapport fusionné, plus complet →</strong>
+    </div>
     <div id="historyToolbar" class="history-toolbar" style="display:none"></div>
     <div id="historyFilters" class="history-filters" style="display:none"></div>
     <div id="historyList"></div>
@@ -479,6 +482,24 @@
 
     <div class="err" id="auditError" style="display:none"></div>
     <div id="auditOutput"></div>
+  </div>
+</section>
+
+<!-- ══ RAPPORT FUSIONNÉ (Pro ayant fait les 2 diagnostics) ══ -->
+<section id="fusionFlow" style="display:none">
+  <div class="ideas-container" style="max-width:720px;margin:0 auto;padding:100px 12px 80px">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Diagnostic · Rapport fusionné</div>
+      <h2 class="ideas-title">Tes deux diagnostics,<br/><strong>combinés.</strong></h2>
+      <p class="ideas-sub">Scriptura croise ton diagnostic complet (captures) et ton diagnostic rapide (@nom d'utilisateur) pour des recommandations plus complètes.</p>
+    </div>
+    <div class="err" id="fusionError" style="display:none"></div>
+    <div id="fusionLoading" style="display:none;text-align:center;padding:40px 0">
+      <span class="sb-gen-spinner" style="display:inline-block;width:22px;height:22px;border-width:3px"></span>
+      <p style="margin-top:14px;color:var(--text-secondary);font-size:0.9rem">Scriptura croise tes deux diagnostics…</p>
+    </div>
+    <div id="fusionResults"></div>
   </div>
 </section>
 
@@ -1237,6 +1258,7 @@
 <script src="js/storyboard.js"></script>
 <script src="js/storyboard-seul.js"></script>
 <script src="js/diagnostic-sommaire.js"></script>
+<script src="js/diagnostic-fusion.js"></script>
 <script src="js/generation.js"></script>
 <script src="js/app.js"></script>
 
