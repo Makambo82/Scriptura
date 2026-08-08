@@ -51,22 +51,37 @@ export default async function handler(req, res) {
     //    même le profil seul plutôt que de faire échouer tout le diagnostic.
     let medias = [];
     let mediasErreur = null;
+    const urlMedias = 'https://api.lamatok.com/v1/user/medias?username=' + encodeURIComponent(propre) + '&count=20';
     try {
-      const repMedias = await fetch(
-        'https://api.lamatok.com/v1/user/medias?username=' + encodeURIComponent(propre) + '&count=20',
-        { headers }
-      );
-      const dataMedias = await repMedias.json();
-      if (repMedias.ok) {
+      const repMedias = await fetch(urlMedias, { headers });
+      const texteBrut = await repMedias.text();
+      let dataMedias = null;
+      try { dataMedias = JSON.parse(texteBrut); } catch (e) { /* réponse non-JSON, traitée ci-dessous */ }
+
+      if (!repMedias.ok) {
+        // Diagnostic complet : statut HTTP + un aperçu du corps de la réponse,
+        // pour comprendre EXACTEMENT pourquoi (mauvais endpoint, mauvais
+        // paramètre, quota LamaTok épuisé...) plutôt que d'échouer en silence.
+        const message = (dataMedias && (dataMedias.message || dataMedias.error)) || texteBrut.slice(0, 200) || 'réponse vide';
+        mediasErreur = `HTTP ${repMedias.status} sur ${urlMedias} — ${message}`;
+      } else {
         medias = Array.isArray(dataMedias) ? dataMedias
                : Array.isArray(dataMedias?.medias) ? dataMedias.medias
                : Array.isArray(dataMedias?.data) ? dataMedias.data
+               : Array.isArray(dataMedias?.items) ? dataMedias.items
+               : Array.isArray(dataMedias?.aweme_list) ? dataMedias.aweme_list
+               : Array.isArray(dataMedias?.videos) ? dataMedias.videos
+               : Array.isArray(dataMedias?.posts) ? dataMedias.posts
+               : Array.isArray(dataMedias?.result) ? dataMedias.result
                : [];
-      } else {
-        mediasErreur = dataMedias?.message || dataMedias?.error || 'liste des vidéos indisponible';
+        // Réponse 200 mais aucune des formes connues ne contient de tableau :
+        // on garde les clés reçues pour comprendre la vraie forme de la réponse.
+        if (!medias.length && dataMedias && typeof dataMedias === 'object') {
+          mediasErreur = `Réponse 200 mais forme inattendue — clés reçues : ${Object.keys(dataMedias).join(', ') || 'aucune'}`;
+        }
       }
     } catch (e) {
-      mediasErreur = e.message || 'liste des vidéos indisponible';
+      mediasErreur = 'Appel réseau échoué vers ' + urlMedias + ' — ' + (e.message || 'inconnue');
     }
 
     return res.status(200).json({ profil, medias, medias_erreur: mediasErreur });

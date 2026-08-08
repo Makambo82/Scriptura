@@ -158,7 +158,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     saveGeneration('diagnosticSommaire', titre, { username: username, diagnostic: parsed });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
-    afficherDiagnosticSommaireResultat(parsed, username);
+    afficherDiagnosticSommaireResultat(parsed, username, donnees.medias_erreur);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
@@ -210,7 +210,11 @@ const DS_DIM_META = {
 };
 
 // Affiche le résultat (nouvelle génération OU réouverture depuis l'historique).
-function afficherDiagnosticSommaireResultat(d, username) {
+// `mediasErreur` (optionnel, uniquement passé lors d'une génération en direct,
+// pas à la réouverture) : diagnostic technique visible si la récupération des
+// vidéos a échoué — utile pour repérer un souci côté LamaTok sans avoir à
+// fouiller la console. Retiré dès que l'intégration sera stabilisée.
+function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
   const results = document.getElementById('diagSommaireResults');
   if (!results || !d) return;
 
@@ -320,6 +324,8 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ${nicheHtml}
     ${leviersHtml}
     ${adHtml}
+
+    ${mediasErreur ? `<div class="ds-alt" style="border-color:var(--border-soft);font-size:0.78rem;opacity:0.85">🛠️ Diagnostic technique (vidéos indisponibles) : ${diagSommaireEsc(mediasErreur)}</div>` : ''}
 
     <div class="score-card">
       ${subscribeNote}
