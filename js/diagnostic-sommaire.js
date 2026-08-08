@@ -342,8 +342,14 @@ function afficherDiagnosticSommaireResultat(d, username) {
   // (Creator, non-abonné) ; dans les deux cas, ouvrirCapturesDepuisChoix()
   // gère déjà le bon routage (paywall, jetons, ou assistant directement).
   const ctaDetailleHtml = (typeof aAccesMode === 'function' && aAccesMode('audit')) ? `
-    <div class="ds-alt">Ce diagnostic rapide n'est qu'un aperçu. Ton plan te donne accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. <a onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</a></div>` : `
-    <div class="ds-alt">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin — rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>. <a onclick="ouvrirCapturesDepuisChoix()">Débloquer l'analyse détaillée →</a></div>`;
+    <div class="ds-alt">
+      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. Ton plan te donne accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos.</p>
+      <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</button>
+    </div>` : `
+    <div class="ds-alt">
+      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin — rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>.</p>
+      <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Débloquer l'analyse détaillée →</button>
+    </div>`;
 
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
   // mémoire locale — voir afficherOpportuniteDiagSommaire dans recommandations.js).
@@ -382,10 +388,8 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ${leviersHtml}
     ${opportuniteHtml}
 
-    <div class="score-card">
-      ${subscribeNote}
-      <div style="margin-top:${subscribeNote ? '14px' : '0'}">${ctaDetailleHtml}</div>
-    </div>`;
+    ${subscribeNote ? `<div class="score-card">${subscribeNote}</div>` : ''}
+    ${ctaDetailleHtml}`;
 
   results.style.display = 'block';
   setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
