@@ -1177,7 +1177,8 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // Intertitre : ouvre la partie diagnostic, pour séparer visuellement le
   // score (le verdict) de son explication détaillée.
   const yaDiagnostic = dispo(P.performance_globale) || dispo(P.meilleure_video)
-    || dispo(P.pire_video) || dispo(P.comparatif) || dispo(P.editorial) || dispo(P.audience);
+    || dispo(P.pire_video) || dispo(P.comparatif) || dispo(P.editorial)
+    || (P.niche && P.niche.disponible !== false && P.niche.nom) || dispo(P.audience);
   if (yaDiagnostic) html += '<div class="audit-section-label">Le diagnostic</div>';
 
   // ── Pilier : performance globale ──
@@ -1236,6 +1237,20 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     }
     if (e.recommandation) inner += `<div class="audit-diag-action">→ ${auditEsc(e.recommandation)}</div>`;
     html += auditBlock('📝 Analyse éditoriale', inner);
+  }
+
+  // ── Niche (clarté du positionnement) ──
+  if (dispo(P.niche) || (P.niche && P.niche.nom)) {
+    const n = P.niche;
+    const nicheOk = n.etat === 'claire';
+    html += `<div class="audit-block">
+      <div class="audit-block-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <span>🎯 Ta niche</span>
+        <span class="ds-tag${nicheOk ? ' ds-tag-ok' : ''}">${nicheOk ? 'Niche claire' : 'Niche encore floue'}</span>
+      </div>
+      ${n.nom ? `<div class="audit-diag-constat">${auditEsc(n.nom)}</div>` : ''}
+      ${Array.isArray(n.analyse) && n.analyse.length ? `<ul class="ds-niche-analyse">${n.analyse.map(p => `<li>${auditEsc(p)}</li>`).join('')}</ul>` : ''}
+    </div>`;
   }
 
   // ── Audience ──
@@ -1514,6 +1529,10 @@ function texteDiagnosticOpportunites(a, ts) {
       lignes.push('Sujets déjà traités : ' + P.editorial.sujets_notes.map(s => (s.sujet || '') + ' (' + (s.note || '') + ')').join(', '));
     }
     if (P.editorial.recommandation) lignes.push('Recommandation éditoriale : ' + P.editorial.recommandation);
+  }
+  if (P.niche && P.niche.nom) {
+    lignes.push('Niche (' + (P.niche.etat === 'claire' ? 'claire' : 'encore floue') + ') : ' + P.niche.nom);
+    if (Array.isArray(P.niche.analyse) && P.niche.analyse.length) lignes.push('Analyse de positionnement : ' + P.niche.analyse.join(' '));
   }
   if (P.audience) {
     if (P.audience.constat) lignes.push('Audience : ' + P.audience.constat);
