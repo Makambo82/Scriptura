@@ -142,10 +142,17 @@ async function generateStoryboardSeul() {
 
   const plat = sbSeulPlatform || 'TikTok';
   const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
-  const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
   const nbMots = input.split(/\s+/).filter(Boolean).length;
-  const segMin = Math.max(3, Math.round(nbMots / 14));
-  const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
+  // Plafonné (MAX_SEGMENTS_STORYBOARD, voir js/storyboard.js) : un script très
+  // long ne doit jamais produire une requête assez énorme pour dépasser le
+  // budget de temps/tokens d'un seul appel IA.
+  const segMinRaw = Math.max(3, Math.round(nbMots / 14));
+  const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMots / 9));
+  const segMin = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
+  const segMax = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
+  const segDuration = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
+    ? 'une durée adaptée pour couvrir tout le script dans le nombre de plans indiqué'
+    : (segShort ? '3 à 5 secondes' : '5 secondes');
 
   // MÊME structure de prompt que generateStoryStoryboard (js/storyboard.js) :
   // mêmes règles de découpage par image mentale, mêmes 4 dimensions

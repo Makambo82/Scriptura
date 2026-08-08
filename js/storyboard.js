@@ -10,6 +10,13 @@ const MOTS_PAR_SEC = 2.8;   // rythme de narration posée
 const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet)
 const DUREE_MAX = 7;        // au-delà : plusieurs images cachées
 
+// Plafond partagé par tous les modes de storyboard (récit, script, série) :
+// au-delà, une seule requête IA (prompts visuels riches par plan) risque de
+// dépasser le budget de temps du serveur et/ou le plafond de tokens de la
+// réponse — voir les 4 sites qui l'utilisent (storyboard.js, storyboard-seul.js,
+// serie.js, generation.js).
+const MAX_SEGMENTS_STORYBOARD = 40;
+
 // Découpe en phrases, ponctuation conservée
 function splitIntoSentences(texte) {
   if (!texte || typeof texte !== 'string') return [];
@@ -361,15 +368,24 @@ async function generateStoryStoryboard() {
   prog.start();
 
   const plat = storyPlatform || 'TikTok';
-  // Durée de segment selon plateforme
-  const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
-  const segDuration = segShort ? '3 à 5 secondes' : '5 secondes';
   // Nombre de segments proportionnel à la longueur du récit
   const nbMotsRecit = (currentStoryText || '').split(/\s+/).filter(Boolean).length;
   // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
   // pour que l'IA fournisse un visuel DISTINCT à (presque) chaque plan re-segmenté.
-  const segMinR = Math.max(3, Math.round(nbMotsRecit / 14));
-  const segMaxR = Math.max(segMinR + 1, Math.round(nbMotsRecit / 9));
+  // Plafonné à MAX_SEGMENTS_STORYBOARD : un récit long (mode "narratif long,
+  // sans limite") ne doit jamais produire une requête assez énorme pour dépasser
+  // le budget de temps/tokens d'un seul appel IA — sans ce plafond, le storyboard
+  // d'un récit long échouait quasi systématiquement (délai dépassé ou JSON tronqué).
+  const segMinRaw = Math.max(3, Math.round(nbMotsRecit / 14));
+  const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMotsRecit / 9));
+  const segMinR = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
+  const segMaxR = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
+  // Durée de segment selon plateforme — desserrée si le plafond a dû réduire
+  // le nombre de plans en dessous de ce qu'imposerait un rythme de 3-5s/plan.
+  const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
+  const segDuration = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
+    ? 'une durée adaptée pour couvrir tout le récit dans le nombre de plans indiqué'
+    : (segShort ? '3 à 5 secondes' : '5 secondes');
 
   const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt destiné à un générateur d'images (Midjourney, Firefly, Imagen…), d'une richesse exceptionnelle.
 

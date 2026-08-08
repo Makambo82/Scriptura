@@ -400,9 +400,16 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
     // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
     // identique aux modes Script et Récit, pour que l'IA fournisse un visuel DISTINCT
-    // à (presque) chaque plan re-segmenté.
-    const segMin = Math.max(3, Math.round(nbMots / 14));
-    const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
+    // à (presque) chaque plan re-segmenté. Plafonné (MAX_SEGMENTS_STORYBOARD, voir
+    // js/storyboard.js) : un épisode très long ne doit jamais produire une requête
+    // assez énorme pour dépasser le budget de temps/tokens d'un seul appel IA.
+    const segMinRaw = Math.max(3, Math.round(nbMots / 14));
+    const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMots / 9));
+    const segMin = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
+    const segMax = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
+    const consigneDuree = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
+      ? 'Chaque segment couvre une idee complete, avec une duree adaptee pour couvrir tout le script dans le nombre de plans indique.'
+      : 'Chaque segment couvre une idee complete (~3 a 5 secondes).';
 
     const prompt = `Tu es Scriptura, directeur artistique IA expert en creation d'images fixes pour contenu viral vertical.
 
@@ -411,7 +418,7 @@ Voici le script d'un episode de serie TikTok (format faceless, sans visage) :
 SCRIPT :
 ${scriptText}
 
-MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments (ni plus, ni moins). Chaque segment couvre une idee complete (~3 a 5 secondes). Ne gonfle JAMAIS le nombre de plans.
+MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments (ni plus, ni moins). ${consigneDuree} Ne gonfle JAMAIS le nombre de plans.
 
 REGLE DE DECOUPAGE : RESPECTE les unites de sens. Ne coupe JAMAIS une idee au milieu. Si une phrase est longue, coupe a un endroit naturel (apres une virgule, une articulation).
 

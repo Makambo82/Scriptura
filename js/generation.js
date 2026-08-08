@@ -1606,8 +1606,16 @@ async function generateStoryboard() {
   const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
   // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
   // pour que l'IA fournisse un visuel DISTINCT à (presque) chaque plan re-segmenté.
-  const segMin = Math.max(3, Math.round(nbMots / 14));
-  const segMax = Math.max(segMin + 1, Math.round(nbMots / 9));
+  // Plafonné (MAX_SEGMENTS_STORYBOARD, voir js/storyboard.js) : un script très long
+  // ne doit jamais produire une requête assez énorme pour dépasser le budget de
+  // temps/tokens d'un seul appel IA.
+  const segMinRaw = Math.max(3, Math.round(nbMots / 14));
+  const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMots / 9));
+  const segMin = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
+  const segMax = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
+  const consigneDureeSeg = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
+    ? 'Chaque segment couvre une idee complete, avec une duree de narration adaptee pour couvrir tout le script dans le nombre de plans indique.'
+    : 'Chaque segment couvre une idee complete (environ 3 a 5 secondes de narration).';
 
   const prompt = `Tu es Scriptura, directeur artistique IA expert en creation d'images fixes pour contenu viral.
 
@@ -1616,7 +1624,7 @@ Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
 SCRIPT :
 ${scriptText}
 
-MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments pour ce script precis (ni plus, ni moins). Un script court = peu de segments, un script long = plus de segments. Chaque segment couvre une idee complete (environ 3 a 5 secondes de narration). Ne gonfle JAMAIS artificiellement le nombre de plans.
+MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments pour ce script precis (ni plus, ni moins). Un script court = peu de segments, un script long = plus de segments. ${consigneDureeSeg} Ne gonfle JAMAIS artificiellement le nombre de plans.
 
 REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble. Privilegie la coherence du sens sur la duree exacte.
 
