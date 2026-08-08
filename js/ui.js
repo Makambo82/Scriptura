@@ -31,14 +31,36 @@ function quitterFocus() {
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
-// Libellé du bouton selon le statut : un abonné voit une invitation à agir,
-// un nouveau visiteur voit l'offre gratuite.
+// Libellé du bouton selon le statut : un abonné voit une invitation à agir
+// (tirée au hasard parmi plusieurs, pour ne pas figer le texte à chaque
+// visite), un nouveau visiteur voit l'offre gratuite.
+const HERO_CTA_PHRASES_ABONNE = [
+  'Que veux-tu créer ?',
+  'Tu as une idée en tête ?',
+  "Qu'est-ce qu'on écrit aujourd'hui ?",
+  'Ton prochain contenu commence ici.',
+  'Prêt à faire exploser ton compte ?',
+  "Envie de percer aujourd'hui ?",
+  'On fait grandir ton audience ?',
+  'Tu commences par quoi ?',
+  'Par quoi on commence ?',
+  "On s'y met ?"
+];
+// Tirée une seule fois par visite (pas à chaque appel de majHeroCta, qui est
+// rappelée souvent — après chaque génération, changement de quota…) pour que
+// le texte reste stable pendant toute la session au lieu de changer sous les yeux.
+let _heroCtaPhraseAbonne = null;
 function majHeroCta() {
   const lbl = document.getElementById('heroCtaLabel');
   if (!lbl) return;
-  lbl.textContent = (typeof unlocked !== 'undefined' && unlocked)
-    ? 'Que veux-tu faire ?'
-    : 'Commencer gratuitement';
+  if (typeof unlocked !== 'undefined' && unlocked) {
+    if (!_heroCtaPhraseAbonne) {
+      _heroCtaPhraseAbonne = HERO_CTA_PHRASES_ABONNE[Math.floor(Math.random() * HERO_CTA_PHRASES_ABONNE.length)];
+    }
+    lbl.textContent = _heroCtaPhraseAbonne;
+  } else {
+    lbl.textContent = 'Commence gratuitement';
+  }
 }
 
 function openModal() {

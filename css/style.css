@@ -1540,7 +1540,7 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 
 /* Bouton "S'abonner" dans le nav, juste à gauche du bouton menu — même
-   effet (cadre doré + reflet animé) que .hero-cta ("Commencer gratuitement"),
+   effet (cadre doré + reflet animé) que .hero-cta ("Commence gratuitement"),
    texte en noir. Masqué automatiquement si déjà abonné (règle .nav-subscribe-btn
    plus haut). */
 .nav-subscribe-cta{
