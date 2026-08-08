@@ -17,8 +17,10 @@
 //
 //  Rendu avec la palette Scriptura (doré + émeraude pour les points forts
 //  — même mécanique que l'anneau de score du diagnostic complet).
-//  Accessible dès le palier Creator, et une fois gratuitement pour les
-//  non-abonnés.
+//  Quota : aucun compteur dédié — consomme le même quota que les autres
+//  modes de création (script, idées, récit). Non-abonné : ses 5
+//  générations gratuites partagées ; Creator/Pro : leur quota mensuel de
+//  création habituel.
 // ═══════════════════════════════════════════════════════════
 
 // Prépare l'écran de choix pour une nouvelle analyse (efface le champ,
@@ -73,7 +75,14 @@ async function lancerDiagnosticSommaire() {
     return;
   }
 
-  if (!(await peutFaireDiagnosticSommaire())) return;
+  // Même quota que les autres modes de création (script, idées, récit) :
+  // aucun compteur dédié au diagnostic sommaire — non-abonné : ses 5
+  // générations gratuites partagées ; abonné : son quota mensuel de création.
+  if (!unlocked && usedGen >= MAX_FREE) {
+    openPlans('nouveau');
+    return;
+  }
+  if (!(await peutGenerer('diagSommaireErrorBox'))) return;
 
   btn.disabled = true;
   spinner.style.display = 'block';
@@ -134,10 +143,8 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
     }
 
-    // Décompte du quota : non-abonné → marque son unique usage gratuit
-    // consommé (en plus de son compteur de générations gratuites partagé).
+    // Décompte du quota : même compteur partagé que les autres modes.
     if (!unlocked) {
-      localStorage.setItem('scriptura_diag_sommaire_utilise', 'true');
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       bumpServerQuota(usedGen);
@@ -277,7 +284,11 @@ function afficherDiagnosticSommaireResultat(d, username) {
     </div>` : '';
 
   const subscribeNote = (!unlocked) ? `
-    <div class="ds-result-subscribe">✦ Ce diagnostic rapide est un aperçu. Pour que Scriptura te fasse des recommandations personnalisées et suive ton évolution dans le temps, <a onclick="openPlans('abonnement')" style="color:var(--gold-light);text-decoration:underline;cursor:pointer">abonne-toi</a>.</div>` : '';
+    <div class="ds-result-subscribe" id="dsStaticSubscribe">✦ Ce diagnostic rapide est un aperçu. Pour que Scriptura te fasse des recommandations personnalisées et suive ton évolution dans le temps, <a onclick="openPlans('abonnement')" style="color:var(--gold-light);text-decoration:underline;cursor:pointer">abonne-toi</a>.</div>` : '';
+
+  // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
+  // mémoire locale — voir afficherOpportuniteDiagSommaire dans recommandations.js).
+  const opportuniteHtml = (!unlocked) ? `<div id="diagSommaireOpportunites"></div>` : '';
 
   results.innerHTML = `
     <div class="score-card audit-score-card ds-score-card">
@@ -310,6 +321,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ${bioHtml}
     ${nicheHtml}
     ${leviersHtml}
+    ${opportuniteHtml}
 
     <div class="score-card">
       ${subscribeNote}
@@ -318,5 +330,13 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
   results.style.display = 'block';
   setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
+
+  // Recommandation sommaire pour les non-abonnés qui ont déjà assez de
+  // mémoire locale (script, récit, autre diagnostic déjà fait sur ce
+  // navigateur) — en tâche de fond, ne retarde jamais l'affichage du
+  // diagnostic lui-même. Voir js/recommandations.js.
+  if (!unlocked && typeof afficherOpportuniteDiagSommaire === 'function') {
+    afficherOpportuniteDiagSommaire();
+  }
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

@@ -293,29 +293,6 @@ function openPlans(contexte) {
       seulementPro = true;
       if (proBadge) proBadge.style.display = 'none';
     }
-  } else if (contexte === 'diagnostic-sommaire-utilise') {
-    // Non-abonné qui a déjà consommé son unique diagnostic sommaire gratuit
-    // (@nom d'utilisateur). Message dédié : ce n'est pas ses 5 générations
-    // gratuites qui sont épuisées, juste ce diagnostic-là.
-    if (tag) tag.textContent = 'Diagnostic déjà utilisé';
-    if (titre) titre.innerHTML = 'Ton diagnostic gratuit<br/>est déjà utilisé';
-    if (intro) { intro.textContent = "Le diagnostic sommaire gratuit ne peut être fait qu'une fois. Abonne-toi pour en refaire, et pour que Scriptura te fasse des recommandations personnalisées et suive ton évolution dans le temps."; intro.style.display = 'block'; }
-  } else if (contexte === 'quota-diagnostic-sommaire') {
-    // Abonné (Creator ou Pro) qui a atteint son quota mensuel de diagnostics
-    // sommaires — distinct du quota de création, message dédié.
-    const palierDS = (typeof monPalier === 'function') ? monPalier() : 'creator';
-    if (tag) tag.textContent = 'Limite du mois atteinte';
-    if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>diagnostics du mois';
-    if (palierDS === 'pro') {
-      if (intro) { intro.textContent = 'Ton quota de diagnostics sommaires se recharge au début du mois prochain.'; intro.style.display = 'block'; }
-      if (toggle) toggle.style.display = 'none';
-      if (details) details.style.display = 'none';
-      if (cta) cta.style.display = 'none';
-    } else {
-      if (intro) { intro.textContent = 'Ton quota de diagnostics sommaires se recharge au début du mois prochain. Ou passe au plan Pro pour en faire plus, dès maintenant.'; intro.style.display = 'block'; }
-      seulementPro = true;
-      if (proBadge) proBadge.style.display = 'none';
-    }
   } else if (contexte === 'decouverte-audit') {
     // Non-abonné qui clique sur l'audit : c'est une fonctionnalité Pro, on le
     // dit sans prétendre qu'il a épuisé ses générations gratuites.

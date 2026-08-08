@@ -196,12 +196,11 @@ async function countMonthGenerations(typeVoulu) {
       .gte('cree_le', debutMois.toISOString());
     if (typeVoulu === 'audit') {
       req = req.eq('mode', 'audit');
-    } else if (typeVoulu === 'diagnosticSommaire') {
-      req = req.eq('mode', 'diagnosticSommaire');
     } else if (typeVoulu === 'creation') {
-      // Ni l'audit complet ni le diagnostic sommaire ne comptent dans le
-      // quota de création : chacun a son propre compteur mensuel.
-      req = req.not('mode', 'in', '(audit,diagnosticSommaire)');
+      // Seul l'audit complet a son propre compteur mensuel séparé ; le
+      // diagnostic sommaire compte désormais dans la création, comme un
+      // script ou un récit.
+      req = req.neq('mode', 'audit');
     }
     const { count, error } = await req;
     if (error) throw error;
@@ -288,38 +287,6 @@ async function peutGenerer(errorBoxId) {
   const faitesCeMois = await countMonthGenerations('creation');
   if (faitesCeMois >= limite) {
     openPlans('quota');
-    return false;
-  }
-  return true;
-}
-
-// Vérifie si l'utilisateur peut lancer un diagnostic sommaire (@nom
-// d'utilisateur, sans captures). Non-abonné : limité à UNE seule fois au
-// total (même s'il lui reste des générations gratuites) — ensuite il faut
-// s'abonner. Abonné : quota mensuel séparé de la création et de l'audit
-// complet (voir LIMITES_MOIS.diagnosticSommaire, js/api.js).
-async function peutFaireDiagnosticSommaire() {
-  if (!unlocked) {
-    if (localStorage.getItem('scriptura_diag_sommaire_utilise') === 'true') {
-      openPlans('diagnostic-sommaire-utilise');
-      return false;
-    }
-    if (usedGen >= MAX_FREE) {
-      openPlans('nouveau');
-      return false;
-    }
-    return true;
-  }
-
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
-
-  if (await abonnementExpire()) { gererAbonnementExpire(); return false; }
-
-  const limite = limitesDuPalier().diagnosticSommaire;
-  const faitesCeMois = await countMonthGenerations('diagnosticSommaire');
-  if (faitesCeMois >= limite) {
-    openPlans('quota-diagnostic-sommaire');
     return false;
   }
   return true;

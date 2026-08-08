@@ -210,6 +210,36 @@ function carteRecommandationHero(reco, avecRafraichir) {
   `;
 }
 
+// Version condensée de la recommandation, pour les non-abonnés qui ont
+// déjà assez d'historique local (générations, diagnostic sommaire...) pour
+// que Scriptura sache quoi leur suggérer — sans révéler la richesse
+// complète (justifications, hook, ton conseillé) réservée aux abonnés.
+function carteRecommandationSommaire(reco) {
+  return `
+    <div class="audit-score-label">🎯 UNE IDÉE POUR TOI</div>
+    <div class="idea-titre" style="font-size:1.1rem;margin-bottom:8px">${escaperReco(reco.titre)}</div>
+    <div class="audit-diag-constat" style="font-weight:400;color:var(--text-secondary)">${escaperReco(reco.angle)}</div>
+  `;
+}
+
+// Affiche la carte condensée + l'invitation à s'abonner pour le reste.
+function rendreRecommandationSommaire(containerId, data, entete) {
+  const zone = document.getElementById(containerId);
+  if (!zone) return;
+  if (!data || !data.recommandations || !data.recommandations.length) {
+    zone.innerHTML = '';
+    zone.style.display = 'none';
+    return;
+  }
+  zone.innerHTML = `
+    ${entete || ''}
+    <div class="score-card">
+      ${carteRecommandationSommaire(data.recommandations[0])}
+      <div class="ds-result-subscribe" style="margin-top:16px">✦ Abonne-toi pour un suivi personnalisé complet : 6 recommandations détaillées, hooks, tons conseillés, et un script en un clic.</div>
+    </div>`;
+  zone.style.display = 'block';
+}
+
 function carteRecommandationSecondaire(reco, index) {
   const justifs = (reco.justifications || []).map(j => '✔ ' + escaperReco(j)).join('<br/>');
   return `<div class="out-card idea-card">
@@ -513,6 +543,24 @@ async function initAccueilPremium() {
   // VRAIMENT anonyme (aucun code enregistré) voit le simple mot de bienvenue.
   const aUnCode = !!(localStorage.getItem('scriptura_code') || '').trim();
   if (!unlocked && !aUnCode) {
+    // Exception : un visiteur anonyme qui a déjà généré quelque chose sur
+    // CE navigateur (script, récit, diagnostic sommaire...) a laissé assez
+    // de mémoire à Scriptura pour lui montrer un aperçu utile — une seule
+    // idée condensée, pas les 6 recommandations détaillées réservées aux
+    // abonnés. S'il n'y a encore rien de connu, on retombe sur le simple
+    // mot de bienvenue (voir genererRecommandations → rienDeConnu).
+    let dataAnon = lireRecoCache();
+    if (!dataAnon) {
+      dataAnon = await genererRecommandations(null, null);
+      if (dataAnon) ecrireRecoCache(dataAnon);
+    }
+    if (dataAnon && !dataAnon.onboarding && Array.isArray(dataAnon.recommandations) && dataAnon.recommandations.length) {
+      const profilAnon = await chargerProfilCreateur();
+      const enteteAnon = `<div class="results-heading">${salutationAccueil(profilAnon)}</div>
+        <div class="ideas-sub" style="margin:6px 0 20px">Voici un aperçu de ce que Scriptura peut faire pour toi.</div>`;
+      rendreRecommandationSommaire('accueilPremium', dataAnon, enteteAnon);
+      return;
+    }
     zone.innerHTML = `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Que souhaites-tu créer ?</div>
@@ -608,4 +656,30 @@ async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
   if (!data || data.onboarding) { zone.innerHTML = ''; return; }
   if (typeof sauvegarderRecommandationAudit === 'function') sauvegarderRecommandationAudit(data);
   rendreRecommandations('auditOpportunites', data, '<div class="audit-section-label">Et maintenant ?</div>');
+}
+
+// Équivalent de afficherEtMaintenant(), pour le diagnostic sommaire (@username)
+// et réservé aux non-abonnés : si Scriptura a déjà assez de mémoire locale sur
+// ce visiteur (script, récit, autre diagnostic déjà fait sur ce navigateur),
+// on lui montre une idée condensée en plus de son diagnostic — et on masque
+// le message générique d'abonnement puisque la carte porte déjà sa propre
+// invitation à s'abonner.
+async function afficherOpportuniteDiagSommaire() {
+  const zone = document.getElementById('diagSommaireOpportunites');
+  if (!zone) return;
+
+  let data = lireRecoCache();
+  if (!data) {
+    data = await genererRecommandations(null, null);
+    if (data) ecrireRecoCache(data);
+  }
+  if (!data || data.onboarding || !Array.isArray(data.recommandations) || !data.recommandations.length) {
+    zone.innerHTML = '';
+    return;
+  }
+
+  rendreRecommandationSommaire('diagSommaireOpportunites', data, '<div class="audit-section-label">🎯 En plus de ce diagnostic</div>');
+
+  const staticNote = document.getElementById('dsStaticSubscribe');
+  if (staticNote) staticNote.style.display = 'none';
 }

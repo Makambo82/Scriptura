@@ -15,17 +15,18 @@ const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : t
 // vitesse — chaque script passe par un vrai contrôle avant d'être livré.
 const CRITIQUE_ACTIVE = true;
 // ── Limites journalières par plan ──
-// La création (idées, script, storytelling) et l'audit ont des compteurs
-// séparés : un audit ne consomme pas le quota de création et inversement.
+// La création (idées, script, storytelling, diagnostic sommaire) et
+// l'audit complet ont des compteurs séparés : un audit ne consomme pas le
+// quota de création et inversement. Le diagnostic sommaire (@nom
+// d'utilisateur) consomme le MÊME quota que le reste de la création —
+// aucun compteur dédié : un non-abonné peut en faire jusqu'à 5 (ses
+// générations gratuites), un Creator jusqu'à 50/mois, un Pro jusqu'à
+// 70/mois, au même titre qu'un script ou un récit.
 // Ces limites sont indicatives côté client (anti-abus), la vérité reste
 // le comptage Supabase par type.
-// diagnosticSommaire : le diagnostic léger via @nom d'utilisateur (sans
-// captures). Contrairement à "audit" (réservé Pro), il est inclus dès le
-// palier Creator ; Pro en a davantage. Les non-abonnés y ont droit une
-// seule fois, gérée séparément (voir peutFaireDiagnosticSommaire, js/historique.js).
 const LIMITES_MOIS = {
-  creator: { creation: 50, audit: 0, diagnosticSommaire: 5 },
-  pro:     { creation: 70, audit: 5, diagnosticSommaire: 10 }
+  creator: { creation: 50, audit: 0 },
+  pro:     { creation: 70, audit: 5 }
 };
 // Repli si le plan n'est pas reconnu : on applique le moins-disant (Creator).
 function limitesDuPalier() {
