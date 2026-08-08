@@ -627,16 +627,9 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 async function chooseMode(mode) {
   pushNav(); // mémoriser l'écran d'où on vient
   // Masquer la page d'accueil et tous les modules
-  document.getElementById('homePage').style.display = 'none';
-  document.getElementById('flow').style.display = 'none';
-  document.getElementById('ideasFlow').style.display = 'none';
-  document.getElementById('storyFlow').style.display = 'none';
-  const af = document.getElementById('auditFlow');
-  if (af) af.style.display = 'none';
+  masquerTousLesEcrans();
   const dsf = document.getElementById('diagSommaireFlow');
-  if (dsf) dsf.style.display = 'none';
   const sf = document.getElementById('serieFlow');
-  if (sf) sf.style.display = 'none';
   if (mode === 'audit') {
     // Écran de choix, ouvert à tous (abonné ou non) : diagnostic sommaire
     // via @nom d'utilisateur, ou diagnostic complet par captures (celui-ci

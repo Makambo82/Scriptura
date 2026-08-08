@@ -397,10 +397,7 @@ async function openHistory() {
   _searchOpen = false;
   _filterOpen = false;
   if (typeof _selectedIds !== 'undefined') _selectedIds.clear();
-  document.getElementById('homePage').style.display = 'none';
-  document.getElementById('flow').style.display = 'none';
-  document.getElementById('ideasFlow').style.display = 'none';
-  document.getElementById('storyFlow').style.display = 'none';
+  masquerTousLesEcrans();
   document.getElementById('historyFlow').style.display = 'block';
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');
@@ -886,19 +883,7 @@ function reopenGeneration(i) {
   if (navStack[navStack.length - 1] !== 'historyFlow') navStack.push('historyFlow');
   _skipPush = true; // empêcher les fonctions render d'empiler par-dessus
 
-  document.getElementById('historyFlow').style.display = 'none';
-  document.getElementById('homePage').style.display = 'none';
-  document.getElementById('flow').style.display = 'none';
-  document.getElementById('ideasFlow').style.display = 'none';
-  document.getElementById('storyFlow').style.display = 'none';
-  const afh = document.getElementById('auditFlow');
-  if (afh) afh.style.display = 'none';
-  const sfh0 = document.getElementById('serieFlow');
-  if (sfh0) sfh0.style.display = 'none';
-  const sbsh0 = document.getElementById('storyboardSeulFlow');
-  if (sbsh0) sbsh0.style.display = 'none';
-  const dsfh0 = document.getElementById('diagSommaireFlow');
-  if (dsfh0) dsfh0.style.display = 'none';
+  masquerTousLesEcrans();
 
   // Mémoriser l'id pour pouvoir re-rattacher un storyboard généré ensuite
   currentGenId = g.id || null;

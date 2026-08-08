@@ -3,6 +3,24 @@
 // ═══════════════════════════════════════════════════════════
 let navStack = [];
 
+// Liste UNIQUE de tous les écrans de premier niveau. Plusieurs fonctions
+// d'ouverture d'écran (chooseMode, openHistory, ouvrirTableauDeBord,
+// ouvrirFusionDiagnostics, openStoryboardSeul, reopenGeneration…) avaient
+// chacune sa propre liste recopiée à la main pour masquer "tous les autres
+// écrans" avant d'afficher le leur — ces listes ont fini par diverger à
+// chaque nouvel écran ajouté (fusion, storyboard seul, tableau de bord…),
+// laissant l'écran précédent visible en dessous du nouveau. Cette liste et
+// masquerTousLesEcrans() sont désormais la SEULE source de vérité : toute
+// fonction qui ouvre un écran doit appeler masquerTousLesEcrans() plutôt que
+// de refaire sa propre liste.
+const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow'];
+function masquerTousLesEcrans() {
+  TOUS_LES_ECRANS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
 // Identifie l'écran actuellement visible
 function currentScreen() {
   // Un résultat affiché est un "sous-écran" prioritaire
@@ -35,10 +53,7 @@ function pushNav() {
 // Affiche un écran donné (sans toucher à la pile)
 function showScreen(screen) {
   // Masquer tout
-  ['homePage','flow','ideasFlow','storyFlow','auditFlow','diagSommaireFlow','fusionFlow','serieFlow','storyboardSeulFlow','historyFlow','adminFlow'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
+  masquerTousLesEcrans();
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');
 
@@ -110,25 +125,9 @@ function goHome() {
   // showScreen ci-dessus — goHome() est un chemin de retour distinct, ex.
   // clic sur le logo, qui doit bénéficier du même rafraîchissement).
   if (typeof initAccueilPremium === 'function') initAccueilPremium();
-  // Réafficher la page d'accueil, masquer tous les modules
+  // Masquer tous les modules, puis réafficher la page d'accueil
+  masquerTousLesEcrans();
   document.getElementById('homePage').style.display = 'block';
-  document.getElementById('flow').style.display = 'none';
-  document.getElementById('ideasFlow').style.display = 'none';
-  document.getElementById('storyFlow').style.display = 'none';
-  const afh = document.getElementById('auditFlow');
-  if (afh) afh.style.display = 'none';
-  const dsfh = document.getElementById('diagSommaireFlow');
-  if (dsfh) dsfh.style.display = 'none';
-  const fsh = document.getElementById('fusionFlow');
-  if (fsh) fsh.style.display = 'none';
-  const sfh = document.getElementById('serieFlow');
-  if (sfh) sfh.style.display = 'none';
-  const sbsh = document.getElementById('storyboardSeulFlow');
-  if (sbsh) sbsh.style.display = 'none';
-  const hist = document.getElementById('historyFlow');
-  if (hist) hist.style.display = 'none';
-  const adm = document.getElementById('adminFlow');
-  if (adm) adm.style.display = 'none';
   // Masquer aussi le paywall s'il était ouvert
   const pw = document.getElementById('paywall');
   if (pw) pw.classList.remove('active');

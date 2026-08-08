@@ -78,15 +78,7 @@ function setupStoryboardSeulButtons() {
 // Ouvre le module depuis le menu latéral
 function openStoryboardSeul() {
   pushNav();
-  document.getElementById('homePage').style.display = 'none';
-  document.getElementById('flow').style.display = 'none';
-  document.getElementById('ideasFlow').style.display = 'none';
-  document.getElementById('storyFlow').style.display = 'none';
-  const afh = document.getElementById('auditFlow'); if (afh) afh.style.display = 'none';
-  const dsfh = document.getElementById('diagSommaireFlow'); if (dsfh) dsfh.style.display = 'none';
-  const sfh = document.getElementById('serieFlow'); if (sfh) sfh.style.display = 'none';
-  const hfh = document.getElementById('historyFlow'); if (hfh) hfh.style.display = 'none';
-  const adm = document.getElementById('adminFlow'); if (adm) adm.style.display = 'none';
+  masquerTousLesEcrans();
   document.getElementById('storyboardSeulFlow').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'auto' });
 }

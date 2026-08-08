@@ -38,8 +38,7 @@ async function verifierBanniereFusion() {
 
 async function ouvrirFusionDiagnostics() {
   pushNav();
-  document.getElementById('homePage').style.display = 'none';
-  document.getElementById('historyFlow').style.display = 'none';
+  masquerTousLesEcrans();
   document.getElementById('fusionFlow').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'auto' });
   await genererFusionDiagnostics();
