@@ -59,7 +59,7 @@ function majHeroCta() {
     }
     lbl.textContent = _heroCtaPhraseAbonne;
   } else {
-    lbl.textContent = 'Commence gratuitement';
+    lbl.textContent = 'Commencer gratuitement';
   }
 }
 
