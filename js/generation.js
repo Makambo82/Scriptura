@@ -781,21 +781,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
         let nouvelleCritique = null;
         try {
-          const critiqueRes = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: MODEL_RAPIDE,
-              max_tokens: 2500,
-              messages: [{ role: "user", content: critiquePrompt }]
-            })
-          });
-          if (critiqueRes.ok) {
-            const critiqueData = await critiqueRes.json();
-            const critiqueRaw = critiqueData.content?.map(b => b.text || '').join('') || '';
-            nouvelleCritique = parseAIResponse(critiqueRaw);
-          }
-        } catch(e) { /* si le critique échoue, on garde la meilleure version obtenue */ }
+          const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt);
+          nouvelleCritique = parseAIResponse(critiqueRaw);
+        } catch(e) { /* si le critique échoue (même après réessais), on garde la meilleure version obtenue */ }
 
         if (!nouvelleCritique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
         critique = nouvelleCritique;
@@ -838,18 +826,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème de hook, sinon garde les meilleurs) et le script complet, segment par segment, dans le même ordre.`;
 
         try {
-          const reviseRes = await fetch("/api/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: MODEL_CREATIF,
-              max_tokens: 8000,
-              messages: [{ role: "user", content: revisePrompt }]
-            })
-          });
-          if (!reviseRes.ok) break;
-          const reviseData = await reviseRes.json();
-          const reviseRaw = reviseData.content?.map(b => b.text || '').join('') || '';
+          const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt);
           const revised = parseAIResponse(reviseRaw);
           if (revised && revised.script) {
             parsed.script = revised.script;
@@ -857,7 +834,7 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
           } else {
             break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
           }
-        } catch(e) { break; /* si la révision échoue, on garde la version précédente */ }
+        } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
       }
     }
 
@@ -897,20 +874,11 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
 
-      const correctRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL_CREATIF,
-          max_tokens: 8000,
-          messages: [{ role: "user", content: correctionPrompt }]
-        })
-      });
-
-      if (!correctRes.ok) break; // en cas d'erreur, on garde la version actuelle
-      const correctData = await correctRes.json();
-      const correctRaw = correctData.content?.map(b => b.text || '').join('') || '';
-      const correctedScript = parseAIResponse(correctRaw);
+      let correctedScript = null;
+      try {
+        const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt);
+        correctedScript = parseAIResponse(correctRaw);
+      } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
 
       if (correctedScript && correctedScript.script) {
         parsed.script = correctedScript.script;

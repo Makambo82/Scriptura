@@ -366,11 +366,19 @@ function choisirTopModeles(sujet, n) {
     return { modele, score };
   });
 
-  return scores
+  const pertinents = scores
     .filter(x => x.score >= 4) // même seuil que choisirModele(), évite les faux positifs
     .sort((a, b) => b.score - a.score)
     .slice(0, n || 3)
     .map(x => x.modele);
+  if (pertinents.length) return pertinents;
+
+  // Aucun modèle ne dépasse le seuil de pertinence thématique (sujet trop
+  // inhabituel) : on choisit quand même le meilleur candidat disponible,
+  // même faible, plutôt que de laisser Scriptura sans AUCUNE référence de
+  // style — respecter un modèle est impératif, jamais optionnel.
+  const tries = scores.slice().sort((a, b) => b.score - a.score);
+  return tries.length ? [tries[0].modele] : [];
 }
 
 // Exposer globalement pour que index.html y accède

@@ -7,6 +7,7 @@
 let storyFormat = '';
 let storyDuree = '';
 let storyPlatform = '';
+let storyTon = '';
 let currentStory = null;
 let currentStoryText = '';
 
@@ -52,6 +53,19 @@ function setupStoryButtons() {
       });
     });
   }
+  // Ton — choisi par le créateur, respecté strictement (voir storyPrompt).
+  const tonContainer = document.getElementById('storyTonGrid');
+  if (tonContainer) {
+    const tonBtns = tonContainer.querySelectorAll('.grid-btn');
+    tonBtns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        tonBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        storyTon = btn.dataset.val;
+      });
+    });
+  }
 }
 
 function setStoryLoading(on) {
@@ -81,6 +95,10 @@ async function generateStory() {
     errorBox.textContent = 'Choisis une durée pour le format court.';
     errorBox.style.display = 'block'; return;
   }
+  if (!storyTon) {
+    errorBox.textContent = 'Choisis un ton pour ton récit.';
+    errorBox.style.display = 'block'; return;
+  }
 
   // Vérification limite
   if (!unlocked && usedGen >= MAX_FREE) {
@@ -104,8 +122,17 @@ async function generateStory() {
   const wt = wordTargets[storyDuree] || null;
 
   const longueurInstruction = storyFormat === 'court' && wt
-    ? `LONGUEUR : Le récit doit faire ${storyDuree}, soit entre ${wt.min} et ${wt.max} mots au total. Compte tes mots et respecte impérativement cette cible. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact.`
+    ? `LONGUEUR — RÈGLE ABSOLUE, RESPECT STRICT (peu importe la longueur du texte fourni par le créateur, même un article entier) : le récit doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au total, pour ${storyDuree}. Compte tes mots avant de répondre. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact — ne t'étends JAMAIS au-delà sous prétexte que le texte source est riche ou long : ton travail est de le RÉDUIRE à l'essentiel qui tient dans cette durée, pas de tout caser.`
     : `LONGUEUR : Format narratif long. Déploie pleinement ton histoire, sans restriction de durée. Prends le temps de développer l'immersion, la tension et les rebondissements comme dans un vrai récit captivant.`;
+
+  // Un texte collé long (article, notes brutes) est capé avant d'entrer dans
+  // le prompt : sans ça, un texte de plusieurs milliers de mots noie les
+  // consignes de durée/ton/structure et le modèle a tendance à vouloir tout
+  // caser au lieu de respecter la durée choisie. Même principe que le mode
+  // Script (js/generation.js, LONG_SEUIL/sujetCourt).
+  const LONG_SEUIL_STORY = 400;
+  const estTexteLongStory = input.length > LONG_SEUIL_STORY;
+  const sujetPourPrompt = estTexteLongStory ? input.slice(0, 2000) : input;
 
   // Présélection rapide (locale, sans appel IA) de plusieurs modèles de
   // référence candidats — voir choisirTopModeles() dans js/modeles.js. Le
@@ -125,6 +152,8 @@ async function generateStory() {
 MODÈLES DE RÉFÉRENCE CANDIDATS (ta propre signature narrative — ${candidats.length} option${candidats.length > 1 ? 's' : ''} pertinente${candidats.length > 1 ? 's' : ''} pour ce sujet)
 ${candidats.length > 1 ? 'AVANT D\'ÉCRIRE, choisis EN SILENCE (ne l\'annonce jamais dans ta réponse) celui des candidats ci-dessous dont la structure narrative, le rythme, la progression dramatique et la montée en tension serviront le mieux CE récit précis — pas seulement celui dont le thème ressemble le plus au sujet. Une fois ce choix fait, utilise EXCLUSIVEMENT ce modèle unique comme référence absolue de style, de rythme, de ton et de structure : ne mélange JAMAIS plusieurs modèles entre eux.' : 'Utilise ce script comme RÉFÉRENCE ABSOLUE de style, de rythme, de ton et de structure.'} Ne le copie pas, IMPRÈGNE-toi de sa manière : la façon dont le hook frappe, dont les phrases sont courtes et rythmées, dont la tension monte, dont l'ironie affleure, dont la triple question et la signature closent le récit. Ton nouveau récit doit avoir EXACTEMENT ce niveau de qualité et cette voix.
 
+PRIORITÉ ABSOLUE DE CE MODÈLE (règle très importante) : le choix et le respect d'un modèle de référence n'est PAS optionnel — c'est une exigence centrale de Scriptura. Si la STRUCTURE de ce modèle (l'ordre de ses étapes narratives, ce qu'il choisit de développer ou de survoler) diffère de la MÉTHODE NARRATIVE OBLIGATOIRE listée plus bas, c'est TOUJOURS la structure du modèle choisi qui prime. La méthode ci-dessous ne comble que ce que le modèle ne couvre pas explicitement — elle ne le remplace jamais.
+
 ${blocsCandidats}
 ════════════════════════════════════════════
 `;
@@ -140,8 +169,9 @@ ${blocsCandidats}
 
 SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
 """
-${input}
+${sujetPourPrompt}
 """
+${estTexteLongStory ? "CE TEXTE EST UN TEXTE SOURCE LONG (article, notes brutes), PAS UN RÉCIT À RECOPIER : dégages-en le sujet réel, les faits marquants et l'angle le plus fort, puis RÉÉCRIS entièrement une histoire selon la méthode ci-dessous. Ne recopie JAMAIS des phrases entières du texte fourni tel quel — c'est une matière première, pas un brouillon à peaufiner." : ''}
 ${storyPlatform ? 'PLATEFORME : ' + storyPlatform : ''}
 ${profilLigneStory ? profilLigneStory : ''}
 ${modeleRef}
@@ -176,7 +206,7 @@ MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
 10. SIGNATURE MÉTAPOÉTIQUE (obligatoire, juste avant ou après la triple question) : Une phrase de forme fixe "Moi, je t'ai pas [X]. Je t'ai [Y]." — poétique, ironique, lucide, qui frappe fort en une seule image, adaptée au sujet.
     Exemple : "Moi, je t'ai pas raconté une fuite. Je t'ai montré ce que devient un empire quand il rentre dans une valise."
 
-TON : Choisis le ton qui sert le mieux le sujet parmi : lucide, ironique, poétique, fataliste, grave, révolté, glacial. Adapte-le à la nature du sujet (un drame historique = poétique/tragique ; une affaire politique = tendu/critique ; un crime = glacial/narratif).
+TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément le ton "${storyTon}". Écris l'INTÉGRALITÉ du récit dans CE ton, du hook à la triple question finale, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton glacial ne devient jamais chaleureux en cours de route ; un ton ironique ne bascule jamais dans le pathos ; un ton poétique ne devient jamais froid ou clinique.
 
 STYLE ET LANGUE :
 - Français courant, compréhensible par un ado de 12 ans, avec de subtiles touches d'ironie qui font sourire.
@@ -214,6 +244,9 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
+    // Le ton affiché doit toujours correspondre exactement au choix du
+    // créateur, jamais à ce que l'IA a échoué à recopier fidèlement.
+    parsed.ton = storyTon;
 
     // ── SCORE RÉEL : régénère UNE fois si le récit n'est pas excellent (< 90) ──
     // Filet de variance créative : parfois un 2e jet est simplement meilleur.
@@ -243,7 +276,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
         const recitForReview = (parsed.recit || []).map((s, i) => '[segment ' + i + ' — ' + (s.segment || '') + '] ' + s.texte).join('\n');
         const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit — ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
 
-SUJET : ${input}
+SUJET : ${sujetPourPrompt}
 RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
 ${recitForReview}
 
@@ -275,7 +308,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
           const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de récits viraux. Un critique indépendant a évalué le récit ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même fonction narrative) — ce sont les points forts, ne les abîme pas.
 
-SUJET : ${input}
+SUJET : ${sujetPourPrompt}
 RÉCIT ACTUEL (segments numérotés) :
 ${recitForReview}
 
@@ -300,6 +333,57 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           }
         }
       } catch(e) { /* si la critique/révision échoue, on garde la meilleure version obtenue */ }
+    }
+
+    // ══════════════════════════════════════
+    //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE (comme le mode Script)
+    //  La consigne de durée dans le prompt ne suffit pas : on compte les
+    //  mots réels du récit livré et on corrige si hors cible, peu importe
+    //  la longueur du texte source fourni au départ.
+    // ══════════════════════════════════════
+    function countStoryWords(recit) {
+      if (!recit || !Array.isArray(recit)) return 0;
+      return recit.map(s => (s.texte || '')).join(' ').split(/\s+/).filter(Boolean).length;
+    }
+
+    if (storyFormat === 'court' && wt) {
+      let storyWordCount = countStoryWords(parsed.recit);
+      let storyCorrectionAttempts = 0;
+      const hardMinStory = Math.round(wt.min * 0.9);
+      const hardMaxStory = Math.round(wt.max * 1.1);
+
+      while ((storyWordCount < hardMinStory || storyWordCount > hardMaxStory) && storyCorrectionAttempts < 2 && !repondreMaintenant) {
+        storyCorrectionAttempts++;
+        const tropCourt = storyWordCount < hardMinStory;
+        const correctionPromptStory = `Tu es le Rédacteur en Chef de Scriptura. Le récit suivant ne respecte PAS la durée demandée et doit être corrigé.
+
+RÉCIT ACTUEL (${storyWordCount} mots) :
+${(parsed.recit || []).map(s => '[' + (s.segment || '') + '] ' + s.texte).join('\n')}
+
+PROBLÈME : Ce récit fait ${storyWordCount} mots. La cible pour ${storyDuree} est ${wt.min} à ${wt.max} mots.
+${tropCourt ? 'Le récit est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Développe l\'immersion et la tension, ajoute des détails concrets, SANS remplissage inutile. Garde le même sujet, le même ton ("' + storyTon + '"), la même structure.' : 'Le récit est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant. Garde le hook, la triple question finale et la signature intacts.'}
+
+RÈGLES :
+- Le nouveau récit DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
+- Garde le ton "${storyTon}" strictement, du début à la fin.
+- Garde les mêmes segments (même "segment" et même ordre), le hook en premier, la triple question miroir + la signature métapoétique dans le dernier.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"recit":[{"segment":"Hook","texte":"..."}]}`;
+
+        let correctedStory = null;
+        try {
+          const correctRawStory = await callAI(MODEL_CREATIF, 8000, correctionPromptStory);
+          correctedStory = parseAIResponse(correctRawStory);
+        } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
+
+        if (correctedStory && Array.isArray(correctedStory.recit) && correctedStory.recit.length) {
+          parsed.recit = correctedStory.recit;
+          storyWordCount = countStoryWords(parsed.recit);
+        } else {
+          break; // parsing échoué, on garde la version actuelle
+        }
+      }
     }
 
     if (!unlocked && !_regenGratuiteEnCours) {

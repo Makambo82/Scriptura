@@ -71,18 +71,35 @@ function nicheNecessiteRecherche(niche) {
 // ═══════════════════════════════════════════════════════════
 async function callAI(model, maxTokens, prompt, maxRetries, webSearch) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
+  // Coupe la requête après 55s (juste sous les 60s de maxDuration côté serveur,
+  // voir vercel.json) : sans ça, une requête bloquée reste pendue indéfiniment
+  // côté navigateur au lieu d'échouer proprement et de déclencher une nouvelle
+  // tentative — c'était une cause fréquente de générations qui "tournent" sans fin.
   async function tryOnce(useModel) {
-    const res = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: useModel,
-        max_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }],
-        code_acces: localStorage.getItem('scriptura_code') || null,
-        web_search: !!webSearch
-      })
-    });
+    const controller = new AbortController();
+    const delaiMax = setTimeout(() => controller.abort(), 55000);
+    let res;
+    try {
+      res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: useModel,
+          max_tokens: maxTokens,
+          messages: [{ role: "user", content: prompt }],
+          code_acces: localStorage.getItem('scriptura_code') || null,
+          web_search: !!webSearch
+        }),
+        signal: controller.signal
+      });
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        return { ok: false, recoverable: true, detail: 'délai dépassé (55s)' };
+      }
+      throw e;
+    } finally {
+      clearTimeout(delaiMax);
+    }
     // Abonnement expiré/désactivé refusé par le serveur
     if (res.status === 403) {
       if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();

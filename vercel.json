@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/generate.js": { "maxDuration": 60 },
+    "api/audit.js": { "maxDuration": 60 },
+    "api/username-scan.js": { "maxDuration": 30 }
+  }
+}
