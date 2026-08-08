@@ -339,16 +339,22 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
   // Invitation vers l'analyse détaillée (captures) — copie différente selon
   // que l'utilisateur y a déjà accès (Pro/admin) ou doit encore la débloquer
-  // (Creator, non-abonné) ; dans les deux cas, ouvrirCapturesDepuisChoix()
-  // gère déjà le bon routage (paywall, jetons, ou assistant directement).
-  const ctaDetailleHtml = (typeof aAccesMode === 'function' && aAccesMode('audit')) ? `
+  // (Creator, non-abonné), mais les DEUX versions mentionnent le jeton.
+  // Bouton : celui qui a déjà accès part directement sur l'assistant de
+  // captures (ouvrirCapturesDepuisChoix, qui vérifie l'accès et route au
+  // besoin) ; celui qui n'a pas encore accès ouvre TOUJOURS le pop-up
+  // d'abonnement (avec les jetons visibles), sans passer par cette même
+  // fonction qui pourrait filer droit à l'assistant s'il a déjà des jetons —
+  // on veut qu'il voie ses options avant de consommer quoi que ce soit.
+  const dejaAcces = (typeof aAccesMode === 'function' && aAccesMode('audit'));
+  const ctaDetailleHtml = dejaAcces ? `
     <div class="ds-alt">
-      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. Ton plan te donne accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos.</p>
+      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. Ton plan te donne accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. (Sans abonnement, cette analyse est aussi disponible à l'unité avec un jeton.)</p>
       <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</button>
     </div>` : `
     <div class="ds-alt">
       <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin — rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>.</p>
-      <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Débloquer l'analyse détaillée →</button>
+      <button class="btn-generate" onclick="openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne')">Débloquer l'analyse détaillée →</button>
     </div>`;
 
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
