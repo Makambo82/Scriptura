@@ -563,7 +563,8 @@ async function initAccueilPremium() {
     }
     zone.innerHTML = `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
-      <div class="ideas-sub" style="margin:6px 0 20px">Que souhaites-tu créer ?</div>
+      <div class="ideas-sub" style="margin:6px 0 20px">Pour des recommandations vraiment pensées pour toi, commence par analyser ton compte TikTok.</div>
+      <button class="btn-generate" onclick="chooseMode('audit')">📊 Analyser mon compte</button>
     `;
     zone.style.display = 'block';
     return;
@@ -592,7 +593,8 @@ async function initAccueilPremium() {
       <div class="score-card">
         <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Scriptura apprend encore tes habitudes.</div>
-        <div class="audit-diag-interp">Fais une première génération ou un diagnostic : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
+        <div class="audit-diag-interp">Analyse ton compte TikTok : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
+        <button class="btn-generate" style="margin-top:14px" onclick="chooseMode('audit')">📊 Analyser mon compte</button>
       </div>`;
     zone.style.display = 'block';
     return;

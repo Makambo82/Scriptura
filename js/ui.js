@@ -6,8 +6,10 @@
 function revelerModes() {
   const cta = document.getElementById('heroCta');
   const modes = document.getElementById('heroModes');
+  const hint = document.getElementById('heroModesHint');
   if (cta) cta.style.display = 'none';
   if (modes) modes.style.display = ''; // retombe sur le display:grid du CSS
+  if (hint) hint.style.display = '';
   document.body.classList.add('hero-focus');
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -17,7 +19,9 @@ function resetAccueilFocus() {
   document.body.classList.remove('hero-focus');
   const cta = document.getElementById('heroCta');
   const modes = document.getElementById('heroModes');
+  const hint = document.getElementById('heroModesHint');
   if (modes) modes.style.display = 'none';
+  if (hint) hint.style.display = 'none';
   if (cta) cta.style.display = '';
 }
 
