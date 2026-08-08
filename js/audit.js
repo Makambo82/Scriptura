@@ -1253,6 +1253,20 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     </div>`;
   }
 
+  // ── Analyse détaillée (tirée uniquement du top contenus) ──
+  const ad = P.analyse_detaillee;
+  if (ad && ad.disponible !== false && (ad.videos_au_dessus_moyenne != null || (Array.isArray(ad.concepts_recurrents) && ad.concepts_recurrents.length))) {
+    const concepts = Array.isArray(ad.concepts_recurrents) ? ad.concepts_recurrents : [];
+    html += `<div class="audit-block">
+      <div class="audit-block-title">📊 Analyse détaillée</div>
+      <div class="ds-mini-stats" style="grid-template-columns:1fr 1fr">
+        <div class="ds-mini-stat"><b>${ad.videos_au_dessus_moyenne ?? '—'}${ad.total_videos_analysees ? ' / ' + ad.total_videos_analysees : ''}</b><span>Au-dessus de la moyenne</span></div>
+        <div class="ds-mini-stat"><b>${concepts.length || '—'}</b><span>Concepts récurrents</span></div>
+      </div>
+      ${concepts.length ? `<ul class="ds-niche-analyse" style="margin-top:14px">${concepts.map(c => `<li>${auditEsc(c.theme)} <span style="color:var(--muted)">(${auditEsc(c.occurrences)} vidéos)</span></li>`).join('')}</ul>` : ''}
+    </div>`;
+  }
+
   // ── Audience ──
   if (dispo(P.audience)) {
     const au = P.audience;
@@ -1533,6 +1547,9 @@ function texteDiagnosticOpportunites(a, ts) {
   if (P.niche && P.niche.nom) {
     lignes.push('Niche (' + (P.niche.etat === 'claire' ? 'claire' : 'encore floue') + ') : ' + P.niche.nom);
     if (Array.isArray(P.niche.analyse) && P.niche.analyse.length) lignes.push('Analyse de positionnement : ' + P.niche.analyse.join(' '));
+  }
+  if (P.analyse_detaillee && Array.isArray(P.analyse_detaillee.concepts_recurrents) && P.analyse_detaillee.concepts_recurrents.length) {
+    lignes.push('Concepts récurrents dans le top contenus : ' + P.analyse_detaillee.concepts_recurrents.map(c => c.theme + ' (' + c.occurrences + ' vidéos)').join(', '));
   }
   if (P.audience) {
     if (P.audience.constat) lignes.push('Audience : ' + P.audience.constat);
