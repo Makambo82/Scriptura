@@ -10,13 +10,6 @@ const MOTS_PAR_SEC = 2.8;   // rythme de narration posée
 const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet)
 const DUREE_MAX = 7;        // au-delà : plusieurs images cachées
 
-// Plafond partagé par tous les modes de storyboard (récit, script, série) :
-// au-delà, une seule requête IA (prompts visuels riches par plan) risque de
-// dépasser le budget de temps du serveur et/ou le plafond de tokens de la
-// réponse — voir les 4 sites qui l'utilisent (storyboard.js, storyboard-seul.js,
-// serie.js, generation.js).
-const MAX_SEGMENTS_STORYBOARD = 40;
-
 // Découpe en phrases, ponctuation conservée
 function splitIntoSentences(texte) {
   if (!texte || typeof texte !== 'string') return [];
@@ -223,32 +216,8 @@ function estimateDuration(texte) {
   return { seconds: sec, label: bas + '-' + haut + ' sec' };
 }
 
-// ── EXEMPLE FEW-SHOT injecté dans chaque prompt IA ──
-// Apprend à l'IA la granularité attendue : chaque terme d'une série
-// rhétorique (anaphore) = plan distinct, quelle que soit sa longueur.
-const FEWSHOT_DECOUPAGE = `
-EXEMPLE DE DÉCOUPAGE ATTENDU (respecte exactement cette granularité) :
-
-Script source :
-"Mnangagwa n'était pas juste un garde du corps. C'était l'ombre de Mugabe au sens littéral : présent à chaque exécution extrajudiciaire, à chaque séance d'interrogatoire aux sous-sols du palais, à chaque décision de disparition. Trente-sept ans à observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on préserve le pouvoir en transformant la peur en routine."
-
-Découpage CORRECT (chaque terme d'une série rhétorique = plan distinct) :
-- "Mnangagwa n'était pas juste un garde du corps. C'était l'ombre de Mugabe au sens littéral :"
-- "présent à chaque exécution extrajudiciaire,"
-- "à chaque séance d'interrogatoire aux sous-sols du palais,"
-- "à chaque décision de disparition."
-- "Trente-sept ans à observer comment on brise un homme sans laisser de trace."
-- "Comment on terrorise une nation en silence."
-- "Comment on préserve le pouvoir en transformant la peur en routine."
-
-Découpage INTERDIT (ne jamais fusionner les termes d'une anaphore) :
-- "Mnangagwa n'était pas juste un garde du corps. C'était l'ombre de Mugabe au sens littéral : présent à chaque exécution extrajudiciaire, à chaque séance d'interrogatoire aux sous-sols du palais, à chaque décision de disparition."
-- "Trente-sept ans à observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on préserve le pouvoir en transformant la peur en routine."
-
-RÈGLE : dès que deux phrases consécutives ouvrent sur le même mot ou le même patron (Comment…, Ces…, Que…, à chaque…, présent à…, Les…), chacune forme un plan à part entière, quelle que soit sa longueur.
-`;
-
-// Fonction centrale partagée par les deux modes
+// Fonction centrale partagée par tous les modes de storyboard : découpe un
+// texte en plans, 100% déterministe, sans appel IA.
 function segmentNarrativeStoryboard(texte) {
   return buildNarrativeSegments(texte).map(t => ({
     text: t.trim(),
@@ -256,95 +225,93 @@ function segmentNarrativeStoryboard(texte) {
   }));
 }
 
-// ═══ ADAPTATION AUX DEUX MODES ═══
-// L'IA renvoie un storyboard déjà découpé. On reconstruit le texte complet,
-// on le re-découpe selon la NARRATION, puis on réassocie les prompts visuels.
-// Chaque plan reçoit un prompt DISTINCT (jamais le même recopié).
+// ═══ GÉNÉRATION DES VISUELS PAR LOTS ═══
+// Le découpage en plans est désormais TOUJOURS fixé avant d'appeler l'IA —
+// par le moteur narratif ci-dessus (récit, script généré, script collé), ou
+// par le découpage numéroté de l'utilisateur (storyboard-seul). L'IA n'a
+// donc plus qu'UN travail : écrire un prompt visuel par plan déjà donné,
+// jamais segmenter elle-même. C'est ce qui a remplacé le plafond fixe à 40
+// plans : au lieu de brider le nombre de plans d'un contenu long, chaque
+// appel IA ne porte plus que sur un LOT de taille fixe (TAILLE_LOT_VISUELS),
+// donc reste rapide et fiable quelle que soit la longueur totale — et le
+// storyboard s'affiche progressivement, lot après lot, au lieu d'attendre
+// une seule réponse géante.
+const TAILLE_LOT_VISUELS = 15;
 
-// Fusionne deux étiquettes de durée consécutives : "0-3 sec" + "4-5 sec" -> "0-5 sec".
-function _fusionnerDurees(a, b) {
-  const nums = s => (String(s || '').match(/\d+/g) || []).map(Number);
-  const na = nums(a), nb = nums(b);
-  if (!na.length) return b || a || '';
-  if (!nb.length) return a || b || '';
-  return na[0] + '-' + nb[nb.length - 1] + ' sec';
+const STRUCTURE_PROMPT_VISUEL = `STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
+1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
+2. LA MATIÈRE : les détails de structure, les matériaux, les textures
+3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait référence à un personnage précis (historique, public, fictif), nomme-le explicitement dans le prompt.
+4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
+
+Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée. Écris une description spatiale et sensorielle immersive, comme si tu décrivais une peinture ou une photographie à couper le souffle. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll.
+
+RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si plusieurs éléments ou lieux doivent coexister, NE FAIS PAS de split, de double cadre, de juxtaposition ni aucune séparation visuelle. Garde LA SCÈNE PRINCIPALE et intègre les éléments secondaires de façon organique dans la même composition (arrière-plan, reflet, détail dans le décor…). Une seule image cohérente, pas de collage.
+
+FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).`;
+
+// Prompt de la miniature (couverture) : appel séparé, indépendant du nombre
+// de plans — toujours rapide, même pour un contenu très long, car sa sortie
+// reste courte quelle que soit la taille de l'entrée.
+async function genererMiniatureVisuelle(texteComplet, plat) {
+  const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}. Voici le texte complet d'un contenu :
+"""
+${(texteComplet || '').slice(0, 4000)}
+"""
+Crée UN SEUL prompt visuel pour la MINIATURE (image de couverture) de ce contenu. Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Elle résume la promesse du contenu.
+
+${STRUCTURE_PROMPT_VISUEL}
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après : {"miniature":"le prompt de miniature se terminant par 9:16"}`;
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 1200, prompt);
+    const parsed = parseAIResponse(raw);
+    const m = (parsed && parsed.miniature) ? parsed.miniature : '';
+    return m ? assainirPromptVisuel(m, 'Miniature') : '';
+  } catch (e) {
+    return ''; // jamais bloquant : le storyboard reste utilisable sans miniature
+  }
 }
 
-// Associe à chaque nouveau plan le prompt de l'IA qui couvrait son texte.
-// RÈGLE ABSOLUE : un prompt visuel n'est JAMAIS attribué à deux plans. Chaque
-// plan affiché a donc une image DISTINCTE.
-// Quand la re-segmentation produit plus de plans que l'IA n'a fourni de visuels,
-// le plan en trop ne recopie PAS le visuel du voisin (ce qui créait des doublons) :
-// il est FUSIONNÉ dans le plan précédent, puisqu'ils partagent la même image mentale.
-function _reassocierVisuels(plans, segmentsIA, cleTexte, cleVisuel) {
-  const sources = segmentsIA.map(s => ({
-    texte: (s[cleTexte] || '').trim().toLowerCase(),
-    visuel: (s[cleVisuel] || '').trim(),
-    pris: false
-  })).filter(s => s.visuel);
+// Génère le prompt visuel de chaque plan {text}, lot par lot. onLot(lot,
+// indexDepart) est appelé après CHAQUE lot avec les plans de ce lot (déjà
+// enrichis de leur .visuel), pour un affichage progressif.
+async function genererVisuelsParLots(plans, plat, onLot) {
+  for (let i = 0; i < plans.length; i += TAILLE_LOT_VISUELS) {
+    const lot = plans.slice(i, i + TAILLE_LOT_VISUELS);
+    const listeTextes = lot.map((p, k) => `${k + 1}. "${p.text}"`).join('\n');
+    const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}.
 
-  const motsDe = t => new Set((t || '').toLowerCase().split(/\s+/).filter(w => w.length > 3));
+Voici une liste de textes narrés, déjà découpés en plans (NE LES MODIFIE PAS, NE LES FUSIONNE PAS, NE LES DIVISE PAS) :
+${listeTextes}
 
-  const resultat = [];
-  plans.forEach(plan => {
-    const motsPlan = motsDe(plan.text);
-    let best = -1, bestScore = -1;
+Pour CHACUN, dans le même ordre, écris un prompt destiné à un générateur d'images (Midjourney, Firefly, Imagen…), d'une richesse exceptionnelle.
 
-    // Chercher UNIQUEMENT parmi les prompts encore libres (un visuel = un seul plan)
-    sources.forEach((src, idx) => {
-      if (src.pris) return;
-      const motsSrc = motsDe(src.texte);
-      let common = 0;
-      motsSrc.forEach(w => { if (motsPlan.has(w)) common++; });
-      if (common > bestScore) { bestScore = common; best = idx; }
-    });
+${STRUCTURE_PROMPT_VISUEL}
 
-    if (best >= 0) {
-      // Un visuel libre existe : ce plan est distinct.
-      sources[best].pris = true;
-      resultat.push({ text: plan.text, duree: plan.duree, visuel: sources[best].visuel });
-    } else if (resultat.length) {
-      // Plus aucun visuel libre : ce fragment partage l'image du plan précédent.
-      // On le fusionne au lieu de recopier le même prompt (fini les doublons).
-      const prev = resultat[resultat.length - 1];
-      prev.text = (prev.text + ' ' + plan.text).trim();
-      prev.duree = _fusionnerDurees(prev.duree, plan.duree);
-    } else {
-      // Cas extrême (1er plan, aucun visuel encore libre) : prendre le 1er disponible.
-      const v = sources.length ? sources[0].visuel : '';
-      if (sources.length) sources[0].pris = true;
-      resultat.push({ text: plan.text, duree: plan.duree, visuel: v });
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${lot.length} éléments dans le tableau, dans le même ordre que la liste ci-dessus :
+{"visuels":["prompt du texte 1 se terminant par 9:16","prompt du texte 2 se terminant par 9:16"]}`;
+
+    // callAI a déjà ses propres tentatives internes ; on retente le LOT entier
+    // une fois de plus avant d'abandonner, pour ne marquer un plan en échec
+    // qu'en dernier recours plutôt qu'au premier accroc réseau.
+    let visuels = [];
+    for (let tentative = 0; tentative < 2 && visuels.length < lot.length; tentative++) {
+      try {
+        const raw = await callAI(MODEL_RAPIDE, Math.max(2000, lot.length * 350), prompt);
+        const parsed = parseAIResponse(raw);
+        if (parsed && Array.isArray(parsed.visuels)) visuels = parsed.visuels;
+      } catch (e) { /* nouvelle tentative si le budget le permet encore */ }
     }
-  });
 
-  return resultat;
-}
-
-// MODE STORYTELLING : { segment, duree, texte, visuel }
-function segmenterStoryboardStory(boardIA) {
-  if (!Array.isArray(boardIA) || boardIA.length < 2) return boardIA;
-  const texteComplet = boardIA.map(s => s.texte || '').join(' ');
-  const plans = segmentNarrativeStoryboard(texteComplet);
-  if (!plans.length) return boardIA;
-  return _reassocierVisuels(plans, boardIA, 'texte', 'visuel').map((p, i) => ({
-    segment: String(i + 1),
-    duree: p.duree,
-    texte: p.text,
-    visuel: p.visuel
-  }));
-}
-
-// MODE J'AI UNE IDÉE : { segment (=durée), texte_dit, prompt_visuel }
-function segmenterStoryboardScript(boardIA) {
-  if (!Array.isArray(boardIA) || boardIA.length < 2) return boardIA;
-  const texteComplet = boardIA.map(s => s.texte_dit || '').join(' ');
-  const plans = segmentNarrativeStoryboard(texteComplet);
-  if (!plans.length) return boardIA;
-  return _reassocierVisuels(plans, boardIA, 'texte_dit', 'prompt_visuel').map(p => ({
-    segment: p.duree,
-    texte_dit: p.text,
-    prompt_visuel: p.visuel
-  }));
+    for (let k = 0; k < lot.length; k++) {
+      lot[k].visuel = visuels[k]
+        ? assainirPromptVisuel(visuels[k], 'Plan ' + (i + k + 1))
+        : 'Prompt visuel indisponible pour ce plan — clique sur ↻ Régénérer pour réessayer.';
+    }
+    if (onLot) onLot(lot, i);
+  }
+  return plans;
 }
 
 
@@ -368,99 +335,72 @@ async function generateStoryStoryboard() {
   prog.start();
 
   const plat = storyPlatform || 'TikTok';
-  // Nombre de segments proportionnel à la longueur du récit
-  const nbMotsRecit = (currentStoryText || '').split(/\s+/).filter(Boolean).length;
-  // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
-  // pour que l'IA fournisse un visuel DISTINCT à (presque) chaque plan re-segmenté.
-  // Plafonné à MAX_SEGMENTS_STORYBOARD : un récit long (mode "narratif long,
-  // sans limite") ne doit jamais produire une requête assez énorme pour dépasser
-  // le budget de temps/tokens d'un seul appel IA — sans ce plafond, le storyboard
-  // d'un récit long échouait quasi systématiquement (délai dépassé ou JSON tronqué).
-  const segMinRaw = Math.max(3, Math.round(nbMotsRecit / 14));
-  const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMotsRecit / 9));
-  const segMinR = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
-  const segMaxR = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
-  // Durée de segment selon plateforme — desserrée si le plafond a dû réduire
-  // le nombre de plans en dessous de ce qu'imposerait un rythme de 3-5s/plan.
-  const segShort = ['TikTok', 'Instagram Reels', 'YouTube'].includes(plat);
-  const segDuration = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
-    ? 'une durée adaptée pour couvrir tout le récit dans le nombre de plans indiqué'
-    : (segShort ? '3 à 5 secondes' : '5 secondes');
 
-  const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}. Découpe ce récit en segments visuels et écris pour chacun un prompt destiné à un générateur d'images (Midjourney, Firefly, Imagen…), d'une richesse exceptionnelle.
-
-RÉCIT :
-"""
-${currentStoryText}
-"""
-
-RÈGLES DE DÉCOUPAGE (TRÈS IMPORTANT) :
-- Le NOMBRE de segments doit s'adapter A LA LONGUEUR du récit : vise entre ${segMinR} et ${segMaxR} segments pour ce récit précis. Un récit court = peu de segments, un récit long = plus. Ne gonfle JAMAIS artificiellement le nombre de plans.
-- Chaque segment dure ${segDuration} maximum
-- RESPECTE ABSOLUMENT LES UNITÉS DE SENS : ne coupe JAMAIS une phrase ou une idée au milieu. Chaque segment doit contenir une pensée complète et cohérente (une phrase entière, ou une proposition qui a du sens seule).
-- Si une phrase est trop longue pour un seul segment, coupe-la à un endroit NATUREL (après une virgule, une pause logique, une articulation du sens) — jamais en plein milieu d'une idée.
-- Un segment mal coupé comme "Et partage cette vidéo à quelqu'un" suivi de "qui en a besoin" est INTERDIT : ces deux morceaux forment une seule idée et doivent rester ensemble.
-- Privilégie la cohérence du sens sur la durée exacte : mieux vaut un segment légèrement plus court ou plus long mais qui garde une idée complète.
-- Pour chaque segment : le texte narré (cohérent) + un prompt visuel détaillé
-- Respecte le nombre de segments indiqué ci-dessus (adapté à la longueur du récit)
-
-STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (intègre ces 4 dimensions de façon FLUIDE et naturelle, en une description continue, SANS jamais écrire les étiquettes) :
-1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
-2. LA MATIÈRE : les détails de structure, les matériaux, les textures
-3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait référence à un personnage précis (historique, public, fictif), nomme-le explicitement dans le prompt.
-4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
-
-Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée. Écris une description spatiale et sensorielle immersive, comme si tu décrivais une peinture ou une photographie à couper le souffle. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll. Adapte l'ambiance au ton du récit.
-
-RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si plusieurs éléments ou lieux doivent coexister, NE FAIS PAS de split, de double cadre, de juxtaposition ni aucune séparation visuelle. Garde LA SCÈNE PRINCIPALE et intègre les éléments secondaires de façon organique dans la même composition (arrière-plan, reflet, détail dans le décor…). Une seule image cohérente, pas de collage.
-
-FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).
-
-MINIATURE (TRÈS IMPORTANT) : en plus des segments, crée UN prompt visuel spécial pour la MINIATURE (image de couverture). Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Elle résume la promesse du récit. Termine ce prompt par " 9:16".
-
-${FEWSHOT_DECOUPAGE}
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"1","duree":"0-3 sec","texte":"le texte narré","visuel":"le prompt visuel riche et fluide se terminant par 9:16"}]}`;
-
-  try {
-    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
-    const parsed = parseAIResponse(raw);
-    // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
-    if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardStory(parsed.storyboard);
-    if (!parsed || !parsed.storyboard) throw new Error('Réponse incomplète');
-    assainirStoryboard(parsed);
-
-    prog.finish(); // 100% pile au moment où le storyboard s'affiche
-    setTimeout(() => { const pb = document.getElementById('sbProgBar2'); if (pb) pb.style.display = 'none'; }, 600);
-    // Sauvegarder le storyboard pour qu'il reste après réouverture
-    updateGenerationStoryboard({ storyboard: parsed.storyboard, miniature: parsed.miniature || null, isStory: true });
-    const sbFullText = (parsed.miniature ? `MINIATURE : ${parsed.miniature}\n\n` : '') + parsed.storyboard.map((s, i) => `Plan ${s.segment || ''} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
-    const miniHtmlSt = parsed.miniature ? `
+  const carteMiniature = (m) => `
       <div class="sb-segment sb-miniature">
         <div class="sb-head">
           <span class="sb-time">★ Miniature</span>
           <span class="sb-index">Couverture</span>
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-visual">${parsed.miniature}</div>
-        ${blocGenImage(storeCopyText(parsed.miniature||''))}
-      </div>` : '';
-    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${parsed.storyboard.map((s, i) => `
+        <div class="sb-visual">${m}</div>
+        ${blocGenImage(storeCopyText(m))}
+      </div>`;
+  const cartePlan = (i, p) => `
       <div class="sb-segment">
         <div class="sb-head">
-          <span class="sb-time">${s.duree || ''}</span>
-          <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+          <span class="sb-time">${p.duree || ''}</span>
+          <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
         </div>
-        <div class="sb-dit">"${s.texte || ''}"</div>
+        <div class="sb-dit">"${p.text || ''}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${s.visuel || ''}</div>
-        ${blocGenImage(storeCopyText(s.visuel||''))}
-      </div>`).join('')}
+        <div class="sb-visual">${p.visuel || ''}</div>
+        ${blocGenImage(storeCopyText(p.visuel || ''))}
+      </div>`;
+
+  try {
+    // Découpage narratif déterministe (moteur en tête de fichier), AVANT tout
+    // appel IA : le nombre de plans n'est plus limité par ce qu'une seule
+    // requête peut produire dans son budget de temps.
+    const plans = segmentNarrativeStoryboard(currentStoryText);
+    if (!plans.length) throw new Error('Récit vide');
+
+    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
+    const grid = document.getElementById('storyStoryboardGrid');
+
+    let miniature = '';
+    const promesseMiniature = genererMiniatureVisuelle(currentStoryText, plat).then(m => {
+      miniature = m;
+      if (m) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
+    });
+
+    // Les plans s'affichent lot par lot, au fur et à mesure que l'IA répond —
+    // pas d'attente d'une réponse géante unique pour tout voir apparaître.
+    await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
+      const html = lot.map((p, k) => cartePlan(indexDepart + k, p)).join('');
+      grid.insertAdjacentHTML('beforeend', html);
+      const fait = Math.min(indexDepart + lot.length, plans.length);
+      document.getElementById('storyStoryboardText').textContent = `Création du storyboard… ${fait}/${plans.length} plans`;
+    });
+    await promesseMiniature;
+
+    prog.finish();
+    setTimeout(() => { const pb = document.getElementById('sbProgBar2'); if (pb) pb.style.display = 'none'; }, 600);
+
+    const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + plans.map((p, i) => `Plan ${i + 1} (${p.duree || ''})\n${p.text || ''}\nVisuel : ${p.visuel || ''}`).join('\n\n');
+    grid.insertAdjacentHTML('beforeend', `
       <div class="sb-actions-fin">
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
-      </div></div>`;
+      </div>`);
+
+    // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
+    // champs qu'avant (segment/duree/texte/visuel), pour rester compatible
+    // avec l'historique et le rapport fusionné.
+    const storyboardPourSauvegarde = plans.map((p, i) => ({ segment: String(i + 1), duree: p.duree, texte: p.text, visuel: p.visuel || '' }));
+    updateGenerationStoryboard({ storyboard: storyboardPourSauvegarde, miniature: miniature || null, isStory: true });
+
     // Masquer le bouton + le texte descriptif après génération (le bouton Régénérer prend le relais)
     if (btn) {
       btn.style.display = 'none';
@@ -470,7 +410,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
   } catch(e) {
-    out.innerHTML = `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`;
+    // Ajouté APRÈS ce qui a déjà pu s'afficher (plans des lots précédents) :
+    // un échec en cours de route ne fait plus disparaître ce qui a déjà réussi.
+    out.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`);
   } finally {
     if (typeof prog !== 'undefined') prog.stop();
     const pb2 = document.getElementById('sbProgBar2'); if (pb2) setTimeout(() => { pb2.style.display = 'none'; }, 600);

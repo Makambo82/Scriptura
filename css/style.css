@@ -1848,6 +1848,12 @@ body.is-unlocked .sidebar-logout{display:block}
   color:var(--gold-light);
 }
 
+/* Statut d'avancement du storyboard généré par lots ("X/Y plans") */
+.sb-statut{
+  font-family:'Poppins',sans-serif;font-size:0.85rem;color:var(--gold-light);
+  margin-bottom:14px;
+}
+
 /* ── BOUTON RÉGÉNÉRER dans le storyboard ── */
 .sb-regen{
   font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;text-transform:uppercase;

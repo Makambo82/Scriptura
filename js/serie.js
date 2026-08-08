@@ -378,80 +378,36 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     if (spinner) spinner.style.display = 'block';
     if (btnText) btnText.textContent = 'Scriptura crée le storyboard…';
 
-    // Barre de progression animée (même système que J'ai une idée / Storytelling)
-    const barId = 'serieSbBar' + numEp;
-    const fillId = 'serieSbFill' + numEp;
-    const pctId = 'serieSbPct' + numEp;
+    // Statut d'avancement (remplace l'ancienne barre de progression à temps
+    // estimé) : affiche la progression RÉELLE, lot par lot.
     const zone = document.getElementById('serieSbZone' + numEp);
-    if (zone) {
-      zone.innerHTML = '<div class="sb-progress gold" id="' + barId + '" style="display:flex;max-width:100%;margin:14px 0">'
-        + '<div class="sb-progress-track"><div class="sb-progress-fill" id="' + fillId + '"></div></div>'
-        + '<span class="sb-progress-pct" id="' + pctId + '">0%</span></div>';
-    }
-    const prog = createProgress((p) => {
-      const fill = document.getElementById(fillId);
-      const pct = document.getElementById(pctId);
-      if (fill) fill.style.width = p + '%';
-      if (pct) pct.textContent = p + '%';
-    });
-    prog.start();
+    if (zone) zone.innerHTML = '<div class="sb-statut">Scriptura crée le storyboard…</div>';
 
     const scriptText = ep.script || '';
-    const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
-    // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
-    // identique aux modes Script et Récit, pour que l'IA fournisse un visuel DISTINCT
-    // à (presque) chaque plan re-segmenté. Plafonné (MAX_SEGMENTS_STORYBOARD, voir
-    // js/storyboard.js) : un épisode très long ne doit jamais produire une requête
-    // assez énorme pour dépasser le budget de temps/tokens d'un seul appel IA.
-    const segMinRaw = Math.max(3, Math.round(nbMots / 14));
-    const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMots / 9));
-    const segMin = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
-    const segMax = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
-    const consigneDuree = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
-      ? 'Chaque segment couvre une idee complete, avec une duree adaptee pour couvrir tout le script dans le nombre de plans indique.'
-      : 'Chaque segment couvre une idee complete (~3 a 5 secondes).';
+    const plat = 'TikTok';
 
-    const prompt = `Tu es Scriptura, directeur artistique IA expert en creation d'images fixes pour contenu viral vertical.
+    // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
+    // le nombre de plans n'est plus limité par ce qu'une seule requête peut
+    // produire dans son budget de temps — les visuels sont générés par lots
+    // (voir genererVisuelsParLots), donc un épisode long reste rapide et fiable.
+    const plans = segmentNarrativeStoryboard(scriptText);
+    if (!plans.length) throw new Error('Script vide');
 
-Voici le script d'un episode de serie TikTok (format faceless, sans visage) :
+    let miniature = '';
+    const promesseMiniature = genererMiniatureVisuelle(scriptText, plat).then(m => { miniature = m; });
 
-SCRIPT :
-${scriptText}
+    await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
+      const fait = Math.min(indexDepart + lot.length, plans.length);
+      const statutEl = zone ? zone.querySelector('.sb-statut') : null;
+      if (statutEl) statutEl.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+    });
+    await promesseMiniature;
 
-MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments (ni plus, ni moins). ${consigneDuree} Ne gonfle JAMAIS le nombre de plans.
-
-REGLE DE DECOUPAGE : RESPECTE les unites de sens. Ne coupe JAMAIS une idee au milieu. Si une phrase est longue, coupe a un endroit naturel (apres une virgule, une articulation).
-
-STRUCTURE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE, sans ecrire les etiquettes) :
-1. LE DECOR : lieu precis, epoque, ambiance
-2. LA MATIERE : structures, materiaux, textures
-3. LES PERSONNAGES : fonction, age, apparence, vetements precis, gestes, postures. Si le segment mentionne un nom ou fait reference a un personnage precis (historique, public, fictif), nomme-le explicitement dans le prompt.
-4. LA VIE DE LA SCENE : elements secondaires, lumiere, ombres
-
-Le prompt decrit une IMAGE FIXE unique — un instant fige, pas une sequence. Pas de mouvement de camera, pas de transition, pas de duree. Description spatiale et sensorielle immersive, comme une peinture ou une photographie a couper le souffle. Riche, precis, anti-scroll. JAMAIS generique.
-
-SCENES MULTIPLES : si plusieurs elements ou lieux doivent coexister, PAS de split, de double cadre ni de separation visuelle. Garde LA SCENE PRINCIPALE et integre les elements secondaires de facon organique dans la meme composition (arriere-plan, reflet, detail du decor…). Une seule image coherente, pas de collage.
-
-FOOTER OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
-
-MINIATURE : cree aussi UN prompt special pour la miniature (couverture) : captivante, anti-scroll, sujet central percutant, emotion visible, couleurs contrastees. Termine par " 9:16".
-
-Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
-{"miniature":"le prompt de miniature se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche se terminant par 9:16"}]}`;
-
-    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
-    const parsed = parseAIResponse(raw);
-    // Moteur de découpage par image mentale (narration d'abord, durée en dernier) —
-    // exactement le même que pour les modes Script et Récit.
-    if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
-    if (!parsed || !Array.isArray(parsed.storyboard)) throw new Error('storyboard illisible');
-    assainirStoryboard(parsed);
-
-    prog.finish();
+    const storyboardFinal = plans.map((p, i) => ({ segment: p.duree, texte_dit: p.text, prompt_visuel: p.visuel || '' }));
 
     // On rattache le storyboard complet (miniature + segments) a l'episode
     const nouveaux = eps.map(e => e.num === numEp
-      ? Object.assign({}, e, { storyboard: parsed.storyboard, miniature: parsed.miniature || null })
+      ? Object.assign({}, e, { storyboard: storyboardFinal, miniature: miniature || null })
       : e);
     await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
     ouvrirSerie(serieCouranteId);

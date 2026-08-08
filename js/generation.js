@@ -1584,137 +1584,99 @@ async function generateStoryboard() {
   if (!lastGenContext || !currentScript) return;
   if (!_regenGratuiteEnCours) resetRegen('storyboardIdee');
 
+  // Défensif : après une première génération réussie, storyboardContainer a
+  // déjà été remplacé par la grille (voir plus bas) et ces éléments d'origine
+  // n'existent plus — c'est le cas normal quand "↻ Régénérer" rappelle cette
+  // même fonction. Rien à mettre à jour dans ce cas, la grille suivante prend le relais.
   const btn = document.getElementById('sbGenerateBtn');
   const spinner = document.getElementById('sbGenSpinner');
   const genText = document.getElementById('sbGenText');
-  btn.disabled = true;
-  spinner.style.display = 'block';
-  genText.textContent = 'Scriptura crée le storyboard…';
-  const progBar = document.getElementById('sbProgBar1');
-  if (progBar) progBar.style.display = 'flex';
-  const prog = createProgress((p) => {
-    const fill = document.getElementById('sbProgFill1');
-    const pct = document.getElementById('sbProgPct1');
-    if (fill) fill.style.width = p + '%';
-    if (pct) pct.textContent = p + '%';
-  });
-  prog.start();
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'block';
+  if (genText) genText.textContent = 'Scriptura crée le storyboard…';
 
   const ctx = lastGenContext;
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
-  // Nombre de segments proportionnel à la longueur du script
-  const nbMots = scriptText.split(/\s+/).filter(Boolean).length;
-  // Cadence alignée sur le moteur image-mentale (~3 à 5 s = ~8 à 14 mots/segment),
-  // pour que l'IA fournisse un visuel DISTINCT à (presque) chaque plan re-segmenté.
-  // Plafonné (MAX_SEGMENTS_STORYBOARD, voir js/storyboard.js) : un script très long
-  // ne doit jamais produire une requête assez énorme pour dépasser le budget de
-  // temps/tokens d'un seul appel IA.
-  const segMinRaw = Math.max(3, Math.round(nbMots / 14));
-  const segMaxRaw = Math.max(segMinRaw + 1, Math.round(nbMots / 9));
-  const segMin = Math.min(segMinRaw, MAX_SEGMENTS_STORYBOARD - 1);
-  const segMax = Math.min(segMaxRaw, MAX_SEGMENTS_STORYBOARD);
-  const consigneDureeSeg = (segMaxRaw > MAX_SEGMENTS_STORYBOARD)
-    ? 'Chaque segment couvre une idee complete, avec une duree de narration adaptee pour couvrir tout le script dans le nombre de plans indique.'
-    : 'Chaque segment couvre une idee complete (environ 3 a 5 secondes de narration).';
+  const plat = ctx.plateforme || 'TikTok';
 
-  const prompt = `Tu es Scriptura, directeur artistique IA expert en creation d'images fixes pour contenu viral.
-
-Voici le script d'une video pour ${ctx.plateforme} sur : ${ctx.sujet}
-
-SCRIPT :
-${scriptText}
-
-MISSION : Decoupe ce script en segments visuels. Le NOMBRE de segments doit s'adapter A LA LONGUEUR du script : vise entre ${segMin} et ${segMax} segments pour ce script precis (ni plus, ni moins). Un script court = peu de segments, un script long = plus de segments. ${consigneDureeSeg} Ne gonfle JAMAIS artificiellement le nombre de plans.
-
-REGLE DE DECOUPAGE (TRES IMPORTANT) : RESPECTE ABSOLUMENT LES UNITES DE SENS. Ne coupe JAMAIS une phrase ou une idee au milieu. Chaque segment doit contenir une pensee complete et coherente. Si une phrase est trop longue, coupe-la a un endroit NATUREL (apres une virgule, une articulation logique), jamais en plein milieu d'une idee. Un decoupage comme "Et partage cette video a quelqu'un" / "qui en a besoin" est INTERDIT : ces morceaux forment une seule idee et restent ensemble. Privilegie la coherence du sens sur la duree exacte.
-
-STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (integre ces 4 dimensions de facon FLUIDE et naturelle, en une description continue, SANS jamais ecrire les etiquettes) :
-1. LE DECOR : le lieu precis, l'epoque, l'ambiance globale de la scene
-2. LA MATIERE : les details de structure, les materiaux, les textures
-3. LES PERSONNAGES : leur titre/fonction, age, apparence physique, et SURTOUT leurs vetements precis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait reference a un personnage precis (historique, public, fictif), nomme-le explicitement dans le prompt.
-4. LA VIE DE LA SCENE : les elements secondaires (inscriptions, objets, foule…), la gestion de la lumiere et des ombres
-
-Le prompt decrit une IMAGE FIXE unique — un instant fige, pas une sequence. Pas de mouvement de camera, pas de transition, pas de duree. Description spatiale et sensorielle immersive, comme une peinture ou une photographie a couper le souffle. Riche, precis, anti-scroll, illustre les mots exacts prononces pour maximiser la retention. JAMAIS generique (interdit : "une personne qui parle", "un fond").
-
-REGLE SUR LES SCENES MULTIPLES (IMPORTANT) : Si plusieurs elements ou lieux doivent coexister, PAS de split, de double cadre, de juxtaposition ni aucune separation visuelle. Garde LA SCENE PRINCIPALE et integre les elements secondaires de facon organique dans la meme composition (arriere-plan, reflet, detail dans le decor…). Une seule image coherente, pas de collage.
-
-FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16".
-
-MINIATURE (TRES IMPORTANT) : en plus des segments, cree UN prompt visuel special pour la MINIATURE (image de couverture) de la video. Cette miniature doit etre CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immediatement envie de cliquer, avec un sujet central percutant, une emotion visible, des couleurs contrastees, une composition qui accroche l'oeil en une fraction de seconde. Elle resume la promesse de la video. Termine ce prompt par " 9:16".
-
-EXEMPLE DE DECOUPAGE ATTENDU (respecte exactement cette granularite) :
-
-Script source :
-"Mnangagwa n'etait pas juste un garde du corps. C'etait l'ombre de Mugabe au sens litteral : present a chaque execution extrajudiciaire, a chaque seance d'interrogatoire aux sous-sols du palais, a chaque decision de disparition. Trente-sept ans a observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on preserve le pouvoir en transformant la peur en routine."
-
-Decoupage CORRECT (chaque terme d'une serie rhetorique = plan distinct) :
-- "Mnangagwa n'etait pas juste un garde du corps. C'etait l'ombre de Mugabe au sens litteral :"
-- "present a chaque execution extrajudiciaire,"
-- "a chaque seance d'interrogatoire aux sous-sols du palais,"
-- "a chaque decision de disparition."
-- "Trente-sept ans a observer comment on brise un homme sans laisser de trace."
-- "Comment on terrorise une nation en silence."
-- "Comment on preserve le pouvoir en transformant la peur en routine."
-
-Decoupage INTERDIT (ne jamais fusionner les termes d'une anaphore) :
-- "Mnangagwa n'etait pas juste un garde du corps. C'etait l'ombre de Mugabe au sens litteral : present a chaque execution extrajudiciaire, a chaque seance d'interrogatoire aux sous-sols du palais, a chaque decision de disparition."
-- "Trente-sept ans a observer comment on brise un homme sans laisser de trace. Comment on terrorise une nation en silence. Comment on preserve le pouvoir en transformant la peur en routine."
-
-REGLE : des que deux phrases consecutives ouvrent sur le meme mot ou le meme patron (Comment…, Ces…, Que…, a chaque…, present a…, Les…), chacune forme un plan a part entiere, quelle que soit sa longueur.
-
-Reponds UNIQUEMENT en JSON valide sans texte avant ni apres :
-{"miniature":"le prompt de miniature captivant et anti-scroll se terminant par 9:16","storyboard":[{"segment":"0-4 sec","texte_dit":"...","prompt_visuel":"le prompt riche et fluide se terminant par 9:16"}]}`;
-
-  try {
-    const raw = await callAI(MODEL_RAPIDE, 16000, prompt);
-    const parsed = parseAIResponse(raw);
-    // Moteur de découpage par image mentale (narration d'abord, durée en dernier)
-    if (parsed && Array.isArray(parsed.storyboard)) parsed.storyboard = segmenterStoryboardScript(parsed.storyboard);
-    if (!parsed || !parsed.storyboard) throw new Error('Réponse invalide');
-    assainirStoryboard(parsed);
-
-    prog.finish(); // 100% pile au moment où le storyboard s'affiche
-    setTimeout(() => { const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none'; }, 600);
-    // Sauvegarder le storyboard pour qu'il reste après réouverture
-    updateGenerationStoryboard({ storyboard: parsed.storyboard, miniature: parsed.miniature || null });
-    const container = document.getElementById('storyboardContainer');
-    const miniHtml = parsed.miniature ? `
+  const carteMiniature = (m) => `
       <div class="sb-segment sb-miniature">
         <div class="sb-head">
           <span class="sb-time">★ Miniature</span>
           <span class="sb-index">Couverture</span>
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-visual">${parsed.miniature}</div>
-        ${blocGenImage(storeCopyText(parsed.miniature||''))}
-      </div>` : '';
-    const tousLesPrompts2 = (parsed.miniature ? 'MINIATURE : ' + parsed.miniature + '\n\n' : '') + parsed.storyboard.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
-    container.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-list">${miniHtml}${parsed.storyboard.map((seg, i) => `
+        <div class="sb-visual">${m}</div>
+        ${blocGenImage(storeCopyText(m))}
+      </div>`;
+  const cartePlan = (i, p) => `
       <div class="sb-segment">
         <div class="sb-head">
-          <span class="sb-time">${seg.segment}</span>
-          <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
+          <span class="sb-time">${p.duree || ''}</span>
+          <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
         </div>
-        <div class="sb-dit">"${seg.texte_dit}"</div>
+        <div class="sb-dit">"${p.text || ''}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${seg.prompt_visuel}</div>
-        ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
-      </div>`).join('')}
+        <div class="sb-visual">${p.visuel || ''}</div>
+        ${blocGenImage(storeCopyText(p.visuel || ''))}
+      </div>`;
+
+  // Le conteneur (bouton, spinner, barre de progression compris) est remplacé
+  // dès le départ par la grille progressive : le statut d'avancement et les
+  // erreurs doivent donc désormais vivre DANS cette nouvelle grille, jamais
+  // sur les anciens éléments (btn/spinner/genText), devenus détachés du DOM
+  // une fois ce remplacement fait — sinon un échec en cours de lots restait
+  // invisible pour l'utilisateur (spinner bloqué indéfiniment).
+  const container = document.getElementById('storyboardContainer');
+  container.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div>
+    <div class="sb-statut" id="sbIdeeStatut">Scriptura crée le storyboard…</div>
+    <div class="storyboard-list" id="sbIdeeGrid"></div>`;
+  const grid = document.getElementById('sbIdeeGrid');
+  const statut = document.getElementById('sbIdeeStatut');
+
+  try {
+    // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
+    // le nombre de plans n'est plus limité par ce qu'une seule requête peut
+    // produire dans son budget de temps — les visuels sont générés par lots
+    // (voir genererVisuelsParLots), donc un script long reste rapide et fiable.
+    const plans = segmentNarrativeStoryboard(scriptText);
+    if (!plans.length) throw new Error('Script vide');
+
+    let miniature = '';
+    const promesseMiniature = genererMiniatureVisuelle(`${ctx.sujet}\n\n${scriptText}`, plat).then(m => {
+      miniature = m;
+      if (m) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
+    });
+
+    await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
+      const html = lot.map((p, k) => cartePlan(indexDepart + k, p)).join('');
+      grid.insertAdjacentHTML('beforeend', html);
+      const fait = Math.min(indexDepart + lot.length, plans.length);
+      if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+    });
+    await promesseMiniature;
+    if (statut) statut.remove();
+
+    const tousLesPrompts2 = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + plans.map((p, i) => 'Plan ' + (i + 1) + ' : ' + (p.visuel || '')).join('\n\n');
+    grid.insertAdjacentHTML('beforeend', `
       <div class="sb-actions-fin">
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
-      </div></div>`;
+      </div>`);
+
+    // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
+    // champs qu'avant (segment/texte_dit/prompt_visuel).
+    const storyboardPourSauvegarde = plans.map((p, i) => ({ segment: p.duree, texte_dit: p.text, prompt_visuel: p.visuel || '' }));
+    updateGenerationStoryboard({ storyboard: storyboardPourSauvegarde, miniature: miniature || null });
     // Le bouton "Générer le storyboard" a été remplacé par le storyboard lui-même.
     // Le bouton "Régénérer" (en bas du storyboard) prend désormais le relais.
 
   } catch(e) {
-    if (typeof prog !== 'undefined') prog.stop();
-    const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none';
-    genText.textContent = 'Erreur, réessaie';
-    btn.disabled = false;
-    spinner.style.display = 'none';
-    setTimeout(() => { genText.textContent = '🎬 Générer le storyboard visuel'; }, 2000);
+    // Ajouté APRÈS ce qui a déjà pu s'afficher (plans des lots précédents) :
+    // un échec en cours de route ne fait plus disparaître ce qui a déjà réussi.
+    if (statut) statut.remove();
+    grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="generateStoryboard()" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
   }
 }
 
