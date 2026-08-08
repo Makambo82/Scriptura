@@ -200,7 +200,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
       checkRappelAbonnement();
     }
 
-    const titre = 'Diagnostic rapide · @' + username;
+    const titre = 'Diagnostic sommaire · @' + username;
     saveGeneration('diagnosticSommaire', titre, { username: username, diagnostic: parsed });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
@@ -363,7 +363,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
   results.innerHTML = `
     <div class="score-card audit-score-card ds-score-card">
-      <div class="audit-score-label">DIAGNOSTIC RAPIDE · @${diagSommaireEsc(username)}</div>
+      <div class="audit-score-label">DIAGNOSTIC SOMMAIRE · @${diagSommaireEsc(username)}</div>
       <div class="audit-ring-wrap">
         <svg class="audit-ring" viewBox="0 0 170 170">
           <defs>

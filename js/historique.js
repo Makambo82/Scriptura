@@ -12,7 +12,7 @@ const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none"
 const HIST_MODES_FILTRE = [
   { v: null,     label: 'Tous' },
   { v: 'audit',  label: '📊 Diagnostic' },
-  { v: 'diagnosticSommaire', label: '@ Diagnostic rapide' },
+  { v: 'diagnosticSommaire', label: '@ Diagnostic sommaire' },
   { v: 'serie',  label: '🎞️ Série' },
   { v: 'ideas',  label: '💡 Idées' },
   { v: 'script', label: '🎬 Script' },
