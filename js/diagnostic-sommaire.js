@@ -1,15 +1,24 @@
 // ═══════════════════════════════════════════════════════════
 //  MODULE DIAGNOSTIC SOMMAIRE — analyse via @nom d'utilisateur TikTok
 //  Alternative légère au diagnostic complet par captures (js/audit.js) :
-//  aucune capture à envoyer, le profil PUBLIC + les dernières vidéos sont
-//  lus via un service tiers (LamaTok, voir api/username-scan.js).
-//  Structure d'analyse inspirée de Vervox (score, 4 dimensions, bio,
-//  niche, leviers prioritaires, analyse détaillée), rendue avec la palette
-//  Scriptura (doré + émeraude pour les points forts — même mécanique que
-//  l'anneau de score du diagnostic complet).
-//  Moins riche que l'audit complet (pas de rétention, pas de sources de
-//  trafic — données non publiques), mais accessible dès le palier Creator,
-//  et une fois gratuitement pour les non-abonnés.
+//  aucune capture à envoyer, uniquement le PROFIL PUBLIC lu via un
+//  service tiers (LamaTok, voir api/username-scan.js).
+//
+//  LIMITE STRUCTURELLE IMPORTANTE (vérifiée sur la documentation complète
+//  de LamaTok) : ce service n'expose AUCUN endpoint pour lister les
+//  vidéos d'un compte — seulement le profil agrégé. Sur les 4 dimensions
+//  inspirées de Vervox (Engagement, Portée, Régularité, Viralité), seule
+//  l'Engagement peut être approximée (grossièrement) à partir des totaux
+//  du profil ; les 3 autres ont structurellement besoin de données par
+//  vidéo qu'aucun profil public n'expose, et sont donc TOUJOURS affichées
+//  comme non disponibles plutôt que de fabriquer un chiffre. Score
+//  recalculé côté code (comme js/audit.js) sur les seules dimensions
+//  réellement mesurées, jamais fourni tel quel par l'IA.
+//
+//  Rendu avec la palette Scriptura (doré + émeraude pour les points forts
+//  — même mécanique que l'anneau de score du diagnostic complet).
+//  Accessible dès le palier Creator, et une fois gratuitement pour les
+//  non-abonnés.
 // ═══════════════════════════════════════════════════════════
 
 // Prépare l'écran de choix pour une nouvelle analyse (efface le champ,
@@ -72,8 +81,9 @@ async function lancerDiagnosticSommaire() {
   results.style.display = 'none';
 
   try {
-    // 1) Récupère profil + dernières vidéos via notre fonction serveur
-    //    (clé LamaTok jamais exposée au navigateur).
+    // Récupère le profil public via notre fonction serveur (clé LamaTok
+    // jamais exposée au navigateur). Profil seul : voir note en tête de
+    // fichier sur la limite structurelle de LamaTok (pas de liste de vidéos).
     const rep = await fetch('/api/username-scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -84,66 +94,47 @@ async function lancerDiagnosticSommaire() {
       throw new Error(donnees?.error?.message || "Profil introuvable. Vérifie l'orthographe, ou envoie tes captures pour l'analyse complète.");
     }
 
-    // 2) Transmet les données brutes à l'IA : le nom exact des champs
-    //    dépend du service tiers, donc c'est l'IA qui les identifie par
-    //    leur sens plutôt qu'un parsing rigide côté code (plus robuste si
-    //    LamaTok fait évoluer sa réponse).
-    const nbVideos = Array.isArray(donnees.medias) ? donnees.medias.length : 0;
-    const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}) et de ses ${nbVideos || 0} dernières vidéos, au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier légèrement selon le service : identifie-les par leur sens (abonnés, abonnements, likes cumulés, nombre de vidéos, bio, statut vérifié ; par vidéo : vues, likes, commentaires, partages, date de publication, légende/description).
+    // Le nom exact des champs dépend du service tiers : l'IA les identifie
+    // par leur sens plutôt qu'un parsing rigide côté code.
+    const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
 PROFIL :
 ${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
 
-DERNIÈRES VIDÉOS (peut être vide si indisponible : ${donnees.medias_erreur || 'aucune erreur signalée'}) :
-${JSON.stringify(donnees.medias || []).slice(0, 8000)}
+RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données. Si un champ est absent, mets null / "disponible": false — n'invente jamais un chiffre.
 
-RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données. Si les vidéos sont absentes ou insuffisantes pour juger une dimension, marque cette dimension "disponible": false, score à 0, et dis-le dans le constat au lieu d'inventer. Ce diagnostic est SOMMAIRE : il n'a accès qu'à des statistiques publiques de surface (pas de rétention, pas de sources de trafic, pas de courbe de visionnage par vidéo) — ne prétends jamais avoir plus d'information que ça.
+LIMITE STRUCTURELLE DE CE DIAGNOSTIC (important) : tu n'as accès QU'à ce profil public agrégé, JAMAIS à la liste des vidéos individuelles (dates, vues par vidéo). Ne tente donc JAMAIS d'estimer la régularité de publication, la présence de pics viraux, ou les vues moyennes par vidéo : cette donnée n'existe simplement pas dans ce que tu reçois. Concentre-toi uniquement sur ce qui est calculable à partir des totaux du profil.
 
-CALCUL DES 4 DIMENSIONS (barème sur 100 au total, additionne les 4 scores pour score_global — ne donne jamais un score_global qui ne soit pas la somme exacte des 4) :
-1. ENGAGEMENT (sur 30) : (likes+commentaires+partages) / vues, moyenné sur les vidéos disponibles. Compare implicitement à la moyenne TikTok habituelle (3-5%) dans ton constat, en termes clairs, sans jargon statistique.
-2. PORTÉE (sur 30) : vues moyennes des vidéos rapportées au nombre d'abonnés. Un ratio élevé (vues moyennes proches ou supérieures aux abonnés) signale que le contenu sort de la seule base d'abonnés (bonne distribution algorithmique) ; un ratio faible signale une portée limitée à l'audience existante.
-3. RÉGULARITÉ (sur 20) : fréquence et régularité de publication déduites des dates des vidéos fournies (rythme hebdomadaire, écarts entre publications). Un rythme régulier note haut ; des trous longs ou irréguliers notent bas.
-4. VIRALITÉ (sur 20) : présence de vidéos qui dépassent largement la moyenne du compte (pics). Note haute si au moins une vidéo sort nettement du lot ; note basse si les performances sont plates sans aucun pic.
+ENGAGEMENT (sur 30, seule dimension chiffrée de ce diagnostic) : si le nombre de likes cumulés ET le nombre de vidéos sont tous deux présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si ce chiffre est proportionnellement élevé ou faible par rapport au nombre d'abonnés. Précise dans le constat que c'est une estimation grossière (pas le vrai taux d'engagement, qui nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null — n'estime rien à la place.
 
-SANTÉ DU COMPTE : une appréciation globale en un mot ("Excellente", "Bonne", "Fragile" ou "Critique") cohérente avec score_global.
+BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
 
-BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit que la bio actuelle mais plus révélatrices de la valeur du compte.
+NICHE : identifie la niche/thématique dominante UNIQUEMENT à partir du texte de la bio (tu n'as pas accès aux vidéos, donc pas aux sujets réellement traités). Si la bio ne permet pas de trancher, "disponible": false plutôt que de deviner. Sinon, dis si le positionnement semble clair ou flou d'après ce que la bio annonce, avec 1 à 2 points d'analyse.
 
-NICHE : identifie la niche/thématique dominante de ce compte à partir des légendes des vidéos et de la bio. Dis si elle est claire (un positionnement net et cohérent) ou floue (le compte mélange plusieurs sujets ou identités sans lien clair, ce qui dilue l'algorithme et l'audience). Donne 1 à 3 points d'analyse concrets sur ce positionnement (chevauchement de sujets, opportunité de sous-niche moins concurrentielle, etc.), uniquement si les données le permettent.
+LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées UNIQUEMENT sur ce que tu observes réellement dans ces données de profil (abonnés, vidéos, likes, bio) — jamais une supposition sur le contenu de vidéos que tu n'as pas vues.
 
-LEVIERS PRIORITAIRES : exactement 3 actions concrètes et réalisables, classées de la plus prioritaire à la moins prioritaire, chacune fondée sur ce que tu observes réellement dans CES données (jamais une généralité applicable à n'importe quel compte).
-
-ANALYSE DÉTAILLÉE (aperçu chiffré, pas de texte) : parmi les vidéos fournies, compte combien se distinguent nettement au-dessus de la moyenne du compte (top) et combien nettement en dessous (flop), combien de thèmes/concepts distincts reviennent plusieurs fois, et combien de formats différents (ex: storytelling, liste, avis, tuto) sont représentés.
+SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio) — reste prudent si peu de données sont exploitables.
 
 RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement (ex: "12 400 abonnés"), jamais de séparateur anglo-saxon.
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
 {
   "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
-  "score_global": <0-100, somme exacte des 4 scores ci-dessous>,
-  "niveau": "<Excellent|Très bon|Bon|Moyen|À travailler, cohérent avec score_global>",
-  "emoji": "<un seul emoji pertinent illustrant le niveau>",
-  "tagline": "<1 phrase courte et encourageante ou lucide selon le score>",
+  "compte_verifie": <true/false/null>,
+  "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
-  "dimensions": {
-    "engagement": { "score": <0-30>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
-    "portee": { "score": <0-30>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
-    "regularite": { "score": <0-20>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
-    "viralite": { "score": <0-20>, "disponible": <true/false>, "constat": "<1-2 phrases>" }
-  },
   "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
-  "niche": { "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
-  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ],
-  "analyse_detaillee": { "top_videos": <nombre>, "flop_videos": <nombre>, "concepts_recurrents": <nombre>, "formats_representes": <nombre> }
+  "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
+  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
 }`;
 
-    const raw = await callAI(MODEL_RAPIDE, 2500, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 2000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || parsed.profil_trouve === false) {
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
     }
 
-    // 3) Décompte du quota : non-abonné → marque son unique usage gratuit
+    // Décompte du quota : non-abonné → marque son unique usage gratuit
     // consommé (en plus de son compteur de générations gratuites partagé).
     if (!unlocked) {
       localStorage.setItem('scriptura_diag_sommaire_utilise', 'true');
@@ -158,7 +149,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     saveGeneration('diagnosticSommaire', titre, { username: username, diagnostic: parsed });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
-    afficherDiagnosticSommaireResultat(parsed, username, donnees.medias_erreur);
+    afficherDiagnosticSommaireResultat(parsed, username);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
@@ -203,38 +194,47 @@ function animerScoreDiagSommaire(valeur, circonference) {
 }
 
 const DS_DIM_META = {
-  engagement: { icone: '📈', label: 'Engagement' },
-  portee:     { icone: '👁️', label: 'Portée' },
-  regularite: { icone: '📅', label: 'Régularité' },
-  viralite:   { icone: '⚡', label: 'Viralité' }
+  engagement: { icone: '📈', label: 'Engagement', max: 30 },
+  portee:     { icone: '👁️', label: 'Portée', max: 30 },
+  regularite: { icone: '📅', label: 'Régularité', max: 20 },
+  viralite:   { icone: '⚡', label: 'Viralité', max: 20 }
+};
+
+// Ces 3 dimensions ont structurellement besoin de données par vidéo
+// (dates, vues individuelles) qu'aucun profil public LamaTok n'expose —
+// toujours non disponibles ici, jamais une estimation inventée.
+const DS_TOUJOURS_INDISPONIBLE = {
+  portee: "Non calculable avec un simple profil public : TikTok n'expose pas le nombre de vues par vidéo à cette échelle. Le diagnostic complet (captures) le permet.",
+  regularite: "Non calculable sans la date de chaque vidéo, une donnée absente d'un profil public. Le diagnostic complet (captures) le permet.",
+  viralite: "Non calculable sans pouvoir comparer tes vidéos entre elles individuellement — donnée indisponible via un simple profil public."
 };
 
 // Affiche le résultat (nouvelle génération OU réouverture depuis l'historique).
-// `mediasErreur` (optionnel, uniquement passé lors d'une génération en direct,
-// pas à la réouverture) : diagnostic technique visible si la récupération des
-// vidéos a échoué — utile pour repérer un souci côté LamaTok sans avoir à
-// fouiller la console. Retiré dès que l'intégration sera stabilisée.
-function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
+function afficherDiagnosticSommaireResultat(d, username) {
   const results = document.getElementById('diagSommaireResults');
   if (!results || !d) return;
 
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
-  const score = (typeof d.score_global === 'number' && !Number.isNaN(d.score_global)) ? Math.max(0, Math.min(100, d.score_global)) : null;
+
+  // Score recalculé ici, jamais fourni tel quel par l'IA (même principe que
+  // js/audit.js) : ramené sur 100 à partir des SEULES dimensions mesurées.
+  // Aujourd'hui, au mieux une seule (Engagement) — voir note en tête de fichier.
+  const eng = d.engagement || {};
+  const engMesurable = eng.disponible !== false && typeof eng.score === 'number' && !Number.isNaN(eng.score);
+  const score = engMesurable ? Math.round((Math.max(0, Math.min(30, eng.score)) / 30) * 100) : null;
   const excellent = score != null && score >= 80;
   const ringColorA = excellent ? 'var(--emerald)' : 'var(--gold)';
   const ringColorB = excellent ? 'var(--emerald-light)' : 'var(--gold-light)';
 
-  const dims = d.dimensions || {};
   const dimsHtml = Object.keys(DS_DIM_META).map(cle => {
     const meta = DS_DIM_META[cle];
-    const dim = dims[cle] || {};
-    const max = (cle === 'engagement' || cle === 'portee') ? 30 : 20;
-    const bon = dim.disponible !== false && typeof dim.score === 'number' && (dim.score / max) >= 0.7;
+    const dim = (cle === 'engagement') ? eng : { disponible: false, constat: DS_TOUJOURS_INDISPONIBLE[cle] };
+    const bon = dim.disponible !== false && typeof dim.score === 'number' && (dim.score / meta.max) >= 0.7;
     return `<div class="ds-dim-card">
       <div class="ds-dim-head">
         <span class="ds-dim-icon">${meta.icone}</span>
         <span class="ds-dim-name">${meta.label}</span>
-        <span class="ds-dim-score${bon ? ' ds-dim-score-ok' : ''}">${dim.disponible === false ? '—' : (dim.score != null ? dim.score : '—') + '/' + max}</span>
+        <span class="ds-dim-score${bon ? ' ds-dim-score-ok' : ''}">${dim.disponible === false ? '—' : (dim.score != null ? dim.score : '—') + '/' + meta.max}</span>
       </div>
       <p class="ds-dim-text">${diagSommaireEsc(dim.constat)}</p>
     </div>`;
@@ -257,7 +257,7 @@ function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
 
   const niche = d.niche || {};
   const nicheOk = niche.etat === 'claire';
-  const nicheHtml = niche.nom ? `
+  const nicheHtml = (niche.disponible !== false && niche.nom) ? `
     <div class="score-card">
       <div class="ds-section-row">
         <div class="audit-section-label" style="margin-bottom:0">Ta niche</div>
@@ -274,20 +274,6 @@ function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
       <ol class="ds-leviers-list">
         ${leviers.map(l => `<li><b>${diagSommaireEsc(l.titre)}</b><p>${diagSommaireEsc(l.detail)}</p></li>`).join('')}
       </ol>
-    </div>` : '';
-
-  const ad = d.analyse_detaillee || {};
-  const adHtml = (ad.top_videos != null || ad.concepts_recurrents != null) ? `
-    <div class="score-card">
-      <div class="ds-section-row">
-        <div class="audit-section-label" style="margin-bottom:0">Analyse détaillée</div>
-        <span class="ds-tag ds-tag-ok">${unlocked ? (typeof monPalier === 'function' ? monPalier().toUpperCase() : '') : 'APERÇU'}</span>
-      </div>
-      <div class="ds-mini-stats">
-        <div class="ds-mini-stat"><b>${ad.top_videos ?? '—'}↑ ${ad.flop_videos ?? '—'}↓</b><span>Top &amp; Flop vidéos</span></div>
-        <div class="ds-mini-stat"><b>${ad.concepts_recurrents ?? '—'}</b><span>Concepts récurrents</span></div>
-        <div class="ds-mini-stat"><b>${ad.formats_representes ?? '—'}</b><span>Formats représentés</span></div>
-      </div>
     </div>` : '';
 
   const subscribeNote = (!unlocked) ? `
@@ -312,8 +298,9 @@ function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
           <div class="audit-score-num"${excellent ? ' style="color:var(--emerald-light)"' : ''}><span id="dsScoreNum">0</span><span>/100</span></div>
         </div>
       </div>
-      ${d.niveau ? `<div class="ds-niveau-badge${excellent ? ' ds-niveau-badge-ok' : ''}">${diagSommaireEsc(d.niveau)}</div>` : ''}
-      ${d.emoji || d.tagline ? `<div class="audit-score-phrase">${d.emoji ? diagSommaireEsc(d.emoji) + ' ' : ''}${diagSommaireEsc(d.tagline)}</div>` : ''}
+      <div class="audit-score-phrase">${engMesurable
+        ? 'Calculé sur 1 dimension (Engagement) sur 4 — Portée, Régularité et Viralité nécessitent des données par vidéo qu\'un simple profil public ne fournit pas.'
+        : 'Score non calculable : les données publiques de ce profil ne permettent d\'estimer aucune des 4 dimensions.'}</div>
     </div>
 
     <div class="ds-dims-grid">${dimsHtml}</div>
@@ -323,9 +310,6 @@ function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
     ${bioHtml}
     ${nicheHtml}
     ${leviersHtml}
-    ${adHtml}
-
-    ${mediasErreur ? `<div class="ds-alt" style="border-color:var(--border-soft);font-size:0.78rem;opacity:0.85">🛠️ Diagnostic technique (vidéos indisponibles) : ${diagSommaireEsc(mediasErreur)}</div>` : ''}
 
     <div class="score-card">
       ${subscribeNote}
@@ -333,6 +317,6 @@ function afficherDiagnosticSommaireResultat(d, username, mediasErreur) {
     </div>`;
 
   results.style.display = 'block';
-  if (score != null) setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
+  setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
