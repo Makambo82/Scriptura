@@ -347,9 +347,13 @@ function afficherDiagnosticSommaireResultat(d, username) {
   // fonction qui pourrait filer droit à l'assistant s'il a déjà des jetons —
   // on veut qu'il voie ses options avant de consommer quoi que ce soit.
   const dejaAcces = (typeof aAccesMode === 'function' && aAccesMode('audit'));
+  // "Ton plan Pro" uniquement pour un vrai abonné Pro payant — un compte
+  // admin/illimité a aussi accès, mais n'est pas au plan Pro à proprement
+  // parler, donc lui dire "ton plan Pro" serait faux.
+  const estProPayant = dejaAcces && unlocked && (typeof monPalier === 'function') && monPalier() === 'pro';
   const ctaDetailleHtml = dejaAcces ? `
     <div class="ds-alt">
-      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. Ton plan te donne accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. (Sans abonnement, cette analyse est aussi disponible à l'unité avec un jeton.)</p>
+      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. ${estProPayant ? 'Ton plan Pro te donne' : 'Tu as déjà'} accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. (Sans abonnement, cette analyse est aussi disponible à l'unité avec un jeton.)</p>
       <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</button>
     </div>` : `
     <div class="ds-alt">
