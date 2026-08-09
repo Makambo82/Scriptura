@@ -141,9 +141,11 @@ async function generateStory() {
   // choix final entre ces candidats est fait par le moteur Storytelling
   // lui-même, en silence, dans ce même appel (aucun appel supplémentaire).
   let modeleRef = '';
+  let candidatsModeles = [];
   try {
     if (typeof choisirTopModeles === 'function') {
       const candidats = choisirTopModeles(input, 3);
+      candidatsModeles = candidats;
       if (candidats.length) {
         const blocsCandidats = candidats.map((m, i) =>
           `── CANDIDAT ${i + 1} ──\nTITRE : ${m.titre}\nTON : ${m.ton}\nSCRIPT :\n${m.script}`
@@ -257,9 +259,9 @@ Vise l'excellence absolue (score global 90-100). EVALUATION HONNETE : évalue to
 Si ton récit ne mérite pas 90+, réécris-le AVANT de répondre.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la clôture, dans la structure exacte du modèle choisi, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la clôture, dans la structure exacte du modèle choisi, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
-Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT reproduire la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle précis se termine) ET inclure dans tous les cas la signature métapoétique, obligatoire quel que soit le modèle.`;
+Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT reproduire la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle précis se termine) ET inclure dans tous les cas la signature métapoétique, obligatoire quel que soit le modèle. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi — c'est ce qui permet de vérifier après coup que la clôture a bien été respectée.`;
 
   try {
     const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt);
@@ -276,6 +278,19 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     // fidèlement. Sans choix explicite, on garde le ton que l'IA rapporte
     // elle-même avoir retenu (voir tonInstruction ci-dessus).
     if (storyTon) parsed.ton = storyTon;
+
+    // ── MODÈLE DE RÉFÉRENCE RÉELLEMENT UTILISÉ ──
+    // Avant ce correctif, le Critique éditorial ci-dessous devait juger la
+    // fidélité de la clôture "au modèle choisi" SANS jamais savoir lequel ni
+    // à quoi ressemblait sa clôture réelle — il ne pouvait donc pas vraiment
+    // vérifier ce point. On retrouve ici le modèle via le titre que l'IA
+    // rapporte (voir "modele_utilise" dans le JSON), et on extrait sa
+    // clôture exacte (dernier paragraphe du script) pour donner au Critique
+    // une vraie référence à comparer.
+    const modeleUtilise = candidatsModeles.find(m => m.titre === parsed.modele_utilise) || candidatsModeles[0] || null;
+    const clotureModeleRef = modeleUtilise
+      ? (modeleUtilise.script.split('\n\n').pop() || '').trim()
+      : '';
 
     // ── SCORE RÉEL : régénère UNE fois si le récit n'est pas excellent (< 90) ──
     // Filet de variance créative : parfois un 2e jet est simplement meilleur.
@@ -308,11 +323,12 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 SUJET : ${sujetPourPrompt}
 RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
 ${recitForReview}
+${clotureModeleRef ? `\nCLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE RETENU POUR CE RÉCIT (référence réelle à comparer, pas une supposition) :\n"""\n${clotureModeleRef}\n"""` : ''}
 
 TON TRAVAIL :
 1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
 2. RÉFUTATION — cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
-3. Le hook et la clôture doivent être PUISSANTS ET fidèles à la structure de fin du modèle de référence choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle se termine — jamais automatique) : signale tout écart ou toute faiblesse.
+3. Compare LITTÉRALEMENT la forme de la clôture du récit à la CLÔTURE EXACTE DU MODÈLE ci-dessus (si fournie) : triple question, punchline, chute sèche, question unique, silence, autre chose — la FORME doit être la même. Si le modèle se termine par une triple question et que le récit ne le fait pas (ou l'inverse), c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser.
 4. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi — si elle est absente, générique ou faible, signale-le comme un problème à corriger.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -341,6 +357,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 SUJET : ${sujetPourPrompt}
 RÉCIT ACTUEL (segments numérotés) :
 ${recitForReview}
+${clotureModeleRef ? `\nCLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE RETENU POUR CE RÉCIT (si le segment Clôture est à réécrire, sa FORME doit correspondre à celle-ci — triple question, punchline, chute sèche, etc., peu importe laquelle, mais la même que ce modèle) :\n"""\n${clotureModeleRef}\n"""` : ''}
 
 SEGMENTS À RÉÉCRIRE (uniquement ceux-ci) :
 ${segmentsFaiblesTxt}
