@@ -280,9 +280,16 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const eng = d.engagement || {};
   const engMesurable = eng.disponible !== false && typeof eng.score === 'number' && !Number.isNaN(eng.score);
   const score = engMesurable ? Math.round((Math.max(0, Math.min(30, eng.score)) / 30) * 100) : null;
+  // Excellent (≥ 80) : sert au badge "Santé du compte" plus bas, distinct de
+  // la couleur de l'anneau/du chiffre (voir paletteScore juste après).
   const excellent = score != null && score >= 80;
-  const ringColorA = excellent ? 'var(--emerald)' : 'var(--gold)';
-  const ringColorB = excellent ? 'var(--emerald-light)' : 'var(--gold-light)';
+  // Couleur selon le niveau du score : rouge en dessous de 50, orange entre
+  // 50 et 70, émeraude à partir de 70 — même palette que js/audit.js
+  // (paletteScoreAudit), pour un repère de couleur cohérent entre les deux
+  // diagnostics.
+  const paletteScore = paletteScoreAudit(score);
+  const ringColorA = paletteScore.ringA;
+  const ringColorB = paletteScore.ringB;
 
   const dimsHtml = Object.keys(DS_DIM_META).map(cle => {
     const meta = DS_DIM_META[cle];
@@ -381,7 +388,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
             stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
         </svg>
         <div class="audit-ring-center">
-          <div class="audit-score-num"${excellent ? ' style="color:var(--emerald-light)"' : ''}><span id="dsScoreNum">0</span><span>/100</span></div>
+          <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span>/100</span></div>
         </div>
       </div>
       <div class="audit-score-phrase">${engMesurable

@@ -1064,6 +1064,19 @@ function auditTexteBrut(a, ts) {
   return L.join('\n');
 }
 
+// Palette du score ADN TikTok selon son niveau — un repère de couleur
+// immédiat (rouge/orange/émeraude), partagé entre le diagnostic complet
+// (renderAudit) et le diagnostic sommaire (js/diagnostic-sommaire.js) qui
+// utilisent tous les deux ce même anneau de score.
+function paletteScoreAudit(score) {
+  if (typeof score !== 'number' || Number.isNaN(score)) {
+    return { texte: 'var(--gold-light)', ringA: 'var(--gold)', ringB: 'var(--gold-light)' };
+  }
+  if (score < 50) return { texte: '#FCA5A5', ringA: '#B91C1C', ringB: '#FCA5A5' };
+  if (score < 70) return { texte: '#FBBF24', ringA: '#B45309', ringB: '#FBBF24' };
+  return { texte: 'var(--emerald-light)', ringA: 'var(--emerald)', ringB: 'var(--emerald-light)' };
+}
+
 function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   lastAudit = a;
   const out = document.getElementById('auditOutput');
@@ -1109,12 +1122,12 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // Circonférence de l'anneau (rayon 74) pour le calcul du remplissage
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
   const scoreAffiche = (global == null || Number.isNaN(global)) ? '—' : global;
-  // Score excellent (≥ 80/100) : anneau émeraude plutôt que doré, pour que
-  // ce moment se distingue vraiment comme une récompense — au lieu d'être
-  // simplement une nuance de plus du doré déjà partout ailleurs.
-  const scoreExcellent = typeof global === 'number' && !Number.isNaN(global) && global >= 80;
-  const ringColorA = scoreExcellent ? 'var(--emerald)' : 'var(--gold)';
-  const ringColorB = scoreExcellent ? 'var(--emerald-light)' : 'var(--gold-light)';
+  // Couleur selon le niveau du score : rouge en dessous de 50, orange entre
+  // 50 et 70, émeraude à partir de 70 — un repère visuel immédiat plutôt
+  // qu'une seule nuance de doré quel que soit le résultat.
+  const paletteScore = paletteScoreAudit(global);
+  const ringColorA = paletteScore.ringA;
+  const ringColorB = paletteScore.ringB;
 
   html += `
     <div class="audit-score-card">
@@ -1132,7 +1145,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
             stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
         </svg>
         <div class="audit-ring-center">
-          <div class="audit-score-num"${scoreExcellent ? ' style="color:var(--emerald-light)"' : ''}><span id="auditScoreNum">0</span><span>/100</span></div>
+          <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="auditScoreNum">0</span><span>/100</span></div>
         </div>
       </div>
       ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
