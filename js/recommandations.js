@@ -76,13 +76,20 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
     && !texteAuditFrais;
   if (rienDeConnu) return { onboarding: true };
 
-  // Recherche web : uniquement si la niche du créateur touche l'actualité/la
-  // géopolitique ou l'Histoire (voir js/api.js) — c'est exactement le cas qui
-  // a produit une recommandation datée à tort ("2024 sera décisif" alors
-  // qu'on est en 2026).
-  const rechercheWebReco = nicheNecessiteRecherche(profil.declare.niche_principale);
+  // Tout ce qui suit (construction du prompt incluse) est désormais dans le
+  // try : une erreur de construction (fonction manquante, cache navigateur
+  // désynchronisé après une mise à jour, etc.) ne doit jamais faire
+  // disparaître silencieusement toute la zone de recommandation — elle doit
+  // retomber sur le message de repli déjà prévu dans initAccueilPremium()
+  // pour le cas "échec technique" (data === null).
+  try {
+    // Recherche web : uniquement si la niche du créateur touche l'actualité/la
+    // géopolitique ou l'Histoire (voir js/api.js) — c'est exactement le cas
+    // qui a produit une recommandation datée à tort ("2024 sera décisif"
+    // alors qu'on est en 2026).
+    const rechercheWebReco = nicheNecessiteRecherche(profil.declare.niche_principale);
 
-  const prompt = `Tu es le Directeur Éditorial de Scriptura, l'assistant IA personnel d'un créateur de contenu francophone. Tu le connais grâce à sa mémoire accumulée dans Scriptura (générations passées, préférences, audits). Ta mission : lui dire précisément quoi créer aujourd'hui.
+    const prompt = `Tu es le Directeur Éditorial de Scriptura, l'assistant IA personnel d'un créateur de contenu francophone. Tu le connais grâce à sa mémoire accumulée dans Scriptura (générations passées, préférences, audits). Ta mission : lui dire précisément quoi créer aujourd'hui.
 ${rechercheWebReco ? instructionRechercheWeb(profil.declare.niche_principale, 'de recommander') : ''}
 CE QUE TU SAIS DE CE CRÉATEUR :
 ${texteProfil || 'Peu d\'historique pour l\'instant.'}
@@ -106,7 +113,6 @@ Pour CHAQUE recommandation, fournis :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"niveau_confiance":"faible|moyenne|élevée","recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"...","source":"mixte"}]}`;
 
-  try {
     const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebReco);
     const parsed = parseAIResponse(raw);
     if (!parsed || !Array.isArray(parsed.recommandations) || !parsed.recommandations.length) return null;
@@ -532,7 +538,24 @@ function incrementerRecoRefresh() {
 async function initAccueilPremium() {
   const zone = document.getElementById('accueilPremium');
   if (!zone) return;
+  // Filet de sécurité : une erreur imprévue n'importe où dans cette fonction
+  // (profil corrompu, fonction manquante après une mise à jour non encore
+  // rechargée par le navigateur, etc.) ne doit jamais laisser la zone vide
+  // et invisible — elle doit au moins retomber sur le message de repli.
+  try {
+    await initAccueilPremiumInterne(zone);
+  } catch (e) {
+    console.warn('Accueil personnalisé indisponible', e);
+    zone.innerHTML = `
+      <div class="score-card">
+        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-diag-interp">Scriptura n'a pas pu préparer ta recommandation du jour pour le moment. Réessaie un peu plus tard.</div>
+      </div>`;
+    zone.style.display = 'block';
+  }
+}
 
+async function initAccueilPremiumInterne(zone) {
   // Non-abonné (visiteur anonyme OU acheteur de jetons à l'unité, qui reste
   // non-abonné dans Scriptura) : même emplacement que la carte des abonnés,
   // mais un simple message d'accueil — jamais de recommandation
