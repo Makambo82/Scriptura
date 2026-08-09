@@ -914,6 +914,10 @@ function reopenGeneration(i) {
   } else if (g.mode === 'diagnosticSommaire') {
     const dsf = document.getElementById('diagSommaireFlow');
     if (dsf) dsf.style.display = 'block';
+    // Même masquage du champ de saisie que lors d'une recherche en direct
+    // (lancerDiagnosticSommaire) : on rouvre un résultat déjà là, pas un
+    // écran de choix.
+    if (typeof toggleDiagSommaireEntree === 'function') toggleDiagSommaireEntree(false);
     const cds = g.contenu || {};
     if (typeof afficherDiagnosticSommaireResultat === 'function') {
       afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '');
