@@ -280,9 +280,6 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const eng = d.engagement || {};
   const engMesurable = eng.disponible !== false && typeof eng.score === 'number' && !Number.isNaN(eng.score);
   const score = engMesurable ? Math.round((Math.max(0, Math.min(30, eng.score)) / 30) * 100) : null;
-  // Excellent (≥ 80) : sert au badge "Santé du compte" plus bas, distinct de
-  // la couleur de l'anneau/du chiffre (voir paletteScore juste après).
-  const excellent = score != null && score >= 80;
   // Couleur selon le niveau du score : rouge en dessous de 50, orange entre
   // 50 et 70, émeraude à partir de 70 — même palette que js/audit.js
   // (paletteScoreAudit), pour un repère de couleur cohérent entre les deux
@@ -294,12 +291,15 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const dimsHtml = Object.keys(DS_DIM_META).map(cle => {
     const meta = DS_DIM_META[cle];
     const dim = (cle === 'engagement') ? eng : { disponible: false, constat: DS_TOUJOURS_INDISPONIBLE[cle] };
-    const bon = dim.disponible !== false && typeof dim.score === 'number' && (dim.score / meta.max) >= 0.7;
+    // Badge coloré selon le niveau (rouge/orange/émeraude) — voir
+    // niveauScoreSur() dans js/audit.js, seuils partagés avec le score global.
+    const disponible = dim.disponible !== false && typeof dim.score === 'number';
+    const niveau = disponible ? niveauScoreSur(dim.score, meta.max) : 'niveau-neutre';
     return `<div class="ds-dim-card">
       <div class="ds-dim-head">
         <span class="ds-dim-icon">${meta.icone}</span>
         <span class="ds-dim-name">${meta.label}</span>
-        <span class="ds-dim-score${bon ? ' ds-dim-score-ok' : ''}">${dim.disponible === false ? '—' : (dim.score != null ? dim.score : '—') + '/' + meta.max}</span>
+        <span class="score-badge ${niveau}">${dim.disponible === false ? '—' : (dim.score != null ? dim.score : '—') + '/' + meta.max}</span>
       </div>
       <p class="ds-dim-text">${diagSommaireEsc(dim.constat)}</p>
     </div>`;
@@ -398,7 +398,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
     <div class="ds-dims-grid">${dimsHtml}</div>
 
-    ${d.sante_compte ? `<div class="ds-sante-row"><span class="ds-tag${excellent ? ' ds-tag-ok' : ''}">Santé du compte : ${diagSommaireEsc(d.sante_compte)}</span></div>` : ''}
+    ${d.sante_compte ? `<div class="ds-sante-row"><span class="ds-tag ${niveauDepuisLabelSante(d.sante_compte)}">Santé du compte : ${diagSommaireEsc(d.sante_compte)}</span></div>` : ''}
 
     ${bioHtml}
     ${nicheHtml}

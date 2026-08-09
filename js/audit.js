@@ -605,11 +605,11 @@ async function lancerAudit() {
 let lastAudit = null;
 
 const SCORE_DIMS = [
-  { key: 'engagement',   label: 'Engagement',       max: 20 },
-  { key: 'retention',    label: 'Rétention',        max: 20 },
-  { key: 'storytelling', label: 'Accroche & rythme',     max: 20 },
-  { key: 'sujets',       label: 'Choix des sujets', max: 20 },
-  { key: 'regularite',   label: 'Régularité',       max: 20 }
+  { key: 'engagement',   label: 'Engagement',       max: 20, icone: '📈' },
+  { key: 'retention',    label: 'Rétention',        max: 20, icone: '⏱️' },
+  { key: 'storytelling', label: 'Accroche & rythme',     max: 20, icone: '🎬' },
+  { key: 'sujets',       label: 'Choix des sujets', max: 20, icone: '🎯' },
+  { key: 'regularite',   label: 'Régularité',       max: 20, icone: '📅' }
 ];
 
 // Conseils génériques par dimension, utilisés UNIQUEMENT en repli quand le
@@ -1077,6 +1077,39 @@ function paletteScoreAudit(score) {
   return { texte: 'var(--emerald-light)', ringA: 'var(--emerald)', ringB: 'var(--emerald-light)' };
 }
 
+// Classe de couleur d'un badge de score sur un barème quelconque (ex: 8/20,
+// 24/30) : mêmes seuils proportionnels que paletteScoreAudit — rouge en
+// dessous de 50 % du maximum, orange entre 50 % et 70 %, émeraude à partir
+// de 70 %. Partagé avec js/diagnostic-sommaire.js (mêmes cartes de dimension).
+function niveauScoreSur(valeur, max) {
+  if (typeof valeur !== 'number' || Number.isNaN(valeur) || !max) return 'niveau-neutre';
+  const pct = (valeur / max) * 100;
+  if (pct < 50) return 'niveau-rouge';
+  if (pct < 70) return 'niveau-orange';
+  return 'niveau-vert';
+}
+
+// "Santé du compte" à partir du score global — n'existait auparavant que
+// dans le diagnostic sommaire ; ajoutée ici pour que les deux diagnostics
+// (complet et sommaire) affichent ce repère de façon cohérente.
+function santeCompteDepuisScore(score) {
+  if (typeof score !== 'number' || Number.isNaN(score)) return null;
+  if (score >= 70) return { label: 'Excellente', niveau: 'niveau-vert' };
+  if (score >= 50) return { label: 'Bonne', niveau: 'niveau-orange' };
+  if (score >= 30) return { label: 'Fragile', niveau: 'niveau-rouge' };
+  return { label: 'Critique', niveau: 'niveau-rouge' };
+}
+
+// Niveau de couleur à partir du libellé de santé rapporté par l'IA
+// (diagnostic sommaire : "Excellente"/"Bonne"/"Fragile"/"Critique").
+function niveauDepuisLabelSante(label) {
+  const l = (label || '').toLowerCase();
+  if (l.includes('excellent')) return 'niveau-vert';
+  if (l.includes('bonne')) return 'niveau-orange';
+  if (l.includes('fragile') || l.includes('critique')) return 'niveau-rouge';
+  return 'niveau-neutre';
+}
+
 function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   lastAudit = a;
   const out = document.getElementById('auditOutput');
@@ -1182,28 +1215,40 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     html += '</div>';
   }
 
-  // Dimensions du score
+  // Dimensions du score — petites cartes avec badge coloré selon le niveau
+  // (rouge/orange/émeraude), même langage visuel que le score global et que
+  // les cartes du diagnostic sommaire (.ds-dim-card, réutilisées ici).
   const hasDims = dimsMesurees.length > 0;
   if (hasDims) {
-    html += '<div class="audit-axes">';
+    html += '<div class="ds-dims-grid">';
     SCORE_DIMS.forEach(d => {
       const v = dimValeur(ts[d.key]);
       if (v === null) {
         html += `
-        <div class="audit-axe" style="opacity:.45">
-          <div class="audit-axe-head"><span>${d.label}</span><b>non mesuré</b></div>
-          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:0%"></div></div>
+        <div class="ds-dim-card" style="opacity:.5">
+          <div class="ds-dim-head">
+            <span class="ds-dim-icon">${d.icone}</span>
+            <span class="ds-dim-name">${d.label}</span>
+            <span class="score-badge niveau-neutre">—</span>
+          </div>
         </div>`;
         return;
       }
-      const pct = Math.max(0, Math.min(100, (v / d.max) * 100));
       html += `
-        <div class="audit-axe">
-          <div class="audit-axe-head"><span>${d.label}</span><b>${v}/${d.max}</b></div>
-          <div class="audit-axe-bar"><div class="audit-axe-fill" style="width:${pct}%"></div></div>
+        <div class="ds-dim-card">
+          <div class="ds-dim-head">
+            <span class="ds-dim-icon">${d.icone}</span>
+            <span class="ds-dim-name">${d.label}</span>
+            <span class="score-badge ${niveauScoreSur(v, d.max)}">${v}/${d.max}</span>
+          </div>
         </div>`;
     });
     html += '</div>';
+  }
+
+  const sante = santeCompteDepuisScore(global);
+  if (sante) {
+    html += `<div class="ds-sante-row"><span class="ds-tag ${sante.niveau}">Santé du compte : ${sante.label}</span></div>`;
   }
 
   const P = a.piliers || {};
