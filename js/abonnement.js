@@ -224,7 +224,7 @@ function openPaywall() {
   if (tag) tag.textContent = 'Accès Créateur';
   if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois.';
   if (desc) desc.textContent = 'Passe au plan Creator pour continuer à générer chaque mois, ou au plan Pro pour débloquer aussi le diagnostic TikTok.';
-  if (prix) prix.textContent = '5.000 FCFA';
+  if (prix) prix.textContent = '6.000 FCFA';
   if (wa) wa.href = 'https://wa.me/22995056424?text=' + encodeURIComponent(PLANS.creator.wa);
   document.getElementById('paywall').classList.add('active');
 }
@@ -378,10 +378,10 @@ function choisirPlanSelectionne() {
 const PLANS = {
   creator: {
     nom: 'Creator',
-    prix: '5.000 FCFA',
+    prix: '6.000 FCFA',
     titre: 'Passe au plan Creator',
     desc: 'Les 3 modes de création + l\'analyse sommaire de compte, 50 générations par mois.',
-    wa: 'Bonjour, je veux le plan Creator de Scriptura — 5.000 FCFA/mois',
+    wa: 'Bonjour, je veux le plan Creator de Scriptura — 6.000 FCFA/mois',
     features: [
       'Les 3 modes de création : idées, script, storytelling',
       '+ Analyse sommaire de ton compte (@username), dans ta limite de générations',
