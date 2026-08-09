@@ -59,6 +59,11 @@ CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes r
 - Fréquence de publication actuelle : {{FREQUENCE}}
 - Format de contenu : {{STYLE}}
 
+DIAGNOSTIC SOMMAIRE ANTÉRIEUR DE CE MÊME CRÉATEUR (analyse rapide par @nom d'utilisateur, faite avant cette analyse détaillée — si absent, ignore cette section sans le mentionner) :
+{{DIAGNOSTIC_SOMMAIRE}}
+
+Si un diagnostic sommaire est fourni ci-dessus, tiens-en compte dans ton analyse : vérifie s'il reste cohérent avec ce que montrent les captures (les deux peuvent diverger si le compte a évolué depuis), et évite de répéter telles quelles des recommandations déjà faites à ce créateur — construis plutôt sur ce qu'il sait déjà.
+
 RÈGLE IMPÉRATIVE SUR LE FORMAT DE CONTENU : adapte TOUTES tes recommandations au format déclaré. Ne propose jamais une action incompatible avec ce format. En particulier, si le format est "Faceless" (sans visage), ne suggère JAMAIS au créateur de se filmer, de se montrer, de faire du face caméra, de soigner sa présence à l'écran ou son expression faciale. Pour un créateur faceless, une accroche se travaille par la voix off, le texte à l'écran, les visuels, le rythme du montage, la musique et la première image — pas par un visage. Vérifie chaque recommandation avant de l'écrire : est-elle réalisable dans le format déclaré ? Si non, reformule-la pour ce format.
 
 Adapte ton diagnostic et tes recommandations à cet objectif précis (ex : si l'objectif est "Générer des ventes", ne recommande pas uniquement d'augmenter les vues — regarde si le contenu convertit). Compare la fréquence de publication déclarée avec ce que les dates de publication des captures montrent réellement, et signale l'écart s'il y en a un.
@@ -244,6 +249,29 @@ async function verifierAcces(code) {
   } catch (e) { return { ok: true }; }
 }
 
+// Relit le dernier diagnostic sommaire (js/diagnostic-sommaire.js) enregistré
+// pour ce code d'accès, pour que l'analyse détaillée en tienne compte —
+// abonné (Creator/Pro) ou non-abonné ayant acheté des jetons : les deux ont
+// un code d'accès qui relie leur historique sur tous leurs appareils (voir
+// getUserRef, js/api.js). Best-effort : toute erreur ou absence de résultat
+// laisse l'audit se dérouler exactement comme avant, sans ce contexte.
+async function dernierDiagnosticSommaire(code) {
+  if (!code) return null;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  try {
+    const r = await fetch(
+      url + '/rest/v1/generations?code_acces=eq.' + encodeURIComponent(code) +
+      '&mode=eq.diagnosticSommaire&select=contenu&order=cree_le.desc&limit=1',
+      { headers: { apikey: key, Authorization: 'Bearer ' + key } }
+    );
+    const rows = await r.json();
+    if (!Array.isArray(rows) || !rows.length) return null;
+    return rows[0].contenu || null;
+  } catch (e) { return null; }
+}
+
 export default async function handler(req, res) {
   // Seules les requêtes POST sont acceptées
   if (req.method !== 'POST') {
@@ -306,12 +334,20 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: { message: 'Accès refusé : ' + acces.raison, code: 'ACCES_REFUSE' } });
     }
 
+    // Diagnostic sommaire antérieur du même créateur (même code d'accès),
+    // s'il en existe un — voir dernierDiagnosticSommaire ci-dessus.
+    const sommaire = await dernierDiagnosticSommaire(code_acces);
+    const sommaireTexte = sommaire
+      ? 'Profil TikTok analysé : @' + (sommaire.username || '?') + '. Résultat de ce diagnostic sommaire (JSON) : ' + JSON.stringify(sommaire.diagnostic || {}).slice(0, 3000)
+      : 'Aucun diagnostic sommaire antérieur disponible pour ce créateur.';
+
     // Injection du contexte créateur dans le prompt (valeurs de repli si absentes)
     const promptFinal = AUDIT_PROMPT
       .replace('{{OBJECTIF}}', objectif || 'non précisé')
       .replace('{{NICHE}}', niche || 'non précisée')
       .replace('{{FREQUENCE}}', frequence || 'non précisée')
-      .replace('{{STYLE}}', style || 'non précisé');
+      .replace('{{STYLE}}', style || 'non précisé')
+      .replace('{{DIAGNOSTIC_SOMMAIRE}}', sommaireTexte);
 
     // Construction du contenu : les images d'abord, le prompt d'audit ensuite.
     // (L'API Anthropic recommande cet ordre pour l'analyse visuelle.)
