@@ -174,6 +174,22 @@ ${blocsCandidats}
     ? `TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément le ton "${storyTon}". Écris l'INTÉGRALITÉ du récit dans CE ton, du hook à la clôture finale, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton glacial ne devient jamais chaleureux en cours de route ; un ton ironique ne bascule jamais dans le pathos ; un ton poétique ne devient jamais froid ou clinique.`
     : `TON — LIBRE, À TOI DE CHOISIR : le créateur n'a précisé aucun ton. Choisis celui qui sert le mieux CE sujet précis — en priorité celui du modèle de référence choisi plus haut (chaque modèle a son propre ton). Une fois ce choix fait, tiens-le du hook à la clôture, sans jamais dévier vers un autre registre en cours de route. Indique le ton choisi (en un ou deux mots) dans le champ "ton" de ta réponse JSON.`;
 
+  // Plateforme — RÈGLE ABSOLUE elle aussi (auparavant transmise sans aucune
+  // consigne : le choix du créateur n'avait littéralement aucun effet sur la
+  // légende, les hashtags ou l'appel à l'action). Le récit lui-même reste
+  // inchangé (toutes ces plateformes partagent le même format vertical
+  // court) : seule la légende/CTA/hashtags s'adaptent aux codes propres à
+  // chaque plateforme.
+  const codesPlateforme = {
+    'TikTok': 'légende courte et punchy, tutoiement direct, appel à l\'action franc ("commente si...", "partage à quelqu\'un qui..."), hashtags mêlant tendance et niche.',
+    'Instagram Reels': 'légende un peu plus soignée et esthétique, peut installer une micro-accroche narrative, ton communauté/lifestyle, hashtags mêlant larges et niche.',
+    'YouTube': 'légende proche d\'un titre optimisé pour la recherche (curiosité ou promesse claire dès les premiers mots), hashtags moins nombreux mais précis.',
+    'Facebook': 'ton plus familier et générationnel, légende qui invite explicitement au partage et au commentaire, peut être légèrement plus explicative.'
+  };
+  const plateformeInstruction = storyPlatform
+    ? `PLATEFORME — RÈGLE ABSOLUE : ce contenu est destiné à ${storyPlatform}. Le récit lui-même ne change pas de structure, mais la LÉGENDE, les HASHTAGS et l'appel à l'action DOIVENT respecter les codes propres à cette plateforme : ${codesPlateforme[storyPlatform] || 'adapte le registre et les hashtags aux usages de cette plateforme précise.'} Ne produis jamais une légende générique valable pour n'importe quelle plateforme.`
+    : '';
+
   const storyPrompt = `Tu es le meilleur storyteller narratif francophone, spécialisé dans les récits immersifs, critiques et stylisés pour les réseaux sociaux. Tu produis un script qui capte l'attention immédiatement, la maintient jusqu'à la fin, et marque émotionnellement le spectateur. Le spectateur doit VIVRE la scène, pas seulement la regarder.
 
 SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
@@ -181,7 +197,7 @@ SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
 ${sujetPourPrompt}
 """
 ${estTexteLongStory ? "CE TEXTE EST UN TEXTE SOURCE LONG (article, notes brutes), PAS UN RÉCIT À RECOPIER : dégages-en le sujet réel, les faits marquants et l'angle le plus fort, puis RÉÉCRIS entièrement une histoire selon la méthode ci-dessous. Ne recopie JAMAIS des phrases entières du texte fourni tel quel — c'est une matière première, pas un brouillon à peaufiner." : ''}
-${storyPlatform ? 'PLATEFORME : ' + storyPlatform : ''}
+${plateformeInstruction}
 ${profilLigneStory ? profilLigneStory : ''}
 ${modeleRef}
 ${longueurInstruction}
