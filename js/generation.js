@@ -569,6 +569,36 @@ async function generate() {
   // autres niches (ni coût, ni lenteur supplémentaires).
   const rechercheWeb = nicheNecessiteRecherche(niche);
 
+  // Les choix du créateur (plateforme, objectif) doivent avoir un effet réel
+  // et vérifiable sur le script produit, pas juste apparaître en contexte
+  // passif. Avant ce correctif, la plateforme n'avait aucun code concret
+  // ("respecte les codes de rythme" sans dire lesquels), et l'objectif —
+  // stocké comme une phrase complète (ex. "Renforcer mon expertise et ma
+  // crédibilité") — devait être deviné par l'IA contre des étiquettes
+  // courtes qui ne correspondent pas toujours textuellement (aucune ne
+  // contient le mot "autorité").
+  const codesPlateformeScript = {
+    'TikTok': 'hooks très courts et immédiats, rythme rapide, tutoiement direct, coupes fréquentes.',
+    'Instagram Reels': 'esthétique soignée, peut installer une micro-narration avant le twist, ton communauté/lifestyle.',
+    'YouTube Shorts': 'hook proche d\'un titre de recherche (curiosité ou promesse claire dès les premiers mots), pensé pour capter au scroll ET à la recherche.',
+    'Facebook': 'ton plus familier et générationnel, formulations qui invitent explicitement au partage et au commentaire.',
+    'LinkedIn': 'registre professionnel, retour d\'expérience ou enseignement concret, jamais putaclic — la crédibilité prime sur le sensationnalisme.',
+    'WhatsApp Status': 'très court et personnel, comme un message adressé à des proches/contacts plutôt qu\'à un public anonyme, ton direct et intime.'
+  };
+  const plateformeInstructionScript = state.plateforme
+    ? `PLATEFORME "${state.plateforme}" — RESPECTE SES CODES : ${codesPlateformeScript[state.plateforme] || 'adapte le rythme et le registre aux usages propres à cette plateforme.'}`
+    : `Aucune plateforme précisée : reste généraliste, adapté à un usage vidéo courte multi-plateformes.`;
+
+  const codesObjectifScript = {
+    'Faire plus de vues et maximiser la portée': 'inciter au partage ou à regarder une autre vidéo — la portée prime, pas la conversion.',
+    'Gagner des abonnés qualifiés rapidement': 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent) — jamais un "abonne-toi" générique.',
+    'Générer des ventes via mon contenu': 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre) — sans jamais sonner comme une pub déguisée.',
+    'Renforcer mon expertise et ma crédibilité': 'inciter à commenter son avis ou sauvegarder — démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.'
+  };
+  const objectifInstructionScript = state.objectif
+    ? `OBJECTIF DU CRÉATEUR "${state.objectif}" — LE CTA FINAL DOIT : ${codesObjectifScript[state.objectif] || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
+    : `Aucun objectif précisé : vise un CTA équilibré entre portée et fidélisation.`;
+
   try {
     // ════════════════════════════════════════════
     //  PHASE 1 — LE DIRECTEUR ÉDITORIAL (raisonnement)
@@ -646,6 +676,7 @@ CONTEXTE :
 - Niche : ${niche}
 - Plateforme : ${state.plateforme}
 - Objectif : ${state.objectif}
+${audience ? '- AUDIENCE CIBLE : ' + audience + ' — écris en pensant précisément à ce public (vocabulaire, références, niveau de connaissance déjà supposé), pas à un public générique.' : ''}
 - Format : ${format || 'non précisé — écris par défaut pour un créateur qui se filme (face caméra)'}
 ${selectedTone ? '- Ton : ' + selectedTone : ''}
 
@@ -661,18 +692,14 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
 4. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
 
-5. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair et adapté à l'objectif "${state.objectif}". Jamais un "abonne-toi" générique. Le CTA doit dire précisément quoi faire ensuite :
-- Objectif ventes → inciter à passer à l'action commerciale (lien, DM, commentaire déclencheur, offre)
-- Objectif vues → inciter au partage ou à regarder une autre vidéo
-- Objectif abonnés → donner une raison concrète de s'abonner (promesse de valeur future)
-- Objectif autorité → inciter à commenter son avis ou sauvegarder
+5. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair. Jamais un "abonne-toi" générique. ${objectifInstructionScript}
 Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA.
 
 6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ — remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
-7. ADAPTÉ À ${state.plateforme} : respecte les codes de rythme de cette plateforme.
+7. ${plateformeInstructionScript}
 
-8. ORIENTÉ OBJECTIF : tout sert "${state.objectif}" (ventes→conversion, vues→rétention, autorité→crédibilité, abonnés→attachement).
+8. ORIENTÉ OBJECTIF : tout, du hook au CTA, sert l'objectif du créateur ci-dessus — pas seulement le dernier bloc.
 
 FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
