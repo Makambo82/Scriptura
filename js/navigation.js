@@ -19,6 +19,27 @@ function masquerTousLesEcrans() {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  reinitialiserZoom();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RÉINITIALISATION DU ZOOM MOBILE — corrige un "zoom aléatoire" signalé
+//  sur tous les modes : comme l'app change d'écran sans jamais recharger
+//  la page, un zoom résiduel (pincement accidentel, ou reliquat du zoom
+//  système sur un champ) pouvait persister d'un écran à l'autre. Tous les
+//  champs de saisie sont déjà en 16px minimum (voir css/style.css), donc
+//  ce n'est pas un focus qui zoome — c'est un état de zoom qui traîne.
+//  On le réinitialise à chaque changement d'écran, via le point de passage
+//  unique déjà utilisé par tous les modes (masquerTousLesEcrans).
+// ═══════════════════════════════════════════════════════════
+function reinitialiserZoom() {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  const original = meta.getAttribute('content') || 'width=device-width, initial-scale=1.0';
+  // Forcer un instant le zoom à 1 (le navigateur applique le changement),
+  // puis revenir au réglage normal pour ne jamais bloquer le pincement.
+  meta.setAttribute('content', original + ', maximum-scale=1.0, user-scalable=no');
+  setTimeout(() => { meta.setAttribute('content', original); }, 150);
 }
 
 // Identifie l'écran actuellement visible
