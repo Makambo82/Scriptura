@@ -278,6 +278,11 @@ function initAuditWizard(affine) {
 function masquerUICaptureAudit() {
   ['auditWizard', 'auditContextCard', 'auditAffineNote', 'auditDrop', 'auditThumbs', 'auditCouverture', 'auditBtn']
     .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+  // On sort toujours du mode "affiner" en montrant un résultat propre — sinon
+  // il resterait bloqué à true indéfiniment (rien d'autre ne le remet à
+  // false), et auditRetour() finirait par re-afficher le même résultat en
+  // boucle au lieu de quitter le module au clic suivant sur "← Retour".
+  auditAffineMode = false;
 }
 
 function majAffichageBoutonAudit() {
@@ -572,6 +577,10 @@ async function lancerAudit() {
     }
 
     renderAudit(parsed, niche, objectif, style);
+    // Referme l'UI de capture (visible pendant le mode "affiner") : ce
+    // nouveau résultat remplace celui qu'on complétait, plus besoin de la
+    // zone d'upload — voir masquerUICaptureAudit et auditRetour.
+    masquerUICaptureAudit();
 
     // Mémoire du créateur : ce que cet audit vient de révéler, comme "leçons
     // apprises" (tâche de fond, silencieuse). Ne modifie ni ne relit les
@@ -1537,6 +1546,20 @@ function affinerAudit() {
   if (drop) drop.scrollIntoView({ behavior: 'smooth', block: 'center' });
   const input = document.getElementById('auditInput');
   if (input) setTimeout(() => input.click(), 400);
+}
+
+// Bouton "← Retour" en haut du module diagnostic complet. En mode "affiner"
+// (après clic sur "Refaire l'audit avec les captures manquantes"), le
+// résultat précédent a été effacé de l'écran mais lastAudit le garde encore
+// en mémoire : Retour doit le restaurer plutôt que quitter tout le module,
+// sinon le diagnostic déjà généré serait perdu pour rien à chaque clic.
+function auditRetour() {
+  if (auditAffineMode && lastAudit) {
+    renderAudit(lastAudit);
+    masquerUICaptureAudit();
+    return;
+  }
+  navBack();
 }
 
 // Pré-remplit le mode idées à partir d'une niche + objectif connus (issus d'un
