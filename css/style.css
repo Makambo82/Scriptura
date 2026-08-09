@@ -22,7 +22,11 @@
   --white:#FFFFFF;
 }
 html{scroll-behavior:auto}
-body{background:var(--bg);color:var(--white);font-family:'Poppins',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+/* Empêche le zoom par double-tap accidentel sur mobile (Safari iOS surtout) —
+   distinct du zoom auto au focus d'un champ (déjà bloqué par le 16px minimum
+   sur .ctx-input/.ctx-textarea/.ds-input/.modal-input), cette règle couvre
+   un tap/double-tap rapide n'importe où dans l'app. */
+body{background:var(--bg);color:var(--white);font-family:'Poppins',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;touch-action:manipulation}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--gold);opacity:0.4}
 
