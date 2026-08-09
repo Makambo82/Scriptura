@@ -219,8 +219,7 @@ function monPalier() {
 function aAccesMode(mode) {
   if (!MODES_PRO.includes(mode)) return true;
   // Codes VIP/admin : accès total
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
+  if (estIllimite()) return true;
   return unlocked && monPalier() === 'pro';
 }
 
@@ -247,7 +246,7 @@ async function abonnementExpire() {
   if (!unlocked) return false;
   const code = localStorage.getItem('scriptura_code');
   if (!code) return false;
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(code.toUpperCase())) return false;
+  if (estIllimite()) return false;
   if (!supabaseClient) return false;
   try {
     const { data, error } = await supabaseClient
@@ -277,8 +276,7 @@ async function peutGenerer(errorBoxId) {
   if (!unlocked) return true;
 
   // Codes VIP/admin : générations vraiment illimitées, aucun quota mensuel.
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return true;
+  if (estIllimite()) return true;
 
   // Abonnement expiré ? On bloque et on renvoie vers le renouvellement.
   if (await abonnementExpire()) { gererAbonnementExpire(); return false; }
@@ -326,13 +324,12 @@ async function consommerJetonAudit() {
 // Retourne : 'pro' (analyse mensuelle incluse), 'jeton' (à décompter),
 // ou false (pas le droit — on lui a proposé d'acheter).
 async function peutAuditer() {
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   // Abonnement expiré ? on bloque avant tout (sauf codes illimités, gérés plus bas)
-  if (!CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode) && await abonnementExpire()) {
+  if (!estIllimite() && await abonnementExpire()) {
     gererAbonnementExpire();
     return false;
   }
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return 'illimite';
+  if (estIllimite()) return 'illimite';
 
   // 1. D'abord les analyses incluses dans le plan Pro (elles se rechargent)
   const limiteIncluse = limitesDuPalier().audit;

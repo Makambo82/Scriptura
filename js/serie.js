@@ -130,8 +130,7 @@ function serieParseJSON(txt) {
 // 'illimite' (fondateur), 'pro' (inclus dans l'abonnement Pro),
 // 'jeton' (à décompter), ou false (aucun droit).
 async function moyenSerie() {
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) return 'illimite';
+  if (estIllimite()) return 'illimite';
   if (aAccesMode('serie')) return 'pro'; // Pro : la série est incluse
   const jetons = await lireJetonsAudit();
   if (jetons > 0) return 'jeton';

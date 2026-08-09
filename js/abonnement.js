@@ -1,7 +1,6 @@
 // ══════════════════════════════════════
 //  SYSTÈME DE LIMITE — 5 GÉNÉRATIONS GRATUITES
 // ══════════════════════════════════════
-const CODES_VALIDES = ["SCRIPTURA-JUIL-2026", "SCRIPTURA-AOUT-2026"]; // À changer chaque mois
 const MAX_FREE = 5;
 
 // ═══ RÉGÉNÉRATIONS GRATUITES ═══
@@ -55,7 +54,7 @@ async function ouvrirInfosAbonne() {
   if (!overlay || !corps) return;
 
   const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  const estIllimite = CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode);
+  const compteIllimite = estIllimite();
 
   corps.innerHTML = '<p class="serie-card-concept">Chargement…</p>';
   overlay.classList.add('active');
@@ -63,7 +62,7 @@ async function ouvrirInfosAbonne() {
   let html = '';
 
   // ── CAS 1 : accès illimité (fondateur) ──
-  if (estIllimite) {
+  if (compteIllimite) {
     html += ligneCodeInfos();
     html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès complet</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">Illimitée</span></div>`;
@@ -201,8 +200,7 @@ function renderGenCounter() {
 async function updateQuotaJour() {
   if (!unlocked) return;
   // Codes VIP/admin : on affiche "illimité", pas de quota.
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-  if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) {
+  if (estIllimite()) {
     document.querySelectorAll('.quota-jour').forEach(el => { el.textContent = '  ·  illimité'; });
     return;
   }

@@ -24,6 +24,28 @@ function closeModal() {
   document.getElementById('codeInput').value = '';
 }
 
+// Interroge /api/verify-code pour savoir si `code` est le code fondateur ou
+// un code VIP/secours (voir api/verify-code.js) et mémorise le verdict —
+// jamais le code lui-même — dans localStorage. Ne lève jamais d'erreur :
+// en cas d'échec réseau, on part du principe qu'il n'y a ni admin ni illimité.
+async function verifierStatutServeur(code) {
+  try {
+    const r = await fetch('/api/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await r.json();
+    localStorage.setItem('scriptura_is_admin', data.isAdmin ? 'true' : 'false');
+    localStorage.setItem('scriptura_illimite', data.illimite ? 'true' : 'false');
+    return data;
+  } catch (e) {
+    localStorage.setItem('scriptura_is_admin', 'false');
+    localStorage.setItem('scriptura_illimite', 'false');
+    return { valid: false, isAdmin: false, illimite: false };
+  }
+}
+
 async function verifyCode() {
   const code = document.getElementById('codeInput').value.trim().toUpperCase();
   const errorEl = document.getElementById('modalError');
@@ -98,6 +120,8 @@ async function verifyCode() {
       // Palier d'abonnement (colonne "plan" côté Supabase)
       localStorage.setItem('scriptura_plan',
         String(data.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
+      // Ce code a-t-il en plus un statut admin/illimité (voir api/verify-code.js) ?
+      await verifierStatutServeur(code);
       document.body.classList.add('is-unlocked');
       appliquerClasseAdmin();
       closeModal();
@@ -107,18 +131,19 @@ async function verifyCode() {
 
     } catch(e) {
       if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
-      // Repli sur les codes en dur si Supabase échoue
+      // Repli sur la vérification serveur si Supabase échoue
     }
   }
 
-  // Repli : codes en dur (si Supabase indisponible)
-  const valid = CODES_VALIDES.map(c => c.toUpperCase());
-  if (valid.includes(code)) {
+  // Repli : le code n'a pas de ligne Supabase (ou Supabase est indisponible) —
+  // il ne peut être valide que s'il s'agit du code admin ou d'un code VIP/secours,
+  // vérifié uniquement côté serveur (voir api/verify-code.js).
+  const verdict = await verifierStatutServeur(code);
+  if (verdict.valid) {
     unlocked = true;
     localStorage.setItem('scriptura_unlocked', 'true');
     localStorage.setItem('scriptura_code', code);
-    // Codes en dur : ce sont des accès internes ou de secours, donc palier complet
-    localStorage.setItem('scriptura_plan', 'pro');
+    localStorage.setItem('scriptura_plan', verdict.plan || 'pro');
     document.body.classList.add('is-unlocked');
     appliquerClasseAdmin();
     closeModal();

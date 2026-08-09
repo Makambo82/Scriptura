@@ -39,6 +39,23 @@ function envoyerPresence() {
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
+  // Migration : les sessions ouvertes avant la sécurisation des codes
+  // admin/illimité (voir api/verify-code.js) sont "unlocked" mais n'ont
+  // jamais eu scriptura_illimite/scriptura_is_admin renseignés. On les
+  // revérifie une fois, en silence, pour qu'elles retrouvent leur statut
+  // exact sans avoir à ressaisir leur code.
+  if (unlocked && localStorage.getItem('scriptura_illimite') === null) {
+    const monCode = localStorage.getItem('scriptura_code') || '';
+    if (monCode && typeof verifierStatutServeur === 'function') {
+      verifierStatutServeur(monCode).then(() => {
+        appliquerClasseAdmin();
+        if (typeof renderGenCounter === 'function') renderGenCounter();
+      });
+    } else {
+      localStorage.setItem('scriptura_is_admin', 'false');
+      localStorage.setItem('scriptura_illimite', 'false');
+    }
+  }
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
   syncServerQuota();

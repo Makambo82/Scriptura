@@ -41,14 +41,18 @@ function limitesDuPalier() {
 // couper l'accès ; le repasser sur 'creator' une fois la migration faite.
 const PLAN_PAR_DEFAUT = 'creator';
 const MODES_PRO = ['audit', 'serie'];
-const CODES_ILLIMITES = ["SCRIPTURA-CELINE"];   // Codes exemptés de la limite journalière (VIP/admin)
 
-// Seul ce code voit le Tableau de bord dans le menu (voir css/style.css,
-// body.is-admin). Volontairement séparé de CODES_ILLIMITES : un futur code
-// VIP illimité ne doit pas automatiquement obtenir l'accès au tableau de bord.
-const CODE_ADMIN = "SCRIPTURA-CELINE";
+// Statut admin/illimité : déterminé UNIQUEMENT par le serveur (voir
+// api/verify-code.js et verifyCode() dans js/auth.js), jamais en comparant
+// le code local à une valeur codée en dur ici — avant ce changement, le
+// code fondateur (SCRIPTURA-CELINE) était lisible en clair par n'importe
+// qui dans le JavaScript servi au navigateur. Le client se contente de
+// mémoriser le résultat renvoyé par le serveur au moment de la vérification.
 function estCodeAdmin() {
-  return (localStorage.getItem('scriptura_code') || '').trim().toUpperCase() === CODE_ADMIN;
+  return localStorage.getItem('scriptura_is_admin') === 'true';
+}
+function estIllimite() {
+  return localStorage.getItem('scriptura_illimite') === 'true';
 }
 function appliquerClasseAdmin() {
   document.body.classList.toggle('is-admin', estCodeAdmin());

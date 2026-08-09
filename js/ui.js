@@ -142,6 +142,8 @@ function seDeconnecter() {
   localStorage.setItem('scriptura_unlocked', 'false');
   localStorage.removeItem('scriptura_code');
   localStorage.removeItem('scriptura_expire');
+  localStorage.removeItem('scriptura_is_admin');
+  localStorage.removeItem('scriptura_illimite');
   document.body.classList.remove('is-unlocked');
   closeSidebar();
   location.reload();
@@ -152,8 +154,7 @@ async function updateSidebarCounter() {
   const el = document.getElementById('sidebarCounterValue');
   if (!el) return;
   if (unlocked) {
-    const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
-    if (CODES_ILLIMITES.map(c => c.toUpperCase()).includes(monCode)) {
+    if (estIllimite()) {
       el.textContent = '✦ Illimité';
       return;
     }

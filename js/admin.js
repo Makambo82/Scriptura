@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-//  TABLEAU DE BORD — visible uniquement avec le code fondateur
-//  (SCRIPTURA-CELINE, voir CODE_ADMIN dans js/api.js). Fichier
+//  TABLEAU DE BORD — visible uniquement avec le code fondateur (variable
+//  d'environnement CODE_ADMIN sur Vercel, voir api/verify-code.js — jamais
+//  codé en dur côté client). Fichier
 //  INDÉPENDANT : lecture seule sur Supabase, ne modifie aucun mode
 //  existant. Chaque bloc de statistique échoue silencieusement (affiche
 //  "donnée indisponible") plutôt que de casser le reste du tableau si
