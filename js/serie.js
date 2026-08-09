@@ -8,6 +8,33 @@ let serieNbEpisodes = 5;      // choix par défaut
 let serieDuree = '45 à 60 secondes'; // durée cible de chaque épisode
 let serieCouranteId = null;   // série ouverte dans le détail
 
+// Le genre choisi doit avoir un effet réel sur la mécanique de la série, pas
+// juste apparaître en contexte passif — utilisé à la fois pour la bible
+// (promptBible) et pour chaque épisode (genererEpisode).
+const CODES_GENRE_SERIE = {
+  'Dramatique': 'maximise la tension et les enjeux personnels dans chaque épisode — quelque chose de précis doit être en jeu (perte, échec, confrontation), pas juste "une histoire".',
+  'Enquête et révélation': 'chaque épisode dévoile UN élément nouveau qui change la compréhension de ce qui précède — construis une vraie progression d\'indices, jamais une révélation gratuite sans lien avec les épisodes précédents.',
+  'Transformation et parcours': 'chaque épisode marque une étape concrète et visible d\'évolution (avant/après, palier franchi) — le spectateur doit sentir une progression réelle épisode après épisode.',
+  'Portrait et biographie': 'chaque épisode peut se concentrer sur une figure ou un aspect précis, mais garde un fil conducteur commun qui donne envie de voir "qui" ou "quoi" vient ensuite.',
+  'Classement et compte à rebours': 'structure la progression des épisodes du moins fort au plus fort (ou l\'inverse) — la position dans le classement doit créer une attente explicite.',
+  'Éducatif et explicatif': 'chaque épisode clarifie un sous-sujet précis et autonome, tout en construisant une compréhension cumulative au fil de la série.'
+};
+function instructionGenreSerie(genre) {
+  return genre
+    ? `GENRE "${genre}" — RESPECTE SA MÉCANIQUE : ${CODES_GENRE_SERIE[genre] || 'adapte la structure à ce genre précis.'}`
+    : 'Aucun genre précisé : choisis la mécanique narrative la plus pertinente pour le concept.';
+}
+
+// Cibles de mots par durée d'épisode (~2,5 mots/seconde, cohérent avec la
+// consigne déjà donnée dans le prompt d'écriture) — permet une vérification
+// programmatique après génération, comme pour les modes Script et Storytelling.
+const WORD_TARGETS_SERIE = {
+  '30 à 45 secondes': { min: 75, max: 115 },
+  '45 à 60 secondes': { min: 110, max: 150 },
+  '60 à 90 secondes': { min: 150, max: 225 },
+  'environ 2 minutes': { min: 270, max: 330 }
+};
+
 // Recopie la liste des niches depuis le mode audit (mêmes options partout)
 function initSerieSelects() {
   const paires = [['auditNiche','serieNiche']];
@@ -190,6 +217,7 @@ Principes à respecter (méthode d'écriture épisodique courte) :
 - La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
 - Adapte la règle récurrente et le ton au FORMAT : en faceless (sans visage), la signature peut être visuelle ou textuelle (un mot-clé à l'écran, un type de plan récurrent) ; en face caméra, une signature de présence (une accroche parlée, un rituel d'ouverture face public).
 - RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${style}". Le champ "ton" de la bible doit décrire fidèlement CE ton précis, pas un autre — c'est une consigne explicite du créateur, pas une suggestion.
+- ${instructionGenreSerie(genre)}
 - Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
 - L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
 - Épisodes pensés pour une durée de ${serieDuree}.
@@ -558,8 +586,9 @@ ${precedents}
 RÈGLES D'ÉCRITURE :
 - Ne répète JAMAIS un sujet déjà traité ci-dessus.
 - Respecte la règle récurrente de la bible : c'est la signature de la série.
+- ${instructionGenreSerie(serie.genre)}
 - L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
-- Durée cible : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde).
+- DURÉE CIBLE — RÈGLE ABSOLUE : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde). Compte tes mots avant de répondre.
 - Accroche forte dès les 3 premières secondes.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
@@ -597,6 +626,52 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
       ep.directives = Object.values(ep.directives).filter(Boolean).join('\n\n');
     }
     if (!ep || !ep.script) throw new Error('réponse illisible');
+
+    // ── CONTRÔLE QUALITÉ STRICT DE LA DURÉE (comme les modes Script et Storytelling) ──
+    // La consigne de durée dans le prompt ne suffisait pas : contrairement aux
+    // autres modes, aucune vérification programmatique n'existait pour les
+    // épisodes de série. On compte les mots réels et on corrige si hors cible.
+    function countWordsSerie(texte) {
+      return (typeof texte === 'string' ? texte : '').split(/\s+/).filter(Boolean).length;
+    }
+    const wtSerie = WORD_TARGETS_SERIE[b.duree_episode] || WORD_TARGETS_SERIE['45 à 60 secondes'];
+    let wordCountSerie = countWordsSerie(ep.script);
+    let correctionAttemptsSerie = 0;
+    const hardMinSerie = Math.round(wtSerie.min * 0.9);
+    const hardMaxSerie = Math.round(wtSerie.max * 1.1);
+
+    while ((wordCountSerie < hardMinSerie || wordCountSerie > hardMaxSerie) && correctionAttemptsSerie < 2) {
+      correctionAttemptsSerie++;
+      const tropCourtSerie = wordCountSerie < hardMinSerie;
+      const correctionPromptSerie = `Tu es le Rédacteur en Chef de Scriptura. L'épisode suivant ne respecte PAS la durée demandée et doit être corrigé.
+
+ÉPISODE ACTUEL (${wordCountSerie} mots) :
+${ep.script}
+
+PROBLÈME : Cet épisode fait ${wordCountSerie} mots. La cible pour "${b.duree_episode || '45 à 60 secondes'}" est ${wtSerie.min} à ${wtSerie.max} mots.
+${tropCourtSerie ? 'L\'épisode est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wtSerie.min + '-' + wtSerie.max + ' mots. Développe l\'immersion et la tension, ajoute des détails concrets, SANS remplissage inutile. Garde le même sujet, le même ton, la même structure.' : 'L\'épisode est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wtSerie.min + '-' + wtSerie.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
+
+RÈGLES :
+- Le nouvel épisode DOIT faire entre ${wtSerie.min} et ${wtSerie.max} mots au total. Compte tes mots avant de répondre.
+- Garde le ton "${serie.style}" strictement, du début à la fin.
+- Garde le même titre, la même tension finale, le même format (${formatSerie}).
+
+Réponds UNIQUEMENT en JSON, sans texte autour :
+{"script":"le script complet corrigé"}`;
+
+      let correctedEp = null;
+      try {
+        const correctRawSerie = await callAI(MODEL_CREATIF, 2500, correctionPromptSerie);
+        correctedEp = serieParseJSON(correctRawSerie);
+      } catch(e) { break; /* en cas d'erreur, on garde la version actuelle */ }
+
+      if (correctedEp && typeof correctedEp.script === 'string' && correctedEp.script.trim()) {
+        ep.script = correctedEp.script;
+        wordCountSerie = countWordsSerie(ep.script);
+      } else {
+        break; // parsing échoué, on garde la version actuelle
+      }
+    }
 
     const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script }]);
     const termine = nouveaux.length >= total;
