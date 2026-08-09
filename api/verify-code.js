@@ -23,22 +23,6 @@
 // ═══════════════════════════════════════════════════════════
 
 export default async function handler(req, res) {
-  // Diagnostic (GET) : confirme si les variables d'environnement sont bien
-  // reçues par le serveur, SANS jamais révéler leur valeur — seulement leur
-  // présence et leur longueur (utile pour repérer un guillemet ou un espace
-  // collé par erreur dans Vercel, sans exposer le code lui-même). Voir
-  // aussi js/auth.js — TEMPORAIRE, à retirer une fois le diagnostic terminé.
-  if (req.method === 'GET') {
-    const codeAdminRaw = process.env.CODE_ADMIN || '';
-    const codesIllimitesRaw = process.env.CODES_ILLIMITES || '';
-    const codesSecoursRaw = process.env.CODES_SECOURS || '';
-    return res.status(200).json({
-      diagnostic: true,
-      CODE_ADMIN: { defini: !!codeAdminRaw, longueur: codeAdminRaw.length },
-      CODES_ILLIMITES: { defini: !!codesIllimitesRaw, longueur: codesIllimitesRaw.length },
-      CODES_SECOURS: { defini: !!codesSecoursRaw, longueur: codesSecoursRaw.length }
-    });
-  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   }
