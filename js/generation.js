@@ -745,7 +745,11 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // si la réparation JSON a dû tronquer avant la fin — on vérifie donc les champs
     // essentiels, pas juste la présence de l'objet.
     if (!scriptEstComplet(parsed)) {
-      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
+      // Recherche web désactivée sur cette tentative de secours : si le 1er
+      // essai a échoué (souvent une réponse tronquée par le temps limite), la
+      // priorité passe à FINIR le script plutôt qu'à revérifier des faits —
+      // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
+      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false);
       const parsedRetry = parseAIResponse(writeRawRetry);
       if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
     }

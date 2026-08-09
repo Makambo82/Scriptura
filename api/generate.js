@@ -83,12 +83,17 @@ export default async function handler(req, res) {
       system: systemDateActuelle(),
       messages: messages
     };
-    // Recherche web : réservée par le client aux sujets d'actualité/géopolitique
-    // (voir NICHES_ACTUALITE côté client, js/api.js) — jamais activée par défaut,
-    // pour ne pas ralentir/coûter plus cher sur les sujets qui n'en ont pas besoin.
-    // max_uses borne le coût et le temps d'un même appel.
+    // Recherche web : réservée par le client aux sujets d'actualité/géopolitique/
+    // Histoire (voir NICHES_ACTUALITE côté client, js/api.js) — jamais activée
+    // par défaut, pour ne pas ralentir/coûter plus cher sur les sujets qui n'en
+    // ont pas besoin. max_uses borné à 1 (et non 3) : au-delà d'un appel de
+    // rédaction déjà lourd (jusqu'à 16000 tokens), chaque recherche supplémentaire
+    // ajoute un aller-retour réseau qui peut faire dépasser la limite de temps
+    // côté client (55s) et produire une réponse tronquée — vécu concrètement
+    // comme des échecs "réponse incomplète" en mode Script après l'ajout de la
+    // recherche web. Une seule recherche suffit à vérifier l'essentiel des faits.
     if (web_search) {
-      bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }];
+      bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }];
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {

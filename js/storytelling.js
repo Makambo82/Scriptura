@@ -281,7 +281,11 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
     if (!parsed || !parsed.recit) {
-      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
+      // Recherche web désactivée sur cette tentative de secours : si le 1er
+      // essai a échoué (souvent une réponse tronquée par le temps limite), la
+      // priorité passe à FINIR le récit plutôt qu'à revérifier des faits —
+      // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
+      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false);
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');

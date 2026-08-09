@@ -344,7 +344,7 @@ export default async function handler(req, res) {
         max_tokens: max_tokens || 8000,
         system: systemDateActuelle(),
         messages: [{ role: 'user', content: content }]
-      }, NICHES_ACTUALITE.includes(niche) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] } : {}))
+      }, NICHES_ACTUALITE.includes(niche) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }] } : {}))
     });
 
     const data = await reponse.json();
