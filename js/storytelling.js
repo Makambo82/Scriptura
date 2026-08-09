@@ -281,16 +281,15 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 
     // ── MODÈLE DE RÉFÉRENCE RÉELLEMENT UTILISÉ ──
     // Avant ce correctif, le Critique éditorial ci-dessous devait juger la
-    // fidélité de la clôture "au modèle choisi" SANS jamais savoir lequel ni
-    // à quoi ressemblait sa clôture réelle — il ne pouvait donc pas vraiment
+    // fidélité "au modèle choisi" SANS jamais savoir lequel ni à quoi
+    // ressemblait sa structure réelle — il ne pouvait donc pas vraiment
     // vérifier ce point. On retrouve ici le modèle via le titre que l'IA
-    // rapporte (voir "modele_utilise" dans le JSON), et on extrait sa
-    // clôture exacte (dernier paragraphe du script) pour donner au Critique
-    // une vraie référence à comparer.
+    // rapporte (voir "modele_utilise" dans le JSON) et on transmet son
+    // script COMPLET (pas seulement la clôture) au Critique et au Réviseur :
+    // la fidélité au modèle porte sur toute la structure — l'ordre des
+    // étapes, ce qu'il développe ou survole — pas seulement sur la clôture.
     const modeleUtilise = candidatsModeles.find(m => m.titre === parsed.modele_utilise) || candidatsModeles[0] || null;
-    const clotureModeleRef = modeleUtilise
-      ? (modeleUtilise.script.split('\n\n').pop() || '').trim()
-      : '';
+    const structureModeleRef = modeleUtilise ? modeleUtilise.script.trim() : '';
 
     // ── SCORE RÉEL : régénère UNE fois si le récit n'est pas excellent (< 90) ──
     // Filet de variance créative : parfois un 2e jet est simplement meilleur.
@@ -323,12 +322,12 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 SUJET : ${sujetPourPrompt}
 RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
 ${recitForReview}
-${clotureModeleRef ? `\nCLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE RETENU POUR CE RÉCIT (référence réelle à comparer, pas une supposition) :\n"""\n${clotureModeleRef}\n"""` : ''}
+${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (référence réelle à comparer, pas une supposition) :\n"""\n${structureModeleRef}\n"""` : ''}
 
 TON TRAVAIL :
 1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
 2. RÉFUTATION — cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
-3. Compare LITTÉRALEMENT la forme de la clôture du récit à la CLÔTURE EXACTE DU MODÈLE ci-dessus (si fournie) : triple question, punchline, chute sèche, question unique, silence, autre chose — la FORME doit être la même. Si le modèle se termine par une triple question et que le récit ne le fait pas (ou l'inverse), c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser.
+3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) — pas seulement sa clôture, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Porte une attention PARTICULIÈRE à la forme exacte de sa clôture (triple question, punchline, chute sèche, question unique, silence, autre chose) : si le modèle se termine par une triple question et que le récit ne le fait pas (ou l'inverse), c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser — c'est l'écart le plus visible et le plus grave que Scriptura puisse commettre.
 4. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi — si elle est absente, générique ou faible, signale-le comme un problème à corriger.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -357,7 +356,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 SUJET : ${sujetPourPrompt}
 RÉCIT ACTUEL (segments numérotés) :
 ${recitForReview}
-${clotureModeleRef ? `\nCLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE RETENU POUR CE RÉCIT (si le segment Clôture est à réécrire, sa FORME doit correspondre à celle-ci — triple question, punchline, chute sèche, etc., peu importe laquelle, mais la même que ce modèle) :\n"""\n${clotureModeleRef}\n"""` : ''}
+${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (toute réécriture doit rester fidèle à SA structure entière, pas seulement sa clôture) :\n"""\n${structureModeleRef}\n"""` : ''}
 
 SEGMENTS À RÉÉCRIRE (uniquement ceux-ci) :
 ${segmentsFaiblesTxt}
@@ -366,7 +365,7 @@ ${raisonsScrollTxt ? '\nRAISONS DE DÉCROCHAGE À ÉLIMINER :\n' + raisonsScroll
 RÈGLES :
 - Ne touche JAMAIS un segment non listé ci-dessus.
 - Renvoie la liste COMPLÈTE des segments dans le même ordre, avec le même nombre total et les mêmes valeurs de "segment" (fonction narrative).
-- Si le dernier segment (clôture) est réécrit, conserve la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle se termine), ET assure-toi que la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") reste présente, adaptée au sujet et percutante — elle est obligatoire dans tous les cas, quel que soit le modèle.
+- Si le dernier segment (clôture) est réécrit, reproduis EXACTEMENT la forme de clôture du script du modèle ci-dessus (triple question UNIQUEMENT si c'est ainsi que ce modèle se termine), ET assure-toi que la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") reste présente, adaptée au sujet et percutante — elle est obligatoire dans tous les cas, quel que soit le modèle.
 - Réécris aussi les 5 hooks si le critique a signalé un hook faible, sinon garde-les.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
