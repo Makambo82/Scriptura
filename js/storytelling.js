@@ -196,17 +196,17 @@ MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
 
 8. Ajoute au moins un élément qui pousse à SAUVEGARDER : un fait rare, une citation mémorable, une révélation choc, un chiffre marquant.
 
-9. CLÔTURE — TRIPLE QUESTION MIROIR (clôture PAR DÉFAUT, uniquement si le modèle choisi ne dicte rien d'autre) : Termine par trois questions qui créent une résonance émotionnelle ou intellectuelle, sous cette forme :
+9. CLÔTURE NARRATIVE (structure DÉPENDANTE du modèle choisi — pas automatique) : reproduis la structure de fin exacte du modèle choisi plus haut, quelle qu'elle soit. Triple question miroir (clôture PAR DÉFAUT, uniquement si aucun modèle ne s'applique) :
    "Alors, que retenir de cette histoire ?
    Que... ?
    Que... ?
    Ou que... ?"
    Ces questions doivent heurter, interpeller, et pousser à commenter/partager.
 
-10. SIGNATURE MÉTAPOÉTIQUE (clôture PAR DÉFAUT, uniquement si le modèle choisi ne dicte rien d'autre, juste avant ou après la triple question) : Une phrase de forme fixe "Moi, je t'ai pas [X]. Je t'ai [Y]." — poétique, ironique, lucide, qui frappe fort en une seule image, adaptée au sujet.
+10. SIGNATURE MÉTAPOÉTIQUE — OBLIGATOIRE DANS TOUS LES RÉCITS, SANS EXCEPTION, quel que soit le modèle choisi. Aucun des 15 modèles de référence ne contient cette phrase eux-mêmes — c'est volontaire : c'est une exigence SUPPLÉMENTAIRE de Scriptura, à ajouter systématiquement, jamais une simple clôture de secours. Ajoute, juste avant ou après la clôture narrative du point 9, une phrase de forme fixe "Moi, je t'ai pas [X]. Je t'ai [Y]." — ton poétique, ironique, lucide, qui frappe fort en une seule image, adaptée précisément au sujet. Elle agit comme signature narrative de Scriptura.
     Exemple : "Moi, je t'ai pas raconté une fuite. Je t'ai montré ce que devient un empire quand il rentre dans une valise."
 
-RAPPEL — LA CLÔTURE DU MODÈLE CHOISI PRIME TOUJOURS SUR LES POINTS 9 ET 10 : les points 9 et 10 ci-dessus ne sont que le filet de sécurité utilisé quand aucun modèle ne s'applique. Un modèle a TOUJOURS été choisi (voir plus haut) : regarde comment SA propre clôture est construite — triple question, signature, chute sèche, question unique, silence, autre chose — et REPRODUIS EXACTEMENT CETTE STRUCTURE-LÀ, pas automatiquement celle des points 9/10. Ne plaque JAMAIS la triple question ou la signature "Moi, je t'ai pas..." sur un récit dont le modèle se termine autrement : c'est une trahison de la structure du modèle, l'erreur la plus visible et la plus grave que Scriptura puisse commettre en clôture.
+RAPPEL — LA STRUCTURE DU MODÈLE CHOISI (POINT 9) PRIME TOUJOURS SUR LA CLÔTURE PAR DÉFAUT ; LA SIGNATURE (POINT 10) EST TOUJOURS OBLIGATOIRE EN PLUS : le point 9 n'est qu'un filet de sécurité utilisé quand aucun modèle ne s'applique. Un modèle a TOUJOURS été choisi (voir plus haut) : regarde comment SA propre clôture est construite — triple question, chute sèche, question unique, silence, autre chose — et REPRODUIS EXACTEMENT CETTE STRUCTURE-LÀ, pas automatiquement la triple question du point 9. Ne plaque JAMAIS la triple question sur un récit dont le modèle se termine autrement : c'est une trahison de la structure du modèle, l'erreur la plus visible et la plus grave que Scriptura puisse commettre en clôture. La signature métapoétique du point 10, elle, s'ajoute TOUJOURS, peu importe le modèle et peu importe sa propre clôture — ce n'est jamais optionnel, contrairement à la triple question.
 
 TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément le ton "${storyTon}". Écris l'INTÉGRALITÉ du récit dans CE ton, du hook à la triple question finale, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton glacial ne devient jamais chaleureux en cours de route ; un ton ironique ne bascule jamais dans le pathos ; un ton poétique ne devient jamais froid ou clinique.
 
@@ -232,9 +232,9 @@ Vise l'excellence absolue (score global 90-100). EVALUATION HONNETE : évalue to
 Si ton récit ne mérite pas 90+, réécris-le AVANT de répondre.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la clôture, dans la structure exacte du modèle choisi"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la clôture, dans la structure exacte du modèle choisi, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
-Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT reproduire la structure de clôture du modèle choisi (triple question + signature UNIQUEMENT si c'est ainsi que ce modèle précis se termine).`;
+Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT reproduire la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle précis se termine) ET inclure dans tous les cas la signature métapoétique, obligatoire quel que soit le modèle.`;
 
   try {
     const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt);
@@ -285,7 +285,8 @@ ${recitForReview}
 TON TRAVAIL :
 1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
 2. RÉFUTATION — cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
-3. Le hook et la clôture doivent être PUISSANTS ET fidèles à la structure de fin du modèle de référence choisi (pas automatiquement la triple question/signature si ce n'est pas ainsi que ce modèle se termine) : signale tout écart ou toute faiblesse.
+3. Le hook et la clôture doivent être PUISSANTS ET fidèles à la structure de fin du modèle de référence choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle se termine — jamais automatique) : signale tout écart ou toute faiblesse.
+4. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi — si elle est absente, générique ou faible, signale-le comme un problème à corriger.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
@@ -321,7 +322,7 @@ ${raisonsScrollTxt ? '\nRAISONS DE DÉCROCHAGE À ÉLIMINER :\n' + raisonsScroll
 RÈGLES :
 - Ne touche JAMAIS un segment non listé ci-dessus.
 - Renvoie la liste COMPLÈTE des segments dans le même ordre, avec le même nombre total et les mêmes valeurs de "segment" (fonction narrative).
-- Si le dernier segment (clôture) est réécrit, conserve la structure de clôture du modèle choisi (triple question + signature UNIQUEMENT si c'est ainsi que ce modèle se termine).
+- Si le dernier segment (clôture) est réécrit, conserve la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle se termine), ET assure-toi que la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") reste présente, adaptée au sujet et percutante — elle est obligatoire dans tous les cas, quel que soit le modèle.
 - Réécris aussi les 5 hooks si le critique a signalé un hook faible, sinon garde-les.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -368,7 +369,7 @@ ${tropCourt ? 'Le récit est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + 
 RÈGLES :
 - Le nouveau récit DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
 - Garde le ton "${storyTon}" strictement, du début à la fin.
-- Garde les mêmes segments (même "segment" et même ordre), le hook en premier, et dans le dernier segment la MÊME structure de clôture que le récit actuel ci-dessus (ne la remplace jamais par une triple question ou une signature si ce n'était pas déjà sa forme).
+- Garde les mêmes segments (même "segment" et même ordre), le hook en premier, et dans le dernier segment la MÊME structure de clôture que le récit actuel ci-dessus (ne la remplace jamais par une triple question si ce n'était pas déjà sa forme). Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") intacte et bien présente — elle est obligatoire dans tous les cas.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"recit":[{"segment":"Hook","texte":"..."}]}`;
