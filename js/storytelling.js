@@ -53,16 +53,22 @@ function setupStoryButtons() {
       });
     });
   }
-  // Ton — choisi par le créateur, respecté strictement (voir storyPrompt).
+  // Ton — optionnel : un clic sur un ton déjà actif le désélectionne (voir storyPrompt
+  // pour le comportement quand aucun ton n'est choisi).
   const tonContainer = document.getElementById('storyTonGrid');
   if (tonContainer) {
     const tonBtns = tonContainer.querySelectorAll('.grid-btn');
     tonBtns.forEach(btn => {
       btn.addEventListener('click', function(e) {
         e.preventDefault();
+        const dejaActif = btn.classList.contains('active');
         tonBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        storyTon = btn.dataset.val;
+        if (dejaActif) {
+          storyTon = '';
+        } else {
+          btn.classList.add('active');
+          storyTon = btn.dataset.val;
+        }
       });
     });
   }
@@ -93,10 +99,6 @@ async function generateStory() {
   }
   if (storyFormat === 'court' && !storyDuree) {
     errorBox.textContent = 'Choisis une durée pour le format court.';
-    errorBox.style.display = 'block'; return;
-  }
-  if (!storyTon) {
-    errorBox.textContent = 'Choisis un ton pour ton récit.';
     errorBox.style.display = 'block'; return;
   }
 
@@ -165,6 +167,13 @@ ${blocsCandidats}
   // sans toucher à la méthode narrative ni aux règles ci-dessous.
   const profilLigneStory = ligneProfilPourPrompt(await chargerProfilCreateur());
 
+  // Ton — optionnel désormais : si le créateur n'en choisit pas, l'IA choisit
+  // elle-même celui qui sert le mieux le sujet (en priorité celui du modèle
+  // de référence retenu plus haut), et doit le rapporter dans le champ "ton".
+  const tonInstruction = storyTon
+    ? `TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément le ton "${storyTon}". Écris l'INTÉGRALITÉ du récit dans CE ton, du hook à la clôture finale, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton glacial ne devient jamais chaleureux en cours de route ; un ton ironique ne bascule jamais dans le pathos ; un ton poétique ne devient jamais froid ou clinique.`
+    : `TON — LIBRE, À TOI DE CHOISIR : le créateur n'a précisé aucun ton. Choisis celui qui sert le mieux CE sujet précis — en priorité celui du modèle de référence choisi plus haut (chaque modèle a son propre ton). Une fois ce choix fait, tiens-le du hook à la clôture, sans jamais dévier vers un autre registre en cours de route. Indique le ton choisi (en un ou deux mots) dans le champ "ton" de ta réponse JSON.`;
+
   const storyPrompt = `Tu es le meilleur storyteller narratif francophone, spécialisé dans les récits immersifs, critiques et stylisés pour les réseaux sociaux. Tu produis un script qui capte l'attention immédiatement, la maintient jusqu'à la fin, et marque émotionnellement le spectateur. Le spectateur doit VIVRE la scène, pas seulement la regarder.
 
 SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
@@ -208,7 +217,7 @@ MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
 
 RAPPEL — LA STRUCTURE DU MODÈLE CHOISI (POINT 9) PRIME TOUJOURS SUR LA CLÔTURE PAR DÉFAUT ; LA SIGNATURE (POINT 10) EST TOUJOURS OBLIGATOIRE EN PLUS : le point 9 n'est qu'un filet de sécurité utilisé quand aucun modèle ne s'applique. Un modèle a TOUJOURS été choisi (voir plus haut) : regarde comment SA propre clôture est construite — triple question, chute sèche, question unique, silence, autre chose — et REPRODUIS EXACTEMENT CETTE STRUCTURE-LÀ, pas automatiquement la triple question du point 9. Ne plaque JAMAIS la triple question sur un récit dont le modèle se termine autrement : c'est une trahison de la structure du modèle, l'erreur la plus visible et la plus grave que Scriptura puisse commettre en clôture. La signature métapoétique du point 10, elle, s'ajoute TOUJOURS, peu importe le modèle et peu importe sa propre clôture — ce n'est jamais optionnel, contrairement à la triple question.
 
-TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément le ton "${storyTon}". Écris l'INTÉGRALITÉ du récit dans CE ton, du hook à la triple question finale, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton glacial ne devient jamais chaleureux en cours de route ; un ton ironique ne bascule jamais dans le pathos ; un ton poétique ne devient jamais froid ou clinique.
+${tonInstruction}
 
 STYLE ET LANGUE :
 - Français courant, compréhensible par un ado de 12 ans, avec de subtiles anecdotes qui font sourire le spectateur.
@@ -246,9 +255,11 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
-    // Le ton affiché doit toujours correspondre exactement au choix du
-    // créateur, jamais à ce que l'IA a échoué à recopier fidèlement.
-    parsed.ton = storyTon;
+    // Si le créateur a choisi un ton, l'affichage doit toujours correspondre
+    // exactement à son choix, jamais à ce que l'IA a échoué à recopier
+    // fidèlement. Sans choix explicite, on garde le ton que l'IA rapporte
+    // elle-même avoir retenu (voir tonInstruction ci-dessus).
+    if (storyTon) parsed.ton = storyTon;
 
     // ── SCORE RÉEL : régénère UNE fois si le récit n'est pas excellent (< 90) ──
     // Filet de variance créative : parfois un 2e jet est simplement meilleur.
@@ -364,11 +375,11 @@ RÉCIT ACTUEL (${storyWordCount} mots) :
 ${(parsed.recit || []).map(s => '[' + (s.segment || '') + '] ' + s.texte).join('\n')}
 
 PROBLÈME : Ce récit fait ${storyWordCount} mots. La cible pour ${storyDuree} est ${wt.min} à ${wt.max} mots.
-${tropCourt ? 'Le récit est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Développe l\'immersion et la tension, ajoute des détails concrets, SANS remplissage inutile. Garde le même sujet, le même ton ("' + storyTon + '"), la même structure.' : 'Le récit est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant. Garde le hook et la clôture intacts, dans leur structure d\'origine.'}
+${tropCourt ? 'Le récit est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Développe l\'immersion et la tension, ajoute des détails concrets, SANS remplissage inutile. Garde le même sujet, le même ton ("' + (parsed.ton || 'celui déjà établi ci-dessus') + '"), la même structure.' : 'Le récit est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant. Garde le hook et la clôture intacts, dans leur structure d\'origine.'}
 
 RÈGLES :
 - Le nouveau récit DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
-- Garde le ton "${storyTon}" strictement, du début à la fin.
+- Garde le ton "${parsed.ton || 'déjà établi dans le récit ci-dessus'}" strictement, du début à la fin.
 - Garde les mêmes segments (même "segment" et même ordre), le hook en premier, et dans le dernier segment la MÊME structure de clôture que le récit actuel ci-dessus (ne la remplace jamais par une triple question si ce n'était pas déjà sa forme). Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") intacte et bien présente — elle est obligatoire dans tous les cas.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
