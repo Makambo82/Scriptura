@@ -204,13 +204,22 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un consultant qui dit quoi faire.`;
 
 // Vérifie côté serveur qu'un code d'accès correspond à un abonnement valide.
+// Les codes admin/illimité (voir api/verify-code.js) n'ont pas de ligne
+// Supabase : on les reconnaît ici via les mêmes variables d'environnement,
+// pour éviter une requête Supabase inutile — mais même sans cette
+// vérification, un code absent de la table "abonnes" retourne déjà
+// { ok: true } plus bas (ligne "aucune ligne trouvée"), donc ce n'est
+// qu'une optimisation, jamais la seule porte d'accès.
 async function verifierAcces(code) {
   if (!code) return { ok: true };
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_ANON_KEY;
   if (!url || !key) return { ok: true };
-  const CODES_ILLIMITES = ['SCRIPTURA-CELINE'];
-  if (CODES_ILLIMITES.includes(String(code).toUpperCase())) return { ok: true };
+  const codeUpper = String(code).toUpperCase();
+  const codeAdmin = (process.env.CODE_ADMIN || '').trim().toUpperCase();
+  const codesIllimites = (process.env.CODES_ILLIMITES || '')
+    .split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+  if ((codeAdmin && codeUpper === codeAdmin) || codesIllimites.includes(codeUpper)) return { ok: true };
   try {
     const r = await fetch(
       url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=actif,expire_le',
