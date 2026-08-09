@@ -50,6 +50,10 @@ async function ouvrirCapturesDepuisChoix() {
       return;
     }
   }
+  // Empiler l'écran sommaire actuel avant de basculer, sinon "← Retour"
+  // depuis le diagnostic complet saute directement au héro au lieu de
+  // revenir sur ce résultat sommaire.
+  if (typeof pushNav === 'function') pushNav();
   const dsf = document.getElementById('diagSommaireFlow');
   if (dsf) dsf.style.display = 'none';
   const af = document.getElementById('auditFlow');
