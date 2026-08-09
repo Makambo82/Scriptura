@@ -1533,7 +1533,7 @@ async function retoucherScriptLibre() {
   const hooksNum = (currentHooks || []).map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n');
   const scriptNum = currentScript.map((s, i) => '[segment ' + i + ' — ' + s.temps + '] ' + s.texte).join('\n');
 
-  const prompt = `Tu es le Réviseur en Chef de Scriptura. Le créateur a relu son contenu et te demande des retouches précises, en langage libre. Applique UNIQUEMENT ce qu'il demande — ne touche à rien d'autre.
+  const prompt = `Tu es le Réviseur en Chef de Scriptura. Le créateur a relu son contenu et te demande des retouches en langage libre. APPLIQUE TOUJOURS CE QU'IL DEMANDE, intégralement — une demande de retouche est une instruction prioritaire du créateur, jamais une suggestion que tu peux filtrer ou minimiser.
 
 CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}, objectif "${ctx.objectif || ''}".
 
@@ -1543,13 +1543,15 @@ ${hooksNum || 'aucun'}
 SCRIPT ACTUEL (segments numérotés, ne change jamais leur numéro) :
 ${scriptNum}
 
-DEMANDES DU CRÉATEUR (peuvent viser un ou plusieurs hooks, un ou plusieurs segments du script, ou les deux — identifie précisément ce qui est visé par chaque demande) :
+DEMANDE DU CRÉATEUR (peut viser un élément précis, ou être une consigne globale qui concerne tout le script — identifie sa PORTÉE réelle avant de répondre) :
 "${instructions}"
 
 RÈGLES :
-- N'applique QUE ce que le créateur demande. Une demande sur un hook ne touche que ce hook. Une demande sur un segment ne touche que ce segment.
+- Détermine d'abord la PORTÉE de la demande : une demande précise (ex. "raccourcis le hook 2") ne touche que l'élément visé. Une demande globale (ex. "renforce la tension partout", "change le ton de tout le script", "adapte tout à un public plus jeune") DOIT être appliquée à TOUS les segments et/ou hooks concernés, aussi nombreux soient-ils — ne la limite jamais artificiellement à un seul élément par excès de prudence.
+- CETTE DEMANDE EST PRIORITAIRE sur les règles par défaut du script : si elle implique de changer le ton, la structure ou tout autre principe habituel de génération, applique-la quand même — c'est la décision du créateur, pas la tienne à remettre en question. Ne refuse jamais une demande légitime sous prétexte qu'elle s'écarte des règles habituelles de Scriptura.
+- Si la demande est formulée de façon générale plutôt que ciblée sur un élément précis, interprète-la du mieux possible avec le contexte disponible et applique-la partout où elle est pertinente. Ne renvoie JAMAIS un résultat vide sous prétexte que la demande n'était pas assez précise — fais de ton mieux avec l'intention exprimée.
 - Ne réponds QUE pour les éléments que tu modifies réellement — n'écris rien pour un hook ou un segment inchangé.
-- Si une demande est ambiguë (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
+- Si une demande est ambiguë sur QUEL élément précis elle vise (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
 - L'index désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
 
 Réponds STRICTEMENT selon ce format texte, une ligne par élément modifié, RIEN D'AUTRE (pas de JSON, pas d'introduction, pas de commentaire) :
