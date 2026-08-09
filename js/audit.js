@@ -1068,13 +1068,16 @@ function auditTexteBrut(a, ts) {
 // immédiat (rouge/orange/émeraude), partagé entre le diagnostic complet
 // (renderAudit) et le diagnostic sommaire (js/diagnostic-sommaire.js) qui
 // utilisent tous les deux ce même anneau de score.
+// Une seule couleur par palier (pas un dégradé de deux teintes) : le chiffre
+// et l'anneau doivent être EXACTEMENT la même couleur, pas juste la même
+// famille — rouge, orange ou vert, sans ambiguïté, comme chez Vervox.
 function paletteScoreAudit(score) {
   if (typeof score !== 'number' || Number.isNaN(score)) {
-    return { texte: 'var(--gold-light)', ringA: 'var(--gold)', ringB: 'var(--gold-light)' };
+    return { texte: 'var(--gold-light)', ringA: 'var(--gold-light)', ringB: 'var(--gold-light)' };
   }
-  if (score < 50) return { texte: '#FCA5A5', ringA: '#B91C1C', ringB: '#FCA5A5' };
-  if (score < 70) return { texte: '#FBBF24', ringA: '#B45309', ringB: '#FBBF24' };
-  return { texte: 'var(--emerald-light)', ringA: 'var(--emerald)', ringB: 'var(--emerald-light)' };
+  if (score < 50) return { texte: '#EF4444', ringA: '#EF4444', ringB: '#EF4444' };
+  if (score < 70) return { texte: '#F59E0B', ringA: '#F59E0B', ringB: '#F59E0B' };
+  return { texte: 'var(--emerald-light)', ringA: 'var(--emerald-light)', ringB: 'var(--emerald-light)' };
 }
 
 // Classe de couleur d'un badge de score sur un barème quelconque (ex: 8/20,
@@ -1178,7 +1181,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
             stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
         </svg>
         <div class="audit-ring-center">
-          <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="auditScoreNum">0</span><span>/100</span></div>
+          <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="auditScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
       ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}

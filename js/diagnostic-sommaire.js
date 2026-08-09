@@ -388,7 +388,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
             stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
         </svg>
         <div class="audit-ring-center">
-          <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span>/100</span></div>
+          <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
       <div class="audit-score-phrase">${engMesurable
