@@ -1,0 +1,273 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1C1C1E;
+  --bg-mid:#242426;
+  --bg-card:#2E2E30;
+  --bg-soft:#323234;
+  --gold:#C9A84C;
+  --gold-light:#E2C87A;
+  --gold-pale:rgba(201,168,76,0.12);
+  --border:rgba(201,168,76,0.28);
+  --border-soft:rgba(201,168,76,0.16);
+  --emerald:#1F6B4C;
+  --emerald-light:#3E9B75;
+  --emerald-pale:rgba(46,125,91,0.14);
+  --emerald-border:rgba(46,125,91,0.35);
+  --muted:rgba(255,255,255,0.62);
+  --text:#FFFFFF;
+  --text-secondary:rgba(255,255,255,0.75);
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Poppins',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--gold);opacity:0.4}
+img{max-width:100%;display:block}
+a{color:inherit}
+
+.eyebrow{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold-light);margin-bottom:14px}
+.section-title{font-family:'Playfair Display',serif;font-weight:500;font-size:clamp(1.9rem,4.2vw,2.9rem);line-height:1.2;letter-spacing:-0.01em}
+.section-title strong{color:var(--gold-light);font-weight:700;font-style:italic}
+.section-head{text-align:center;max-width:640px;margin:0 auto 52px}
+.section-sub{margin-top:16px;color:var(--muted);font-size:1.02rem;line-height:1.65}
+
+/* ═══ NAV ═══ */
+nav.vt-nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 5vw;
+  background:rgba(28,28,30,0.9);
+  backdrop-filter:blur(18px);
+  border-bottom:1px solid var(--border-soft);
+}
+.vt-logo{font-family:'Cinzel',serif;font-weight:500;font-size:1.1rem;letter-spacing:0.16em}
+.vt-logo em{color:var(--gold);font-style:normal}
+.vt-nav-right{display:flex;align-items:center;gap:10px}
+.vt-nav-link{font-size:0.86rem;color:var(--text-secondary);text-decoration:none;padding:8px 6px;white-space:nowrap}
+.vt-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'Cinzel',serif;font-weight:700;font-size:0.78rem;letter-spacing:0.09em;text-transform:uppercase;
+  border-radius:999px;border:1px solid transparent;text-decoration:none;cursor:pointer;white-space:nowrap;
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.vt-btn-gold{
+  background:linear-gradient(120deg,var(--gold),var(--gold-light));color:#141414;
+  box-shadow:0 10px 26px -10px rgba(201,168,76,0.6);
+}
+.vt-btn-gold:hover{transform:translateY(-2px);box-shadow:0 16px 34px -10px rgba(201,168,76,0.75)}
+.vt-btn-ghost{background:transparent;border-color:var(--border);color:var(--gold-light)}
+.vt-btn-ghost:hover{background:var(--gold-pale)}
+.vt-btn-lg{padding:0 30px;height:56px;font-size:0.86rem}
+.vt-btn-md{padding:0 22px;height:42px}
+
+/* ═══ HERO ═══ */
+.vt-hero{
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:150px 5vw 90px;position:relative;overflow:hidden;
+}
+.vt-hero-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 20%,rgba(201,168,76,0.09) 0%,transparent 65%),
+    radial-gradient(ellipse 50% 45% at 85% 75%,rgba(46,125,91,0.07) 0%,transparent 60%);
+}
+.vt-hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--gold-pale);border:1px solid var(--border);border-radius:999px;
+  padding:7px 18px;font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--gold-light);
+  margin-bottom:26px;
+}
+.vt-hero h1{
+  font-family:'Playfair Display',serif;font-weight:500;
+  font-size:clamp(2.3rem,6.2vw,4.2rem);line-height:1.12;letter-spacing:-0.01em;
+  max-width:900px;
+}
+.vt-hero h1 strong{
+  font-weight:700;font-style:italic;
+  background:linear-gradient(100deg,var(--gold) 10%,var(--gold-light) 50%,var(--gold) 90%);
+  background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:vtShimmer 5s linear infinite;
+}
+@keyframes vtShimmer{to{background-position:200% center}}
+.vt-hero-sub{
+  margin-top:26px;max-width:600px;color:var(--text-secondary);font-size:1.12rem;line-height:1.7;
+}
+.vt-hero-ctas{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:38px}
+.vt-hero-note{margin-top:18px;font-size:0.82rem;color:var(--muted)}
+.vt-hero-note span{color:var(--gold-light)}
+
+/* Mockup illustratif du hook/script */
+.vt-mock{
+  margin-top:64px;width:100%;max-width:380px;
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:22px;
+  padding:22px 22px 26px;text-align:left;position:relative;
+  box-shadow:0 30px 60px -20px rgba(0,0,0,0.5);
+}
+.vt-mock::before{
+  content:'Exemple illustratif';position:absolute;top:-12px;left:22px;
+  background:var(--bg);border:1px solid var(--border);border-radius:999px;
+  padding:3px 12px;font-size:0.64rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-light);
+  font-family:'Cinzel',serif;
+}
+.vt-mock-top{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.vt-mock-dot{width:9px;height:9px;border-radius:50%;background:var(--gold);opacity:0.35}
+.vt-mock-label{font-family:'Cinzel',serif;font-size:0.66rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted)}
+.vt-mock-hook{font-family:'Playfair Display',serif;font-style:italic;font-size:1.15rem;line-height:1.5;color:var(--gold-light);margin-bottom:14px}
+.vt-mock-body{font-size:0.9rem;line-height:1.7;color:var(--text-secondary)}
+.vt-mock-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.vt-mock-tag{font-size:0.72rem;background:var(--gold-pale);border:1px solid var(--border-soft);color:var(--gold-light);padding:4px 11px;border-radius:999px}
+
+/* ═══ SECTIONS GÉNÉRALES ═══ */
+section{padding:100px 5vw}
+.vt-narrow{max-width:1120px;margin:0 auto}
+
+/* Douleurs */
+.vt-pains{background:var(--bg-mid)}
+.vt-pains-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:8px}
+.vt-pain-card{
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:16px;padding:30px 26px;
+}
+.vt-pain-icon{font-size:1.6rem;margin-bottom:16px;display:block}
+.vt-pain-text{font-size:1rem;line-height:1.65;color:var(--text-secondary)}
+.vt-pains-bridge{
+  text-align:center;margin-top:44px;font-family:'Playfair Display',serif;font-style:italic;
+  font-size:1.3rem;color:var(--gold-light);
+}
+
+/* Comment ça marche */
+.vt-how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;counter-reset:step}
+.vt-step{position:relative;padding-top:8px}
+.vt-step-num{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.16em;color:var(--gold);text-transform:uppercase;margin-bottom:14px}
+.vt-step-icon{font-size:1.8rem;margin-bottom:14px}
+.vt-step-title{font-family:'Playfair Display',serif;font-weight:600;font-size:1.22rem;margin-bottom:10px}
+.vt-step-desc{color:var(--muted);font-size:0.95rem;line-height:1.65}
+
+/* Pourquoi Scriptura */
+.vt-why{background:var(--bg-mid)}
+.vt-why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.vt-why-card{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:16px;padding:28px}
+.vt-why-icon{font-size:1.5rem;margin-bottom:14px}
+.vt-why-title{font-family:'Playfair Display',serif;font-weight:600;font-size:1.12rem;margin-bottom:8px}
+.vt-why-desc{color:var(--muted);font-size:0.92rem;line-height:1.65}
+
+/* Diagnostic spotlight */
+.vt-diag{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
+.vt-diag-badge{
+  display:inline-block;font-family:'Cinzel',serif;font-size:0.66rem;letter-spacing:0.16em;text-transform:uppercase;
+  color:var(--emerald-light);background:var(--emerald-pale);border:1px solid var(--emerald-border);
+  border-radius:999px;padding:5px 14px;margin-bottom:18px;
+}
+.vt-diag-title{font-family:'Playfair Display',serif;font-weight:500;font-size:clamp(1.7rem,3.2vw,2.3rem);line-height:1.25;margin-bottom:18px}
+.vt-diag-title strong{color:var(--gold-light);font-weight:700;font-style:italic}
+.vt-diag-desc{color:var(--text-secondary);font-size:1rem;line-height:1.75;margin-bottom:22px}
+.vt-diag-list{list-style:none;display:flex;flex-direction:column;gap:12px}
+.vt-diag-list li{display:flex;gap:10px;font-size:0.95rem;color:var(--text-secondary);line-height:1.55}
+.vt-diag-list li::before{content:'✓';color:var(--emerald-light);font-weight:700;flex-shrink:0}
+
+.vt-ring-card{
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:22px;
+  padding:36px 30px;text-align:center;position:relative;
+  box-shadow:0 30px 60px -20px rgba(0,0,0,0.5);
+}
+.vt-ring-card::before{
+  content:'Exemple illustratif';position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--bg);border:1px solid var(--border);border-radius:999px;white-space:nowrap;
+  padding:3px 12px;font-size:0.64rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-light);
+  font-family:'Cinzel',serif;
+}
+.vt-ring-label{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);margin-bottom:20px}
+.vt-ring-wrap{position:relative;width:170px;height:170px;margin:0 auto 20px}
+.vt-ring{width:100%;height:100%;transform:rotate(-90deg)}
+.vt-ring-track{fill:none;stroke:rgba(255,255,255,0.08);stroke-width:9}
+.vt-ring-fill{fill:none;stroke:var(--emerald-light);stroke-width:9;stroke-linecap:round;stroke-dasharray:465;stroke-dashoffset:112}
+.vt-ring-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.vt-ring-num{font-family:'Playfair Display',serif;font-weight:700;font-size:2.6rem;color:var(--emerald-light)}
+.vt-ring-suffix{font-size:1rem;color:rgba(255,255,255,0.4)}
+.vt-ring-tag{
+  display:inline-block;font-size:0.8rem;color:var(--emerald-light);background:var(--emerald-pale);
+  border:1px solid var(--emerald-border);border-radius:999px;padding:5px 14px;
+}
+
+/* Tarifs */
+.vt-pricing-note{text-align:center;color:var(--muted);margin-top:-30px;margin-bottom:44px;font-size:0.95rem}
+.vt-pricing-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;max-width:820px;margin:0 auto}
+.vt-plan{
+  background:var(--bg-card);border:1px solid var(--border-soft);border-radius:20px;padding:34px 30px;
+  display:flex;flex-direction:column;
+}
+.vt-plan.pro{border-color:var(--emerald-border);background:linear-gradient(160deg,var(--bg-card),rgba(46,125,91,0.08))}
+.vt-plan-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.vt-plan-name{font-family:'Cinzel',serif;letter-spacing:0.12em;font-size:0.9rem}
+.vt-plan-badge{font-size:0.66rem;background:var(--emerald-pale);color:var(--emerald-light);border:1px solid var(--emerald-border);padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:0.06em}
+.vt-plan-price{font-family:'Playfair Display',serif;font-weight:700;font-size:2rem;color:var(--gold-light);margin-bottom:20px}
+.vt-plan-price span{font-size:0.95rem;font-weight:400;color:var(--muted)}
+.vt-plan-list{list-style:none;display:flex;flex-direction:column;gap:11px;margin-bottom:26px;flex:1}
+.vt-plan-list li{display:flex;gap:9px;font-size:0.9rem;color:var(--text-secondary);line-height:1.5}
+.vt-plan-list li::before{content:'✓';color:var(--gold-light);font-weight:700;flex-shrink:0}
+.vt-plan.pro .vt-plan-list li::before{color:var(--emerald-light)}
+.vt-plan-btn{
+  display:flex;align-items:center;justify-content:center;height:50px;border-radius:999px;border:none;cursor:pointer;
+  font-family:'Cinzel',serif;font-weight:700;font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;
+  background:linear-gradient(120deg,var(--gold),var(--gold-light));color:#141414;
+  transition:transform .2s ease;
+}
+.vt-plan.pro .vt-plan-btn{background:linear-gradient(120deg,var(--emerald),var(--emerald-light));color:#fff}
+.vt-plan-btn:hover{transform:translateY(-2px)}
+.vt-jeton-note{text-align:center;color:var(--muted);margin-top:30px;font-size:0.92rem}
+.vt-jeton-note a{color:var(--gold-light);text-decoration:underline;cursor:pointer}
+
+/* FAQ */
+.vt-faq{background:var(--bg-mid)}
+.vt-faq-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.vt-faq-item{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;overflow:hidden}
+.vt-faq-item summary{
+  list-style:none;cursor:pointer;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;
+  font-weight:500;font-size:0.98rem;gap:16px;
+}
+.vt-faq-item summary::-webkit-details-marker{display:none}
+.vt-faq-chev{color:var(--gold);transition:transform .2s ease;flex-shrink:0}
+.vt-faq-item[open] .vt-faq-chev{transform:rotate(180deg)}
+.vt-faq-a{padding:0 24px 20px;color:var(--muted);font-size:0.92rem;line-height:1.65}
+
+/* CTA finale */
+.vt-final{text-align:center;position:relative;overflow:hidden}
+.vt-final-bg{
+  position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 60% at 50% 40%,rgba(201,168,76,0.1) 0%,transparent 65%);
+}
+.vt-final-title{font-family:'Playfair Display',serif;font-weight:500;font-size:clamp(2rem,4.4vw,3rem);line-height:1.2;max-width:700px;margin:0 auto 18px}
+.vt-final-title strong{color:var(--gold-light);font-weight:700;font-style:italic}
+.vt-final-sub{color:var(--muted);max-width:520px;margin:0 auto 36px;font-size:1rem;line-height:1.65}
+.vt-final-ctas{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+
+/* Footer */
+footer.vt-footer{
+  padding:44px 5vw;border-top:1px solid var(--border-soft);
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;
+}
+.vt-footer-links{display:flex;gap:22px;flex-wrap:wrap}
+.vt-footer-links a{font-size:0.86rem;color:var(--muted);text-decoration:none}
+.vt-footer-links a:hover{color:var(--gold-light)}
+.vt-footer-copy{font-size:0.78rem;color:rgba(255,255,255,0.35)}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:900px){
+  .vt-pains-grid,.vt-why-grid,.vt-how-grid{grid-template-columns:1fr}
+  .vt-diag{grid-template-columns:1fr;gap:40px}
+  .vt-diag-visual{order:-1}
+  .vt-pricing-grid{grid-template-columns:1fr;max-width:420px}
+}
+@media(max-width:640px){
+  section{padding:70px 20px}
+  .vt-hero{padding:120px 20px 60px}
+  .vt-nav-link{display:none}
+  nav.vt-nav{padding:14px 18px}
+  /* Le lien "Ouvrir l'app" fait doublon avec le CTA du hero juste en dessous
+     — sur petit écran, il ne reste que le bouton S'abonner pour ne pas
+     déborder du viewport. */
+  .vt-nav-right .vt-btn-ghost{display:none}
+  .vt-nav-right .vt-btn-md{padding:0 16px;height:38px;font-size:0.68rem}
+  .vt-logo{font-size:0.95rem}
+  .vt-hero-ctas,.vt-final-ctas{flex-direction:column;width:100%;max-width:320px;margin-left:auto;margin-right:auto}
+  .vt-btn-lg{width:100%}
+  .section-head{margin-bottom:36px}
+}
