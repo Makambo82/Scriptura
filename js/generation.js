@@ -139,7 +139,7 @@ async function generateIdeas() {
     : `Aucun objectif précisé : équilibre les angles entre portée, fidélisation et démonstration d'expertise.`;
 
   const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis — jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
-${rechercheWebIdees ? '\nSUJET D\'ACTUALITÉ : avant de proposer des idées, utilise la recherche web pour t\'appuyer sur des faits, personnes ou événements réellement récents et vérifiés — jamais une situation qui a pu changer depuis tes connaissances d\'entraînement.\n' : ''}
+${rechercheWebIdees ? instructionRechercheWeb(niche, 'de proposer des idées') : ''}
 
 PROFIL DU CRÉATEUR :
 - Niche : ${niche}
@@ -660,7 +660,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const estFaceless = /faceless|voix off|sans visage/i.test(format);
 
     const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. RÈGLE FONDAMENTALE, au-dessus de toutes les autres : ce script doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
-${rechercheWeb ? '\nSUJET D\'ACTUALITÉ : avant de rédiger, utilise la recherche web pour vérifier les faits récents, noms, dates, fonctions et statistiques que tu comptes citer. Ne présente jamais comme actuel un statut, un poste ou une situation qui a pu changer depuis tes connaissances d\'entraînement — vérifie-le.\n' : ''}
+${rechercheWeb ? instructionRechercheWeb(niche, 'de rédiger') : ''}
 
 BRIEF STRATÉGIQUE À SUIVRE :
 - Analyse : ${brief.analyse_strategique || sujet}

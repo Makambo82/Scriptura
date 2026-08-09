@@ -114,7 +114,7 @@ Zone géographique / contexte culturel : ${geo || 'non précisée — reste gén
 Genre souhaité : ${genre || 'libre'}
 Style de contenu : ${style}
 Un bon concept de série : un fil conducteur clair, chaque épisode autonome mais donnant envie du suivant, et un titre qui promet une suite.
-Réponds UNIQUEMENT en JSON, sans texte autour :
+${instructionRechercheWeb(niche, 'de proposer des concepts')}Réponds UNIQUEMENT en JSON, sans texte autour :
 [{"titre":"...","pitch":"une phrase qui explique le fil conducteur"}]`;
   try {
     const raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, nicheNecessiteRecherche(niche));
@@ -221,7 +221,7 @@ Principes à respecter (méthode d'écriture épisodique courte) :
 - Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
 - L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
 - Épisodes pensés pour une durée de ${serieDuree}.
-
+${instructionRechercheWeb(niche, 'de construire cette bible')}
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {
   "titre": "titre court et accrocheur de la série",
@@ -592,7 +592,7 @@ RÈGLES D'ÉCRITURE :
 - Accroche forte dès les 3 premières secondes.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
-
+${instructionRechercheWeb(serie.niche, 'd\'écrire cet épisode')}
 FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
 ${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :

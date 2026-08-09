@@ -59,14 +59,31 @@ function appliquerClasseAdmin() {
 }
 
 // ── Niches nécessitant une vérification par recherche web ──
-// Le modèle n'a aucune connaissance des faits postérieurs à son entraînement :
-// pour ces niches précises (actualité, politique, faits divers récents), une
-// erreur factuelle est probable ET coûteuse en crédibilité. Pour toutes les
-// autres niches (Histoire, Business, Bien-être...), la recherche n'apporte
-// rien et ralentirait/coûterait pour rien : on la réserve à ce petit périmètre.
+// Le modèle n'a aucune connaissance des faits postérieurs à son entraînement,
+// et deux familles de niches ont besoin d'une vérification, mais pas de la
+// même : l'actualité/la géopolitique/les faits divers changent chaque jour,
+// donc il faut vérifier ce qui est VRAI MAINTENANT (jamais présenter comme
+// actuel un statut qui a pu changer) ; l'Histoire, elle, ne change pas, mais
+// le modèle peut se tromper sur les faits eux-mêmes (dates, noms, versions
+// déformées) — il faut y vérifier l'EXACTITUDE historique, pas la fraîcheur.
+// Pour les autres niches (Business, Bien-être...), la recherche n'apporte
+// rien et ralentirait/coûterait pour rien : on la réserve à ces deux familles.
 const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime'];
+const NICHES_HISTORIQUES = ['Histoire'];
 function nicheNecessiteRecherche(niche) {
-  return NICHES_ACTUALITE.includes(niche);
+  return NICHES_ACTUALITE.includes(niche) || NICHES_HISTORIQUES.includes(niche);
+}
+// Retourne le bloc d'instruction adapté au type de vérification requis par la
+// niche, ou une chaîne vide si la niche n'en nécessite aucune. `verbe` adapte
+// la phrase au moment de l'appel ("de rédiger", "de proposer des idées"...).
+function instructionRechercheWeb(niche, verbe) {
+  if (NICHES_HISTORIQUES.includes(niche)) {
+    return `\nVÉRIFICATION HISTORIQUE OBLIGATOIRE : avant ${verbe}, utilise la recherche web pour vérifier l'exactitude des faits historiques que tu comptes citer (dates, noms, chiffres, déroulé des événements) — recherche la version la plus fiable et la plus proche de la réalité, pas une version approximative ou déformée issue de tes seules connaissances d'entraînement.\n`;
+  }
+  if (NICHES_ACTUALITE.includes(niche)) {
+    return `\nSUJET D'ACTUALITÉ : avant ${verbe}, utilise la recherche web pour vérifier les faits, noms, dates, fonctions et statistiques que tu comptes citer sont bien à jour — ne présente jamais comme actuel un statut, un poste ou une situation qui a pu changer depuis tes connaissances d'entraînement : une actualité politique ou géopolitique peut changer chaque jour, va chercher l'information la plus récente, pas une archive.\n`;
+  }
+  return '';
 }
 
 // ═══════════════════════════════════════════════════════════

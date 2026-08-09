@@ -136,6 +136,18 @@ async function generateStory() {
   const estTexteLongStory = input.length > LONG_SEUIL_STORY;
   const sujetPourPrompt = estTexteLongStory ? input.slice(0, 2000) : input;
 
+  // Recherche web : uniquement quand le créateur donne un SUJET court (pas de
+  // niche à interroger ici, contrairement aux autres modes — voir js/api.js).
+  // Quand il colle un texte long (article, script existant), il a déjà sa
+  // matière première : Scriptura n'a pas à aller vérifier des faits qu'il
+  // fournit lui-même. Le récit pouvant porter sur de l'actualité (politique,
+  // faits divers) OU sur de l'Histoire, l'instruction couvre les deux cas —
+  // l'IA applique celle qui correspond réellement au sujet donné.
+  const rechercheWebStory = !estTexteLongStory;
+  const instructionRechercheWebStory = rechercheWebStory
+    ? `\nVÉRIFICATION FACTUELLE OBLIGATOIRE : avant d'écrire, utilise la recherche web pour vérifier les faits que tu comptes citer. Si le sujet relève de l'actualité, de la politique ou de la géopolitique récente, vérifie que ce que tu racontes est bien à jour aujourd'hui — jamais un statut, un poste ou une situation qui a pu changer depuis tes connaissances d'entraînement, une actualité politique pouvant changer chaque jour : va chercher l'information la plus récente, pas une archive. Si le sujet relève de l'Histoire, vérifie l'exactitude des faits historiques (dates, noms, chiffres, déroulé réel des événements) et recherche la version la plus fiable, pas une version approximative ou déformée.\n`
+    : '';
+
   // Présélection rapide (locale, sans appel IA) de plusieurs modèles de
   // référence candidats — voir choisirTopModeles() dans js/modeles.js. Le
   // choix final entre ces candidats est fait par le moteur Storytelling
@@ -199,7 +211,7 @@ SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
 ${sujetPourPrompt}
 """
 ${estTexteLongStory ? "CE TEXTE EST UN TEXTE SOURCE LONG (article, notes brutes), PAS UN RÉCIT À RECOPIER : dégages-en le sujet réel, les faits marquants et l'angle le plus fort, puis RÉÉCRIS entièrement une histoire selon la méthode ci-dessous. Ne recopie JAMAIS des phrases entières du texte fourni tel quel — c'est une matière première, pas un brouillon à peaufiner." : ''}
-${plateformeInstruction}
+${instructionRechercheWebStory}${plateformeInstruction}
 ${profilLigneStory ? profilLigneStory : ''}
 ${modeleRef}
 ${longueurInstruction}
@@ -264,12 +276,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT reproduire la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle précis se termine) ET inclure dans tous les cas la signature métapoétique, obligatoire quel que soit le modèle. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi — c'est ce qui permet de vérifier après coup que la clôture a bien été respectée.`;
 
   try {
-    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt);
+    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
     let parsed = parseAIResponse(raw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
     if (!parsed || !parsed.recit) {
-      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt);
+      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
@@ -301,7 +313,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     }
     if (!repondreMaintenant && scoreGlobalStory(parsed) < 90) {
       try {
-        const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt);
+        const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
         const parsed2 = parseAIResponse(raw2);
         if (parsed2 && parsed2.recit && parsed2.score && scoreGlobalStory(parsed2) > scoreGlobalStory(parsed)) {
           parsed = parsed2;

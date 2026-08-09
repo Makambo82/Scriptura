@@ -22,9 +22,12 @@ RÈGLE DE MAJUSCULES (toujours, y COMPRIS pour les titres, accroches et hooks) :
 RÈGLE DE FORMAT DES NOMBRES (toujours) : quand tu écris un nombre avec un séparateur de milliers et/ou une décimale, utilise EXACTEMENT ce format : le point comme séparateur de milliers, la virgule comme séparateur décimal. Exemple : 107.453,98 — jamais "107 453,98" (espace, la norme française habituelle — ne l'utilise PAS ici malgré ce réflexe), jamais "107,453.98" (format anglo-saxon). Exception impérative : une ANNÉE ne prend JAMAIS de séparateur de milliers, quelle qu'elle soit (2026, 2001, 1990…) — écris-la toujours telle quelle, jamais "2.026" ou "1.990".`;
 }
 
-// Même périmètre restreint que côté client (js/api.js, NICHES_ACTUALITE) :
-// recherche web réservée aux niches où une erreur factuelle est probable.
-const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime'];
+// Même périmètre restreint que côté client (js/api.js, NICHES_ACTUALITE +
+// NICHES_HISTORIQUES) : recherche web réservée aux niches où une erreur
+// factuelle est probable — actualité récente à vérifier ET Histoire à
+// vérifier pour son exactitude (les deux motifs sont différents, mais tous
+// deux justifient d'aller chercher l'information plutôt que de deviner).
+const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime', 'Histoire'];
 
 // Prompt court et bon marché : sert uniquement à reconnaître le TYPE de chaque
 // capture au moment du chargement, pour guider l'utilisateur avant l'audit.
