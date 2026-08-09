@@ -117,8 +117,14 @@ Un bon concept de série : un fil conducteur clair, chaque épisode autonome mai
 ${instructionRechercheWeb(niche, 'de proposer des concepts')}Réponds UNIQUEMENT en JSON, sans texte autour :
 [{"titre":"...","pitch":"une phrase qui explique le fil conducteur"}]`;
   try {
-    const raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, nicheNecessiteRecherche(niche));
-    const concepts = serieParseJSON(raw);
+    let raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, nicheNecessiteRecherche(niche));
+    let concepts = serieParseJSON(raw);
+    // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
+    // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
+    if (!Array.isArray(concepts) || !concepts.length) {
+      raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, false);
+      concepts = serieParseJSON(raw);
+    }
     if (!Array.isArray(concepts) || !concepts.length) throw new Error('vide');
     zone.innerHTML = concepts.map(c =>
       `<div class="serie-concept-prop" onclick="choisirConcept(this)" data-titre="${serieEsc(c.titre)}">
@@ -233,8 +239,14 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 }
 L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
 
-    const rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche));
-    const bible = serieParseJSON(rawBible);
+    let rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche));
+    let bible = serieParseJSON(rawBible);
+    // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
+    // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
+    if (!bible || !bible.premisse) {
+      rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, false);
+      bible = serieParseJSON(rawBible);
+    }
     if (!bible || !bible.premisse) throw new Error('construction impossible');
     bible.duree_episode = serieDuree; // mémorisée pour tous les épisodes à venir
     bible.zone_geo = geo;               // contexte culturel, repris à chaque épisode
@@ -614,8 +626,14 @@ TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi préc
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
 
-    const raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche));
-    const ep = serieParseJSON(raw);
+    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche));
+    let ep = serieParseJSON(raw);
+    // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
+    // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
+    if (!ep || !ep.script) {
+      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false);
+      ep = serieParseJSON(raw);
+    }
     // Normalisation : si l'IA retourne script ou directives comme objet, on convertit en texte
     if (ep && ep.script !== null && typeof ep.script === 'object') {
       const v = ep.script.voix_off || ep.script.voix || '';
