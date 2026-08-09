@@ -382,6 +382,59 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // ══════════════════════════════════════
+    //  CONTRÔLE PROGRAMMATIQUE DE LA FIDÉLITÉ DE CLÔTURE
+    //  Le Critique éditorial ci-dessus a maintenant accès au script exact du
+    //  modèle suivi (voir structureModeleRef), mais reste un jugement d'IA —
+    //  pas une garantie : sur un vrai récit généré, la clôture a pu rester
+    //  une simple punchline alors que le modèle suivi (ex. Kadhafi, Traoré)
+    //  se termine par une triple question, sans que le Critique ne le
+    //  signale. On vérifie donc mécaniquement, comme pour le nombre de
+    //  mots : le modèle se termine-t-il par une triple question (2 "?" ou
+    //  plus) ? Le récit fait-il pareil ? Si les deux ne correspondent pas,
+    //  on corrige UNIQUEMENT le segment de clôture, sans toucher au reste.
+    // ══════════════════════════════════════
+    function detecteTripleQuestion(texte) {
+      return ((texte || '').match(/\?/g) || []).length >= 2;
+    }
+
+    if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
+      const clotureModeleSeule = structureModeleRef.split('\n\n').pop() || '';
+      const modeleAttendTripleQuestion = detecteTripleQuestion(clotureModeleSeule);
+      const dernierSegment = parsed.recit[parsed.recit.length - 1];
+      const recitATripleQuestion = detecteTripleQuestion(dernierSegment.texte || '');
+
+      if (modeleAttendTripleQuestion !== recitATripleQuestion) {
+        try {
+          const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. La clôture du récit ci-dessous ne respecte PAS la forme de clôture du modèle de référence réellement suivi pour ce récit — c'est l'erreur la plus grave que Scriptura puisse commettre en clôture.
+
+CLÔTURE ACTUELLE DU RÉCIT :
+${dernierSegment.texte}
+
+CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE À REPRODUIRE DANS SA FORME (même structure, pas les mêmes mots) :
+"""
+${clotureModeleSeule}
+"""
+
+PROBLÈME : ${modeleAttendTripleQuestion ? 'Le modèle se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") mais la clôture actuelle ne le fait pas.' : 'Le modèle NE se termine PAS par une triple question, mais la clôture actuelle en impose une — ce n\'est pas fidèle au modèle.'}
+
+RÈGLES :
+- Réécris UNIQUEMENT la clôture, dans la structure exacte du modèle ci-dessus (${modeleAttendTripleQuestion ? 'triple question miroir, adaptée au sujet' : 'la forme réelle du modèle, sans triple question forcée'}).
+- Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") — elle est obligatoire dans tous les cas, quel que soit le modèle. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
+- Garde le même sujet, le même ton, la même idée centrale — seule la FORME de la clôture change.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"cloture":"la nouvelle clôture complète corrigée"}`;
+
+          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
+          const correctionCloture = parseAIResponse(correctionClotureRaw);
+          if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
+            dernierSegment.texte = correctionCloture.cloture.trim();
+          }
+        } catch (e) { /* si la correction échoue, on garde la clôture actuelle */ }
+      }
+    }
+
+    // ══════════════════════════════════════
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE (comme le mode Script)
     //  La consigne de durée dans le prompt ne suffit pas : on compte les
     //  mots réels du récit livré et on corrige si hors cible, peu importe
