@@ -458,41 +458,63 @@ async function lancerAudit() {
     const frequence = document.getElementById('auditFrequence')?.value || '';
     const style = document.getElementById('auditStyle')?.value || '';
 
-    const res = await fetch('/api/audit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL_AUDIT,
-        max_tokens: 8000,
-        images: images,
-        objectif: objectif,
-        niche: niche,
-        frequence: frequence,
-        style: style,
-        code_acces: localStorage.getItem('scriptura_code') || null
-      })
-    });
+    // Un seul essai (avec recherche web si la niche le demande) suivi, en cas
+    // d'échec technique, d'un essai de secours SANS recherche : même principe
+    // que Script/Récit/Série/Idées (voir js/generation.js, js/storytelling.js,
+    // js/serie.js) — l'audit est l'appel le plus lourd de l'app (images +
+    // modèle Sonnet), donc le plus exposé à une réponse tronquée par le temps
+    // limite ; sans ce filet, l'utilisateur devait relancer tout le diagnostic
+    // à la main (retélécharger ses captures).
+    async function appelAudit(noWebSearch) {
+      const res = await fetch('/api/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL_AUDIT,
+          max_tokens: 8000,
+          images: images,
+          objectif: objectif,
+          niche: niche,
+          frequence: frequence,
+          style: style,
+          code_acces: localStorage.getItem('scriptura_code') || null,
+          no_web_search: !!noWebSearch
+        })
+      });
 
-    if (res.status === 403) {
-      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
-      throw new Error('Ton abonnement a expiré. Renouvelle pour relancer un diagnostic.');
+      if (res.status === 403) {
+        if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+        throw new Error('Ton abonnement a expiré. Renouvelle pour relancer un diagnostic.');
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || 'erreur serveur');
+      }
+
+      const raw = (data.content?.map(b => b.text || '').join('') || '').trim();
+      if (!raw) throw new Error('Réponse vide du modèle.');
+
+      // Isole le JSON même si le modèle ajoute du texte autour
+      let jsonStr = raw;
+      const d = raw.indexOf('{'), f = raw.lastIndexOf('}');
+      if (d !== -1 && f !== -1) jsonStr = raw.slice(d, f + 1);
+
+      return JSON.parse(jsonStr);
     }
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error?.message || 'erreur serveur');
-    }
-
-    const raw = (data.content?.map(b => b.text || '').join('') || '').trim();
-    if (!raw) throw new Error('Réponse vide du modèle.');
-
-    // Isole le JSON même si le modèle ajoute du texte autour
-    let jsonStr = raw;
-    const d = raw.indexOf('{'), f = raw.lastIndexOf('}');
-    if (d !== -1 && f !== -1) jsonStr = raw.slice(d, f + 1);
 
     let parsed;
-    try { parsed = JSON.parse(jsonStr); }
-    catch (e) { throw new Error('Le modèle a mal formaté sa réponse. Réessaie.'); }
+    try {
+      parsed = await appelAudit(false);
+    } catch (e) {
+      // L'abonnement expiré n'est pas une erreur technique récupérable par un
+      // second essai : on la laisse remonter directement.
+      if (/abonnement a expiré/.test(e.message || '')) throw e;
+      try {
+        parsed = await appelAudit(true);
+      } catch (e2) {
+        throw new Error('Le modèle a mal formaté sa réponse. Réessaie.');
+      }
+    }
 
     // ── Contrôle de couverture ──
     // Les 5 données sont exigées. Un audit partiel présenté comme complet

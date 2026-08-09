@@ -258,7 +258,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces, mode } = req.body || {};
+    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces, mode, no_web_search } = req.body || {};
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: { message: 'Aucune image reçue' } });
@@ -344,7 +344,7 @@ export default async function handler(req, res) {
         max_tokens: max_tokens || 8000,
         system: systemDateActuelle(),
         messages: [{ role: 'user', content: content }]
-      }, NICHES_ACTUALITE.includes(niche) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }] } : {}))
+      }, (NICHES_ACTUALITE.includes(niche) && !no_web_search) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }] } : {}))
     });
 
     const data = await reponse.json();
