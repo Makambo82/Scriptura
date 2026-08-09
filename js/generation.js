@@ -107,6 +107,37 @@ async function generateIdeas() {
   // Recherche web : uniquement pour les niches d'actualité/géopolitique (voir js/api.js).
   const rechercheWebIdees = nicheNecessiteRecherche(niche);
 
+  // Les choix du créateur (ton, plateforme, objectif) ne sont pas là pour
+  // décorer le prompt — chacun doit avoir un effet réel et vérifiable sur
+  // les idées produites. Avant ce correctif, le ton et la plateforme étaient
+  // mélangés dans une seule phrase cassée par un ternaire (résultat
+  // grammaticalement incorrect dès qu'un ton était choisi), et l'objectif
+  // n'avait tout simplement AUCUNE instruction propre.
+  const ideaToneInstruction = ideaTone
+    ? `RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${ideaTone}". Chaque angle et chaque hook proposés doivent rester dans CE ton exact, sans dérive vers un autre registre — c'est une consigne explicite, pas une suggestion.`
+    : `Aucun ton précisé : adapte le ton au style le plus pertinent pour la niche et le sujet de chaque idée.`;
+
+  const codesPlateformeIdees = {
+    'TikTok': 'hooks courts et percutants dès la première seconde, rythme rapide, tutoiement direct.',
+    'Instagram Reels': 'hooks un peu plus soignés et esthétiques, peuvent installer une micro-narration, ton communauté/lifestyle.',
+    'YouTube Shorts': 'hooks proches d\'un titre de recherche (curiosité ou promesse claire dès les premiers mots), pensés pour capter au scroll ET à la recherche.',
+    'Facebook': 'hooks au ton plus familier et générationnel, qui invitent explicitement au partage et à la discussion en commentaire.',
+    'LinkedIn': 'hooks professionnels, orientés retour d\'expérience ou enseignement concret, jamais putaclic — la crédibilité prime sur le sensationnalisme.'
+  };
+  const ideaPlatformInstruction = ideaPlatform
+    ? `PLATEFORME "${ideaPlatform}" — RESPECTE SES CODES : ${codesPlateformeIdees[ideaPlatform] || 'adapte le format des hooks aux usages de cette plateforme précise.'}`
+    : `Aucune plateforme précisée : reste généraliste, sans t'ancrer dans les codes d'une seule.`;
+
+  const codesObjectifIdees = {
+    'faire des vues': 'privilégie des angles à très fort potentiel de curiosité et de partage immédiat — le hook doit créer un choc ou un besoin urgent de voir la suite, la portée prime sur tout le reste.',
+    'gagner des abonnés': 'privilégie des angles qui donnent envie de suivre le compte pour la suite (partie 2 implicite, format récurrent, promesse d\'autres révélations du même genre) — le créateur doit apparaître comme une référence qu\'on veut revoir.',
+    'générer des ventes': 'privilégie des angles qui créent un désir ou un besoin concret pouvant mener naturellement vers une offre, un produit ou un service du créateur — sans jamais sonner comme une pub déguisée.',
+    'renforcer mon expertise': 'privilégie des angles qui démontrent une maîtrise réelle du sujet — analyses fines, retournements qui montrent que le créateur voit ce que les autres ne voient pas, jamais du contenu superficiel.'
+  };
+  const ideaGoalInstruction = ideaGoal
+    ? `OBJECTIF DU CRÉATEUR "${ideaGoal}" — RESPECTE-LE RIGOUREUSEMENT dans le choix des angles : ${codesObjectifIdees[ideaGoal] || 'adapte les angles à cet objectif précis.'}`
+    : `Aucun objectif précisé : équilibre les angles entre portée, fidélisation et démonstration d'expertise.`;
+
   const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis — jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
 ${rechercheWebIdees ? '\nSUJET D\'ACTUALITÉ : avant de proposer des idées, utilise la recherche web pour t\'appuyer sur des faits, personnes ou événements réellement récents et vérifiés — jamais une situation qui a pu changer depuis tes connaissances d\'entraînement.\n' : ''}
 
@@ -147,7 +178,9 @@ RÈGLES ABSOLUES :
 - INTERDIT les idées génériques ("Les 5 erreurs à éviter", "Comment réussir en...", "Mon top 10"). Ça, tout le monde le fait.
 - Chaque idée doit avoir un ANGLE UNIQUE, une tension, quelque chose de surprenant ou contre-intuitif
 - Les idées doivent exploiter des déclencheurs émotionnels (curiosité, choc, indignation, fascination, peur de rater)
-${ideaTone ? `- RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${ideaTone}". Chaque angle et chaque hook proposés doivent rester dans CE ton exact, sans dérive vers un autre registre — c'est une consigne explicite, pas une suggestion.` : `- Adapte au style de la niche`} et à la plateforme ${ideaPlatform || 'sociale'}
+- ${ideaToneInstruction}
+- ${ideaPlatformInstruction}
+- ${ideaGoalInstruction}
 - Chaque idée doit donner envie de cliquer IMMÉDIATEMENT
 - Varie les angles : certaines révélations, certaines contre-intuitions, certaines histoires, certains débats
 - Deux créateurs différents de la même niche ne doivent jamais recevoir la même liste : personnalise réellement à partir du profil ci-dessus, pas seulement de la niche.
