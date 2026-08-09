@@ -248,6 +248,8 @@ Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence.
 
 RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si plusieurs éléments ou lieux doivent coexister, NE FAIS PAS de split, de double cadre, de juxtaposition ni aucune séparation visuelle. Garde LA SCÈNE PRINCIPALE et intègre les éléments secondaires de façon organique dans la même composition (arrière-plan, reflet, détail dans le décor…). Une seule image cohérente, pas de collage.
 
+LANGUE — RÈGLE ABSOLUE : écris CHAQUE prompt visuel intégralement en ANGLAIS, même si tout le reste de cette conversation est en français. Les générateurs d'images (Midjourney, Firefly, Imagen, DALL·E…) sont entraînés très majoritairement sur des prompts anglais et suivent bien plus précisément des instructions en anglais — un prompt en français produit des résultats nettement moins fidèles. Aucun mot de français dans le prompt final.
+
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).`;
 
 // Prompt de la miniature (couverture) : appel séparé, indépendant du nombre

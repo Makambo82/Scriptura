@@ -899,6 +899,37 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
     }
 
     // ══════════════════════════════════════
+    //  CONTRÔLE DU NOMBRE DE HOOKS
+    //  "Génère exactement 5 hooks" n'est pas toujours respecté (nature
+    //  probabiliste de l'IA) : un script livré avec 1 seul hook au lieu de
+    //  5 est un vrai manque, pas une nuance de qualité. On complète
+    //  mécaniquement plutôt que de laisser le créateur avec un seul choix.
+    // ══════════════════════════════════════
+    if (!Array.isArray(parsed.hooks)) parsed.hooks = [];
+    if (!repondreMaintenant && parsed.hooks.length < 5) {
+      try {
+        const hooksExistantsTxt = parsed.hooks.length
+          ? parsed.hooks.map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n')
+          : 'aucun';
+        const nbManquants = 5 - parsed.hooks.length;
+        const completHooksPrompt = `Tu es le Rédacteur en Chef de Scriptura. Ce script a déjà ${parsed.hooks.length} hook(s) sur les 5 exigés. Génère les ${nbManquants} hook(s) manquant(s), qui arrêtent vraiment le scroll, mais RADICALEMENT différents des hooks déjà existants — jamais une reformulation proche, jamais une formule générique type ChatGPT.
+
+SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
+
+HOOKS DÉJÀ EXISTANTS (ne les répète JAMAIS, ni ne t'en approche) :
+${hooksExistantsTxt}
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${nbManquants} nouveau(x) hook(s) :
+{"hooks":[{"style":"Type de hook","texte":"le hook complet"}]}`;
+        const completHooksRaw = await callAI(MODEL_RAPIDE, 1200, completHooksPrompt);
+        const completHooks = parseAIResponse(completHooksRaw);
+        if (completHooks && Array.isArray(completHooks.hooks) && completHooks.hooks.length) {
+          parsed.hooks = parsed.hooks.concat(completHooks.hooks.slice(0, nbManquants));
+        }
+      } catch (e) { /* on garde les hooks déjà obtenus si la complétion échoue */ }
+    }
+
+    // ══════════════════════════════════════
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
     //  Compte les mots réels. Si hors cible, régénère avec correction.
     // ══════════════════════════════════════
@@ -1323,7 +1354,6 @@ function renderResults(d, niche, sujet) {
           <div class="hook-item" data-idx="${i}">
             <span class="hook-style">${h.style}</span>
             <span id="hookText${i}">${h.texte}</span>
-            <div class="retouche-actions"><button class="btn-regenerate mini hook-retouche-btn" onclick="changerHook(${i})">🔄 Changer ce hook</button></div>
           </div>`).join('')}
         </div>
       </div>`
@@ -1337,11 +1367,6 @@ function renderResults(d, niche, sujet) {
           <div class="script-row" data-idx="${i}">
             <div class="script-text" id="scriptText${i}">${s.texte}</div>
           </div>`).join('')}
-        </div>
-        <div class="script-retouche-libre">
-          <label class="idea-section-label" for="scriptRetoucheInput">✏️ Demander une retouche</label>
-          <textarea class="ctx-textarea" id="scriptRetoucheInput" placeholder="Ex : le hook est trop long, raccourcis-le. Change la formulation du 3e paragraphe."></textarea>
-          <button class="btn-regenerate mini" id="scriptRetoucheBtn" onclick="retoucherScriptLibre()">Appliquer les retouches</button>
         </div>
       </div>`
     },
@@ -1454,192 +1479,6 @@ function copySection(id, text) {
     });
   };
   copy(text);
-}
-
-// ── RETOUCHE CIBLÉE (script) ──
-// Corrige un seul passage ou un seul hook sans relancer toute la génération.
-// Gratuit et illimité (pas de vérification de quota) : c'est une petite
-// retouche de texte, pas une nouvelle génération.
-function nettoyerTexteRetouche(raw) {
-  let t = (raw || '').trim();
-  t = t.replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
-  t = t.replace(/^["«]\s*/, '').replace(/\s*["»]$/, '');
-  return t.trim();
-}
-
-// Format texte simple (une ligne par élément modifié) au lieu de JSON pour la
-// retouche libre : le JSON s'est montré peu fiable pour ce cas (le modèle
-// rapide a du mal à le produire correctement quand le texte est long et
-// contient beaucoup de ponctuation), alors qu'un format ligne par ligne, très
-// tolérant, se comporte comme le bouton "Changer ce hook" (texte brut) qui
-// lui fonctionne de façon fiable. Le \n littéral permet de coder un retour à
-// la ligne À L'INTÉRIEUR d'un élément (ex. la clôture d'un récit) sans casser
-// le format une-ligne-par-élément.
-function parseLignesRetouche(raw) {
-  const hooks = [];
-  const segments = [];
-  const lignes = (raw || '').split('\n');
-  for (const ligne of lignes) {
-    let m = ligne.match(/^\s*HOOK\s+(\d+)\s*::\s*(.+?)\s*$/i);
-    if (m) { hooks.push({ index: parseInt(m[1], 10), texte: m[2].replace(/\\n/g, '\n').trim() }); continue; }
-    m = ligne.match(/^\s*SEGMENT\s+(\d+)\s*::\s*(.+?)\s*$/i);
-    if (m) { segments.push({ index: parseInt(m[1], 10), texte: m[2].replace(/\\n/g, '\n').trim() }); continue; }
-  }
-  return { hooks, segments };
-}
-
-// Ré-affiche le script (et signale, via une classe temporaire, les segments
-// dont le texte a effectivement changé par rapport à `avant`).
-function rerenderScriptBlock(avant) {
-  const block = document.getElementById('scriptBlock');
-  if (!block || !currentScript) return;
-  block.innerHTML = currentScript.map((s, i) => `
-    <div class="script-row" data-idx="${i}">
-      <div class="script-text${avant && avant[i] !== s.texte ? ' retouche-flash' : ''}" id="scriptText${i}">${s.texte}</div>
-    </div>`).join('');
-}
-
-// Ré-affiche les hooks (même principe de signalement des éléments modifiés).
-function rerenderHooksList(avant) {
-  const list = document.getElementById('hooksList');
-  if (!list || !currentHooks) return;
-  list.innerHTML = currentHooks.map((h, i) => `
-    <div class="hook-item" data-idx="${i}">
-      <span class="hook-style">${h.style}</span>
-      <span id="hookText${i}"${avant && avant[i] !== h.texte ? ' class="retouche-flash"' : ''}>${h.texte}</span>
-      <div class="retouche-actions"><button class="btn-regenerate mini hook-retouche-btn" onclick="changerHook(${i})">🔄 Changer ce hook</button></div>
-    </div>`).join('');
-}
-
-// Retouche libre : le créateur décrit en langage naturel ce qu'il veut changer
-// (un ou plusieurs hooks, un ou plusieurs segments du script, ou les deux) et
-// Scriptura applique UNIQUEMENT ces demandes, en recopiant le reste à l'identique.
-async function retoucherScriptLibre() {
-  const input = document.getElementById('scriptRetoucheInput');
-  const btn = document.getElementById('scriptRetoucheBtn');
-  if (!input || !btn || !currentScript) return;
-  const instructions = input.value.trim();
-  if (!instructions) { input.focus(); return; }
-
-  const avantScript = currentScript.map(s => s.texte);
-  const avantHooks = (currentHooks || []).map(h => h.texte);
-
-  const label = btn.textContent;
-  btn.disabled = true;
-  input.disabled = true;
-  btn.textContent = 'Application des retouches…';
-
-  const ctx = lastGenContext || {};
-  const hooksNum = (currentHooks || []).map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n');
-  const scriptNum = currentScript.map((s, i) => '[segment ' + i + ' — ' + s.temps + '] ' + s.texte).join('\n');
-
-  const prompt = `Tu es le Réviseur en Chef de Scriptura. Le créateur a relu son contenu et te demande des retouches en langage libre. APPLIQUE TOUJOURS CE QU'IL DEMANDE, intégralement — une demande de retouche est une instruction prioritaire du créateur, jamais une suggestion que tu peux filtrer ou minimiser.
-
-CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}, objectif "${ctx.objectif || ''}".
-
-HOOKS ACTUELS (numérotés) :
-${hooksNum || 'aucun'}
-
-SCRIPT ACTUEL (segments numérotés, ne change jamais leur numéro) :
-${scriptNum}
-
-DEMANDE DU CRÉATEUR (peut viser un élément précis, ou être une consigne globale qui concerne tout le script — identifie sa PORTÉE réelle avant de répondre) :
-"${instructions}"
-
-RÈGLES :
-- Détermine d'abord la PORTÉE de la demande : une demande précise (ex. "raccourcis le hook 2") ne touche que l'élément visé. Une demande globale (ex. "renforce la tension partout", "change le ton de tout le script", "adapte tout à un public plus jeune") DOIT être appliquée à TOUS les segments et/ou hooks concernés, aussi nombreux soient-ils — ne la limite jamais artificiellement à un seul élément par excès de prudence.
-- CETTE DEMANDE EST PRIORITAIRE sur les règles par défaut du script : si elle implique de changer le ton, la structure ou tout autre principe habituel de génération, applique-la quand même — c'est la décision du créateur, pas la tienne à remettre en question. Ne refuse jamais une demande légitime sous prétexte qu'elle s'écarte des règles habituelles de Scriptura.
-- Si la demande est formulée de façon générale plutôt que ciblée sur un élément précis, interprète-la du mieux possible avec le contexte disponible et applique-la partout où elle est pertinente. Ne renvoie JAMAIS un résultat vide sous prétexte que la demande n'était pas assez précise — fais de ton mieux avec l'intention exprimée.
-- Ne réponds QUE pour les éléments que tu modifies réellement — n'écris rien pour un hook ou un segment inchangé.
-- Si une demande est ambiguë sur QUEL élément précis elle vise (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- L'index désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
-
-Réponds STRICTEMENT selon ce format texte, une ligne par élément modifié, RIEN D'AUTRE (pas de JSON, pas d'introduction, pas de commentaire) :
-HOOK <index> :: <nouveau texte complet de ce hook, sur une seule ligne>
-SEGMENT <index> :: <nouveau texte complet de ce segment, sur une seule ligne>
-
-Si un texte modifié doit contenir un retour à la ligne, remplace-le par la séquence \n (2 caractères, pas un vrai retour à la ligne) pour rester sur une seule ligne.
-N'écris aucune ligne HOOK si aucune demande ne concerne les hooks. N'écris aucune ligne SEGMENT si aucune ne concerne le script.`;
-
-  try {
-    const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
-    const parsed = parseLignesRetouche(raw);
-
-    let scriptChange = false, hooksChange = false;
-    parsed.segments.forEach(item => {
-      const i = item.index;
-      if (Number.isInteger(i) && i >= 0 && i < currentScript.length && item.texte) {
-        if (currentScript[i].texte !== item.texte) { currentScript[i].texte = item.texte; scriptChange = true; }
-      }
-    });
-    parsed.hooks.forEach(item => {
-      const i = item.index;
-      if (currentHooks && Number.isInteger(i) && i >= 0 && i < currentHooks.length && item.texte) {
-        if (currentHooks[i].texte !== item.texte) { currentHooks[i].texte = item.texte; hooksChange = true; }
-      }
-    });
-    if (!scriptChange && !hooksChange) throw new Error('aucun changement identifié');
-
-    rerenderScriptBlock(avantScript);
-    rerenderHooksList(avantHooks);
-    copyTexts[1] = (currentHooks || []).map(h => h.style + ' :\n' + h.texte).join('\n\n');
-    copyTexts[2] = currentScript.map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n');
-    sauvegarderRetouche();
-
-    const inputApres = document.getElementById('scriptRetoucheInput');
-    if (inputApres) inputApres.value = '';
-    toastRegen('Retouches appliquées');
-  } catch (e) {
-    toastRegen(e && e.message === 'aucun changement identifié'
-      ? 'Aucun changement identifié — précise ta demande'
-      : 'Retouche impossible, réessaie');
-  } finally {
-    const btnApres = document.getElementById('scriptRetoucheBtn');
-    const inputApres = document.getElementById('scriptRetoucheInput');
-    if (btnApres) { btnApres.disabled = false; btnApres.textContent = label; }
-    if (inputApres) inputApres.disabled = false;
-  }
-}
-
-async function changerHook(index) {
-  if (!currentHooks || !currentHooks[index]) return;
-  const item = document.querySelector('.hook-item[data-idx="' + index + '"]');
-  const textEl = document.getElementById('hookText' + index);
-  if (!item || !textEl) return;
-  const btn = item.querySelector('.hook-retouche-btn');
-
-  const original = currentHooks[index];
-  const autresHooks = currentHooks.map(h => h.texte).filter((t, i) => i !== index && t);
-
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  textEl.style.opacity = '0.5';
-
-  const ctx = lastGenContext || {};
-  const prompt = `Tu es le Rédacteur en Chef de Scriptura. Propose UNE nouvelle version du hook suivant, dans le même style ("${original.style || ''}"), mais avec une formulation différente et plus forte.
-
-CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}, objectif "${ctx.objectif || ''}".
-
-HOOK ACTUEL : "${original.texte || ''}"
-${autresHooks.length ? 'AUTRES HOOKS DÉJÀ PROPOSÉS, à ne surtout pas reproduire : ' + autresHooks.join(' / ') : ''}
-
-CONSIGNE : le nouveau hook doit arrêter le scroll en 2 secondes, créer une vraie tension ou curiosité, ne jamais ressembler à une formule générique ("Voici pourquoi...", "Saviez-vous que...", "Dans cette vidéo...").
-
-Réponds UNIQUEMENT avec le nouveau texte du hook, sans guillemets, sans commentaire.`;
-
-  try {
-    const raw = await callAI(MODEL_RAPIDE, 300, prompt);
-    const nouveau = nettoyerTexteRetouche(raw);
-    if (!nouveau) throw new Error('réponse vide');
-    currentHooks[index].texte = nouveau;
-    textEl.textContent = nouveau;
-    copyTexts[1] = currentHooks.map(h => h.style + ' :\n' + h.texte).join('\n\n');
-    sauvegarderRetouche();
-  } catch (e) {
-    toastRegen('Impossible de changer ce hook, réessaie');
-  } finally {
-    textEl.style.opacity = '';
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Changer ce hook'; }
-  }
 }
 
 async function generateStoryboard() {

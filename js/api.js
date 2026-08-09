@@ -286,7 +286,11 @@ function assainirPromptVisuel(prompt, contexte) {
   let p = prompt.trim();
 
   // ── 1. Supprimer les étiquettes structurelles si l'IA les a écrites ────────
-  // Formes possibles : "Décor :", "1. Le Décor :", "DÉCOR :", etc.
+  // Formes possibles : "Décor :", "1. Le Décor :", "DÉCOR :", etc. Les
+  // prompts visuels sont désormais écrits en ANGLAIS (voir STRUCTURE_PROMPT_
+  // VISUEL, js/storyboard.js) : on couvre donc aussi leurs équivalents
+  // anglais ("Setting:", "Characters:"...), sinon ce filet de sécurité ne
+  // rattraperait plus jamais rien.
   const etiquettes = [
     /^\s*\d*\.?\s*LE\s+DÉ?COR\s*:\s*/gim,
     /^\s*\d*\.?\s*LA\s+MATI[EÈ]RE\s*:\s*/gim,
@@ -300,14 +304,24 @@ function assainirPromptVisuel(prompt, contexte) {
     /^\s*\d*\.?\s*DECOR\s*:\s*/gim,
     /^\s*\d*\.?\s*MATIERE\s*:\s*/gim,
     /^\s*\d*\.?\s*LUMIERE\s*:\s*/gim,
+    // Équivalents anglais
+    /^\s*\d*\.?\s*(THE\s+)?SETTING\s*:\s*/gim,
+    /^\s*\d*\.?\s*MATERIALS?\s*:\s*/gim,
+    /^\s*\d*\.?\s*(THE\s+)?CHARACTERS?\s*:\s*/gim,
+    /^\s*\d*\.?\s*SCENE\s+(LIFE|DETAILS)\s*:\s*/gim,
+    /^\s*\d*\.?\s*(AMBIANCE|AMBIENCE|ATMOSPHERE)\s*:\s*/gim,
+    /^\s*\d*\.?\s*LIGHTING\s*:\s*/gim,
   ];
   etiquettes.forEach(re => { p = p.replace(re, ''); });
   // Nettoyer les sauts de ligne multiples créés par la suppression des étiquettes
   p = p.replace(/\n{3,}/g, '\n\n').trim();
 
   // ── 2. Remplacer le langage vidéo par des équivalents image fixe ────────────
+  // Prompts désormais en anglais : la liste couvre les deux langues, au cas
+  // où l'IA dévie malgré la consigne (repli en français) ou suit bien la
+  // consigne (anglais, le cas normal désormais).
   const remplacementsVideo = [
-    // Mouvements de caméra
+    // Mouvements de caméra (FR)
     [/\b(la caméra|the camera)\s+(zoome?|s'attarde?|panoramique|recule?|avance?|suit|survole?|plonge?|monte?|descend)\b/gi, 'le regard du spectateur est attiré vers'],
     [/\bcoup de zoom\b/gi, 'gros plan sur'],
     [/\bpanoramique\s+(lent|rapide|vers)?\b/gi, 'vue panoramique de'],
@@ -317,16 +331,35 @@ function assainirPromptVisuel(prompt, contexte) {
     [/\bscène suivante\b/gi, 'scène'],
     [/\ben mouvement\b/gi, 'dans une posture dynamique'],
     [/\bau fil de la séquence\b/gi, 'dans la composition'],
-    // Durées et temporalité vidéo
+    // Durées et temporalité vidéo (FR)
     [/\bpendant \d+\s*(sec(onde)?s?|min(utes?)?)\b/gi, ''],
     [/\bdure \d+\s*(sec(onde)?s?|min(utes?)?)\b/gi, ''],
     [/\b\d+\s*secondes?\s*(de|d')\b/gi, ''],
     [/\bon voit ensuite\b/gi, 'on distingue aussi'],
     [/\bpuis (la caméra|on)\b/gi, 'dans l\'arrière-plan,'],
-    // Coupures et montage
+    // Coupures et montage (FR)
     [/\bcoupe (vers|sur|nette)\b/gi, 'contraste visuel avec'],
     [/\bplan (américain|rapproché|large|séquence|fixe)\b/gi, 'cadrage'],
     [/\béclairage (qui change|évolutif|progressif)\b/gi, 'éclairage'],
+    // Camera movement (EN)
+    [/\bthe camera\s+(zooms?( in| out)?|pans?|tilts?|tracks?|dollies?|pushes? in|pulls? back|glides?|sweeps?|rises?|descends?|follows?)\b/gi, 'the viewer\'s eye is drawn toward'],
+    [/\bzoom(ing)? (in|out)\b/gi, 'close-up on'],
+    [/\b(panning|tracking|dolly|traveling|travelling) shot\b/gi, 'immersive framing'],
+    [/\bfades? (to black|in|out)\b/gi, 'atmosphere'],
+    [/\btransitions? (to|into|between)\b/gi, 'composition merging with'],
+    [/\bnext scene\b/gi, 'scene'],
+    [/\bin motion\b/gi, 'in a dynamic posture'],
+    [/\bover the course of the (sequence|scene)\b/gi, 'in the composition'],
+    // Duration and video timing (EN)
+    [/\bfor \d+\s*(seconds?|minutes?)\b/gi, ''],
+    [/\blasts? \d+\s*(seconds?|minutes?)\b/gi, ''],
+    [/\b\d+\s*seconds? (of|long)\b/gi, ''],
+    [/\bwe then see\b/gi, 'also visible is'],
+    [/\bthen the camera\b/gi, 'in the background,'],
+    // Cuts and editing (EN)
+    [/\bcuts? (to|away|sharply)\b/gi, 'visual contrast with'],
+    [/\b(medium|close-up|wide|establishing|master) shot\b/gi, 'framing'],
+    [/\b(changing|evolving|progressive) lighting\b/gi, 'lighting'],
   ];
   remplacementsVideo.forEach(([re, remplacement]) => {
     p = p.replace(re, remplacement);

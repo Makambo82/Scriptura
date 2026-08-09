@@ -435,6 +435,37 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // ══════════════════════════════════════
+    //  CONTRÔLE DU NOMBRE DE HOOKS
+    //  "Génère exactement 5 hooks" n'est pas toujours respecté (nature
+    //  probabiliste de l'IA) : un récit livré avec 1 seul hook au lieu de 5
+    //  est un vrai manque, pas une nuance de qualité. On complète
+    //  mécaniquement plutôt que de laisser le créateur avec un seul choix.
+    // ══════════════════════════════════════
+    if (!Array.isArray(parsed.hooks)) parsed.hooks = [];
+    if (!repondreMaintenant && parsed.hooks.length < 5) {
+      try {
+        const hooksExistantsTxt = parsed.hooks.length
+          ? parsed.hooks.map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n')
+          : 'aucun';
+        const nbManquants = 5 - parsed.hooks.length;
+        const completHooksPrompt = `Tu es le meilleur storyteller narratif francophone de Scriptura. Ce récit a déjà ${parsed.hooks.length} hook(s) sur les 5 exigés. Génère les ${nbManquants} hook(s) manquant(s), dans le même esprit (paradoxal, choquant, dérangeant, fataliste ou intrigant, qui stoppe le scroll), mais RADICALEMENT différents des hooks déjà existants — jamais une reformulation proche.
+
+SUJET : ${sujetPourPrompt}
+
+HOOKS DÉJÀ EXISTANTS (ne les répète JAMAIS, ni ne t'en approche) :
+${hooksExistantsTxt}
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${nbManquants} nouveau(x) hook(s) :
+{"hooks":[{"style":"Type de hook","texte":"le hook complet"}]}`;
+        const completHooksRaw = await callAI(MODEL_RAPIDE, 1200, completHooksPrompt);
+        const completHooks = parseAIResponse(completHooksRaw);
+        if (completHooks && Array.isArray(completHooks.hooks) && completHooks.hooks.length) {
+          parsed.hooks = parsed.hooks.concat(completHooks.hooks.slice(0, nbManquants));
+        }
+      } catch (e) { /* on garde les hooks déjà obtenus si la complétion échoue */ }
+    }
+
+    // ══════════════════════════════════════
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE (comme le mode Script)
     //  La consigne de durée dans le prompt ne suffit pas : on compte les
     //  mots réels du récit livré et on corrige si hors cible, peu importe
@@ -583,7 +614,6 @@ function renderStory(d) {
           <div class="hook-item" data-idx="${i}">
             <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
             <div class="hook-text" id="storyHookText${i}">${h.texte || ''}</div>
-            <div class="retouche-actions"><button class="btn-regenerate mini story-hook-retouche-btn" onclick="changerHookStory(${i})">🔄 Changer ce hook</button></div>
           </div>`).join('')}</div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, texteHooksStory())">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, texteHooksStory())">${ICON_SHARE}</button></div>
       </div>`
@@ -599,11 +629,6 @@ function renderStory(d) {
           <div class="story-segment" data-idx="${i}">
             <div class="story-segment-text" id="storySegText${i}">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
           </div>`).join('')}</div>
-        <div class="script-retouche-libre">
-          <label class="idea-section-label" for="storyRetoucheInput">✏️ Demander une retouche</label>
-          <textarea class="ctx-textarea" id="storyRetoucheInput" placeholder="Ex : le hook est trop long, raccourcis-le. Change la formulation du passage sur la tension."></textarea>
-          <button class="btn-regenerate mini" id="storyRetoucheBtn" onclick="retoucherRecitLibre()">Appliquer les retouches</button>
-        </div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyStory(this)">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareStory(this)">${ICON_SHARE}</button></div>
       </div>`
   });
@@ -686,169 +711,9 @@ function renderStory(d) {
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ── RETOUCHE CIBLÉE (storytelling) ──
-// Même principe que le mode script (js/generation.js) : un bouton par hook
-// pour le régénérer, et un champ de texte libre pour retoucher le récit sans
-// tout relancer. Gratuit et illimité, sauvegardé dans l'historique.
-
 // Texte des hooks, calculé en direct (jamais figé au moment du rendu) pour
-// que copier/partager reflète toujours la dernière version après retouche.
+// que copier/partager reflète toujours la dernière version.
 function texteHooksStory() {
   return ((currentStory && currentStory.hooks) || []).map(h => h.texte || '').join('\n\n');
-}
-
-async function changerHookStory(index) {
-  if (!currentStory || !currentStory.hooks || !currentStory.hooks[index]) return;
-  const item = document.querySelector('#storyHooksList .hook-item[data-idx="' + index + '"]');
-  const textEl = document.getElementById('storyHookText' + index);
-  if (!item || !textEl) return;
-  const btn = item.querySelector('.story-hook-retouche-btn');
-
-  const original = currentStory.hooks[index];
-  const autresHooks = currentStory.hooks.map(h => h.texte).filter((t, i) => i !== index && t);
-
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  textEl.style.opacity = '0.5';
-
-  const ctx = lastStoryContext || {};
-  const prompt = `Tu es le meilleur storyteller narratif francophone de Scriptura. Propose UNE nouvelle version du hook suivant, dans le même style ("${original.style || ''}"), mais avec une formulation différente et plus forte — paradoxale, choquante, dérangeante, fataliste ou intrigante, comme "Il n'a pas fait un braquage. Il a juste pris une décision."
-
-CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}.
-
-HOOK ACTUEL : "${original.texte || ''}"
-${autresHooks.length ? 'AUTRES HOOKS DÉJÀ PROPOSÉS, à ne surtout pas reproduire : ' + autresHooks.join(' / ') : ''}
-
-Réponds UNIQUEMENT avec le nouveau texte du hook, sans guillemets, sans commentaire.`;
-
-  try {
-    const raw = await callAI(MODEL_RAPIDE, 300, prompt);
-    const nouveau = nettoyerTexteRetouche(raw);
-    if (!nouveau) throw new Error('réponse vide');
-    currentStory.hooks[index].texte = nouveau;
-    textEl.textContent = nouveau;
-    sauvegarderRetoucheStory();
-  } catch (e) {
-    toastRegen('Impossible de changer ce hook, réessaie');
-  } finally {
-    textEl.style.opacity = '';
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Changer ce hook'; }
-  }
-}
-
-function rerenderStoryHooksList(avant) {
-  const list = document.getElementById('storyHooksList');
-  if (!list || !currentStory || !currentStory.hooks) return;
-  list.innerHTML = currentStory.hooks.map((h, i) => `
-    <div class="hook-item" data-idx="${i}">
-      <div class="hook-style">${h.style || ('Hook ' + (i + 1))}</div>
-      <div class="hook-text${avant && avant[i] !== h.texte ? ' retouche-flash' : ''}" id="storyHookText${i}">${h.texte || ''}</div>
-      <div class="retouche-actions"><button class="btn-regenerate mini story-hook-retouche-btn" onclick="changerHookStory(${i})">🔄 Changer ce hook</button></div>
-    </div>`).join('');
-}
-
-function rerenderRecitBlock(avant) {
-  const block = document.getElementById('storyRecitBlock');
-  if (!block || !currentStory || !currentStory.recit) return;
-  block.innerHTML = currentStory.recit.map((s, i) => `
-    <div class="story-segment" data-idx="${i}">
-      <div class="story-segment-text${avant && avant[i] !== s.texte ? ' retouche-flash' : ''}" id="storySegText${i}">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
-    </div>`).join('');
-}
-
-async function retoucherRecitLibre() {
-  const input = document.getElementById('storyRetoucheInput');
-  const btn = document.getElementById('storyRetoucheBtn');
-  if (!input || !btn || !currentStory || !currentStory.recit) return;
-  const instructions = input.value.trim();
-  if (!instructions) { input.focus(); return; }
-
-  const avantRecit = currentStory.recit.map(s => s.texte);
-  const avantHooks = ((currentStory.hooks) || []).map(h => h.texte);
-
-  const label = btn.textContent;
-  btn.disabled = true;
-  input.disabled = true;
-  btn.textContent = 'Application des retouches…';
-
-  const ctx = lastStoryContext || {};
-  const hooksNum = (currentStory.hooks || []).map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n');
-  const recitNum = currentStory.recit.map((s, i) => '[segment ' + i + ' — ' + (s.segment || '') + '] ' + s.texte).join('\n');
-
-  // Modèle de référence réellement suivi pour CE récit (voir modele_utilise,
-  // storyPrompt) : si la demande porte sur la fidélité au modèle, la
-  // retouche doit pouvoir s'appuyer sur son script exact, pas deviner.
-  const modeleUtiliseTitreRetouche = currentStory.modele_utilise || '';
-  const modeleRetouche = (typeof SCRIPTURA_MODELES !== 'undefined' ? SCRIPTURA_MODELES : [])
-    .find(m => m.titre === modeleUtiliseTitreRetouche);
-  const structureModeleRetouche = modeleRetouche ? modeleRetouche.script.trim() : '';
-
-  const prompt = `Tu es le meilleur storyteller narratif francophone de Scriptura. Le créateur a relu son récit et te demande des retouches en langage libre. APPLIQUE TOUJOURS CE QU'IL DEMANDE, intégralement — une demande de retouche est une instruction prioritaire du créateur, jamais une suggestion que tu peux filtrer ou minimiser.
-
-CONTEXTE : sujet "${ctx.sujet || ''}", plateforme ${ctx.plateforme || ''}.
-${structureModeleRetouche ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE SUIVI POUR CE RÉCIT (utile si la demande porte sur la fidélité au modèle) :\n"""\n${structureModeleRetouche}\n"""` : ''}
-
-HOOKS ACTUELS (numérotés) :
-${hooksNum || 'aucun'}
-
-RÉCIT ACTUEL (segments numérotés, ne change jamais leur numéro ni leur fonction narrative) :
-${recitNum}
-
-DEMANDE DU CRÉATEUR (peut viser un élément précis, ou être une consigne globale qui concerne tout le récit — identifie sa PORTÉE réelle avant de répondre) :
-"${instructions}"
-
-RÈGLES :
-- Détermine d'abord la PORTÉE de la demande : une demande précise (ex. "raccourcis le hook 2") ne touche que l'élément visé. Une demande globale (ex. "respecte rigoureusement la structure du modèle choisi", "renforce la tension partout", "change le ton de tout le récit") DOIT être appliquée à TOUS les segments et/ou hooks concernés, aussi nombreux soient-ils — ne la limite jamais artificiellement à un seul élément par excès de prudence.
-- CETTE DEMANDE EST PRIORITAIRE sur les règles par défaut du récit : si elle implique de changer la structure de clôture, le ton, ou tout autre principe habituel de génération, applique-la quand même — c'est la décision du créateur, pas la tienne à remettre en question. Ne refuse jamais une demande légitime sous prétexte qu'elle s'écarte des règles habituelles de Scriptura.
-- Si la demande est formulée de façon générale plutôt que ciblée sur un élément précis, interprète-la du mieux possible avec le contexte disponible (y compris le script du modèle de référence ci-dessus, si fourni) et applique-la partout où elle est pertinente. Ne renvoie JAMAIS un résultat vide sous prétexte que la demande n'était pas assez précise — fais de ton mieux avec l'intention exprimée.
-- Ne réponds QUE pour les éléments que tu modifies réellement — n'écris rien pour un hook ou un segment inchangé.
-- Si une demande est ambiguë sur QUEL élément précis elle vise (ex. "le hook" sans préciser lequel), applique-la à celui dont le contenu correspond le mieux.
-- L'index désigne le numéro (à partir de 0) du hook ou du segment tel qu'indiqué ci-dessus. Ne change jamais un index.
-
-Réponds STRICTEMENT selon ce format texte, une ligne par élément modifié, RIEN D'AUTRE (pas de JSON, pas d'introduction, pas de commentaire) :
-HOOK <index> :: <nouveau texte complet de ce hook, sur une seule ligne>
-SEGMENT <index> :: <nouveau texte complet de ce segment, sur une seule ligne>
-
-Le segment "Clôture" peut contenir plusieurs phrases sur des lignes séparées (par ex. triple question + signature, ou toute autre structure selon le modèle utilisé) : si tu le modifies, remplace chaque retour à la ligne par la séquence \n (2 caractères, pas un vrai retour à la ligne) pour rester sur une seule ligne de réponse.
-N'écris aucune ligne HOOK si aucune demande ne concerne les hooks. N'écris aucune ligne SEGMENT si aucune ne concerne le récit.`;
-
-  try {
-    const raw = await callAI(MODEL_RAPIDE, 4000, prompt);
-    const parsed = parseLignesRetouche(raw);
-
-    let recitChange = false, hooksChange = false;
-    parsed.segments.forEach(item => {
-      const i = item.index;
-      if (Number.isInteger(i) && i >= 0 && i < currentStory.recit.length && item.texte) {
-        if (currentStory.recit[i].texte !== item.texte) { currentStory.recit[i].texte = item.texte; recitChange = true; }
-      }
-    });
-    parsed.hooks.forEach(item => {
-      const i = item.index;
-      if (currentStory.hooks && Number.isInteger(i) && i >= 0 && i < currentStory.hooks.length && item.texte) {
-        if (currentStory.hooks[i].texte !== item.texte) { currentStory.hooks[i].texte = item.texte; hooksChange = true; }
-      }
-    });
-    if (!recitChange && !hooksChange) throw new Error('aucun changement identifié');
-
-    rerenderRecitBlock(avantRecit);
-    rerenderStoryHooksList(avantHooks);
-    currentStoryText = currentStory.recit.map(s => s.texte).join('\n\n');
-    const out = document.getElementById('storyOutput');
-    if (out) out.dataset.fulltext = currentStoryText;
-    sauvegarderRetoucheStory();
-
-    const inputApres = document.getElementById('storyRetoucheInput');
-    if (inputApres) inputApres.value = '';
-    toastRegen('Retouches appliquées');
-  } catch (e) {
-    toastRegen(e && e.message === 'aucun changement identifié'
-      ? 'Aucun changement identifié — précise ta demande'
-      : 'Retouche impossible, réessaie');
-  } finally {
-    const btnApres = document.getElementById('storyRetoucheBtn');
-    const inputApres = document.getElementById('storyRetoucheInput');
-    if (btnApres) { btnApres.disabled = false; btnApres.textContent = label; }
-    if (inputApres) inputApres.disabled = false;
-  }
 }
 
