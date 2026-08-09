@@ -32,6 +32,11 @@ function resetDiagnosticSommaireForm() {
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   const results = document.getElementById('diagSommaireResults');
   if (results) { results.style.display = 'none'; results.innerHTML = ''; }
+  // Toujours réafficher le champ de saisie ici : appelée à l'entrée dans le
+  // module (chooseMode) comme depuis "Analyser un autre compte", ces deux cas
+  // doivent repartir d'un écran de choix visible même si un résultat précédent
+  // l'avait masqué (voir toggleDiagSommaireEntree).
+  if (typeof toggleDiagSommaireEntree === 'function') toggleDiagSommaireEntree(true);
 }
 
 // « Envoie tes captures » depuis l'écran de choix : bascule vers le
@@ -50,6 +55,14 @@ async function ouvrirCapturesDepuisChoix() {
   const af = document.getElementById('auditFlow');
   if (af) af.style.display = 'block';
   if (typeof initAuditWizard === 'function') initAuditWizard(false);
+}
+
+// Depuis le résultat affiché, ramène à l'écran de saisie pour analyser un
+// nouveau compte : efface le résultat précédent et réaffiche le champ @.
+function analyserAutreCompteDiagSommaire() {
+  resetDiagnosticSommaireForm();
+  const input = document.getElementById('diagSommaireInput');
+  if (input) input.focus();
 }
 
 function diagSommaireEsc(t) {
@@ -209,13 +222,16 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
     errorBox.style.display = 'block';
+    // Ré-affiche le champ de saisie uniquement en cas d'échec, pour permettre
+    // de réessayer — en cas de succès, il reste masqué : le résultat prend
+    // sa place (voir analyserAutreCompteDiagSommaire pour le faire réapparaître).
+    toggleDiagSommaireEntree(true);
   } finally {
     btn.disabled = false;
     spinner.style.display = 'none';
     arrow.style.display = '';
     arreterAnimationChargementDs(dsProg);
     if (loadingEl) loadingEl.style.display = 'none';
-    toggleDiagSommaireEntree(true);
   }
 }
 
@@ -406,7 +422,8 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ${opportuniteHtml}
 
     ${subscribeNote ? `<div class="score-card">${subscribeNote}</div>` : ''}
-    ${ctaDetailleHtml}`;
+    ${ctaDetailleHtml}
+    <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire()">Analyser un autre compte</button>`;
 
   results.style.display = 'block';
   setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
