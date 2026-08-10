@@ -163,7 +163,7 @@ async function generateStoryboardSeul() {
     saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: miniature || null } });
     updateQuotaJour();
 
-    ajouterActionsFinStoryboardSeul(grid, board, miniature);
+    ajouterActionsFinStoryboardSeul(grid, board, miniature, plans);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
@@ -216,7 +216,7 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
     saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: miniature || null } });
     updateQuotaJour();
 
-    ajouterActionsFinStoryboardSeul(grid, board, miniature);
+    ajouterActionsFinStoryboardSeul(grid, board, miniature, plansUtilisateur);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
@@ -298,14 +298,17 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
 
 // Ajoute les boutons Régénérer/Copier/Partager en fin de grille, une fois le
 // storyboard complet — mêmes actions que afficherStoryboardSeulResultat.
-function ajouterActionsFinStoryboardSeul(grid, board, miniature) {
+function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
   const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + board.map((s, i) => `Plan ${s.segment || (i + 1)} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
   grid.insertAdjacentHTML('beforeend', `
     <div class="sb-actions-fin">
       <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardSeul')">↻ Régénérer</button>
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
+      ${montageBoutonHTML('montageBtnSeul')}
     </div>`);
+  const montageBtnSeul = document.getElementById('montageBtnSeul');
+  if (montageBtnSeul) montageBtnSeul.onclick = () => ouvrirMontage(plans || board);
   setTimeout(updateScrollBtn, 300);
 }
 

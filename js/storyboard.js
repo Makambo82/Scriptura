@@ -395,7 +395,9 @@ async function generateStoryStoryboard() {
         <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
+        ${montageBoutonHTML('montageBtnStory')}
       </div>`);
+    document.getElementById('montageBtnStory').onclick = () => ouvrirMontage(plans);
 
     // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
     // champs qu'avant (segment/duree/texte/visuel), pour rester compatible

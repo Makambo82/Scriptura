@@ -1307,6 +1307,7 @@
 <script src="js/storytelling.js"></script>
 <script src="js/storyboard.js"></script>
 <script src="js/storyboard-seul.js"></script>
+<script src="js/montage.js"></script>
 <script src="js/diagnostic-sommaire.js"></script>
 <script src="js/diagnostic-fusion.js"></script>
 <script src="js/generation.js"></script>
@@ -1474,6 +1475,43 @@
         <span>Gemini</span>
       </button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL MONTAGE VIDÉO (fondateur uniquement) -->
+<div class="genimg-overlay" id="montageModal">
+  <div class="genimg-modal montage-modal">
+    <button class="genimg-close" onclick="fermerMontage()">✕</button>
+    <div class="genimg-title">Générer la vidéo</div>
+    <div class="genimg-sub">Ajoute une image par plan (<span id="montageCompteAttendu">0</span> au total) et ta voix off. Scriptura assemble le montage — sans sous-titres pour l'instant.</div>
+
+    <div class="montage-section">
+      <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
+      <div class="audit-drop" onclick="document.getElementById('montageImagesInput').click()">
+        <input type="file" id="montageImagesInput" accept="image/*" multiple style="display:none" onchange="ajouterImagesMontage(this.files)"/>
+        <div class="audit-drop-icon">🖼️</div>
+        <div class="audit-drop-label">Ajouter les images</div>
+        <div class="audit-drop-sub">Dans l'ordre des plans</div>
+      </div>
+      <div class="audit-thumbs" id="montageImagesThumbs"></div>
+    </div>
+
+    <div class="montage-section">
+      <div class="montage-section-label">Voix off</div>
+      <div class="audit-drop" onclick="document.getElementById('montageAudioInput').click()">
+        <input type="file" id="montageAudioInput" accept="audio/*" style="display:none" onchange="ajouterAudioMontage(this.files)"/>
+        <div class="audit-drop-icon">🎙️</div>
+        <div class="audit-drop-label">Ajouter la voix off</div>
+        <div class="audit-drop-sub">Un seul fichier audio</div>
+      </div>
+      <div id="montageAudioZone"></div>
+    </div>
+
+    <div class="error-box" id="montageErreur" style="display:none"></div>
+    <div class="montage-statut" id="montageStatut" style="display:none">Envoi des fichiers…</div>
+    <div id="montageResultat"></div>
+
+    <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:16px">🎬 Lancer le montage</button>
   </div>
 </div>
 

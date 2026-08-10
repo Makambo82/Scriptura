@@ -1617,6 +1617,10 @@ body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
    js/app.js et js/auth.js). */
 .sidebar-item.nav-admin-btn{display:none}
 body.is-admin .sidebar-item.nav-admin-btn{display:flex}
+/* Bouton "Générer la vidéo" (montage) : réservé au fondateur, même
+   mécanisme que le Tableau de bord ci-dessus. */
+.montage-trigger-btn{display:none}
+body.is-admin .montage-trigger-btn{display:inline-flex}
 /* "Nous contacter" masqué uniquement pour le fondateur (remplacé par
    "Se déconnecter" en bas de la barre latérale). */
 body.is-admin .sidebar-item.nav-contact-btn{display:none}
@@ -2136,6 +2140,33 @@ body.is-unlocked .sidebar-logout{display:block}
   line-height:1;padding:0;
 }
 .audit-thumb-del:hover{background:rgba(200,60,60,0.9)}
+
+/* ── MODAL MONTAGE VIDÉO (fondateur uniquement) ── */
+.montage-modal{max-width:460px;text-align:left;max-height:88vh;overflow-y:auto}
+.montage-modal .genimg-title,.montage-modal .genimg-sub{text-align:center}
+.montage-section{margin-top:20px}
+.montage-section-label{
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--gold);margin-bottom:10px;
+}
+.montage-audio-chip{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 12px;
+  border-radius:999px;border:1px solid var(--border-soft);
+  background:rgba(201,168,76,0.07);font-size:0.86rem;color:var(--text-secondary);
+  margin-bottom:20px;
+}
+.montage-audio-del{
+  background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;
+  font-size:0.75rem;padding:0;line-height:1;
+}
+.montage-audio-del:hover{color:#e05555}
+.montage-statut{
+  margin-top:14px;padding:10px 12px;border-radius:8px;
+  background:rgba(201,168,76,0.07);border:1px solid var(--border-soft);
+  font-size:0.86rem;color:var(--muted);text-align:center;
+}
+.montage-video{width:100%;border-radius:10px;margin-top:16px;display:block;background:#000}
+#montageLancerBtn{width:100%}
 
 /* ── RÉSULTAT DE L'AUDIT (noir & or) ── */
 .audit-result{margin-top:28px;display:grid;gap:28px}

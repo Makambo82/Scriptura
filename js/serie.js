@@ -526,7 +526,10 @@ async function genererStoryboardEpisode(numEp, isRegen) {
         <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
+        ${montageBoutonHTML('montageBtnSerie' + numEp)}
       </div>`);
+    const montageBtnSerie = document.getElementById('montageBtnSerie' + numEp);
+    if (montageBtnSerie) montageBtnSerie.onclick = () => ouvrirMontage(plans);
 
     // Masquer le bouton (le storyboard affiché + son bouton "Régénérer" prennent le relais)
     if (btn) btn.style.display = 'none';
