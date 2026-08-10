@@ -471,6 +471,31 @@ async function aFaitDiagnosticSommaire() {
 // "niche" ne se pré-sélectionne que si le nom identifié par le diagnostic
 // correspond exactement à une option du menu (voir preRemplirSiVide,
 // js/profil.js) ; sinon on laisse la niche vide plutôt que de deviner.
+// Transforme niche + bio en UN sujet de contenu concret, dans le même
+// esprit que les exemples déjà affichés dans le champ ("les empires
+// africains", "la psychologie de l'argent"...). Les champs bruts du
+// diagnostic sommaire (niche.analyse, bio.actuelle) sont écrits pour un
+// AUDIT — analytiques, à la troisième personne — et ne ressemblent jamais
+// à un vrai sujet de vidéo si on les recopie tels quels ; ce petit appel
+// dédié (Haiku, quelques centaines de tokens) reformule spécifiquement
+// pour ce champ. Best-effort : une erreur laisse simplement le champ vide,
+// jamais un texte qui ne ressemble pas à un sujet.
+async function suggestionSujetDepuisSommaire(niche, bio) {
+  if (!niche && !bio) return '';
+  try {
+    const prompt = `Tu aides un créateur de contenu francophone à démarrer sur Scriptura. Voici ce qu'on sait de lui :
+${niche ? '- Niche : ' + niche : ''}
+${bio ? '- Bio TikTok actuelle : ' + bio : ''}
+
+Propose UN SEUL sujet de vidéo concret et précis qu'il pourrait explorer — dans le même esprit que ces exemples : "les empires africains", "la psychologie de l'argent", "les femmes qui ont marqué l'histoire". Un sujet court (5 à 10 mots) : jamais une analyse, jamais une phrase qui parle DE lui ou de sa bio — un vrai sujet de contenu, prêt à explorer tel quel.
+
+Réponds UNIQUEMENT avec ce sujet, sans guillemets, sans ponctuation finale, rien d'autre.`;
+    const raw = await callAI(MODEL_RAPIDE, 60, prompt);
+    const sujet = (raw || '').trim().replace(/^["«»]+|["«»]+$/g, '').replace(/\.$/, '');
+    return (sujet.length > 2 && sujet.length < 150) ? sujet : '';
+  } catch (e) { return ''; }
+}
+
 async function demarrerIdeesDepuisSommaire() {
   chooseMode('ideas');
   if (typeof _derniereGenerationDe !== 'function') return;
@@ -480,19 +505,20 @@ async function demarrerIdeesDepuisSommaire() {
     if (!d) return;
 
     const niche = d.niche || {};
-    if (niche.disponible !== false && niche.nom && typeof preRemplirSiVide === 'function') {
-      preRemplirSiVide('ideaNiche', niche.nom);
+    const nicheNom = niche.disponible !== false ? (niche.nom || '') : '';
+    if (nicheNom && typeof preRemplirSiVide === 'function') {
+      preRemplirSiVide('ideaNiche', nicheNom);
     }
 
     const themeEl = document.getElementById('ideaTheme');
     if (themeEl && !themeEl.value.trim()) {
-      // Priorité à un point d'analyse concret (plus spécifique qu'un simple
-      // nom de niche), sinon la niche elle-même, sinon la bio telle quelle.
-      const suggestion = (Array.isArray(niche.analyse) && niche.analyse[0])
-        || niche.nom
-        || (d.bio && d.bio.actuelle)
-        || '';
-      if (suggestion) themeEl.value = suggestion;
+      const placeholderAvant = themeEl.placeholder;
+      themeEl.placeholder = 'Je réfléchis à un sujet pour toi…';
+      const sujet = await suggestionSujetDepuisSommaire(nicheNom, (d.bio && d.bio.actuelle) || '');
+      // Revérifié après l'appel : l'utilisateur a pu commencer à taper
+      // pendant l'attente, jamais écraser ce qu'il a déjà saisi.
+      if (sujet && !themeEl.value.trim()) themeEl.value = sujet;
+      themeEl.placeholder = placeholderAvant;
     }
   } catch (e) { /* silencieux : best-effort, ne doit jamais bloquer l'ouverture du mode Idées */ }
 }
@@ -635,7 +661,13 @@ async function initAccueilPremiumInterne(zone) {
         <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce que je peux te proposer…</div>`;
       zone.style.display = 'block';
       dataAnon = await genererRecommandations(null, null);
-      if (dataAnon) ecrireRecoCache(dataAnon);
+      // Ne JAMAIS mettre en cache un résultat "onboarding" (pas encore assez
+      // d'infos) : contrairement à un échec technique, cet état change dès
+      // que le visiteur suit le conseil (fait une génération) — le mettre en
+      // cache pour la journée entière l'empêcherait de voir sa vraie
+      // recommandation juste après avoir fait exactement ce qu'on lui a
+      // demandé.
+      if (dataAnon && !dataAnon.onboarding) ecrireRecoCache(dataAnon);
     }
     if (dataAnon && !dataAnon.onboarding && Array.isArray(dataAnon.recommandations) && dataAnon.recommandations.length) {
       const enteteAnon = `<div class="results-heading">${salutationAccueil()}</div>
@@ -675,10 +707,14 @@ async function initAccueilPremiumInterne(zone) {
       </div>`;
     zone.style.display = 'block';
     data = await genererRecommandations(null, null);
-    // On ne met en cache que les réponses exploitables (recommandations
-    // réelles ou message d'onboarding) — jamais un échec technique (null),
-    // pour qu'un simple problème réseau ne bloque pas toute la journée.
-    if (data) ecrireRecoCache(data);
+    // On ne met en cache qu'une vraie recommandation exploitable — jamais un
+    // échec technique (null), pour qu'un simple problème réseau ne bloque
+    // pas toute la journée, ET jamais un résultat "onboarding" (pas encore
+    // assez d'infos) : cet état change dès que l'abonné suit le conseil
+    // (fait une génération), le mettre en cache l'empêcherait de voir sa
+    // vraie recommandation juste après avoir fait exactement ce qu'on lui a
+    // demandé.
+    if (data && !data.onboarding) ecrireRecoCache(data);
   }
 
   if (data && data.onboarding) {
@@ -778,7 +814,9 @@ async function afficherOpportuniteDiagSommaire() {
   let data = lireRecoCache();
   if (!data) {
     data = await genererRecommandations(null, null);
-    if (data) ecrireRecoCache(data);
+    // Même règle que initAccueilPremiumInterne : un résultat "onboarding"
+    // ne se met jamais en cache, cet état pouvant changer dans la journée.
+    if (data && !data.onboarding) ecrireRecoCache(data);
   }
   if (!data || data.onboarding || !Array.isArray(data.recommandations) || !data.recommandations.length) {
     zone.innerHTML = '';
