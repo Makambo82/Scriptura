@@ -45,7 +45,7 @@ function reinitialiserZoom() {
 // Identifie l'écran actuellement visible
 function currentScreen() {
   // Un résultat affiché est un "sous-écran" prioritaire
-  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
+  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow' };
   for (const rid in results) {
     const el = document.getElementById(rid);
     if (el && el.style.display !== 'none' && el.offsetParent !== null) {
@@ -95,11 +95,23 @@ function showScreen(screen) {
   // cache journalier, donc ceci n'appelle l'IA que si nécessaire.
   if (screen === 'homePage' && typeof initAccueilPremium === 'function') initAccueilPremium();
 
-  // Cas d'un sous-écran résultat
-  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow' };
+  // Cas d'un sous-écran résultat. Le formulaire de saisie (masqué à l'affichage
+  // du résultat, voir masquerFormulaireGeneration) doit être remasqué ici : le
+  // bouton "✎ Modifier" (afficherFormulaireGeneration / modifierCriteresScript)
+  // le réaffiche temporairement sans jamais empiler de nouvel écran — un
+  // "← Retour" depuis cet état doit donc retomber sur CE résultat, formulaire
+  // remasqué, pas sur un écran où les deux se chevauchent.
+  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow' };
+  const formCardDuResultat = { 'ideasResults': 'ideasFormCard', 'storyResults': 'storyFormCard', 'sbSeulResults': 'sbSeulFormCard' };
   if (resultParent[screen]) {
     document.getElementById(resultParent[screen]).style.display = 'block';
     document.getElementById(screen).style.display = 'block';
+    if (screen === 'results') {
+      const s4 = document.getElementById('step4');
+      if (s4) s4.classList.remove('active');
+    } else if (formCardDuResultat[screen] && typeof masquerFormulaireGeneration === 'function') {
+      masquerFormulaireGeneration(formCardDuResultat[screen]);
+    }
   } else if (screen === 'homePage') {
     document.getElementById('homePage').style.display = 'block';
   } else if (screen === 'heroFocus') {
@@ -110,10 +122,21 @@ function showScreen(screen) {
   } else {
     document.getElementById(screen).style.display = 'block';
     // Masquer les résultats de ce module (on revient au formulaire)
-    const childRes = { 'flow':'results', 'ideasFlow':'ideasResults', 'storyFlow':'storyResults' };
+    const childRes = { 'flow':'results', 'ideasFlow':'ideasResults', 'storyFlow':'storyResults', 'storyboardSeulFlow':'sbSeulResults' };
     if (childRes[screen]) {
       const r = document.getElementById(childRes[screen]);
       if (r) r.style.display = 'none';
+    }
+    // Filet de sécurité : sur l'écran nu (sans résultat), le formulaire doit
+    // TOUJOURS être visible — sinon, si on y arrive juste après avoir quitté
+    // un résultat dont le formulaire était masqué, l'écran paraîtrait vide.
+    const formCardDuFlow = { 'storyFlow': 'storyFormCard', 'ideasFlow': 'ideasFormCard', 'storyboardSeulFlow': 'sbSeulFormCard' };
+    if (formCardDuFlow[screen]) {
+      const fc = document.getElementById(formCardDuFlow[screen]);
+      if (fc && fc.style.display === 'none') fc.style.display = '';
+    }
+    if (screen === 'flow' && !document.querySelector('#flow .step.active') && typeof showStep === 'function') {
+      showStep(4);
     }
     // Rafraîchir la liste des générations en y revenant
     if (screen === 'historyFlow' && typeof renderHistory === 'function') renderHistory();

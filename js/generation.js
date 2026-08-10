@@ -404,6 +404,10 @@ function goBack(n) {
 // effacer les valeurs déjà saisies — contrairement à restart(), qui repart
 // de zéro. Voir renderResults(), qui masque l'étape 4 à l'affichage du résultat.
 function modifierCriteresScript() {
+  // Empile l'écran résultat AVANT de le masquer : un "← Retour" pendant la
+  // modification retombe ainsi directement sur ce résultat (formulaire
+  // remasqué, voir showScreen), jamais plus loin en arrière.
+  pushNav();
   document.getElementById('results').style.display = 'none';
   showStep(4);
 }

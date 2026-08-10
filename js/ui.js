@@ -10,6 +10,10 @@ function masquerFormulaireGeneration(formId) {
   if (form) form.style.display = 'none';
 }
 function afficherFormulaireGeneration(formId, resultsId) {
+  // Empile l'écran résultat AVANT de le masquer : un "← Retour" pendant la
+  // modification retombe ainsi directement sur ce résultat (formulaire
+  // remasqué, voir showScreen dans js/navigation.js), jamais plus loin en arrière.
+  if (typeof pushNav === 'function') pushNav();
   const form = document.getElementById(formId);
   const results = document.getElementById(resultsId);
   if (results) results.style.display = 'none';
