@@ -294,7 +294,7 @@ nav{
 }
 /* Titre + bouton Régénérer sur une seule et même ligne, mention en dessous. */
 .results-top-row{
-  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
 }
 .results-top-row .btn-regenerate{flex-shrink:0}
 .results-top .results-meta{margin-top:8px}
