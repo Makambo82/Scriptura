@@ -353,17 +353,25 @@ async function ouvrirSerie(id) {
         <button class="icon-btn" title="Copier l'épisode" onclick="copyText(this, '${scriptCopie}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${scriptCopie}')">${ICON_SHARE}</button>
       </div>`;
-      // Storyboard visuel : uniquement pour le faceless
+      // Storyboard visuel : uniquement pour le faceless. Le bouton, la barre
+      // de progression et la zone de résultat sont TOUJOURS présents (jamais
+      // deux structures DOM différentes selon qu'un storyboard existe déjà) :
+      // genererStoryboardEpisode() les retrouve à l'identique en génération
+      // comme en régénération, et peut donc reconstruire zone.innerHTML de
+      // façon progressive dans les deux cas, sans jamais dépendre d'un
+      // rechargement complet de l'écran pour afficher le résultat.
       if (estFaceless) {
-        if (ep.storyboard) {
-          html += `<div class="serie-storyboard">${renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num)}</div>`;
-        } else {
-          html += `<div id="serieSbZone${ep.num}"></div>
-          <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})">
+        html += `<div class="serie-storyboard">
+          <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})" style="${ep.storyboard ? 'display:none' : ''}">
             <span class="sb-gen-spinner" id="serieSbSpinner${ep.num}"></span>
             <span id="serieSbBtnText${ep.num}">🎬 Générer le storyboard de cet épisode</span>
-          </button>`;
-        }
+          </button>
+          <div class="sb-progress-bar" id="serieSbProgBar${ep.num}" style="display:none">
+            <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="serieSbProgFill${ep.num}"></div></div>
+            <div class="sb-progress-bar-pct" id="serieSbProgPct${ep.num}">0%</div>
+          </div>
+          <div id="serieSbZone${ep.num}">${ep.storyboard ? renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num) : ''}</div>
+        </div>`;
       }
       html += `</div>`;
     });
@@ -402,25 +410,63 @@ async function genererStoryboardEpisode(numEp, isRegen) {
       toastRegen('Cette régénération compte dans ton quota');
     }
   }
+  // Bouton : même petit rond qui tourne + libellé que les autres modes storyboard
+  const btn = document.getElementById('serieSbBtn' + numEp);
+  const spinner = document.getElementById('serieSbSpinner' + numEp);
+  const btnText = document.getElementById('serieSbBtnText' + numEp);
+  const zone = document.getElementById('serieSbZone' + numEp);
+  const progBar = document.getElementById('serieSbProgBar' + numEp);
+  if (btn) btn.disabled = true;
+  if (spinner) spinner.style.display = 'block';
+  if (btnText) btnText.textContent = 'Scriptura crée le storyboard…';
+  if (progBar) progBar.style.display = 'flex';
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('serieSbProgFill' + numEp);
+    const pct = document.getElementById('serieSbProgPct' + numEp);
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  });
+  prog.start();
+
+  // Rendu progressif — mêmes gabarit et cadre (.out-card) que les modes
+  // Script/Récit/Storyboard seul (voir js/storyboard.js) : les plans
+  // apparaissent lot par lot au fur et à mesure, jamais tous d'un coup.
+  if (zone) zone.innerHTML = `<div class="out-card sb-appear open">
+    <div class="out-header" onclick="toggleCard(this.parentElement)">
+      <div class="out-title">Storyboard visuel</div>
+      <div class="out-toggle">+</div>
+    </div>
+    <div class="out-body">
+      <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div>
+      <div class="sb-statut" id="serieSbStatut${numEp}">Scriptura crée le storyboard…</div>
+      <div class="storyboard-list" id="serieSbGrid${numEp}"></div>
+    </div>
+  </div>`;
+  const grid = document.getElementById('serieSbGrid' + numEp);
+  const statut = document.getElementById('serieSbStatut' + numEp);
+
+  const carteMiniature = (m) => `
+    <div class="sb-segment sb-miniature">
+      <div class="sb-head"><span class="sb-time">★ Miniature</span><span class="sb-index">Couverture</span></div>
+      <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+      <div class="sb-visual">${serieEsc(m)}</div>
+      ${blocGenImage(storeCopyText(m))}
+    </div>`;
+  const cartePlan = (i, p) => `
+    <div class="sb-segment">
+      <div class="sb-head"><span class="sb-time">${serieEsc(p.duree || '')}</span><span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span></div>
+      <div class="sb-dit">"${serieEsc(p.text || '')}"</div>
+      <div class="sb-visual-label">🎬 Prompt visuel</div>
+      <div class="sb-visual">${serieEsc(p.visuel || '')}</div>
+      ${blocGenImage(storeCopyText(p.visuel || ''))}
+    </div>`;
+
   try {
     const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
     if (error) throw error;
     const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
     const ep = eps.find(e => e.num === numEp);
     if (!ep) return;
-
-    // Bouton : mêmes petit rond qui tourne + libellé que les autres modes storyboard
-    const btn = document.getElementById('serieSbBtn' + numEp);
-    const spinner = document.getElementById('serieSbSpinner' + numEp);
-    const btnText = document.getElementById('serieSbBtnText' + numEp);
-    if (btn) btn.disabled = true;
-    if (spinner) spinner.style.display = 'block';
-    if (btnText) btnText.textContent = 'Scriptura crée le storyboard…';
-
-    // Statut d'avancement (remplace l'ancienne barre de progression à temps
-    // estimé) : affiche la progression RÉELLE, lot par lot.
-    const zone = document.getElementById('serieSbZone' + numEp);
-    if (zone) zone.innerHTML = '<div class="sb-statut">Scriptura crée le storyboard…</div>';
 
     const scriptText = ep.script || '';
     const plat = 'TikTok';
@@ -433,34 +479,52 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     if (!plans.length) throw new Error('Script vide');
 
     let miniature = '';
-    const promesseMiniature = genererMiniatureVisuelle(scriptText, plat).then(m => { miniature = m; });
+    const promesseMiniature = genererMiniatureVisuelle(scriptText, plat).then(m => {
+      miniature = m;
+      if (m && grid) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
+    });
 
     await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
+      if (grid) grid.insertAdjacentHTML('beforeend', lot.map((p, k) => cartePlan(indexDepart + k, p)).join(''));
       const fait = Math.min(indexDepart + lot.length, plans.length);
-      const statutEl = zone ? zone.querySelector('.sb-statut') : null;
-      if (statutEl) statutEl.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+      if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
     });
     await promesseMiniature;
+    if (statut) statut.remove();
+
+    prog.finish();
+    setTimeout(() => { const pb = document.getElementById('serieSbProgBar' + numEp); if (pb) pb.style.display = 'none'; }, 600);
 
     const storyboardFinal = plans.map((p, i) => ({ segment: p.duree, texte_dit: p.text, prompt_visuel: p.visuel || '' }));
+    const tous = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + storyboardFinal.map((s, i) => 'Plan ' + (i + 1) + ' : ' + (s.prompt_visuel || '')).join('\n\n');
+    if (grid) grid.insertAdjacentHTML('beforeend', `
+      <div class="sb-actions-fin">
+        <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
+      </div>`);
 
-    // On rattache le storyboard complet (miniature + segments) a l'episode
+    // Masquer le bouton (le storyboard affiché + son bouton "Régénérer" prennent le relais)
+    if (btn) btn.style.display = 'none';
+
+    // On rattache le storyboard complet (miniature + segments) a l'episode —
+    // persisté APRÈS l'affichage : un échec réseau ici n'efface jamais ce
+    // que l'utilisateur voit déjà à l'écran.
     const nouveaux = eps.map(e => e.num === numEp
       ? Object.assign({}, e, { storyboard: storyboardFinal, miniature: miniature || null })
       : e);
     await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
-    ouvrirSerie(serieCouranteId);
   } catch(e) {
-    const zone2 = document.getElementById('serieSbZone' + numEp);
-    if (zone2) zone2.innerHTML = '';
-    const btn = document.getElementById('serieSbBtn' + numEp);
-    const spinner = document.getElementById('serieSbSpinner' + numEp);
-    const btnText = document.getElementById('serieSbBtnText' + numEp);
+    if (statut) statut.remove();
+    if (grid) grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="genererStoryboardEpisode(${numEp})" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
+    if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'reessaie'); err.style.display = 'block'; }
+  } finally {
+    prog.stop();
+    const pb = document.getElementById('serieSbProgBar' + numEp);
+    if (pb) setTimeout(() => { pb.style.display = 'none'; }, 600);
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = 'none';
     if (btnText) btnText.textContent = '🎬 Générer le storyboard de cet épisode';
-    if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'reessaie'); err.style.display = 'block'; }
-  } finally {
     _regenGratuiteEnCours = false;
   }
 }
@@ -477,21 +541,29 @@ function renderSerieStoryboard(sb, miniature, numEp) {
     </div>` : '';
   const tous = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '')
     + sb.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel || '')).join('\n\n');
-  return `<div class="serie-sb-titre">Storyboard</div>
-    <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié et l'app s'ouvre.</div>
-    <div class="storyboard-list">${miniHtml}${sb.map((seg, i) => `
-      <div class="sb-segment">
-        <div class="sb-head"><span class="sb-time">${serieEsc(seg.segment || '')}</span><span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span></div>
-        <div class="sb-dit">"${serieEsc(seg.texte_dit || '')}"</div>
-        <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${serieEsc(seg.prompt_visuel || '')}</div>
-        ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
-      </div>`).join('')}
-      <div class="sb-actions-fin">
-        <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
-        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
-        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
-      </div></div>`;
+  return `<div class="out-card sb-appear open">
+    <div class="out-header" onclick="toggleCard(this.parentElement)">
+      <div class="out-title">Storyboard visuel</div>
+      <div class="out-toggle">+</div>
+    </div>
+    <div class="out-body">
+      <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié et l'app s'ouvre.</div>
+      <div class="storyboard-list">${miniHtml}${sb.map((seg, i) => `
+        <div class="sb-segment">
+          <div class="sb-head"><span class="sb-time">${serieEsc(seg.segment || '')}</span><span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span></div>
+          <div class="sb-dit">"${serieEsc(seg.texte_dit || '')}"</div>
+          <div class="sb-visual-label">🎬 Prompt visuel</div>
+          <div class="sb-visual">${serieEsc(seg.prompt_visuel || '')}</div>
+          ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
+        </div>`).join('')}
+        <div class="sb-actions-fin">
+          <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
+          <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
+          <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 
 // Revient à la liste des séries depuis le détail

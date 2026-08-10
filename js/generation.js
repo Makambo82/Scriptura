@@ -285,6 +285,7 @@ function renderIdeas(idees, niche) {
     </div>`).join('');
 
   pushNav();
+  masquerFormulaireGeneration('ideasFormCard');
   document.getElementById('ideasResults').style.display = 'block';
   document.getElementById('ideasResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -396,6 +397,15 @@ function showStep(n) {
 
 function goBack(n) {
   showStep(n);
+}
+
+// Depuis le bouton "✎ Modifier" du résultat : masque le résultat et
+// rouvre l'étape 4 (le formulaire) pour changer les critères sans jamais
+// effacer les valeurs déjà saisies — contrairement à restart(), qui repart
+// de zéro. Voir renderResults(), qui masque l'étape 4 à l'affichage du résultat.
+function modifierCriteresScript() {
+  document.getElementById('results').style.display = 'none';
+  showStep(4);
 }
 
 function renderSummary() {
@@ -1307,11 +1317,23 @@ function renderResults(d, niche, sujet) {
   const section = document.getElementById('results');
   document.getElementById('resultsMeta').textContent = niche + ' · ' + state.plateforme;
 
-  // Réinitialiser le storyboard (bouton visible, conteneur vide) pour une nouvelle génération
+  // Réinitialiser le storyboard (bouton + description visibles, barre de
+  // progression masquée, conteneur vide) pour une nouvelle génération.
   const sbBtn = document.getElementById('sbGenerateBtn');
   if (sbBtn) sbBtn.style.display = '';
+  const sbDescP = document.getElementById('sbDescP');
+  if (sbDescP) sbDescP.style.display = '';
+  const sbProgBar1 = document.getElementById('sbProgBar1');
+  if (sbProgBar1) sbProgBar1.style.display = 'none';
   const sbCont = document.getElementById('storyboardContainer');
   if (sbCont) sbCont.innerHTML = '';
+
+  // Le formulaire de saisie (étape 4) n'a plus sa place une fois le résultat
+  // affiché — seul le bouton "✎ Modifier" (voir modifierCriteresScript) le
+  // fait réapparaître. Purement une classe CSS (voir showStep) : rien à
+  // restaurer explicitement, showStep(4) la rétablit normalement.
+  const step4 = document.getElementById('step4');
+  if (step4) step4.classList.remove('active');
 
   list.innerHTML = '';
 
@@ -1414,17 +1436,16 @@ function renderResults(d, niche, sujet) {
       titre: "Storyboard visuel",
       num: "05",
       content: `<div class="out-section">
-        <div id="storyboardContainer">
-          <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton script, avec un prompt d'image pour chaque segment.</p>
-          <button class="btn-storyboard" id="sbGenerateBtn" onclick="generateStoryboard()">
-            <span class="sb-gen-spinner" id="sbGenSpinner"></span>
-            <span id="sbGenText">🎬 Générer le storyboard visuel</span>
-          </button>
-          <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
-            <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
-            <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
-          </div>
+        <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px" id="sbDescP">Génère le découpage visuel plan par plan de ton script, avec un prompt d'image pour chaque segment.</p>
+        <button class="btn-storyboard" id="sbGenerateBtn" onclick="generateStoryboard()">
+          <span class="sb-gen-spinner" id="sbGenSpinner"></span>
+          <span id="sbGenText">🎬 Générer le storyboard visuel</span>
+        </button>
+        <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
+          <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
+          <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
         </div>
+        <div id="storyboardContainer"></div>
       </div>`,
       sansBoutonGenerique: true
     }
@@ -1501,16 +1522,25 @@ async function generateStoryboard() {
   if (!lastGenContext || !currentScript) return;
   if (!_regenGratuiteEnCours) resetRegen('storyboardIdee');
 
-  // Défensif : après une première génération réussie, storyboardContainer a
-  // déjà été remplacé par la grille (voir plus bas) et ces éléments d'origine
-  // n'existent plus — c'est le cas normal quand "↻ Régénérer" rappelle cette
-  // même fonction. Rien à mettre à jour dans ce cas, la grille suivante prend le relais.
+  // Bouton, description et barre de progression sont désormais des frères
+  // de storyboardContainer (jamais remplacés par son innerHTML) : ils
+  // restent utilisables identiquement à la première génération et à
+  // chaque régénération, même une fois masqués après le premier succès.
   const btn = document.getElementById('sbGenerateBtn');
   const spinner = document.getElementById('sbGenSpinner');
   const genText = document.getElementById('sbGenText');
   if (btn) btn.disabled = true;
   if (spinner) spinner.style.display = 'block';
   if (genText) genText.textContent = 'Scriptura crée le storyboard…';
+  const progBar1 = document.getElementById('sbProgBar1');
+  if (progBar1) progBar1.style.display = 'flex';
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('sbProgFill1');
+    const pct = document.getElementById('sbProgPct1');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  });
+  prog.start();
 
   const ctx = lastGenContext;
   const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
@@ -1574,6 +1604,9 @@ async function generateStoryboard() {
     await promesseMiniature;
     if (statut) statut.remove();
 
+    prog.finish();
+    setTimeout(() => { const pb = document.getElementById('sbProgBar1'); if (pb) pb.style.display = 'none'; }, 600);
+
     const tousLesPrompts2 = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + plans.map((p, i) => 'Plan ' + (i + 1) + ' : ' + (p.visuel || '')).join('\n\n');
     grid.insertAdjacentHTML('beforeend', `
       <div class="sb-actions-fin">
@@ -1586,14 +1619,26 @@ async function generateStoryboard() {
     // champs qu'avant (segment/texte_dit/prompt_visuel).
     const storyboardPourSauvegarde = plans.map((p, i) => ({ segment: p.duree, texte_dit: p.text, prompt_visuel: p.visuel || '' }));
     updateGenerationStoryboard({ storyboard: storyboardPourSauvegarde, miniature: miniature || null });
-    // Le bouton "Générer le storyboard" a été remplacé par le storyboard lui-même.
-    // Le bouton "Régénérer" (en bas du storyboard) prend désormais le relais.
+
+    // Masquer le bouton + le texte descriptif après génération (le bouton Régénérer prend le relais)
+    if (btn) {
+      btn.style.display = 'none';
+      const descP = document.getElementById('sbDescP');
+      if (descP) descP.style.display = 'none';
+    }
 
   } catch(e) {
     // Ajouté APRÈS ce qui a déjà pu s'afficher (plans des lots précédents) :
     // un échec en cours de route ne fait plus disparaître ce qui a déjà réussi.
     if (statut) statut.remove();
     grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="generateStoryboard()" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
+  } finally {
+    prog.stop();
+    const pb1 = document.getElementById('sbProgBar1');
+    if (pb1) setTimeout(() => { pb1.style.display = 'none'; }, 600);
+    if (btn) btn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+    if (genText) genText.textContent = '🎬 Générer le storyboard visuel';
   }
 }
 

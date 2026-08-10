@@ -120,7 +120,6 @@ async function generateStoryboardSeul() {
   btn.disabled = true;
   spinner.style.display = 'block';
   btnText.textContent = 'Scriptura crée le storyboard…';
-  document.getElementById('sbSeulResults').style.display = 'none';
 
   const plat = sbSeulPlatform || 'TikTok';
 
@@ -132,14 +131,7 @@ async function generateStoryboardSeul() {
     const plans = segmentNarrativeStoryboard(input);
     if (!plans.length) throw new Error('Script vide');
 
-    let miniature = '';
-    const promesseMiniature = genererMiniatureVisuelle(input, plat).then(m => { miniature = m; });
-
-    await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
-      const fait = Math.min(indexDepart + lot.length, plans.length);
-      btnText.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
-    });
-    await promesseMiniature;
+    const { miniature, grid } = await rendreStoryboardSeulProgressif(plans, plat, input);
 
     const board = plans.map((p, i) => ({ segment: String(i + 1), duree: p.duree, texte: p.text, visuel: p.visuel || '' }));
 
@@ -155,7 +147,7 @@ async function generateStoryboardSeul() {
     saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: miniature || null } });
     updateQuotaJour();
 
-    afficherStoryboardSeulResultat(board, miniature || null);
+    ajouterActionsFinStoryboardSeul(grid, board, miniature);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
@@ -182,7 +174,6 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
   btn.disabled = true;
   spinner.style.display = 'block';
   btnText.textContent = 'Génération des prompts visuels…';
-  document.getElementById('sbSeulResults').style.display = 'none';
 
   const plat = sbSeulPlatform || 'TikTok';
 
@@ -193,14 +184,7 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
     // fiable quel que soit le nombre de segments fournis.
     const plansUtilisateur = segments.map(s => ({ text: s.texte, num: s.num }));
 
-    let miniature = '';
-    const promesseMiniature = genererMiniatureVisuelle(input, plat).then(m => { miniature = m; });
-
-    await genererVisuelsParLots(plansUtilisateur, plat, (lot, indexDepart) => {
-      const fait = Math.min(indexDepart + lot.length, plansUtilisateur.length);
-      btnText.textContent = `Génération des prompts visuels… ${fait}/${plansUtilisateur.length}`;
-    });
-    await promesseMiniature;
+    const { miniature, grid } = await rendreStoryboardSeulProgressif(plansUtilisateur, plat, input);
 
     const board = plansUtilisateur.map(p => ({ segment: String(p.num), texte: p.text, visuel: p.visuel || '' }));
 
@@ -216,7 +200,7 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
     saveGeneration('storyboardSeul', titre, { script: input, plateforme: plat, storyboard_genere: { storyboard: board, miniature: miniature || null } });
     updateQuotaJour();
 
-    afficherStoryboardSeulResultat(board, miniature || null);
+    ajouterActionsFinStoryboardSeul(grid, board, miniature);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + e.message + '. Réessaie.';
@@ -228,11 +212,96 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
   }
 }
 
-// Affiche le storyboard (nouvelle génération OU réouverture depuis l'historique)
-// — même gabarit visuel que les modes Script/Récit.
+// ═══════════════════════════════════════════════════════════
+//  AFFICHAGE PROGRESSIF + BARRE DE PROGRESSION
+//  Même moteur et mêmes gabarits visuels que les modes Script/Récit/Série
+//  (voir js/storyboard.js) : la barre de progression (sbProgBar3, définie
+//  dans index.html) monte de façon crédible vers 90% pendant que l'IA
+//  travaille, et les cartes de plans apparaissent lot par lot au fur et à
+//  mesure — jamais toutes d'un coup à la toute fin.
+// ═══════════════════════════════════════════════════════════
+async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
+  const btnText = document.getElementById('sbSeulBtnText');
+  const progBar = document.getElementById('sbProgBar3');
+  if (progBar) progBar.style.display = 'flex';
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('sbProgFill3');
+    const pct = document.getElementById('sbProgPct3');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  });
+  prog.start();
+
+  masquerFormulaireGeneration('sbSeulFormCard');
+  document.getElementById('sbSeulResults').style.display = 'block';
+  const out = document.getElementById('storyboardSeulOutput');
+  out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="sbSeulGrid" style="margin-top:18px"></div>`;
+  const grid = document.getElementById('sbSeulGrid');
+
+  const carteMiniature = (m) => `
+      <div class="sb-segment sb-miniature">
+        <div class="sb-head">
+          <span class="sb-time">★ Miniature</span>
+          <span class="sb-index">Couverture</span>
+        </div>
+        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-visual">${serieEsc(m)}</div>
+        ${blocGenImage(storeCopyText(m))}
+      </div>`;
+  const cartePlan = (i, p) => `
+      <div class="sb-segment">
+        <div class="sb-head">
+          <span class="sb-time">${p.duree || ''}</span>
+          <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
+        </div>
+        <div class="sb-dit">"${serieEsc(p.text || '')}"</div>
+        <div class="sb-visual-label">🖼️ Prompt visuel</div>
+        <div class="sb-visual">${serieEsc(p.visuel || '')}</div>
+        ${blocGenImage(storeCopyText(p.visuel || ''))}
+      </div>`;
+
+  let miniature = '';
+  const promesseMiniature = genererMiniatureVisuelle(texteSource, plat).then(m => {
+    miniature = m;
+    if (m) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
+  });
+
+  await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
+    const html = lot.map((p, k) => cartePlan(indexDepart + k, p)).join('');
+    grid.insertAdjacentHTML('beforeend', html);
+    const fait = Math.min(indexDepart + lot.length, plans.length);
+    if (btnText) btnText.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+  });
+  await promesseMiniature;
+
+  prog.finish();
+  setTimeout(() => { const pb = document.getElementById('sbProgBar3'); if (pb) pb.style.display = 'none'; }, 600);
+
+  return { miniature, grid };
+}
+
+// Ajoute les boutons Régénérer/Copier/Partager en fin de grille, une fois le
+// storyboard complet — mêmes actions que afficherStoryboardSeulResultat.
+function ajouterActionsFinStoryboardSeul(grid, board, miniature) {
+  const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + board.map((s, i) => `Plan ${s.segment || (i + 1)} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
+  grid.insertAdjacentHTML('beforeend', `
+    <div class="sb-actions-fin">
+      <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardSeul')">↻ Régénérer</button>
+      <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
+      <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
+    </div>`);
+  setTimeout(updateScrollBtn, 300);
+}
+
+// Affiche le storyboard déjà complet — utilisé UNIQUEMENT pour la
+// réouverture depuis l'historique (voir js/historique.js) : ici tout est
+// déjà connu, pas de progression à animer. La génération en direct utilise
+// désormais rendreStoryboardSeulProgressif ci-dessus. Même gabarit visuel
+// que les modes Script/Récit.
 function afficherStoryboardSeulResultat(board, miniature) {
   const out = document.getElementById('storyboardSeulOutput');
   if (!out) return;
+  masquerFormulaireGeneration('sbSeulFormCard');
   const miniHtml = miniature ? `
     <div class="sb-segment sb-miniature">
       <div class="sb-head">

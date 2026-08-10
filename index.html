@@ -669,7 +669,7 @@
       <div class="gen-counter-dots genCounterDotsShared"></div>
     </div>
 
-    <div class="context-card">
+    <div class="context-card" id="storyFormCard">
       <div class="ctx-field">
         <label class="ctx-label">Ton sujet ou ton texte</label>
         <textarea class="ctx-textarea" id="storyInput" style="min-height:140px" placeholder="Exemples :&#10;• Un sujet court : « Mouammar Kadhafi » ou « L'affaire Madoff »&#10;• Une idée : « Comment une IA a manipulé une élection »&#10;• Ou colle un texte entier, un article, tes notes brutes — Scriptura en fera un récit."></textarea>
@@ -730,7 +730,10 @@
     <div id="storyResults" style="display:none">
       <div class="ideas-results-header">
         <h3 class="results-heading">Ton récit</h3>
-        <button class="btn-regenerate" onclick="regenererContenu('story')">↻ Régénérer</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-regenerate" onclick="afficherFormulaireGeneration('storyFormCard','storyResults')">✎ Modifier</button>
+          <button class="btn-regenerate" onclick="regenererContenu('story')">↻ Régénérer</button>
+        </div>
       </div>
       <div id="storyOutput"></div>
     </div>
@@ -752,7 +755,7 @@
       <div class="gen-counter-dots genCounterDotsShared"></div>
     </div>
 
-    <div class="context-card">
+    <div class="context-card" id="sbSeulFormCard">
       <div class="ctx-field">
         <label class="ctx-label">Ton script (texte complet, tel quel)</label>
         <textarea class="ctx-textarea" id="sbSeulInput" style="min-height:200px" placeholder="Colle ici l'intégralité de ton script ou de ton texte narré — pas besoin de le formater, Scriptura s'occupe du découpage en plans."></textarea>
@@ -784,8 +787,17 @@
     <div id="sbSeulResults" style="display:none">
       <div class="ideas-results-header">
         <h3 class="results-heading">Ton storyboard</h3>
+        <button class="btn-regenerate" onclick="afficherFormulaireGeneration('sbSeulFormCard','sbSeulResults')">✎ Modifier</button>
       </div>
-      <div id="storyboardSeulOutput"></div>
+      <div class="out-card sb-appear open">
+        <div class="out-header" onclick="toggleCard(this.parentElement)">
+          <div class="out-title">Storyboard visuel</div>
+          <div class="out-toggle">+</div>
+        </div>
+        <div class="out-body">
+          <div id="storyboardSeulOutput"></div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -805,7 +817,7 @@
       <div class="gen-counter-dots genCounterDotsShared"></div>
     </div>
 
-    <div class="context-card">
+    <div class="context-card" id="ideasFormCard">
       <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="ideaNiche">
@@ -924,7 +936,10 @@
     <div id="ideasResults" style="display:none">
       <div class="ideas-results-header">
         <h3 class="results-heading">Tes idées de contenu</h3>
-        <button class="btn-regenerate" onclick="generateIdeas()">↻ Générer d'autres idées</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-regenerate" onclick="afficherFormulaireGeneration('ideasFormCard','ideasResults')">✎ Modifier</button>
+          <button class="btn-regenerate" onclick="generateIdeas()">↻ Générer d'autres idées</button>
+        </div>
       </div>
       <div id="ideasList"></div>
     </div>
@@ -1243,7 +1258,10 @@
     <div class="results-top">
       <div class="results-top-row">
         <div class="results-heading">Ton contenu est prêt.</div>
-        <button class="btn-regenerate" onclick="regenererContenu('script')">↻ Régénérer</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-regenerate" onclick="modifierCriteresScript()">✎ Modifier</button>
+          <button class="btn-regenerate" onclick="regenererContenu('script')">↻ Régénérer</button>
+        </div>
       </div>
       <div class="results-meta" id="resultsMeta"></div>
     </div>

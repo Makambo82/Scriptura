@@ -1,3 +1,24 @@
+// ── MASQUER/RÉVÉLER LE FORMULAIRE DE SAISIE UNE FOIS LE RÉSULTAT AFFICHÉ ──
+// Une fois une génération réussie, son formulaire (niche, sujet, ton…) n'a
+// plus sa place à l'écran : seul le résultat compte. masquerFormulaireGeneration
+// le cache (appelée depuis chaque fonction de rendu de résultat) ; le bouton
+// "✎ Modifier" du résultat appelle afficherFormulaireGeneration pour le faire
+// réapparaître — sans jamais toucher aux valeurs déjà saisies, seulement leur
+// visibilité — afin de changer ses critères et régénérer.
+function masquerFormulaireGeneration(formId) {
+  const form = document.getElementById(formId);
+  if (form) form.style.display = 'none';
+}
+function afficherFormulaireGeneration(formId, resultsId) {
+  const form = document.getElementById(formId);
+  const results = document.getElementById(resultsId);
+  if (results) results.style.display = 'none';
+  if (form) {
+    form.style.display = '';
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
 // ── BOUTON D'ACCUEIL « Commencer » → mode « focus » ──
 // Au clic, l'accueil passe en mode focus : on masque tout le reste (grand
 // titre, sections « Comment ça marche / Pourquoi / Tarifs / FAQ », salutation)

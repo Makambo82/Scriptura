@@ -723,6 +723,7 @@ function renderStory(d) {
   }, 100);
 
   pushNav();
+  masquerFormulaireGeneration('storyFormCard');
   document.getElementById('storyResults').style.display = 'block';
   document.getElementById('storyResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
