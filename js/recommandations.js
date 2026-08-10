@@ -476,6 +476,24 @@ async function aFaitDiagnosticSommaire() {
   } catch (e) { return false; }
 }
 
+// Signale si ce visiteur a déjà analysé son compte, sommaire OU détaillé
+// (voir _derniereGenerationDe, js/diagnostic-fusion.js) — sert à masquer
+// l'invitation "Commence par analyser ton compte" et le badge "Commence
+// ici" (voir revelerModes, js/ui.js) une fois cette étape déjà franchie :
+// continuer à la pousser vers quelqu'un qui l'a déjà fait est trompeur.
+// Best-effort : toute erreur retombe sur "pas encore fait" (comportement
+// actuel, jamais régressif) plutôt que de bloquer l'affichage des modes.
+async function aFaitAnalyseCompte() {
+  if (typeof _derniereGenerationDe !== 'function') return false;
+  try {
+    const [audit, sommaire] = await Promise.all([
+      _derniereGenerationDe('audit'),
+      _derniereGenerationDe('diagnosticSommaire')
+    ]);
+    return !!(audit || sommaire);
+  } catch (e) { return false; }
+}
+
 // Depuis le bouton "Trouver mes premières idées" affiché après un
 // diagnostic sommaire (voir aFaitDiagnosticSommaire ci-dessus) : ouvre le
 // mode Idées et pré-remplit la niche et le sujet à partir de ce que le

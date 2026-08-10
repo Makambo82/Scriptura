@@ -3,15 +3,25 @@
 // titre, sections « Comment ça marche / Pourquoi / Tarifs / FAQ », salutation)
 // et il ne reste que le cadre du statut, les 5 modes et le footer. Un bouton
 // « ← Retour » (haut-gauche) revient à l'accueil complet.
-function revelerModes() {
+async function revelerModes() {
   const cta = document.getElementById('heroCta');
   const modes = document.getElementById('heroModes');
   const hint = document.getElementById('heroModesHint');
   if (cta) cta.style.display = 'none';
   if (modes) modes.style.display = ''; // retombe sur le display:grid du CSS
-  if (hint) hint.style.display = '';
   document.body.classList.add('hero-focus');
   window.scrollTo({ top: 0, behavior: 'auto' });
+
+  // L'invitation "Commence par analyser ton compte" et le badge "Commence
+  // ici" (voir aFaitAnalyseCompte, js/recommandations.js) ne s'affichent
+  // que si ce n'est pas déjà fait — sinon on continue de pousser vers une
+  // étape déjà franchie. `hint` reste caché (son display:none inline
+  // d'origine) pendant la vérification, pour ne jamais l'afficher puis le
+  // masquer aussitôt (effet de clignotement).
+  const dejaAnalyse = (typeof aFaitAnalyseCompte === 'function') ? await aFaitAnalyseCompte() : false;
+  if (hint) hint.style.display = dejaAnalyse ? 'none' : '';
+  const badge = document.getElementById('auditModeBadge');
+  if (badge) badge.style.display = dejaAnalyse ? 'none' : '';
 }
 
 // Remet l'accueil dans son état complet (bouton Commencer visible, modes cachés).
