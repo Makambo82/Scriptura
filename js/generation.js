@@ -89,6 +89,13 @@ async function generateIdeas() {
     errorBox.style.display = 'block'; return;
   }
 
+  if (!theme) {
+    errorBox.textContent = 'Précise le sujet que tu veux explorer.';
+    errorBox.style.display = 'block';
+    document.getElementById('ideaTheme')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
   // Vérification limite (partagée avec le générateur de script)
   if (!unlocked && usedGen >= MAX_FREE) {
     openPlans('nouveau');

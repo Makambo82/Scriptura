@@ -361,9 +361,6 @@ function afficherDiagnosticSommaireResultat(d, username) {
       </ol>
     </div>` : '';
 
-  const subscribeNote = (!unlocked) ? `
-    <div class="ds-result-subscribe" id="dsStaticSubscribe">✦ Ce diagnostic rapide est un aperçu. Pour que Scriptura te fasse des recommandations personnalisées et suive ton évolution dans le temps, <a onclick="openPlans('abonnement')" style="color:var(--gold-light);text-decoration:underline;cursor:pointer">abonne-toi</a>.</div>` : '';
-
   // Invitation vers l'analyse détaillée (captures) — copie différente selon
   // que l'utilisateur y a déjà accès (Pro/admin) ou doit encore la débloquer
   // (Creator, non-abonné), mais les DEUX versions mentionnent le jeton.
@@ -425,7 +422,6 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ${leviersHtml}
     ${opportuniteHtml}
 
-    ${subscribeNote ? `<div class="score-card">${subscribeNote}</div>` : ''}
     ${ctaDetailleHtml}
     <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire()">Analyser un autre compte</button>`;
 

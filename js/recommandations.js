@@ -463,6 +463,40 @@ async function aFaitDiagnosticSommaire() {
   } catch (e) { return false; }
 }
 
+// Depuis le bouton "Trouver mes premières idées" affiché après un
+// diagnostic sommaire (voir aFaitDiagnosticSommaire ci-dessus) : ouvre le
+// mode Idées et pré-remplit la niche et le sujet à partir de ce que le
+// diagnostic sait déjà (niche + bio) — jamais sur un champ déjà rempli par
+// l'utilisateur, et libre à lui de tout modifier avant de générer. Le champ
+// "niche" ne se pré-sélectionne que si le nom identifié par le diagnostic
+// correspond exactement à une option du menu (voir preRemplirSiVide,
+// js/profil.js) ; sinon on laisse la niche vide plutôt que de deviner.
+async function demarrerIdeesDepuisSommaire() {
+  chooseMode('ideas');
+  if (typeof _derniereGenerationDe !== 'function') return;
+  try {
+    const g = await _derniereGenerationDe('diagnosticSommaire');
+    const d = g && g.contenu && g.contenu.diagnostic;
+    if (!d) return;
+
+    const niche = d.niche || {};
+    if (niche.disponible !== false && niche.nom && typeof preRemplirSiVide === 'function') {
+      preRemplirSiVide('ideaNiche', niche.nom);
+    }
+
+    const themeEl = document.getElementById('ideaTheme');
+    if (themeEl && !themeEl.value.trim()) {
+      // Priorité à un point d'analyse concret (plus spécifique qu'un simple
+      // nom de niche), sinon la niche elle-même, sinon la bio telle quelle.
+      const suggestion = (Array.isArray(niche.analyse) && niche.analyse[0])
+        || niche.nom
+        || (d.bio && d.bio.actuelle)
+        || '';
+      if (suggestion) themeEl.value = suggestion;
+    }
+  } catch (e) { /* silencieux : best-effort, ne doit jamais bloquer l'ouverture du mode Idées */ }
+}
+
 function salutationAccueil() {
   // Salutation selon le jour ET l'heure LOCALE du téléphone de l'utilisateur :
   // - Lundi à jeudi : 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
@@ -613,7 +647,7 @@ async function initAccueilPremiumInterne(zone) {
     zone.innerHTML = dejaSommaireAnon ? `
       <div class="results-heading">${salutationAccueil()}</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait — il me manque une génération (une idée, un script ou un récit) pour te proposer une vraie recommandation, fiable.</div>
-      <button class="btn-generate" onclick="chooseMode('ideas')">💡 Trouver mes premières idées</button>
+      <button class="btn-generate" onclick="demarrerIdeesDepuisSommaire()">💡 Trouver mes premières idées</button>
     ` : `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Pour des recommandations vraiment pensées pour toi, commence par analyser ton compte TikTok.</div>
@@ -661,7 +695,7 @@ async function initAccueilPremiumInterne(zone) {
         <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Ton diagnostic sommaire est fait, bien joué.</div>
         <div class="audit-diag-interp">Il me manque encore une génération (une idée, un script ou un récit) pour te faire une recommandation vraiment fiable — le diagnostic sommaire seul ne montre que ta bio et ta niche, pas encore ce qui fonctionne pour toi.</div>
-        <button class="btn-generate" style="margin-top:14px" onclick="chooseMode('ideas')">💡 Trouver mes premières idées</button>
+        <button class="btn-generate" style="margin-top:14px" onclick="demarrerIdeesDepuisSommaire()">💡 Trouver mes premières idées</button>
       </div>` : `${entete}
       <div class="score-card">
         <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
@@ -736,9 +770,7 @@ async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
 // Équivalent de afficherEtMaintenant(), pour le diagnostic sommaire (@username)
 // et réservé aux non-abonnés : si Scriptura a déjà assez de mémoire locale sur
 // ce visiteur (script, récit, autre diagnostic déjà fait sur ce navigateur),
-// on lui montre une idée condensée en plus de son diagnostic — et on masque
-// le message générique d'abonnement puisque la carte porte déjà sa propre
-// invitation à s'abonner.
+// on lui montre une idée condensée en plus de son diagnostic.
 async function afficherOpportuniteDiagSommaire() {
   const zone = document.getElementById('diagSommaireOpportunites');
   if (!zone) return;
@@ -754,7 +786,4 @@ async function afficherOpportuniteDiagSommaire() {
   }
 
   rendreRecommandationSommaire('diagSommaireOpportunites', data, '<div class="audit-section-label">🎯 En plus de ce diagnostic</div>');
-
-  const staticNote = document.getElementById('dsStaticSubscribe');
-  if (staticNote) staticNote.style.display = 'none';
 }
