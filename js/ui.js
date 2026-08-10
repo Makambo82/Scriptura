@@ -23,6 +23,23 @@ function afficherFormulaireGeneration(formId, resultsId) {
   }
 }
 
+// ── DÉMARRER UN MODE DEPUIS L'ACCUEIL (formulaire garanti vierge) ──
+// Utilisée UNIQUEMENT par les 3 tuiles de l'accueil (Idées/Script/Récit) :
+// contrairement à chooseMode() seul, elle repart toujours d'un formulaire
+// vide (niche, sujet, ton, durée, plateforme…), pour qu'un sujet resté dans
+// le champ après une génération précédente (sans rapport) ne s'applique
+// jamais silencieusement à la suivante. Volontairement à part de chooseMode()
+// : plusieurs chemins internes (lancerIdeesDepuisAudit, demarrerIdeesDepuisSommaire…)
+// appellent chooseMode() eux-mêmes pour ouvrir l'écran PUIS pré-remplissent
+// un champ précis — un reset à l'intérieur de chooseMode() effacerait ce
+// pré-remplissage juste après qu'il ait été posé.
+function demarrerModeDepuisAccueil(mode) {
+  if (mode === 'script' && typeof restart === 'function') restart();
+  else if (mode === 'ideas' && typeof restartIdeas === 'function') restartIdeas();
+  else if (mode === 'story' && typeof restartStory === 'function') restartStory();
+  chooseMode(mode);
+}
+
 // ── BOUTON D'ACCUEIL « Commencer » → mode « focus » ──
 // Au clic, l'accueil passe en mode focus : on masque tout le reste (grand
 // titre, sections « Comment ça marche / Pourquoi / Tarifs / FAQ », salutation)

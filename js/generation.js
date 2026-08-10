@@ -60,6 +60,29 @@ function updateGeoRequirement() {
   }
 }
 
+// Repart d'un formulaire vide pour une nouvelle exploration d'idées — appelée
+// à chaque entrée fraîche dans ce mode (voir chooseMode, js/serie.js) : sans
+// ça, la niche/le sujet/le ton d'une exploration précédente restaient
+// silencieusement actifs (champs ET variables ideaPlatform/ideaGoal/ideaTone)
+// pour la suivante, même sans aucun rapport avec elle.
+function restartIdeas() {
+  document.getElementById('ideaNiche').value = '';
+  document.getElementById('ideaAudience').value = '';
+  document.getElementById('ideaGeo').value = '';
+  document.getElementById('ideaTheme').value = '';
+  document.getElementById('ideaTone').value = '';
+  ideaPlatform = '';
+  ideaGoal = '';
+  ideaTone = '';
+  document.querySelectorAll('#ideaPlatformGrid .grid-btn, #ideaGoalGrid .grid-btn').forEach(b => b.classList.remove('active'));
+  updateGeoRequirement();
+  const errorBox = document.getElementById('ideaErrorBox');
+  if (errorBox) errorBox.style.display = 'none';
+  const formCard = document.getElementById('ideasFormCard');
+  if (formCard) formCard.style.display = '';
+  document.getElementById('ideasResults').style.display = 'none';
+}
+
 function setIdeaLoading(on) {
   const btn = document.getElementById('ideaGenerateBtn');
   btn.disabled = on;
@@ -1658,6 +1681,13 @@ function restart() {
   document.getElementById('format').value = '';
   document.getElementById('viralVideo').value = '';
   document.getElementById('viralVideoField').style.display = 'none';
+  // Ton et durée n'étaient jusqu'ici jamais réinitialisés : un ton ou une
+  // durée choisis pour UN sujet restaient silencieusement appliqués au
+  // suivant, sans que rien ne le signale dans le formulaire vidé.
+  document.getElementById('tone').value = '';
+  selectedTone = '';
+  selectedDuree = '';
+  document.querySelectorAll('#dureeGrid .grid-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('results').style.display = 'none';
   showStep(1);
 }

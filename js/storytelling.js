@@ -74,6 +74,26 @@ function setupStoryButtons() {
   }
 }
 
+// Repart d'un formulaire vide pour un nouveau récit — appelée à chaque entrée
+// fraîche dans ce mode (voir chooseMode, js/serie.js) : sans ça, le format/la
+// durée/la plateforme/le ton d'un récit précédent restaient silencieusement
+// actifs (champs ET variables storyFormat/storyDuree/storyPlatform/storyTon)
+// pour le suivant, même sans aucun rapport avec lui.
+function restartStory() {
+  document.getElementById('storyInput').value = '';
+  storyFormat = '';
+  storyDuree = '';
+  storyPlatform = '';
+  storyTon = '';
+  document.querySelectorAll('#storyFormatGrid .grid-btn, #storyDureeGrid .grid-btn, #storyPlatformGrid .grid-btn, #storyTonGrid .grid-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('storyDureeField').style.display = 'none';
+  const errorBox = document.getElementById('storyErrorBox');
+  if (errorBox) errorBox.style.display = 'none';
+  const formCard = document.getElementById('storyFormCard');
+  if (formCard) formCard.style.display = '';
+  document.getElementById('storyResults').style.display = 'none';
+}
+
 function setStoryLoading(on) {
   const btn = document.getElementById('storyGenerateBtn');
   btn.disabled = on;

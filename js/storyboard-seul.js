@@ -75,10 +75,26 @@ function setupStoryboardSeulButtons() {
   });
 }
 
+// Repart d'un formulaire vide pour un nouveau storyboard — appelée à chaque
+// entrée fraîche dans ce module (voir openStoryboardSeul juste en dessous) :
+// sans ça, le script collé et la plateforme d'un storyboard précédent
+// restaient silencieusement actifs pour le suivant, même sans rapport avec lui.
+function restartStoryboardSeul() {
+  document.getElementById('sbSeulInput').value = '';
+  sbSeulPlatform = '';
+  document.querySelectorAll('#sbSeulPlatformGrid .grid-btn').forEach(b => b.classList.remove('active'));
+  const errorBox = document.getElementById('sbSeulErrorBox');
+  if (errorBox) errorBox.style.display = 'none';
+  const formCard = document.getElementById('sbSeulFormCard');
+  if (formCard) formCard.style.display = '';
+  document.getElementById('sbSeulResults').style.display = 'none';
+}
+
 // Ouvre le module depuis le menu latéral
 function openStoryboardSeul() {
   pushNav();
   masquerTousLesEcrans();
+  restartStoryboardSeul();
   document.getElementById('storyboardSeulFlow').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
