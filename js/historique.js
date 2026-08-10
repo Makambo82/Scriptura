@@ -938,25 +938,35 @@ function reopenGeneration(i) {
       afficherStoryboardSeulResultat(csb.storyboard_genere.storyboard, csb.storyboard_genere.miniature || null);
     }
   } else if (g.mode === 'serie') {
-    // Un épisode de série : on le réaffiche seul, dans le module série
     const sfh = document.getElementById('serieFlow');
     if (sfh) sfh.style.display = 'block';
-    const blocL = document.getElementById('serieListeBloc');
-    if (blocL) blocL.style.display = 'none';
-    const crea = document.getElementById('serieCreation');
-    if (crea) crea.style.display = 'none';
-    const nouv = document.getElementById('serieNouvelleBtn');
-    if (nouv) nouv.style.display = 'none';
-    const det = document.getElementById('serieDetail');
-    if (det) {
-      const c = g.contenu || {};
-      det.style.display = 'block';
-      det.innerHTML = '<div class="serie-section-label">' + serieEsc(g.titre || 'Épisode') + '</div>'
-        + '<div class="serie-episode">'
-        + '<div class="serie-episode-titre">' + serieEsc(c.titre || '') + '</div>'
-        + '<div class="serie-episode-txt">' + serieEsc(c.script || '') + '</div>'
-        + '</div>'
-        + '<button class="serie-suggest-btn" onclick="retourListeSeries()">← Retour à mes séries</button>';
+    const c = g.contenu || {};
+    if (c.serie_id && typeof ouvrirSerie === 'function') {
+      // La vraie vue série (mêmes fonctions que le module Série) : montre
+      // TOUS les épisodes déjà écrits, avec leur storyboard s'il en existe
+      // un — jamais un aperçu figé du seul épisode consulté depuis
+      // l'historique, qui serait de toute façon périmé dès qu'un storyboard
+      // est généré après coup (voir serie_id, ajouté dans genererEpisode).
+      ouvrirSerie(c.serie_id);
+    } else {
+      // Repli pour les entrées enregistrées avant l'ajout de serie_id :
+      // on n'a que l'épisode isolé, sans moyen de retrouver sa série.
+      const blocL = document.getElementById('serieListeBloc');
+      if (blocL) blocL.style.display = 'none';
+      const crea = document.getElementById('serieCreation');
+      if (crea) crea.style.display = 'none';
+      const nouv = document.getElementById('serieNouvelleBtn');
+      if (nouv) nouv.style.display = 'none';
+      const det = document.getElementById('serieDetail');
+      if (det) {
+        det.style.display = 'block';
+        det.innerHTML = '<div class="serie-section-label">' + serieEsc(g.titre || 'Épisode') + '</div>'
+          + '<div class="serie-episode">'
+          + '<div class="serie-episode-titre">' + serieEsc(c.titre || '') + '</div>'
+          + '<div class="serie-episode-txt">' + serieEsc(c.script || '') + '</div>'
+          + '</div>'
+          + '<button class="serie-suggest-btn" onclick="retourListeSeries()">← Retour à mes séries</button>';
+      }
     }
   }
 

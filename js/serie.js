@@ -772,9 +772,13 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     }).eq('id', serieCouranteId);
     if (e2) throw e2;
 
-    // Enregistre aussi dans l'historique (et compte dans le quota du mois)
+    // Enregistre aussi dans l'historique (et compte dans le quota du mois).
+    // serie_id est ajouté uniquement pour cet enregistrement (ep lui-même
+    // reste inchangé) : il permet à reopenGeneration (js/historique.js) de
+    // rouvrir directement la vraie vue série — avec le storyboard généré
+    // depuis, s'il y en a un — plutôt qu'un aperçu figé du script seul.
     if (typeof saveGeneration === 'function') {
-      try { saveGeneration('serie', serie.titre + ' — épisode ' + num, ep); } catch(e) {}
+      try { saveGeneration('serie', serie.titre + ' — épisode ' + num, Object.assign({}, ep, { serie_id: serieCouranteId })); } catch(e) {}
     }
 
     stopGenAnimation();
