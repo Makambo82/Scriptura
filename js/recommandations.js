@@ -244,11 +244,18 @@ function rendreRecommandationSommaire(containerId, data, entete) {
     zone.style.display = 'none';
     return;
   }
+  // Nécessaire pour que creerScriptDepuisRecommandation(0) (bouton ci-dessous)
+  // retrouve la bonne recommandation — même mécanisme que rendreRecommandations,
+  // voir plus bas. Le non-abonné garde ses limites habituelles (MAX_FREE) au
+  // moment de générer réellement le script : ce bouton ne fait que pré-remplir
+  // le récapitulatif, il ne contourne aucun quota.
+  _recommandations = data.recommandations;
   zone.innerHTML = `
     ${entete || ''}
     <div class="score-card">
       ${carteRecommandationSommaire(data.recommandations[0])}
-      <div class="ds-result-subscribe" style="margin-top:16px">✦ Abonne-toi pour un suivi personnalisé complet : 6 recommandations détaillées, hooks, tons conseillés, et un script en un clic.</div>
+      <button class="btn-generate" style="margin-top:14px" onclick="creerScriptDepuisRecommandation(0)">🎬 Créer le script</button>
+      <div class="ds-result-subscribe" style="margin-top:12px">✦ Abonne-toi pour un suivi personnalisé complet : 6 recommandations détaillées, hooks, tons conseillés, et un script en un clic.</div>
     </div>`;
   zone.style.display = 'block';
 }
