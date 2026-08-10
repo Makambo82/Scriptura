@@ -445,7 +445,7 @@ function prenomDepuisCode() {
   return null;
 }
 
-function salutationAccueil(profil) {
+function salutationAccueil() {
   // Salutation selon le jour ET l'heure LOCALE du téléphone de l'utilisateur :
   // - Lundi à jeudi : 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
   // - Vendredi : "Bon vendredi" toute la journée, quelle que soit l'heure.
@@ -575,12 +575,18 @@ async function initAccueilPremiumInterne(zone) {
     // mot de bienvenue (voir genererRecommandations → rienDeConnu).
     let dataAnon = lireRecoCache();
     if (!dataAnon) {
+      // La salutation ne dépend d'aucun appel réseau : elle s'affiche tout
+      // de suite, avec un message d'attente, plutôt que de laisser la zone
+      // vide et silencieuse pendant tout l'appel IA (voir même principe
+      // plus bas pour le cas abonné).
+      zone.innerHTML = `<div class="results-heading">${salutationAccueil()}</div>
+        <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce que je peux te proposer…</div>`;
+      zone.style.display = 'block';
       dataAnon = await genererRecommandations(null, null);
       if (dataAnon) ecrireRecoCache(dataAnon);
     }
     if (dataAnon && !dataAnon.onboarding && Array.isArray(dataAnon.recommandations) && dataAnon.recommandations.length) {
-      const profilAnon = await chargerProfilCreateur();
-      const enteteAnon = `<div class="results-heading">${salutationAccueil(profilAnon)}</div>
+      const enteteAnon = `<div class="results-heading">${salutationAccueil()}</div>
         <div class="ideas-sub" style="margin:6px 0 20px">Voici un aperçu de ce que Scriptura peut faire pour toi.</div>`;
       rendreRecommandationSommaire('accueilPremium', dataAnon, enteteAnon);
       return;
@@ -594,14 +600,23 @@ async function initAccueilPremiumInterne(zone) {
     return;
   }
 
-  const profil = await chargerProfilCreateur();
-  const entete = `<div class="results-heading">${salutationAccueil(profil)}</div>
+  const entete = `<div class="results-heading">${salutationAccueil()}</div>
     <div class="ideas-sub" style="margin:6px 0 20px">Voici ce que je te recommande aujourd'hui.</div>`;
 
   // Une recommandation déjà générée aujourd'hui pour ce créateur : on la
   // réaffiche telle quelle plutôt que de refaire un appel identique.
   let data = lireRecoCache();
   if (!data) {
+    // La salutation n'a aucune raison d'attendre la recommandation elle-même
+    // (appel IA, potentiellement long) : on l'affiche tout de suite, avec un
+    // message clair pour que l'abonné comprenne que sa recommandation arrive
+    // plutôt que de voir un accueil vide et silencieux pendant ce temps.
+    zone.innerHTML = `${entete}
+      <div class="score-card">
+        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-diag-interp">Je prépare ta recommandation du jour, ça arrive dans un instant…</div>
+      </div>`;
+    zone.style.display = 'block';
     data = await genererRecommandations(null, null);
     // On ne met en cache que les réponses exploitables (recommandations
     // réelles ou message d'onboarding) — jamais un échec technique (null),
