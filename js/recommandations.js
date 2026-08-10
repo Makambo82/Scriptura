@@ -445,6 +445,24 @@ function prenomDepuisCode() {
   return null;
 }
 
+// Signale si ce créateur a déjà fait un diagnostic sommaire (@nom
+// d'utilisateur, js/diagnostic-sommaire.js) — utilisé uniquement pour
+// distinguer, dans le message "pas encore assez d'infos", le cas où il l'a
+// DÉJÀ fait (message ciblé : il ne lui manque qu'une génération) du cas où
+// il n'a vraiment rien fait (message générique renvoyant vers le
+// diagnostic). Un diagnostic sommaire seul (niche + bio, aucune donnée de
+// performance réelle) ne suffit jamais à lui seul à une recommandation
+// fiable — voir genererRecommandations, qui ne le compte pas comme un
+// signal utilisable. Best-effort : toute erreur retombe sur le message
+// générique plutôt que de bloquer l'affichage.
+async function aFaitDiagnosticSommaire() {
+  if (typeof _derniereGenerationDe !== 'function') return false;
+  try {
+    const g = await _derniereGenerationDe('diagnosticSommaire');
+    return !!g;
+  } catch (e) { return false; }
+}
+
 function salutationAccueil() {
   // Salutation selon le jour ET l'heure LOCALE du téléphone de l'utilisateur :
   // - Lundi à jeudi : 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
@@ -591,7 +609,12 @@ async function initAccueilPremiumInterne(zone) {
       rendreRecommandationSommaire('accueilPremium', dataAnon, enteteAnon);
       return;
     }
-    zone.innerHTML = `
+    const dejaSommaireAnon = await aFaitDiagnosticSommaire();
+    zone.innerHTML = dejaSommaireAnon ? `
+      <div class="results-heading">${salutationAccueil()}</div>
+      <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait — il me manque une génération (une idée, un script ou un récit) pour te proposer une vraie recommandation, fiable.</div>
+      <button class="btn-generate" onclick="chooseMode('ideas')">💡 Trouver mes premières idées</button>
+    ` : `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Pour des recommandations vraiment pensées pour toi, commence par analyser ton compte TikTok.</div>
       <button class="btn-generate" onclick="chooseMode('audit')">📊 Analyser mon compte</button>
@@ -628,7 +651,18 @@ async function initAccueilPremiumInterne(zone) {
     // Pas assez de mémoire encore : message honnête plutôt que rien du
     // tout (sinon la fonctionnalité paraît absente/cassée, voir consigne
     // "niveau de confiance adapté plutôt que d'inventer des certitudes").
-    zone.innerHTML = `${entete}
+    // Message ciblé s'il a déjà fait un diagnostic sommaire (voir
+    // aFaitDiagnosticSommaire) : ce diagnostic seul ne suffit jamais à une
+    // recommandation fiable, mais on le lui dit explicitement plutôt que de
+    // le renvoyer vers un diagnostic qu'il a déjà fait.
+    const dejaSommaire = await aFaitDiagnosticSommaire();
+    zone.innerHTML = dejaSommaire ? `${entete}
+      <div class="score-card">
+        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-diag-constat">Ton diagnostic sommaire est fait, bien joué.</div>
+        <div class="audit-diag-interp">Il me manque encore une génération (une idée, un script ou un récit) pour te faire une recommandation vraiment fiable — le diagnostic sommaire seul ne montre que ta bio et ta niche, pas encore ce qui fonctionne pour toi.</div>
+        <button class="btn-generate" style="margin-top:14px" onclick="chooseMode('ideas')">💡 Trouver mes premières idées</button>
+      </div>` : `${entete}
       <div class="score-card">
         <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Scriptura apprend encore tes habitudes.</div>
