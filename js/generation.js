@@ -327,6 +327,12 @@ function useIdeaForScript(index) {
   document.getElementById('ideasFlow').style.display = 'none';
   document.getElementById('flow').style.display = 'block';
 
+  // Ce pont ne concerne jamais une vidéo virale ou un contenu existant à
+  // coller : si ce champ était resté visible d'un passage précédent par
+  // l'étape 2 (voir renderSummary), il n'a plus sa place ici.
+  document.getElementById('viralVideoField').style.display = 'none';
+  document.getElementById('viralVideo').value = '';
+
   // 1. Sujet = le titre de l'idée (+ contexte géo si présent)
   document.getElementById('sujet').value = idea.titre + (geoContext ? ' (' + geoContext + ')' : '');
 
@@ -445,12 +451,29 @@ function renderSummary() {
   // Mettre à jour le compteur de générations
   renderGenCounter();
 
-  // Afficher le champ vidéo virale si l'utilisateur a choisi cette option
+  // Afficher le champ de contenu existant selon le point de départ choisi —
+  // "analyser une vidéo virale" et "améliorer un contenu existant" ont TOUS
+  // LES DEUX besoin que le créateur colle un texte, mais pour un usage
+  // différent (recréer une recette externe vs. améliorer SON propre
+  // contenu) : le champ est donc partagé, mais son libellé et le prompt
+  // final (voir generate()) traitent ces deux cas différemment.
   const viralField = document.getElementById('viralVideoField');
+  const viralLabel = document.getElementById('viralVideoLabel');
+  const viralInput = document.getElementById('viralVideo');
+  const viralAstuce = document.getElementById('viralVideoAstuce');
   const sujetLabel = document.getElementById('sujetLabel');
   if (state.depart && state.depart.includes('analyser une vidéo virale')) {
     viralField.style.display = 'flex';
+    viralLabel.textContent = 'Texte de la vidéo virale à analyser';
+    viralInput.placeholder = "Colle ici le texte, les sous-titres ou la description de la vidéo virale que tu as vue. Scriptura va décoder sa structure (hook, rythme, narration) et la recréer pour ton sujet.";
+    viralAstuce.textContent = '💡 Astuce : sur TikTok, active les sous-titres et copie le texte. Ou décris simplement ce qui se passe dans la vidéo.';
     sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
+  } else if (state.depart && state.depart.includes('améliorer ou adapter')) {
+    viralField.style.display = 'flex';
+    viralLabel.textContent = 'Ton contenu existant, à améliorer';
+    viralInput.placeholder = "Colle ici le texte complet de ta vidéo ou de ton script existant. Scriptura part de CE contenu — garde ton sujet et ton fond, améliore la forme (hook, rythme, structure, CTA).";
+    viralAstuce.textContent = "💡 Colle le script ou les sous-titres tels quels — rien n'est réinventé, seulement amélioré et adapté.";
+    sujetLabel.textContent = 'Angle ou sujet précis à mettre en avant';
   } else {
     viralField.style.display = 'none';
     sujetLabel.textContent = 'Ton sujet ou idée';
@@ -566,7 +589,20 @@ async function generate() {
   const audience = document.getElementById('audience').value.trim();
   const format   = document.getElementById('format').value.trim();
   const viralVideo = document.getElementById('viralVideo').value.trim();
+  // Les 4 choix de l'étape "Avec quoi commences-tu ?" doivent chacun produire
+  // un résultat concrètement différent — pas seulement les 2 premiers.
+  // Voir departInstructionScript plus bas pour l'instruction envoyée à l'IA
+  // pour CHAQUE cas (y compris "idée vague" et "sujet précis", auparavant
+  // strictement identiques dans le prompt final malgré la promesse de l'étape
+  // 2 : "Scriptura s'adapte à ton point de départ").
   const isViralMode = state.depart && state.depart.includes('analyser une vidéo virale');
+  const isAmeliorerMode = state.depart && state.depart.includes('améliorer ou adapter');
+  // "un sujet précis..." recouvre à la fois le choix direct de l'étape 2 et
+  // le pont "Générer le script complet" depuis une idée déjà trouvée (voir
+  // useIdeaForScript, qui fixe state.depart sur un texte légèrement
+  // différent mais du même sens : sujet déjà arrêté, jamais à réinventer).
+  const isSujetPrecis = state.depart && state.depart.includes('sujet précis');
+  const isIdeeVague = state.depart === 'une idée vague ou un thème général';
   const errorBox = document.getElementById('errorBox');
 
   errorBox.style.display = 'none';
@@ -577,6 +613,10 @@ async function generate() {
   }
   if (isViralMode && !viralVideo) {
     errorBox.textContent = 'Colle le texte de la vidéo virale que tu veux analyser.';
+    errorBox.style.display = 'block'; return;
+  }
+  if (isAmeliorerMode && !viralVideo) {
+    errorBox.textContent = 'Colle le texte de ton contenu existant à améliorer.';
     errorBox.style.display = 'block'; return;
   }
 
@@ -617,6 +657,23 @@ async function generate() {
   // js/api.js), pour vérifier les faits avant de rédiger. Aucun impact sur les
   // autres niches (ni coût, ni lenteur supplémentaires).
   const rechercheWeb = nicheNecessiteRecherche(niche);
+
+  // Point de départ (étape 2, "Avec quoi commences-tu ?") : les 4 choix
+  // doivent chacun changer concrètement le résultat, pas seulement les 2 qui
+  // impliquent un texte à coller. "Idée vague" et "sujet précis" produisaient
+  // auparavant EXACTEMENT le même prompt — aucune trace du choix fait à
+  // l'écran 2, alors que sa promesse ("Scriptura s'adapte à ton point de
+  // départ") disait le contraire.
+  let departInstructionScript = '';
+  if (isViralMode) {
+    departInstructionScript = `\nMODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\n[DEBUT]\n${viralVideo}\n[FIN]\nDécode sa structure et sa mécanique (hook, rythme, narration) pour la réappliquer à SON sujet à lui — n'écris jamais sur le sujet de la vidéo virale elle-même.\n`;
+  } else if (isAmeliorerMode) {
+    departInstructionScript = `\nMODE AMÉLIORATION : le créateur a déjà ce contenu, à améliorer et adapter — PAS à remplacer par un sujet différent :\n[DEBUT]\n${viralVideo}\n[FIN]\nPars de ce texte précis : garde son sujet et son fond réels, améliore uniquement la forme (hook plus fort, structure plus efficace, rythme, CTA plus clair). N'invente jamais un sujet différent de celui de ce contenu existant.\n`;
+  } else if (isIdeeVague) {
+    departInstructionScript = `\nPOINT DE DÉPART : le créateur n'a qu'un thème général, pas encore d'angle précis — tu as toute liberté créative pour définir TOI-MÊME un angle spécifique et percutant à l'intérieur de ce thème. Ne te contente jamais de décrire le thème tel quel : trouve UN angle concret et défendable, et assume-le.\n`;
+  } else if (isSujetPrecis) {
+    departInstructionScript = `\nPOINT DE DÉPART : le sujet ci-dessus est déjà précis et arrêté par le créateur — reste rigoureusement ancré dessus. N'élargis JAMAIS vers un thème plus général et ne dévie JAMAIS vers un angle différent de celui donné : approfondis ce sujet exact, ne le remplace pas par un autre.\n`;
+  }
 
   // Les choix du créateur (plateforme, objectif) doivent avoir un effet réel
   // et vérifiable sur le script produit, pas juste apparaître en contexte
@@ -668,7 +725,7 @@ ${audience ? '- Audience : ' + audience : ''}
 ${format ? '- Format : ' + format : ''}
 ${selectedTone ? '- Ton souhaité : ' + selectedTone : ''}
 ${profilLigneScript ? '- ' + profilLigneScript : ''}
-${isViralMode ? '\\n- MODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\\n[DEBUT]\\n' + viralVideo + '\\n[FIN]\\nDécode sa structure et sa mécanique pour la réappliquer.' : ''}
+${departInstructionScript}
 
 TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différence) :
 
