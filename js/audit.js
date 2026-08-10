@@ -271,6 +271,19 @@ function initAuditWizard(affine) {
   auditAffineMode = !!affine;
   auditEtapeIndex = affine ? AUDIT_ETAPES.length : 0;
   awConfirmSaut = false; // repart propre à chaque entrée dans l'audit
+  // Mode normal (pas "affiner") : formulaire ET captures vides — sinon les
+  // captures et le contexte (niche, objectif…) d'un audit précédent (ou
+  // annulé) restaient silencieusement actifs pour le suivant, même sans
+  // aucun rapport avec lui (même défaut que Script/Idées/Récit/Série, voir
+  // restart() dans js/generation.js). "Affiner" doit à l'inverse TOUJOURS
+  // garder captures et contexte : c'est tout son principe.
+  if (!affine) {
+    auditCaptures.length = 0;
+    ['auditNiche', 'auditObjectif', 'auditFrequence', 'auditStyle'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  }
   renderAuditWizard();
 }
 

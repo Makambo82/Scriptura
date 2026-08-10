@@ -81,7 +81,31 @@ function serieEsc(t) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
 
+// Repart d'un formulaire vide pour une nouvelle série — sans ça, la niche/le
+// concept/le genre d'une série précédente (annulée ou déjà créée) restaient
+// silencieusement actifs pour la suivante, même sans aucun rapport avec elle
+// (même défaut de réinitialisation que Script/Idées/Récit, voir restart()).
+function restartCreationSerie() {
+  document.getElementById('serieNiche').value = '';
+  document.getElementById('serieGeo').value = '';
+  document.getElementById('serieFormat').value = '';
+  document.getElementById('serieStyle').value = '';
+  document.getElementById('serieGenre').value = '';
+  document.getElementById('serieConcept').value = '';
+  const propos = document.getElementById('serieConceptsPropos');
+  if (propos) { propos.innerHTML = ''; propos.style.display = 'none'; }
+  const err = document.getElementById('serieError');
+  if (err) err.style.display = 'none';
+  // Durée par épisode et nombre d'épisodes reviennent à leur choix par
+  // défaut (45-60 sec, 5 épisodes — déjà .active dans le HTML d'origine).
+  serieDuree = '45 à 60 secondes';
+  serieNbEpisodes = 5;
+  document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(b => b.classList.toggle('active', b.dataset.val === serieDuree));
+  document.querySelectorAll('#serieNbGrid .grid-btn').forEach(b => b.classList.toggle('active', b.dataset.val === String(serieNbEpisodes)));
+}
+
 function ouvrirCreationSerie() {
+  restartCreationSerie();
   const sf = document.getElementById('serieFlow');
   if (sf) sf.style.display = 'block';
   document.getElementById('serieListeBloc').style.display = 'none';
