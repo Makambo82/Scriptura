@@ -652,6 +652,11 @@ async function initAccueilPremiumInterne(zone) {
     // abonnés. S'il n'y a encore rien de connu, on retombe sur le simple
     // mot de bienvenue (voir genererRecommandations → rienDeConnu).
     let dataAnon = lireRecoCache();
+    // Un "onboarding" en cache (écrit avant ce correctif, ou par une
+    // exécution plus ancienne du code) est traité comme une absence de
+    // cache : cet état est censé changer dans la journée, on ne s'y fie
+    // jamais, même s'il traîne encore dans le localStorage de quelqu'un.
+    if (dataAnon && dataAnon.onboarding) dataAnon = null;
     if (!dataAnon) {
       // La salutation ne dépend d'aucun appel réseau : elle s'affiche tout
       // de suite, avec un message d'attente, plutôt que de laisser la zone
@@ -695,6 +700,11 @@ async function initAccueilPremiumInterne(zone) {
   // Une recommandation déjà générée aujourd'hui pour ce créateur : on la
   // réaffiche telle quelle plutôt que de refaire un appel identique.
   let data = lireRecoCache();
+  // Un "onboarding" en cache (écrit avant ce correctif, ou par une
+  // exécution plus ancienne du code) est traité comme une absence de
+  // cache : cet état est censé changer dans la journée, on ne s'y fie
+  // jamais, même s'il traîne encore dans le localStorage de quelqu'un.
+  if (data && data.onboarding) data = null;
   if (!data) {
     // La salutation n'a aucune raison d'attendre la recommandation elle-même
     // (appel IA, potentiellement long) : on l'affiche tout de suite, avec un
@@ -812,10 +822,13 @@ async function afficherOpportuniteDiagSommaire() {
   if (!zone) return;
 
   let data = lireRecoCache();
+  // Même règle que initAccueilPremiumInterne : un "onboarding" en cache
+  // (même écrit avant ce correctif) est traité comme une absence de cache.
+  if (data && data.onboarding) data = null;
   if (!data) {
     data = await genererRecommandations(null, null);
-    // Même règle que initAccueilPremiumInterne : un résultat "onboarding"
-    // ne se met jamais en cache, cet état pouvant changer dans la journée.
+    // Un résultat "onboarding" ne se met jamais en cache, cet état pouvant
+    // changer dans la journée.
     if (data && !data.onboarding) ecrireRecoCache(data);
   }
   if (!data || data.onboarding || !Array.isArray(data.recommandations) || !data.recommandations.length) {
