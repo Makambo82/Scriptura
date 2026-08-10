@@ -111,8 +111,13 @@ async function generateIdeas() {
   // au bloc de contexte déjà présent, ne modifie aucune règle de ce prompt.
   const profilLigneIdees = ligneProfilPourPrompt(await chargerProfilCreateur());
 
-  // Recherche web : uniquement pour les niches d'actualité/géopolitique (voir js/api.js).
+  // Recherche web — deux besoins distincts, qui peuvent se cumuler : vérification
+  // factuelle pour les niches d'actualité/géopolitique/Histoire (voir js/api.js),
+  // et tendances TikTok, toujours activée (la quasi-totalité des créateurs
+  // Scriptura publient sur TikTok) pour que les idées s'appuient sur ce qui
+  // performe réellement en ce moment, pas seulement sur le profil du créateur.
   const rechercheWebIdees = nicheNecessiteRecherche(niche);
+  const rechercheWebIdeesActive = true;
 
   // Les choix du créateur (ton, plateforme, objectif) ne sont pas là pour
   // décorer le prompt — chacun doit avoir un effet réel et vérifiable sur
@@ -146,7 +151,7 @@ async function generateIdeas() {
     : `Aucun objectif précisé : équilibre les angles entre portée, fidélisation et démonstration d'expertise.`;
 
   const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis — jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
-${rechercheWebIdees ? instructionRechercheWeb(niche, 'de proposer des idées') : ''}
+${rechercheWebIdees ? instructionRechercheWeb(niche, 'de proposer des idées') : ''}${instructionRechercheTendancesTikTok(niche, 'de proposer des idées')}
 
 PROFIL DU CRÉATEUR :
 - Niche : ${niche}
@@ -204,7 +209,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnemen
 Génère exactement 10 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdees);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdeesActive, rechercheWebIdees ? 2 : 1);
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 

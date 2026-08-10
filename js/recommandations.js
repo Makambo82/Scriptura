@@ -83,14 +83,20 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
   // retomber sur le message de repli déjà prévu dans initAccueilPremium()
   // pour le cas "échec technique" (data === null).
   try {
-    // Recherche web : uniquement si la niche du créateur touche l'actualité/la
-    // géopolitique ou l'Histoire (voir js/api.js) — c'est exactement le cas
-    // qui a produit une recommandation datée à tort ("2024 sera décisif"
-    // alors qu'on est en 2026).
+    // Recherche web — deux besoins distincts, qui peuvent se cumuler :
+    // 1) vérification factuelle, uniquement si la niche touche l'actualité/la
+    //    géopolitique ou l'Histoire (voir js/api.js) — c'est exactement le cas
+    //    qui a produit une recommandation datée à tort ("2024 sera décisif"
+    //    alors qu'on est en 2026) ;
+    // 2) tendances TikTok, toujours activée : la quasi-totalité des créateurs
+    //    Scriptura publient sur TikTok, donc les recommandations gagnent à
+    //    s'appuyer sur ce qui performe réellement en ce moment, pas seulement
+    //    sur le profil du créateur et les connaissances d'entraînement.
     const rechercheWebReco = nicheNecessiteRecherche(profil.declare.niche_principale);
+    const rechercheWebActive = true;
 
     const prompt = `Tu es le Directeur Éditorial de Scriptura, l'assistant IA personnel d'un créateur de contenu francophone. Tu le connais grâce à sa mémoire accumulée dans Scriptura (générations passées, préférences, audits). Ta mission : lui dire précisément quoi créer aujourd'hui.
-${rechercheWebReco ? instructionRechercheWeb(profil.declare.niche_principale, 'de recommander') : ''}
+${rechercheWebReco ? instructionRechercheWeb(profil.declare.niche_principale, 'de recommander') : ''}${instructionRechercheTendancesTikTok(profil.declare.niche_principale, 'de recommander')}
 CE QUE TU SAIS DE CE CRÉATEUR :
 ${texteProfil || 'Peu d\'historique pour l\'instant.'}
 ${texteAuditFrais ? '\nDIAGNOSTIC DE SON DERNIER AUDIT (tout juste terminé) :\n' + texteAuditFrais : ''}
@@ -113,7 +119,7 @@ Pour CHAQUE recommandation, fournis :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"niveau_confiance":"faible|moyenne|élevée","recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"...","source":"mixte"}]}`;
 
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebReco);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebActive, rechercheWebReco ? 2 : 1);
     const parsed = parseAIResponse(raw);
     if (!parsed || !Array.isArray(parsed.recommandations) || !parsed.recommandations.length) return null;
     // Vérification systématique avant affichage : passe best-effort, ne bloque

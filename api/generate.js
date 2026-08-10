@@ -69,7 +69,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, messages, code_acces, web_search } = req.body;
+    const { model, max_tokens, messages, code_acces, web_search, web_search_max_uses } = req.body;
 
     // Vérifier l'abonnement AVANT d'appeler l'IA (verrou serveur incontournable)
     const acces = await verifierAcces(code_acces);
@@ -83,17 +83,22 @@ export default async function handler(req, res) {
       system: systemDateActuelle(),
       messages: messages
     };
-    // Recherche web : réservée par le client aux sujets d'actualité/géopolitique/
-    // Histoire (voir NICHES_ACTUALITE côté client, js/api.js) — jamais activée
-    // par défaut, pour ne pas ralentir/coûter plus cher sur les sujets qui n'en
-    // ont pas besoin. max_uses borné à 1 (et non 3) : au-delà d'un appel de
-    // rédaction déjà lourd (jusqu'à 16000 tokens), chaque recherche supplémentaire
-    // ajoute un aller-retour réseau qui peut faire dépasser la limite de temps
-    // côté client (55s) et produire une réponse tronquée — vécu concrètement
-    // comme des échecs "réponse incomplète" en mode Script après l'ajout de la
-    // recherche web. Une seule recherche suffit à vérifier l'essentiel des faits.
+    // Recherche web : réservée par le client aux cas qui en ont vraiment besoin
+    // (sujets d'actualité/géopolitique/Histoire, voir NICHES_ACTUALITE côté
+    // client js/api.js, ou tendances TikTok pour Recommandations/Idées) —
+    // jamais activée par défaut, pour ne pas ralentir/coûter plus cher sur les
+    // sujets qui n'en ont pas besoin. max_uses par défaut à 1 : au-delà d'un
+    // appel de rédaction déjà lourd (jusqu'à 16000 tokens), chaque recherche
+    // supplémentaire ajoute un aller-retour réseau qui peut faire dépasser la
+    // limite de temps côté client (55s) et produire une réponse tronquée —
+    // vécu concrètement comme des échecs "réponse incomplète" en mode Script
+    // après l'ajout de la recherche web. Le client peut demander jusqu'à 3
+    // recherches (web_search_max_uses) pour ses appels plus légers (6000
+    // tokens max, ex. Recommandations/Idées) qui combinent vérification de
+    // faits et recherche de tendances ; borné ici côté serveur quoi qu'il arrive.
     if (web_search) {
-      bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }];
+      const maxUses = Math.min(Math.max(parseInt(web_search_max_uses, 10) || 1, 1), 3);
+      bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }];
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {

@@ -86,12 +86,25 @@ function instructionRechercheWeb(niche, verbe) {
   return '';
 }
 
+// ── Recherche des tendances TikTok (Recommandations + mode Idées) ──
+// Contrairement à instructionRechercheWeb ci-dessus (réservée aux niches qui
+// ont besoin d'une VÉRIFICATION factuelle), celle-ci sert à INSPIRER : la
+// quasi-totalité des créateurs Scriptura publient sur TikTok, donc plutôt que
+// de laisser le modèle deviner ce qui performe à partir de ses seules
+// connaissances d'entraînement (souvent datées), on l'envoie chercher les
+// formats/angles/hooks qui marchent EN CE MOMENT dans la niche du créateur.
+// Activée pour toutes les niches (pas de filtre NICHES_*), sur les deux
+// entrées qui proposent explicitement des sujets/angles au créateur.
+function instructionRechercheTendancesTikTok(niche, verbe) {
+  return `\nTENDANCES TIKTOK ACTUELLES : avant ${verbe}, utilise la recherche web pour repérer ce qui performe RÉELLEMENT et RÉCEMMENT sur TikTok dans la niche "${niche}" (ou une niche proche) — formats qui cartonnent, angles qui reviennent, hooks efficaces, sujets qui génèrent de l'engagement en ce moment. Inspire-toi de ces tendances réelles pour rendre tes propositions plus actuelles et plus performantes, SANS jamais inventer une tendance, un chiffre ou une source que tu n'as pas réellement trouvée — si la recherche ne remonte rien d'utile, reste sur ton expertise plutôt que d'inventer.\n`;
+}
+
 // ═══════════════════════════════════════════════════════════
 //  APPEL IA AVEC REPRISE AUTOMATIQUE
 //  Retente jusqu'à 3 fois si le modèle est surchargé (529) ou
 //  si la réponse est vide/coupée. Attente croissante entre essais.
 // ═══════════════════════════════════════════════════════════
-async function callAI(model, maxTokens, prompt, maxRetries, webSearch) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   // Coupe la requête après 55s (juste sous les 60s de maxDuration côté serveur,
   // voir vercel.json) : sans ça, une requête bloquée reste pendue indéfiniment
@@ -110,7 +123,8 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch) {
           max_tokens: maxTokens,
           messages: [{ role: "user", content: prompt }],
           code_acces: localStorage.getItem('scriptura_code') || null,
-          web_search: !!webSearch
+          web_search: !!webSearch,
+          web_search_max_uses: webSearchMaxUses || undefined
         }),
         signal: controller.signal
       });
