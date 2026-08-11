@@ -6,6 +6,6 @@
     "api/montage-download.js": { "maxDuration": 60 },
     "api/montage-tts.js": { "maxDuration": 60 },
     "api/montage-images.js": { "maxDuration": 90 },
-    "api/montage-render.js": { "maxDuration": 800, "memory": 3009 }
+    "api/montage-render.js": { "maxDuration": 300, "memory": 1024 }
   }
 }
