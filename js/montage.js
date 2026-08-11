@@ -231,10 +231,13 @@ async function lancerMontage() {
     const dataGen = await rGen.json();
     if (!rGen.ok || !dataGen.project) throw new Error((dataGen.error && dataGen.error.message) || 'Le montage n\'a pas pu démarrer.');
 
-    if (statut) statut.textContent = 'Rendu en cours (peut prendre 1 à 3 minutes)…';
+    if (statut) statut.textContent = 'Rendu en cours (peut prendre plusieurs minutes selon le nombre de plans)…';
     const project = dataGen.project;
     const debut = Date.now();
-    const DELAI_MAX = 6 * 60 * 1000;
+    // Une vidéo à 15-20 plans (fondus + zoom sur chaque image) prend plus
+    // longtemps à encoder qu'un montage court : marge large pour ne pas
+    // déclencher une fausse erreur sur un rendu qui avance encore normalement.
+    const DELAI_MAX = 15 * 60 * 1000;
 
     while (true) {
       await new Promise(r => setTimeout(r, 4000));
