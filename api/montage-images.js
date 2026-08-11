@@ -18,11 +18,15 @@
 // ═══════════════════════════════════════════════════════════
 
 const CONCURRENCE_MAX = 3; // limite les appels simultanés (palier gratuit)
-// FLUX.1-schnell a été retiré du fournisseur hf-inference le 15 juillet 2026 —
-// celui-ci ne sert plus qu'une liste restreinte de modèles populaires
-// (impossible de "réveiller" un modèle arbitraire du Hub désormais).
-// FLUX.2-dev est le modèle recommandé en remplacement.
-const MODELE = 'black-forest-labs/FLUX.2-dev';
+// FLUX.1-schnell puis FLUX.2-dev ont tous deux été refusés par hf-inference
+// ("model is deprecated and no longer supported") : ce fournisseur ne sert
+// plus qu'une liste restreinte de modèles, vérifiée directement sur
+// huggingface.co/models?inference_provider=hf-inference&pipeline_tag=text-to-image
+// — seul stable-diffusion-3-medium y apparaît. Modèle À ACCÈS CONDITIONNÉ :
+// il faut avoir accepté les conditions sur sa page HF (bouton "Agree and
+// access repository") avec le compte propriétaire du token, sinon l'API
+// refuse même avec le bon nom de modèle.
+const MODELE = 'stabilityai/stable-diffusion-3-medium-diffusers';
 // 768×1344 ≈ 9:16, dimensions multiples de 8 (contrainte des modèles de diffusion).
 const LARGEUR = 768, HAUTEUR = 1344;
 
