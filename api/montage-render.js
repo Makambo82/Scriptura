@@ -67,12 +67,14 @@ function construireFiltre(durees, longueurs) {
     // la fin du clip et se fige pendant le fondu — d'où l'usage de
     // `longueurs[i]` (la valeur passée à -t pour cette entrée) et non
     // `durees[i]` (la durée voulue, sans le rembourrage de transition).
-    // Sur-échantillonnage 1.5x (au lieu de 2x) avant zoompan : lisse encore
-    // bien le zoom, mais réduit nettement le volume de pixels à traiter —
-    // un montage à ~20 plans dépassait la limite de temps d'exécution
-    // (voir historique) avant ce changement.
+    // Pas de sur-échantillonnage avant zoompan : les images sources
+    // (Together AI, 768x1344) sont déjà proches de la résolution de sortie
+    // (720x1280) — les agrandir avant de les rétrécir n'ajoutait aucun
+    // vrai détail, juste de la mémoire et du calcul en plus. Un montage à
+    // ~20 plans provoquait un "ran out of available memory" (voir
+    // historique) : ce filtre en moins par plan y contribue directement.
     parts.push(
-      `[${i}:v]scale=${Math.round(LARGEUR * 1.5)}:${Math.round(HAUTEUR * 1.5)},setsar=1,fps=${FPS},${zoompanExpr(i, longueurs[i])}[v${i}]`
+      `[${i}:v]scale=${LARGEUR}:${HAUTEUR},setsar=1,fps=${FPS},${zoompanExpr(i, longueurs[i])}[v${i}]`
     );
   }
   let dernier = 'v0';
