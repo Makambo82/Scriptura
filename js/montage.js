@@ -202,17 +202,25 @@ function dureeAudio(file) {
 }
 
 // Répartit la durée totale de la voix off sur les images, proportionnellement
-// à la part de texte de chaque plan. La dernière image absorbe l'arrondi pour
-// que la somme colle exactement à la voix off. Si la voix n'est pas mesurable,
-// on garde l'estimation par le texte.
+// à la part de texte de chaque plan. La dernière image absorbe l'arrondi ET
+// une marge de sécurité (MARGE_SECURITE) pour que la somme des images ne
+// tombe JAMAIS un peu sous la vraie durée de la voix off — un écart, même
+// d'une fraction de seconde, entre la mesure faite ici et celle que JSON2Video
+// fait lui-même du même fichier (arrondis, décodage) suffit à faire finir les
+// images avant l'audio (l'élément audio, au niveau du film entier, impose sa
+// propre longueur naturelle). Une dernière image qui dure un peu plus
+// longtemps que nécessaire est un bien moindre mal qu'un écran figé pendant
+// que la voix continue. Si la voix n'est pas mesurable, on garde l'estimation
+// par le texte.
 async function calculerDureesImages() {
   const dureeVoix = montageAudio ? await dureeAudio(montageAudio.file) : 0;
   const totalEstime = montagePlans.reduce((s, p) => s + p.seconds, 0) || 1;
   const facteur = (dureeVoix > 0) ? dureeVoix / totalEstime : 1;
   const durees = montagePlans.map(p => Math.max(1, Math.round(p.seconds * facteur * 10) / 10));
   if (dureeVoix > 0 && durees.length) {
+    const MARGE_SECURITE = Math.max(1.5, dureeVoix * 0.03);
     const somme = durees.reduce((a, b) => a + b, 0);
-    const reste = Math.round((dureeVoix - somme) * 10) / 10;
+    const reste = Math.round((dureeVoix + MARGE_SECURITE - somme) * 10) / 10;
     const dernier = durees.length - 1;
     durees[dernier] = Math.max(1, Math.round((durees[dernier] + reste) * 10) / 10);
   }
@@ -285,7 +293,7 @@ async function lancerMontage() {
         if (statut) statut.style.display = 'none';
         if (resultat) resultat.innerHTML = `
           <video class="montage-video" src="${dataSt.url}" controls playsinline></video>
-          <button class="btn-regenerate" id="montageTelechargerBtn" type="button" style="display:inline-block;margin-top:12px" onclick="telechargerVideoMontage('${dataSt.url}')">⬇ Télécharger la vidéo</button>`;
+          <a class="btn-regenerate" style="display:inline-block;margin-top:12px" href="/api/montage-download?url=${encodeURIComponent(dataSt.url)}" download="scriptura-montage.mp4">⬇ Télécharger la vidéo</a>`;
         break;
       }
       if (dataSt.status === 'error') throw new Error(dataSt.message || 'Le rendu a échoué côté JSON2Video.');
@@ -297,40 +305,5 @@ async function lancerMontage() {
   } finally {
     montageEnCours = false;
     renderMontageEtat();
-  }
-}
-
-// Un lien <a download> vers une URL distante (autre domaine que Scriptura,
-// ici JSON2Video/Supabase) est ignoré par Safari iOS : il se contente
-// d'ouvrir/lire la vidéo au lieu de proposer de l'enregistrer. On récupère
-// donc la vidéo en mémoire (blob), puis on passe par le partage natif (menu
-// "Enregistrer la vidéo") — ou, à défaut, un lien de téléchargement sur ce
-// blob, qui lui fonctionne bien. Un fetch() direct vers le CDN distant
-// échoue souvent à cause du CORS (même quand <video src> lit très bien le
-// flux) : on passe donc par /api/montage-download, un proxy même origine
-// que Scriptura, qui n'a pas cette restriction.
-async function telechargerVideoMontage(url) {
-  const btn = document.getElementById('montageTelechargerBtn');
-  const label = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
-  try {
-    const rep = await fetch('/api/montage-download?url=' + encodeURIComponent(url));
-    if (!rep.ok) throw new Error('vidéo introuvable');
-    const blob = await rep.blob();
-    const fichier = new File([blob], 'scriptura-montage.mp4', { type: blob.type || 'video/mp4' });
-
-    if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
-      await navigator.share({ files: [fichier] });
-    } else {
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl; a.download = 'scriptura-montage.mp4';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
-    }
-  } catch (e) {
-    if (e && e.name !== 'AbortError') window.open(url, '_blank'); // repli : ouvrir la vidéo telle quelle
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
