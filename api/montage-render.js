@@ -10,13 +10,25 @@
 //  plans, sur demande expresse : trop de types de transitions différents
 //  rendait le montage brouillon.
 //
-//  Calage des durées : chaque image i (sauf la dernière) est allongée de la
-//  durée de la transition (duration + 0.5s) et le xfade suivant démarre à
-//  la somme cumulée des durées voulues — la durée totale de la vidéo colle
-//  ainsi exactement à la somme des durées (donc à la voix off ElevenLabs),
-//  transitions comprises, sans jamais raccourcir le montage. Vérifié par
-//  exécution réelle de FFmpeg (voir historique de travail), pas seulement
-//  en théorie.
+//  Rendu PAR LOTS (voir TAILLE_LOT) : un montage à ~20 plans dans un seul
+//  graphe FFmpeg (tous les flux vidéo ouverts en même temps) provoquait un
+//  "ran out of available memory" sur le plan Vercel gratuit — confirmé sur
+//  les logs de production, indépendamment de la résolution/cadence choisie.
+//  La mémoire consommée dépend surtout du NOMBRE de flux ouverts simultané-
+//  ment, pas de leur taille. On rend donc chaque petit groupe de plans dans
+//  son propre graphe (fondu croisé À L'INTÉRIEUR du lot), puis on recolle
+//  les lots avec le démuxeur concat (copie de flux, quasi gratuite en
+//  mémoire) avant de mixer la voix off en dernière étape. Conséquence
+//  visible : un cut net (sans fondu) toutes les TAILLE_LOT images, au lieu
+//  d'un fondu partout — compromis assumé pour rester dans la mémoire
+//  disponible, "cut net" faisait déjà partie des transitions validées.
+//
+//  Calage des durées : chaque image i (sauf la dernière DE SON LOT) est
+//  allongée de la durée de la transition (duration + 0.5s) et le xfade
+//  suivant démarre à la somme cumulée des durées voulues DU LOT — la durée
+//  totale de la vidéo colle ainsi exactement à la somme des durées (donc à
+//  la voix off ElevenLabs), transitions comprises. Vérifié par exécution
+//  réelle de FFmpeg (voir historique de travail), pas seulement en théorie.
 //
 //  Réservé au fondateur (bouton visible uniquement en body.is-admin) — le
 //  rendu utilise SUPABASE_URL/SUPABASE_ANON_KEY, déjà présents côté serveur
@@ -43,6 +55,11 @@ const LARGEUR = 720, HAUTEUR = 1280;
 // 15 img/s reste fluide pour un mouvement lent type Ken Burns.
 const FPS = 15;
 const DUREE_TRANSITION = 0.5;
+// Nombre maximum de plans traités ensemble dans UN SEUL graphe FFmpeg (donc
+// de flux vidéo ouverts en même temps). C'est ce nombre, pas la résolution
+// ni la cadence, qui déterminait la mémoire consommée — un lot fixe garde
+// le pic de mémoire constant quel que soit le nombre total de plans.
+const TAILLE_LOT = 5;
 
 async function telechargerVers(url, cheminLocal) {
   const rep = await fetch(url);
@@ -51,11 +68,13 @@ async function telechargerVers(url, cheminLocal) {
   await fs.writeFile(cheminLocal, tampon);
 }
 
-function zoompanExpr(i, duree) {
+function zoompanExpr(indexGlobal, duree) {
   const d = Math.max(1, Math.round(duree * FPS));
   // Alternance simple zoom avant / zoom arrière (même logique déjà validée
   // côté JSON2Video : deux variantes seulement, pas de liste à rallonge).
-  const zoomAvant = i % 2 === 0;
+  // Indexée globalement (pas par lot) pour que l'alternance reste cohérente
+  // d'un lot à l'autre.
+  const zoomAvant = indexGlobal % 2 === 0;
   const zMax = 1.25;
   const pas = (zMax - 1) / d;
   const z = zoomAvant
@@ -64,7 +83,11 @@ function zoompanExpr(i, duree) {
   return `zoompan=z='${z}':d=${d}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${LARGEUR}x${HAUTEUR}:fps=${FPS}`;
 }
 
-function construireFiltre(durees, longueurs) {
+// Construit le graphe FFmpeg pour UN LOT de plans (fondu croisé à
+// l'intérieur du lot uniquement — voir le commentaire d'en-tête pour le
+// pourquoi). `decalageGlobal` sert uniquement à garder l'alternance de
+// zoom cohérente d'un lot à l'autre.
+function construireFiltreLot(durees, longueurs, decalageGlobal) {
   const n = durees.length;
   const parts = [];
   for (let i = 0; i < n; i++) {
@@ -76,11 +99,9 @@ function construireFiltre(durees, longueurs) {
     // Pas de sur-échantillonnage avant zoompan : les images sources
     // (Together AI, 768x1344) sont déjà proches de la résolution de sortie
     // (720x1280) — les agrandir avant de les rétrécir n'ajoutait aucun
-    // vrai détail, juste de la mémoire et du calcul en plus. Un montage à
-    // ~20 plans provoquait un "ran out of available memory" (voir
-    // historique) : ce filtre en moins par plan y contribue directement.
+    // vrai détail, juste de la mémoire et du calcul en plus.
     parts.push(
-      `[${i}:v]scale=${LARGEUR}:${HAUTEUR},setsar=1,fps=${FPS},${zoompanExpr(i, longueurs[i])}[v${i}]`
+      `[${i}:v]scale=${LARGEUR}:${HAUTEUR},setsar=1,fps=${FPS},${zoompanExpr(decalageGlobal + i, longueurs[i])}[v${i}]`
     );
   }
   let dernier = 'v0';
@@ -154,38 +175,60 @@ export default async function handler(req, res) {
     const cheminAudio = path.join(dossier, 'audio.mp3');
     await telechargerVers(audioUrl, cheminAudio);
 
-    const longueurs = durees.map((d, i) => d + (i < durees.length - 1 ? DUREE_TRANSITION : 0));
+    // Rendu par lots (voir TAILLE_LOT et le commentaire d'en-tête) : chaque
+    // lot est un graphe FFmpeg indépendant, vidéo seule (l'audio est mixé
+    // une fois tout recollé), avec fondu croisé entre ses propres plans.
+    const cheminsLots = [];
+    for (let debut = 0; debut < images.length; debut += TAILLE_LOT) {
+      const fin = Math.min(debut + TAILLE_LOT, images.length);
+      const dureesLot = durees.slice(debut, fin);
+      const longueursLot = dureesLot.map((d, i) => d + (i < dureesLot.length - 1 ? DUREE_TRANSITION : 0));
 
-    const cheminSortie = path.join(dossier, 'out.mp4');
-    const args = [];
-    images.forEach((img, i) => {
-      args.push('-loop', '1', '-t', String(longueurs[i]), '-i', path.join(dossier, `img-${i}.jpg`));
-    });
-    args.push('-i', cheminAudio);
-    args.push('-filter_complex', construireFiltre(durees, longueurs));
-    // Durée totale visée = somme exacte des durées voulues (donc de la voix
-    // off ElevenLabs). -shortest seul ne suffit pas : selon la version de
-    // FFmpeg, zoompan peut produire quelques frames de plus que prévu (écart
-    // constaté entre le FFmpeg système 6.1.1 et le binaire ffmpeg-static
-    // 7.0.2 utilisé en production) — un -t explicite sur la sortie force la
-    // durée exacte quelle que soit cette variation.
+      const cheminLot = path.join(dossier, `lot-${cheminsLots.length}.mp4`);
+      const args = [];
+      for (let j = debut; j < fin; j++) {
+        args.push('-loop', '1', '-t', String(longueursLot[j - debut]), '-i', path.join(dossier, `img-${j}.jpg`));
+      }
+      args.push('-filter_complex', construireFiltreLot(dureesLot, longueursLot, debut));
+      args.push(
+        '-map', '[vout]',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        '-t', String(dureesLot.reduce((s, d) => s + d, 0)),
+        '-y',
+        cheminLot
+      );
+      await executerFFmpeg(args);
+      cheminsLots.push(cheminLot);
+    }
+
+    // Recolle les lots (copie de flux, sans ré-encoder : quasi gratuit en
+    // mémoire et en temps, contrairement au rendu lui-même).
+    const cheminListe = path.join(dossier, 'liste.txt');
+    await fs.writeFile(cheminListe, cheminsLots.map(c => `file '${c.replace(/'/g, "'\\''")}'`).join('\n'));
+    const cheminConcat = path.join(dossier, 'concat.mp4');
+    await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat]);
+
+    // Mixe la voix off sur la vidéo recollée. Durée totale visée = somme
+    // exacte des durées voulues (donc de la voix off ElevenLabs) — un -t
+    // explicite force cette durée quelle que soit une éventuelle dérive
+    // d'arrondi accumulée sur les lots.
     const dureeTotale = durees.reduce((s, d) => s + d, 0);
-    args.push(
-      '-map', '[vout]',
-      '-map', `${images.length}:a`,
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '23',
-      '-pix_fmt', 'yuv420p',
+    const cheminSortie = path.join(dossier, 'out.mp4');
+    await executerFFmpeg([
+      '-i', cheminConcat,
+      '-i', cheminAudio,
+      '-map', '0:v', '-map', '1:a',
+      '-c:v', 'copy',
       '-c:a', 'aac',
       '-b:a', '128k',
       '-movflags', '+faststart',
       '-t', String(dureeTotale),
       '-y',
       cheminSortie
-    );
-
-    await executerFFmpeg(args);
+    ]);
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
     const urlPublique = await uploaderVersSupabase(cheminSortie, nomFichier);
