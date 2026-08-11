@@ -33,29 +33,40 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
   }
 
-  // Transitions variées entre les plans + zoom/panoramique (effet Ken Burns)
-  // dont l'amplitude et la direction changent à chaque plan : sur un montage
-  // à 15-20 images, répéter le même fondu + les 2 mêmes niveaux de zoom
-  // devient vite monotone. On fait tourner plusieurs styles de transition et
-  // plusieurs combinaisons zoom/panoramique, jamais deux fois la même de
-  // suite (chaque tableau a une longueur première entre elles, donc les
-  // motifs ne se resynchronisent pas avant longtemps).
-  const TRANSITIONS = ['fade', 'wipeleft', 'wiperight', 'wipeup', 'wipedown', 'slideleft', 'slideright', 'circleopen', 'smoothleft', 'smoothright', 'dissolve'];
+  // Liste resserrée sur demande, à des effets sobres et confirmés : fondu,
+  // fondu au noir, mélange (dissolve), fondu lent (même fondu, transition
+  // plus longue) et cut net (aucune transition — juste une coupe franche).
+  // "Reflet" et "bogue" ont été laissés de côté : aucun nom de transition
+  // correspondant n'existe dans la liste vérifiée de JSON2Video (basée sur
+  // les transitions xfade de FFmpeg, sur lequel JSON2Video s'appuie) — les
+  // inventer risquerait de refaire échouer le rendu, comme l'a fait "zoom"
+  // en décimal la dernière fois.
+  const TRANSITIONS = [
+    { style: 'fade', duration: 0.5 },      // fondu
+    null,                                   // cut net (pas de transition)
+    { style: 'fadeblack', duration: 0.5 }, // fondu au noir
+    { style: 'dissolve', duration: 0.5 },  // mélange
+    { style: 'fade', duration: 1.2 }       // fondu lent
+  ];
   const PANS = ['top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
-  // zoom doit être un ENTIER côté JSON2Video (une valeur décimale comme 1.5
-  // fait échouer tout le rendu avec "Property 'zoom' is not an integer").
-  const ZOOMS = [1, -1, 2, -2, 3, -3, 4, -4];
-  const scenes = images.map((img, i) => ({
-    duration: Math.max(1, Number(img.duration) || 2),
-    transition: { style: TRANSITIONS[i % TRANSITIONS.length], duration: 0.5 },
-    elements: [{
-      type: 'image',
-      src: img.url,
-      resize: 'cover',
-      zoom: ZOOMS[i % ZOOMS.length],
-      pan: PANS[i % PANS.length]
-    }]
-  }));
+  // zoom doit être un ENTIER côté JSON2Video. Juste agrandissement/rétrécissement,
+  // en alternance — pas d'amplitudes multiples (demande de resserrer l'effet).
+  const ZOOMS = [3, -3];
+  const scenes = images.map((img, i) => {
+    const transition = TRANSITIONS[i % TRANSITIONS.length];
+    const scene = {
+      duration: Math.max(1, Number(img.duration) || 2),
+      elements: [{
+        type: 'image',
+        src: img.url,
+        resize: 'cover',
+        zoom: ZOOMS[i % ZOOMS.length],
+        pan: PANS[i % PANS.length]
+      }]
+    };
+    if (transition) scene.transition = transition;
+    return scene;
+  });
 
   const payload = {
     resolution: 'custom',

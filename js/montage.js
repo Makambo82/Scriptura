@@ -175,9 +175,28 @@ function dureeAudio(file) {
       const url = URL.createObjectURL(file);
       const a = document.createElement('audio');
       a.preload = 'metadata';
-      a.onloadedmetadata = () => { const d = a.duration; URL.revokeObjectURL(url); resolve(isFinite(d) && d > 0 ? d : 0); };
-      a.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      let fini = false;
+      const terminer = (d) => {
+        if (fini) return;
+        fini = true;
+        URL.revokeObjectURL(url);
+        resolve(isFinite(d) && d > 0 ? d : 0);
+      };
+      a.onerror = () => terminer(0);
+      a.onloadedmetadata = () => {
+        if (isFinite(a.duration)) { terminer(a.duration); return; }
+        // Bug connu (Safari/Chrome) : certains MP3 à débit variable renvoient
+        // une durée Infinity tant qu'on n'a pas cherché jusqu'à la fin —
+        // sans ce contournement, la durée retombe silencieusement à
+        // l'estimation par le texte, plus courte que la vraie voix off
+        // (les images se terminent alors avant la fin de l'audio).
+        a.currentTime = 1e101;
+        a.ontimeupdate = () => terminer(a.duration);
+      };
       a.src = url;
+      // Garde-fou : si rien ne se déclenche (fichier inhabituel), ne jamais
+      // bloquer indéfiniment le lancement du montage.
+      setTimeout(() => terminer(a.duration), 5000);
     } catch (e) { resolve(0); }
   });
 }
@@ -284,15 +303,18 @@ async function lancerMontage() {
 // Un lien <a download> vers une URL distante (autre domaine que Scriptura,
 // ici JSON2Video/Supabase) est ignoré par Safari iOS : il se contente
 // d'ouvrir/lire la vidéo au lieu de proposer de l'enregistrer. On récupère
-// donc la vidéo en mémoire (blob, donc "même origine" pour le navigateur),
-// puis on passe par le partage natif (menu "Enregistrer la vidéo") — ou, à
-// défaut, un lien de téléchargement sur ce blob, qui lui fonctionne bien.
+// donc la vidéo en mémoire (blob), puis on passe par le partage natif (menu
+// "Enregistrer la vidéo") — ou, à défaut, un lien de téléchargement sur ce
+// blob, qui lui fonctionne bien. Un fetch() direct vers le CDN distant
+// échoue souvent à cause du CORS (même quand <video src> lit très bien le
+// flux) : on passe donc par /api/montage-download, un proxy même origine
+// que Scriptura, qui n'a pas cette restriction.
 async function telechargerVideoMontage(url) {
   const btn = document.getElementById('montageTelechargerBtn');
   const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
   try {
-    const rep = await fetch(url);
+    const rep = await fetch('/api/montage-download?url=' + encodeURIComponent(url));
     if (!rep.ok) throw new Error('vidéo introuvable');
     const blob = await rep.blob();
     const fichier = new File([blob], 'scriptura-montage.mp4', { type: blob.type || 'video/mp4' });
