@@ -16,6 +16,8 @@ let montageVoixOff = null;  // { blob, url, durations } — générée par Eleve
 let montageEnCours = false;
 let montageVoixEnCours = false;
 let montageImagesEnCours = false;
+let montageVoixListe = [];  // [{ id, label }] — voix ElevenLabs configurées (voir api/montage-voices.js)
+let montageVoixId = '';     // id de la voix actuellement choisie
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série — génération en direct ET
@@ -61,6 +63,7 @@ function ouvrirMontage(plans) {
   const compteAttendu = document.getElementById('montageCompteAttendu');
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
+  chargerVoixMontage();
   const modal = document.getElementById('montageModal');
   if (modal) modal.classList.add('active');
 }
@@ -137,6 +140,38 @@ async function regenererImageMontage(i) {
   }
 }
 
+// Charge les voix ElevenLabs configurées côté serveur (voir
+// api/montage-voices.js) et remplit le sélecteur. Le menu reste caché s'il
+// n'y a qu'une seule voix disponible — rien à choisir dans ce cas.
+async function chargerVoixMontage() {
+  const select = document.getElementById('montageVoixSelect');
+  if (!select) return;
+  try {
+    const rep = await fetch('/api/montage-voices');
+    const data = await rep.json();
+    montageVoixListe = Array.isArray(data.voices) ? data.voices : [];
+  } catch (e) {
+    montageVoixListe = [];
+  }
+  if (montageVoixListe.length) {
+    montageVoixId = montageVoixListe[0].id;
+    select.innerHTML = montageVoixListe.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+    select.value = montageVoixId;
+    select.style.display = montageVoixListe.length > 1 ? '' : 'none';
+  } else {
+    select.style.display = 'none';
+  }
+}
+
+function changerVoixMontage(id) {
+  if (id === montageVoixId) return;
+  montageVoixId = id;
+  // La voix off déjà générée correspond à l'ancienne voix : on la
+  // réinitialise pour ne pas assembler un montage avec la mauvaise voix.
+  montageVoixOff = null;
+  renderMontageEtat();
+}
+
 async function genererVoixOffMontage() {
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
@@ -148,7 +183,7 @@ async function genererVoixOffMontage() {
     const rep = await fetch('/api/montage-tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments: montagePlans.map(p => p.text) })
+      body: JSON.stringify({ segments: montagePlans.map(p => p.text), voiceId: montageVoixId })
     });
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La voix off n\'a pas pu être générée.');

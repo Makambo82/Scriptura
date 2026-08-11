@@ -10,18 +10,35 @@
 //  clé ELEVENLABS_API_KEY reste entièrement côté serveur.
 // ═══════════════════════════════════════════════════════════
 
+// Mêmes voix que /api/montage-voices (voir ce fichier pour le format de
+// ELEVENLABS_VOICES) — dupliqué plutôt qu'importé : chaque fonction
+// serverless de ce projet reste autonome, aucun module partagé entre elles.
+function obtenirVoixDisponibles() {
+  const brut = process.env.ELEVENLABS_VOICES;
+  if (brut) {
+    try {
+      const liste = JSON.parse(brut);
+      if (Array.isArray(liste) && liste.length && liste.every(v => v && v.id)) {
+        return liste.map(v => ({ id: String(v.id), label: String(v.label || v.name || v.id) }));
+      }
+    } catch (e) { /* tombe sur le repli ci-dessous */ }
+  }
+  const idUnique = process.env.ELEVENLABS_VOICE_ID;
+  return idUnique ? [{ id: idUnique, label: 'Voix par défaut' }] : [];
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const voiceId = process.env.ELEVENLABS_VOICE_ID;
   if (!apiKey) {
     return res.status(500).json({ error: { message: 'Clé API absente côté serveur (ELEVENLABS_API_KEY)' } });
   }
-  if (!voiceId) {
-    return res.status(500).json({ error: { message: 'Voix absente côté serveur (ELEVENLABS_VOICE_ID) — choisis-en une dans ta bibliothèque de voix ElevenLabs et copie son ID.' } });
+  const voixDisponibles = obtenirVoixDisponibles();
+  if (!voixDisponibles.length) {
+    return res.status(500).json({ error: { message: 'Voix absente côté serveur (ELEVENLABS_VOICE_ID ou ELEVENLABS_VOICES) — choisis-en une dans ta bibliothèque de voix ElevenLabs et copie son ID.' } });
   }
 
   let body = req.body;
@@ -32,6 +49,13 @@ export default async function handler(req, res) {
   if (!segments.length || segments.every(s => !s)) {
     return res.status(400).json({ error: { message: 'Aucun texte à narrer' } });
   }
+
+  // La voix demandée doit faire partie de la liste configurée côté serveur
+  // (jamais un ID arbitraire envoyé par le client) — même logique que pour
+  // toute entrée utilisateur touchant une clé API tierce.
+  const voixDemandee = typeof body?.voiceId === 'string' ? body.voiceId : '';
+  const voixChoisie = voixDisponibles.find(v => v.id === voixDemandee) || voixDisponibles[0];
+  const voiceId = voixChoisie.id;
 
   // Un seul appel pour tout le script (narration continue et naturelle),
   // les plans séparés par un espace — on retient l'index de caractère où
