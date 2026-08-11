@@ -302,7 +302,6 @@ function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
   const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + board.map((s, i) => `Plan ${s.segment || (i + 1)} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
   grid.insertAdjacentHTML('beforeend', `
     <div class="sb-actions-fin">
-      <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardSeul')">↻ Régénérer</button>
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       ${montageBoutonHTML('montageBtnSeul')}
@@ -344,10 +343,16 @@ function afficherStoryboardSeulResultat(board, miniature) {
       ${blocGenImage(storeCopyText(s.visuel || ''))}
     </div>`).join('')}
     <div class="sb-actions-fin">
-      <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardSeul')">↻ Régénérer</button>
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
+      ${montageBoutonHTML('montageBtnSeul')}
     </div></div>`;
   document.getElementById('sbSeulResults').style.display = 'block';
+  // Bouton "Générer la vidéo" (fondateur) aussi à la réouverture depuis
+  // l'historique : sur mobile, quitter l'app pour préparer la voix off
+  // recharge la page et efface le storyboard affiché ; le rouvrir depuis
+  // « Mes générations » remet le bouton, sans tout régénérer.
+  const montageBtnSeul = document.getElementById('montageBtnSeul');
+  if (montageBtnSeul) montageBtnSeul.onclick = () => ouvrirMontage(board);
   setTimeout(updateScrollBtn, 300);
 }

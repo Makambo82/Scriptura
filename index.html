@@ -777,17 +777,23 @@
         <span class="sb-gen-spinner" id="sbSeulGenSpinner"></span>
         <span id="sbSeulBtnText">🎬 Générer le storyboard</span>
       </button>
-      <div class="sb-progress-bar" id="sbProgBar3" style="display:none">
-        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill3"></div></div>
-        <div class="sb-progress-bar-pct" id="sbProgPct3">0%</div>
-      </div>
     </div>
 
     <!-- RÉSULTATS -->
     <div id="sbSeulResults" style="display:none">
       <div class="ideas-results-header">
         <h3 class="results-heading">Ton storyboard</h3>
-        <button class="btn-regenerate" onclick="afficherFormulaireGeneration('sbSeulFormCard','sbSeulResults')">✎ Modifier</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-regenerate" onclick="afficherFormulaireGeneration('sbSeulFormCard','sbSeulResults')">✎ Modifier</button>
+          <button class="btn-regenerate" onclick="regenererContenu('storyboardSeul')">↻ Régénérer</button>
+        </div>
+      </div>
+      <!-- Barre de progression déplacée ici (hors du formulaire) : le
+           formulaire est masqué dès que la génération démarre, donc la barre
+           doit vivre dans la zone de résultats pour rester visible. -->
+      <div class="sb-progress-bar" id="sbProgBar3" style="display:none">
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill3"></div></div>
+        <div class="sb-progress-bar-pct" id="sbProgPct3">0%</div>
       </div>
       <div class="out-card sb-appear open">
         <div class="out-header" onclick="toggleCard(this.parentElement)">
