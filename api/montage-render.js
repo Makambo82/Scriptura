@@ -116,6 +116,20 @@ function construireFiltreLot(durees, longueurs, decalageGlobal) {
   return parts.join(';');
 }
 
+// Journal minimal (mémoire + étape) pour voir, dans les logs Vercel, à
+// quelle étape précise un rendu meurt — indispensable pour diagnostiquer
+// un "ran out of available memory" à distance, sans pouvoir reproduire le
+// pic mémoire exact du serveur de production en local. process.memoryUsage()
+// ne mesure QUE le processus Node — le vrai travail (donc la vraie mémoire)
+// se fait dans le sous-processus FFmpeg spawné à côté, d'où l'usage de
+// os.freemem()/totalmem() qui reflètent la mémoire du conteneur entier.
+function logEtape(etape) {
+  const mem = process.memoryUsage();
+  const libreMo = Math.round(os.freemem() / 1048576);
+  const totalMo = Math.round(os.totalmem() / 1048576);
+  console.log(`[montage-render] ${etape} — libre=${libreMo}/${totalMo}MB (conteneur) node.rss=${Math.round(mem.rss / 1048576)}MB`);
+}
+
 function executerFFmpeg(args) {
   return new Promise((resolve, reject) => {
     const proc = spawn(ffmpegPath, args);
@@ -167,6 +181,7 @@ export default async function handler(req, res) {
   }
   const durees = images.map(img => Math.max(1, Number(img.duration) || 2));
 
+  logEtape('début (' + images.length + ' plans)');
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
   try {
     await Promise.all(
@@ -174,6 +189,7 @@ export default async function handler(req, res) {
     );
     const cheminAudio = path.join(dossier, 'audio.mp3');
     await telechargerVers(audioUrl, cheminAudio);
+    logEtape('téléchargements terminés');
 
     // Rendu par lots (voir TAILLE_LOT et le commentaire d'en-tête) : chaque
     // lot est un graphe FFmpeg indépendant, vidéo seule (l'audio est mixé
@@ -202,6 +218,7 @@ export default async function handler(req, res) {
       );
       await executerFFmpeg(args);
       cheminsLots.push(cheminLot);
+      logEtape('lot ' + cheminsLots.length + '/' + Math.ceil(images.length / TAILLE_LOT) + ' rendu (plans ' + debut + '-' + (fin - 1) + ')');
     }
 
     // Recolle les lots (copie de flux, sans ré-encoder : quasi gratuit en
@@ -210,6 +227,7 @@ export default async function handler(req, res) {
     await fs.writeFile(cheminListe, cheminsLots.map(c => `file '${c.replace(/'/g, "'\\''")}'`).join('\n'));
     const cheminConcat = path.join(dossier, 'concat.mp4');
     await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat]);
+    logEtape('lots recollés');
 
     // Mixe la voix off sur la vidéo recollée. Durée totale visée = somme
     // exacte des durées voulues (donc de la voix off ElevenLabs) — un -t
@@ -229,9 +247,11 @@ export default async function handler(req, res) {
       '-y',
       cheminSortie
     ]);
+    logEtape('voix off mixée');
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
     const urlPublique = await uploaderVersSupabase(cheminSortie, nomFichier);
+    logEtape('upload Supabase terminé');
     return res.status(200).json({ url: urlPublique });
   } catch (e) {
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
