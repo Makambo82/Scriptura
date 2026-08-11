@@ -2163,6 +2163,11 @@ body.is-unlocked .sidebar-logout{display:block}
   color:#e05555;font-size:1.3rem;cursor:pointer;
 }
 .montage-thumb-echec:hover{background:rgba(224,85,85,0.15)}
+.montage-thumb-attente{
+  border:1px dashed var(--border-soft);background:rgba(201,168,76,0.06);
+  animation:montage-attente-pulse 1.4s ease-in-out infinite;
+}
+@keyframes montage-attente-pulse{0%,100%{opacity:0.4}50%{opacity:0.9}}
 .montage-statut{
   margin-top:14px;padding:10px 12px;border-radius:8px;
   background:rgba(201,168,76,0.07);border:1px solid var(--border-soft);

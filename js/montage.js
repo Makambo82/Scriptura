@@ -18,6 +18,7 @@ let montageVoixEnCours = false;
 let montageImagesEnCours = false;
 let montageVoixListe = [];  // [{ id, label }] — voix ElevenLabs configurées (voir api/montage-voices.js)
 let montageVoixId = '';     // id de la voix actuellement choisie
+let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série — génération en direct ET
@@ -87,31 +88,42 @@ async function genererImagesMontage() {
   if (err) err.style.display = 'none';
   if (!montagePlans.length || montageImagesEnCours) return;
 
+  // Un plan à la fois, séquentiellement : chaque image s'affiche dès
+  // qu'elle est prête au lieu d'attendre tout le lot (et ça respecte la
+  // même contrainte que api/montage-images.js — Together AI n'accepte
+  // qu'une requête d'image à la fois sur ce compte).
   montageImagesEnCours = true;
+  montageImages = new Array(montagePlans.length).fill(null);
+  montageImageIndexEnCours = 0;
   renderMontageEtat();
-  try {
-    const rep = await fetch('/api/montage-images', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: montagePlans.map(p => p.visuel || p.text) })
-    });
-    const data = await rep.json();
-    if (!rep.ok) throw new Error((data.error && data.error.message) || 'Les images n\'ont pas pu être générées.');
 
-    montageImages = (data.images || []).map(img => img
-      ? { blob: base64VersBlob(img.base64, img.mimeType || 'image/png'), apercu: 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64 }
-      : null);
-    const echecs = (data.erreurs || []).filter(Boolean).length;
-    if (echecs > 0 && err) {
-      err.textContent = echecs + ' image(s) n\'ont pas pu être générées (voir ✕ ci-dessus) — réessaie-les une par une.';
-      err.style.display = 'block';
+  let echecs = 0;
+  for (let i = 0; i < montagePlans.length; i++) {
+    montageImageIndexEnCours = i;
+    renderMontageEtat();
+    try {
+      const rep = await fetch('/api/montage-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text] })
+      });
+      const data = await rep.json();
+      const img = data.images && data.images[0];
+      if (!rep.ok || !img) throw new Error((data.erreurs && data.erreurs[0]) || (data.error && data.error.message) || 'Échec de génération.');
+      montageImages[i] = { blob: base64VersBlob(img.base64, img.mimeType || 'image/png'), apercu: 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64 };
+    } catch (e) {
+      echecs++;
     }
-  } catch (e) {
-    if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
-  } finally {
-    montageImagesEnCours = false;
     renderMontageEtat();
   }
+
+  if (echecs > 0 && err) {
+    err.textContent = echecs + ' image(s) n\'ont pas pu être générées (voir ✕ ci-dessus) — réessaie-les une par une.';
+    err.style.display = 'block';
+  }
+  montageImageIndexEnCours = -1;
+  montageImagesEnCours = false;
+  renderMontageEtat();
 }
 
 async function regenererImageMontage(i) {
@@ -212,6 +224,9 @@ function renderMontageEtat() {
     zoneImg.innerHTML = montagePlans.map((p, i) => {
       const img = montageImages[i];
       if (img) return `<div class="audit-thumb"><img src="${img.apercu}" alt=""></div>`;
+      if (montageImagesEnCours && i >= montageImageIndexEnCours) {
+        return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
+      }
       return `<div class="audit-thumb montage-thumb-echec" onclick="regenererImageMontage(${i})" title="Réessayer">↻</div>`;
     }).join('');
   }
