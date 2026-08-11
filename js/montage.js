@@ -262,31 +262,44 @@ async function lancerMontage() {
     // caractère), pas une estimation ni une mesure côté navigateur.
     const durees = montageVoixOff.durations;
 
+    // Chaque étape est isolée dans son propre try/catch avec un préfixe
+    // distinct : une exception native (Supabase, fetch…) qui ne passe pas
+    // par nos messages français habituels reste quand même identifiable —
+    // sans ça, une erreur générique du navigateur ne dit pas à quelle étape
+    // (upload images, upload audio, ou rendu) elle s'est produite.
     const images = [];
-    for (let i = 0; i < montageImages.length; i++) {
-      const chemin = dossier + '/img-' + (i + 1) + '.jpg';
-      const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: montageImages[i].blob.type || 'image/png' });
-      if (error) throw new Error('Upload image ' + (i + 1) + ' : ' + error.message);
-      const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
-      images.push({ url: data.publicUrl, duration: durees[i] || 2 });
-    }
+    try {
+      for (let i = 0; i < montageImages.length; i++) {
+        const chemin = dossier + '/img-' + (i + 1) + '.jpg';
+        const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: montageImages[i].blob.type || 'image/png' });
+        if (error) throw new Error(error.message);
+        const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
+        images.push({ url: data.publicUrl, duration: durees[i] || 2 });
+      }
+    } catch (e) { throw new Error('Upload des images : ' + e.message); }
 
-    const cheminAudio = dossier + '/voix-off.mp3';
-    const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageVoixOff.blob, { contentType: 'audio/mpeg' });
-    if (errAudio) throw new Error('Upload voix off : ' + errAudio.message);
-    const { data: dataAudio } = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio);
+    let dataAudio;
+    try {
+      const cheminAudio = dossier + '/voix-off.mp3';
+      const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageVoixOff.blob, { contentType: 'audio/mpeg' });
+      if (errAudio) throw new Error(errAudio.message);
+      dataAudio = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data;
+    } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
 
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
     // sondage de statut (contrairement à JSON2Video, remplacé faute de
     // crédits — voir historique de ce fichier).
     if (statut) statut.textContent = 'Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…';
-    const rRender = await fetch('/api/montage-render', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl })
-    });
-    const dataRender = await rRender.json();
-    if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');
+    let dataRender;
+    try {
+      const rRender = await fetch('/api/montage-render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl })
+      });
+      dataRender = await rRender.json();
+      if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');
+    } catch (e) { throw new Error('Rendu de la vidéo : ' + e.message); }
 
     if (statut) statut.style.display = 'none';
     if (resultat) resultat.innerHTML = `
