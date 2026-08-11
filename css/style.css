@@ -1619,8 +1619,9 @@ body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
 body.is-admin .sidebar-item.nav-admin-btn{display:flex}
 /* Bouton "Générer la vidéo" (montage) : réservé au fondateur, même
    mécanisme que le Tableau de bord ci-dessus. */
-.montage-trigger-btn{display:none}
+.montage-trigger-btn{display:none;border-color:transparent}
 body.is-admin .montage-trigger-btn{display:inline-flex}
+.montage-trigger-btn:hover{border-color:transparent}
 /* "Nous contacter" masqué uniquement pour le fondateur (remplacé par
    "Se déconnecter" en bas de la barre latérale). */
 body.is-admin .sidebar-item.nav-contact-btn{display:none}
