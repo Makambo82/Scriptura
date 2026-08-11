@@ -35,7 +35,13 @@ import os from 'os';
 // Instagram à l'envoi — décisif pour les montages à beaucoup de plans qui
 // approchaient la limite de temps d'exécution.
 const LARGEUR = 720, HAUTEUR = 1280;
-const FPS = 25;
+// 15 img/s plutôt que 25 : réduit d'environ 40% le nombre d'images à
+// calculer (le zoompan interpole chaque image, c'est le poste le plus
+// coûteux). Sur le plan Vercel gratuit, les fonctions sont plafonnées à
+// 300s (confirmé sur les logs : le réglage maxDuration à 800s est ignoré,
+// raboté à 5 min) — un montage de ~2 min dépassait cette limite à 25 img/s.
+// 15 img/s reste fluide pour un mouvement lent type Ken Burns.
+const FPS = 15;
 const DUREE_TRANSITION = 0.5;
 
 async function telechargerVers(url, cheminLocal) {
