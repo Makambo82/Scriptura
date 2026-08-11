@@ -21,7 +21,14 @@
 //  serveur, jamais exposée au navigateur.
 // ═══════════════════════════════════════════════════════════
 
-const CONCURRENCE_MAX = 3;
+// Un seul appel à la fois : en parallèle (3 avant), Together AI renvoyait
+// une erreur de limite de débit sur une partie des appels (l'API refusait
+// la génération "en bloc" alors qu'une régénération individuelle, forcément
+// séquentielle, passait toujours) — le compte n'autorise apparemment qu'une
+// requête d'image à la fois. En plus du séquentiel, on retente automatique-
+// ment une erreur de type limite de débit (429) avant d'abandonner ce plan.
+const CONCURRENCE_MAX = 1;
+const TENTATIVES_MAX = 3;
 // FLUX.1-schnell-Free n'est PAS un modèle serverless standard côté Together
 // AI : il exige un point de terminaison dédié (instance GPU à créer et faire
 // tourner soi-même dans leur dashboard), pas un simple appel API — d'où
@@ -30,28 +37,35 @@ const CONCURRENCE_MAX = 3;
 const MODELE = 'black-forest-labs/FLUX.1-schnell';
 const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
 
+function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
+
 async function genererUneImage(apiKey, prompt) {
-  const rep = await fetch('https://api.together.xyz/v1/images/generations', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: MODELE,
-      prompt,
-      width: LARGEUR,
-      height: HAUTEUR,
-      steps: 4, // FLUX schnell est conçu pour très peu d'étapes (rapide)
-      n: 1,
-      response_format: 'base64'
-    })
-  });
-  const data = await rep.json();
-  if (!rep.ok) {
-    throw new Error(data?.error?.message || data?.error || 'Échec de génération (statut ' + rep.status + ')');
+  for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
+    const rep = await fetch('https://api.together.xyz/v1/images/generations', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: MODELE,
+        prompt,
+        width: LARGEUR,
+        height: HAUTEUR,
+        steps: 4, // FLUX schnell est conçu pour très peu d'étapes (rapide)
+        n: 1,
+        response_format: 'base64'
+      })
+    });
+    const data = await rep.json();
+    if (rep.ok) {
+      const image = (data.data || [])[0];
+      const b64 = image && (image.b64_json || image.base64);
+      if (!b64) throw new Error('Aucune image renvoyée par Together AI');
+      return { base64: b64, mimeType: 'image/png' };
+    }
+    const message = data?.error?.message || data?.error || 'Échec de génération (statut ' + rep.status + ')';
+    const limiteDebit = rep.status === 429 || /rate.?limit/i.test(String(message));
+    if (limiteDebit && tentative < TENTATIVES_MAX) { await attendre(1500 * tentative); continue; }
+    throw new Error(message);
   }
-  const image = (data.data || [])[0];
-  const b64 = image && (image.b64_json || image.base64);
-  if (!b64) throw new Error('Aucune image renvoyée par Together AI');
-  return { base64: b64, mimeType: 'image/png' };
 }
 
 export default async function handler(req, res) {
