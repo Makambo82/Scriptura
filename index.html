@@ -1493,7 +1493,14 @@
 
     <div class="montage-section">
       <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
-      <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">🎨 Générer les images</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">🎨 Générer les images</button>
+        <select class="ctx-input" id="montageImgFormatSelect" style="flex:0 0 auto;width:auto" title="Format de téléchargement des images">
+          <option value="png">PNG</option>
+          <option value="jpeg">JPEG</option>
+          <option value="webp">WEBP</option>
+        </select>
+      </div>
       <div class="audit-thumbs" id="montageImagesThumbs" style="margin-top:14px"></div>
     </div>
 

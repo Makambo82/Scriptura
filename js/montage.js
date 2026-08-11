@@ -83,6 +83,118 @@ function base64VersBlob(base64, mimeType) {
   return new Blob([tampon], { type: mimeType });
 }
 
+function telechargerBlob(blob, nomFichier) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomFichier;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Convertit une image PNG (générée par Together AI) vers JPEG/WEBP via
+// <canvas> — entièrement côté navigateur, pas d'aller-retour serveur.
+async function convertirImageVers(blob, format) {
+  if (format === 'png') return blob;
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  const mime = format === 'webp' ? 'image/webp' : 'image/jpeg';
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('Conversion image échouée')), mime, 0.92);
+  });
+}
+
+async function telechargerImageMontage(i) {
+  const img = montageImages[i];
+  if (!img) return;
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  const format = document.getElementById('montageImgFormatSelect')?.value || 'png';
+  try {
+    const blobConverti = await convertirImageVers(img.blob, format);
+    telechargerBlob(blobConverti, 'scriptura-plan-' + (i + 1) + '.' + format);
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur de téléchargement (plan ' + (i + 1) + ') : ' + e.message; err.style.display = 'block'; }
+  }
+}
+
+// Encode un AudioBuffer décodé (Web Audio API) en WAV PCM 16 bits —
+// format simple, pas de dépendance, aucune bibliothèque de conversion
+// audio n'est nécessaire pour ce format.
+function encoderWav(audioBuffer) {
+  const nbCanaux = audioBuffer.numberOfChannels;
+  const frequenceEch = audioBuffer.sampleRate;
+  const nbEchantillons = audioBuffer.length;
+  const tailleData = nbEchantillons * nbCanaux * 2;
+  const buffer = new ArrayBuffer(44 + tailleData);
+  const vue = new DataView(buffer);
+
+  function ecrireChaine(offset, chaine) {
+    for (let i = 0; i < chaine.length; i++) vue.setUint8(offset + i, chaine.charCodeAt(i));
+  }
+
+  ecrireChaine(0, 'RIFF');
+  vue.setUint32(4, 36 + tailleData, true);
+  ecrireChaine(8, 'WAVE');
+  ecrireChaine(12, 'fmt ');
+  vue.setUint32(16, 16, true);
+  vue.setUint16(20, 1, true); // PCM
+  vue.setUint16(22, nbCanaux, true);
+  vue.setUint32(24, frequenceEch, true);
+  vue.setUint32(28, frequenceEch * nbCanaux * 2, true);
+  vue.setUint16(32, nbCanaux * 2, true);
+  vue.setUint16(34, 16, true);
+  ecrireChaine(36, 'data');
+  vue.setUint32(40, tailleData, true);
+
+  const canaux = [];
+  for (let c = 0; c < nbCanaux; c++) canaux.push(audioBuffer.getChannelData(c));
+  let offset = 44;
+  for (let i = 0; i < nbEchantillons; i++) {
+    for (let c = 0; c < nbCanaux; c++) {
+      let echantillon = Math.max(-1, Math.min(1, canaux[c][i]));
+      echantillon = echantillon < 0 ? echantillon * 0x8000 : echantillon * 0x7FFF;
+      vue.setInt16(offset, echantillon, true);
+      offset += 2;
+    }
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function convertirAudioVersWav(blob) {
+  const tampon = await blob.arrayBuffer();
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AudioCtx();
+  try {
+    const audioBuffer = await ctx.decodeAudioData(tampon);
+    return encoderWav(audioBuffer);
+  } finally {
+    ctx.close();
+  }
+}
+
+async function telechargerVoixOffMontage() {
+  if (!montageVoixOff) return;
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  const format = document.getElementById('montageAudioFormatSelect')?.value || 'mp3';
+  try {
+    if (format === 'wav') {
+      const wavBlob = await convertirAudioVersWav(montageVoixOff.blob);
+      telechargerBlob(wavBlob, 'scriptura-voix-off.wav');
+    } else {
+      telechargerBlob(montageVoixOff.blob, 'scriptura-voix-off.mp3');
+    }
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur de téléchargement voix off : ' + e.message; err.style.display = 'block'; }
+  }
+}
+
 async function genererImagesMontage() {
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
@@ -223,7 +335,7 @@ function renderMontageEtat() {
   if (zoneImg) {
     zoneImg.innerHTML = montagePlans.map((p, i) => {
       const img = montageImages[i];
-      if (img) return `<div class="audit-thumb"><img src="${img.apercu}" alt=""></div>`;
+      if (img) return `<div class="audit-thumb"><img src="${img.apercu}" alt=""><button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">⬇</button></div>`;
       if (montageImagesEnCours && i >= montageImageIndexEnCours) {
         return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
       }
@@ -243,6 +355,13 @@ function renderMontageEtat() {
     } else if (montageVoixOff) {
       zoneVoix.innerHTML = `
         <audio class="montage-audio-preview" src="${montageVoixOff.url}" controls></audio>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <select class="ctx-input" id="montageAudioFormatSelect" style="flex:0 0 auto;width:auto">
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+          </select>
+          <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">⬇ Télécharger</button>
+        </div>
         <button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`;
     } else {
       zoneVoix.innerHTML = `<button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">🎙️ Générer la voix off</button>`;
