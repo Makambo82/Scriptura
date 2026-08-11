@@ -42,7 +42,9 @@ export default async function handler(req, res) {
   // motifs ne se resynchronisent pas avant longtemps).
   const TRANSITIONS = ['fade', 'wipeleft', 'wiperight', 'wipeup', 'wipedown', 'slideleft', 'slideright', 'circleopen', 'smoothleft', 'smoothright', 'dissolve'];
   const PANS = ['top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
-  const ZOOMS = [2, -2, 3, -1.5, 1.5, -3, 2.5, -2.5];
+  // zoom doit être un ENTIER côté JSON2Video (une valeur décimale comme 1.5
+  // fait échouer tout le rendu avec "Property 'zoom' is not an integer").
+  const ZOOMS = [1, -1, 2, -2, 3, -3, 4, -4];
   const scenes = images.map((img, i) => ({
     duration: Math.max(1, Number(img.duration) || 2),
     transition: { style: TRANSITIONS[i % TRANSITIONS.length], duration: 0.5 },
