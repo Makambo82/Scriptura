@@ -2157,6 +2157,12 @@ body.is-unlocked .sidebar-logout{display:block}
   text-transform:uppercase;color:var(--gold);margin-bottom:10px;
 }
 .montage-audio-preview{width:100%;display:block}
+.montage-thumb-echec{
+  display:flex;align-items:center;justify-content:center;
+  border:1px dashed rgba(224,85,85,0.5);background:rgba(224,85,85,0.08);
+  color:#e05555;font-size:1.3rem;cursor:pointer;
+}
+.montage-thumb-echec:hover{background:rgba(224,85,85,0.15)}
 .montage-statut{
   margin-top:14px;padding:10px 12px;border-radius:8px;
   background:rgba(201,168,76,0.07);border:1px solid var(--border-soft);

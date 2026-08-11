@@ -1489,17 +1489,12 @@
   <div class="genimg-modal montage-modal">
     <button class="genimg-close" onclick="fermerMontage()">✕</button>
     <div class="genimg-title">Générer la vidéo</div>
-    <div class="genimg-sub">Ajoute une image par plan (<span id="montageCompteAttendu">0</span> au total). La voix off est générée automatiquement à partir du texte du storyboard. Scriptura assemble le montage — sans sous-titres pour l'instant.</div>
+    <div class="genimg-sub">Les images et la voix off sont générées automatiquement à partir du storyboard (<span id="montageCompteAttendu">0</span> plan(s)). Scriptura assemble ensuite le montage — sans sous-titres pour l'instant.</div>
 
     <div class="montage-section">
       <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
-      <div class="audit-drop" onclick="document.getElementById('montageImagesInput').click()">
-        <input type="file" id="montageImagesInput" accept="image/*" multiple style="display:none" onchange="ajouterImagesMontage(this.files)"/>
-        <div class="audit-drop-icon">🖼️</div>
-        <div class="audit-drop-label">Ajouter les images</div>
-        <div class="audit-drop-sub">Dans l'ordre des plans</div>
-      </div>
-      <div class="audit-thumbs" id="montageImagesThumbs"></div>
+      <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">🎨 Générer les images</button>
+      <div class="audit-thumbs" id="montageImagesThumbs" style="margin-top:14px"></div>
     </div>
 
     <div class="montage-section">

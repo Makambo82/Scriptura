@@ -1,18 +1,20 @@
 // ═══════════════════════════════════════════════════════════
 //  MONTAGE VIDÉO — assemblage images + voix off via JSON2Video
 //  Réservé au fondateur (bouton visible uniquement en body.is-admin).
-//  L'utilisateur génère ses images HORS Scriptura et les uploade ici ; la
-//  voix off est générée par Scriptura même (ElevenLabs, voir
-//  api/montage-tts.js) à partir du texte déjà présent dans le storyboard —
-//  ce qui donne la durée EXACTE de chaque plan (horodatage renvoyé par
-//  ElevenLabs), sans avoir à estimer ni mesurer un fichier après coup.
+//  Boucle complète : les images sont générées par Gemini (voir
+//  api/montage-images.js) à partir des prompts visuels déjà écrits par
+//  Scriptura pour chaque plan, et la voix off par ElevenLabs (voir
+//  api/montage-tts.js) à partir du texte du storyboard — plus rien à
+//  uploader manuellement. L'horodatage renvoyé par ElevenLabs donne la
+//  durée EXACTE de chaque plan.
 // ═══════════════════════════════════════════════════════════
 
-let montagePlans = [];      // [{ text }] — un par plan du storyboard
-let montageImages = [];     // [{ blob, apercu, nom }] — même ordre que montagePlans
+let montagePlans = [];      // [{ text, visuel }] — un par plan du storyboard
+let montageImages = [];     // [{ blob, apercu } | null] — même ordre/longueur que montagePlans
 let montageVoixOff = null;  // { blob, url, durations } — générée par ElevenLabs
 let montageEnCours = false;
 let montageVoixEnCours = false;
+let montageImagesEnCours = false;
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série — génération en direct ET
@@ -41,13 +43,14 @@ function montageBoutonHTML(id, plans) {
 }
 
 function ouvrirMontage(plans) {
-  montagePlans = (plans || []).map(p => ({ text: p.text || p.texte || p.texte_dit || '' })).filter(p => p.text);
-  montageImages = [];
+  montagePlans = (plans || [])
+    .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '' }))
+    .filter(p => p.text);
+  montageImages = new Array(montagePlans.length).fill(null);
   montageVoixOff = null;
   montageEnCours = false;
   montageVoixEnCours = false;
-  const inputImg = document.getElementById('montageImagesInput');
-  if (inputImg) inputImg.value = '';
+  montageImagesEnCours = false;
   const resultat = document.getElementById('montageResultat');
   if (resultat) resultat.innerHTML = '';
   const statut = document.getElementById('montageStatut');
@@ -67,62 +70,70 @@ function fermerMontage() {
   if (modal) modal.classList.remove('active');
 }
 
-function prepareImageMontage(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('lecture impossible'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('image invalide'));
-      img.onload = () => {
-        const MAX = 1600;
-        let { width, height } = img;
-        if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        canvas.toBlob(blob => {
-          if (!blob) return reject(new Error('compression impossible'));
-          resolve({ blob, apercu: canvas.toDataURL('image/jpeg', 0.5), nom: file.name || 'image.jpg' });
-        }, 'image/jpeg', 0.85);
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function ajouterImagesMontage(files) {
-  const err = document.getElementById('montageErreur');
-  if (err) err.style.display = 'none';
-  const liste = Array.from(files || []).filter(f => f.type.startsWith('image/'));
-  for (const f of liste) {
-    if (montageImages.length >= montagePlans.length) {
-      if (err) {
-        err.textContent = 'Il faut exactement ' + montagePlans.length + ' image(s), une par plan — inutile d\'en ajouter plus.';
-        err.style.display = 'block';
-      }
-      break;
-    }
-    try { montageImages.push(await prepareImageMontage(f)); }
-    catch (e) { console.warn('Image ignorée', e); }
-  }
-  const inputImg = document.getElementById('montageImagesInput');
-  if (inputImg) inputImg.value = '';
-  renderMontageEtat();
-}
-
-function retirerImageMontage(i) {
-  montageImages.splice(i, 1);
-  renderMontageEtat();
-}
-
-// Décode une chaîne base64 (renvoyée par ElevenLabs) en Blob audio.
+// Décode une chaîne base64 (renvoyée par ElevenLabs ou Gemini) en Blob.
 function base64VersBlob(base64, mimeType) {
   const octets = atob(base64);
   const tampon = new Uint8Array(octets.length);
   for (let i = 0; i < octets.length; i++) tampon[i] = octets.charCodeAt(i);
   return new Blob([tampon], { type: mimeType });
+}
+
+async function genererImagesMontage() {
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  if (!montagePlans.length || montageImagesEnCours) return;
+
+  montageImagesEnCours = true;
+  renderMontageEtat();
+  try {
+    const rep = await fetch('/api/montage-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompts: montagePlans.map(p => p.visuel || p.text) })
+    });
+    const data = await rep.json();
+    if (!rep.ok) throw new Error((data.error && data.error.message) || 'Les images n\'ont pas pu être générées.');
+
+    montageImages = (data.images || []).map(img => img
+      ? { blob: base64VersBlob(img.base64, img.mimeType || 'image/png'), apercu: 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64 }
+      : null);
+    const echecs = (data.erreurs || []).filter(Boolean).length;
+    if (echecs > 0 && err) {
+      err.textContent = echecs + ' image(s) n\'ont pas pu être générées (voir ✕ ci-dessus) — réessaie-les une par une.';
+      err.style.display = 'block';
+    }
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+  } finally {
+    montageImagesEnCours = false;
+    renderMontageEtat();
+  }
+}
+
+async function regenererImageMontage(i) {
+  const plan = montagePlans[i];
+  if (!plan || montageImagesEnCours) return;
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+
+  montageImagesEnCours = true;
+  renderMontageEtat();
+  try {
+    const rep = await fetch('/api/montage-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompts: [plan.visuel || plan.text] })
+    });
+    const data = await rep.json();
+    const img = data.images && data.images[0];
+    if (!rep.ok || !img) throw new Error((data.erreurs && data.erreurs[0]) || (data.error && data.error.message) || 'Échec de régénération.');
+    montageImages[i] = { blob: base64VersBlob(img.base64, img.mimeType || 'image/png'), apercu: 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64 };
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur (plan ' + (i + 1) + ') : ' + e.message; err.style.display = 'block'; }
+  } finally {
+    montageImagesEnCours = false;
+    renderMontageEtat();
+  }
 }
 
 async function genererVoixOffMontage() {
@@ -156,16 +167,22 @@ async function genererVoixOffMontage() {
 }
 
 function renderMontageEtat() {
+  const nbPretes = montageImages.filter(Boolean).length;
   const compte = document.getElementById('montageImagesCompte');
-  if (compte) compte.textContent = montageImages.length + ' / ' + montagePlans.length + ' image(s)';
+  if (compte) compte.textContent = nbPretes + ' / ' + montagePlans.length + ' image(s)';
 
   const zoneImg = document.getElementById('montageImagesThumbs');
   if (zoneImg) {
-    zoneImg.innerHTML = montageImages.map((img, i) => `
-      <div class="audit-thumb">
-        <img src="${img.apercu}" alt="">
-        <button class="audit-thumb-del" onclick="retirerImageMontage(${i})" type="button">✕</button>
-      </div>`).join('');
+    zoneImg.innerHTML = montagePlans.map((p, i) => {
+      const img = montageImages[i];
+      if (img) return `<div class="audit-thumb"><img src="${img.apercu}" alt=""></div>`;
+      return `<div class="audit-thumb montage-thumb-echec" onclick="regenererImageMontage(${i})" title="Réessayer">↻</div>`;
+    }).join('');
+  }
+  const btnGenImg = document.getElementById('montageGenImagesBtn');
+  if (btnGenImg) {
+    btnGenImg.disabled = montageImagesEnCours;
+    btnGenImg.textContent = montageImagesEnCours ? 'Génération des images…' : (nbPretes ? '↻ Régénérer les images' : '🎨 Générer les images');
   }
 
   const zoneVoix = document.getElementById('montageVoixZone');
@@ -182,7 +199,8 @@ function renderMontageEtat() {
   }
 
   const btn = document.getElementById('montageLancerBtn');
-  if (btn) btn.disabled = montageEnCours || montageVoixEnCours || !montagePlans.length || montageImages.length !== montagePlans.length || !montageVoixOff;
+  if (btn) btn.disabled = montageEnCours || montageVoixEnCours || montageImagesEnCours
+    || !montagePlans.length || nbPretes !== montagePlans.length || !montageVoixOff;
 }
 
 async function lancerMontage() {
@@ -190,7 +208,7 @@ async function lancerMontage() {
   const statut = document.getElementById('montageStatut');
   const resultat = document.getElementById('montageResultat');
   if (err) err.style.display = 'none';
-  if (!montagePlans.length || montageImages.length !== montagePlans.length || !montageVoixOff) return;
+  if (!montagePlans.length || montageImages.filter(Boolean).length !== montagePlans.length || !montageVoixOff) return;
   if (!supabaseClient) {
     if (err) { err.textContent = 'Connexion au stockage indisponible.'; err.style.display = 'block'; }
     return;
@@ -211,7 +229,7 @@ async function lancerMontage() {
     const images = [];
     for (let i = 0; i < montageImages.length; i++) {
       const chemin = dossier + '/img-' + (i + 1) + '.jpg';
-      const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: 'image/jpeg' });
+      const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: montageImages[i].blob.type || 'image/png' });
       if (error) throw new Error('Upload image ' + (i + 1) + ' : ' + error.message);
       const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
       images.push({ url: data.publicUrl, duration: durees[i] || 2 });
