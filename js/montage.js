@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-//  MONTAGE VIDÉO — assemblage images + voix off via JSON2Video
+//  MONTAGE VIDÉO — assemblage images + voix off, rendu par FFmpeg
+//  auto-hébergé (voir api/montage-render.js).
 //  Réservé au fondateur (bouton visible uniquement en body.is-admin).
-//  Boucle complète : les images sont générées par Gemini (voir
+//  Boucle complète : les images sont générées par Together AI (voir
 //  api/montage-images.js) à partir des prompts visuels déjà écrits par
 //  Scriptura pour chaque plan, et la voix off par ElevenLabs (voir
 //  api/montage-tts.js) à partir du texte du storyboard — plus rien à
@@ -240,37 +241,22 @@ async function lancerMontage() {
     if (errAudio) throw new Error('Upload voix off : ' + errAudio.message);
     const { data: dataAudio } = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio);
 
-    if (statut) statut.textContent = 'Lancement du montage…';
-    const rGen = await fetch('/api/montage-generate', {
+    // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
+    // sondage de statut (contrairement à JSON2Video, remplacé faute de
+    // crédits — voir historique de ce fichier).
+    if (statut) statut.textContent = 'Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…';
+    const rRender = await fetch('/api/montage-render', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl })
     });
-    const dataGen = await rGen.json();
-    if (!rGen.ok || !dataGen.project) throw new Error((dataGen.error && dataGen.error.message) || 'Le montage n\'a pas pu démarrer.');
+    const dataRender = await rRender.json();
+    if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');
 
-    if (statut) statut.textContent = 'Rendu en cours (peut prendre plusieurs minutes selon le nombre de plans)…';
-    const project = dataGen.project;
-    const debut = Date.now();
-    // Une vidéo à 15-20 plans (fondus + zoom sur chaque image) prend plus
-    // longtemps à encoder qu'un montage court : marge large pour ne pas
-    // déclencher une fausse erreur sur un rendu qui avance encore normalement.
-    const DELAI_MAX = 15 * 60 * 1000;
-
-    while (true) {
-      await new Promise(r => setTimeout(r, 4000));
-      const rSt = await fetch('/api/montage-status?project=' + encodeURIComponent(project));
-      const dataSt = await rSt.json();
-      if (dataSt.status === 'done' && dataSt.url) {
-        if (statut) statut.style.display = 'none';
-        if (resultat) resultat.innerHTML = `
-          <video class="montage-video" src="${dataSt.url}" controls playsinline></video>
-          <a class="btn-regenerate" style="display:inline-block;margin-top:12px" href="/api/montage-download?url=${encodeURIComponent(dataSt.url)}" download="scriptura-montage.mp4">⬇ Télécharger la vidéo</a>`;
-        break;
-      }
-      if (dataSt.status === 'error') throw new Error(dataSt.message || 'Le rendu a échoué côté JSON2Video.');
-      if (Date.now() - debut > DELAI_MAX) throw new Error('Le rendu prend plus de temps que prévu — réessaie plus tard.');
-    }
+    if (statut) statut.style.display = 'none';
+    if (resultat) resultat.innerHTML = `
+      <video class="montage-video" src="${dataRender.url}" controls playsinline></video>
+      <a class="btn-regenerate" style="display:inline-block;margin-top:12px" href="/api/montage-download?url=${encodeURIComponent(dataRender.url)}" download="scriptura-montage.mp4">⬇ Télécharger la vidéo</a>`;
   } catch (e) {
     if (statut) statut.style.display = 'none';
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }

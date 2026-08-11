@@ -1,18 +1,17 @@
 // ═══════════════════════════════════════════════════════════
 //  /api/montage-download — Proxy de téléchargement pour la vidéo rendue.
-//  Un fetch() JS direct vers le CDN JSON2Video/Supabase échoue souvent à
-//  cause du CORS (même quand <video src> fonctionne très bien, la lecture
-//  du corps de la réponse via fetch, elle, l'exige) — ce qui faisait
-//  retomber js/montage.js sur l'ouverture brute de la vidéo au lieu du
-//  partage natif. En transitant par ce proxy (même origine que Scriptura),
-//  plus de CORS côté client.
+//  Un fetch() JS direct vers le CDN Supabase échoue souvent à cause du CORS
+//  (même quand <video src> fonctionne très bien, la lecture du corps de la
+//  réponse via fetch, elle, l'exige) — ce qui faisait retomber js/montage.js
+//  sur l'ouverture brute de la vidéo au lieu du partage natif. En transitant
+//  par ce proxy (même origine que Scriptura), plus de CORS côté client.
 //
-//  Restreint à des hôtes de confiance connus (json2video.com et le projet
-//  Supabase de Scriptura) pour ne jamais servir de proxy ouvert vers une
-//  URL arbitraire (SSRF).
+//  Restreint au seul hôte de confiance connu (le projet Supabase de
+//  Scriptura) pour ne jamais servir de proxy ouvert vers une URL arbitraire
+//  (SSRF).
 // ═══════════════════════════════════════════════════════════
 
-const HOTES_AUTORISES = [/(^|\.)json2video\.com$/i, /^nlkfqxllunbvppulpnzl\.supabase\.co$/i];
+const HOTES_AUTORISES = [/^nlkfqxllunbvppulpnzl\.supabase\.co$/i];
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

@@ -3,10 +3,9 @@
     "api/generate.js": { "maxDuration": 60 },
     "api/audit.js": { "maxDuration": 60 },
     "api/username-scan.js": { "maxDuration": 30 },
-    "api/montage-generate.js": { "maxDuration": 30 },
-    "api/montage-status.js": { "maxDuration": 15 },
     "api/montage-download.js": { "maxDuration": 60 },
     "api/montage-tts.js": { "maxDuration": 60 },
-    "api/montage-images.js": { "maxDuration": 90 }
+    "api/montage-images.js": { "maxDuration": 90 },
+    "api/montage-render.js": { "maxDuration": 300 }
   }
 }

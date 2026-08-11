@@ -1,7 +1,8 @@
 -- Montage vidéo (fondateur uniquement) : bucket de stockage pour les images
--- et l'audio uploadés le temps d'un rendu JSON2Video. À exécuter UNE fois
--- dans Supabase (SQL Editor). "on conflict do nothing" évite toute erreur
--- si le bucket existe déjà.
+-- et l'audio uploadés le temps d'un rendu FFmpeg, et pour la vidéo finale
+-- (voir api/montage-render.js). À exécuter UNE fois dans Supabase
+-- (SQL Editor). "on conflict do nothing" évite toute erreur si le bucket
+-- existe déjà.
 
 insert into storage.buckets (id, name, public)
 values ('montages', 'montages', true)
