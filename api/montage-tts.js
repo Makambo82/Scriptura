@@ -86,6 +86,16 @@ export default async function handler(req, res) {
       durations = segments.map(s => Math.max(0.5, Math.round((s.length / totalCaracteres) * dureeTotale * 10) / 10));
     }
 
+    // Marge de sécurité sur le dernier plan : la durée qu'ElevenLabs indique
+    // pour l'audio généré peut différer légèrement de la durée que JSON2Video
+    // mesure lui-même une fois le même fichier MP3 ré-encodé/ré-hébergé sur
+    // Supabase (arrondis d'encodage). Sans marge, les images peuvent finir
+    // avant la fin réelle de l'audio rendu par JSON2Video.
+    if (durations.length && dureeTotale > 0) {
+      const marge = Math.max(1.5, dureeTotale * 0.03);
+      durations[durations.length - 1] = Math.round((durations[durations.length - 1] + marge) * 10) / 10;
+    }
+
     return res.status(200).json({
       audioBase64: data.audio_base64,
       mimeType: 'audio/mpeg',
