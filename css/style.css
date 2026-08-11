@@ -2156,7 +2156,7 @@ body.is-unlocked .sidebar-logout{display:block}
    moyen de le fermer — ce n'est pas voulu. */
 .montage-panel{
   display:none;text-align:left;max-width:460px;
-  background:var(--bg-card);border:1px solid var(--gold);
+  background:var(--bg-card);border:none;
   border-radius:14px;padding:26px 22px;margin-top:16px;
 }
 .montage-panel.active{display:block}
