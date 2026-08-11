@@ -2148,9 +2148,18 @@ body.is-unlocked .sidebar-logout{display:block}
 }
 .audit-thumb-del:hover{background:rgba(200,60,60,0.9)}
 
-/* ── MODAL MONTAGE VIDÉO (fondateur uniquement) ── */
-.montage-modal{max-width:460px;text-align:left;max-height:88vh;overflow-y:auto}
-.montage-modal .genimg-title,.montage-modal .genimg-sub{text-align:center}
+/* ── PANNEAU MONTAGE VIDÉO (fondateur uniquement) ──
+   Panneau en ligne (pas une boîte de dialogue) : déplacé juste après le
+   bouton "Générer la vidéo" qui l'a ouvert (voir ouvrirMontage() dans
+   js/montage.js), s'affiche comme une extension du storyboard. Aucun
+   moyen de le fermer — ce n'est pas voulu. */
+.montage-panel{
+  display:none;text-align:left;max-width:460px;
+  background:var(--bg-card);border:1px solid var(--gold);
+  border-radius:14px;padding:26px 22px;margin-top:16px;
+}
+.montage-panel.active{display:block}
+.montage-panel .genimg-title,.montage-panel .genimg-sub{text-align:left}
 .montage-section{margin-top:20px}
 .montage-section-label{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;

@@ -38,16 +38,22 @@ function storeMontageSource(plans) {
   window._montageSourceStore[key] = plans;
   return key;
 }
-function ouvrirMontageParCle(key) {
+function ouvrirMontageParCle(key, boutonEl) {
   const plans = window._montageSourceStore[key];
-  if (plans) ouvrirMontage(plans);
+  if (plans) ouvrirMontage(plans, boutonEl);
 }
 function montageBoutonHTML(id, plans) {
   const cle = storeMontageSource(plans);
-  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}')">🎬 Générer la vidéo</button>`;
+  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}', this)">🎬 Générer la vidéo</button>`;
 }
 
-function ouvrirMontage(plans) {
+// Pas une boîte de dialogue : le panneau (#montageModal, un seul exemplaire
+// partagé) est déplacé dans le DOM juste après la ligne de boutons
+// (Copier/Partager/Générer la vidéo — voir .sb-actions-fin, commune aux 4
+// modes de storyboard) qui contenait le bouton cliqué, pour s'afficher
+// comme une extension du storyboard plutôt qu'une fenêtre par-dessus. Rien
+// pour le fermer, sur demande expresse.
+function ouvrirMontage(plans, boutonEl) {
   montagePlans = (plans || [])
     .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '' }))
     .filter(p => p.text);
@@ -67,14 +73,13 @@ function ouvrirMontage(plans) {
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
   chargerVoixMontage();
-  const modal = document.getElementById('montageModal');
-  if (modal) modal.classList.add('active');
-}
-
-function fermerMontage() {
-  if (montageEnCours) return; // un rendu est en cours : on ne ferme pas dessus
-  const modal = document.getElementById('montageModal');
-  if (modal) modal.classList.remove('active');
+  const panneau = document.getElementById('montageModal');
+  if (panneau) {
+    const ligneActions = boutonEl && boutonEl.closest('.sb-actions-fin');
+    if (ligneActions) ligneActions.insertAdjacentElement('afterend', panneau);
+    panneau.classList.add('active');
+    panneau.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 // Décode une chaîne base64 (renvoyée par ElevenLabs ou Gemini) en Blob.

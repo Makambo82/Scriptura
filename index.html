@@ -1484,10 +1484,11 @@
   </div>
 </div>
 
-<!-- MODAL MONTAGE VIDÉO (fondateur uniquement) -->
-<div class="genimg-overlay" id="montageModal">
-  <div class="genimg-modal montage-modal">
-    <button class="genimg-close" onclick="fermerMontage()">✕</button>
+<!-- PANNEAU MONTAGE VIDÉO (fondateur uniquement) — déployé en ligne juste après
+     le bouton "Générer la vidéo" qui l'a ouvert (voir ouvrirMontage() dans
+     js/montage.js), pas une boîte de dialogue : rien pour le fermer, il fait
+     partie du storyboard comme une section qui se déplie. -->
+<div class="montage-panel" id="montageModal">
     <div class="genimg-title">Générer la vidéo</div>
     <div class="genimg-sub">Les images et la voix off sont générées automatiquement à partir du storyboard (<span id="montageCompteAttendu">0</span> plan(s)). Scriptura assemble ensuite le montage — sans sous-titres pour l'instant.</div>
 
@@ -1521,7 +1522,6 @@
     <div id="montageResultat"></div>
 
     <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:16px">🎬 Lancer le montage</button>
-  </div>
 </div>
 
 <!-- NOTIFICATION PREUVE SOCIALE (niveau racine, visible partout) -->
