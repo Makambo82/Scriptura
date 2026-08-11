@@ -30,7 +30,11 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
 
-const LARGEUR = 1080, HAUTEUR = 1920;
+// 720x1280 plutôt que 1080x1920 : environ 2x plus rapide à rendre (mesuré),
+// pour une différence rarement visible une fois recompressé par TikTok/
+// Instagram à l'envoi — décisif pour les montages à beaucoup de plans qui
+// approchaient la limite de temps d'exécution.
+const LARGEUR = 720, HAUTEUR = 1280;
 const FPS = 25;
 const DUREE_TRANSITION = 0.5;
 
