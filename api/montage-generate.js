@@ -33,19 +33,24 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
   }
 
-  // Transitions en fondu entre les plans + léger zoom/panoramique (effet Ken
-  // Burns) : sans ça, le montage n'est qu'un diaporama d'images figées avec
-  // coupe sèche. Le zoom alterne avant/arrière et la direction du panoramique
-  // varie d'un plan à l'autre pour un rendu vivant et non répétitif.
-  const PANS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'left', 'right'];
+  // Transitions variées entre les plans + zoom/panoramique (effet Ken Burns)
+  // dont l'amplitude et la direction changent à chaque plan : sur un montage
+  // à 15-20 images, répéter le même fondu + les 2 mêmes niveaux de zoom
+  // devient vite monotone. On fait tourner plusieurs styles de transition et
+  // plusieurs combinaisons zoom/panoramique, jamais deux fois la même de
+  // suite (chaque tableau a une longueur première entre elles, donc les
+  // motifs ne se resynchronisent pas avant longtemps).
+  const TRANSITIONS = ['fade', 'wipeleft', 'wiperight', 'wipeup', 'wipedown', 'slideleft', 'slideright', 'circleopen', 'smoothleft', 'smoothright', 'dissolve'];
+  const PANS = ['top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
+  const ZOOMS = [2, -2, 3, -1.5, 1.5, -3, 2.5, -2.5];
   const scenes = images.map((img, i) => ({
     duration: Math.max(1, Number(img.duration) || 2),
-    transition: { style: 'fade', duration: 0.5 },
+    transition: { style: TRANSITIONS[i % TRANSITIONS.length], duration: 0.5 },
     elements: [{
       type: 'image',
       src: img.url,
       resize: 'cover',
-      zoom: i % 2 === 0 ? 2 : -2,
+      zoom: ZOOMS[i % ZOOMS.length],
       pan: PANS[i % PANS.length]
     }]
   }));
