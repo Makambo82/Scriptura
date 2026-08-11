@@ -244,7 +244,7 @@ async function lancerMontage() {
         if (statut) statut.style.display = 'none';
         if (resultat) resultat.innerHTML = `
           <video class="montage-video" src="${dataSt.url}" controls playsinline></video>
-          <a class="btn-regenerate" style="display:inline-block;margin-top:12px" href="${dataSt.url}" download target="_blank" rel="noopener">⬇ Télécharger la vidéo</a>`;
+          <button class="btn-regenerate" id="montageTelechargerBtn" type="button" style="display:inline-block;margin-top:12px" onclick="telechargerVideoMontage('${dataSt.url}')">⬇ Télécharger la vidéo</button>`;
         break;
       }
       if (dataSt.status === 'error') throw new Error(dataSt.message || 'Le rendu a échoué côté JSON2Video.');
@@ -256,5 +256,37 @@ async function lancerMontage() {
   } finally {
     montageEnCours = false;
     renderMontageEtat();
+  }
+}
+
+// Un lien <a download> vers une URL distante (autre domaine que Scriptura,
+// ici JSON2Video/Supabase) est ignoré par Safari iOS : il se contente
+// d'ouvrir/lire la vidéo au lieu de proposer de l'enregistrer. On récupère
+// donc la vidéo en mémoire (blob, donc "même origine" pour le navigateur),
+// puis on passe par le partage natif (menu "Enregistrer la vidéo") — ou, à
+// défaut, un lien de téléchargement sur ce blob, qui lui fonctionne bien.
+async function telechargerVideoMontage(url) {
+  const btn = document.getElementById('montageTelechargerBtn');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
+  try {
+    const rep = await fetch(url);
+    if (!rep.ok) throw new Error('vidéo introuvable');
+    const blob = await rep.blob();
+    const fichier = new File([blob], 'scriptura-montage.mp4', { type: blob.type || 'video/mp4' });
+
+    if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
+      await navigator.share({ files: [fichier] });
+    } else {
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.download = 'scriptura-montage.mp4';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    }
+  } catch (e) {
+    if (e && e.name !== 'AbortError') window.open(url, '_blank'); // repli : ouvrir la vidéo telle quelle
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
   }
 }
