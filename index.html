@@ -1489,7 +1489,7 @@
   <div class="genimg-modal montage-modal">
     <button class="genimg-close" onclick="fermerMontage()">✕</button>
     <div class="genimg-title">Générer la vidéo</div>
-    <div class="genimg-sub">Ajoute une image par plan (<span id="montageCompteAttendu">0</span> au total) et ta voix off. Scriptura assemble le montage — sans sous-titres pour l'instant.</div>
+    <div class="genimg-sub">Ajoute une image par plan (<span id="montageCompteAttendu">0</span> au total). La voix off est générée automatiquement à partir du texte du storyboard. Scriptura assemble le montage — sans sous-titres pour l'instant.</div>
 
     <div class="montage-section">
       <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
@@ -1504,16 +1504,9 @@
 
     <div class="montage-section">
       <div class="montage-section-label">Voix off</div>
-      <div class="audit-drop" onclick="document.getElementById('montageAudioInput').click()">
-        <!-- iOS : uniquement des extensions audio (aucun joker audio/*, aucune
-             extension vidéo comme .mp4) — sinon iOS propose Photothèque/Caméra
-             et grise les mp3/wav dans Fichiers au lieu d'ouvrir Fichiers direct. -->
-        <input type="file" id="montageAudioInput" accept=".mp3,.wav,.m4a,.aac,.ogg,.oga,.flac,.aif,.aiff" style="display:none" onchange="ajouterAudioMontage(this.files)"/>
-        <div class="audit-drop-icon">🎙️</div>
-        <div class="audit-drop-label">Ajouter la voix off</div>
-        <div class="audit-drop-sub">Un seul fichier audio</div>
+      <div id="montageVoixZone">
+        <button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">🎙️ Générer la voix off</button>
       </div>
-      <div id="montageAudioZone"></div>
     </div>
 
     <div class="error-box" id="montageErreur" style="display:none"></div>

@@ -2156,17 +2156,7 @@ body.is-unlocked .sidebar-logout{display:block}
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;
   text-transform:uppercase;color:var(--gold);margin-bottom:10px;
 }
-.montage-audio-chip{
-  display:inline-flex;align-items:center;gap:8px;padding:8px 12px;
-  border-radius:999px;border:1px solid var(--border-soft);
-  background:rgba(201,168,76,0.07);font-size:0.86rem;color:var(--text-secondary);
-  margin-bottom:20px;
-}
-.montage-audio-del{
-  background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;
-  font-size:0.75rem;padding:0;line-height:1;
-}
-.montage-audio-del:hover{color:#e05555}
+.montage-audio-preview{width:100%;display:block}
 .montage-statut{
   margin-top:14px;padding:10px 12px;border-radius:8px;
   background:rgba(201,168,76,0.07);border:1px solid var(--border-soft);

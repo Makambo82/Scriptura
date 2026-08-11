@@ -1,15 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 //  MONTAGE VIDÉO — assemblage images + voix off via JSON2Video
 //  Réservé au fondateur (bouton visible uniquement en body.is-admin).
-//  L'utilisateur génère ses images et sa voix off HORS Scriptura, les
-//  uploade ici : cette page ne fait QUE l'assemblage (timeline calée sur
-//  la durée narrative de chaque plan, voir js/storyboard.js dureeDe()).
+//  L'utilisateur génère ses images HORS Scriptura et les uploade ici ; la
+//  voix off est générée par Scriptura même (ElevenLabs, voir
+//  api/montage-tts.js) à partir du texte déjà présent dans le storyboard —
+//  ce qui donne la durée EXACTE de chaque plan (horodatage renvoyé par
+//  ElevenLabs), sans avoir à estimer ni mesurer un fichier après coup.
 // ═══════════════════════════════════════════════════════════
 
-let montagePlans = [];    // [{ text, seconds }] — un par plan du storyboard
-let montageImages = [];   // [{ blob, apercu, nom }] — même ordre que montagePlans
-let montageAudio = null;  // { file, nom }
+let montagePlans = [];      // [{ text }] — un par plan du storyboard
+let montageImages = [];     // [{ blob, apercu, nom }] — même ordre que montagePlans
+let montageVoixOff = null;  // { blob, url, durations } — générée par ElevenLabs
 let montageEnCours = false;
+let montageVoixEnCours = false;
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série — génération en direct ET
@@ -38,17 +41,13 @@ function montageBoutonHTML(id, plans) {
 }
 
 function ouvrirMontage(plans) {
-  montagePlans = (plans || []).map(p => {
-    const texte = p.text || p.texte || p.texte_dit || '';
-    return { text: texte, seconds: Math.max(DUREE_MIN, dureeDe(texte)) };
-  });
+  montagePlans = (plans || []).map(p => ({ text: p.text || p.texte || p.texte_dit || '' })).filter(p => p.text);
   montageImages = [];
-  montageAudio = null;
+  montageVoixOff = null;
   montageEnCours = false;
+  montageVoixEnCours = false;
   const inputImg = document.getElementById('montageImagesInput');
-  const inputAudio = document.getElementById('montageAudioInput');
   if (inputImg) inputImg.value = '';
-  if (inputAudio) inputAudio.value = '';
   const resultat = document.getElementById('montageResultat');
   if (resultat) resultat.innerHTML = '';
   const statut = document.getElementById('montageStatut');
@@ -118,28 +117,42 @@ function retirerImageMontage(i) {
   renderMontageEtat();
 }
 
-function ajouterAudioMontage(files) {
-  const f = (files || [])[0];
-  const inputAudio = document.getElementById('montageAudioInput');
-  if (inputAudio) inputAudio.value = '';
-  const err = document.getElementById('montageErreur');
-  if (err) err.style.display = 'none';
-  if (!f) return;
-  // iOS ne fournit pas toujours le type MIME d'un fichier choisi dans Fichiers :
-  // on accepte donc aussi par extension, sinon un mp3 valide serait rejeté.
-  const estAudio = (f.type && f.type.startsWith('audio/'))
-    || /\.(mp3|wav|m4a|aac|ogg|oga|flac|aif|aiff|mp4|weba)$/i.test(f.name || '');
-  if (!estAudio) {
-    if (err) { err.textContent = 'Choisis un fichier audio (mp3, wav, m4a…).'; err.style.display = 'block'; }
-    return;
-  }
-  montageAudio = { file: f, nom: f.name || 'voix-off' };
-  renderMontageEtat();
+// Décode une chaîne base64 (renvoyée par ElevenLabs) en Blob audio.
+function base64VersBlob(base64, mimeType) {
+  const octets = atob(base64);
+  const tampon = new Uint8Array(octets.length);
+  for (let i = 0; i < octets.length; i++) tampon[i] = octets.charCodeAt(i);
+  return new Blob([tampon], { type: mimeType });
 }
 
-function retirerAudioMontage() {
-  montageAudio = null;
+async function genererVoixOffMontage() {
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  if (!montagePlans.length || montageVoixEnCours) return;
+
+  montageVoixEnCours = true;
   renderMontageEtat();
+  try {
+    const rep = await fetch('/api/montage-tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ segments: montagePlans.map(p => p.text) })
+    });
+    const data = await rep.json();
+    if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La voix off n\'a pas pu être générée.');
+
+    const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
+    montageVoixOff = {
+      blob,
+      url: URL.createObjectURL(blob),
+      durations: Array.isArray(data.durations) ? data.durations : []
+    };
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+  } finally {
+    montageVoixEnCours = false;
+    renderMontageEtat();
+  }
 }
 
 function renderMontageEtat() {
@@ -155,76 +168,21 @@ function renderMontageEtat() {
       </div>`).join('');
   }
 
-  const zoneAudio = document.getElementById('montageAudioZone');
-  if (zoneAudio) {
-    zoneAudio.innerHTML = montageAudio
-      ? `<div class="montage-audio-chip">🎙️ ${montageAudio.nom}<button class="montage-audio-del" onclick="retirerAudioMontage()" type="button">✕</button></div>`
-      : '';
+  const zoneVoix = document.getElementById('montageVoixZone');
+  if (zoneVoix) {
+    if (montageVoixEnCours) {
+      zoneVoix.innerHTML = `<div class="montage-statut" style="margin-top:0">Génération de la voix off…</div>`;
+    } else if (montageVoixOff) {
+      zoneVoix.innerHTML = `
+        <audio class="montage-audio-preview" src="${montageVoixOff.url}" controls></audio>
+        <button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`;
+    } else {
+      zoneVoix.innerHTML = `<button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">🎙️ Générer la voix off</button>`;
+    }
   }
 
   const btn = document.getElementById('montageLancerBtn');
-  if (btn) btn.disabled = montageEnCours || !montagePlans.length || montageImages.length !== montagePlans.length || !montageAudio;
-}
-
-// Mesure la durée (en secondes) d'un fichier audio côté navigateur, via un
-// élément <audio> et ses métadonnées. Renvoie 0 si illisible (on retombe
-// alors sur l'estimation par le texte).
-function dureeAudio(file) {
-  return new Promise((resolve) => {
-    try {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('audio');
-      a.preload = 'metadata';
-      let fini = false;
-      const terminer = (d) => {
-        if (fini) return;
-        fini = true;
-        URL.revokeObjectURL(url);
-        resolve(isFinite(d) && d > 0 ? d : 0);
-      };
-      a.onerror = () => terminer(0);
-      a.onloadedmetadata = () => {
-        if (isFinite(a.duration)) { terminer(a.duration); return; }
-        // Bug connu (Safari/Chrome) : certains MP3 à débit variable renvoient
-        // une durée Infinity tant qu'on n'a pas cherché jusqu'à la fin —
-        // sans ce contournement, la durée retombe silencieusement à
-        // l'estimation par le texte, plus courte que la vraie voix off
-        // (les images se terminent alors avant la fin de l'audio).
-        a.currentTime = 1e101;
-        a.ontimeupdate = () => terminer(a.duration);
-      };
-      a.src = url;
-      // Garde-fou : si rien ne se déclenche (fichier inhabituel), ne jamais
-      // bloquer indéfiniment le lancement du montage.
-      setTimeout(() => terminer(a.duration), 5000);
-    } catch (e) { resolve(0); }
-  });
-}
-
-// Répartit la durée totale de la voix off sur les images, proportionnellement
-// à la part de texte de chaque plan. La dernière image absorbe l'arrondi ET
-// une marge de sécurité (MARGE_SECURITE) pour que la somme des images ne
-// tombe JAMAIS un peu sous la vraie durée de la voix off — un écart, même
-// d'une fraction de seconde, entre la mesure faite ici et celle que JSON2Video
-// fait lui-même du même fichier (arrondis, décodage) suffit à faire finir les
-// images avant l'audio (l'élément audio, au niveau du film entier, impose sa
-// propre longueur naturelle). Une dernière image qui dure un peu plus
-// longtemps que nécessaire est un bien moindre mal qu'un écran figé pendant
-// que la voix continue. Si la voix n'est pas mesurable, on garde l'estimation
-// par le texte.
-async function calculerDureesImages() {
-  const dureeVoix = montageAudio ? await dureeAudio(montageAudio.file) : 0;
-  const totalEstime = montagePlans.reduce((s, p) => s + p.seconds, 0) || 1;
-  const facteur = (dureeVoix > 0) ? dureeVoix / totalEstime : 1;
-  const durees = montagePlans.map(p => Math.max(1, Math.round(p.seconds * facteur * 10) / 10));
-  if (dureeVoix > 0 && durees.length) {
-    const MARGE_SECURITE = Math.max(1.5, dureeVoix * 0.03);
-    const somme = durees.reduce((a, b) => a + b, 0);
-    const reste = Math.round((dureeVoix + MARGE_SECURITE - somme) * 10) / 10;
-    const dernier = durees.length - 1;
-    durees[dernier] = Math.max(1, Math.round((durees[dernier] + reste) * 10) / 10);
-  }
-  return durees;
+  if (btn) btn.disabled = montageEnCours || montageVoixEnCours || !montagePlans.length || montageImages.length !== montagePlans.length || !montageVoixOff;
 }
 
 async function lancerMontage() {
@@ -232,7 +190,7 @@ async function lancerMontage() {
   const statut = document.getElementById('montageStatut');
   const resultat = document.getElementById('montageResultat');
   if (err) err.style.display = 'none';
-  if (!montagePlans.length || montageImages.length !== montagePlans.length || !montageAudio) return;
+  if (!montagePlans.length || montageImages.length !== montagePlans.length || !montageVoixOff) return;
   if (!supabaseClient) {
     if (err) { err.textContent = 'Connexion au stockage indisponible.'; err.style.display = 'block'; }
     return;
@@ -246,12 +204,9 @@ async function lancerMontage() {
   try {
     const dossier = 'montage-' + Date.now();
 
-    // Caler la durée des images sur la VRAIE voix off : on mesure la durée du
-    // fichier audio et on répartit les images proportionnellement à leur part
-    // de texte, mais de façon à couvrir TOUTE la voix off — comme étirer les
-    // images sur la timeline dans CapCut. Sans ça, l'estimation (mots ÷ vitesse)
-    // est plus courte que la voix réelle et les images se terminent avant la fin.
-    const durees = await calculerDureesImages();
+    // Durées EXACTES : renvoyées par ElevenLabs (horodatage caractère par
+    // caractère), pas une estimation ni une mesure côté navigateur.
+    const durees = montageVoixOff.durations;
 
     const images = [];
     for (let i = 0; i < montageImages.length; i++) {
@@ -259,13 +214,12 @@ async function lancerMontage() {
       const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: 'image/jpeg' });
       if (error) throw new Error('Upload image ' + (i + 1) + ' : ' + error.message);
       const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
-      images.push({ url: data.publicUrl, duration: durees[i] });
+      images.push({ url: data.publicUrl, duration: durees[i] || 2 });
     }
 
-    const extAudio = (montageAudio.file.name || '').match(/\.[^.]+$/);
-    const cheminAudio = dossier + '/voix-off' + (extAudio ? extAudio[0] : '.mp3');
-    const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageAudio.file, { contentType: montageAudio.file.type || 'audio/mpeg' });
-    if (errAudio) throw new Error('Upload audio : ' + errAudio.message);
+    const cheminAudio = dossier + '/voix-off.mp3';
+    const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageVoixOff.blob, { contentType: 'audio/mpeg' });
+    if (errAudio) throw new Error('Upload voix off : ' + errAudio.message);
     const { data: dataAudio } = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio);
 
     if (statut) statut.textContent = 'Lancement du montage…';

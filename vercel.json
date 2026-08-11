@@ -5,6 +5,7 @@
     "api/username-scan.js": { "maxDuration": 30 },
     "api/montage-generate.js": { "maxDuration": 30 },
     "api/montage-status.js": { "maxDuration": 15 },
-    "api/montage-download.js": { "maxDuration": 60 }
+    "api/montage-download.js": { "maxDuration": 60 },
+    "api/montage-tts.js": { "maxDuration": 60 }
   }
 }
