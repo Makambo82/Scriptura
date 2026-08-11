@@ -25,8 +25,12 @@ const LARGEUR = 768, HAUTEUR = 1344;
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function genererUneImage(apiKey, prompt, tentative) {
+  // L'ancien domaine api-inference.huggingface.co est décommissionné
+  // (renvoie désormais une erreur réseau, jamais une réponse HTTP) — Hugging
+  // Face route tout via router.huggingface.co depuis sa migration vers
+  // "Inference Providers".
   const rep = await fetch(
-    'https://api-inference.huggingface.co/models/' + MODELE,
+    'https://router.huggingface.co/hf-inference/models/' + MODELE,
     {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
