@@ -33,9 +33,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
   }
 
-  const scenes = images.map(img => ({
+  // Transitions en fondu entre les plans + léger zoom/panoramique (effet Ken
+  // Burns) : sans ça, le montage n'est qu'un diaporama d'images figées avec
+  // coupe sèche. Le zoom alterne avant/arrière et la direction du panoramique
+  // varie d'un plan à l'autre pour un rendu vivant et non répétitif.
+  const PANS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'left', 'right'];
+  const scenes = images.map((img, i) => ({
     duration: Math.max(1, Number(img.duration) || 2),
-    elements: [{ type: 'image', src: img.url, resize: 'cover' }]
+    transition: { style: 'fade', duration: 0.5 },
+    elements: [{
+      type: 'image',
+      src: img.url,
+      resize: 'cover',
+      zoom: i % 2 === 0 ? 2 : -2,
+      pan: PANS[i % PANS.length]
+    }]
   }));
 
   const payload = {
