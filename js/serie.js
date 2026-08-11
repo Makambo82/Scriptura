@@ -458,6 +458,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   if (zone) zone.innerHTML = `<div class="out-card sb-appear open">
     <div class="out-header" onclick="toggleCard(this.parentElement)">
       <div class="out-title">Storyboard visuel</div>
+      <button class="btn-regenerate sb-regen mini" onclick="event.stopPropagation(); genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
       <div class="out-toggle">+</div>
     </div>
     <div class="out-body">
@@ -523,13 +524,10 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const tous = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + storyboardFinal.map((s, i) => 'Plan ' + (i + 1) + ' : ' + (s.prompt_visuel || '')).join('\n\n');
     if (grid) grid.insertAdjacentHTML('beforeend', `
       <div class="sb-actions-fin">
-        <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
-        ${montageBoutonHTML('montageBtnSerie' + numEp)}
+        ${montageBoutonHTML('montageBtnSerie' + numEp, plans)}
       </div>`);
-    const montageBtnSerie = document.getElementById('montageBtnSerie' + numEp);
-    if (montageBtnSerie) montageBtnSerie.onclick = () => ouvrirMontage(plans);
 
     // Masquer le bouton (le storyboard affiché + son bouton "Régénérer" prennent le relais)
     if (btn) btn.style.display = 'none';
@@ -571,6 +569,7 @@ function renderSerieStoryboard(sb, miniature, numEp) {
   return `<div class="out-card sb-appear open">
     <div class="out-header" onclick="toggleCard(this.parentElement)">
       <div class="out-title">Storyboard visuel</div>
+      <button class="btn-regenerate sb-regen mini" onclick="event.stopPropagation(); genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
       <div class="out-toggle">+</div>
     </div>
     <div class="out-body">
@@ -584,9 +583,9 @@ function renderSerieStoryboard(sb, miniature, numEp) {
           ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
         </div>`).join('')}
         <div class="sb-actions-fin">
-          <button class="btn-regenerate sb-regen" onclick="genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
           <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
           <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
+          ${montageBoutonHTML('montageBtnSerie' + numEp, sb)}
         </div>
       </div>
     </div>

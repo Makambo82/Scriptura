@@ -304,10 +304,8 @@ function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
     <div class="sb-actions-fin">
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
-      ${montageBoutonHTML('montageBtnSeul')}
+      ${montageBoutonHTML('montageBtnSeul', plans || board)}
     </div>`);
-  const montageBtnSeul = document.getElementById('montageBtnSeul');
-  if (montageBtnSeul) montageBtnSeul.onclick = () => ouvrirMontage(plans || board);
   setTimeout(updateScrollBtn, 300);
 }
 
@@ -345,14 +343,8 @@ function afficherStoryboardSeulResultat(board, miniature) {
     <div class="sb-actions-fin">
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
-      ${montageBoutonHTML('montageBtnSeul')}
+      ${montageBoutonHTML('montageBtnSeul', board)}
     </div></div>`;
   document.getElementById('sbSeulResults').style.display = 'block';
-  // Bouton "Générer la vidéo" (fondateur) aussi à la réouverture depuis
-  // l'historique : sur mobile, quitter l'app pour préparer la voix off
-  // recharge la page et efface le storyboard affiché ; le rouvrir depuis
-  // « Mes générations » remet le bouton, sans tout régénérer.
-  const montageBtnSeul = document.getElementById('montageBtnSeul');
-  if (montageBtnSeul) montageBtnSeul.onclick = () => ouvrirMontage(board);
   setTimeout(updateScrollBtn, 300);
 }

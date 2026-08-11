@@ -367,7 +367,7 @@ async function generateStoryStoryboard() {
     const plans = segmentNarrativeStoryboard(currentStoryText);
     if (!plans.length) throw new Error('Récit vide');
 
-    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
+    out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
     const grid = document.getElementById('storyStoryboardGrid');
 
     let miniature = '';
@@ -392,12 +392,10 @@ async function generateStoryStoryboard() {
     const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + plans.map((p, i) => `Plan ${i + 1} (${p.duree || ''})\n${p.text || ''}\nVisuel : ${p.visuel || ''}`).join('\n\n');
     grid.insertAdjacentHTML('beforeend', `
       <div class="sb-actions-fin">
-        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
-        ${montageBoutonHTML('montageBtnStory')}
+        ${montageBoutonHTML('montageBtnStory', plans)}
       </div>`);
-    document.getElementById('montageBtnStory').onclick = () => ouvrirMontage(plans);
 
     // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
     // champs qu'avant (segment/duree/texte/visuel), pour rester compatible

@@ -12,10 +12,29 @@ let montageAudio = null;  // { file, nom }
 let montageEnCours = false;
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
-// (Récit, Script, Storyboard seul, Série). Masqué par CSS pour tout le
-// monde sauf le fondateur (.montage-trigger-btn, voir css/style.css).
-function montageBoutonHTML(id) {
-  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button">🎬 Générer la vidéo</button>`;
+// (Récit, Script, Storyboard seul, Série — génération en direct ET
+// réouverture depuis l'historique). Masqué par CSS pour tout le monde sauf
+// le fondateur (.montage-trigger-btn, voir css/style.css).
+//
+// `plans` est mémorisé dans un registre à clé (comme storeCopyText pour le
+// texte) plutôt que capturé dans une closure : certains appelants (le
+// storyboard déjà généré d'un épisode de Série, voir js/serie.js
+// renderSerieStoryboard) renvoient une chaîne HTML sans jamais avoir de
+// référence DOM directe sur laquelle attacher un .onclick après coup —
+// l'onclick doit donc être auto-suffisant dès la génération du HTML.
+window._montageSourceStore = window._montageSourceStore || {};
+function storeMontageSource(plans) {
+  const key = '__montagekey_' + (window._montageSourceCounter = (window._montageSourceCounter || 0) + 1);
+  window._montageSourceStore[key] = plans;
+  return key;
+}
+function ouvrirMontageParCle(key) {
+  const plans = window._montageSourceStore[key];
+  if (plans) ouvrirMontage(plans);
+}
+function montageBoutonHTML(id, plans) {
+  const cle = storeMontageSource(plans);
+  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}')">🎬 Générer la vidéo</button>`;
 }
 
 function ouvrirMontage(plans) {

@@ -125,7 +125,7 @@ function reafficherStoryboard(sbData, isStory) {
         <div class="sb-visual">${miniature}</div>
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
-    out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map((s, i) => `
+    out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map((s, i) => `
       <div class="sb-segment">
         <div class="sb-head">
           <span class="sb-time">${s.duree || ''}</span>
@@ -137,9 +137,9 @@ function reafficherStoryboard(sbData, isStory) {
         ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
-        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_SHARE}</button>
+        ${montageBoutonHTML('montageBtnStory', board)}
       </div></div>`;
     // Cacher le bouton "Générer le storyboard" puisqu'il est déjà là
     const btn = document.getElementById('storyStoryboardBtn');
@@ -159,7 +159,7 @@ function reafficherStoryboard(sbData, isStory) {
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     const tousLesPromptsRe = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
-    container.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
+    container.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button></div><div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
           <span class="sb-time">${seg.segment}</span>
@@ -171,9 +171,9 @@ function reafficherStoryboard(sbData, isStory) {
         ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
-        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_SHARE}</button>
+        ${montageBoutonHTML('montageBtnScript', board)}
       </div></div>`;
     // Cacher le bouton générer
     const btn = document.getElementById('sbGenerateBtn');

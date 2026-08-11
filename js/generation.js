@@ -1659,7 +1659,8 @@ async function generateStoryboard() {
   // une fois ce remplacement fait — sinon un échec en cours de lots restait
   // invisible pour l'utilisateur (spinner bloqué indéfiniment).
   const container = document.getElementById('storyboardContainer');
-  container.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div>
+  container.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button></div>
+    <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div>
     <div class="sb-statut" id="sbIdeeStatut">Scriptura crée le storyboard…</div>
     <div class="storyboard-list" id="sbIdeeGrid"></div>`;
   const grid = document.getElementById('sbIdeeGrid');
@@ -1694,12 +1695,10 @@ async function generateStoryboard() {
     const tousLesPrompts2 = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + plans.map((p, i) => 'Plan ' + (i + 1) + ' : ' + (p.visuel || '')).join('\n\n');
     grid.insertAdjacentHTML('beforeend', `
       <div class="sb-actions-fin">
-        <button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button>
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
-        ${montageBoutonHTML('montageBtnScript')}
+        ${montageBoutonHTML('montageBtnScript', plans)}
       </div>`);
-    document.getElementById('montageBtnScript').onclick = () => ouvrirMontage(plans);
 
     // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
     // champs qu'avant (segment/texte_dit/prompt_visuel).

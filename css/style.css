@@ -1808,6 +1808,13 @@ body.is-unlocked .sidebar-logout{display:block}
   margin-top:20px;padding-top:18px;
   border-top:1px solid var(--border-soft);
 }
+/* Régénérer en haut du storyboard (Récit/Script/Série) : pas de "Modifier"
+   séparé pour ces storyboards intégrés (contrairement à Storyboard seul,
+   qui a sa propre page), donc Régénérer y vit seul, aligné à droite. */
+.sb-actions-top{
+  display:flex;gap:12px;justify-content:flex-end;
+  margin-bottom:14px;
+}
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;
   background:transparent;color:var(--gold-light);
