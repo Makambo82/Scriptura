@@ -1,16 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 //  /api/montage-images — Génère les images du montage via Together AI
-//  (FLUX.1-schnell-Free), à partir des prompts visuels déjà écrits par
-//  Scriptura pour chaque plan du storyboard (voir js/storyboard.js
-//  genererVisuelsParLots) — rien à écrire de plus pour l'utilisateur.
+//  (FLUX.1-schnell, modèle serverless payant), à partir des prompts visuels
+//  déjà écrits par Scriptura pour chaque plan du storyboard (voir
+//  js/storyboard.js genererVisuelsParLots) — rien à écrire de plus pour
+//  l'utilisateur.
 //
 //  Historique de cette fonction (pour ne pas retenter les mêmes pistes) :
 //  Gemini → quota à zéro sans facturation. Hugging Face (hf-inference) →
 //  FLUX.1-schnell puis FLUX.2-dev refusés ("model deprecated"), puis
 //  stable-diffusion-3-medium fonctionnel mais crédit mensuel gratuit vite
-//  épuisé. Together AI propose un modèle spécifiquement gratuit ET illimité
-//  (FLUX.1-schnell-Free, distinct du modèle payant black-forest-labs/FLUX.1-schnell)
-//  via un partenariat avec Black Forest Labs.
+//  épuisé. Together AI FLUX.1-schnell-Free (gratuit) → refusé, ce n'est PAS
+//  un modèle serverless standard (exige un point de terminaison dédié créé
+//  à la main dans leur dashboard). Le modèle payant (sans "-Free") est un
+//  vrai modèle serverless, facturé à l'image, sans instance à gérer.
 //
 //  Chaque prompt est traité indépendamment (échec d'un plan ≠ échec des
 //  autres, même logique que genererVisuelsParLots côté texte).
@@ -20,7 +22,12 @@
 // ═══════════════════════════════════════════════════════════
 
 const CONCURRENCE_MAX = 3;
-const MODELE = 'black-forest-labs/FLUX.1-schnell-Free';
+// FLUX.1-schnell-Free n'est PAS un modèle serverless standard côté Together
+// AI : il exige un point de terminaison dédié (instance GPU à créer et faire
+// tourner soi-même dans leur dashboard), pas un simple appel API — d'où
+// l'erreur "Unable to access non-serverless model". La version payante
+// (sans "-Free") est un vrai modèle serverless, facturée à l'image.
+const MODELE = 'black-forest-labs/FLUX.1-schnell';
 const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
 
 async function genererUneImage(apiKey, prompt) {
