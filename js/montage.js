@@ -147,6 +147,40 @@ function renderMontageEtat() {
   if (btn) btn.disabled = montageEnCours || !montagePlans.length || montageImages.length !== montagePlans.length || !montageAudio;
 }
 
+// Mesure la durée (en secondes) d'un fichier audio côté navigateur, via un
+// élément <audio> et ses métadonnées. Renvoie 0 si illisible (on retombe
+// alors sur l'estimation par le texte).
+function dureeAudio(file) {
+  return new Promise((resolve) => {
+    try {
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('audio');
+      a.preload = 'metadata';
+      a.onloadedmetadata = () => { const d = a.duration; URL.revokeObjectURL(url); resolve(isFinite(d) && d > 0 ? d : 0); };
+      a.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
+      a.src = url;
+    } catch (e) { resolve(0); }
+  });
+}
+
+// Répartit la durée totale de la voix off sur les images, proportionnellement
+// à la part de texte de chaque plan. La dernière image absorbe l'arrondi pour
+// que la somme colle exactement à la voix off. Si la voix n'est pas mesurable,
+// on garde l'estimation par le texte.
+async function calculerDureesImages() {
+  const dureeVoix = montageAudio ? await dureeAudio(montageAudio.file) : 0;
+  const totalEstime = montagePlans.reduce((s, p) => s + p.seconds, 0) || 1;
+  const facteur = (dureeVoix > 0) ? dureeVoix / totalEstime : 1;
+  const durees = montagePlans.map(p => Math.max(1, Math.round(p.seconds * facteur * 10) / 10));
+  if (dureeVoix > 0 && durees.length) {
+    const somme = durees.reduce((a, b) => a + b, 0);
+    const reste = Math.round((dureeVoix - somme) * 10) / 10;
+    const dernier = durees.length - 1;
+    durees[dernier] = Math.max(1, Math.round((durees[dernier] + reste) * 10) / 10);
+  }
+  return durees;
+}
+
 async function lancerMontage() {
   const err = document.getElementById('montageErreur');
   const statut = document.getElementById('montageStatut');
@@ -166,13 +200,20 @@ async function lancerMontage() {
   try {
     const dossier = 'montage-' + Date.now();
 
+    // Caler la durée des images sur la VRAIE voix off : on mesure la durée du
+    // fichier audio et on répartit les images proportionnellement à leur part
+    // de texte, mais de façon à couvrir TOUTE la voix off — comme étirer les
+    // images sur la timeline dans CapCut. Sans ça, l'estimation (mots ÷ vitesse)
+    // est plus courte que la voix réelle et les images se terminent avant la fin.
+    const durees = await calculerDureesImages();
+
     const images = [];
     for (let i = 0; i < montageImages.length; i++) {
       const chemin = dossier + '/img-' + (i + 1) + '.jpg';
       const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: 'image/jpeg' });
       if (error) throw new Error('Upload image ' + (i + 1) + ' : ' + error.message);
       const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
-      images.push({ url: data.publicUrl, duration: Math.round(montagePlans[i].seconds * 10) / 10 });
+      images.push({ url: data.publicUrl, duration: durees[i] });
     }
 
     const extAudio = (montageAudio.file.name || '').match(/\.[^.]+$/);
