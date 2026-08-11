@@ -354,6 +354,17 @@ function creerScriptDepuisRecommandation(index) {
 
   _recoEnCoursDaction = true; // la prochaine génération de script correspond à cette recommandation
 
+  // Enregistré dès CE clic, pas seulement si la génération qui suit aboutit :
+  // sans ça, un créateur qui clique "Générer le script" puis abandonne le
+  // formulaire (ferme l'écran, change de sujet, génération ratée...) n'était
+  // jamais mémorisé comme "déjà traité", et la même recommandation pouvait
+  // ressortir le lendemain. mettreAJourProfilCreateur dédoublonne déjà, donc
+  // ça ne fait pas doublon si generate() l'enregistre une seconde fois.
+  if (reco.titre && typeof mettreAJourProfilCreateur === 'function') {
+    mettreAJourProfilCreateur({ observe: { themes_traites: reco.titre.slice(0, 80) } });
+  }
+  if (typeof viderRecoCache === 'function') viderRecoCache();
+
   pushNav(); // capture l'écran d'où on vient (accueil ou rapport d'audit) avant de le masquer
 
   const homeEl = document.getElementById('homePage');
