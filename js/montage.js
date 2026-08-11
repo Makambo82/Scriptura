@@ -103,7 +103,17 @@ function ajouterAudioMontage(files) {
   const f = (files || [])[0];
   const inputAudio = document.getElementById('montageAudioInput');
   if (inputAudio) inputAudio.value = '';
-  if (!f || !f.type.startsWith('audio/')) return;
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  if (!f) return;
+  // iOS ne fournit pas toujours le type MIME d'un fichier choisi dans Fichiers :
+  // on accepte donc aussi par extension, sinon un mp3 valide serait rejeté.
+  const estAudio = (f.type && f.type.startsWith('audio/'))
+    || /\.(mp3|wav|m4a|aac|ogg|oga|flac|aif|aiff|mp4|weba)$/i.test(f.name || '');
+  if (!estAudio) {
+    if (err) { err.textContent = 'Choisis un fichier audio (mp3, wav, m4a…).'; err.style.display = 'block'; }
+    return;
+  }
   montageAudio = { file: f, nom: f.name || 'voix-off' };
   renderMontageEtat();
 }
