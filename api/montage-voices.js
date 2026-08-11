@@ -15,11 +15,15 @@ function obtenirVoixDisponibles() {
     try {
       const liste = JSON.parse(brut);
       if (Array.isArray(liste) && liste.length && liste.every(v => v && v.id)) {
-        return liste.map(v => ({ id: String(v.id), label: String(v.label || v.name || v.id) }));
+        // .trim() : un espace ou un retour à la ligne collé par erreur en
+        // copiant l'ID dans Vercel suffit à faire échouer ElevenLabs avec
+        // "The string did not match the expected pattern" — mieux vaut
+        // nettoyer ici que de dépendre d'une saisie parfaite.
+        return liste.map(v => ({ id: String(v.id).trim(), label: String(v.label || v.name || v.id).trim() }));
       }
     } catch (e) { /* tombe sur le repli ci-dessous */ }
   }
-  const idUnique = process.env.ELEVENLABS_VOICE_ID;
+  const idUnique = (process.env.ELEVENLABS_VOICE_ID || '').trim();
   return idUnique ? [{ id: idUnique, label: 'Voix par défaut' }] : [];
 }
 
