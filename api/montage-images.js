@@ -18,7 +18,11 @@
 // ═══════════════════════════════════════════════════════════
 
 const CONCURRENCE_MAX = 3; // limite les appels simultanés (palier gratuit)
-const MODELE = 'black-forest-labs/FLUX.1-schnell';
+// FLUX.1-schnell a été retiré du fournisseur hf-inference le 15 juillet 2026 —
+// celui-ci ne sert plus qu'une liste restreinte de modèles populaires
+// (impossible de "réveiller" un modèle arbitraire du Hub désormais).
+// FLUX.2-dev est le modèle recommandé en remplacement.
+const MODELE = 'black-forest-labs/FLUX.2-dev';
 // 768×1344 ≈ 9:16, dimensions multiples de 8 (contrainte des modèles de diffusion).
 const LARGEUR = 768, HAUTEUR = 1344;
 
