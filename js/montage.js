@@ -19,6 +19,7 @@ let montageImagesEnCours = false;
 let montageVoixListe = [];  // [{ id, label }] — voix ElevenLabs configurées (voir api/montage-voices.js)
 let montageVoixId = '';     // id de la voix actuellement choisie
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
+let montageImagesSelection = new Set(); // indices des images cochées pour le téléchargement en lot
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série — génération en direct ET
@@ -51,6 +52,7 @@ function ouvrirMontage(plans) {
     .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '' }))
     .filter(p => p.text);
   montageImages = new Array(montagePlans.length).fill(null);
+  montageImagesSelection = new Set();
   montageVoixOff = null;
   montageEnCours = false;
   montageVoixEnCours = false;
@@ -120,6 +122,125 @@ async function telechargerImageMontage(i) {
     telechargerBlob(blobConverti, 'scriptura-plan-' + (i + 1) + '.' + format);
   } catch (e) {
     if (err) { err.textContent = 'Erreur de téléchargement (plan ' + (i + 1) + ') : ' + e.message; err.style.display = 'block'; }
+  }
+}
+
+function toggleSelectionImage(i) {
+  if (montageImagesSelection.has(i)) montageImagesSelection.delete(i);
+  else montageImagesSelection.add(i);
+  renderMontageEtat();
+}
+
+function toggleToutSelectionnerImages() {
+  const indicesDisponibles = montageImages.map((img, i) => img ? i : null).filter(i => i !== null);
+  const toutDejaCoche = indicesDisponibles.length > 0 && indicesDisponibles.every(i => montageImagesSelection.has(i));
+  montageImagesSelection = toutDejaCoche ? new Set() : new Set(indicesDisponibles);
+  renderMontageEtat();
+}
+
+// ── ZIP minimal (méthode "stored", sans compression) ────────────────────
+// Les images sont déjà compressées (PNG/JPEG/WEBP) : recompresser dans le
+// zip n'apporterait rien, autant écrire un zip "stored" — le format le
+// plus simple, pas besoin de bibliothèque externe pour ça.
+function crc32(octets) {
+  let crc = ~0;
+  for (let i = 0; i < octets.length; i++) {
+    crc ^= octets[i];
+    for (let j = 0; j < 8; j++) crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1));
+  }
+  return ~crc >>> 0;
+}
+
+async function creerZip(fichiers) {
+  const encodeur = new TextEncoder();
+  const partiesLocales = [];
+  const entreesCentrales = [];
+  let offset = 0;
+  const maintenant = new Date();
+  const dosTime = ((maintenant.getHours() << 11) | (maintenant.getMinutes() << 5) | (maintenant.getSeconds() >> 1)) & 0xFFFF;
+  const dosDate = (((maintenant.getFullYear() - 1980) << 9) | ((maintenant.getMonth() + 1) << 5) | maintenant.getDate()) & 0xFFFF;
+
+  for (const { nom, blob } of fichiers) {
+    const donnees = new Uint8Array(await blob.arrayBuffer());
+    const nomOctets = encodeur.encode(nom);
+    const crc = crc32(donnees);
+
+    const enteteLocal = new DataView(new ArrayBuffer(30));
+    enteteLocal.setUint32(0, 0x04034b50, true);
+    enteteLocal.setUint16(4, 20, true);
+    enteteLocal.setUint16(6, 0, true);
+    enteteLocal.setUint16(8, 0, true); // 0 = stored (pas de compression)
+    enteteLocal.setUint16(10, dosTime, true);
+    enteteLocal.setUint16(12, dosDate, true);
+    enteteLocal.setUint32(14, crc, true);
+    enteteLocal.setUint32(18, donnees.length, true);
+    enteteLocal.setUint32(22, donnees.length, true);
+    enteteLocal.setUint16(26, nomOctets.length, true);
+    enteteLocal.setUint16(28, 0, true);
+    partiesLocales.push(new Uint8Array(enteteLocal.buffer), nomOctets, donnees);
+
+    const enteteCentral = new DataView(new ArrayBuffer(46));
+    enteteCentral.setUint32(0, 0x02014b50, true);
+    enteteCentral.setUint16(4, 20, true);
+    enteteCentral.setUint16(6, 20, true);
+    enteteCentral.setUint16(8, 0, true);
+    enteteCentral.setUint16(10, 0, true);
+    enteteCentral.setUint16(12, dosTime, true);
+    enteteCentral.setUint16(14, dosDate, true);
+    enteteCentral.setUint32(16, crc, true);
+    enteteCentral.setUint32(20, donnees.length, true);
+    enteteCentral.setUint32(24, donnees.length, true);
+    enteteCentral.setUint16(28, nomOctets.length, true);
+    enteteCentral.setUint16(30, 0, true);
+    enteteCentral.setUint16(32, 0, true);
+    enteteCentral.setUint16(34, 0, true);
+    enteteCentral.setUint16(36, 0, true);
+    enteteCentral.setUint32(38, 0, true);
+    enteteCentral.setUint32(42, offset, true);
+    entreesCentrales.push(new Uint8Array(enteteCentral.buffer), nomOctets);
+
+    offset += 30 + nomOctets.length + donnees.length;
+  }
+
+  const tailleCentral = entreesCentrales.reduce((s, p) => s + p.length, 0);
+  const finCentral = new DataView(new ArrayBuffer(22));
+  finCentral.setUint32(0, 0x06054b50, true);
+  finCentral.setUint16(4, 0, true);
+  finCentral.setUint16(6, 0, true);
+  finCentral.setUint16(8, fichiers.length, true);
+  finCentral.setUint16(10, fichiers.length, true);
+  finCentral.setUint32(12, tailleCentral, true);
+  finCentral.setUint32(16, offset, true);
+  finCentral.setUint16(20, 0, true);
+
+  return new Blob([...partiesLocales, ...entreesCentrales, new Uint8Array(finCentral.buffer)], { type: 'application/zip' });
+}
+
+// Télécharge les images cochées (ou toutes, si aucune coche) en un seul
+// fichier .zip — les navigateurs mobiles (Safari iOS en tête) bloquent ou
+// perturbent plusieurs téléchargements déclenchés coup sur coup, un seul
+// fichier zip évite le problème complètement.
+async function telechargerImagesSelectionnees() {
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  const indices = montageImagesSelection.size
+    ? Array.from(montageImagesSelection).sort((a, b) => a - b)
+    : montageImages.map((img, i) => img ? i : null).filter(i => i !== null);
+  if (!indices.length) return;
+
+  const format = document.getElementById('montageImgFormatSelect')?.value || 'png';
+  try {
+    const fichiers = [];
+    for (const i of indices) {
+      const img = montageImages[i];
+      if (!img) continue;
+      const blobConverti = await convertirImageVers(img.blob, format);
+      fichiers.push({ nom: 'scriptura-plan-' + (i + 1) + '.' + format, blob: blobConverti });
+    }
+    const zip = await creerZip(fichiers);
+    telechargerBlob(zip, 'scriptura-images.zip');
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur de téléchargement en lot : ' + e.message; err.style.display = 'block'; }
   }
 }
 
@@ -335,7 +456,11 @@ function renderMontageEtat() {
   if (zoneImg) {
     zoneImg.innerHTML = montagePlans.map((p, i) => {
       const img = montageImages[i];
-      if (img) return `<div class="audit-thumb"><img src="${img.apercu}" alt=""><button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">⬇</button></div>`;
+      if (img) return `<div class="audit-thumb">
+        <img src="${img.apercu}" alt="">
+        <input type="checkbox" class="montage-thumb-select" title="Sélectionner" ${montageImagesSelection.has(i) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectionImage(${i})">
+        <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">⬇</button>
+      </div>`;
       if (montageImagesEnCours && i >= montageImageIndexEnCours) {
         return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
       }
@@ -346,6 +471,21 @@ function renderMontageEtat() {
   if (btnGenImg) {
     btnGenImg.disabled = montageImagesEnCours;
     btnGenImg.textContent = montageImagesEnCours ? 'Génération des images…' : (nbPretes ? '↻ Régénérer les images' : '🎨 Générer les images');
+  }
+  const btnSelectAll = document.getElementById('montageSelectAllBtn');
+  if (btnSelectAll) {
+    const indicesDisponibles = montageImages.map((im, i) => im ? i : null).filter(i => i !== null);
+    const toutCoche = indicesDisponibles.length > 0 && indicesDisponibles.every(i => montageImagesSelection.has(i));
+    btnSelectAll.disabled = !nbPretes;
+    btnSelectAll.textContent = toutCoche ? 'Tout désélectionner' : 'Tout sélectionner';
+  }
+  const btnDlSelection = document.getElementById('montageDlSelectionBtn');
+  if (btnDlSelection) {
+    btnDlSelection.disabled = !nbPretes;
+    const nbSelection = montageImagesSelection.size;
+    btnDlSelection.textContent = nbSelection
+      ? `⬇ Télécharger la sélection (${nbSelection}) (.zip)`
+      : '⬇ Télécharger toutes les images (.zip)';
   }
 
   const zoneVoix = document.getElementById('montageVoixZone');
