@@ -34,7 +34,12 @@ const TENTATIVES_MAX = 3;
 // tourner soi-même dans leur dashboard), pas un simple appel API — d'où
 // l'erreur "Unable to access non-serverless model". La version payante
 // (sans "-Free") est un vrai modèle serverless, facturée à l'image.
-const MODELE = 'black-forest-labs/FLUX.1-schnell';
+//
+// FLUX.1-schnell (4 étapes, distillé pour la vitesse) produisait des images
+// plates d'à peine ~500 Ko. Passage à FLUX1.1-pro (modèle qualité, sans
+// paramètre "steps" — géré en interne par Together) pour un rendu plus
+// détaillé, plus proche de ChatGPT/DALL-E.
+const MODELE = 'black-forest-labs/FLUX.1.1-pro';
 const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -49,7 +54,6 @@ async function genererUneImage(apiKey, prompt) {
         prompt,
         width: LARGEUR,
         height: HAUTEUR,
-        steps: 4, // FLUX schnell est conçu pour très peu d'étapes (rapide)
         n: 1,
         response_format: 'base64'
       })
