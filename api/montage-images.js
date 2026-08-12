@@ -42,8 +42,11 @@ const TENTATIVES_MAX = 3;
 const MODELE = 'black-forest-labs/FLUX.1.1-pro';
 const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
 // Ajouté à la fin de chaque prompt visuel avant l'envoi à Together AI, pour
-// un style pictural cohérent sur toutes les images du montage.
-const SUFFIXE_STYLE = ' Illustration au style purement pictural (peinture à l\'huile classique, coups de pinceau visibles, texture de toile).';
+// un style pictural cohérent sur toutes les images du montage. En anglais
+// car les prompts visuels eux-mêmes sont écrits en anglais (voir
+// STRUCTURE_PROMPT_VISUEL dans js/storyboard.js) — un suffixe en français
+// collé à un prompt anglais est en grande partie ignoré par FLUX.
+const SUFFIXE_STYLE = ' Purely painterly illustration style (classic oil painting, visible brushstrokes, canvas texture).';
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
