@@ -13,6 +13,19 @@
 // Mêmes voix que /api/montage-voices (voir ce fichier pour le format de
 // ELEVENLABS_VOICES) — dupliqué plutôt qu'importé : chaque fonction
 // serverless de ce projet reste autonome, aucun module partagé entre elles.
+// Filet de sécurité : l'IA rédactrice a parfois tendance à répéter en tête
+// de segment le minutage qu'elle produit par ailleurs dans un champ séparé
+// (ex: "0-3 sec : ...", "(0:00-0:03) ..."), malgré la structure JSON qui les
+// sépare déjà. Ne retire QUE ce motif en DÉBUT de segment (jamais une
+// mention de durée au milieu d'une phrase, pour ne pas mutiler un vrai récit
+// qui parlerait légitimement de secondes).
+function retirerMinuterie(texte) {
+  return texte
+    .replace(/^\s*[([]?\s*\d+\s*(?:à|-|–)\s*\d+\s*(?:sec(?:ondes?)?)?\s*[)\]]?\s*[:\-–,]?\s*/i, '')
+    .replace(/^\s*[([]?\s*\d{1,2}:\d{2}(?:\s*(?:à|-|–)\s*\d{1,2}:\d{2})?\s*[)\]]?\s*[:\-–,]?\s*/i, '')
+    .trim();
+}
+
 function obtenirVoixDisponibles() {
   const brut = process.env.ELEVENLABS_VOICES;
   if (brut) {
@@ -49,7 +62,7 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
-  const segments = Array.isArray(body?.segments) ? body.segments.map(s => String(s || '').trim()) : [];
+  const segments = Array.isArray(body?.segments) ? body.segments.map(s => retirerMinuterie(String(s || '').trim())) : [];
   if (!segments.length || segments.every(s => !s)) {
     return res.status(400).json({ error: { message: 'Aucun texte à narrer' } });
   }

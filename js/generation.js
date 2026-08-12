@@ -807,6 +807,8 @@ Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est l
 
 8. ORIENTÉ OBJECTIF : tout, du hook au CTA, sert l'objectif du créateur ci-dessus — pas seulement le dernier bloc.
 
+9. LE CHAMP "texte" NE CONTIENT JAMAIS DE MINUTAGE : le champ "temps" (ex: "0-3 sec") est SÉPARÉ et sert uniquement de repère visuel pour le créateur — ne le répète JAMAIS en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : il ne doit jamais commencer par "0-3 sec :", "(0 à 3 secondes)" ou toute variante numérique de minutage. Écris directement la phrase parlée.
+
 FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
 ${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :
