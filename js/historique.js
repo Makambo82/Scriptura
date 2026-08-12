@@ -501,14 +501,21 @@ function histTitreCourt(titre) {
   return t || 'Sans titre';
 }
 
+let _histOffset = 0;
+let _histHasMore = false;
+let _histChargementPlus = false;
+
 async function renderHistory() {
   const list = document.getElementById('historyList');
   list.innerHTML = '<p style="text-align:center;color:rgba(255,255,255,0.5);padding:40px">Chargement…</p>';
 
-  let gens = await loadGenerations();
+  _histOffset = 0;
+  const brut = await loadGenerations(0);
+  _histHasMore = brut.length === HIST_TAILLE_PAGE;
+  _histOffset = brut.length;
   // Les épisodes de série ne s'affichent pas isolément : masqués ici
   // (ils restent enregistrés pour le comptage du quota).
-  gens = gens.filter(g => g.mode !== 'serie');
+  const gens = brut.filter(g => g.mode !== 'serie');
   const series = await chargerSeriesHistorique();
 
   // Cache complet (non filtré) : permet de redessiner instantanément après un
@@ -516,6 +523,24 @@ async function renderHistory() {
   window._historyDataAll = gens;
   window._historySeriesAll = series;
   dessinerHistorique();
+}
+
+// Bouton "Charger plus" en bas de liste : récupère la page suivante de 50
+// générations et l'ajoute au cache existant, sans recharger tout le reste.
+async function chargerPlusHistorique() {
+  if (_histChargementPlus || !_histHasMore) return;
+  _histChargementPlus = true;
+  _afficherListeFiltree();
+  try {
+    const brut = await loadGenerations(_histOffset);
+    _histHasMore = brut.length === HIST_TAILLE_PAGE;
+    _histOffset += brut.length;
+    const nouvelles = brut.filter(g => g.mode !== 'serie');
+    window._historyDataAll = (window._historyDataAll || []).concat(nouvelles);
+  } finally {
+    _histChargementPlus = false;
+    _afficherListeFiltree();
+  }
 }
 
 // Dessine la liste à partir du cache mémoire (aucun rechargement réseau).
@@ -572,7 +597,8 @@ function _afficherListeFiltree() {
   // Aucun résultat pour les filtres en cours.
   if (!gens.length && !series.length) {
     const filtres = _favFilter || _modeFilter || q;
-    list.innerHTML = '<div class="history-empty"><p>' + (filtres ? 'Aucun résultat pour ces filtres.' : 'Aucune génération pour l\'instant.') + '</p>' + (filtres ? '<p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Modifie ou retire les filtres pour voir plus de résultats.</p>' : '') + '</div>';
+    list.innerHTML = '<div class="history-empty"><p>' + (filtres ? 'Aucun résultat pour ces filtres.' : 'Aucune génération pour l\'instant.') + '</p>' + (filtres ? '<p style="font-size:0.88rem;opacity:0.6;margin-top:8px">Modifie ou retire les filtres pour voir plus de résultats.</p>' : '') + '</div>'
+      + (_histHasMore ? '<button class="btn-regenerate" style="width:100%;margin-top:14px" ' + (_histChargementPlus ? 'disabled' : 'onclick="chargerPlusHistorique()"') + '>' + (_histChargementPlus ? 'Chargement…' : 'Charger l\'historique plus ancien') + '</button>' : '');
     return;
   }
 
@@ -642,7 +668,10 @@ function _afficherListeFiltree() {
 
   // Les favoris (épinglés) d'abord, puis le plus récent au plus ancien.
   items.sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0) || b.t - a.t);
-  list.innerHTML = items.map(x => x.html).join('');
+  list.innerHTML = items.map(x => x.html).join('')
+    + (_histHasMore && !_selectMode ? '<button class="btn-regenerate" style="width:100%;margin-top:14px" '
+      + (_histChargementPlus ? 'disabled' : 'onclick="chargerPlusHistorique()"') + '>'
+      + (_histChargementPlus ? 'Chargement…' : 'Charger l\'historique plus ancien') + '</button>' : '');
   initSwipeHistorique();
 }
 
@@ -1073,15 +1102,22 @@ function fermerRappelAudit() {
   if (el) el.classList.remove('active');
 }
 
-async function loadGenerations() {
+// Chargé par pages de 50 (voir chargerPlusHistorique) : une limite fixe de
+// 50 faisait disparaître silencieusement l'historique plus ancien dès qu'un
+// utilisateur actif dépassait 50 générations dans le mois (ex: juillet
+// devenu invisible une fois 50 générations faites en août).
+const HIST_TAILLE_PAGE = 50;
+
+async function loadGenerations(offset) {
   if (!supabaseClient) return [];
+  const debut = offset || 0;
   try {
     const { data, error } = await supabaseClient
       .from('generations')
       .select('*')
       .eq('code_acces', getUserRef())
       .order('cree_le', { ascending: false })
-      .limit(50);
+      .range(debut, debut + HIST_TAILLE_PAGE - 1);
     if (error) throw error;
     return data || [];
   } catch(e) { console.warn('Chargement échoué', e); return []; }
