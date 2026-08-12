@@ -493,7 +493,12 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const ep = eps.find(e => e.num === numEp);
     if (!ep) return;
 
-    const scriptText = ep.script || '';
+    // voix_off_propre (texte parlé seul, sans étiquette "VOIX OFF"/"TEXTE À
+    // L'ÉCRAN" ni minutage) : source du storyboard depuis ce correctif —
+    // ep.script reste le texte formaté affiché/copié par le créateur, mais
+    // le faire lire tel quel par le découpage narratif collait ces étiquettes
+    // dans les plans, et donc dans la voix off générée ensuite.
+    const scriptText = ep.voix_off_propre || ep.script || '';
     const plat = 'TikTok';
 
     // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
@@ -721,8 +726,10 @@ Le créateur est à l'écran et s'adresse directement à sa caméra, avec un vra
 
 TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton pour toute la série : "${serie.style}". Écris l'INTÉGRALITÉ de cet épisode dans CE ton, sans jamais dévier vers un autre registre — même partiellement. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique.
 
+CHAMP SUPPLÉMENTAIRE OBLIGATOIRE — "voix_off_propre" : en plus de "script" (le texte complet mis en forme, prêt à tourner), renvoie aussi "voix_off_propre" qui contient UNIQUEMENT ce qui doit être entendu à voix haute par une voix off automatique, en phrases normales mises bout à bout — JAMAIS les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", ni aucun minutage entre crochets ou parenthèses (ex: "[0-3s]"), ni le contenu du texte à l'écran lui-même. ${estFaceless ? 'Ce format sépare voix off et texte à l\'écran dans "script" : "voix_off_propre" ne garde QUE la partie parlée, débarrassée de toute étiquette et de tout minutage.' : 'Ce format n\'a pas de séparation voix off / texte à l\'écran : "voix_off_propre" est alors identique à "script".'}
+
 Réponds UNIQUEMENT en JSON, sans texte autour :
-{"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
+{"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","voix_off_propre":"uniquement le texte parlé, sans étiquette ni minutage","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
 
     let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche));
     let ep = serieParseJSON(raw);
@@ -736,12 +743,22 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     if (ep && ep.script !== null && typeof ep.script === 'object') {
       const v = ep.script.voix_off || ep.script.voix || '';
       const t = ep.script.texte_ecran || ep.script.texte || ep.script.text || '';
+      // Le champ objet sépare déjà voix off et texte à l'écran : profite-en
+      // pour remplir voix_off_propre proprement, avant de fusionner le tout
+      // en une seule chaîne "script" pour l'affichage/la copie.
+      if (!ep.voix_off_propre) ep.voix_off_propre = v || t;
       ep.script = [v ? 'VOIX OFF\n' + v : '', t ? 'TEXTE À L\'ÉCRAN\n' + t : ''].filter(Boolean).join('\n\n') || JSON.stringify(ep.script);
     }
     if (ep && ep.directives !== null && typeof ep.directives === 'object') {
       ep.directives = Object.values(ep.directives).filter(Boolean).join('\n\n');
     }
     if (!ep || !ep.script) throw new Error('réponse illisible');
+    // Filet de sécurité : si l'IA a oublié voix_off_propre (champ nouveau,
+    // pas garanti à 100%), on retombe sur script — moins propre pour le
+    // faceless, mais jamais pire qu'avant ce correctif.
+    if (!ep.voix_off_propre || typeof ep.voix_off_propre !== 'string' || !ep.voix_off_propre.trim()) {
+      ep.voix_off_propre = ep.script;
+    }
 
     // ── CONTRÔLE QUALITÉ STRICT DE LA DURÉE (comme les modes Script et Storytelling) ──
     // La consigne de durée dans le prompt ne suffisait pas : contrairement aux
@@ -771,9 +788,10 @@ RÈGLES :
 - Le nouvel épisode DOIT faire entre ${wtSerie.min} et ${wtSerie.max} mots au total. Compte tes mots avant de répondre.
 - Garde le ton "${serie.style}" strictement, du début à la fin.
 - Garde le même titre, la même tension finale, le même format (${formatSerie}).
+- Renvoie aussi "voix_off_propre" mis à jour : UNIQUEMENT le texte parlé du nouvel épisode, sans les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" ni aucun minutage entre crochets — même règle que pour la génération initiale.
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
-{"script":"le script complet corrigé"}`;
+{"script":"le script complet corrigé","voix_off_propre":"uniquement le texte parlé du nouvel épisode, sans étiquette ni minutage"}`;
 
       let correctedEp = null;
       try {
@@ -783,13 +801,16 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 
       if (correctedEp && typeof correctedEp.script === 'string' && correctedEp.script.trim()) {
         ep.script = correctedEp.script;
+        ep.voix_off_propre = (typeof correctedEp.voix_off_propre === 'string' && correctedEp.voix_off_propre.trim())
+          ? correctedEp.voix_off_propre
+          : ep.script;
         wordCountSerie = countWordsSerie(ep.script);
       } else {
         break; // parsing échoué, on garde la version actuelle
       }
     }
 
-    const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script }]);
+    const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script }]);
     const termine = nouveaux.length >= total;
     const { error: e2 } = await supabaseClient.from('series').update({
       episodes: nouveaux,
