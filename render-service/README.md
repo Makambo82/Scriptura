@@ -13,19 +13,17 @@ animations Ken Burns variées, sortie 1080×1920.
   → rend la vidéo, la ré-uploade dans Supabase Storage (bucket `montages`,
   dossier `rendus/`), renvoie `{ "url": "https://.../montage-....mp4" }`.
 
-## Déploiement sur Render.com (recommandé)
+## Déploiement sur Railway (recommandé)
 
-1. Va sur https://render.com → **New +** → **Web Service**.
-2. Connecte le dépôt GitHub `Makambo82/Scriptura`.
-3. Réglages :
+Railway facture à l'usage (idéal pour un rendu occasionnel) et donne assez de
+RAM pour les gros montages 1080p.
+
+1. Va sur https://railway.app → connecte-toi avec **GitHub**.
+2. **New Project** → **Deploy from GitHub repo** → choisis `Makambo82/Scriptura`.
+3. Une fois le service créé, ouvre-le → **Settings** :
    - **Root Directory** : `render-service`
-   - **Environment** : `Node`
-   - **Build Command** : `npm install`
-   - **Start Command** : `npm start`
-   - **Instance Type** : au moins **Starter** (512 Mo). Le tier gratuit peut
-     suffire pour de petits montages mais s'endort après 15 min d'inactivité
-     (premier rendu lent, ~1 min de réveil).
-4. **Environment Variables** (onglet *Environment*) :
+   - **Start Command** : `npm start` (souvent détecté automatiquement).
+4. **Variables** (onglet *Variables*) :
    - `SUPABASE_URL` — même valeur que sur Vercel.
    - `SUPABASE_ANON_KEY` — même valeur que sur Vercel.
    - `ALLOWED_ORIGIN` — l'URL du site, ex. `https://scriptura-v1.vercel.app`
@@ -34,12 +32,21 @@ animations Ken Burns variées, sortie 1080×1920.
      il doit être renseigné aussi côté site (voir plus bas).
    - *(optionnel)* `MONTAGE_WIDTH` / `MONTAGE_HEIGHT` / `MONTAGE_FPS` /
      `MONTAGE_TRANSITION` pour ajuster résolution, cadence et durée de fondu.
-5. **Create Web Service**. Render construit et déploie. Note l'URL publique
-   (ex. `https://scriptura-render.onrender.com`).
+   - Ne touche pas à `PORT` : Railway le fournit automatiquement, le service
+     l'utilise déjà.
+5. **Settings → Networking → Generate Domain** : Railway crée l'URL publique
+   (ex. `https://scriptura-render-production.up.railway.app`). C'est cette URL
+   qu'on branche côté site.
 
-> Portable : le même dossier se déploie sur **Railway** (New Project → Deploy
-> from repo → root `render-service`) ou **Fly.io** (`fly launch` dans le
-> dossier, le `Dockerfile` est fourni). Mêmes variables d'environnement.
+## Alternatives (même dossier, mêmes variables)
+
+- **Render.com** : New + → Web Service → repo `Makambo82/Scriptura`, Root
+  Directory `render-service`, Environment `Node`, Build `npm install`, Start
+  `npm start`. Le plus simple, mais le tier gratuit (512 Mo) peut manquer de
+  mémoire sur un gros montage 1080p, et 2 Go coûte ~25 $/mois.
+- **Fly.io** : `fly launch` dans `render-service/` (le `Dockerfile` est
+  fourni). Le moins cher au repos (scale-to-zero), mais nécessite la ligne de
+  commande.
 
 ## Brancher le site sur le service
 
