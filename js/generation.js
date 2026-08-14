@@ -1329,6 +1329,13 @@ function startGenAnimation(mode) {
   // saute à 100% pile quand le résultat est prêt (voir stopGenAnimation).
   const fill = document.getElementById('genProgressFill');
   const pctEl = document.getElementById('genProgressPct');
+  // Bande rayée dorée (indéterminée, sans %) pour toutes les générations —
+  // SAUF l'audit, qui conserve sa barre de progression chiffrée classique via
+  // la classe .determinee (voir css/style.css). Le remplissage/% continuent
+  // d'être calculés ci-dessous, mais restent masqués tant que .determinee est
+  // absente : rien d'autre à changer selon le mode.
+  const genBar = fill ? fill.closest('.sb-progress-bar') : null;
+  if (genBar) genBar.classList.toggle('determinee', mode === 'audit');
   if (genProgressCtl) genProgressCtl.stop();
   genProgressCtl = createProgress((p) => {
     if (fill) fill.style.width = p + '%';

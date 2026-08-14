@@ -1758,6 +1758,29 @@ body.is-unlocked .sidebar-logout{display:block}
   min-width:40px;text-align:right;
 }
 
+/* ── ANIMATION DE GÉNÉRATION : bande rayée dorée (indéterminée) ──
+   Remplace la barre de progression chiffrée pour TOUTES les générations
+   (Script, Récit, Idées, Série, storyboards) — les rayures défilent en
+   continu, sans chiffre ni texte. Seul l'audit garde sa barre chiffrée :
+   sa barre reçoit dynamiquement .determinee (voir startGenAnimation dans
+   js/generation.js), qui la fait retomber sur le style ci-dessus. */
+@keyframes scripturaStripes{from{background-position:0 0}to{background-position:24px 0}}
+.sb-progress-bar:not(.determinee) .sb-progress-bar-track{
+  height:12px;
+  background-color:rgba(201,168,76,0.16);
+  background-image:linear-gradient(-45deg,
+    var(--gold) 25%, transparent 25%,
+    transparent 50%, var(--gold) 50%,
+    var(--gold) 75%, transparent 75%, transparent);
+  background-size:24px 24px;
+  animation:scripturaStripes 0.7s linear infinite;
+}
+.sb-progress-bar:not(.determinee) .sb-progress-bar-fill{display:none}
+.sb-progress-bar:not(.determinee) .sb-progress-bar-pct{display:none}
+@media (prefers-reduced-motion:reduce){
+  .sb-progress-bar:not(.determinee) .sb-progress-bar-track{animation:none}
+}
+
 /* ── MODAL GÉNÉRATION D'IMAGE ── */
 .genimg-overlay{
   position:fixed;inset:0;z-index:500;
