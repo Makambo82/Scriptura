@@ -524,6 +524,15 @@ function renderMontageEtat() {
     || !montagePlans.length || nbPretes !== montagePlans.length || !montageVoixOff;
 }
 
+// Statut de l'assemblage final = bande rayée dorée (même animation que les
+// autres générations) + un court message informatif conservé ici, car le rendu
+// peut durer plusieurs minutes (contrairement aux images/voix off).
+function montageStatutHTML(message) {
+  return '<div class="sb-progress-bar" style="max-width:none;margin:0 0 12px">'
+    + '<div class="sb-progress-bar-track"><div class="sb-progress-bar-fill"></div></div></div>'
+    + '<div>' + message + '</div>';
+}
+
 async function lancerMontage() {
   const err = document.getElementById('montageErreur');
   const statut = document.getElementById('montageStatut');
@@ -538,7 +547,7 @@ async function lancerMontage() {
   montageEnCours = true;
   renderMontageEtat();
   if (resultat) resultat.innerHTML = '';
-  if (statut) { statut.style.display = 'block'; statut.textContent = 'Envoi des fichiers…'; }
+  if (statut) { statut.style.display = 'block'; statut.innerHTML = montageStatutHTML('Envoi des fichiers…'); }
 
   try {
     const dossier = 'montage-' + Date.now();
@@ -574,7 +583,7 @@ async function lancerMontage() {
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
     // sondage de statut (contrairement à JSON2Video, remplacé faute de
     // crédits — voir historique de ce fichier).
-    if (statut) statut.textContent = 'Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…';
+    if (statut) statut.innerHTML = montageStatutHTML('Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…');
     let dataRender;
     try {
       const rRender = await fetch('/api/montage-render', {
