@@ -32,6 +32,10 @@ RAM pour les gros montages 1080p.
      il doit être renseigné aussi côté site (voir plus bas).
    - *(optionnel)* `MONTAGE_WIDTH` / `MONTAGE_HEIGHT` / `MONTAGE_FPS` /
      `MONTAGE_TRANSITION` pour ajuster résolution, cadence et durée de fondu.
+   - *(optionnel)* `MONTAGE_BATCH` — nombre de plans rendus ensemble (défaut 6).
+     Si un rendu échoue par saturation mémoire (« FFmpeg killed / code null »)
+     sur un conteneur limité, baisse-le (4, voire 3) ; si tu as beaucoup de RAM,
+     monte-le (moins de coupures nettes entre lots).
    - Ne touche pas à `PORT` : Railway le fournit automatiquement, le service
      l'utilise déjà.
 5. **Settings → Networking → Generate Domain** : Railway crée l'URL publique

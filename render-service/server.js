@@ -5,9 +5,12 @@
 //  pour le plan Vercel gratuit (300 s / 1 Go imposés, non contournables), ce
 //  qui forçait des compromis — découpage en lots (coupes nettes toutes les 5
 //  images), 720p/15fps, et une synchro image/voix approximative. Sur un vrai
-//  hébergeur (Render, Railway, Fly…), sans ces limites, on rend TOUT le
-//  montage dans un seul graphe FFmpeg : durées respectées au millième,
-//  transitions variées entre CHAQUE plan, animations Ken Burns variées.
+//  hébergeur (Render, Railway, Fly…) on lève les compromis de qualité :
+//  durées respectées au millième, transitions variées, Ken Burns varié, 1080p.
+//  Le rendu reste découpé en LOTS (voir TAILLE_LOT) — non par limite de temps,
+//  mais pour borner la mémoire : un seul graphe de ~20 images 1080p sature la
+//  RAM (OOM, "FFmpeg killed / code null"). Les lots sont plus grands que sur
+//  Vercel, donc quasiment tout en fondu croisé, coupure nette rare entre lots.
 //
 //  Endpoint : POST /render  { images: [{url, duration}], audioUrl }
 //             → { url } (vidéo mp4 ré-uploadée dans Supabase Storage)
@@ -35,6 +38,15 @@ const HAUTEUR = parseInt(process.env.MONTAGE_HEIGHT || '1920', 10);
 const FPS = parseInt(process.env.MONTAGE_FPS || '25', 10);           // 25 = Ken Burns fluide
 const DUREE_TRANSITION = parseFloat(process.env.MONTAGE_TRANSITION || '0.5');
 const ZMAX = 1.20;
+// Nombre de plans rendus ensemble dans UN graphe FFmpeg (donc de flux ouverts
+// en même temps). C'est ce nombre — pas la résolution — qui borne la mémoire :
+// un seul gros graphe de ~20 images 1080p saturait la RAM du conteneur (OOM,
+// "FFmpeg killed / code null"). Chaque lot est un graphe indépendant, recollé
+// ensuite par le démuxeur concat (copie de flux, quasi gratuite). Fondu croisé
+// varié À L'INTÉRIEUR d'un lot ; une coupure nette (rare) entre deux lots.
+// Réglable via MONTAGE_BATCH selon la RAM de l'hébergeur (plus haut = moins de
+// coupures, mais plus de mémoire).
+const TAILLE_LOT = parseInt(process.env.MONTAGE_BATCH || '6', 10);
 // Jeton optionnel : si défini, chaque requête doit envoyer le même dans
 // l'en-tête "x-montage-token". Gate légère (l'outil est réservé au fondateur).
 const MONTAGE_TOKEN = process.env.MONTAGE_TOKEN || '';
@@ -80,19 +92,21 @@ function kenBurns(preset, D) {
   return P[preset % P.length];
 }
 
-// Un SEUL graphe FFmpeg pour tout le montage (aucun découpage en lots : le
-// vrai hébergeur a la mémoire pour ça, donc fondu croisé entre CHAQUE plan).
+// Graphe FFmpeg pour UN LOT de plans. `decalage` = index global du 1er plan
+// du lot, pour que l'alternance Ken Burns ET les transitions restent variées
+// d'un lot à l'autre (pas de répétition au début de chaque lot).
 // Synchro exacte : chaque clip dure (durée voulue + transition), et le fondu
-// vers le plan suivant démarre pile à la frontière narrative cumulée — la
-// durée totale reste égale à la somme des durées (donc à la voix off), et
-// chaque image apparaît à sa seconde exacte. Vérifié par exécution réelle.
-function construireGraphe(durees) {
+// vers le plan suivant démarre pile à la frontière narrative cumulée du lot —
+// la durée totale du lot reste égale à la somme de ses durées, donc, une fois
+// les lots recollés, à la voix off entière. Chaque image apparaît à sa
+// seconde exacte. Vérifié par exécution réelle.
+function construireGrapheLot(durees, decalage) {
   const n = durees.length;
   const longueurs = durees.map(d => d + DUREE_TRANSITION);
   const parts = [];
   for (let i = 0; i < n; i++) {
     const D = Math.max(1, Math.round(longueurs[i] * FPS));
-    const kb = kenBurns(i, D);
+    const kb = kenBurns(decalage + i, D);
     parts.push(
       `[${i}:v]scale=${LARGEUR}:${HAUTEUR}:force_original_aspect_ratio=increase,` +
       `crop=${LARGEUR}:${HAUTEUR},setsar=1,fps=${FPS},` +
@@ -103,7 +117,7 @@ function construireGraphe(durees) {
   let frontiere = durees[0];
   for (let i = 1; i < n; i++) {
     const sortie = i === n - 1 ? 'vout' : `vx${i}`;
-    const tr = TRANSITIONS[(i - 1) % TRANSITIONS.length];
+    const tr = TRANSITIONS[(decalage + i - 1) % TRANSITIONS.length];
     parts.push(`[${dernier}][v${i}]xfade=transition=${tr}:duration=${DUREE_TRANSITION}:offset=${frontiere.toFixed(3)}[${sortie}]`);
     dernier = sortie;
     frontiere += durees[i];
@@ -169,28 +183,45 @@ app.post('/render', async (req, res) => {
     const cheminAudio = path.join(dossier, 'audio.mp3');
     await telechargerVers(audioUrl, cheminAudio);
 
-    const longueurs = durees.map(d => d + DUREE_TRANSITION);
-    const args = [];
-    for (let i = 0; i < images.length; i++) {
-      args.push('-loop', '1', '-t', String(longueurs[i]), '-i', path.join(dossier, `img-${i}.jpg`));
+    // Rendu PAR LOTS (mémoire bornée) : chaque lot = un graphe FFmpeg
+    // indépendant, vidéo seule, fondu croisé varié à l'intérieur du lot.
+    const cheminsLots = [];
+    for (let debut = 0; debut < images.length; debut += TAILLE_LOT) {
+      const fin = Math.min(debut + TAILLE_LOT, images.length);
+      const dureesLot = durees.slice(debut, fin);
+      const longueursLot = dureesLot.map(d => d + DUREE_TRANSITION);
+      const cheminLot = path.join(dossier, `lot-${cheminsLots.length}.mp4`);
+      const args = [];
+      for (let j = debut; j < fin; j++) {
+        args.push('-loop', '1', '-t', String(longueursLot[j - debut]), '-i', path.join(dossier, `img-${j}.jpg`));
+      }
+      args.push('-filter_complex', construireGrapheLot(dureesLot, debut));
+      args.push(
+        '-map', '[vout]',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',
+        '-t', String(dureesLot.reduce((s, d) => s + d, 0)),
+        '-y', cheminLot
+      );
+      await executerFFmpeg(args);
+      cheminsLots.push(cheminLot);
+      console.log(`[render] lot ${cheminsLots.length}/${Math.ceil(images.length / TAILLE_LOT)} rendu`);
     }
-    args.push('-i', cheminAudio); // dernière entrée = audio
-    args.push('-filter_complex', construireGraphe(durees));
-    args.push(
-      '-map', '[vout]',
-      '-map', `${images.length}:a`,
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '21',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-b:a', '160k',
+
+    // Recolle les lots (copie de flux, quasi gratuit en mémoire) puis mixe la
+    // voix off. -t garantit la durée totale exacte (= voix off).
+    const cheminListe = path.join(dossier, 'liste.txt');
+    await fs.writeFile(cheminListe, cheminsLots.map(c => `file '${c.replace(/'/g, "'\\''")}'`).join('\n'));
+    const cheminConcat = path.join(dossier, 'concat.mp4');
+    await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat]);
+
+    await executerFFmpeg([
+      '-i', cheminConcat, '-i', cheminAudio,
+      '-map', '0:v', '-map', '1:a',
+      '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
       '-movflags', '+faststart',
       '-t', String(dureeTotale),
-      '-y',
-      path.join(dossier, 'out.mp4')
-    );
-    await executerFFmpeg(args);
+      '-y', path.join(dossier, 'out.mp4')
+    ]);
     console.log('[render] rendu FFmpeg terminé');
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
