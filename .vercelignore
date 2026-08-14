@@ -1,0 +1,3 @@
+# Le service de rendu vidéo est déployé séparément (Render/Railway/Fly),
+# jamais sur Vercel — voir render-service/README.md.
+render-service

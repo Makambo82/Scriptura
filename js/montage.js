@@ -10,6 +10,14 @@
 //  durée EXACTE de chaque plan.
 // ═══════════════════════════════════════════════════════════
 
+// Rendu vidéo final : par défaut l'ancien endpoint Vercel (/api/montage-render,
+// bridé par le plan gratuit). Dès que le service de rendu externe est déployé
+// (voir render-service/README.md), colle son URL ici pour un rendu 1080p, une
+// synchro image/voix exacte et des transitions variées. Tant que c'est vide,
+// rien ne change — aucune coupure pendant la migration.
+const MONTAGE_RENDER_URL = '';   // ex. 'https://scriptura-render.onrender.com'
+const MONTAGE_RENDER_TOKEN = ''; // seulement si MONTAGE_TOKEN est défini côté service
+
 let montagePlans = [];      // [{ text, visuel }] — un par plan du storyboard
 let montageImages = [];     // [{ blob, apercu } | null] — même ordre/longueur que montagePlans
 let montageVoixOff = null;  // { blob, url, durations } — générée par ElevenLabs
@@ -586,9 +594,14 @@ async function lancerMontage() {
     if (statut) statut.innerHTML = montageStatutHTML('Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…');
     let dataRender;
     try {
-      const rRender = await fetch('/api/montage-render', {
+      // Service de rendu externe si configuré (rendu 1080p, synchro exacte,
+      // transitions variées), sinon l'ancien endpoint Vercel par défaut.
+      const urlRendu = MONTAGE_RENDER_URL ? MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render' : '/api/montage-render';
+      const entetes = { 'Content-Type': 'application/json' };
+      if (MONTAGE_RENDER_URL && MONTAGE_RENDER_TOKEN) entetes['x-montage-token'] = MONTAGE_RENDER_TOKEN;
+      const rRender = await fetch(urlRendu, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: entetes,
         body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl })
       });
       dataRender = await rRender.json();
