@@ -52,15 +52,30 @@ const PREFIXE_STYLE = 'Classic oil painting, visible brushstrokes, canvas textur
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Le filtre de sécurité de Together/FLUX bloque parfois une image par FAUX
+// POSITIF (scène dramatique, politique, tendue…). On réessaie alors avec le
+// même prompt encadré de termes de sécurité explicites : ça encadre la
+// composition sans changer le sujet, et passe le filtre dans la grande
+// majorité des cas. On retire d'abord le footer 9:16 pour le remettre après.
+function versionSure(prompt) {
+  const sansFormat = prompt.replace(/\s*9:16\s*$/i, '').trim();
+  return sansFormat + '. Safe-for-work, tasteful and dignified, non-explicit, no nudity, no gore, no graphic violence, fully clothed, respectful fine-art composition. 9:16';
+}
+
+function estBlocageNSFW(message) {
+  return /nsfw|not safe|safety|flagged|content policy|may contain|moderat/i.test(String(message));
+}
+
 async function genererUneImage(apiKey, prompt) {
-  const promptComplet = PREFIXE_STYLE + prompt;
+  let promptCourant = PREFIXE_STYLE + prompt;
+  let dejaSecurise = false;
   for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
     const rep = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODELE,
-        prompt: promptComplet,
+        prompt: promptCourant,
         width: LARGEUR,
         height: HAUTEUR,
         n: 1,
@@ -75,6 +90,12 @@ async function genererUneImage(apiKey, prompt) {
       return { base64: b64, mimeType: 'image/png' };
     }
     const message = data?.error?.message || data?.error || 'Échec de génération (statut ' + rep.status + ')';
+    // Faux positif NSFW : reformule une fois en version sûre et réessaie.
+    if (estBlocageNSFW(message) && !dejaSecurise && tentative < TENTATIVES_MAX) {
+      promptCourant = PREFIXE_STYLE + versionSure(prompt);
+      dejaSecurise = true;
+      continue;
+    }
     const limiteDebit = rep.status === 429 || /rate.?limit/i.test(String(message));
     if (limiteDebit && tentative < TENTATIVES_MAX) { await attendre(1500 * tentative); continue; }
     throw new Error(message);

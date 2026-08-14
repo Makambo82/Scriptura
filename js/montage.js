@@ -528,8 +528,36 @@ function renderMontageEtat() {
   }
 
   const btn = document.getElementById('montageLancerBtn');
+  // On n'exige plus TOUTES les images : une image bloquée (ex. faux positif
+  // NSFW de Together) ne doit plus empêcher tout le montage. Il suffit d'au
+  // moins une image ; les plans manquants réutilisent l'image voisine (voir
+  // construireImagesEffectives). On garde le bouton actif tant qu'il reste
+  // au moins une image et une voix off.
   if (btn) btn.disabled = montageEnCours || montageVoixEnCours || montageImagesEnCours
-    || !montagePlans.length || nbPretes !== montagePlans.length || !montageVoixOff;
+    || !montagePlans.length || nbPretes < 1 || !montageVoixOff;
+}
+
+// Remplace chaque plan sans image (bloqué/échec) par l'image disponible la
+// plus proche (voisin précédent en priorité, sinon suivant). Ainsi un plan
+// récalcitrant n'empêche pas le montage : sa portion de voix off montre
+// l'image voisine. Renvoie null si AUCUNE image n'est disponible.
+function construireImagesEffectives() {
+  const n = montagePlans.length;
+  if (!montageImages.some(Boolean)) return null;
+  const eff = new Array(n);
+  let nbRemplaces = 0;
+  for (let i = 0; i < n; i++) {
+    if (montageImages[i]) { eff[i] = montageImages[i]; continue; }
+    let trouve = null;
+    for (let d = 1; d < n && !trouve; d++) {
+      if (i - d >= 0 && montageImages[i - d]) trouve = montageImages[i - d];
+      else if (i + d < n && montageImages[i + d]) trouve = montageImages[i + d];
+    }
+    eff[i] = trouve;
+    if (trouve) nbRemplaces++;
+  }
+  construireImagesEffectives.nbRemplaces = nbRemplaces;
+  return eff;
 }
 
 // Statut de l'assemblage final = bande rayée dorée (même animation que les
@@ -546,7 +574,8 @@ async function lancerMontage() {
   const statut = document.getElementById('montageStatut');
   const resultat = document.getElementById('montageResultat');
   if (err) err.style.display = 'none';
-  if (!montagePlans.length || montageImages.filter(Boolean).length !== montagePlans.length || !montageVoixOff) return;
+  const imagesEff = construireImagesEffectives();
+  if (!montagePlans.length || !imagesEff || !montageVoixOff) return;
   if (!supabaseClient) {
     if (err) { err.textContent = 'Connexion au stockage indisponible.'; err.style.display = 'block'; }
     return;
@@ -569,11 +598,13 @@ async function lancerMontage() {
     // par nos messages français habituels reste quand même identifiable —
     // sans ça, une erreur générique du navigateur ne dit pas à quelle étape
     // (upload images, upload audio, ou rendu) elle s'est produite.
+    // imagesEff : les plans sans image (bloqués) réutilisent l'image voisine,
+    // pour ne jamais bloquer tout le montage à cause d'un seul plan.
     const images = [];
     try {
-      for (let i = 0; i < montageImages.length; i++) {
+      for (let i = 0; i < imagesEff.length; i++) {
         const chemin = dossier + '/img-' + (i + 1) + '.jpg';
-        const { error } = await supabaseClient.storage.from('montages').upload(chemin, montageImages[i].blob, { contentType: montageImages[i].blob.type || 'image/png' });
+        const { error } = await supabaseClient.storage.from('montages').upload(chemin, imagesEff[i].blob, { contentType: imagesEff[i].blob.type || 'image/png' });
         if (error) throw new Error(error.message);
         const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
         images.push({ url: data.publicUrl, duration: durees[i] || 2 });
@@ -609,7 +640,11 @@ async function lancerMontage() {
     } catch (e) { throw new Error('Rendu de la vidéo : ' + e.message); }
 
     if (statut) statut.style.display = 'none';
-    if (resultat) resultat.innerHTML = `
+    const nbRemplaces = construireImagesEffectives.nbRemplaces || 0;
+    const note = nbRemplaces > 0
+      ? `<div class="montage-statut" style="margin:0 0 10px">${nbRemplaces} plan(s) sans image (bloqué·s) remplacé·s par l'image voisine. Régénère ces images puis relance le montage pour un rendu complet.</div>`
+      : '';
+    if (resultat) resultat.innerHTML = note + `
       <video class="montage-video" src="${dataRender.url}" controls playsinline></video>
       <a class="btn-regenerate" style="display:inline-block;margin-top:12px" href="/api/montage-download?url=${encodeURIComponent(dataRender.url)}" download="scriptura-montage.mp4">⬇ Télécharger la vidéo</a>`;
   } catch (e) {
