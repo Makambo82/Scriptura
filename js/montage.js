@@ -81,7 +81,6 @@ function ouvrirMontage(plans, boutonEl) {
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
   chargerVoixMontage();
-  remplirStyleVisuelSelect();
   const panneau = document.getElementById('montageModal');
   if (panneau) {
     const ligneActions = boutonEl && boutonEl.closest('.sb-actions-fin');
@@ -359,18 +358,9 @@ async function telechargerVoixOffMontage() {
   }
 }
 
-// ── STYLE GRAPHIQUE ───────────────────────────────────────────────────────
-// Le menu déroulant liste STYLES_VISUELS (défini dans js/api.js). Le choix est
-// mémorisé (localStorage) et appliqué : aux prompts copiés vers ChatGPT/Gemini
-// (via assainirPromptVisuel au moment de la génération du storyboard) ET aux
-// images générées par Together ci-dessous.
-function remplirStyleVisuelSelect() {
-  const zone = document.getElementById('montageOptionsVisuelles');
-  if (zone && typeof optionsStoryboardHTML === 'function') zone.innerHTML = optionsStoryboardHTML();
-}
-
-// changerStyleVisuel + changerFormatVisuel sont définis dans js/api.js (partagés
-// avec les menus placés avant la génération du storyboard).
+// Le style graphique + le format sont choisis AVANT la génération du storyboard
+// et déjà présents dans le prompt de chaque plan (footer). Le montage réutilise
+// donc les prompts du storyboard tels quels — pas de menu ici.
 
 // ── CHARGER SES PROPRES IMAGES ────────────────────────────────────────────
 // Permet d'utiliser des visuels générés ailleurs (ChatGPT, Gemini…) au lieu
@@ -432,7 +422,7 @@ async function genererImagesMontage() {
       const rep = await fetch('/api/montage-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: [appliquerStyleVisuel(montagePlans[i].visuel || montagePlans[i].text, styleVisuelActuel())], format: formatVisuelActuel() })
+        body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text], format: ratioDuPrompt(montagePlans[i].visuel || '') })
       });
       const data = await rep.json();
       const img = data.images && data.images[0];
@@ -465,7 +455,7 @@ async function regenererImageMontage(i) {
     const rep = await fetch('/api/montage-images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: [appliquerStyleVisuel(plan.visuel || plan.text, styleVisuelActuel())], format: formatVisuelActuel() })
+      body: JSON.stringify({ prompts: [plan.visuel || plan.text], format: ratioDuPrompt(plan.visuel || '') })
     });
     const data = await rep.json();
     const img = data.images && data.images[0];
@@ -718,7 +708,7 @@ async function lancerMontage() {
       const rRender = await fetch(urlRendu, {
         method: 'POST',
         headers: entetes,
-        body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl, format: formatVisuelActuel() })
+        body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl, format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || '') })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');

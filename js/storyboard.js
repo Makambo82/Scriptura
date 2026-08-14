@@ -547,10 +547,8 @@ function genImageDirect(cible, promptKey) {
   }
   texte = (texte || '').replace(/\u200B/g, '').trim();
 
-  // Applique le style graphique COURANT au prompt copié, pour que ChatGPT/
-  // Gemini génèrent dans le style choisi même si le storyboard a été créé avec
-  // un autre style (appliquerStyleVisuel n'empile jamais deux footers).
-  if (typeof appliquerStyleVisuel === 'function') texte = appliquerStyleVisuel(texte, styleVisuelActuel());
+  // Le prompt contient déjà le style + le format choisis avant génération
+  // (footer ajouté par assainirPromptVisuel) : on le copie tel quel.
 
   // Copier en parallèle (sans bloquer l'ouverture de l'app)
   try { navigator.clipboard.writeText(texte); } catch(e) {}

@@ -348,6 +348,14 @@ function formatVisuelInfos(id) {
   return FORMATS_VISUELS.find(f => f.id === id) || FORMATS_VISUELS[0];
 }
 
+// Lit le ratio (format) déjà présent en fin de prompt du storyboard — c'est LUI
+// la source de vérité pour le montage (pas le réglage global, qui a pu changer
+// depuis). Défaut 9:16 si absent.
+function ratioDuPrompt(p) {
+  const m = String(p || '').match(/\b(9:16|16:9|1:1)\b\s*$/);
+  return m ? m[1] : '9:16';
+}
+
 function changerStyleVisuel(id) {
   try { localStorage.setItem('scriptura_style_visuel', id); } catch (e) {}
 }
