@@ -398,10 +398,22 @@ function assainirPromptVisuel(prompt, contexte) {
   // Nettoyer les espaces multiples créés par les suppressions
   p = p.replace(/  +/g, ' ').trim();
 
-  // ── 3. Garantir le footer 9:16 ───────────────────────────────────────────────
-  // Normaliser les variantes possibles : "9/16", "9 : 16", "9:16.", "ratio 9:16", etc.
+  // ── 3. Footer de STYLE (pictural) + format 9:16 ─────────────────────────────
+  // On retire d'abord un éventuel "9:16" écrit par l'IA (remis en tout dernier).
   p = p.replace(/\s*(ratio\s*)?\b9[\s:\/]+16\b\.?\s*$/i, '');
   p = p.trim();
+
+  // Footer de style pictural, ajouté de façon DÉTERMINISTE à la fin de CHAQUE
+  // prompt visible — celui qu'on voit dans le storyboard ET qu'on copie vers
+  // ChatGPT/Gemini. Ne dépend pas de ce que l'IA a écrit (elle l'oublie ou le
+  // met ailleurs). En anglais, comme le reste du prompt (les générateurs
+  // d'images suivent bien mieux l'anglais). On retire d'abord un footer de
+  // style déjà présent pour ne pas l'empiler à chaque régénération.
+  const STYLE_FOOTER = 'Rendered as a classic oil painting with visible brushstrokes and canvas texture — a painterly fine-art illustration, not a photograph.';
+  p = p.replace(/\s*Rendered as a classic oil painting[^]*$/i, '').trim();
+  p = p.replace(/[.\s]*$/, '').trim() + '. ' + STYLE_FOOTER;
+
+  // Format vertical, toujours en tout dernier.
   if (!p.endsWith('9:16')) {
     p = p + ' 9:16';
   }

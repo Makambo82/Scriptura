@@ -42,19 +42,18 @@ const TENTATIVES_MAX = 3;
 const MODELE = 'black-forest-labs/FLUX.1.1-pro';
 const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
 // Style pictural ajouté EN PRÉFIXE (les modèles de diffusion pondèrent plus
-// fortement les premiers mots du prompt — un simple suffixe en fin de prompt
-// se faisait diluer par les ~100 mots de description photographique/
-// cinématographique qui précèdent) ET répété en suffixe en renfort. En
-// anglais car les prompts visuels eux-mêmes sont écrits en anglais (voir
-// STRUCTURE_PROMPT_VISUEL dans js/storyboard.js) — un texte en français
-// collé à un prompt anglais est en grande partie ignoré par FLUX.
+// fortement les premiers mots du prompt). Le SUFFIXE n'est plus nécessaire ici
+// : le prompt visible contient désormais déjà un footer de style, ajouté de
+// façon déterministe dans assainirPromptVisuel (js/api.js) — donc présent dans
+// le prompt reçu ici. En anglais car les prompts visuels sont écrits en anglais
+// (voir STRUCTURE_PROMPT_VISUEL) — un texte en français collé à un prompt
+// anglais est en grande partie ignoré par FLUX.
 const PREFIXE_STYLE = 'Classic oil painting, visible brushstrokes, canvas texture, painterly fine art illustration — never a photograph. ';
-const SUFFIXE_STYLE = ' Purely painterly illustration style (oil painting, visible brushstrokes, canvas texture), not photorealistic.';
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function genererUneImage(apiKey, prompt) {
-  const promptComplet = PREFIXE_STYLE + prompt + SUFFIXE_STYLE;
+  const promptComplet = PREFIXE_STYLE + prompt;
   for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
     const rep = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
