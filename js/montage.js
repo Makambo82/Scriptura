@@ -109,6 +109,35 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// « Télécharger la vidéo » : ouvre la feuille de partage native (iOS/Android)
+// via l'API Web Share en partageant le FICHIER vidéo — c'est ce qui donne
+// « Enregistrer la vidéo », AirDrop, Messages, etc. On récupère d'abord la
+// vidéo via notre proxy same-origin (/api/montage-download) pour éviter tout
+// souci CORS de lecture. Repli : téléchargement direct classique si l'API
+// n'est pas disponible (ordinateur de bureau, vieux navigateur).
+async function partagerVideoMontage(btn, url) {
+  const libelle = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
+  try {
+    const rep = await fetch('/api/montage-download?url=' + encodeURIComponent(url));
+    if (!rep.ok) throw new Error('récupération impossible');
+    const blob = await rep.blob();
+    const fichier = new File([blob], 'scriptura-montage.mp4', { type: 'video/mp4' });
+    if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
+      await navigator.share({ files: [fichier], title: 'Montage Scriptura' });
+    } else {
+      telechargerBlob(blob, 'scriptura-montage.mp4');
+    }
+  } catch (e) {
+    // Annulation du partage par l'utilisateur : on ne fait rien.
+    if (!(e && e.name === 'AbortError')) {
+      window.open('/api/montage-download?url=' + encodeURIComponent(url), '_blank');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = libelle; }
+  }
+}
+
 // Convertit une image PNG (générée par Together AI) vers JPEG/WEBP via
 // <canvas> — entièrement côté navigateur, pas d'aller-retour serveur.
 async function convertirImageVers(blob, format) {
@@ -646,7 +675,7 @@ async function lancerMontage() {
       : '';
     if (resultat) resultat.innerHTML = note + `
       <video class="montage-video" src="${dataRender.url}" controls playsinline></video>
-      <a class="btn-regenerate" style="display:inline-block;margin-top:12px" href="/api/montage-download?url=${encodeURIComponent(dataRender.url)}" download="scriptura-montage.mp4">⬇ Télécharger la vidéo</a>`;
+      <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${dataRender.url}')" type="button">⬇ Télécharger la vidéo</button>`;
   } catch (e) {
     if (statut) statut.style.display = 'none';
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
