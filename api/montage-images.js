@@ -35,15 +35,17 @@ const TENTATIVES_MAX = 3;
 // l'erreur "Unable to access non-serverless model". La version payante
 // (sans "-Free") est un vrai modèle serverless, facturée à l'image.
 //
-// FLUX.1-schnell (4 étapes, distillé pour la vitesse) produisait des images
-// plates d'à peine ~500 Ko. FLUX1.1-pro donnait une belle qualité mais coûtait
-// ~15× plus cher à l'unité ET consommait beaucoup plus de "pixel-step tokens"
-// (25+ étapes internes) — soit ~50-80× le coût par image de schnell. On retient
-// FLUX.1-dev : nettement plus détaillé que schnell, mais 2-3× moins cher que pro.
-// Le nombre d'étapes est réglable ici : 20 offre un bon rendu tout en limitant
-// la facturation (facturée au "pixel × étape").
-const MODELE = 'black-forest-labs/FLUX.1-dev';
-const ETAPES = 20;
+// FLUX1.1-pro donnait une belle qualité mais coûtait ~15× plus cher à l'unité
+// ET consommait beaucoup plus de "pixel-step tokens" (~50-80× le coût par image
+// de schnell). FLUX.1-dev aurait été le bon compromis MAIS il n'est PAS
+// serverless côté Together (il exige un dedicated endpoint = instance GPU
+// payante permanente → erreur "Unable to access non-serverless model").
+// En serverless, Together n'offre donc que schnell (bon marché) ou pro (cher).
+// On retient schnell pour maîtriser le coût. Les étapes sont poussées à 6
+// (schnell est distillé pour 1-4 étapes, mais quelques étapes de plus
+// densifient un peu le rendu) tout en restant très économique.
+const MODELE = 'black-forest-labs/FLUX.1-schnell';
+const ETAPES = 6;
 // Dimensions par format (multiples de 16, requis par FLUX). Le client envoie
 // le format choisi ; à défaut, vertical 9:16.
 const DIMENSIONS_FORMAT = {
