@@ -46,7 +46,7 @@ const ZMAX = 1.20;
 // varié À L'INTÉRIEUR d'un lot ; une coupure nette (rare) entre deux lots.
 // Réglable via MONTAGE_BATCH selon la RAM de l'hébergeur (plus haut = moins de
 // coupures, mais plus de mémoire).
-const TAILLE_LOT = parseInt(process.env.MONTAGE_BATCH || '6', 10);
+const TAILLE_LOT = parseInt(process.env.MONTAGE_BATCH || '4', 10);
 // Jeton optionnel : si défini, chaque requête doit envoyer le même dans
 // l'en-tête "x-montage-token". Gate légère (l'outil est réservé au fondateur).
 const MONTAGE_TOKEN = process.env.MONTAGE_TOKEN || '';
