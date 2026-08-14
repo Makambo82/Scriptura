@@ -41,14 +41,9 @@ const TENTATIVES_MAX = 3;
 // détaillé, plus proche de ChatGPT/DALL-E.
 const MODELE = 'black-forest-labs/FLUX.1.1-pro';
 const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
-// Style pictural ajouté EN PRÉFIXE (les modèles de diffusion pondèrent plus
-// fortement les premiers mots du prompt). Le SUFFIXE n'est plus nécessaire ici
-// : le prompt visible contient désormais déjà un footer de style, ajouté de
-// façon déterministe dans assainirPromptVisuel (js/api.js) — donc présent dans
-// le prompt reçu ici. En anglais car les prompts visuels sont écrits en anglais
-// (voir STRUCTURE_PROMPT_VISUEL) — un texte en français collé à un prompt
-// anglais est en grande partie ignoré par FLUX.
-const PREFIXE_STYLE = 'Classic oil painting, visible brushstrokes, canvas texture, painterly fine art illustration — never a photograph. ';
+// Plus de style figé ici : le style graphique choisi par le créateur est déjà
+// présent dans le prompt reçu (footer ajouté côté client par appliquerStyleVisuel,
+// js/api.js) — un préfixe "peinture à l'huile" en dur écraserait ce choix.
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -67,7 +62,7 @@ function estBlocageNSFW(message) {
 }
 
 async function genererUneImage(apiKey, prompt) {
-  let promptCourant = PREFIXE_STYLE + prompt;
+  let promptCourant = prompt;
   let dejaSecurise = false;
   for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
     const rep = await fetch('https://api.together.xyz/v1/images/generations', {
@@ -92,7 +87,7 @@ async function genererUneImage(apiKey, prompt) {
     const message = data?.error?.message || data?.error || 'Échec de génération (statut ' + rep.status + ')';
     // Faux positif NSFW : reformule une fois en version sûre et réessaie.
     if (estBlocageNSFW(message) && !dejaSecurise && tentative < TENTATIVES_MAX) {
-      promptCourant = PREFIXE_STYLE + versionSure(prompt);
+      promptCourant = versionSure(prompt);
       dejaSecurise = true;
       continue;
     }

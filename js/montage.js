@@ -81,6 +81,7 @@ function ouvrirMontage(plans, boutonEl) {
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
   chargerVoixMontage();
+  remplirStyleVisuelSelect();
   const panneau = document.getElementById('montageModal');
   if (panneau) {
     const ligneActions = boutonEl && boutonEl.closest('.sb-actions-fin');
@@ -358,6 +359,23 @@ async function telechargerVoixOffMontage() {
   }
 }
 
+// ── STYLE GRAPHIQUE ───────────────────────────────────────────────────────
+// Le menu déroulant liste STYLES_VISUELS (défini dans js/api.js). Le choix est
+// mémorisé (localStorage) et appliqué : aux prompts copiés vers ChatGPT/Gemini
+// (via assainirPromptVisuel au moment de la génération du storyboard) ET aux
+// images générées par Together ci-dessous.
+function remplirStyleVisuelSelect() {
+  const sel = document.getElementById('montageStyleSelect');
+  if (!sel || typeof STYLES_VISUELS === 'undefined') return;
+  const actuel = styleVisuelActuel();
+  sel.innerHTML = STYLES_VISUELS.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
+  sel.value = actuel;
+}
+
+function changerStyleVisuel(id) {
+  try { localStorage.setItem('scriptura_style_visuel', id); } catch (e) {}
+}
+
 // ── CHARGER SES PROPRES IMAGES ────────────────────────────────────────────
 // Permet d'utiliser des visuels générés ailleurs (ChatGPT, Gemini…) au lieu
 // (ou en complément) de Together AI. Les fichiers alimentent montageImages
@@ -418,7 +436,7 @@ async function genererImagesMontage() {
       const rep = await fetch('/api/montage-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text] })
+        body: JSON.stringify({ prompts: [appliquerStyleVisuel(montagePlans[i].visuel || montagePlans[i].text, styleVisuelActuel())] })
       });
       const data = await rep.json();
       const img = data.images && data.images[0];
@@ -451,7 +469,7 @@ async function regenererImageMontage(i) {
     const rep = await fetch('/api/montage-images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: [plan.visuel || plan.text] })
+      body: JSON.stringify({ prompts: [appliquerStyleVisuel(plan.visuel || plan.text, styleVisuelActuel())] })
     });
     const data = await rep.json();
     const img = data.images && data.images[0];

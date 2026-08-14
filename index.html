@@ -1494,6 +1494,10 @@
 
     <div class="montage-section">
       <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+        <label for="montageStyleSelect" style="font-size:0.82rem;color:var(--gold-light)">Style graphique :</label>
+        <select class="ctx-input" id="montageStyleSelect" style="flex:0 0 auto;width:auto" onchange="changerStyleVisuel(this.value)" title="Style graphique des images générées"></select>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">🎨 Générer les images</button>
         <button class="btn-regenerate" id="montageChargerImagesBtn" onclick="declencherUploadImages()" type="button" title="Charger tes propres images (ex. générées avec ChatGPT ou Gemini), dans l'ordre des plans">📁 Charger mes images</button>

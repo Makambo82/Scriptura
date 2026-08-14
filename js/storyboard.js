@@ -251,7 +251,7 @@ const STRUCTURE_PROMPT_VISUEL = `STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (
 
 Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée.
 
-STYLE — RÈGLE ABSOLUE : chaque prompt décrit un TABLEAU PEINT À L'HUILE (peinture classique, coups de pinceau visibles, texture de toile) — JAMAIS une photographie ni un plan de tournage. Bannis tout vocabulaire photographique/cinématographique (réglages de caméra, type d'éclairage de studio, grain de pellicule, bruit ambiant, son) : décris uniquement ce qu'un peintre représenterait sur la toile — matières, couleurs, jeux de lumière et d'ombre façon clair-obscur, coups de pinceau, texture picturale. Chaque prompt doit être riche, précis, visuel, et permettre de générer une image spectaculaire qui empêche le scroll — mais toujours comme une peinture, jamais une photo.
+STYLE / MÉDIUM — RÈGLE ABSOLUE : le style graphique (peinture, cinéma, aquarelle, etc.) est ajouté AUTOMATIQUEMENT à la fin du prompt selon le choix du créateur. Ne spécifie donc TOI-MÊME aucun médium ni style de rendu (n'écris jamais "oil painting", "photo", "cartoon", "3D render"…). Concentre-toi UNIQUEMENT sur la SCÈNE : composition, décor, matières, couleurs, personnages, et surtout les jeux de LUMIÈRE et d'OMBRE. C'est une IMAGE FIXE : bannis tout vocabulaire de mouvement ou de tournage (mouvement de caméra, réglages d'objectif, grain de pellicule, bruit, son). Chaque prompt doit être riche, précis, visuel et spectaculaire, pour empêcher le scroll.
 
 RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si plusieurs éléments ou lieux doivent coexister, NE FAIS PAS de split, de double cadre, de juxtaposition ni aucune séparation visuelle. Garde LA SCÈNE PRINCIPALE et intègre les éléments secondaires de façon organique dans la même composition (arrière-plan, reflet, détail dans le décor…). Une seule image cohérente, pas de collage.
 
@@ -546,6 +546,11 @@ function genImageDirect(cible, promptKey) {
     texte = window._copyStore[promptKey];
   }
   texte = (texte || '').replace(/\u200B/g, '').trim();
+
+  // Applique le style graphique COURANT au prompt copié, pour que ChatGPT/
+  // Gemini génèrent dans le style choisi même si le storyboard a été créé avec
+  // un autre style (appliquerStyleVisuel n'empile jamais deux footers).
+  if (typeof appliquerStyleVisuel === 'function') texte = appliquerStyleVisuel(texte, styleVisuelActuel());
 
   // Copier en parallèle (sans bloquer l'ouverture de l'app)
   try { navigator.clipboard.writeText(texte); } catch(e) {}

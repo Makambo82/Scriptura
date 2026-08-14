@@ -306,6 +306,42 @@ async function fetchServerQuota() {
 //  4. Détection des prompts suspects (trop courts = pauvres)
 // ═══════════════════════════════════════════════════════════
 
+// ── STYLES GRAPHIQUES DES VISUELS ──────────────────────────────────────────
+// Le style choisi par le créateur est ajouté en footer de CHAQUE prompt visible
+// (celui du storyboard, copié vers ChatGPT/Gemini) et appliqué à la génération
+// des images du montage (Together). "footer" en anglais car les prompts le sont
+// (les générateurs suivent bien mieux l'anglais). "neutre" = aucun style imposé.
+const STYLES_VISUELS = [
+  { id: 'peinture',  label: "🎨 Peinture à l'huile",        footer: 'Rendered as a classic oil painting with visible brushstrokes and canvas texture — a painterly fine-art illustration, not a photograph.' },
+  { id: 'neutre',    label: '⚪ Style neutre',                footer: '' },
+  { id: 'cinema',    label: '🎬 Cinématographique réaliste', footer: 'Cinematic photorealistic still, dramatic film lighting, rich cinematic color grading, shallow depth of field, movie-like atmosphere.' },
+  { id: 'aquarelle', label: '💧 Aquarelle',                  footer: 'Soft watercolor painting, delicate washes of color, gentle bleeding edges, light paper texture, poetic and airy mood.' },
+  { id: 'bd',        label: '💥 BD / illustration moderne',  footer: 'Modern comic-book graphic illustration, bold flat colors, clean crisp black outlines, cel-shaded contemporary cartoon look.' },
+  { id: 'nb',        label: '◐ Noir & blanc dramatique',    footer: 'Dramatic black-and-white monochrome image, high-contrast chiaroscuro lighting, deep shadows and bright highlights, timeless, no color.' },
+];
+// Repère pour retirer un footer de style déjà présent (quel qu'il soit) avant
+// d'en appliquer un autre — construit à partir du 1er mot distinctif de chacun.
+const REGEX_FOOTER_STYLE = /\s*(Rendered as a classic oil painting|Cinematic photorealistic still|Soft watercolor painting|Modern comic-book graphic illustration|Dramatic black-and-white monochrome image)[^]*$/i;
+
+function styleVisuelActuel() {
+  try { return localStorage.getItem('scriptura_style_visuel') || 'peinture'; }
+  catch (e) { return 'peinture'; }
+}
+
+// Retire tout footer de style + le "9:16", applique le style demandé, remet
+// "9:16" en dernier. Idempotent (ne s'empile jamais). Style "neutre" = pas de
+// footer. Sert à la fois pour le storyboard (assainirPromptVisuel) et pour la
+// génération d'images du montage.
+function appliquerStyleVisuel(prompt, styleId) {
+  let p = String(prompt || '');
+  p = p.replace(/\s*(ratio\s*)?\b9[\s:\/]+16\b\.?\s*$/i, '').trim();
+  p = p.replace(REGEX_FOOTER_STYLE, '').trim();
+  const st = STYLES_VISUELS.find(s => s.id === styleId) || STYLES_VISUELS[0];
+  if (st.footer) p = p.replace(/[.\s]*$/, '').trim() + '. ' + st.footer;
+  if (!p.endsWith('9:16')) p = p + ' 9:16';
+  return p;
+}
+
 /**
  * Nettoie et sécurise un prompt visuel unique.
  * @param {string} prompt - Le prompt brut retourné par l'IA
@@ -398,25 +434,12 @@ function assainirPromptVisuel(prompt, contexte) {
   // Nettoyer les espaces multiples créés par les suppressions
   p = p.replace(/  +/g, ' ').trim();
 
-  // ── 3. Footer de STYLE (pictural) + format 9:16 ─────────────────────────────
-  // On retire d'abord un éventuel "9:16" écrit par l'IA (remis en tout dernier).
-  p = p.replace(/\s*(ratio\s*)?\b9[\s:\/]+16\b\.?\s*$/i, '');
-  p = p.trim();
-
-  // Footer de style pictural, ajouté de façon DÉTERMINISTE à la fin de CHAQUE
-  // prompt visible — celui qu'on voit dans le storyboard ET qu'on copie vers
-  // ChatGPT/Gemini. Ne dépend pas de ce que l'IA a écrit (elle l'oublie ou le
-  // met ailleurs). En anglais, comme le reste du prompt (les générateurs
-  // d'images suivent bien mieux l'anglais). On retire d'abord un footer de
-  // style déjà présent pour ne pas l'empiler à chaque régénération.
-  const STYLE_FOOTER = 'Rendered as a classic oil painting with visible brushstrokes and canvas texture — a painterly fine-art illustration, not a photograph.';
-  p = p.replace(/\s*Rendered as a classic oil painting[^]*$/i, '').trim();
-  p = p.replace(/[.\s]*$/, '').trim() + '. ' + STYLE_FOOTER;
-
-  // Format vertical, toujours en tout dernier.
-  if (!p.endsWith('9:16')) {
-    p = p + ' 9:16';
-  }
+  // ── 3. Footer de STYLE graphique choisi + format 9:16 ───────────────────────
+  // Le style (peinture, neutre, cinéma…) est ajouté de façon DÉTERMINISTE à la
+  // fin de chaque prompt visible — celui du storyboard ET celui copié vers
+  // ChatGPT/Gemini. appliquerStyleVisuel gère aussi le "9:16" final et n'empile
+  // jamais deux footers.
+  p = appliquerStyleVisuel(p, styleVisuelActuel());
 
   // ── 4. Détecter les prompts suspects (trop courts) ────────────────────────────
   const nbMots = p.split(/\s+/).filter(Boolean).length;
