@@ -1629,7 +1629,13 @@ async function generateStoryboard() {
   prog.start();
 
   const ctx = lastGenContext;
-  const scriptText = currentScript.map(s => `[${s.temps}] ${s.texte}`).join('\n');
+  // UNIQUEMENT le texte parlé (jamais le minutage) : préfixer "[0-3 sec]" ici
+  // polluait le texte envoyé à segmentNarrativeStoryboard, donc les plans, donc
+  // la voix off du montage — qui lisait "zéro trois sec" à voix haute. Le
+  // découpage recalcule lui-même la durée de chaque plan (estimateDuration), le
+  // minutage n'a donc aucune utilité dans ce texte. Même correctif que le mode
+  // Série (voix_off_propre).
+  const scriptText = currentScript.map(s => s.texte).join('\n');
   const plat = ctx.plateforme || 'TikTok';
 
   const carteMiniature = (m) => `
