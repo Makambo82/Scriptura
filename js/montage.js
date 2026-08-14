@@ -477,6 +477,11 @@ function renderMontageEtat() {
     btnGenImg.disabled = montageImagesEnCours;
     btnGenImg.textContent = montageImagesEnCours ? 'Génération des images…' : (nbPretes ? '↻ Régénérer les images' : '🎨 Générer les images');
   }
+  // Bande rayée dorée pendant la génération des images (même animation que les
+  // autres générations). Les vignettes continuent d'apparaître progressivement
+  // en dessous.
+  const loaderImg = document.getElementById('montageImagesLoader');
+  if (loaderImg) loaderImg.style.display = montageImagesEnCours ? 'flex' : 'none';
   const btnSelectAll = document.getElementById('montageSelectAllBtn');
   if (btnSelectAll) {
     const indicesDisponibles = montageImages.map((im, i) => im ? i : null).filter(i => i !== null);
@@ -496,7 +501,8 @@ function renderMontageEtat() {
   const zoneVoix = document.getElementById('montageVoixZone');
   if (zoneVoix) {
     if (montageVoixEnCours) {
-      zoneVoix.innerHTML = `<div class="montage-statut" style="margin-top:0">Génération de la voix off…</div>`;
+      // Même bande rayée dorée que les autres générations (sans texte ni %).
+      zoneVoix.innerHTML = `<div class="sb-progress-bar" style="max-width:none;margin:0"><div class="sb-progress-bar-track"><div class="sb-progress-bar-fill"></div></div></div>`;
     } else if (montageVoixOff) {
       zoneVoix.innerHTML = `
         <audio class="montage-audio-preview" src="${montageVoixOff.url}" controls></audio>
