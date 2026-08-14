@@ -15,7 +15,7 @@
 // (voir render-service/README.md), colle son URL ici pour un rendu 1080p, une
 // synchro image/voix exacte et des transitions variées. Tant que c'est vide,
 // rien ne change — aucune coupure pendant la migration.
-const MONTAGE_RENDER_URL = '';   // ex. 'https://scriptura-render.onrender.com'
+const MONTAGE_RENDER_URL = 'https://scriptura-production-a540.up.railway.app'; // service de rendu Railway
 const MONTAGE_RENDER_TOKEN = ''; // seulement si MONTAGE_TOKEN est défini côté service
 
 let montagePlans = [];      // [{ text, visuel }] — un par plan du storyboard
