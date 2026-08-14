@@ -115,26 +115,32 @@ export default async function handler(req, res) {
     const dureeTotale = finsTemps[finsTemps.length - 1] || 0;
     let durations;
     if (nbCaracteres === texteComplet.length) {
+      // Durée d'un segment = du DÉBUT de sa phrase jusqu'au DÉBUT de la phrase
+      // suivante (la dernière allant jusqu'à la fin de l'audio). Crucial : cela
+      // INCLUT la pause/le silence entre deux segments. En mesurant "fin - début"
+      // du seul texte du segment (ancienne méthode), ces pauses n'étaient
+      // comptées nulle part → sur 15-20 plans, ~4s de silence perdus, donc la
+      // vidéo finissait avant la voix off et chaque image se décalait. Ici la
+      // somme des durées = durée totale exacte (télescopage), et chaque image
+      // reste à l'écran pendant sa phrase + la micro-pause qui suit.
       durations = segments.map((s, i) => {
-        const iDebut = debutsCaracteres[i];
-        const iFin = Math.min(iDebut + s.length, nbCaracteres) - 1;
-        const debut = debutsTemps[iDebut] ?? 0;
-        const fin = finsTemps[Math.max(iFin, iDebut)] ?? debut;
-        return Math.max(0.5, Math.round((fin - debut) * 10) / 10);
+        const debut = debutsTemps[debutsCaracteres[i]] ?? 0;
+        const fin = (i < segments.length - 1)
+          ? (debutsTemps[debutsCaracteres[i + 1]] ?? dureeTotale)
+          : dureeTotale;
+        return Math.max(0.5, Math.round((fin - debut) * 100) / 100);
       });
     } else {
       const totalCaracteres = segments.reduce((s, t) => s + t.length, 0) || 1;
-      durations = segments.map(s => Math.max(0.5, Math.round((s.length / totalCaracteres) * dureeTotale * 10) / 10));
+      durations = segments.map(s => Math.max(0.5, Math.round((s.length / totalCaracteres) * dureeTotale * 100) / 100));
     }
 
-    // Marge de sécurité sur le dernier plan : la durée qu'ElevenLabs indique
-    // pour l'audio généré peut différer légèrement de la durée réelle une
-    // fois le même fichier MP3 ré-hébergé sur Supabase puis ré-encodé par
-    // FFmpeg (arrondis d'encodage). Sans marge, les images peuvent finir
-    // avant la fin réelle de la voix off.
+    // Petite marge de sécurité sur le dernier plan : le MP3 ré-encodé peut
+    // dépasser de quelques centièmes la fin indiquée par ElevenLabs. Le service
+    // de rendu recale de toute façon la vidéo sur la durée RÉELLE du fichier
+    // audio (voir dureeAudio dans render-service), donc une petite marge suffit.
     if (durations.length && dureeTotale > 0) {
-      const marge = Math.max(1.5, dureeTotale * 0.03);
-      durations[durations.length - 1] = Math.round((durations[durations.length - 1] + marge) * 10) / 10;
+      durations[durations.length - 1] = Math.round((durations[durations.length - 1] + 0.3) * 100) / 100;
     }
 
     return res.status(200).json({

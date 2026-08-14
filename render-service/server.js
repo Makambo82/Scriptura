@@ -146,6 +146,22 @@ function executerFFmpeg(args) {
   });
 }
 
+// Durée RÉELLE d'un fichier média, lue dans l'en-tête par FFmpeg (ffmpeg -i
+// sort "Duration: HH:MM:SS.ss" sur stderr et se termine en erreur sans sortie
+// — c'est normal). Sert de vérité pour caler la vidéo sur la voix off.
+function dureeAudio(chemin) {
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ['-i', chemin]);
+    let err = '';
+    proc.stderr.on('data', (d) => { err += d.toString(); });
+    proc.on('error', () => resolve(0));
+    proc.on('close', () => {
+      const m = err.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve(m ? (parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3])) : 0);
+    });
+  });
+}
+
 async function uploaderVersSupabase(cheminLocal, nomFichier) {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_ANON_KEY;
@@ -174,14 +190,24 @@ app.post('/render', async (req, res) => {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
   }
   const durees = images.map(img => Math.max(1, Number(img.duration) || 2));
-  const dureeTotale = durees.reduce((s, d) => s + d, 0);
 
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
-  console.log(`[render] début — ${images.length} plans, ${dureeTotale.toFixed(1)}s`);
   try {
     await Promise.all(images.map((img, i) => telechargerVers(img.url, path.join(dossier, `img-${i}.jpg`))));
     const cheminAudio = path.join(dossier, 'audio.mp3');
     await telechargerVers(audioUrl, cheminAudio);
+
+    // Cale la vidéo sur la durée RÉELLE de l'audio : si la somme des durées de
+    // segments est un peu inférieure à l'audio (ex. pauses arrondies, silence
+    // final), on allonge la DERNIÈRE image pour combler — la narration n'est
+    // ainsi jamais coupée et la vidéo dure exactement la voix off.
+    const dureeReelleAudio = await dureeAudio(cheminAudio);
+    const sommeDurees = durees.reduce((s, d) => s + d, 0);
+    if (dureeReelleAudio > sommeDurees + 0.05) {
+      durees[durees.length - 1] += (dureeReelleAudio - sommeDurees);
+    }
+    const dureeTotale = durees.reduce((s, d) => s + d, 0);
+    console.log(`[render] début — ${images.length} plans, audio ${dureeReelleAudio.toFixed(2)}s, vidéo ${dureeTotale.toFixed(2)}s`);
 
     // Rendu PAR LOTS (mémoire bornée) : chaque lot = un graphe FFmpeg
     // indépendant, vidéo seule, fondu croisé varié à l'intérieur du lot.
