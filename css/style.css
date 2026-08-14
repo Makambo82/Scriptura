@@ -2191,11 +2191,18 @@ body.is-unlocked .sidebar-logout{display:block}
 }
 .montage-audio-preview{width:100%;display:block}
 .montage-thumb-echec{
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;gap:14px;
   border:1px dashed rgba(224,85,85,0.5);background:rgba(224,85,85,0.08);
-  color:#e05555;font-size:1.3rem;cursor:pointer;
 }
-.montage-thumb-echec:hover{background:rgba(224,85,85,0.15)}
+.montage-thumb-retry{
+  color:#e05555;font-size:1.3rem;cursor:pointer;line-height:1;
+}
+.montage-thumb-retry:hover{color:#ff7a7a}
+.montage-thumb-upload{
+  background:transparent;border:none;color:var(--gold-light);
+  font-size:1.2rem;cursor:pointer;line-height:1;padding:0;
+}
+.montage-thumb-upload:hover{color:var(--gold)}
 .montage-thumb-attente{
   border:1px dashed var(--border-soft);background:rgba(201,168,76,0.06);
   animation:montage-attente-pulse 1.4s ease-in-out infinite;

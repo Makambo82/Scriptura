@@ -358,6 +358,44 @@ async function telechargerVoixOffMontage() {
   }
 }
 
+// ── CHARGER SES PROPRES IMAGES ────────────────────────────────────────────
+// Permet d'utiliser des visuels générés ailleurs (ChatGPT, Gemini…) au lieu
+// (ou en complément) de Together AI. Les fichiers alimentent montageImages
+// exactement comme les images générées ({ blob, apercu }) — le reste du
+// montage (sélection, téléchargement, rendu) fonctionne à l'identique.
+function _assignerImageMontage(i, fichier) {
+  if (montageImages.length !== montagePlans.length) montageImages = new Array(montagePlans.length).fill(null);
+  montageImages[i] = { blob: fichier, apercu: URL.createObjectURL(fichier) };
+}
+
+// Bulk : plusieurs fichiers d'un coup, assignés aux plans DANS L'ORDRE (1er
+// fichier = plan 1, etc.).
+function declencherUploadImages() {
+  if (!montagePlans.length || montageImagesEnCours) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+  inp.onchange = () => {
+    const fichiers = Array.from(inp.files || []).filter(f => f.type.startsWith('image/'));
+    if (!fichiers.length) return;
+    for (let k = 0; k < fichiers.length && k < montagePlans.length; k++) _assignerImageMontage(k, fichiers[k]);
+    renderMontageEtat();
+  };
+  inp.click();
+}
+
+// Par plan : charge une seule image pour un plan précis (ex. un plan dont la
+// génération Together a échoué, ou qu'on préfère faire soi-même).
+function declencherUploadImageSlot(i) {
+  if (montageImagesEnCours) return;
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = (inp.files || [])[0];
+    if (f && f.type.startsWith('image/')) { _assignerImageMontage(i, f); renderMontageEtat(); }
+  };
+  inp.click();
+}
+
 async function genererImagesMontage() {
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
@@ -506,7 +544,11 @@ function renderMontageEtat() {
       if (montageImagesEnCours && i >= montageImageIndexEnCours) {
         return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
       }
-      return `<div class="audit-thumb montage-thumb-echec" onclick="regenererImageMontage(${i})" title="Réessayer">↻</div>`;
+      // Plan sans image : régénérer via IA (↻) OU charger sa propre image (📁).
+      return `<div class="audit-thumb montage-thumb-echec">
+        <span class="montage-thumb-retry" onclick="regenererImageMontage(${i})" title="Régénérer via l'IA">↻</span>
+        <button class="montage-thumb-upload" onclick="event.stopPropagation();declencherUploadImageSlot(${i})" title="Charger une image pour ce plan">📁</button>
+      </div>`;
     }).join('');
   }
   const btnGenImg = document.getElementById('montageGenImagesBtn');
