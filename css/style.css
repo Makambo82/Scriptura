@@ -1768,11 +1768,10 @@ body.is-unlocked .sidebar-logout{display:block}
 .sb-progress-bar:not(.determinee) .sb-progress-bar-track{
   height:12px;
   background-color:rgba(201,168,76,0.16);
-  /* Bande rayée bicolore : doré + vert émeraude en alternance. */
   background-image:linear-gradient(-45deg,
-    var(--gold) 25%, var(--emerald-light) 25%,
-    var(--emerald-light) 50%, var(--gold) 50%,
-    var(--gold) 75%, var(--emerald-light) 75%, var(--emerald-light));
+    var(--gold) 25%, transparent 25%,
+    transparent 50%, var(--gold) 50%,
+    var(--gold) 75%, transparent 75%, transparent);
   background-size:24px 24px;
   animation:scripturaStripes 0.7s linear infinite;
 }
