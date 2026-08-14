@@ -1529,6 +1529,12 @@
     <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:16px">🎬 Lancer le montage</button>
 </div>
 
+<!-- AGRANDISSEMENT D'IMAGE DU STUDIO (lightbox) -->
+<div class="montage-lightbox" id="montageLightbox" onclick="fermerImageMontage()">
+  <button class="montage-lightbox-close" onclick="event.stopPropagation();fermerImageMontage()" aria-label="Fermer">✕</button>
+  <img id="montageLightboxImg" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
 <!-- NOTIFICATION PREUVE SOCIALE (niveau racine, visible partout) -->
 <div class="social-notif" id="socialNotif"></div>
 

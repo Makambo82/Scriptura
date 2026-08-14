@@ -153,6 +153,25 @@ async function convertirImageVers(blob, format) {
   });
 }
 
+// Agrandit une image du studio en plein écran (lightbox). Fermeture par clic
+// n'importe où, par la croix, ou par la touche Échap.
+function agrandirImageMontage(i) {
+  const img = montageImages[i];
+  if (!img) return;
+  const box = document.getElementById('montageLightbox');
+  const el = document.getElementById('montageLightboxImg');
+  if (!box || !el) return;
+  el.src = img.apercu;
+  box.classList.add('active');
+}
+function fermerImageMontage() {
+  const box = document.getElementById('montageLightbox');
+  if (box) box.classList.remove('active');
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') fermerImageMontage();
+});
+
 async function telechargerImageMontage(i) {
   const img = montageImages[i];
   if (!img) return;
@@ -541,7 +560,7 @@ function renderMontageEtat() {
     zoneImg.innerHTML = montagePlans.map((p, i) => {
       const img = montageImages[i];
       if (img) return `<div class="audit-thumb">
-        <img src="${img.apercu}" alt="">
+        <img src="${img.apercu}" alt="" style="cursor:zoom-in" onclick="agrandirImageMontage(${i})" title="Agrandir">
         <input type="checkbox" class="montage-thumb-select" title="Sélectionner" ${montageImagesSelection.has(i) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectionImage(${i})">
         <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">⬇</button>
       </div>`;

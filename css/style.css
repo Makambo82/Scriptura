@@ -2237,6 +2237,25 @@ body.is-unlocked .sidebar-logout{display:block}
   font-size:0.86rem;color:var(--muted);text-align:center;
 }
 .montage-video{width:100%;border-radius:10px;margin-top:16px;display:block;background:#000}
+
+/* ── AGRANDISSEMENT D'IMAGE (LIGHTBOX) ── */
+.montage-lightbox{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,0.92);
+  align-items:center;justify-content:center;padding:24px;
+}
+.montage-lightbox.active{display:flex}
+.montage-lightbox img{
+  max-width:100%;max-height:100%;
+  border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.6);
+  object-fit:contain;
+}
+.montage-lightbox-close{
+  position:absolute;top:16px;right:18px;width:40px;height:40px;
+  border-radius:50%;background:rgba(255,255,255,0.12);color:#fff;border:none;
+  font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.montage-lightbox-close:hover{background:rgba(255,255,255,0.25)}
 #montageLancerBtn{width:100%}
 
 /* ── RÉSULTAT DE L'AUDIT (noir & or) ── */
