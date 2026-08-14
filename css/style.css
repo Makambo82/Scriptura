@@ -1839,6 +1839,18 @@ body.is-unlocked .sidebar-logout{display:block}
   display:flex;gap:12px;justify-content:flex-end;
   margin-bottom:14px;
 }
+/* Choix Style graphique + Format, placé avant "Générer le storyboard". */
+.sb-options-visuelles{
+  display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;
+}
+.sb-opt{
+  display:flex;flex-direction:column;gap:4px;flex:1 1 160px;min-width:150px;
+}
+.sb-opt span{
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.1em;
+  text-transform:uppercase;color:var(--gold-light);
+}
+.sb-opt select{width:100%}
 .icon-btn{
   display:inline-flex;align-items:center;justify-content:center;
   background:transparent;color:var(--gold-light);

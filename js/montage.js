@@ -365,16 +365,12 @@ async function telechargerVoixOffMontage() {
 // (via assainirPromptVisuel au moment de la génération du storyboard) ET aux
 // images générées par Together ci-dessous.
 function remplirStyleVisuelSelect() {
-  const sel = document.getElementById('montageStyleSelect');
-  if (!sel || typeof STYLES_VISUELS === 'undefined') return;
-  const actuel = styleVisuelActuel();
-  sel.innerHTML = STYLES_VISUELS.map(s => `<option value="${s.id}">${s.label}</option>`).join('');
-  sel.value = actuel;
+  const zone = document.getElementById('montageOptionsVisuelles');
+  if (zone && typeof optionsStoryboardHTML === 'function') zone.innerHTML = optionsStoryboardHTML();
 }
 
-function changerStyleVisuel(id) {
-  try { localStorage.setItem('scriptura_style_visuel', id); } catch (e) {}
-}
+// changerStyleVisuel + changerFormatVisuel sont définis dans js/api.js (partagés
+// avec les menus placés avant la génération du storyboard).
 
 // ── CHARGER SES PROPRES IMAGES ────────────────────────────────────────────
 // Permet d'utiliser des visuels générés ailleurs (ChatGPT, Gemini…) au lieu
@@ -436,7 +432,7 @@ async function genererImagesMontage() {
       const rep = await fetch('/api/montage-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: [appliquerStyleVisuel(montagePlans[i].visuel || montagePlans[i].text, styleVisuelActuel())] })
+        body: JSON.stringify({ prompts: [appliquerStyleVisuel(montagePlans[i].visuel || montagePlans[i].text, styleVisuelActuel())], format: formatVisuelActuel() })
       });
       const data = await rep.json();
       const img = data.images && data.images[0];
@@ -469,7 +465,7 @@ async function regenererImageMontage(i) {
     const rep = await fetch('/api/montage-images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: [appliquerStyleVisuel(plan.visuel || plan.text, styleVisuelActuel())] })
+      body: JSON.stringify({ prompts: [appliquerStyleVisuel(plan.visuel || plan.text, styleVisuelActuel())], format: formatVisuelActuel() })
     });
     const data = await rep.json();
     const img = data.images && data.images[0];
@@ -722,7 +718,7 @@ async function lancerMontage() {
       const rRender = await fetch(urlRendu, {
         method: 'POST',
         headers: entetes,
-        body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl })
+        body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl, format: formatVisuelActuel() })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');

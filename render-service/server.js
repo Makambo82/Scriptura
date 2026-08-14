@@ -33,8 +33,14 @@ app.use(express.json({ limit: '2mb' }));
 
 // ── Réglages (surchargeable par variables d'environnement de l'hébergeur) ──
 const PORT = process.env.PORT || 3000;
-const LARGEUR = parseInt(process.env.MONTAGE_WIDTH || '1080', 10);   // vrai host → 1080p
+const LARGEUR = parseInt(process.env.MONTAGE_WIDTH || '1080', 10);   // défaut si aucun format envoyé
 const HAUTEUR = parseInt(process.env.MONTAGE_HEIGHT || '1920', 10);
+// Dimensions de sortie par format (raisonnables pour la mémoire du conteneur).
+const DIMENSIONS_VIDEO = {
+  '9:16': { w: 720,  h: 1280 },
+  '16:9': { w: 1280, h: 720 },
+  '1:1':  { w: 1000, h: 1000 },
+};
 const FPS = parseInt(process.env.MONTAGE_FPS || '25', 10);           // 25 = Ken Burns fluide
 const DUREE_TRANSITION = parseFloat(process.env.MONTAGE_TRANSITION || '0.5');
 const ZMAX = 1.20;
@@ -100,7 +106,7 @@ function kenBurns(preset, D) {
 // la durée totale du lot reste égale à la somme de ses durées, donc, une fois
 // les lots recollés, à la voix off entière. Chaque image apparaît à sa
 // seconde exacte. Vérifié par exécution réelle.
-function construireGrapheLot(durees, decalage) {
+function construireGrapheLot(durees, decalage, W, H) {
   const n = durees.length;
   const longueurs = durees.map(d => d + DUREE_TRANSITION);
   const parts = [];
@@ -108,9 +114,9 @@ function construireGrapheLot(durees, decalage) {
     const D = Math.max(1, Math.round(longueurs[i] * FPS));
     const kb = kenBurns(decalage + i, D);
     parts.push(
-      `[${i}:v]scale=${LARGEUR}:${HAUTEUR}:force_original_aspect_ratio=increase,` +
-      `crop=${LARGEUR}:${HAUTEUR},setsar=1,fps=${FPS},` +
-      `zoompan=z='${kb.z}':x='${kb.x}':y='${kb.y}':d=${D}:s=${LARGEUR}x${HAUTEUR}:fps=${FPS}[v${i}]`
+      `[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+      `crop=${W}:${H},setsar=1,fps=${FPS},` +
+      `zoompan=z='${kb.z}':x='${kb.x}':y='${kb.y}':d=${D}:s=${W}x${H}:fps=${FPS}[v${i}]`
     );
   }
   let dernier = 'v0';
@@ -190,6 +196,10 @@ app.post('/render', async (req, res) => {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
   }
   const durees = images.map(img => Math.max(1, Number(img.duration) || 2));
+  // Dimensions de sortie selon le format demandé (défaut = valeurs d'env).
+  const dim = DIMENSIONS_VIDEO[req.body?.format];
+  const W = dim ? dim.w : LARGEUR;
+  const H = dim ? dim.h : HAUTEUR;
 
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
   try {
@@ -221,7 +231,7 @@ app.post('/render', async (req, res) => {
       for (let j = debut; j < fin; j++) {
         args.push('-loop', '1', '-t', String(longueursLot[j - debut]), '-i', path.join(dossier, `img-${j}.jpg`));
       }
-      args.push('-filter_complex', construireGrapheLot(dureesLot, debut));
+      args.push('-filter_complex', construireGrapheLot(dureesLot, debut, W, H));
       args.push(
         '-map', '[vout]',
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',

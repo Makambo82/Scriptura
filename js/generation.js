@@ -1530,6 +1530,7 @@ function renderResults(d, niche, sujet) {
       num: "05",
       content: `<div class="out-section">
         <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px" id="sbDescP">Génère le découpage visuel plan par plan de ton script, avec un prompt d'image pour chaque segment.</p>
+        ${optionsStoryboardHTML()}
         <button class="btn-storyboard" id="sbGenerateBtn" onclick="generateStoryboard()">
           <span class="sb-gen-spinner" id="sbGenSpinner"></span>
           <span id="sbGenText">🎬 Générer le storyboard visuel</span>

@@ -386,6 +386,7 @@ async function ouvrirSerie(id) {
       // rechargement complet de l'écran pour afficher le résultat.
       if (estFaceless) {
         html += `<div class="serie-storyboard">
+          ${ep.storyboard ? '' : optionsStoryboardHTML()}
           <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})" style="${ep.storyboard ? 'display:none' : ''}">
             <span class="sb-gen-spinner" id="serieSbSpinner${ep.num}"></span>
             <span id="serieSbBtnText${ep.num}">🎬 Générer le storyboard de cet épisode</span>

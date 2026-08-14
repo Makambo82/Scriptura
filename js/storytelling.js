@@ -709,6 +709,7 @@ function renderStory(d) {
     content: `
       <div class="out-section">
         <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de ton récit, avec un prompt d'image pour chaque segment.</p>
+        ${optionsStoryboardHTML()}
         <button class="btn-storyboard" id="storyStoryboardBtn" onclick="generateStoryStoryboard()">
           <div class="spinner" id="storyboardSpinner2" style="display:none"></div>
           <span id="storyStoryboardText">🎬 Générer le storyboard visuel</span>

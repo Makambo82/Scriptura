@@ -95,6 +95,9 @@ function openStoryboardSeul() {
   pushNav();
   masquerTousLesEcrans();
   restartStoryboardSeul();
+  // Menus Style + Format (reflètent le choix mémorisé) avant génération.
+  const opt = document.getElementById('sbSeulOptionsVisuelles');
+  if (opt && typeof optionsStoryboardHTML === 'function') opt.innerHTML = optionsStoryboardHTML();
   document.getElementById('storyboardSeulFlow').style.display = 'block';
   window.scrollTo({ top: 0, behavior: 'auto' });
 }

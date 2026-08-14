@@ -323,9 +323,52 @@ const STYLES_VISUELS = [
 // d'en appliquer un autre — construit à partir du 1er mot distinctif de chacun.
 const REGEX_FOOTER_STYLE = /\s*(Rendered as a classic oil painting|Cinematic photorealistic still|Soft watercolor painting|Modern comic-book graphic illustration|Dramatic black-and-white monochrome image)[^]*$/i;
 
+// Formats (ratios). `img` = dimensions envoyées à Together (multiples de 16,
+// requis par FLUX). `video` = dimensions du rendu final (raisonnables pour la
+// mémoire du conteneur de rendu). L'id est aussi le footer de ratio du prompt.
+const FORMATS_VISUELS = [
+  { id: '9:16', label: '📱 Vertical 9:16', imgW: 768,  imgH: 1344, vidW: 720,  vidH: 1280 },
+  { id: '16:9', label: '🖥️ Horizontal 16:9', imgW: 1344, imgH: 768,  vidW: 1280, vidH: 720 },
+  { id: '1:1',  label: '⬛ Carré 1:1',     imgW: 1024, imgH: 1024, vidW: 1000, vidH: 1000 },
+];
+
 function styleVisuelActuel() {
   try { return localStorage.getItem('scriptura_style_visuel') || 'peinture'; }
   catch (e) { return 'peinture'; }
+}
+
+function formatVisuelActuel() {
+  try {
+    const f = localStorage.getItem('scriptura_format_visuel');
+    return FORMATS_VISUELS.some(x => x.id === f) ? f : '9:16';
+  } catch (e) { return '9:16'; }
+}
+
+function formatVisuelInfos(id) {
+  return FORMATS_VISUELS.find(f => f.id === id) || FORMATS_VISUELS[0];
+}
+
+function changerStyleVisuel(id) {
+  try { localStorage.setItem('scriptura_style_visuel', id); } catch (e) {}
+}
+function changerFormatVisuel(id) {
+  try { localStorage.setItem('scriptura_format_visuel', id); } catch (e) {}
+}
+
+// Bloc de choix "Style graphique + Format", inséré AVANT chaque bouton
+// « Générer le storyboard » (tous les modes). Réglé avant génération pour que
+// chaque prompt reçoive le bon footer (style + ratio). Les <select> reflètent
+// le choix mémorisé (localStorage) au moment où le bloc est construit.
+function optionsStoryboardHTML() {
+  const st = styleVisuelActuel(), fmt = formatVisuelActuel();
+  const styleOpts = STYLES_VISUELS.map(s => `<option value="${s.id}"${s.id === st ? ' selected' : ''}>${s.label}</option>`).join('');
+  const fmtOpts = FORMATS_VISUELS.map(f => `<option value="${f.id}"${f.id === fmt ? ' selected' : ''}>${f.label}</option>`).join('');
+  return `<div class="sb-options-visuelles">
+    <label class="sb-opt"><span>Style graphique</span>
+      <select class="ctx-input" onchange="changerStyleVisuel(this.value)">${styleOpts}</select></label>
+    <label class="sb-opt"><span>Format</span>
+      <select class="ctx-input" onchange="changerFormatVisuel(this.value)">${fmtOpts}</select></label>
+  </div>`;
 }
 
 // Retire tout footer de style + le "9:16", applique le style demandé, remet
@@ -334,11 +377,14 @@ function styleVisuelActuel() {
 // génération d'images du montage.
 function appliquerStyleVisuel(prompt, styleId) {
   let p = String(prompt || '');
-  p = p.replace(/\s*(ratio\s*)?\b9[\s:\/]+16\b\.?\s*$/i, '').trim();
+  // Retire un footer de ratio existant (9:16, 16:9 ou 1:1) et un footer de style.
+  p = p.replace(/\s*(ratio\s*)?\b(9[\s:\/]+16|16[\s:\/]+9|1[\s:\/]+1)\b\.?\s*$/i, '').trim();
   p = p.replace(REGEX_FOOTER_STYLE, '').trim();
   const st = STYLES_VISUELS.find(s => s.id === styleId) || STYLES_VISUELS[0];
   if (st.footer) p = p.replace(/[.\s]*$/, '').trim() + '. ' + st.footer;
-  if (!p.endsWith('9:16')) p = p + ' 9:16';
+  // Footer de ratio = format courant, toujours en tout dernier.
+  const ratio = formatVisuelActuel();
+  if (!p.endsWith(ratio)) p = p + ' ' + ratio;
   return p;
 }
 

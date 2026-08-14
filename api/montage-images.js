@@ -40,7 +40,13 @@ const TENTATIVES_MAX = 3;
 // paramètre "steps" — géré en interne par Together) pour un rendu plus
 // détaillé, plus proche de ChatGPT/DALL-E.
 const MODELE = 'black-forest-labs/FLUX.1.1-pro';
-const LARGEUR = 768, HAUTEUR = 1344; // ≈ 9:16
+// Dimensions par format (multiples de 16, requis par FLUX). Le client envoie
+// le format choisi ; à défaut, vertical 9:16.
+const DIMENSIONS_FORMAT = {
+  '9:16': { w: 768,  h: 1344 },
+  '16:9': { w: 1344, h: 768 },
+  '1:1':  { w: 1024, h: 1024 },
+};
 // Plus de style figé ici : le style graphique choisi par le créateur est déjà
 // présent dans le prompt reçu (footer ajouté côté client par appliquerStyleVisuel,
 // js/api.js) — un préfixe "peinture à l'huile" en dur écraserait ce choix.
@@ -61,7 +67,7 @@ function estBlocageNSFW(message) {
   return /nsfw|not safe|safety|flagged|content policy|may contain|moderat/i.test(String(message));
 }
 
-async function genererUneImage(apiKey, prompt) {
+async function genererUneImage(apiKey, prompt, dims) {
   let promptCourant = prompt;
   let dejaSecurise = false;
   for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
@@ -71,8 +77,8 @@ async function genererUneImage(apiKey, prompt) {
       body: JSON.stringify({
         model: MODELE,
         prompt: promptCourant,
-        width: LARGEUR,
-        height: HAUTEUR,
+        width: dims.w,
+        height: dims.h,
         n: 1,
         response_format: 'base64'
       })
@@ -115,6 +121,7 @@ export default async function handler(req, res) {
   if (!prompts.length || prompts.every(p => !p)) {
     return res.status(400).json({ error: { message: 'Aucun prompt à générer' } });
   }
+  const dims = DIMENSIONS_FORMAT[body?.format] || DIMENSIONS_FORMAT['9:16'];
 
   const resultats = new Array(prompts.length).fill(null);
   const erreurs = new Array(prompts.length).fill(null);
@@ -124,7 +131,7 @@ export default async function handler(req, res) {
     while (curseur < prompts.length) {
       const i = curseur++;
       if (!prompts[i]) { erreurs[i] = 'Prompt vide'; continue; }
-      try { resultats[i] = await genererUneImage(apiKey, prompts[i]); }
+      try { resultats[i] = await genererUneImage(apiKey, prompts[i], dims); }
       catch (e) { erreurs[i] = e.message || 'Erreur inconnue'; }
     }
   }
