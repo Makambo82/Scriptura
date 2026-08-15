@@ -87,8 +87,8 @@ function normaliserMedias(data) {
 async function recupererVideos(key, ids) {
   if (!ids.id && !ids.secUid) return null;
   const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
-  const CIBLE = 40;      // nombre de vidéos visé
-  const MAX_PAGES = 4;   // borne dure d'appels (coût maîtrisé)
+  const CIBLE = 100;     // nombre de vidéos visé
+  const MAX_PAGES = 10;  // borne dure d'appels (coût/latence maîtrisés)
   const toutes = [];
   const vues = new Set(); // dédoublonnage léger (date|vues|début de légende)
   let cursor = 0;

@@ -249,14 +249,33 @@ Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits (voir b
 LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité — n'invente aucune de ces trois valeurs.`;
 
     // Sujets des vidéos (légendes) triés par vues : nourrit l'analyse de
-    // CONTENU (niche réelle, top/flop, concepts récurrents). Vide si absent.
+    // CONTENU (niche réelle, top/flop, concepts récurrents). On envoie à l'IA
+    // les PLUS vues ET les MOINS vues : sinon elle ne verrait jamais les vraies
+    // vidéos faibles et le "flop" serait faux (bug corrigé). Vide si absent.
     const videosAvecSujet = (Array.isArray(donnees.medias) ? donnees.medias : [])
       .filter(v => v.desc && typeof v.vues === 'number')
       .sort((a, b) => b.vues - a.vues);
-    const blocSujets = videosAvecSujet.length >= 3 ? `
+    const ligneVideo = v => `- ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 130)} »`;
+    let blocSujets = '';
+    if (videosAvecSujet.length >= 3) {
+      const n = videosAvecSujet.length;
+      if (n <= 40) {
+        blocSujets = `
 
-SUJETS DES VIDÉOS (${videosAvecSujet.length} vidéos récupérées, triées de la plus vue à la moins vue — sujet réel + performance ; c'est ta SEULE source pour la niche réelle, le top/flop et les concepts récurrents) :
-${videosAvecSujet.slice(0, 20).map(v => `- ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 140)} »`).join('\n')}` : '';
+SUJETS DES VIDÉOS (${n} vidéos, de la plus vue à la moins vue — sujet réel + performance ; ta SEULE source pour la niche, le top/flop et les concepts récurrents) :
+${videosAvecSujet.map(ligneVideo).join('\n')}`;
+      } else {
+        const haut = videosAvecSujet.slice(0, 25);
+        const bas = videosAvecSujet.slice(-15);
+        blocSujets = `
+
+SUJETS DES VIDÉOS (${n} vidéos analysées) — voici les ${haut.length} PLUS VUES puis les ${bas.length} MOINS VUES. C'est ta source pour la niche, le top/flop et les concepts.
+LES PLUS VUES :
+${haut.map(ligneVideo).join('\n')}
+LES MOINS VUES (candidates au flop) :
+${bas.map(ligneVideo).join('\n')}`;
+      }
+    }
 
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
@@ -287,7 +306,7 @@ NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des
 
 TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
    • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une — ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
-   • FLOP = uniquement les vidéos NETTEMENT EN-DESSOUS de la médiane. Maximum 3.
+   • FLOP = à choisir parmi les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane (ce sont les vraies contre-performances, pas des vidéos moyennes). Maximum 3.
    • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée pour l'un ou l'autre).
    Pour chacune : résume le SUJET en quelques mots (pas la légende entière), donne le nombre de vues, et explique en une phrase la raison de la performance. INTERDIT d'écrire « en deçà de la médiane » pour une vidéo du top, ou « performe bien » pour une vidéo du flop : le constat doit toujours coller à la position réelle vs la médiane.
 
@@ -589,7 +608,12 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
     <div class="ds-dims-grid">${dimsHtml}</div>
 
-    ${d.sante_compte ? `<div class="ds-sante-row"><span class="ds-tag ${niveauDepuisLabelSante(d.sante_compte)}">Santé du compte : ${diagSommaireEsc(d.sante_compte)}</span></div>` : ''}
+    ${(() => {
+      // Santé DÉRIVÉE du score global (même barème que l'anneau) : garantit la
+      // cohérence score ↔ santé ↔ couleur — jamais "53/100" affiché "Fragile".
+      const s = (typeof santeCompteDepuisScore === 'function') ? santeCompteDepuisScore(score) : null;
+      return s ? `<div class="ds-sante-row"><span class="ds-tag ${s.niveau}">Santé du compte : ${s.label}</span></div>` : '';
+    })()}
 
     ${bioHtml}
     ${nicheHtml}
