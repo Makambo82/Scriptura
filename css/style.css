@@ -2435,7 +2435,7 @@ body.is-unlocked .sidebar-logout{display:block}
 .score-badge.niveau-neutre{background:var(--gold-pale);border-color:var(--border);color:var(--gold-light)}
 .ds-dim-text{font-size:0.85rem;color:var(--text-secondary);line-height:1.5}
 
-.ds-sante-row{text-align:center;margin-bottom:24px}
+.ds-sante-row{text-align:center;margin:12px 0 24px}
 
 .ds-tag{
   display:inline-block;flex-shrink:0;padding:5px 12px;border-radius:999px;

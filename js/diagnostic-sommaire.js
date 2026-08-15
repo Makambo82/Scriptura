@@ -574,6 +574,14 @@ function afficherDiagnosticSommaireResultat(d, username) {
       <button class="btn-generate" onclick="openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne')">Débloquer l'analyse détaillée →</button>
     </div>`;
 
+  // Santé DÉRIVÉE du score global (même barème que l'anneau) : garantit la
+  // cohérence score ↔ santé ↔ couleur — jamais "53/100" affiché "Fragile".
+  // Affichée à DEUX endroits : juste sous le score, et sous les dimensions.
+  const sante = (typeof santeCompteDepuisScore === 'function') ? santeCompteDepuisScore(score) : null;
+  const santeRowHtml = sante
+    ? `<div class="ds-sante-row"><span class="ds-tag ${sante.niveau}">Santé du compte : ${sante.label}</span></div>`
+    : '';
+
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
   // mémoire locale — voir afficherOpportuniteDiagSommaire dans recommandations.js).
   const opportuniteHtml = (!unlocked) ? `<div id="diagSommaireOpportunites"></div>` : '';
@@ -597,23 +605,12 @@ function afficherDiagnosticSommaireResultat(d, username) {
           <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
-      <div class="audit-score-phrase">${
-        nbDimsMesurees >= 4
-          ? 'Calculé sur les 4 dimensions (Engagement, Portée, Régularité, Viralité), à partir de tes dernières vidéos publiques.'
-          : nbDimsMesurees > 0
-            ? ('Calculé sur ' + nbDimsMesurees + ' dimension' + (nbDimsMesurees > 1 ? 's' : '') + ' sur 4 — les autres nécessitent des données par vidéo que ce compte n\'a pas permis de récupérer.')
-            : 'Score non calculable : les données publiques de ce profil ne permettent d\'estimer aucune des 4 dimensions.'
-      }</div>
+      ${santeRowHtml}
     </div>
 
     <div class="ds-dims-grid">${dimsHtml}</div>
 
-    ${(() => {
-      // Santé DÉRIVÉE du score global (même barème que l'anneau) : garantit la
-      // cohérence score ↔ santé ↔ couleur — jamais "53/100" affiché "Fragile".
-      const s = (typeof santeCompteDepuisScore === 'function') ? santeCompteDepuisScore(score) : null;
-      return s ? `<div class="ds-sante-row"><span class="ds-tag ${s.niveau}">Santé du compte : ${s.label}</span></div>` : '';
-    })()}
+    ${santeRowHtml}
 
     ${bioHtml}
     ${nicheHtml}
