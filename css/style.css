@@ -2352,6 +2352,12 @@ body.is-unlocked .sidebar-logout{display:block}
 
 /* ── DIAGNOSTIC SOMMAIRE (@nom d'utilisateur, sans captures) ── */
 .ds-wrap{max-width:560px;margin:0 auto;padding:100px 12px 80px}
+/* Sélecteur Mon compte / Compte concurrent (analyse sommaire) */
+.ds-scope{display:flex;gap:8px;margin-top:26px}
+.ds-scope-btn{flex:1;padding:11px 12px;border-radius:999px;border:1px solid var(--border-soft);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-family:'Poppins',sans-serif;font-size:0.86rem;cursor:pointer;transition:all .2s}
+.ds-scope-btn.actif{border-color:var(--gold);background:var(--gold-pale);color:var(--gold-light);font-weight:600}
+.ds-scope + .ds-field{margin-top:12px}
+
 .ds-field{display:flex;align-items:center;gap:10px;background:#3A3A3D;border:1px solid rgba(201,168,76,0.35);border-radius:999px;padding:8px 8px 8px 20px;margin-top:26px;transition:border-color .2s}
 .ds-field:focus-within{border-color:var(--gold)}
 .ds-at{font-family:'Poppins',sans-serif;font-size:1.15rem;color:var(--gold);font-weight:600}

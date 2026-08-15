@@ -24,11 +24,27 @@
 //  création habituel.
 // ═══════════════════════════════════════════════════════════
 
+// Type de compte analysé : true = le compte de l'utilisateur, false = un
+// concurrent. Sert à alimenter DIFFÉREMMENT les recommandations (voir
+// js/recommandations.js) : mes données vs intelligence de niche à adapter.
+let _sommaireEstMonCompte = true;
+
+// Bascule le sélecteur Mon compte / Compte concurrent.
+function choisirScopeSommaire(estMoi) {
+  _sommaireEstMonCompte = !!estMoi;
+  const bMoi = document.getElementById('dsScopeMoi');
+  const bConc = document.getElementById('dsScopeConcurrent');
+  if (bMoi) bMoi.classList.toggle('actif', _sommaireEstMonCompte);
+  if (bConc) bConc.classList.toggle('actif', !_sommaireEstMonCompte);
+}
+
 // Prépare l'écran de choix pour une nouvelle analyse (efface le champ,
 // les erreurs et un éventuel résultat précédent encore affiché).
 function resetDiagnosticSommaireForm() {
   const input = document.getElementById('diagSommaireInput');
   if (input) input.value = '';
+  // Repart toujours sur « Mon compte » par défaut.
+  choisirScopeSommaire(true);
   const err = document.getElementById('diagSommaireErrorBox');
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   const results = document.getElementById('diagSommaireResults');
@@ -113,7 +129,7 @@ function calculerMetriquesVideos(medias, abonnes) {
 // Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
 // en cours" — jamais les deux affichés en même temps.
 function toggleDiagSommaireEntree(visible) {
-  document.querySelectorAll('#diagSommaireFlow .ds-field, #diagSommaireFlow .ds-note, #diagSommaireFlow .ds-sep, #diagSommaireFlow .ds-alt').forEach(el => {
+  document.querySelectorAll('#diagSommaireFlow .ds-scope, #diagSommaireFlow .ds-field, #diagSommaireFlow .ds-note, #diagSommaireFlow .ds-sep, #diagSommaireFlow .ds-alt').forEach(el => {
     el.style.display = visible ? '' : 'none';
   });
 }
@@ -320,7 +336,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     }
 
     const titre = 'Diagnostic sommaire · @' + username;
-    saveGeneration('diagnosticSommaire', titre, { username: username, diagnostic: parsed });
+    saveGeneration('diagnosticSommaire', titre, {
+      username: username, diagnostic: parsed, estMonCompte: _sommaireEstMonCompte
+    });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
     afficherDiagnosticSommaireResultat(parsed, username);

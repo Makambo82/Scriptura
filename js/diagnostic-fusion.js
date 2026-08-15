@@ -25,6 +25,32 @@ async function _derniereGenerationDe(mode) {
   } catch (e) { console.warn('Lecture génération échouée', e); return null; }
 }
 
+// Récupère les N dernières générations d'un mode (plus récentes d'abord).
+// Utilisé par les recommandations pour croiser le compte du créateur et les
+// comptes de concurrents qu'il a analysés (tag estMonCompte, voir
+// js/diagnostic-sommaire.js). Best-effort : [] en cas d'erreur.
+async function _recentesGenerationsDe(mode, n) {
+  if (!supabaseClient) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('generations')
+      .select('*')
+      .eq('code_acces', getUserRef())
+      .eq('mode', mode)
+      .order('cree_le', { ascending: false })
+      .limit(n || 8);
+    if (error || !Array.isArray(data)) return [];
+    return data;
+  } catch (e) { console.warn('Lecture générations échouée', e); return []; }
+}
+
+// Le diagnostic sommaire d'un compte est « le mien » par défaut : les
+// générations antérieures au tag (estMonCompte absent) sont donc traitées
+// comme le compte du créateur, jamais comme un concurrent.
+function _sommaireEstMien(gen) {
+  return !!(gen && gen.contenu && gen.contenu.estMonCompte !== false);
+}
+
 // Affiche (ou masque) la bannière dans l'historique : visible uniquement
 // pour un Pro ayant au moins un diagnostic complet ET un diagnostic sommaire.
 async function verifierBanniereFusion() {
@@ -32,8 +58,10 @@ async function verifierBanniereFusion() {
   if (!banniere) return;
   banniere.style.display = 'none';
   if (!unlocked || (typeof monPalier === 'function' && monPalier() !== 'pro')) return;
-  const [audit, sommaire] = await Promise.all([_derniereGenerationDe('audit'), _derniereGenerationDe('diagnosticSommaire')]);
-  if (audit && sommaire) banniere.style.display = 'block';
+  // La fusion porte sur SON compte : on exige un audit ET un diagnostic
+  // sommaire DE SON compte (pas d'un concurrent analysé).
+  const [audit, sommaires] = await Promise.all([_derniereGenerationDe('audit'), _recentesGenerationsDe('diagnosticSommaire', 8)]);
+  if (audit && sommaires.some(_sommaireEstMien)) banniere.style.display = 'block';
 }
 
 async function ouvrirFusionDiagnostics() {
@@ -56,9 +84,10 @@ async function genererFusionDiagnostics() {
     if (!unlocked || (typeof monPalier === 'function' && monPalier() !== 'pro')) {
       throw new Error('Le rapport fusionné est réservé au plan Pro');
     }
-    const [auditGen, sommaireGen] = await Promise.all([_derniereGenerationDe('audit'), _derniereGenerationDe('diagnosticSommaire')]);
+    const [auditGen, sommaires] = await Promise.all([_derniereGenerationDe('audit'), _recentesGenerationsDe('diagnosticSommaire', 8)]);
+    const sommaireGen = sommaires.find(_sommaireEstMien);
     if (!auditGen || !sommaireGen) {
-      throw new Error("Il te faut un diagnostic complet ET un diagnostic sommaire pour générer un rapport fusionné");
+      throw new Error("Il te faut un diagnostic complet ET un diagnostic sommaire de TON compte pour générer un rapport fusionné");
     }
 
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne DEUX diagnostics déjà réalisés pour le MÊME créateur, à des moments différents et par des méthodes différentes :

@@ -362,6 +362,11 @@
       <p class="ideas-sub">Entre ton @nom d'utilisateur TikTok : Scriptura lit ton profil public et repère en quelques secondes ce qui bloque ta croissance.</p>
     </div>
 
+    <div class="ds-scope" role="group" aria-label="Type de compte analysé">
+      <button type="button" class="ds-scope-btn actif" id="dsScopeMoi" onclick="choisirScopeSommaire(true)">Mon compte</button>
+      <button type="button" class="ds-scope-btn" id="dsScopeConcurrent" onclick="choisirScopeSommaire(false)">Compte concurrent</button>
+    </div>
+
     <div class="ds-field">
       <span class="ds-at">@</span>
       <input class="ds-input" id="diagSommaireInput" placeholder="nom.utilisateur" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();lancerDiagnosticSommaire();}"/>

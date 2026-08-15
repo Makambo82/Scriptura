@@ -44,6 +44,65 @@ function texteProfilPourRecommandation(profil) {
   return lignes.join('\n');
 }
 
+// Résumé compact d'un diagnostic sommaire (pour nourrir la recommandation) :
+// niche réelle, vidéos qui percent (sujet + vues), concepts récurrents.
+// Vide si rien d'exploitable.
+function resumeDiagnosticSommaire(contenu) {
+  const d = contenu && contenu.diagnostic;
+  if (!d) return '';
+  const lignes = [];
+  const niche = d.niche || {};
+  if (niche.disponible !== false && niche.nom) lignes.push('Niche : ' + niche.nom);
+  const tops = Array.isArray(d.top_videos) ? d.top_videos.filter(v => v && v.sujet) : [];
+  if (tops.length) lignes.push('Vidéos qui percent : ' + tops.slice(0, 3).map(v => '« ' + v.sujet + ' » (' + (v.vues != null ? v.vues + ' vues' : '?') + ')').join(' ; '));
+  const concepts = Array.isArray(d.concepts_recurrents) ? d.concepts_recurrents.filter(Boolean) : [];
+  if (concepts.length) lignes.push('Concepts récurrents : ' + concepts.slice(0, 6).join(', '));
+  return lignes.join('\n');
+}
+
+// Construit le bloc « diagnostics » pour la recommandation, en distinguant
+// le compte du créateur (ses vraies données de performance) des comptes de
+// concurrents qu'il a analysés (intelligence de niche à ADAPTER). C'est ce
+// croisement qui rend les recommandations plus fiables : mes mécaniques
+// gagnantes d'un côté, ce qui marche dans la niche de l'autre.
+// Retourne { texte, aSignalFort } — aSignalFort=true si on a de vraies
+// données de performance sur SON compte (top vidéos), un signal suffisant à
+// lui seul pour recommander (contrairement à un profil sommaire nu).
+async function blocDiagnosticsPourReco() {
+  if (typeof _recentesGenerationsDe !== 'function') return { texte: '', aSignalFort: false };
+  const gens = await _recentesGenerationsDe('diagnosticSommaire', 8);
+  if (!gens.length) return { texte: '', aSignalFort: false };
+
+  const mien = gens.find(_sommaireEstMien);
+  const concurrents = [];
+  const vus = new Set();
+  for (const g of gens) {
+    if (_sommaireEstMien(g)) continue;
+    const u = (g.contenu && g.contenu.username) || '';
+    if (u && !vus.has(u)) { vus.add(u); concurrents.push(g); }
+    if (concurrents.length >= 3) break;
+  }
+
+  let texte = '', aSignalFort = false;
+  if (mien) {
+    const r = resumeDiagnosticSommaire(mien.contenu);
+    if (r) {
+      aSignalFort = true;
+      texte += '\nTES DONNÉES DE PERFORMANCE RÉELLES (son compte @' + ((mien.contenu && mien.contenu.username) || '') + ', lues sur TikTok — des FAITS sur LUI) :\n' + r + '\nSers-t\'en pour identifier SES mécaniques gagnantes et recommander des sujets NEUFS qui les réutilisent.';
+    }
+  }
+  if (concurrents.length) {
+    const blocs = concurrents.map(g => {
+      const r = resumeDiagnosticSommaire(g.contenu);
+      return r ? ('• @' + ((g.contenu && g.contenu.username) || '') + ' :\n' + r) : '';
+    }).filter(Boolean);
+    if (blocs.length) {
+      texte += '\n\nCE QUI MARCHE CHEZ DES CONCURRENTS DE SA NICHE (comptes qu\'il a analysés — INSPIRE-toi du MÉCANISME, transpose-le sur des sujets neufs, ne copie JAMAIS le sujet ni le concurrent tel quel) :\n' + blocs.join('\n');
+    }
+  }
+  return { texte, aSignalFort };
+}
+
 // auditFrais + ts : optionnels, passés uniquement depuis la fin d'un audit
 // tout juste terminé (voir js/audit.js), pour enrichir la recommandation
 // avec un diagnostic encore plus frais que la mémoire déjà enregistrée.
@@ -65,6 +124,8 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
   };
   const texteProfil = texteProfilPourRecommandation(profil);
   const texteAuditFrais = auditFrais ? texteDiagnosticOpportunites(auditFrais, ts || {}) : '';
+  // Croisement mon compte / concurrents (analyses sommaires @nom d'utilisateur).
+  const diag = await blocDiagnosticsPourReco();
 
   // Mémoire trop mince pour recommander quoi que ce soit d'honnête : on
   // n'invente rien. Signalé distinctement d'un échec technique (voir plus
@@ -73,7 +134,8 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
   const rienDeConnu = !profil.declare.niche_principale
     && !(profil.observe.themes_traites && profil.observe.themes_traites.length)
     && !(profil.lecons.recommandations_permanentes && profil.lecons.recommandations_permanentes.length)
-    && !texteAuditFrais;
+    && !texteAuditFrais
+    && !diag.aSignalFort;
   if (rienDeConnu) return { onboarding: true };
 
   // Tout ce qui suit (construction du prompt incluse) est désormais dans le
@@ -100,6 +162,7 @@ ${rechercheWebReco ? instructionRechercheWeb(profil.declare.niche_principale, 'd
 CE QUE TU SAIS DE CE CRÉATEUR :
 ${texteProfil || 'Peu d\'historique pour l\'instant.'}
 ${texteAuditFrais ? '\nDIAGNOSTIC DE SON DERNIER AUDIT (tout juste terminé) :\n' + texteAuditFrais : ''}
+${diag.texte || ''}
 
 RÈGLE DE CONFIANCE — TRÈS IMPORTANTE : base-toi UNIQUEMENT sur les informations ci-dessus. N'invente JAMAIS une statistique, un fait ou une certitude que tu n'as pas. Si les informations connues sont limitées, dis-le honnêtement (niveau_confiance "faible") et propose des recommandations plus générales mais toujours utiles, plutôt que de prétendre connaître ce créateur mieux que tu ne le connais. Si tu disposes d'assez d'éléments concrets (niche connue, historique, leçons d'audit), sois précis et spécifique (niveau_confiance "élevée").
 
@@ -480,10 +543,12 @@ function prenomDepuisCode() {
 // signal utilisable. Best-effort : toute erreur retombe sur le message
 // générique plutôt que de bloquer l'affichage.
 async function aFaitDiagnosticSommaire() {
-  if (typeof _derniereGenerationDe !== 'function') return false;
+  if (typeof _recentesGenerationsDe !== 'function') return false;
   try {
-    const g = await _derniereGenerationDe('diagnosticSommaire');
-    return !!g;
+    // Seul un diagnostic de SON compte compte : avoir analysé un concurrent ne
+    // signifie pas qu'il a analysé le sien.
+    const gens = await _recentesGenerationsDe('diagnosticSommaire', 8);
+    return gens.some(_sommaireEstMien);
   } catch (e) { return false; }
 }
 
@@ -495,13 +560,15 @@ async function aFaitDiagnosticSommaire() {
 // Best-effort : toute erreur retombe sur "pas encore fait" (comportement
 // actuel, jamais régressif) plutôt que de bloquer l'affichage des modes.
 async function aFaitAnalyseCompte() {
-  if (typeof _derniereGenerationDe !== 'function') return false;
+  if (typeof _derniereGenerationDe !== 'function' || typeof _recentesGenerationsDe !== 'function') return false;
   try {
-    const [audit, sommaire] = await Promise.all([
+    const [audit, sommaires] = await Promise.all([
       _derniereGenerationDe('audit'),
-      _derniereGenerationDe('diagnosticSommaire')
+      _recentesGenerationsDe('diagnosticSommaire', 8)
     ]);
-    return !!(audit || sommaire);
+    // L'audit par captures est toujours le sien ; côté sommaire, seul un
+    // diagnostic de SON compte compte (pas un concurrent analysé).
+    return !!(audit || (Array.isArray(sommaires) && sommaires.some(_sommaireEstMien)));
   } catch (e) { return false; }
 }
 
@@ -540,9 +607,12 @@ Réponds UNIQUEMENT avec ce sujet, sans guillemets, sans ponctuation finale, rie
 
 async function demarrerIdeesDepuisSommaire() {
   chooseMode('ideas');
-  if (typeof _derniereGenerationDe !== 'function') return;
+  if (typeof _recentesGenerationsDe !== 'function') return;
   try {
-    const g = await _derniereGenerationDe('diagnosticSommaire');
+    // On pré-remplit à partir de SON compte uniquement — jamais d'un concurrent
+    // qu'il aurait analysé (sa niche à lui, pas celle du concurrent).
+    const gens = await _recentesGenerationsDe('diagnosticSommaire', 8);
+    const g = gens.find(_sommaireEstMien);
     const d = g && g.contenu && g.contenu.diagnostic;
     if (!d) return;
 
