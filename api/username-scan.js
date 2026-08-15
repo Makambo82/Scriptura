@@ -89,8 +89,8 @@ function normaliserMedias(data) {
 // un PLAFOND (MAX vidéos, pour borner coût et latence sur les gros comptes).
 // Renvoie la liste normalisée, ou null si tout échoue (non-régressif :
 // le diagnostic retombe alors sur l'Engagement).
-async function recupererVideos(key, ids) {
-  if (!ids.id && !ids.secUid) return null;
+async function recupererVideos(key, ids, journal) {
+  if (!ids.id && !ids.secUid) { if (journal) journal.push({ erreur: 'aucun id/secUid extrait du profil' }); return null; }
   const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
   const JOURS_FENETRE = 180;  // ~6 mois (pour voir un éventuel pivot)
   const MIN = 20;             // plancher de fiabilité
@@ -114,12 +114,14 @@ async function recupererVideos(key, ids) {
     const minuteur = setTimeout(() => ctrl.abort(), 7000);
     let rep;
     try { rep = await fetch(url, { headers: h, signal: ctrl.signal }); }
-    catch (e) { break; }
+    catch (e) { if (journal) journal.push({ page, erreur: String(e.name || e.message || e) }); break; }
     finally { clearTimeout(minuteur); }
+    const texte = await rep.text().catch(() => '');
+    let data = null; try { data = JSON.parse(texte); } catch (e) {}
+    const lot = data ? normaliserMedias(data) : [];
+    if (journal) journal.push({ page, params: Object.keys(base).join('+'), status: rep.status, ok: rep.ok, nbVideos: lot.length, extrait: texte.slice(0, 400) });
     if (!rep.ok) break;
-    let data; try { data = await rep.json(); } catch (e) { break; }
 
-    const lot = normaliserMedias(data);
     for (const v of lot) {
       const cle = `${v.date}|${v.vues}|${(v.desc || '').slice(0, 24)}`;
       if (!vues.has(cle)) { vues.add(cle); toutes.push(v); }
@@ -177,14 +179,22 @@ export default async function handler(req, res) {
     }
 
     // 2) Vidéos via ScrapTik (si la clé est configurée), avec l'id du profil.
+    const debug = req.body?.debug === true;
     const ids = extraireIds(profil);
     const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
+    const journal = debug ? [] : null;
     let medias = null;
     if (scrapKey) {
-      try { medias = await recupererVideos(scrapKey, ids); }
-      catch (e) { medias = null; }
+      try { medias = await recupererVideos(scrapKey, ids, journal); }
+      catch (e) { medias = null; if (journal) journal.push({ erreurGlobale: String(e.message || e) }); }
     }
 
+    if (debug) {
+      return res.status(200).json({
+        profil, medias,
+        _debug: { idsExtraits: ids, scraptikConfiguree: !!scrapKey, nbVideos: medias ? medias.length : 0, tentatives: journal }
+      });
+    }
     return res.status(200).json({ profil, medias });
 
   } catch (e) {

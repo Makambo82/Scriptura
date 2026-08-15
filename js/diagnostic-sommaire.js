@@ -179,11 +179,38 @@ async function lancerDiagnosticSommaire() {
 
   errorBox.style.display = 'none';
   const brut = (inputEl.value || '').trim();
-  const username = brut.replace(/^@+/, '');
+  // Debug caché : "!pseudo" montre la réponse brute de ScrapTik (pourquoi
+  // aucune vidéo ?), sans lancer l'IA ni consommer de quota.
+  const debugMode = brut.startsWith('!');
+  const username = brut.replace(/^!/, '').replace(/^@+/, '');
 
   if (!username || !/^[a-zA-Z0-9._]{2,24}$/.test(username)) {
     errorBox.textContent = "Entre un nom d'utilisateur TikTok valide (lettres, chiffres, points, underscores).";
     errorBox.style.display = 'block';
+    return;
+  }
+
+  if (debugMode) {
+    toggleDiagSommaireEntree(false);
+    btn.disabled = true; spinner.style.display = 'block'; arrow.style.display = 'none';
+    try {
+      const rep = await fetch('/api/username-scan', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, debug: true })
+      });
+      const d = await rep.json();
+      results.innerHTML = '<div class="score-card"><div class="audit-section-label">DEBUG · @'
+        + diagSommaireEsc(username) + '</div><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:var(--gold)">'
+        + diagSommaireEsc(JSON.stringify(d._debug || d, null, 2))
+        + '</pre><button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire()">Fermer</button></div>';
+      results.style.display = 'block';
+    } catch (e) {
+      errorBox.textContent = 'Debug : ' + (e.message || 'erreur');
+      errorBox.style.display = 'block';
+      toggleDiagSommaireEntree(true);
+    } finally {
+      btn.disabled = false; spinner.style.display = 'none'; arrow.style.display = '';
+    }
     return;
   }
 
