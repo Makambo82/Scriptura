@@ -22,6 +22,17 @@
 const LAMA_BASE = 'https://api.lamatok.com';
 const SCRAPTIK_HOST = 'scraptik.p.rapidapi.com';
 
+// Nettoie la clé RapidAPI : si on a collé tout le snippet cURL dans la
+// variable d'environnement (erreur fréquente), on en extrait la vraie valeur
+// du header ; sinon on retire simplement espaces, retours et guillemets.
+function nettoyerCle(k) {
+  if (!k) return '';
+  const s = String(k);
+  const m = s.match(/x-rapidapi-key:\s*['"]?([A-Za-z0-9]{20,})/i);
+  if (m) return m[1];
+  return s.trim().replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, '');
+}
+
 // Résout l'objet utilisateur dans le profil LamaTok — rangé sous
 // users = { "<pseudo>": { id, secUid, ... } } — et en extrait id + secUid.
 function extraireIds(profil) {
@@ -125,7 +136,7 @@ export default async function handler(req, res) {
     // 2) Vidéos via ScrapTik (si la clé est configurée), avec l'id du profil.
     const debug = req.body?.debug === true;
     const ids = extraireIds(profil);
-    const scrapKey = process.env.SCRAPTIK_API_KEY;
+    const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
     const journal = debug ? [] : null;
     let medias = null;
     if (scrapKey) {
