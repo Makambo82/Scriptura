@@ -171,14 +171,21 @@ async function lancerDiagnosticSommaire() {
     return;
   }
 
-  // Même quota que les autres modes de création (script, idées, récit) :
-  // aucun compteur dédié au diagnostic sommaire — non-abonné : ses 5
-  // générations gratuites partagées ; abonné : son quota mensuel de création.
-  if (!unlocked && usedGen >= MAX_FREE) {
+  // Quota DÉDIÉ à l'analyse sommaire (compteur mensuel séparé de la création) :
+  // non-abonné 1 (sur ses 5 gratuites), Creator 10/mois, Pro 30/mois.
+  const droit = await droitAnalyseSommaire();
+  if (!droit.ok) {
+    if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
+    if (droit.raison === 'quota') {
+      errorBox.textContent = 'Tu as atteint ta limite d\'analyses sommaires ce mois-ci (' + droit.limite + '). Elle se recharge le 1er du mois prochain.';
+      errorBox.style.display = 'block';
+      return;
+    }
+    // Non-abonné : analyse gratuite déjà utilisée (ou plus de générations
+    // gratuites) → on propose l'abonnement.
     openPlans('nouveau');
     return;
   }
-  if (!(await peutGenerer('diagSommaireErrorBox'))) return;
 
   btn.disabled = true;
   spinner.style.display = 'block';
@@ -299,11 +306,15 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
     }
 
-    // Décompte du quota : même compteur partagé que les autres modes.
+    // Décompte : le non-abonné consomme 1 génération gratuite ET son unique
+    // analyse sommaire. L'abonné, lui, est compté via son quota mensuel dédié
+    // (countMonthGenerations('diagnosticSommaire') sur l'enregistrement ci-dessous).
     if (!unlocked) {
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       bumpServerQuota(usedGen);
+      const sf = parseInt(localStorage.getItem('scriptura_sommaire_used') || '0', 10) + 1;
+      localStorage.setItem('scriptura_sommaire_used', String(sf));
       renderGenCounter();
       checkRappelAbonnement();
     }

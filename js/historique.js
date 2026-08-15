@@ -196,11 +196,12 @@ async function countMonthGenerations(typeVoulu) {
       .gte('cree_le', debutMois.toISOString());
     if (typeVoulu === 'audit') {
       req = req.eq('mode', 'audit');
+    } else if (typeVoulu === 'diagnosticSommaire') {
+      req = req.eq('mode', 'diagnosticSommaire');
     } else if (typeVoulu === 'creation') {
-      // Seul l'audit complet a son propre compteur mensuel séparé ; le
-      // diagnostic sommaire compte désormais dans la création, comme un
-      // script ou un récit.
-      req = req.neq('mode', 'audit');
+      // L'audit complet ET le diagnostic sommaire ont chacun leur propre
+      // compteur mensuel séparé : on les exclut du quota de création.
+      req = req.neq('mode', 'audit').neq('mode', 'diagnosticSommaire');
     }
     const { count, error } = await req;
     if (error) throw error;
@@ -288,6 +289,29 @@ async function peutGenerer(errorBoxId) {
     return false;
   }
   return true;
+}
+
+// Décide si l'utilisateur peut lancer une ANALYSE SOMMAIRE (@nom d'utilisateur).
+// Compteur mensuel dédié, séparé de la création : Creator 10, Pro 30. Un
+// non-abonné y a droit 1 fois (aussi décomptée sur ses 5 gratuites).
+// Retourne { ok:true } ou { ok:false, raison, limite }.
+async function droitAnalyseSommaire() {
+  if (estIllimite()) return { ok: true };
+
+  if (!unlocked) {
+    // Non-abonné : 1 analyse sommaire ET dans la limite des 5 gratuites.
+    const sommFaites = parseInt(localStorage.getItem('scriptura_sommaire_used') || '0', 10);
+    if (sommFaites >= MAX_SOMMAIRE_GRATUIT) return { ok: false, raison: 'sommaire_gratuit' };
+    if (usedGen >= MAX_FREE) return { ok: false, raison: 'free' };
+    return { ok: true };
+  }
+
+  // Abonné : abonnement valide + quota mensuel dédié non atteint.
+  if (await abonnementExpire()) return { ok: false, raison: 'expire' };
+  const limite = limitesDuPalier().sommaire || 0;
+  const faites = await countMonthGenerations('diagnosticSommaire');
+  if (faites >= limite) return { ok: false, raison: 'quota', limite };
+  return { ok: true };
 }
 
 // Vérifie le quota d'audits du mois (compteur séparé de la création).

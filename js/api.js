@@ -18,16 +18,17 @@ const CRITIQUE_ACTIVE = true;
 // La création (idées, script, storytelling, diagnostic sommaire) et
 // l'audit complet ont des compteurs séparés : un audit ne consomme pas le
 // quota de création et inversement. Le diagnostic sommaire (@nom
-// d'utilisateur) consomme le MÊME quota que le reste de la création —
-// aucun compteur dédié : un non-abonné peut en faire jusqu'à 5 (ses
-// générations gratuites), un Creator jusqu'à 50/mois, un Pro jusqu'à
-// 70/mois, au même titre qu'un script ou un récit.
+// d'utilisateur) a désormais son PROPRE compteur mensuel, séparé de la
+// création : Creator 10/mois, Pro 30/mois. Un non-abonné en a droit à 1
+// (décomptée aussi sur ses 5 générations gratuites, voir MAX_SOMMAIRE_GRATUIT).
 // Ces limites sont indicatives côté client (anti-abus), la vérité reste
 // le comptage Supabase par type.
 const LIMITES_MOIS = {
-  creator: { creation: 50, audit: 0 },
-  pro:     { creation: 70, audit: 5 }
+  creator: { creation: 50, audit: 0, sommaire: 10 },
+  pro:     { creation: 70, audit: 5, sommaire: 30 }
 };
+// Non-abonné : 1 seule analyse sommaire (prélevée sur ses 5 gratuites).
+const MAX_SOMMAIRE_GRATUIT = 1;
 // Repli si le plan n'est pas reconnu : on applique le moins-disant (Creator).
 function limitesDuPalier() {
   return LIMITES_MOIS[monPalier()] || LIMITES_MOIS.creator;
