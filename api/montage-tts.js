@@ -1,17 +1,17 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/montage-tts — Génère la voix off du montage via ElevenLabs, à
+//  /api/montage-tts, Génère la voix off du montage via ElevenLabs, à
 //  partir du texte déjà présent dans le storyboard (un segment par plan).
 //  Utilise l'endpoint "with-timestamps" : la réponse contient l'audio ET un
 //  horodatage précis caractère par caractère, ce qui permet de connaître la
-//  durée EXACTE de chaque plan — plus besoin d'estimer ni de mesurer un
+//  durée EXACTE de chaque plan, plus besoin d'estimer ni de mesurer un
 //  fichier après coup (voir js/montage.js calculerDureesImages, remplacé).
 //
-//  Réservé au fondateur (bouton visible uniquement en body.is-admin) — la
+//  Réservé au fondateur (bouton visible uniquement en body.is-admin), la
 //  clé ELEVENLABS_API_KEY reste entièrement côté serveur.
 // ═══════════════════════════════════════════════════════════
 
 // Mêmes voix que /api/montage-voices (voir ce fichier pour le format de
-// ELEVENLABS_VOICES) — dupliqué plutôt qu'importé : chaque fonction
+// ELEVENLABS_VOICES), dupliqué plutôt qu'importé : chaque fonction
 // serverless de ce projet reste autonome, aucun module partagé entre elles.
 // Filet de sécurité : l'IA rédactrice a parfois tendance à répéter en tête
 // de segment le minutage qu'elle produit par ailleurs dans un champ séparé
@@ -34,7 +34,7 @@ function obtenirVoixDisponibles() {
       if (Array.isArray(liste) && liste.length && liste.every(v => v && v.id)) {
         // .trim() : un espace ou un retour à la ligne collé par erreur en
         // copiant l'ID dans Vercel suffit à faire échouer ElevenLabs avec
-        // "The string did not match the expected pattern" — mieux vaut
+        // "The string did not match the expected pattern", mieux vaut
         // nettoyer ici que de dépendre d'une saisie parfaite.
         return liste.map(v => ({ id: String(v.id).trim(), label: String(v.label || v.name || v.id).trim() }));
       }
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
   }
   const voixDisponibles = obtenirVoixDisponibles();
   if (!voixDisponibles.length) {
-    return res.status(500).json({ error: { message: 'Voix absente côté serveur (ELEVENLABS_VOICE_ID ou ELEVENLABS_VOICES) — choisis-en une dans ta bibliothèque de voix ElevenLabs et copie son ID.' } });
+    return res.status(500).json({ error: { message: 'Voix absente côté serveur (ELEVENLABS_VOICE_ID ou ELEVENLABS_VOICES), choisis-en une dans ta bibliothèque de voix ElevenLabs et copie son ID.' } });
   }
 
   let body = req.body;
@@ -68,14 +68,14 @@ export default async function handler(req, res) {
   }
 
   // La voix demandée doit faire partie de la liste configurée côté serveur
-  // (jamais un ID arbitraire envoyé par le client) — même logique que pour
+  // (jamais un ID arbitraire envoyé par le client), même logique que pour
   // toute entrée utilisateur touchant une clé API tierce.
   const voixDemandee = typeof body?.voiceId === 'string' ? body.voiceId : '';
   const voixChoisie = voixDisponibles.find(v => v.id === voixDemandee) || voixDisponibles[0];
   const voiceId = voixChoisie.id;
 
   // Un seul appel pour tout le script (narration continue et naturelle),
-  // les plans séparés par un espace — on retient l'index de caractère où
+  // les plans séparés par un espace, on retient l'index de caractère où
   // chaque plan démarre dans ce texte concaténé pour retrouver ensuite son
   // horodatage exact dans la réponse d'ElevenLabs.
   const debutsCaracteres = [];

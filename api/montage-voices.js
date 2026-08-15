@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/montage-voices — Liste des voix ElevenLabs disponibles pour le
+//  /api/montage-voices, Liste des voix ElevenLabs disponibles pour le
 //  montage, pour le sélecteur côté client (voir js/montage.js).
 //
 //  Configurée via ELEVENLABS_VOICES, un tableau JSON dans Vercel :
@@ -17,7 +17,7 @@ function obtenirVoixDisponibles() {
       if (Array.isArray(liste) && liste.length && liste.every(v => v && v.id)) {
         // .trim() : un espace ou un retour à la ligne collé par erreur en
         // copiant l'ID dans Vercel suffit à faire échouer ElevenLabs avec
-        // "The string did not match the expected pattern" — mieux vaut
+        // "The string did not match the expected pattern", mieux vaut
         // nettoyer ici que de dépendre d'une saisie parfaite.
         return liste.map(v => ({ id: String(v.id).trim(), label: String(v.label || v.name || v.id).trim() }));
       }

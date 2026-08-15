@@ -19,10 +19,10 @@ async function syncServerQuota() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  PRÉSENCE — signal "je suis encore là" pour le statut en ligne
+//  PRÉSENCE, signal "je suis encore là" pour le statut en ligne
 //  du Tableau de bord (voir js/admin.js et supabase/presence.sql).
 //  Envoyé par TOUS les visiteurs (abonnés ou non), uniquement pendant que
-//  l'onglet est visible à l'écran — un onglet en arrière-plan ne compte
+//  l'onglet est visible à l'écran, un onglet en arrière-plan ne compte
 //  pas comme "en ligne". Échoue silencieusement si la table n'existe pas
 //  encore (comme le reste des fonctionnalités Supabase de l'app).
 // ═══════════════════════════════════════════════════════════
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof initAccueilPremium === 'function') initAccueilPremium();
 });
 
-// ── TON (menu déroulant) & DURÉE (grille de boutons) — GROUPES INDÉPENDANTS ──
+// ── TON (menu déroulant) & DURÉE (grille de boutons), GROUPES INDÉPENDANTS ──
 let selectedDuree = '';
 
 const toneSelectEl = document.getElementById('tone');

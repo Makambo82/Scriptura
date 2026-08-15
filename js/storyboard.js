@@ -99,20 +99,20 @@ function computeNarrativeBreakScore(precedente, courante) {
   const clsCur = classifySentence(courante);
   const t = (courante || '').trim().toLowerCase();
 
-  // Priorité 4 — révélation jamais collée à sa préparation
+  // Priorité 4, révélation jamais collée à sa préparation
   if (clsCur === 'revelation') score += 55;
   if (clsPrev === 'revelation' && clsCur !== 'revelation') score += 50; // la chute a son propre plan
   if ((clsPrev === 'preparation' && clsCur === 'revelation') ||
       (clsPrev === 'revelation' && clsCur === 'preparation')) score += 40;
 
-  // Priorité 5 — question / interpellation = leur propre image
+  // Priorité 5, question / interpellation = leur propre image
   if (clsCur === 'question') score += 60;
   if (clsPrev === 'question' && clsCur !== 'question') score += 50; // ce qui suit une question a son propre plan
   if (clsCur === 'interpellation' && clsPrev !== 'interpellation') score += 35;
   // Adresse directe qui projette le spectateur ailleurs = changement de scène radical
   if (/^(imagine|imaginez|regarde|regardez|écoute|ecoute|écoutez|vous êtes|tu es|vous voilà)/.test(t)) score += 30;
 
-  // Priorité 1 — IMAGE MENTALE : nouvelle action ou nouveau sujet visuel
+  // Priorité 1, IMAGE MENTALE : nouvelle action ou nouveau sujet visuel
   const ePrev = empreinteVisuelle(precedente);
   const eCur = empreinteVisuelle(courante);
   const nouvelleAction = eCur.actions.some(a => !ePrev.actions.includes(a));
@@ -120,7 +120,7 @@ function computeNarrativeBreakScore(precedente, courante) {
   if (eCur.actions.length && nouvelleAction) score += 45;
   if (eCur.sujets.length && nouveauSujet && ePrev.sujets.length) score += 25;
 
-  // Priorité 2 — changement de scène (lieu, époque)
+  // Priorité 2, changement de scène (lieu, époque)
   // Lieu nommé en tête de phrase : "À Nefis", "Au Mali", "En Libye" (nom propre = nouvelle scène)
   let changementScene = false;
   if (/^(À|A|Au|Aux|En|Dans|Vers|Depuis|à|au|aux|en|dans|vers|depuis)\s+[A-ZÀ-Ý][a-zà-ÿ]+/.test((courante || '').trim())) {
@@ -135,7 +135,7 @@ function computeNarrativeBreakScore(precedente, courante) {
   // Série rhétorique (anaphore intentionnelle) : martelage = rupture = nouveau plan
   if (detecteSerieRhethorique(precedente, courante)) score += 45;
 
-  // Priorité 3 — connecteurs narratifs (indices forts, non mécaniques)
+  // Priorité 3, connecteurs narratifs (indices forts, non mécaniques)
   if (/^(mais|pourtant|cependant|sauf que|c'est alors que|jusqu'au jour où|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
   // Succession temporelle ("Puis…", "Ensuite…") = nouveau moment = nouvelle image
   if (/^(puis |ensuite |après |plus tard|quelques (heures|jours|minutes|semaines|mois|années))/.test(t)) score += 45;
@@ -171,7 +171,7 @@ function buildNarrativeSegments(texte) {
     // Fragment d'ouverture (lieu/date : "Paris, 1925.") : seulement au TOUT DÉBUT,
     // et seulement s'il n'a ni verbe conjugué ni ponctuation forte.
     const txtCourant = courant.join(' ');
-    // Cartouche d'ouverture : "Paris, 1925." — un lieu suivi d'une date, sans verbe.
+    // Cartouche d'ouverture : "Paris, 1925.", un lieu suivi d'une date, sans verbe.
     // Ce n'est pas une image à lui seul : il rejoint la phrase suivante.
     const estCartouche = /^[A-ZÀ-Ý][\wà-ÿ'-]*\s*,\s*(\d{4}|\d{1,2}\s+\w+|\w+\s+\d{4})\s*\.?$/.test(txtCourant.trim());
     const courantEstFragment = plans.length === 0 && courant.length === 1 && estCartouche;
@@ -226,14 +226,14 @@ function segmentNarrativeStoryboard(texte) {
 }
 
 // ═══ GÉNÉRATION DES VISUELS PAR LOTS ═══
-// Le découpage en plans est désormais TOUJOURS fixé avant d'appeler l'IA —
+// Le découpage en plans est désormais TOUJOURS fixé avant d'appeler l'IA,
 // par le moteur narratif ci-dessus (récit, script généré, script collé), ou
 // par le découpage numéroté de l'utilisateur (storyboard-seul). L'IA n'a
 // donc plus qu'UN travail : écrire un prompt visuel par plan déjà donné,
 // jamais segmenter elle-même. C'est ce qui a remplacé le plafond fixe à 40
 // plans : au lieu de brider le nombre de plans d'un contenu long, chaque
 // appel IA ne porte plus que sur un LOT de taille fixe (TAILLE_LOT_VISUELS),
-// donc reste rapide et fiable quelle que soit la longueur totale — et le
+// donc reste rapide et fiable quelle que soit la longueur totale, et le
 // storyboard s'affiche progressivement, lot après lot, au lieu d'attendre
 // une seule réponse géante.
 const TAILLE_LOT_VISUELS = 15;
@@ -242,25 +242,25 @@ const STRUCTURE_PROMPT_VISUEL = `STRUCTURE OBLIGATOIRE DE CHAQUE PROMPT VISUEL (
 1. LE DÉCOR : le lieu précis, l'époque, l'ambiance globale de la scène
 2. LA MATIÈRE : les détails de structure, les matériaux, les textures
 3. LES PERSONNAGES : leur titre/fonction, âge, apparence physique, et SURTOUT leurs vêtements précis ainsi que leurs gestes et postures. Si le segment mentionne un nom ou fait référence à un personnage précis (historique, public, fictif), nomme-le explicitement dans le prompt.
-   PERSONNE RÉELLE CONNUE (chef d'État, personnalité publique, figure historique) : en plus de le nommer, décris ses 2 ou 3 SIGNES PHYSIQUES LES PLUS RECONNAISSABLES pour que le portrait peint l'évoque vraiment — forme du visage, coupe/barbe/calvitie caractéristique, lunettes, tenue emblématique, âge à l'époque évoquée. Le but est un portrait peint qui rappelle nettement la personne (une évocation picturale, pas une fausse photo). Reste factuel et neutre, sans caricature ni élément dégradant.
-   ORIGINE ETHNIQUE — RÈGLE LA PLUS IMPORTANTE DE TOUT LE PROMPT (les générateurs d'images ont un biais très fort : sans description physique explicite, ils dessinent TOUJOURS des personnes blanches/européennes, même si le pays ou le nom indique clairement le contraire — un script de géopolitique africaine doit montrer des personnages africains) :
+   PERSONNE RÉELLE CONNUE (chef d'État, personnalité publique, figure historique) : en plus de le nommer, décris ses 2 ou 3 SIGNES PHYSIQUES LES PLUS RECONNAISSABLES pour que le portrait peint l'évoque vraiment, forme du visage, coupe/barbe/calvitie caractéristique, lunettes, tenue emblématique, âge à l'époque évoquée. Le but est un portrait peint qui rappelle nettement la personne (une évocation picturale, pas une fausse photo). Reste factuel et neutre, sans caricature ni élément dégradant.
+   ORIGINE ETHNIQUE, RÈGLE LA PLUS IMPORTANTE DE TOUT LE PROMPT (les générateurs d'images ont un biais très fort : sans description physique explicite, ils dessinent TOUJOURS des personnes blanches/européennes, même si le pays ou le nom indique clairement le contraire, un script de géopolitique africaine doit montrer des personnages africains) :
    • Déduis l'origine du contexte (pays, région, nom, sujet). Un simple mot de nationalité ("Congolese", "Ivorian") NE SUFFIT PAS : le modèle l'ignore.
-   • Décris TOUJOURS l'apparence physique de façon EXPLICITE et CONCRÈTE — teinte de peau, traits du visage, texture des cheveux — placée AU TOUT DÉBUT de la description du personnage, avant les vêtements. Exemples : pour un personnage africain "a Black African man with deep dark brown skin, broad nose, full lips and short tightly-coiled black hair"; pour une femme est-asiatique "an East Asian woman with light warm skin, monolid eyes and straight black hair". Répète l'ascendance ("African", "Black", "of Central African descent"…) au moins une fois de plus dans le prompt pour l'ancrer.
+   • Décris TOUJOURS l'apparence physique de façon EXPLICITE et CONCRÈTE, teinte de peau, traits du visage, texture des cheveux, placée AU TOUT DÉBUT de la description du personnage, avant les vêtements. Exemples : pour un personnage africain "a Black African man with deep dark brown skin, broad nose, full lips and short tightly-coiled black hair"; pour une femme est-asiatique "an East Asian woman with light warm skin, monolid eyes and straight black hair". Répète l'ascendance ("African", "Black", "of Central African descent"…) au moins une fois de plus dans le prompt pour l'ancrer.
    • Ne te contente JAMAIS d'un mot de nationalité seul : sans les descripteurs physiques ci-dessus, l'image sera fausse. C'est la règle à ne jamais sacrifier, même si le reste du prompt est déjà long.
 4. LA VIE DE LA SCÈNE : les éléments secondaires (inscriptions, objets, foule…), la gestion de la lumière et des ombres
 
-Le prompt décrit une IMAGE FIXE unique — un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée.
+Le prompt décrit une IMAGE FIXE unique, un instant figé, pas une séquence. Pas de mouvement de caméra, pas de transition, pas de durée.
 
-STYLE / MÉDIUM — RÈGLE ABSOLUE : le style graphique (peinture, cinéma, aquarelle, etc.) est ajouté AUTOMATIQUEMENT à la fin du prompt selon le choix du créateur. Ne spécifie donc TOI-MÊME aucun médium ni style de rendu (n'écris jamais "oil painting", "photo", "cartoon", "3D render"…). Concentre-toi UNIQUEMENT sur la SCÈNE : composition, décor, matières, couleurs, personnages, et surtout les jeux de LUMIÈRE et d'OMBRE. C'est une IMAGE FIXE : bannis tout vocabulaire de mouvement ou de tournage (mouvement de caméra, réglages d'objectif, grain de pellicule, bruit, son). Chaque prompt doit être riche, précis, visuel et spectaculaire, pour empêcher le scroll.
+STYLE / MÉDIUM, RÈGLE ABSOLUE : le style graphique (peinture, cinéma, aquarelle, etc.) est ajouté AUTOMATIQUEMENT à la fin du prompt selon le choix du créateur. Ne spécifie donc TOI-MÊME aucun médium ni style de rendu (n'écris jamais "oil painting", "photo", "cartoon", "3D render"…). Concentre-toi UNIQUEMENT sur la SCÈNE : composition, décor, matières, couleurs, personnages, et surtout les jeux de LUMIÈRE et d'OMBRE. C'est une IMAGE FIXE : bannis tout vocabulaire de mouvement ou de tournage (mouvement de caméra, réglages d'objectif, grain de pellicule, bruit, son). Chaque prompt doit être riche, précis, visuel et spectaculaire, pour empêcher le scroll.
 
 RÈGLE SUR LES SCÈNES MULTIPLES (IMPORTANT) : Si plusieurs éléments ou lieux doivent coexister, NE FAIS PAS de split, de double cadre, de juxtaposition ni aucune séparation visuelle. Garde LA SCÈNE PRINCIPALE et intègre les éléments secondaires de façon organique dans la même composition (arrière-plan, reflet, détail dans le décor…). Une seule image cohérente, pas de collage.
 
-LANGUE — RÈGLE ABSOLUE : écris CHAQUE prompt visuel intégralement en ANGLAIS, même si tout le reste de cette conversation est en français. Les générateurs d'images (Midjourney, Firefly, Imagen, DALL·E…) sont entraînés très majoritairement sur des prompts anglais et suivent bien plus précisément des instructions en anglais — un prompt en français produit des résultats nettement moins fidèles. Aucun mot de français dans le prompt final.
+LANGUE, RÈGLE ABSOLUE : écris CHAQUE prompt visuel intégralement en ANGLAIS, même si tout le reste de cette conversation est en français. Les générateurs d'images (Midjourney, Firefly, Imagen, DALL·E…) sont entraînés très majoritairement sur des prompts anglais et suivent bien plus précisément des instructions en anglais, un prompt en français produit des résultats nettement moins fidèles. Aucun mot de français dans le prompt final.
 
 FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le format vertical).`;
 
 // Prompt de la miniature (couverture) : appel séparé, indépendant du nombre
-// de plans — toujours rapide, même pour un contenu très long, car sa sortie
+// de plans, toujours rapide, même pour un contenu très long, car sa sortie
 // reste courte quelle que soit la taille de l'entrée.
 async function genererMiniatureVisuelle(texteComplet, plat) {
   const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}. Voici le texte complet d'un contenu :
@@ -316,7 +316,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     for (let k = 0; k < lot.length; k++) {
       lot[k].visuel = visuels[k]
         ? assainirPromptVisuel(visuels[k], 'Plan ' + (i + k + 1))
-        : 'Prompt visuel indisponible pour ce plan — clique sur ↻ Régénérer pour réessayer.';
+        : 'Prompt visuel indisponible pour ce plan, clique sur ↻ Régénérer pour réessayer.';
     }
     if (onLot) onLot(lot, i);
   }
@@ -383,7 +383,7 @@ async function generateStoryStoryboard() {
       if (m) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
     });
 
-    // Les plans s'affichent lot par lot, au fur et à mesure que l'IA répond —
+    // Les plans s'affichent lot par lot, au fur et à mesure que l'IA répond,
     // pas d'attente d'une réponse géante unique pour tout voir apparaître.
     await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
       const html = lot.map((p, k) => cartePlan(indexDepart + k, p)).join('');
@@ -404,7 +404,7 @@ async function generateStoryStoryboard() {
         ${montageBoutonHTML('montageBtnStory', plans)}
       </div>`);
 
-    // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
+    // Sauvegarder le storyboard pour qu'il reste après réouverture, mêmes
     // champs qu'avant (segment/duree/texte/visuel), pour rester compatible
     // avec l'historique et le rapport fusionné.
     const storyboardPourSauvegarde = plans.map((p, i) => ({ segment: String(i + 1), duree: p.duree, texte: p.text, visuel: p.visuel || '' }));
@@ -485,7 +485,7 @@ async function shareText(btn, text) {
   // API de partage native (mobile)
   if (navigator.share) {
     try {
-      await navigator.share({ text: realText + '\n\n— Créé avec Scriptura' });
+      await navigator.share({ text: realText + '\n\nCréé avec Scriptura' });
     } catch(e) { /* l'utilisateur a annulé, on ne fait rien */ }
   } else {
     // Repli desktop : copier dans le presse-papier + message
@@ -515,7 +515,7 @@ async function shareIdea(index, btn) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  GÉNÉRATION D'IMAGE — pont vers ChatGPT ou Gemini
+//  GÉNÉRATION D'IMAGE, pont vers ChatGPT ou Gemini
 // ═══════════════════════════════════════════════════════════
 // Ouvre une boîte de dialogue, copie le prompt, puis ouvre l'app choisie.
 let _promptAGenerer = '';
@@ -600,7 +600,7 @@ function fermerGenImage() {
 function lancerGenImage(cible) {
   const texte = _promptAGenerer;
 
-  // 1. Copier le prompt EN PARALLÈLE (sans attendre — sinon iOS bloque l'ouverture d'app)
+  // 1. Copier le prompt EN PARALLÈLE (sans attendre, sinon iOS bloque l'ouverture d'app)
   try { navigator.clipboard.writeText(texte); } catch(e) { /* silencieux */ }
 
   // 2. Préparer les liens
@@ -632,7 +632,7 @@ function lancerGenImage(cible) {
   window.addEventListener('blur', annuler);      // le dialogue iOS fait perdre le focus → annule le repli
   window.addEventListener('pagehide', annuler);
 
-  // 4. Ouvrir l'app IMMÉDIATEMENT (synchrone, dans le contexte du clic — exigé par iOS)
+  // 4. Ouvrir l'app IMMÉDIATEMENT (synchrone, dans le contexte du clic, exigé par iOS)
   window.location.href = appUrl;
 }
 

@@ -9,24 +9,24 @@ let serieDuree = '45 à 60 secondes'; // durée cible de chaque épisode
 let serieCouranteId = null;   // série ouverte dans le détail
 
 // Le genre choisi doit avoir un effet réel sur la mécanique de la série, pas
-// juste apparaître en contexte passif — utilisé à la fois pour la bible
+// juste apparaître en contexte passif, utilisé à la fois pour la bible
 // (promptBible) et pour chaque épisode (genererEpisode).
 const CODES_GENRE_SERIE = {
-  'Dramatique': 'maximise la tension et les enjeux personnels dans chaque épisode — quelque chose de précis doit être en jeu (perte, échec, confrontation), pas juste "une histoire".',
-  'Enquête et révélation': 'chaque épisode dévoile UN élément nouveau qui change la compréhension de ce qui précède — construis une vraie progression d\'indices, jamais une révélation gratuite sans lien avec les épisodes précédents.',
-  'Transformation et parcours': 'chaque épisode marque une étape concrète et visible d\'évolution (avant/après, palier franchi) — le spectateur doit sentir une progression réelle épisode après épisode.',
+  'Dramatique': 'maximise la tension et les enjeux personnels dans chaque épisode, quelque chose de précis doit être en jeu (perte, échec, confrontation), pas juste "une histoire".',
+  'Enquête et révélation': 'chaque épisode dévoile UN élément nouveau qui change la compréhension de ce qui précède, construis une vraie progression d\'indices, jamais une révélation gratuite sans lien avec les épisodes précédents.',
+  'Transformation et parcours': 'chaque épisode marque une étape concrète et visible d\'évolution (avant/après, palier franchi), le spectateur doit sentir une progression réelle épisode après épisode.',
   'Portrait et biographie': 'chaque épisode peut se concentrer sur une figure ou un aspect précis, mais garde un fil conducteur commun qui donne envie de voir "qui" ou "quoi" vient ensuite.',
-  'Classement et compte à rebours': 'structure la progression des épisodes du moins fort au plus fort (ou l\'inverse) — la position dans le classement doit créer une attente explicite.',
+  'Classement et compte à rebours': 'structure la progression des épisodes du moins fort au plus fort (ou l\'inverse), la position dans le classement doit créer une attente explicite.',
   'Éducatif et explicatif': 'chaque épisode clarifie un sous-sujet précis et autonome, tout en construisant une compréhension cumulative au fil de la série.'
 };
 function instructionGenreSerie(genre) {
   return genre
-    ? `GENRE "${genre}" — RESPECTE SA MÉCANIQUE : ${CODES_GENRE_SERIE[genre] || 'adapte la structure à ce genre précis.'}`
+    ? `GENRE "${genre}", RESPECTE SA MÉCANIQUE : ${CODES_GENRE_SERIE[genre] || 'adapte la structure à ce genre précis.'}`
     : 'Aucun genre précisé : choisis la mécanique narrative la plus pertinente pour le concept.';
 }
 
 // Cibles de mots par durée d'épisode (~2,5 mots/seconde, cohérent avec la
-// consigne déjà donnée dans le prompt d'écriture) — permet une vérification
+// consigne déjà donnée dans le prompt d'écriture), permet une vérification
 // programmatique après génération, comme pour les modes Script et Storytelling.
 const WORD_TARGETS_SERIE = {
   '30 à 45 secondes': { min: 75, max: 115 },
@@ -81,7 +81,7 @@ function serieEsc(t) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
 
-// Repart d'un formulaire vide pour une nouvelle série — sans ça, la niche/le
+// Repart d'un formulaire vide pour une nouvelle série, sans ça, la niche/le
 // concept/le genre d'une série précédente (annulée ou déjà créée) restaient
 // silencieusement actifs pour la suivante, même sans aucun rapport avec elle
 // (même défaut de réinitialisation que Script/Idées/Récit, voir restart()).
@@ -97,7 +97,7 @@ function restartCreationSerie() {
   const err = document.getElementById('serieError');
   if (err) err.style.display = 'none';
   // Durée par épisode et nombre d'épisodes reviennent à leur choix par
-  // défaut (45-60 sec, 5 épisodes — déjà .active dans le HTML d'origine).
+  // défaut (45-60 sec, 5 épisodes, déjà .active dans le HTML d'origine).
   serieDuree = '45 à 60 secondes';
   serieNbEpisodes = 5;
   document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(b => b.classList.toggle('active', b.dataset.val === serieDuree));
@@ -134,7 +134,7 @@ async function proposerConceptsSerie() {
   const prompt = `Tu es un stratège de contenu pour créateurs TikTok francophones.
 Propose 3 concepts de SÉRIE (feuilleton en plusieurs épisodes) pour un créateur.
 Niche : ${niche}
-Zone géographique / contexte culturel : ${geo || 'non précisée — reste général, n\'ancre pas les concepts dans une région particulière'}
+Zone géographique / contexte culturel : ${geo || 'non précisée, reste général, n\'ancre pas les concepts dans une région particulière'}
 Genre souhaité : ${genre || 'libre'}
 Style de contenu : ${style}
 Un bon concept de série : un fil conducteur clair, chaque épisode autonome mais donnant envie du suivant, et un titre qui promet une suite.
@@ -164,7 +164,7 @@ ${instructionRechercheWeb(niche, 'de proposer des concepts')}Réponds UNIQUEMENT
 
 function choisirConcept(el) {
   const champ = document.getElementById('serieConcept');
-  if (champ) champ.value = el.dataset.titre + ' — ' + (el.querySelector('span')?.textContent || '');
+  if (champ) champ.value = el.dataset.titre + ', ' + (el.querySelector('span')?.textContent || '');
   document.getElementById('serieConceptsPropos').style.display = 'none';
   champ?.scrollIntoView({ behavior:'smooth', block:'center' });
 }
@@ -225,7 +225,7 @@ async function creerSerie() {
   if (txt) txt.textContent = 'Construction de ta série…';
   startGenAnimation('serie_creation');
 
-  // Mémoire du créateur : voir js/profil.js — une ligne de contexte en plus,
+  // Mémoire du créateur : voir js/profil.js, une ligne de contexte en plus,
   // sans toucher aux principes d'écriture ci-dessous.
   const profilLigneSerie = ligneProfilPourPrompt(await chargerProfilCreateur());
 
@@ -236,7 +236,7 @@ Construis la BIBLE d'une série courte, puis son ARC narratif.
 
 CONCEPT DONNÉ PAR LE CRÉATEUR : ${concept}
 NICHE : ${niche}
-ZONE GÉOGRAPHIQUE / CONTEXTE CULTUREL : ${geo || 'non précisée — reste général, n\'ancre pas la série dans une région particulière'}
+ZONE GÉOGRAPHIQUE / CONTEXTE CULTUREL : ${geo || 'non précisée, reste général, n\'ancre pas la série dans une région particulière'}
 GENRE : ${genre}
 FORMAT DE PRÉSENTATION : ${format}
 TON D'ÉCRITURE : ${style}
@@ -246,7 +246,7 @@ ${profilLigneSerie ? profilLigneSerie : ''}
 Principes à respecter (méthode d'écriture épisodique courte) :
 - La contrainte crée la structure : définis une règle récurrente que CHAQUE épisode devra respecter.
 - Adapte la règle récurrente et le ton au FORMAT : en faceless (sans visage), la signature peut être visuelle ou textuelle (un mot-clé à l'écran, un type de plan récurrent) ; en face caméra, une signature de présence (une accroche parlée, un rituel d'ouverture face public).
-- RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${style}". Le champ "ton" de la bible doit décrire fidèlement CE ton précis, pas un autre — c'est une consigne explicite du créateur, pas une suggestion.
+- RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${style}". Le champ "ton" de la bible doit décrire fidèlement CE ton précis, pas un autre, c'est une consigne explicite du créateur, pas une suggestion.
 - ${instructionGenreSerie(genre)}
 - Chaque épisode sert UNE seule fonction narrative et se termine sur une tension non résolue.
 - L'arc doit monter : accroche, approfondissement, point culminant, résolution au dernier épisode.
@@ -333,7 +333,7 @@ async function ouvrirSerie(id) {
     if (error) throw error;
     const total = data.nb_episodes || 5;
     const eps = Array.isArray(data.episodes) ? data.episodes : [];
-    // Format réel de la série (bible.format) — data.style est le TON depuis
+    // Format réel de la série (bible.format), data.style est le TON depuis
     // l'ajout du champ Format séparé ; repli pour les séries plus anciennes.
     const b = data.bible || {};
     const formatSerieDetail = b.format
@@ -453,7 +453,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   });
   prog.start();
 
-  // Rendu progressif — mêmes gabarit et cadre (.out-card) que les modes
+  // Rendu progressif, mêmes gabarit et cadre (.out-card) que les modes
   // Script/Récit/Storyboard seul (voir js/storyboard.js) : les plans
   // apparaissent lot par lot au fur et à mesure, jamais tous d'un coup.
   if (zone) zone.innerHTML = `<div class="out-card sb-appear open">
@@ -495,7 +495,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     if (!ep) return;
 
     // voix_off_propre (texte parlé seul, sans étiquette "VOIX OFF"/"TEXTE À
-    // L'ÉCRAN" ni minutage) : source du storyboard depuis ce correctif —
+    // L'ÉCRAN" ni minutage) : source du storyboard depuis ce correctif,
     // ep.script reste le texte formaté affiché/copié par le créateur, mais
     // le faire lire tel quel par le découpage narratif collait ces étiquettes
     // dans les plans, et donc dans la voix off générée ensuite.
@@ -504,7 +504,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
 
     // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
     // le nombre de plans n'est plus limité par ce qu'une seule requête peut
-    // produire dans son budget de temps — les visuels sont générés par lots
+    // produire dans son budget de temps, les visuels sont générés par lots
     // (voir genererVisuelsParLots), donc un épisode long reste rapide et fiable.
     const plans = segmentNarrativeStoryboard(scriptText);
     if (!plans.length) throw new Error('Script vide');
@@ -538,7 +538,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     // Masquer le bouton (le storyboard affiché + son bouton "Régénérer" prennent le relais)
     if (btn) btn.style.display = 'none';
 
-    // On rattache le storyboard complet (miniature + segments) a l'episode —
+    // On rattache le storyboard complet (miniature + segments) a l'episode,
     // persisté APRÈS l'affichage : un échec réseau ici n'efface jamais ce
     // que l'utilisateur voit déjà à l'écran.
     const nouveaux = eps.map(e => e.num === numEp
@@ -688,7 +688,7 @@ Ton : ${b.ton || ''}
 Règle récurrente à respecter absolument : ${b.regle_recurrente || 'aucune'}
 Genre : ${serie.genre || ''}
 Niche : ${serie.niche}
-Zone géographique / contexte culturel : ${b.zone_geo || 'non précisée — reste général'}
+Zone géographique / contexte culturel : ${b.zone_geo || 'non précisée, reste général'}
 Format de présentation : ${formatSerie}
 Ton d'écriture : ${serie.style}
 
@@ -704,17 +704,17 @@ RÈGLES D'ÉCRITURE :
 - Respecte la règle récurrente de la bible : c'est la signature de la série.
 - ${instructionGenreSerie(serie.genre)}
 - L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
-- DURÉE CIBLE — RÈGLE ABSOLUE : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde). Compte tes mots avant de répondre.
+- DURÉE CIBLE, RÈGLE ABSOLUE : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde). Compte tes mots avant de répondre.
 - Accroche forte dès les 3 premières secondes.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
 ${instructionRechercheWeb(serie.niche, 'd\'écrire cet épisode')}
-FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
+FORMAT, RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
 ${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :
 Le script et le texte à l'écran portent 100 % du récit.
 - Écris en DEUX temps clairement séparés : la VOIX OFF (ce qu'on entend) et le TEXTE À L'ÉCRAN (mots-clés forts et courts, ce qu'on lit).
-- Accroche dans les 5 PREMIERS MOTS. Phrases courtes, UNE idée par ligne — jamais un paragraphe.
+- Accroche dans les 5 PREMIERS MOTS. Phrases courtes, UNE idée par ligne, jamais un paragraphe.
 - Fais VOIR par des images concrètes et sensorielles ; bannis les adjectifs vagues ("intense", "incroyable").
 - Pense en plans courts : une nouvelle idée visuelle toutes les 2-3 secondes ; une relance d'attention toutes les ~20 secondes.
 - AUCUNE adresse directe du type "regarde-moi", "je vais te montrer face caméra".
@@ -725,9 +725,9 @@ Le créateur est à l'écran et s'adresse directement à sa caméra, avec un vra
 - AUCUNE mention de "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" : ce sont des codes faceless, interdits ici.
 - Le champ "directives" dit COMMENT se filmer : cadrage (gros plan, plan poitrine), décor, énergie et ton, où regarder, quand marquer une pause, quel geste ou expression appuyer le propos.`}
 
-TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton pour toute la série : "${serie.style}". Écris l'INTÉGRALITÉ de cet épisode dans CE ton, sans jamais dévier vers un autre registre — même partiellement. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique.
+TON, RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton pour toute la série : "${serie.style}". Écris l'INTÉGRALITÉ de cet épisode dans CE ton, sans jamais dévier vers un autre registre, même partiellement. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique.
 
-CHAMP SUPPLÉMENTAIRE OBLIGATOIRE — "voix_off_propre" : en plus de "script" (le texte complet mis en forme, prêt à tourner), renvoie aussi "voix_off_propre" qui contient UNIQUEMENT ce qui doit être entendu à voix haute par une voix off automatique, en phrases normales mises bout à bout — JAMAIS les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", ni aucun minutage entre crochets ou parenthèses (ex: "[0-3s]"), ni le contenu du texte à l'écran lui-même. ${estFaceless ? 'Ce format sépare voix off et texte à l\'écran dans "script" : "voix_off_propre" ne garde QUE la partie parlée, débarrassée de toute étiquette et de tout minutage.' : 'Ce format n\'a pas de séparation voix off / texte à l\'écran : "voix_off_propre" est alors identique à "script".'}
+CHAMP SUPPLÉMENTAIRE OBLIGATOIRE, "voix_off_propre" : en plus de "script" (le texte complet mis en forme, prêt à tourner), renvoie aussi "voix_off_propre" qui contient UNIQUEMENT ce qui doit être entendu à voix haute par une voix off automatique, en phrases normales mises bout à bout, JAMAIS les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", ni aucun minutage entre crochets ou parenthèses (ex: "[0-3s]"), ni le contenu du texte à l'écran lui-même. ${estFaceless ? 'Ce format sépare voix off et texte à l\'écran dans "script" : "voix_off_propre" ne garde QUE la partie parlée, débarrassée de toute étiquette et de tout minutage.' : 'Ce format n\'a pas de séparation voix off / texte à l\'écran : "voix_off_propre" est alors identique à "script".'}
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","voix_off_propre":"uniquement le texte parlé, sans étiquette ni minutage","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
@@ -755,7 +755,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     }
     if (!ep || !ep.script) throw new Error('réponse illisible');
     // Filet de sécurité : si l'IA a oublié voix_off_propre (champ nouveau,
-    // pas garanti à 100%), on retombe sur script — moins propre pour le
+    // pas garanti à 100%), on retombe sur script, moins propre pour le
     // faceless, mais jamais pire qu'avant ce correctif.
     if (!ep.voix_off_propre || typeof ep.voix_off_propre !== 'string' || !ep.voix_off_propre.trim()) {
       ep.voix_off_propre = ep.script;
@@ -789,7 +789,7 @@ RÈGLES :
 - Le nouvel épisode DOIT faire entre ${wtSerie.min} et ${wtSerie.max} mots au total. Compte tes mots avant de répondre.
 - Garde le ton "${serie.style}" strictement, du début à la fin.
 - Garde le même titre, la même tension finale, le même format (${formatSerie}).
-- Renvoie aussi "voix_off_propre" mis à jour : UNIQUEMENT le texte parlé du nouvel épisode, sans les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" ni aucun minutage entre crochets — même règle que pour la génération initiale.
+- Renvoie aussi "voix_off_propre" mis à jour : UNIQUEMENT le texte parlé du nouvel épisode, sans les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" ni aucun minutage entre crochets, même règle que pour la génération initiale.
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"script":"le script complet corrigé","voix_off_propre":"uniquement le texte parlé du nouvel épisode, sans étiquette ni minutage"}`;
@@ -823,10 +823,10 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     // Enregistre aussi dans l'historique (et compte dans le quota du mois).
     // serie_id est ajouté uniquement pour cet enregistrement (ep lui-même
     // reste inchangé) : il permet à reopenGeneration (js/historique.js) de
-    // rouvrir directement la vraie vue série — avec le storyboard généré
-    // depuis, s'il y en a un — plutôt qu'un aperçu figé du script seul.
+    // rouvrir directement la vraie vue série, avec le storyboard généré
+    // depuis, s'il y en a un, plutôt qu'un aperçu figé du script seul.
     if (typeof saveGeneration === 'function') {
-      try { saveGeneration('serie', serie.titre + ' — épisode ' + num, Object.assign({}, ep, { serie_id: serieCouranteId })); } catch(e) {}
+      try { saveGeneration('serie', serie.titre + ', épisode ' + num, Object.assign({}, ep, { serie_id: serieCouranteId })); } catch(e) {}
     }
 
     stopGenAnimation();
@@ -849,7 +849,7 @@ async function chooseMode(mode) {
   if (mode === 'audit') {
     // Écran de choix, ouvert à tous (abonné ou non) : diagnostic sommaire
     // via @nom d'utilisateur, ou diagnostic complet par captures (celui-ci
-    // reste réservé au Pro/jetons — vérifié dans ouvrirCapturesDepuisChoix,
+    // reste réservé au Pro/jetons, vérifié dans ouvrirCapturesDepuisChoix,
     // js/diagnostic-sommaire.js, au moment où l'utilisateur choisit cette option).
     if (dsf) dsf.style.display = 'block';
     if (typeof resetDiagnosticSommaireForm === 'function') resetDiagnosticSommaireForm();

@@ -3,8 +3,8 @@
 // plus sa place à l'écran : seul le résultat compte. masquerFormulaireGeneration
 // le cache (appelée depuis chaque fonction de rendu de résultat) ; le bouton
 // "✎ Modifier" du résultat appelle afficherFormulaireGeneration pour le faire
-// réapparaître — sans jamais toucher aux valeurs déjà saisies, seulement leur
-// visibilité — afin de changer ses critères et régénérer.
+// réapparaître, sans jamais toucher aux valeurs déjà saisies, seulement leur
+// visibilité, afin de changer ses critères et régénérer.
 function masquerFormulaireGeneration(formId) {
   const form = document.getElementById(formId);
   if (form) form.style.display = 'none';
@@ -31,7 +31,7 @@ function afficherFormulaireGeneration(formId, resultsId) {
 // jamais silencieusement à la suivante. Volontairement à part de chooseMode()
 // : plusieurs chemins internes (lancerIdeesDepuisAudit, demarrerIdeesDepuisSommaire…)
 // appellent chooseMode() eux-mêmes pour ouvrir l'écran PUIS pré-remplissent
-// un champ précis — un reset à l'intérieur de chooseMode() effacerait ce
+// un champ précis, un reset à l'intérieur de chooseMode() effacerait ce
 // pré-remplissage juste après qu'il ait été posé.
 function demarrerModeDepuisAccueil(mode) {
   if (mode === 'script' && typeof restart === 'function') restart();
@@ -56,7 +56,7 @@ async function revelerModes() {
 
   // L'invitation "Commence par analyser ton compte" et le badge "Commence
   // ici" (voir aFaitAnalyseCompte, js/recommandations.js) ne s'affichent
-  // que si ce n'est pas déjà fait — sinon on continue de pousser vers une
+  // que si ce n'est pas déjà fait, sinon on continue de pousser vers une
   // étape déjà franchie. `hint` reste caché (son display:none inline
   // d'origine) pendant la vérification, pour ne jamais l'afficher puis le
   // masquer aussitôt (effet de clignotement).
@@ -99,7 +99,7 @@ const HERO_CTA_PHRASES_ABONNE = [
   "On s'y met ?"
 ];
 // Tirée une seule fois par visite (pas à chaque appel de majHeroCta, qui est
-// rappelée souvent — après chaque génération, changement de quota…) pour que
+// rappelée souvent, après chaque génération, changement de quota…) pour que
 // le texte reste stable pendant toute la session au lieu de changer sous les yeux.
 let _heroCtaPhraseAbonne = null;
 function majHeroCta() {

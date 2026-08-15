@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  MODULE DIAGNOSTIC SOMMAIRE — analyse via @nom d'utilisateur TikTok
+//  MODULE DIAGNOSTIC SOMMAIRE, analyse via @nom d'utilisateur TikTok
 //  Alternative légère au diagnostic complet par captures (js/audit.js) :
 //  aucune capture à envoyer. api/username-scan.js lit le PROFIL via LamaTok
 //  et la LISTE DES VIDÉOS (vues, dates, ET sujets/légendes) via ScrapTik.
@@ -17,8 +17,8 @@
 //  jamais fourni tel quel par l'IA.
 //
 //  Rendu avec la palette Scriptura (doré + émeraude pour les points forts
-//  — même mécanique que l'anneau de score du diagnostic complet).
-//  Quota : aucun compteur dédié — consomme le même quota que les autres
+// , même mécanique que l'anneau de score du diagnostic complet).
+//  Quota : aucun compteur dédié, consomme le même quota que les autres
 //  modes de création (script, idées, récit). Non-abonné : ses 5
 //  générations gratuites partagées ; Creator/Pro : leur quota mensuel de
 //  création habituel.
@@ -58,7 +58,7 @@ function resetDiagnosticSommaireForm() {
 
 // « Envoie tes captures » depuis l'écran de choix : bascule vers le
 // diagnostic complet existant (js/audit.js), qui reste réservé au Pro
-// (ou aux jetons) — même vérification qu'avant la refonte de l'écran d'entrée.
+// (ou aux jetons), même vérification qu'avant la refonte de l'écran d'entrée.
 async function ouvrirCapturesDepuisChoix() {
   if (!aAccesMode('audit')) {
     const jetonsDispo = await lireJetonsAudit();
@@ -103,7 +103,7 @@ function dsAbonnes(profil) {
 
 // Calcule à partir des vidéos réelles (endpoint /v1/user/medias) les
 // métriques nécessaires aux dimensions Portée, Régularité et Viralité.
-// Retourne null si trop peu de vidéos chiffrées pour être fiable — le
+// Retourne null si trop peu de vidéos chiffrées pour être fiable, le
 // diagnostic retombe alors sur l'Engagement seul (comme avant).
 function calculerMetriquesVideos(medias, abonnes) {
   const vid = (Array.isArray(medias) ? medias : []).filter(v => typeof v.vues === 'number' && v.vues >= 0);
@@ -127,14 +127,14 @@ function calculerMetriquesVideos(medias, abonnes) {
 }
 
 // Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
-// en cours" — jamais les deux affichés en même temps.
+// en cours", jamais les deux affichés en même temps.
 function toggleDiagSommaireEntree(visible) {
   document.querySelectorAll('#diagSommaireFlow .ds-scope, #diagSommaireFlow .ds-field, #diagSommaireFlow .ds-note, #diagSommaireFlow .ds-sep, #diagSommaireFlow .ds-alt').forEach(el => {
     el.style.display = visible ? '' : 'none';
   });
 }
 
-// Messages qui défilent sous le pourcentage pendant l'analyse — ce
+// Messages qui défilent sous le pourcentage pendant l'analyse, ce
 // diagnostic est rapide (un seul profil public à lire), contrairement au
 // diagnostic complet par captures qui peut prendre plusieurs minutes.
 const DS_LOADING_MESSAGES = [
@@ -156,7 +156,7 @@ function demarrerAnimationChargementDs() {
     if (statusEl) statusEl.textContent = DS_LOADING_MESSAGES[i];
   }, 1600);
   // Réutilise le même moteur de progression estimée que le storyboard
-  // (js/storyboard.js) — durée courte car un seul appel léger est en jeu ici.
+  // (js/storyboard.js), durée courte car un seul appel léger est en jeu ici.
   const prog = (typeof createProgress === 'function')
     ? createProgress((p) => { if (pctEl) pctEl.textContent = p + '%'; }, 6000)
     : null;
@@ -233,10 +233,10 @@ async function lancerDiagnosticSommaire() {
     const metriques = calculerMetriquesVideos(donnees.medias, abonnes);
 
     // Bloc vidéos injecté dans le prompt UNIQUEMENT si on a des métriques
-    // réelles — sinon on garde la consigne d'origine (profil seul).
+    // réelles, sinon on garde la consigne d'origine (profil seul).
     const blocVideos = metriques ? `
 
-DONNÉES PAR VIDÉO (calculées à partir des ${metriques.n} dernières vidéos publiques réelles — ce sont des FAITS, utilise-les tels quels) :
+DONNÉES PAR VIDÉO (calculées à partir des ${metriques.n} dernières vidéos publiques réelles, ce sont des FAITS, utilise-les tels quels) :
 - Vues moyennes par vidéo : ${metriques.moyVues}
 - Vues médianes par vidéo : ${metriques.medianeVues}
 - Meilleure vidéo : ${metriques.maxVues} vues
@@ -246,7 +246,7 @@ ${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${met
 
 Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits (voir barèmes plus bas).` : `
 
-LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité — n'invente aucune de ces trois valeurs.`;
+LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
 
     // Sujets des vidéos (légendes) triés par vues : nourrit l'analyse de
     // CONTENU (niche réelle, top/flop, concepts récurrents). On envoie à l'IA
@@ -262,14 +262,14 @@ LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le
       if (n <= 40) {
         blocSujets = `
 
-SUJETS DES VIDÉOS (${n} vidéos, de la plus vue à la moins vue — sujet réel + performance ; ta SEULE source pour la niche, le top/flop et les concepts récurrents) :
+SUJETS DES VIDÉOS (${n} vidéos, de la plus vue à la moins vue, sujet réel + performance ; ta SEULE source pour la niche, le top/flop et les concepts récurrents) :
 ${videosAvecSujet.map(ligneVideo).join('\n')}`;
       } else {
         const haut = videosAvecSujet.slice(0, 25);
         const bas = videosAvecSujet.slice(-15);
         blocSujets = `
 
-SUJETS DES VIDÉOS (${n} vidéos analysées) — voici les ${haut.length} PLUS VUES puis les ${bas.length} MOINS VUES. C'est ta source pour la niche, le top/flop et les concepts.
+SUJETS DES VIDÉOS (${n} vidéos analysées), voici les ${haut.length} PLUS VUES puis les ${bas.length} MOINS VUES. C'est ta source pour la niche, le top/flop et les concepts.
 LES PLUS VUES :
 ${haut.map(ligneVideo).join('\n')}
 LES MOINS VUES (candidates au flop) :
@@ -284,7 +284,7 @@ ${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
 ${blocVideos}
 ${blocSujets}
 
-RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false — n'invente jamais un chiffre.
+RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false, n'invente jamais un chiffre.
 
 ENGAGEMENT (sur 30) : si le nombre de likes cumulés ET le nombre de vidéos sont présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si c'est proportionnellement élevé ou faible face au nombre d'abonnés. Précise que c'est une estimation (le vrai taux d'engagement nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null.
    BARÈME /30 (strict) : TRÈS FAIBLE → 0-8 · FAIBLE → 9-15 · CORRECT → 16-22 · FORT → 23-30.
@@ -302,10 +302,10 @@ COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score ch
 
 BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
 
-NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique — focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
+NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique, focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
 
 TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
-   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une — ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
+   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une, ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
    • FLOP = à choisir parmi les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane (ce sont les vraies contre-performances, pas des vidéos moyennes). Maximum 3.
    • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée pour l'un ou l'autre).
    Pour chacune : résume le SUJET en quelques mots (pas la légende entière), donne le nombre de vues, et explique en une phrase la raison de la performance. INTERDIT d'écrire « en deçà de la médiane » pour une vidéo du top, ou « performe bien » pour une vidéo du flop : le constat doit toujours coller à la position réelle vs la médiane.
@@ -314,7 +314,7 @@ CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèm
 
 LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil ET sujets/performances des vidéos si fournis). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Jamais de supposition sur des vidéos absentes des données.
 
-SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio) — reste prudent si peu de données sont exploitables.
+SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio), reste prudent si peu de données sont exploitables.
 
 RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement (ex: "12 400 abonnés"), jamais de séparateur anglo-saxon.
 
@@ -366,7 +366,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
     errorBox.style.display = 'block';
     // Ré-affiche le champ de saisie uniquement en cas d'échec, pour permettre
-    // de réessayer — en cas de succès, il reste masqué : le résultat prend
+    // de réessayer, en cas de succès, il reste masqué : le résultat prend
     // sa place (voir analyserAutreCompteDiagSommaire pour le faire réapparaître).
     toggleDiagSommaireEntree(true);
   } finally {
@@ -378,14 +378,14 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
   }
 }
 
-// Anime l'anneau de score + le chiffre qui monte — même mécanique que
+// Anime l'anneau de score + le chiffre qui monte, même mécanique que
 // js/audit.js (animerScoreAudit), sur des identifiants distincts (dsRingFill
 // / dsScoreNum) puisque les deux écrans ont chacun leur propre anneau.
 function animerScoreDiagSommaire(valeur, circonference) {
   const numEl = document.getElementById('dsScoreNum');
   const ringEl = document.getElementById('dsRingFill');
   if (valeur == null || Number.isNaN(valeur)) {
-    if (numEl) numEl.textContent = '—';
+    if (numEl) numEl.textContent = '·';
     return;
   }
   const cible = Math.max(0, Math.min(100, valeur));
@@ -418,12 +418,12 @@ const DS_DIM_META = {
 };
 
 // Ces 3 dimensions ont structurellement besoin de données par vidéo
-// (dates, vues individuelles) qu'aucun profil public LamaTok n'expose —
+// (dates, vues individuelles) qu'aucun profil public LamaTok n'expose,
 // toujours non disponibles ici, jamais une estimation inventée.
 const DS_TOUJOURS_INDISPONIBLE = {
   portee: "Non calculable avec un simple profil public : TikTok n'expose pas le nombre de vues par vidéo à cette échelle. Le diagnostic complet (captures) le permet.",
   regularite: "Non calculable sans la date de chaque vidéo, une donnée absente d'un profil public. Le diagnostic complet (captures) le permet.",
-  viralite: "Non calculable sans pouvoir comparer tes vidéos entre elles individuellement — donnée indisponible via un simple profil public."
+  viralite: "Non calculable sans pouvoir comparer tes vidéos entre elles individuellement, donnée indisponible via un simple profil public."
 };
 
 // Affiche le résultat (nouvelle génération OU réouverture depuis l'historique).
@@ -453,7 +453,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const score = scoreMax > 0 ? Math.round((scoreObtenu / scoreMax) * 100) : null;
 
   // Couleur selon le niveau du score : rouge en dessous de 50, orange entre
-  // 50 et 70, émeraude à partir de 70 — même palette que js/audit.js
+  // 50 et 70, émeraude à partir de 70, même palette que js/audit.js
   // (paletteScoreAudit), pour un repère de couleur cohérent entre les deux
   // diagnostics.
   const paletteScore = paletteScoreAudit(score);
@@ -465,7 +465,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
     // Dimension telle que renvoyée par l'IA ; à défaut (dimension absente de
     // la réponse), on la marque non disponible avec le texte explicatif dédié.
     const dim = d[cle] || { disponible: false, constat: DS_TOUJOURS_INDISPONIBLE[cle] };
-    // Badge coloré selon le niveau (rouge/orange/émeraude) — voir
+    // Badge coloré selon le niveau (rouge/orange/émeraude), voir
     // niveauScoreSur() dans js/audit.js, seuils partagés avec le score global.
     const disponible = dimEstMesurable(dim);
     const niveau = disponible ? niveauScoreSur(dim.score, meta.max) : 'niveau-neutre';
@@ -475,7 +475,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
       <div class="ds-dim-head">
         <span class="ds-dim-icon">${meta.icone}</span>
         <span class="ds-dim-name">${meta.label}</span>
-        <span class="score-badge ${niveau}">${disponible ? (dim.score + '/' + meta.max) : '—'}</span>
+        <span class="score-badge ${niveau}">${disponible ? (dim.score + '/' + meta.max) : '·'}</span>
       </div>
       <p class="ds-dim-text">${diagSommaireEsc(constat)}</p>
     </div>`;
@@ -550,17 +550,17 @@ function afficherDiagnosticSommaireResultat(d, username) {
       </ol>
     </div>` : '';
 
-  // Invitation vers l'analyse détaillée (captures) — copie différente selon
+  // Invitation vers l'analyse détaillée (captures), copie différente selon
   // que l'utilisateur y a déjà accès (Pro/admin) ou doit encore la débloquer
   // (Creator, non-abonné), mais les DEUX versions mentionnent le jeton.
   // Bouton : celui qui a déjà accès part directement sur l'assistant de
   // captures (ouvrirCapturesDepuisChoix, qui vérifie l'accès et route au
   // besoin) ; celui qui n'a pas encore accès ouvre TOUJOURS le pop-up
   // d'abonnement (avec les jetons visibles), sans passer par cette même
-  // fonction qui pourrait filer droit à l'assistant s'il a déjà des jetons —
+  // fonction qui pourrait filer droit à l'assistant s'il a déjà des jetons,
   // on veut qu'il voie ses options avant de consommer quoi que ce soit.
   const dejaAcces = (typeof aAccesMode === 'function' && aAccesMode('audit'));
-  // "Ton plan Pro" uniquement pour un vrai abonné Pro payant — un compte
+  // "Ton plan Pro" uniquement pour un vrai abonné Pro payant, un compte
   // admin/illimité a aussi accès, mais n'est pas au plan Pro à proprement
   // parler, donc lui dire "ton plan Pro" serait faux.
   const estProPayant = dejaAcces && unlocked && (typeof monPalier === 'function') && monPalier() === 'pro';
@@ -570,12 +570,12 @@ function afficherDiagnosticSommaireResultat(d, username) {
       <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</button>
     </div>` : `
     <div class="ds-alt">
-      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin — rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>.</p>
+      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin, rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>.</p>
       <button class="btn-generate" onclick="openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne')">Débloquer l'analyse détaillée →</button>
     </div>`;
 
   // Santé DÉRIVÉE du score global (même barème que l'anneau) : garantit la
-  // cohérence score ↔ santé ↔ couleur — jamais "53/100" affiché "Fragile".
+  // cohérence score ↔ santé ↔ couleur, jamais "53/100" affiché "Fragile".
   // Affichée à DEUX endroits : juste sous le score, et sous les dimensions.
   const sante = (typeof santeCompteDepuisScore === 'function') ? santeCompteDepuisScore(score) : null;
   const santeRowHtml = sante
@@ -583,7 +583,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
     : '';
 
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
-  // mémoire locale — voir afficherOpportuniteDiagSommaire dans recommandations.js).
+  // mémoire locale, voir afficherOpportuniteDiagSommaire dans recommandations.js).
   const opportuniteHtml = (!unlocked) ? `<div id="diagSommaireOpportunites"></div>` : '';
 
   results.innerHTML = `
@@ -628,7 +628,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
   // Recommandation sommaire pour les non-abonnés qui ont déjà assez de
   // mémoire locale (script, récit, autre diagnostic déjà fait sur ce
-  // navigateur) — en tâche de fond, ne retarde jamais l'affichage du
+  // navigateur), en tâche de fond, ne retarde jamais l'affichage du
   // diagnostic lui-même. Voir js/recommandations.js.
   if (!unlocked && typeof afficherOpportuniteDiagSommaire === 'function') {
     afficherOpportuniteDiagSommaire();

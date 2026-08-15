@@ -4,7 +4,7 @@ let currentGenId = null; // id de la génération en cours (pour y rattacher le 
 // Icône marque-page (favori), style TikTok « Enregistrer ». La couleur
 // (gris → or quand c'est un favori) est pilotée par la classe .actif en CSS.
 const ICON_FAV = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17.06a.6.6 0 0 1-.94.5L12 17.8l-6.06 3.76A.6.6 0 0 1 5 21.06V4a1 1 0 0 1 1-1z"/></svg>';
-// Loupe (recherche) et curseurs (filtre par type) — style trait, couleur héritée.
+// Loupe (recherche) et curseurs (filtre par type), style trait, couleur héritée.
 const ICON_SEARCH = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><line x1="15.6" y1="15.6" x2="21" y2="21"/></svg>';
 const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><circle cx="16" cy="6" r="2.6" fill="var(--bg)"/><circle cx="8" cy="12" r="2.6" fill="var(--bg)"/><circle cx="13" cy="18" r="2.6" fill="var(--bg)"/></svg>';
 
@@ -66,7 +66,7 @@ async function updateGenerationStoryboard(storyboardData) {
 
 // Sauvegarde une retouche ciblée (segment de script ou hook modifié) sur la
 // génération déjà enregistrée, pour qu'elle reste visible en rouvrant depuis
-// l'historique — même mécanisme que updateGenerationStoryboard ci-dessus.
+// l'historique, même mécanisme que updateGenerationStoryboard ci-dessus.
 async function sauvegarderRetouche() {
   if (!supabaseClient || !currentGenId) return;
   try {
@@ -346,7 +346,7 @@ async function consommerJetonAudit() {
 
 // Décide si l'utilisateur peut lancer un audit, et par quel moyen.
 // Retourne : 'pro' (analyse mensuelle incluse), 'jeton' (à décompter),
-// ou false (pas le droit — on lui a proposé d'acheter).
+// ou false (pas le droit, on lui a proposé d'acheter).
 async function peutAuditer() {
   // Abonnement expiré ? on bloque avant tout (sauf codes illimités, gérés plus bas)
   if (!estIllimite() && await abonnementExpire()) {
@@ -925,7 +925,7 @@ async function deleteOneSerie(id) {
 }
 
 // Rouvre une génération complète dans son mode d'origine (avec hooks, script, légende,
-// hashtags, storyboard à la demande — exactement comme à la génération)
+// hashtags, storyboard à la demande, exactement comme à la génération)
 function reopenGeneration(i) {
   const g = window._historyData[i];
   if (!g || !g.contenu) return;
@@ -997,7 +997,7 @@ function reopenGeneration(i) {
     if (c.serie_id && typeof ouvrirSerie === 'function') {
       // La vraie vue série (mêmes fonctions que le module Série) : montre
       // TOUS les épisodes déjà écrits, avec leur storyboard s'il en existe
-      // un — jamais un aperçu figé du seul épisode consulté depuis
+      // un, jamais un aperçu figé du seul épisode consulté depuis
       // l'historique, qui serait de toute façon périmé dès qu'un storyboard
       // est généré après coup (voir serie_id, ajouté dans genererEpisode).
       ouvrirSerie(c.serie_id);
@@ -1110,7 +1110,7 @@ function auditRappelRepondre(aCommence) {
   const rep = document.getElementById('auditRappelReponse');
   const btns = document.getElementById('auditRappelStep2Btns');
   if (aCommence) {
-    rep.textContent = 'Excellent. La régularité fait toute la différence — continue sur cette lancée, tu es sur la bonne voie.';
+    rep.textContent = 'Excellent. La régularité fait toute la différence, continue sur cette lancée, tu es sur la bonne voie.';
     btns.innerHTML = '<button class="rappel-btn rappel-btn-oui" onclick="fermerRappelAudit()">Continuer</button>';
   } else {
     rep.textContent = 'Pas de souci. Le plus dur, c\'est de commencer. Laisse Scriptura te trouver des idées de contenu, tout de suite.';

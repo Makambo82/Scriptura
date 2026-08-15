@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════
-//  PREUVE SOCIALE — notifications (compteur qui progresse + activité)
+//  PREUVE SOCIALE, notifications (compteur qui progresse + activité)
 // ═══════════════════════════════════════════════════════════
 // Le compteur part d'une base à une date de référence et progresse
 // régulièrement dans le temps → toujours cohérent, jamais en arrière.
 const SOCIAL_BASE = 348;   // nombre de départ
 
 // Le compteur monte de +1 à chaque apparition de la notif.
-// Il est mémorisé (localStorage) pour continuer à monter d'une visite à l'autre — jamais de recul.
+// Il est mémorisé (localStorage) pour continuer à monter d'une visite à l'autre, jamais de recul.
 function socialCount() {
   let n = parseInt(localStorage.getItem('scriptura_social_count'), 10);
   if (isNaN(n) || n < SOCIAL_BASE) n = SOCIAL_BASE;
@@ -56,7 +56,7 @@ function showSocialNotif() {
 
   el.innerHTML = html;
   el.classList.add('visible');
-  // Disparaît après 10s — un clic ne l'affecte pas
+  // Disparaît après 10s, un clic ne l'affecte pas
   setTimeout(() => { el.classList.remove('visible'); }, 10000);
 }
 

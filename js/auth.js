@@ -25,8 +25,8 @@ function closeModal() {
 }
 
 // Interroge /api/verify-code pour savoir si `code` est le code fondateur ou
-// un code VIP/secours (voir api/verify-code.js) et mémorise le verdict —
-// jamais le code lui-même — dans localStorage. Ne lève jamais d'erreur :
+// un code VIP/secours (voir api/verify-code.js) et mémorise le verdict,
+// jamais le code lui-même, dans localStorage. Ne lève jamais d'erreur :
 // en cas d'échec réseau, on part du principe qu'il n'y a ni admin ni illimité.
 async function verifierStatutServeur(code) {
   try {
@@ -135,7 +135,7 @@ async function verifyCode() {
     }
   }
 
-  // Repli : le code n'a pas de ligne Supabase (ou Supabase est indisponible) —
+  // Repli : le code n'a pas de ligne Supabase (ou Supabase est indisponible),
   // il ne peut être valide que s'il s'agit du code admin ou d'un code VIP/secours,
   // vérifié uniquement côté serveur (voir api/verify-code.js).
   const verdict = await verifierStatutServeur(code);

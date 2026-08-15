@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-//  TABLEAU DE BORD — visible uniquement avec le code fondateur (variable
-//  d'environnement CODE_ADMIN sur Vercel, voir api/verify-code.js — jamais
+//  TABLEAU DE BORD, visible uniquement avec le code fondateur (variable
+//  d'environnement CODE_ADMIN sur Vercel, voir api/verify-code.js, jamais
 //  codé en dur côté client). Fichier
 //  INDÉPENDANT : lecture seule sur Supabase, ne modifie aucun mode
 //  existant. Chaque bloc de statistique échoue silencieusement (affiche
@@ -36,7 +36,7 @@ function carteStatAdmin(label, valeur, sousTexte) {
 }
 
 function carteErreurAdmin(label, e) {
-  return carteStatAdmin(label, '—', 'Donnée indisponible (' + (e && e.message ? e.message : 'erreur inconnue') + ')');
+  return carteStatAdmin(label, '·', 'Donnée indisponible (' + (e && e.message ? e.message : 'erreur inconnue') + ')');
 }
 
 async function chargerTableauDeBord() {

@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-//  SUPABASE — Sauvegarde permanente des générations
+//  SUPABASE, Sauvegarde permanente des générations
 // ═══════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════
-//  MODÈLES IA — Haiku partout (rapide et fiable)
+//  MODÈLES IA, Haiku partout (rapide et fiable)
 //  Pour tester un autre modèle plus tard, modifie juste ces 2 lignes.
 // ═══════════════════════════════════════════════════════════
 const MODEL_CREATIF = "claude-haiku-4-5-20251001";    // Haiku partout (rapide et fiable)
@@ -12,7 +12,7 @@ const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : t
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents,
 // avec critique sévère + réécriture ciblée + contrôle anti-générique, voir
 // generate() dans js/generation.js). Activé : la qualité prime sur la
-// vitesse — chaque script passe par un vrai contrôle avant d'être livré.
+// vitesse, chaque script passe par un vrai contrôle avant d'être livré.
 const CRITIQUE_ACTIVE = true;
 // ── Limites journalières par plan ──
 // La création (idées, script, storytelling, diagnostic sommaire) et
@@ -45,7 +45,7 @@ const MODES_PRO = ['audit', 'serie'];
 
 // Statut admin/illimité : déterminé UNIQUEMENT par le serveur (voir
 // api/verify-code.js et verifyCode() dans js/auth.js), jamais en comparant
-// le code local à une valeur codée en dur ici — avant ce changement, le
+// le code local à une valeur codée en dur ici, avant ce changement, le
 // code fondateur (SCRIPTURA-CELINE) était lisible en clair par n'importe
 // qui dans le JavaScript servi au navigateur. Le client se contente de
 // mémoriser le résultat renvoyé par le serveur au moment de la vérification.
@@ -66,7 +66,7 @@ function appliquerClasseAdmin() {
 // donc il faut vérifier ce qui est VRAI MAINTENANT (jamais présenter comme
 // actuel un statut qui a pu changer) ; l'Histoire, elle, ne change pas, mais
 // le modèle peut se tromper sur les faits eux-mêmes (dates, noms, versions
-// déformées) — il faut y vérifier l'EXACTITUDE historique, pas la fraîcheur.
+// déformées), il faut y vérifier l'EXACTITUDE historique, pas la fraîcheur.
 // Pour les autres niches (Business, Bien-être...), la recherche n'apporte
 // rien et ralentirait/coûterait pour rien : on la réserve à ces deux familles.
 const NICHES_ACTUALITE = ['Géopolitique & Actualité', 'Faits divers & Crime'];
@@ -79,10 +79,10 @@ function nicheNecessiteRecherche(niche) {
 // la phrase au moment de l'appel ("de rédiger", "de proposer des idées"...).
 function instructionRechercheWeb(niche, verbe) {
   if (NICHES_HISTORIQUES.includes(niche)) {
-    return `\nVÉRIFICATION HISTORIQUE OBLIGATOIRE : avant ${verbe}, utilise la recherche web pour vérifier l'exactitude des faits historiques que tu comptes citer (dates, noms, chiffres, déroulé des événements) — recherche la version la plus fiable et la plus proche de la réalité, pas une version approximative ou déformée issue de tes seules connaissances d'entraînement.\n`;
+    return `\nVÉRIFICATION HISTORIQUE OBLIGATOIRE : avant ${verbe}, utilise la recherche web pour vérifier l'exactitude des faits historiques que tu comptes citer (dates, noms, chiffres, déroulé des événements), recherche la version la plus fiable et la plus proche de la réalité, pas une version approximative ou déformée issue de tes seules connaissances d'entraînement.\n`;
   }
   if (NICHES_ACTUALITE.includes(niche)) {
-    return `\nSUJET D'ACTUALITÉ : avant ${verbe}, utilise la recherche web pour vérifier les faits, noms, dates, fonctions et statistiques que tu comptes citer sont bien à jour — ne présente jamais comme actuel un statut, un poste ou une situation qui a pu changer depuis tes connaissances d'entraînement : une actualité politique ou géopolitique peut changer chaque jour, va chercher l'information la plus récente, pas une archive.\n`;
+    return `\nSUJET D'ACTUALITÉ : avant ${verbe}, utilise la recherche web pour vérifier les faits, noms, dates, fonctions et statistiques que tu comptes citer sont bien à jour, ne présente jamais comme actuel un statut, un poste ou une situation qui a pu changer depuis tes connaissances d'entraînement : une actualité politique ou géopolitique peut changer chaque jour, va chercher l'information la plus récente, pas une archive.\n`;
   }
   return '';
 }
@@ -97,7 +97,7 @@ function instructionRechercheWeb(niche, verbe) {
 // Activée pour toutes les niches (pas de filtre NICHES_*), sur les deux
 // entrées qui proposent explicitement des sujets/angles au créateur.
 function instructionRechercheTendancesTikTok(niche, verbe) {
-  return `\nTENDANCES TIKTOK ACTUELLES : avant ${verbe}, utilise la recherche web pour repérer ce qui performe RÉELLEMENT et RÉCEMMENT sur TikTok dans la niche "${niche}" (ou une niche proche) — formats qui cartonnent, angles qui reviennent, hooks efficaces, sujets qui génèrent de l'engagement en ce moment. Inspire-toi de ces tendances réelles pour rendre tes propositions plus actuelles et plus performantes, SANS jamais inventer une tendance, un chiffre ou une source que tu n'as pas réellement trouvée — si la recherche ne remonte rien d'utile, reste sur ton expertise plutôt que d'inventer.\n`;
+  return `\nTENDANCES TIKTOK ACTUELLES : avant ${verbe}, utilise la recherche web pour repérer ce qui performe RÉELLEMENT et RÉCEMMENT sur TikTok dans la niche "${niche}" (ou une niche proche), formats qui cartonnent, angles qui reviennent, hooks efficaces, sujets qui génèrent de l'engagement en ce moment. Inspire-toi de ces tendances réelles pour rendre tes propositions plus actuelles et plus performantes, SANS jamais inventer une tendance, un chiffre ou une source que tu n'as pas réellement trouvée, si la recherche ne remonte rien d'utile, reste sur ton expertise plutôt que d'inventer.\n`;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -105,12 +105,20 @@ function instructionRechercheTendancesTikTok(niche, verbe) {
 //  Retente jusqu'à 3 fois si le modèle est surchargé (529) ou
 //  si la réponse est vide/coupée. Attente croissante entre essais.
 // ═══════════════════════════════════════════════════════════
+// Règle de style ajoutée à TOUS les prompts : le tiret cadratin (le long
+// tiret « em dash », U+2014) sonne « écrit par une IA ». On demande au modèle
+// de ne jamais l'employer, et on nettoie la réponse par sécurité (voir
+// tryOnce) au cas où il l'oublierait. (On nomme le caractère plutôt que de
+// l'écrire, pour rester robuste à un futur remplacement automatique.)
+const REGLE_STYLE_TIRET = "Règle de style permanente (français) : n'emploie JAMAIS le tiret cadratin (le long tiret « em dash », caractère Unicode U+2014) dans ta réponse. Structure tes phrases avec des virgules, des points, des deux-points ou des parenthèses selon le sens.\n\n";
+
 async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
+  const promptStyle = REGLE_STYLE_TIRET + prompt;
   // Coupe la requête après 55s (juste sous les 60s de maxDuration côté serveur,
   // voir vercel.json) : sans ça, une requête bloquée reste pendue indéfiniment
   // côté navigateur au lieu d'échouer proprement et de déclencher une nouvelle
-  // tentative — c'était une cause fréquente de générations qui "tournent" sans fin.
+  // tentative, c'était une cause fréquente de générations qui "tournent" sans fin.
   async function tryOnce(useModel) {
     const controller = new AbortController();
     const delaiMax = setTimeout(() => controller.abort(), 55000);
@@ -122,7 +130,7 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
         body: JSON.stringify({
           model: useModel,
           max_tokens: maxTokens,
-          messages: [{ role: "user", content: prompt }],
+          messages: [{ role: "user", content: promptStyle }],
           code_acces: localStorage.getItem('scriptura_code') || null,
           web_search: !!webSearch,
           web_search_max_uses: webSearchMaxUses || undefined
@@ -151,8 +159,12 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
       const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
       return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
     }
-    const raw = data.content?.map(b => b.text || '').join('') || '';
+    let raw = data.content?.map(b => b.text || '').join('') || '';
     if (!raw.trim()) return { ok: false, recoverable: true, detail: 'réponse vide' };
+    // Filet de sécurité : retire tout tiret cadratin (em dash) résiduel que le
+    // modèle aurait laissé malgré la consigne, en le remplaçant par une virgule.
+    // Sans danger pour le JSON (le tiret n'apparaît que dans les valeurs texte).
+    raw = raw.replace(/\s*—\s*/g, ', ');
     return { ok: true, raw: raw };
   }
 
@@ -162,7 +174,7 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
 
   let lastDetail = '';
 
-  // Tentative 1 — modèle demandé (ex: Sonnet)
+  // Tentative 1, modèle demandé (ex: Sonnet)
   try {
     const r1 = await tryOnce(model);
     if (r1.ok) return r1.raw;
@@ -170,7 +182,7 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     if (!r1.recoverable && !usesFallback) throw new Error(lastDetail);
   } catch(e) { lastDetail = e.message; }
 
-  // Petite pause puis Tentative 2 — même modèle
+  // Petite pause puis Tentative 2, même modèle
   await new Promise(r => setTimeout(r, 1500));
   try {
     const r2 = await tryOnce(model);
@@ -178,7 +190,7 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     lastDetail = r2.detail;
   } catch(e) { lastDetail = e.message; }
 
-  // Tentative 3 — bascule automatique sur Haiku (si on visait Sonnet)
+  // Tentative 3, bascule automatique sur Haiku (si on visait Sonnet)
   if (usesFallback) {
     try {
       const r3 = await tryOnce(fallbackModel);
@@ -214,7 +226,7 @@ function getUserRef() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ANTI-CONTOURNEMENT — empreinte d'appareil + IP (via Supabase)
+//  ANTI-CONTOURNEMENT, empreinte d'appareil + IP (via Supabase)
 // ═══════════════════════════════════════════════════════════
 // Objectif : le quota gratuit ne se réinitialise PAS quand on vide le cache.
 // On calcule une empreinte stable de l'appareil (indépendante du localStorage)
@@ -313,7 +325,7 @@ async function fetchServerQuota() {
 // des images du montage (Together). "footer" en anglais car les prompts le sont
 // (les générateurs suivent bien mieux l'anglais). "neutre" = aucun style imposé.
 const STYLES_VISUELS = [
-  { id: 'peinture',  label: "🎨 Peinture à l'huile",        footer: 'Rendered as a classic oil painting with visible brushstrokes and canvas texture — a painterly fine-art illustration, not a photograph.' },
+  { id: 'peinture',  label: "🎨 Peinture à l'huile",        footer: 'Rendered as a classic oil painting with visible brushstrokes and canvas texture, a painterly fine-art illustration, not a photograph.' },
   { id: 'neutre',    label: '⚪ Style neutre',                footer: '' },
   { id: 'cinema',    label: '🎬 Cinématographique réaliste', footer: 'Cinematic photorealistic still, dramatic film lighting, rich cinematic color grading, shallow depth of field, movie-like atmosphere.' },
   { id: 'aquarelle', label: '💧 Aquarelle',                  footer: 'Soft watercolor painting, delicate washes of color, gentle bleeding edges, light paper texture, poetic and airy mood.' },
@@ -321,7 +333,7 @@ const STYLES_VISUELS = [
   { id: 'nb',        label: '◐ Noir & blanc dramatique',    footer: 'Dramatic black-and-white monochrome image, high-contrast chiaroscuro lighting, deep shadows and bright highlights, timeless, no color.' },
 ];
 // Repère pour retirer un footer de style déjà présent (quel qu'il soit) avant
-// d'en appliquer un autre — construit à partir du 1er mot distinctif de chacun.
+// d'en appliquer un autre, construit à partir du 1er mot distinctif de chacun.
 const REGEX_FOOTER_STYLE = /\s*(Rendered as a classic oil painting|Cinematic photorealistic still|Soft watercolor painting|Modern comic-book graphic illustration|Dramatic black-and-white monochrome image)[^]*$/i;
 
 // Formats (ratios). `img` = dimensions envoyées à Together (multiples de 16,
@@ -349,7 +361,7 @@ function formatVisuelInfos(id) {
   return FORMATS_VISUELS.find(f => f.id === id) || FORMATS_VISUELS[0];
 }
 
-// Lit le ratio (format) déjà présent en fin de prompt du storyboard — c'est LUI
+// Lit le ratio (format) déjà présent en fin de prompt du storyboard, c'est LUI
 // la source de vérité pour le montage (pas le réglage global, qui a pu changer
 // depuis). Défaut 9:16 si absent.
 function ratioDuPrompt(p) {
@@ -491,7 +503,7 @@ function assainirPromptVisuel(prompt, contexte) {
 
   // ── 3. Footer de STYLE graphique choisi + format 9:16 ───────────────────────
   // Le style (peinture, neutre, cinéma…) est ajouté de façon DÉTERMINISTE à la
-  // fin de chaque prompt visible — celui du storyboard ET celui copié vers
+  // fin de chaque prompt visible, celui du storyboard ET celui copié vers
   // ChatGPT/Gemini. appliquerStyleVisuel gère aussi le "9:16" final et n'empile
   // jamais deux footers.
   p = appliquerStyleVisuel(p, styleVisuelActuel());
@@ -499,7 +511,7 @@ function assainirPromptVisuel(prompt, contexte) {
   // ── 4. Détecter les prompts suspects (trop courts) ────────────────────────────
   const nbMots = p.split(/\s+/).filter(Boolean).length;
   if (nbMots < 30) {
-    console.warn(`[Scriptura] Prompt suspect (${nbMots} mots)${contexte ? ' — ' + contexte : ''} : "${p.slice(0, 80)}…"`);
+    console.warn(`[Scriptura] Prompt suspect (${nbMots} mots)${contexte ? ', ' + contexte : ''} : "${p.slice(0, 80)}…"`);
   }
 
   return p;
@@ -520,7 +532,7 @@ function assainirStoryboard(parsed) {
     parsed.miniature = assainirPromptVisuel(parsed.miniature, 'Miniature');
   }
 
-  // Segments — deux structures possibles selon le mode
+  // Segments, deux structures possibles selon le mode
   if (Array.isArray(parsed.storyboard)) {
     parsed.storyboard = parsed.storyboard.map((seg, i) => {
       const label = 'Plan ' + (seg.segment || (i + 1));

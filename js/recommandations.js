@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  RECOMMANDATION IA — l'assistant personnel de Scriptura
+//  RECOMMANDATION IA, l'assistant personnel de Scriptura
 //  Combine la mémoire du créateur (js/profil.js) et, quand disponible,
 //  le diagnostic d'un audit tout juste terminé, pour dire au créateur
 //  quoi créer aujourd'hui et pourquoi. Affichée à deux endroits :
@@ -9,7 +9,7 @@
 //
 //  Ne modifie aucun mode existant, aucune règle d'analyse, aucun
 //  prompt métier : nouveau prompt dédié, purement additif. N'invente
-//  jamais de certitude — si la mémoire disponible est trop mince,
+//  jamais de certitude, si la mémoire disponible est trop mince,
 //  aucune recommandation n'est générée (ou son niveau de confiance
 //  est signalé comme faible), plutôt que d'inventer des données.
 // ═══════════════════════════════════════════════════════════
@@ -18,7 +18,7 @@ let _recommandations = [];
 // true UNIQUEMENT quand la prochaine génération de script provient du bouton
 // "Créer le script" de la recommandation (voir creerScriptDepuisRecommandation
 // et generate(), js/generation.js). Consommé (remis à false) par le tout
-// premier generate() qui suit, réussi ou non — jamais laissé traîner sur une
+// premier generate() qui suit, réussi ou non, jamais laissé traîner sur une
 // génération sans rapport avec la recommandation affichée.
 let _recoEnCoursDaction = false;
 
@@ -65,7 +65,7 @@ function resumeDiagnosticSommaire(contenu) {
 // concurrents qu'il a analysés (intelligence de niche à ADAPTER). C'est ce
 // croisement qui rend les recommandations plus fiables : mes mécaniques
 // gagnantes d'un côté, ce qui marche dans la niche de l'autre.
-// Retourne { texte, aSignalFort } — aSignalFort=true si on a de vraies
+// Retourne { texte, aSignalFort }, aSignalFort=true si on a de vraies
 // données de performance sur SON compte (top vidéos), un signal suffisant à
 // lui seul pour recommander (contrairement à un profil sommaire nu).
 async function blocDiagnosticsPourReco() {
@@ -88,7 +88,7 @@ async function blocDiagnosticsPourReco() {
     const r = resumeDiagnosticSommaire(mien.contenu);
     if (r) {
       aSignalFort = true;
-      texte += '\nTES DONNÉES DE PERFORMANCE RÉELLES (son compte @' + ((mien.contenu && mien.contenu.username) || '') + ', lues sur TikTok — des FAITS sur LUI) :\n' + r + '\nSers-t\'en pour identifier SES mécaniques gagnantes et recommander des sujets NEUFS qui les réutilisent.';
+      texte += '\nTES DONNÉES DE PERFORMANCE RÉELLES (son compte @' + ((mien.contenu && mien.contenu.username) || '') + ', lues sur TikTok, des FAITS sur LUI) :\n' + r + '\nSers-t\'en pour identifier SES mécaniques gagnantes et recommander des sujets NEUFS qui les réutilisent.';
     }
   }
   if (concurrents.length) {
@@ -97,7 +97,7 @@ async function blocDiagnosticsPourReco() {
       return r ? ('• @' + ((g.contenu && g.contenu.username) || '') + ' :\n' + r) : '';
     }).filter(Boolean);
     if (blocs.length) {
-      texte += '\n\nCE QUI MARCHE CHEZ DES CONCURRENTS DE SA NICHE (comptes qu\'il a analysés — INSPIRE-toi du MÉCANISME, transpose-le sur des sujets neufs, ne copie JAMAIS le sujet ni le concurrent tel quel) :\n' + blocs.join('\n');
+      texte += '\n\nCE QUI MARCHE CHEZ DES CONCURRENTS DE SA NICHE (comptes qu\'il a analysés, INSPIRE-toi du MÉCANISME, transpose-le sur des sujets neufs, ne copie JAMAIS le sujet ni le concurrent tel quel) :\n' + blocs.join('\n');
     }
   }
   return { texte, aSignalFort };
@@ -141,13 +141,13 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
   // Tout ce qui suit (construction du prompt incluse) est désormais dans le
   // try : une erreur de construction (fonction manquante, cache navigateur
   // désynchronisé après une mise à jour, etc.) ne doit jamais faire
-  // disparaître silencieusement toute la zone de recommandation — elle doit
+  // disparaître silencieusement toute la zone de recommandation, elle doit
   // retomber sur le message de repli déjà prévu dans initAccueilPremium()
   // pour le cas "échec technique" (data === null).
   try {
-    // Recherche web — deux besoins distincts, qui peuvent se cumuler :
+    // Recherche web, deux besoins distincts, qui peuvent se cumuler :
     // 1) vérification factuelle, uniquement si la niche touche l'actualité/la
-    //    géopolitique ou l'Histoire (voir js/api.js) — c'est exactement le cas
+    //    géopolitique ou l'Histoire (voir js/api.js), c'est exactement le cas
     //    qui a produit une recommandation datée à tort ("2024 sera décisif"
     //    alors qu'on est en 2026) ;
     // 2) tendances TikTok, toujours activée : la quasi-totalité des créateurs
@@ -164,16 +164,16 @@ ${texteProfil || 'Peu d\'historique pour l\'instant.'}
 ${texteAuditFrais ? '\nDIAGNOSTIC DE SON DERNIER AUDIT (tout juste terminé) :\n' + texteAuditFrais : ''}
 ${diag.texte || ''}
 
-RÈGLE DE CONFIANCE — TRÈS IMPORTANTE : base-toi UNIQUEMENT sur les informations ci-dessus. N'invente JAMAIS une statistique, un fait ou une certitude que tu n'as pas. Si les informations connues sont limitées, dis-le honnêtement (niveau_confiance "faible") et propose des recommandations plus générales mais toujours utiles, plutôt que de prétendre connaître ce créateur mieux que tu ne le connais. Si tu disposes d'assez d'éléments concrets (niche connue, historique, leçons d'audit), sois précis et spécifique (niveau_confiance "élevée").
+RÈGLE DE CONFIANCE, TRÈS IMPORTANTE : base-toi UNIQUEMENT sur les informations ci-dessus. N'invente JAMAIS une statistique, un fait ou une certitude que tu n'as pas. Si les informations connues sont limitées, dis-le honnêtement (niveau_confiance "faible") et propose des recommandations plus générales mais toujours utiles, plutôt que de prétendre connaître ce créateur mieux que tu ne le connais. Si tu disposes d'assez d'éléments concrets (niche connue, historique, leçons d'audit), sois précis et spécifique (niveau_confiance "élevée").
 
-RÈGLE DU MÉCANISME GAGNANT — LE CŒUR DE TON TRAVAIL : ne confonds JAMAIS le SUJET qui a marché avec la RAISON pour laquelle il a marché. Si un thème ou une vidéo a bien performé pour ce créateur (une figure politique, un pays, un fait précis), ce n'est presque jamais le sujet en lui-même qui a plu — c'est un MÉCANISME sous-jacent, le ressort qui fait réagir l'audience. Identifie-le explicitement : rivalité entre personnalités que le public suit et débat déjà, révélation de coulisses du pouvoir, conflit clair et lisible, retournement ou trahison, enjeu qui touche la fierté ou l'identité du spectateur, personnages que l'audience connaît de longue date... Puis construis tes recommandations en RÉUTILISANT ce mécanisme, appliqué à des SUJETS ET DES ANGLES VARIÉS — surtout PAS en répétant les mêmes personnes ou le même pays. Reproduire le même sujet encore et encore est paresseux, générique et finit par lasser l'audience ; réutiliser le mécanisme gagnant sur du terrain neuf, c'est ça la vraie croissance. Tu peux garder AU PLUS UNE recommandation proche du sujet d'origine ; toutes les autres doivent transposer le mécanisme ailleurs.
+RÈGLE DU MÉCANISME GAGNANT, LE CŒUR DE TON TRAVAIL : ne confonds JAMAIS le SUJET qui a marché avec la RAISON pour laquelle il a marché. Si un thème ou une vidéo a bien performé pour ce créateur (une figure politique, un pays, un fait précis), ce n'est presque jamais le sujet en lui-même qui a plu, c'est un MÉCANISME sous-jacent, le ressort qui fait réagir l'audience. Identifie-le explicitement : rivalité entre personnalités que le public suit et débat déjà, révélation de coulisses du pouvoir, conflit clair et lisible, retournement ou trahison, enjeu qui touche la fierté ou l'identité du spectateur, personnages que l'audience connaît de longue date... Puis construis tes recommandations en RÉUTILISANT ce mécanisme, appliqué à des SUJETS ET DES ANGLES VARIÉS, surtout PAS en répétant les mêmes personnes ou le même pays. Reproduire le même sujet encore et encore est paresseux, générique et finit par lasser l'audience ; réutiliser le mécanisme gagnant sur du terrain neuf, c'est ça la vraie croissance. Tu peux garder AU PLUS UNE recommandation proche du sujet d'origine ; toutes les autres doivent transposer le mécanisme ailleurs.
 
-MISSION : génère exactement 6 recommandations de contenu pour aujourd'hui, classées de la plus pertinente (index 0) à la moins pertinente pour CE créateur précis. Les 6 doivent porter sur des sujets NETTEMENT DIFFÉRENTS les uns des autres — jamais 6 variantes du même sujet, du même pays ou des mêmes personnalités.
+MISSION : génère exactement 6 recommandations de contenu pour aujourd'hui, classées de la plus pertinente (index 0) à la moins pertinente pour CE créateur précis. Les 6 doivent porter sur des sujets NETTEMENT DIFFÉRENTS les uns des autres, jamais 6 variantes du même sujet, du même pays ou des mêmes personnalités.
 
 Pour CHAQUE recommandation, fournis :
 1. Un TITRE fort et accrocheur
 2. L'ANGLE recommandé : l'approche précise à adopter
-3. 2 à 4 JUSTIFICATIONS courtes prouvant la pertinence pour CE créateur — chacune doit citer un élément concret connu de lui ci-dessus (sa niche, un thème à ne pas répéter, une leçon d'audit, son objectif...). AU MOINS UNE justification doit nommer le MÉCANISME gagnant réutilisé — POURQUOI ça fera réagir son audience — et non se contenter de rappeler un sujet déjà traité. Si les éléments concrets manquent, formule une justification honnête et générale plutôt que d'inventer un fait précis.
+3. 2 à 4 JUSTIFICATIONS courtes prouvant la pertinence pour CE créateur, chacune doit citer un élément concret connu de lui ci-dessus (sa niche, un thème à ne pas répéter, une leçon d'audit, son objectif...). AU MOINS UNE justification doit nommer le MÉCANISME gagnant réutilisé, POURQUOI ça fera réagir son audience, et non se contenter de rappeler un sujet déjà traité. Si les éléments concrets manquent, formule une justification honnête et générale plutôt que d'inventer un fait précis.
 4. Le POTENTIEL estimé pour ce créateur, exactement un de ces 4 mots : Faible, Moyen, Élevé, Très élevé
 5. Un TON conseillé, à choisir EXACTEMENT parmi : Analytique, Inspirant, Provocateur, Éducatif, Humoristique, Storytelling, Réaction, Tutoriel, Satirique, Émotionnel
 6. Un HOOK recommandé : la phrase d'accroche exacte pour démarrer la vidéo
@@ -195,7 +195,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 }
 
 // ═══════════════════════════════════════════════════════════
-//  VÉRIFICATION POST-GÉNÉRATION — filet de sécurité anti-hallucination
+//  VÉRIFICATION POST-GÉNÉRATION, filet de sécurité anti-hallucination
 //  Un second appel IA, avec recherche web systématique, relit les
 //  recommandations tout juste générées et corrige deux types d'erreurs
 //  que le premier appel peut produire :
@@ -204,16 +204,16 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 //     le bug constaté : titre "alliance béninoise" pour un contenu qui
 //     parle en réalité du Sénégal ou du Gabon).
 //  2. ERREUR FACTUELLE : un nom, un poste, un pays ou un fait d'actualité
-//     cité est faux ou périmé — vérifié par recherche web.
+//     cité est faux ou périmé, vérifié par recherche web.
 //  Best-effort : si cette passe échoue (réseau, JSON invalide, etc.), on
 //  renvoie les recommandations d'origine plutôt que de bloquer
-//  l'affichage — une reco non vérifiée vaut mieux qu'aucune reco.
+//  l'affichage, une reco non vérifiée vaut mieux qu'aucune reco.
 // ═══════════════════════════════════════════════════════════
 async function verifierRecommandations(parsed) {
   try {
     const verifPrompt = `Tu es un vérificateur factuel strict. On te donne une liste de recommandations de contenu générées automatiquement pour un créateur TikTok francophone. Ta mission : les relire une par une et corriger deux types d'erreurs, AVANT qu'elles ne soient publiées.
 
-1. COHÉRENCE INTERNE (vérifie en premier, sans recherche) : pour CHAQUE recommandation, le titre, l'angle, les justifications et le hook doivent tous parler EXACTEMENT du même pays, des mêmes personnes et des mêmes faits. Un titre qui mentionne un pays alors que l'angle ou les justifications en développent un autre est une erreur grave à corriger immédiatement (ex : un titre qui parle d'une "alliance béninoise" alors que les noms cités sont ceux de dirigeants sénégalais — c'est incohérent et faux, il faut corriger le pays dans le titre pour qu'il corresponde à la réalité du contenu).
+1. COHÉRENCE INTERNE (vérifie en premier, sans recherche) : pour CHAQUE recommandation, le titre, l'angle, les justifications et le hook doivent tous parler EXACTEMENT du même pays, des mêmes personnes et des mêmes faits. Un titre qui mentionne un pays alors que l'angle ou les justifications en développent un autre est une erreur grave à corriger immédiatement (ex : un titre qui parle d'une "alliance béninoise" alors que les noms cités sont ceux de dirigeants sénégalais, c'est incohérent et faux, il faut corriger le pays dans le titre pour qu'il corresponde à la réalité du contenu).
 
 2. EXACTITUDE FACTUELLE (utilise la recherche web) : pour chaque nom de personne, poste, pays ou fait d'actualité cité, vérifie par une recherche web qu'il est exact et toujours d'actualité aujourd'hui. Corrige tout ce qui est faux, daté ou périmé.
 
@@ -288,7 +288,7 @@ function carteRecommandationHero(reco, avecRafraichir) {
 
 // Version condensée de la recommandation, pour les non-abonnés qui ont
 // déjà assez d'historique local (générations, diagnostic sommaire...) pour
-// que Scriptura sache quoi leur suggérer — sans révéler la richesse
+// que Scriptura sache quoi leur suggérer, sans révéler la richesse
 // complète (justifications, hook, ton conseillé) réservée aux abonnés.
 function carteRecommandationSommaire(reco) {
   return `
@@ -308,7 +308,7 @@ function rendreRecommandationSommaire(containerId, data, entete) {
     return;
   }
   // Nécessaire pour que creerScriptDepuisRecommandation(0) (bouton ci-dessous)
-  // retrouve la bonne recommandation — même mécanisme que rendreRecommandations,
+  // retrouve la bonne recommandation, même mécanisme que rendreRecommandations,
   // voir plus bas. Le non-abonné garde ses limites habituelles (MAX_FREE) au
   // moment de générer réellement le script : ce bouton ne fait que pré-remplir
   // le récapitulatif, il ne contourne aucun quota.
@@ -357,11 +357,11 @@ function boutonActualiserReco() {
 }
 
 // Note affichée sous la carte une fois le plafond quotidien de rafraîchissements
-// atteint (séparée du bouton, désormais logé dans l'en-tête — voir ci-dessus).
+// atteint (séparée du bouton, désormais logé dans l'en-tête, voir ci-dessus).
 function noteLimiteReco() {
   const restants = (typeof recoRefreshRestants === 'function') ? recoRefreshRestants() : RECO_REFRESH_MAX;
   if (restants > 0) return '';
-  return `<div class="ideas-sub" style="text-align:center;margin-top:8px;font-size:0.76rem;opacity:0.65">Tu as atteint ta limite du jour — de nouvelles recommandations demain.</div>`;
+  return `<div class="ideas-sub" style="text-align:center;margin-top:8px;font-size:0.76rem;opacity:0.65">Tu as atteint ta limite du jour, de nouvelles recommandations demain.</div>`;
 }
 
 // Affiche la recommandation principale + le bouton pour révéler les autres,
@@ -379,7 +379,7 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
   _recommandations = data.recommandations;
   const autresId = containerId + 'Autres';
   const confianceNote = (data.niveau_confiance === 'faible')
-    ? '<div class="audit-diag-interp" style="margin-top:14px">Scriptura te connaît encore peu — ces recommandations s\'affineront à mesure que tu utilises Scriptura davantage.</div>'
+    ? '<div class="audit-diag-interp" style="margin-top:14px">Scriptura te connaît encore peu, ces recommandations s\'affineront à mesure que tu utilises Scriptura davantage.</div>'
     : '';
 
   zone.innerHTML = `
@@ -408,7 +408,7 @@ function toggleAutresRecommandations(id) {
 }
 
 // Pont recommandation → mode script : même mécanisme que useIdeaForScript
-// et creerScriptDepuisOpportunite (js/generation.js, js/audit.js) — ne
+// et creerScriptDepuisOpportunite (js/generation.js, js/audit.js), ne
 // modifie ni ne redemande rien, ne fait que pré-remplir des champs déjà
 // existants avant d'ouvrir directement le récapitulatif.
 function creerScriptDepuisRecommandation(index) {
@@ -488,7 +488,7 @@ const PRENOM_CODE_EXCEPTIONS = {
 // 1. Format standard généré automatiquement : prénom + 4 caractères
 //    alphanumériques, ex. MARIE7F2A → Marie. Le suffixe généré contient
 //    toujours au moins un chiffre : c'est ce qui permet de le distinguer
-//    d'un prénom entier écrit sans suffixe (voir cas 2) — sans ce repère,
+//    d'un prénom entier écrit sans suffixe (voir cas 2), sans ce repère,
 //    "PAULINE" serait mal coupé en "Pau" + "LINE".
 // 2. Codes créés à la main, sans suffixe (ex. "FIFA") : Rey en crée
 //    parfois directement à partir du seul prénom. Dans ce cas, le code
@@ -533,13 +533,13 @@ function prenomDepuisCode() {
 }
 
 // Signale si ce créateur a déjà fait un diagnostic sommaire (@nom
-// d'utilisateur, js/diagnostic-sommaire.js) — utilisé uniquement pour
+// d'utilisateur, js/diagnostic-sommaire.js), utilisé uniquement pour
 // distinguer, dans le message "pas encore assez d'infos", le cas où il l'a
 // DÉJÀ fait (message ciblé : il ne lui manque qu'une génération) du cas où
 // il n'a vraiment rien fait (message générique renvoyant vers le
 // diagnostic). Un diagnostic sommaire seul (niche + bio, aucune donnée de
 // performance réelle) ne suffit jamais à lui seul à une recommandation
-// fiable — voir genererRecommandations, qui ne le compte pas comme un
+// fiable, voir genererRecommandations, qui ne le compte pas comme un
 // signal utilisable. Best-effort : toute erreur retombe sur le message
 // générique plutôt que de bloquer l'affichage.
 async function aFaitDiagnosticSommaire() {
@@ -553,7 +553,7 @@ async function aFaitDiagnosticSommaire() {
 }
 
 // Signale si ce visiteur a déjà analysé son compte, sommaire OU détaillé
-// (voir _derniereGenerationDe, js/diagnostic-fusion.js) — sert à masquer
+// (voir _derniereGenerationDe, js/diagnostic-fusion.js), sert à masquer
 // l'invitation "Commence par analyser ton compte" et le badge "Commence
 // ici" (voir revelerModes, js/ui.js) une fois cette étape déjà franchie :
 // continuer à la pousser vers quelqu'un qui l'a déjà fait est trompeur.
@@ -575,7 +575,7 @@ async function aFaitAnalyseCompte() {
 // Depuis le bouton "Trouver mes premières idées" affiché après un
 // diagnostic sommaire (voir aFaitDiagnosticSommaire ci-dessus) : ouvre le
 // mode Idées et pré-remplit la niche et le sujet à partir de ce que le
-// diagnostic sait déjà (niche + bio) — jamais sur un champ déjà rempli par
+// diagnostic sait déjà (niche + bio), jamais sur un champ déjà rempli par
 // l'utilisateur, et libre à lui de tout modifier avant de générer. Le champ
 // "niche" ne se pré-sélectionne que si le nom identifié par le diagnostic
 // correspond exactement à une option du menu (voir preRemplirSiVide,
@@ -584,7 +584,7 @@ async function aFaitAnalyseCompte() {
 // esprit que les exemples déjà affichés dans le champ ("les empires
 // africains", "la psychologie de l'argent"...). Les champs bruts du
 // diagnostic sommaire (niche.analyse, bio.actuelle) sont écrits pour un
-// AUDIT — analytiques, à la troisième personne — et ne ressemblent jamais
+// AUDIT, analytiques, à la troisième personne, et ne ressemblent jamais
 // à un vrai sujet de vidéo si on les recopie tels quels ; ce petit appel
 // dédié (Haiku, quelques centaines de tokens) reformule spécifiquement
 // pour ce champ. Best-effort : une erreur laisse simplement le champ vide,
@@ -596,7 +596,7 @@ async function suggestionSujetDepuisSommaire(niche, bio) {
 ${niche ? '- Niche : ' + niche : ''}
 ${bio ? '- Bio TikTok actuelle : ' + bio : ''}
 
-Propose UN SEUL sujet de vidéo concret et précis qu'il pourrait explorer — dans le même esprit que ces exemples : "les empires africains", "la psychologie de l'argent", "les femmes qui ont marqué l'histoire". Un sujet court (5 à 10 mots) : jamais une analyse, jamais une phrase qui parle DE lui ou de sa bio — un vrai sujet de contenu, prêt à explorer tel quel.
+Propose UN SEUL sujet de vidéo concret et précis qu'il pourrait explorer, dans le même esprit que ces exemples : "les empires africains", "la psychologie de l'argent", "les femmes qui ont marqué l'histoire". Un sujet court (5 à 10 mots) : jamais une analyse, jamais une phrase qui parle DE lui ou de sa bio, un vrai sujet de contenu, prêt à explorer tel quel.
 
 Réponds UNIQUEMENT avec ce sujet, sans guillemets, sans ponctuation finale, rien d'autre.`;
     const raw = await callAI(MODEL_RAPIDE, 60, prompt);
@@ -609,7 +609,7 @@ async function demarrerIdeesDepuisSommaire() {
   chooseMode('ideas');
   if (typeof _recentesGenerationsDe !== 'function') return;
   try {
-    // On pré-remplit à partir de SON compte uniquement — jamais d'un concurrent
+    // On pré-remplit à partir de SON compte uniquement, jamais d'un concurrent
     // qu'il aurait analysé (sa niche à lui, pas celle du concurrent).
     const gens = await _recentesGenerationsDe('diagnosticSommaire', 8);
     const g = gens.find(_sommaireEstMien);
@@ -697,7 +697,7 @@ function viderRecoCache() {
 // Pour maîtriser les coûts API : chaque clic sur "Nouvelle recommandation"
 // relance un appel au modèle. On en autorise au plus RECO_REFRESH_MAX par jour
 // et par créateur (la 1re reco du jour, elle, ne compte pas). Compteur stocké
-// côté navigateur, clé par jour — recharger l'app ne le remet donc PAS à zéro
+// côté navigateur, clé par jour, recharger l'app ne le remet donc PAS à zéro
 // (sinon le plafond serait contournable et n'économiserait rien). Repart à 0 le
 // lendemain, en phase avec le cache de reco déjà journalier.
 const RECO_REFRESH_MAX = 2;
@@ -731,7 +731,7 @@ async function initAccueilPremium() {
   // Filet de sécurité : une erreur imprévue n'importe où dans cette fonction
   // (profil corrompu, fonction manquante après une mise à jour non encore
   // rechargée par le navigateur, etc.) ne doit jamais laisser la zone vide
-  // et invisible — elle doit au moins retomber sur le message de repli.
+  // et invisible, elle doit au moins retomber sur le message de repli.
   try {
     await initAccueilPremiumInterne(zone);
   } catch (e) {
@@ -748,18 +748,18 @@ async function initAccueilPremium() {
 async function initAccueilPremiumInterne(zone) {
   // Non-abonné (visiteur anonyme OU acheteur de jetons à l'unité, qui reste
   // non-abonné dans Scriptura) : même emplacement que la carte des abonnés,
-  // mais un simple message d'accueil — jamais de recommandation
+  // mais un simple message d'accueil, jamais de recommandation
   // personnalisée, réservée aux abonnés (fonctionnalité Premium). Le titre
   // principal de la page ("Ton contenu, réinventé.") n'est pas touché.
   // Acheteur de jetons : code "jeton" enregistré (scriptura_code) mais pas
-  // "unlocked". C'est un mini-compte identifié — il a droit à l'accueil
+  // "unlocked". C'est un mini-compte identifié, il a droit à l'accueil
   // personnalisé et aux recommandations, comme un abonné. Seul le visiteur
   // VRAIMENT anonyme (aucun code enregistré) voit le simple mot de bienvenue.
   const aUnCode = !!(localStorage.getItem('scriptura_code') || '').trim();
   if (!unlocked && !aUnCode) {
     // Exception : un visiteur anonyme qui a déjà généré quelque chose sur
     // CE navigateur (script, récit, diagnostic sommaire...) a laissé assez
-    // de mémoire à Scriptura pour lui montrer un aperçu utile — une seule
+    // de mémoire à Scriptura pour lui montrer un aperçu utile, une seule
     // idée condensée, pas les 6 recommandations détaillées réservées aux
     // abonnés. S'il n'y a encore rien de connu, on retombe sur le simple
     // mot de bienvenue (voir genererRecommandations → rienDeConnu).
@@ -780,7 +780,7 @@ async function initAccueilPremiumInterne(zone) {
       dataAnon = await genererRecommandations(null, null);
       // Ne JAMAIS mettre en cache un résultat "onboarding" (pas encore assez
       // d'infos) : contrairement à un échec technique, cet état change dès
-      // que le visiteur suit le conseil (fait une génération) — le mettre en
+      // que le visiteur suit le conseil (fait une génération), le mettre en
       // cache pour la journée entière l'empêcherait de voir sa vraie
       // recommandation juste après avoir fait exactement ce qu'on lui a
       // demandé.
@@ -795,7 +795,7 @@ async function initAccueilPremiumInterne(zone) {
     const dejaSommaireAnon = await aFaitDiagnosticSommaire();
     zone.innerHTML = dejaSommaireAnon ? `
       <div class="results-heading">${salutationAccueil()}</div>
-      <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait — il me manque une génération (une idée, un script ou un récit) pour te proposer une vraie recommandation, fiable.</div>
+      <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait, il me manque une génération (une idée, un script ou un récit) pour te proposer une vraie recommandation, fiable.</div>
       <button class="btn-generate" onclick="demarrerIdeesDepuisSommaire()">💡 Trouver mes premières idées</button>
     ` : `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
@@ -829,7 +829,7 @@ async function initAccueilPremiumInterne(zone) {
       </div>`;
     zone.style.display = 'block';
     data = await genererRecommandations(null, null);
-    // On ne met en cache qu'une vraie recommandation exploitable — jamais un
+    // On ne met en cache qu'une vraie recommandation exploitable, jamais un
     // échec technique (null), pour qu'un simple problème réseau ne bloque
     // pas toute la journée, ET jamais un résultat "onboarding" (pas encore
     // assez d'infos) : cet état change dès que l'abonné suit le conseil
@@ -852,7 +852,7 @@ async function initAccueilPremiumInterne(zone) {
       <div class="score-card">
         <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Ton diagnostic sommaire est fait, bien joué.</div>
-        <div class="audit-diag-interp">Il me manque encore une génération (une idée, un script ou un récit) pour te faire une recommandation vraiment fiable — le diagnostic sommaire seul ne montre que ta bio et ta niche, pas encore ce qui fonctionne pour toi.</div>
+        <div class="audit-diag-interp">Il me manque encore une génération (une idée, un script ou un récit) pour te faire une recommandation vraiment fiable, le diagnostic sommaire seul ne montre que ta bio et ta niche, pas encore ce qui fonctionne pour toi.</div>
         <button class="btn-generate" style="margin-top:14px" onclick="demarrerIdeesDepuisSommaire()">💡 Trouver mes premières idées</button>
       </div>` : `${entete}
       <div class="score-card">
@@ -869,7 +869,7 @@ async function initAccueilPremiumInterne(zone) {
     // Échec technique (API indisponible, timeout, JSON invalide...) : on
     // garde quand même la salutation plutôt que de vider toute la zone
     // (sinon l'accueil paraît cassé alors que ce n'est qu'un souci
-    // ponctuel — voir le cas "onboarding" juste au-dessus, qui applique
+    // ponctuel, voir le cas "onboarding" juste au-dessus, qui applique
     // déjà ce principe pour l'autre cas de figure).
     zone.innerHTML = `${entete}
       <div class="score-card">
@@ -907,7 +907,7 @@ async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
   if (!zone) return;
 
   // Audit rouvert depuis "Mes générations" : la recommandation a déjà été
-  // générée et sauvegardée la première fois (voir plus bas) — on la
+  // générée et sauvegardée la première fois (voir plus bas), on la
   // réaffiche telle quelle. Sans ça, chaque réouverture en produisait une
   // nouvelle, différente de celle vue initialement.
   if (auditFrais && auditFrais.recommandation_ia) {

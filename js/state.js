@@ -13,5 +13,5 @@ let lastStoryContext = null;
 // ══════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════
-//  MODE AUDIT TIKTOK — gestion des captures
+//  MODE AUDIT TIKTOK, gestion des captures
 // ═══════════════════════════════════════════════════════════

@@ -60,7 +60,7 @@ function updateGeoRequirement() {
   }
 }
 
-// Repart d'un formulaire vide pour une nouvelle exploration d'idées — appelée
+// Repart d'un formulaire vide pour une nouvelle exploration d'idées, appelée
 // à chaque entrée fraîche dans ce mode (voir chooseMode, js/serie.js) : sans
 // ça, la niche/le sujet/le ton d'une exploration précédente restaient
 // silencieusement actifs (champs ET variables ideaPlatform/ideaGoal/ideaTone)
@@ -130,11 +130,11 @@ async function generateIdeas() {
   setIdeaLoading(true);
   document.getElementById('ideasResults').style.display = 'none';
 
-  // Mémoire du créateur : voir js/profil.js — n'ajoute qu'une ligne de plus
+  // Mémoire du créateur : voir js/profil.js, n'ajoute qu'une ligne de plus
   // au bloc de contexte déjà présent, ne modifie aucune règle de ce prompt.
   const profilLigneIdees = ligneProfilPourPrompt(await chargerProfilCreateur());
 
-  // Recherche web — deux besoins distincts, qui peuvent se cumuler : vérification
+  // Recherche web, deux besoins distincts, qui peuvent se cumuler : vérification
   // factuelle pour les niches d'actualité/géopolitique/Histoire (voir js/api.js),
   // et tendances TikTok, toujours activée (la quasi-totalité des créateurs
   // Scriptura publient sur TikTok) pour que les idées s'appuient sur ce qui
@@ -143,13 +143,13 @@ async function generateIdeas() {
   const rechercheWebIdeesActive = true;
 
   // Les choix du créateur (ton, plateforme, objectif) ne sont pas là pour
-  // décorer le prompt — chacun doit avoir un effet réel et vérifiable sur
+  // décorer le prompt, chacun doit avoir un effet réel et vérifiable sur
   // les idées produites. Avant ce correctif, le ton et la plateforme étaient
   // mélangés dans une seule phrase cassée par un ternaire (résultat
   // grammaticalement incorrect dès qu'un ton était choisi), et l'objectif
   // n'avait tout simplement AUCUNE instruction propre.
   const ideaToneInstruction = ideaTone
-    ? `RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${ideaTone}". Chaque angle et chaque hook proposés doivent rester dans CE ton exact, sans dérive vers un autre registre — c'est une consigne explicite, pas une suggestion.`
+    ? `RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${ideaTone}". Chaque angle et chaque hook proposés doivent rester dans CE ton exact, sans dérive vers un autre registre, c'est une consigne explicite, pas une suggestion.`
     : `Aucun ton précisé : adapte le ton au style le plus pertinent pour la niche et le sujet de chaque idée.`;
 
   const codesPlateformeIdees = {
@@ -157,23 +157,23 @@ async function generateIdeas() {
     'Instagram Reels': 'hooks un peu plus soignés et esthétiques, peuvent installer une micro-narration, ton communauté/lifestyle.',
     'YouTube Shorts': 'hooks proches d\'un titre de recherche (curiosité ou promesse claire dès les premiers mots), pensés pour capter au scroll ET à la recherche.',
     'Facebook': 'hooks au ton plus familier et générationnel, qui invitent explicitement au partage et à la discussion en commentaire.',
-    'LinkedIn': 'hooks professionnels, orientés retour d\'expérience ou enseignement concret, jamais putaclic — la crédibilité prime sur le sensationnalisme.'
+    'LinkedIn': 'hooks professionnels, orientés retour d\'expérience ou enseignement concret, jamais putaclic, la crédibilité prime sur le sensationnalisme.'
   };
   const ideaPlatformInstruction = ideaPlatform
-    ? `PLATEFORME "${ideaPlatform}" — RESPECTE SES CODES : ${codesPlateformeIdees[ideaPlatform] || 'adapte le format des hooks aux usages de cette plateforme précise.'}`
+    ? `PLATEFORME "${ideaPlatform}", RESPECTE SES CODES : ${codesPlateformeIdees[ideaPlatform] || 'adapte le format des hooks aux usages de cette plateforme précise.'}`
     : `Aucune plateforme précisée : reste généraliste, sans t'ancrer dans les codes d'une seule.`;
 
   const codesObjectifIdees = {
-    'faire des vues': 'privilégie des angles à très fort potentiel de curiosité et de partage immédiat — le hook doit créer un choc ou un besoin urgent de voir la suite, la portée prime sur tout le reste.',
-    'gagner des abonnés': 'privilégie des angles qui donnent envie de suivre le compte pour la suite (partie 2 implicite, format récurrent, promesse d\'autres révélations du même genre) — le créateur doit apparaître comme une référence qu\'on veut revoir.',
-    'générer des ventes': 'privilégie des angles qui créent un désir ou un besoin concret pouvant mener naturellement vers une offre, un produit ou un service du créateur — sans jamais sonner comme une pub déguisée.',
-    'renforcer mon expertise': 'privilégie des angles qui démontrent une maîtrise réelle du sujet — analyses fines, retournements qui montrent que le créateur voit ce que les autres ne voient pas, jamais du contenu superficiel.'
+    'faire des vues': 'privilégie des angles à très fort potentiel de curiosité et de partage immédiat, le hook doit créer un choc ou un besoin urgent de voir la suite, la portée prime sur tout le reste.',
+    'gagner des abonnés': 'privilégie des angles qui donnent envie de suivre le compte pour la suite (partie 2 implicite, format récurrent, promesse d\'autres révélations du même genre), le créateur doit apparaître comme une référence qu\'on veut revoir.',
+    'générer des ventes': 'privilégie des angles qui créent un désir ou un besoin concret pouvant mener naturellement vers une offre, un produit ou un service du créateur, sans jamais sonner comme une pub déguisée.',
+    'renforcer mon expertise': 'privilégie des angles qui démontrent une maîtrise réelle du sujet, analyses fines, retournements qui montrent que le créateur voit ce que les autres ne voient pas, jamais du contenu superficiel.'
   };
   const ideaGoalInstruction = ideaGoal
-    ? `OBJECTIF DU CRÉATEUR "${ideaGoal}" — RESPECTE-LE RIGOUREUSEMENT dans le choix des angles : ${codesObjectifIdees[ideaGoal] || 'adapte les angles à cet objectif précis.'}`
+    ? `OBJECTIF DU CRÉATEUR "${ideaGoal}", RESPECTE-LE RIGOUREUSEMENT dans le choix des angles : ${codesObjectifIdees[ideaGoal] || 'adapte les angles à cet objectif précis.'}`
     : `Aucun objectif précisé : équilibre les angles entre portée, fidélisation et démonstration d'expertise.`;
 
-  const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis — jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
+  const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis, jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
 ${rechercheWebIdees ? instructionRechercheWeb(niche, 'de proposer des idées') : ''}${instructionRechercheTendancesTikTok(niche, 'de proposer des idées')}
 
 PROFIL DU CRÉATEUR :
@@ -186,7 +186,7 @@ ${ideaTone ? '- Style/angle : ' + ideaTone : ''}
 ${theme ? '- Thème précis à explorer : ' + theme : ''}
 ${profilLigneIdees ? '- ' + profilLigneIdees : ''}
 
-${geo ? `CONTRAINTE GÉOGRAPHIQUE ABSOLUE — TU ES UN EXPERT LOCAL DE : ${geo}
+${geo ? `CONTRAINTE GÉOGRAPHIQUE ABSOLUE, TU ES UN EXPERT LOCAL DE : ${geo}
 Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne reste JAMAIS vague ou générique.
 - Puise dans les figures historiques réelles, les événements précis, les dynasties, les royaumes, les batailles, les personnages et les faits SPÉCIFIQUES à ${geo}
 - Utilise des noms propres réels, des dates réelles, des lieux réels de cette zone
@@ -195,13 +195,13 @@ Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne res
 - Si la niche est géopolitique : ancre dans les enjeux, tensions, alliances et réalités actuelles et historiques réelles de ${geo}
 Une idée qui pourrait s'appliquer à n'importe quelle région est une idée ÉCHOUÉE. Chaque idée doit être impossible à imaginer sans connaître ${geo}.` : ''}
 
-AVANT D'ÉCRIRE LA MOINDRE IDÉE, RAISONNE EN SILENCE — ce raisonnement ne doit JAMAIS apparaître dans ta réponse, seul le résultat final compte :
+AVANT D'ÉCRIRE LA MOINDRE IDÉE, RAISONNE EN SILENCE, ce raisonnement ne doit JAMAIS apparaître dans ta réponse, seul le résultat final compte :
 
-1. OPPORTUNITÉS : à partir du profil ci-dessus (niche, historique, leçons d'audit, objectif), identifie les sujets offrant le plus fort potentiel pour CE créateur précis — pas pour n'importe qui dans cette niche. Cherche activement : les contradictions, les paradoxes, les idées reçues à démonter, les secrets, les erreurs coûteuses, les conséquences inattendues, les révélations méconnues, les histoires peu racontées, les angles rarement utilisés. Ne retiens jamais un sujet évident quand un angle plus fort existe sur le même thème.
+1. OPPORTUNITÉS : à partir du profil ci-dessus (niche, historique, leçons d'audit, objectif), identifie les sujets offrant le plus fort potentiel pour CE créateur précis, pas pour n'importe qui dans cette niche. Cherche activement : les contradictions, les paradoxes, les idées reçues à démonter, les secrets, les erreurs coûteuses, les conséquences inattendues, les révélations méconnues, les histoires peu racontées, les angles rarement utilisés. Ne retiens jamais un sujet évident quand un angle plus fort existe sur le même thème.
 
-2. ANTI-RÉPÉTITION : si le profil ci-dessus mentionne des sujets, angles, structures ou hooks déjà utilisés pour ce créateur, écarte-les activement — ne les reformule pas, ne les paraphrase pas.
+2. ANTI-RÉPÉTITION : si le profil ci-dessus mentionne des sujets, angles, structures ou hooks déjà utilisés pour ce créateur, écarte-les activement, ne les reformule pas, ne les paraphrase pas.
 
-3. FILTRE ANTI-GÉNÉRIQUE : pour chaque idée envisagée, vérifie-la contre ces questions avant de la retenir — ressemble-t-elle à ce qu'une IA généraliste proposerait spontanément ? Est-elle trop évidente ? Manque-t-elle de surprise ou de curiosité ? Ressemble-t-elle à une idée déjà générée pour ce créateur ? Si la réponse est oui à l'une de ces questions, rejette-la et cherche mieux.
+3. FILTRE ANTI-GÉNÉRIQUE : pour chaque idée envisagée, vérifie-la contre ces questions avant de la retenir, ressemble-t-elle à ce qu'une IA généraliste proposerait spontanément ? Est-elle trop évidente ? Manque-t-elle de surprise ou de curiosité ? Ressemble-t-elle à une idée déjà générée pour ce créateur ? Si la réponse est oui à l'une de ces questions, rejette-la et cherche mieux.
 
 4. TEST DU FIL D'ACTUALITÉ : pour chaque idée retenue, imagine-la apparaître sur le fil ${ideaPlatform || 'TikTok'} de l'audience visée. Susciterait-elle IMMÉDIATEMENT l'envie de cliquer ou de continuer à regarder ? Si non, rejette-la au profit d'une meilleure.
 
@@ -222,8 +222,8 @@ RÈGLES ABSOLUES :
 
 Pour CHAQUE idée, fournis :
 1. Un TITRE accrocheur (comme il apparaîtrait en accroche)
-2. L'ANGLE : quelle est l'approche unique, pourquoi c'est différent — et pourquoi cet angle précis plutôt qu'un plus évident sur le même sujet
-3. POURQUOI ÇA MARCHE POUR CE CRÉATEUR : le mécanisme psychologique qui rend cette idée virale, ET en quoi elle est pertinente pour SON profil précis. Ne mentionne JAMAIS une performance ou une statistique que tu ne connais pas réellement — base-toi uniquement sur les informations disponibles ci-dessus.
+2. L'ANGLE : quelle est l'approche unique, pourquoi c'est différent, et pourquoi cet angle précis plutôt qu'un plus évident sur le même sujet
+3. POURQUOI ÇA MARCHE POUR CE CRÉATEUR : le mécanisme psychologique qui rend cette idée virale, ET en quoi elle est pertinente pour SON profil précis. Ne mentionne JAMAIS une performance ou une statistique que tu ne connais pas réellement, base-toi uniquement sur les informations disponibles ci-dessus.
 4. UN HOOK DE DÉPART cohérent avec l'angle : la première phrase exacte pour lancer la vidéo. Vérifie-le avant de le retenir : est-il prévisible ou générique ? S'il échoue à ce test, remplace-le.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnement visible, uniquement le résultat) :
@@ -430,7 +430,7 @@ function goBack(n) {
 
 // Depuis le bouton "✎ Modifier" du résultat : masque le résultat et
 // rouvre l'étape 4 (le formulaire) pour changer les critères sans jamais
-// effacer les valeurs déjà saisies — contrairement à restart(), qui repart
+// effacer les valeurs déjà saisies, contrairement à restart(), qui repart
 // de zéro. Voir renderResults(), qui masque l'étape 4 à l'affichage du résultat.
 function modifierCriteresScript() {
   // Empile l'écran résultat AVANT de le masquer : un "← Retour" pendant la
@@ -451,7 +451,7 @@ function renderSummary() {
   // Mettre à jour le compteur de générations
   renderGenCounter();
 
-  // Afficher le champ de contenu existant selon le point de départ choisi —
+  // Afficher le champ de contenu existant selon le point de départ choisi,
   // "analyser une vidéo virale" et "améliorer un contenu existant" ont TOUS
   // LES DEUX besoin que le créateur colle un texte, mais pour un usage
   // différent (recréer une recette externe vs. améliorer SON propre
@@ -471,8 +471,8 @@ function renderSummary() {
   } else if (state.depart && state.depart.includes('améliorer ou adapter')) {
     viralField.style.display = 'flex';
     viralLabel.textContent = 'Ton contenu existant, à améliorer';
-    viralInput.placeholder = "Colle ici le texte complet de ta vidéo ou de ton script existant. Scriptura part de CE contenu — garde ton sujet et ton fond, améliore la forme (hook, rythme, structure, CTA).";
-    viralAstuce.textContent = "💡 Colle le script ou les sous-titres tels quels — rien n'est réinventé, seulement amélioré et adapté.";
+    viralInput.placeholder = "Colle ici le texte complet de ta vidéo ou de ton script existant. Scriptura part de CE contenu, garde ton sujet et ton fond, améliore la forme (hook, rythme, structure, CTA).";
+    viralAstuce.textContent = "💡 Colle le script ou les sous-titres tels quels, rien n'est réinventé, seulement amélioré et adapté.";
     sujetLabel.textContent = 'Angle ou sujet précis à mettre en avant';
   } else {
     viralField.style.display = 'none';
@@ -590,7 +590,7 @@ async function generate() {
   const format   = document.getElementById('format').value.trim();
   const viralVideo = document.getElementById('viralVideo').value.trim();
   // Les 4 choix de l'étape "Avec quoi commences-tu ?" doivent chacun produire
-  // un résultat concrètement différent — pas seulement les 2 premiers.
+  // un résultat concrètement différent, pas seulement les 2 premiers.
   // Voir departInstructionScript plus bas pour l'instruction envoyée à l'IA
   // pour CHAQUE cas (y compris "idée vague" et "sujet précis", auparavant
   // strictement identiques dans le prompt final malgré la promesse de l'étape
@@ -661,26 +661,26 @@ async function generate() {
   // Point de départ (étape 2, "Avec quoi commences-tu ?") : les 4 choix
   // doivent chacun changer concrètement le résultat, pas seulement les 2 qui
   // impliquent un texte à coller. "Idée vague" et "sujet précis" produisaient
-  // auparavant EXACTEMENT le même prompt — aucune trace du choix fait à
+  // auparavant EXACTEMENT le même prompt, aucune trace du choix fait à
   // l'écran 2, alors que sa promesse ("Scriptura s'adapte à ton point de
   // départ") disait le contraire.
   let departInstructionScript = '';
   if (isViralMode) {
-    departInstructionScript = `\nMODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\n[DEBUT]\n${viralVideo}\n[FIN]\nDécode sa structure et sa mécanique (hook, rythme, narration) pour la réappliquer à SON sujet à lui — n'écris jamais sur le sujet de la vidéo virale elle-même.\n`;
+    departInstructionScript = `\nMODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\n[DEBUT]\n${viralVideo}\n[FIN]\nDécode sa structure et sa mécanique (hook, rythme, narration) pour la réappliquer à SON sujet à lui, n'écris jamais sur le sujet de la vidéo virale elle-même.\n`;
   } else if (isAmeliorerMode) {
-    departInstructionScript = `\nMODE AMÉLIORATION : le créateur a déjà ce contenu, à améliorer et adapter — PAS à remplacer par un sujet différent :\n[DEBUT]\n${viralVideo}\n[FIN]\nPars de ce texte précis : garde son sujet et son fond réels, améliore uniquement la forme (hook plus fort, structure plus efficace, rythme, CTA plus clair). N'invente jamais un sujet différent de celui de ce contenu existant.\n`;
+    departInstructionScript = `\nMODE AMÉLIORATION : le créateur a déjà ce contenu, à améliorer et adapter, PAS à remplacer par un sujet différent :\n[DEBUT]\n${viralVideo}\n[FIN]\nPars de ce texte précis : garde son sujet et son fond réels, améliore uniquement la forme (hook plus fort, structure plus efficace, rythme, CTA plus clair). N'invente jamais un sujet différent de celui de ce contenu existant.\n`;
   } else if (isIdeeVague) {
-    departInstructionScript = `\nPOINT DE DÉPART : le créateur n'a qu'un thème général, pas encore d'angle précis — tu as toute liberté créative pour définir TOI-MÊME un angle spécifique et percutant à l'intérieur de ce thème. Ne te contente jamais de décrire le thème tel quel : trouve UN angle concret et défendable, et assume-le.\n`;
+    departInstructionScript = `\nPOINT DE DÉPART : le créateur n'a qu'un thème général, pas encore d'angle précis, tu as toute liberté créative pour définir TOI-MÊME un angle spécifique et percutant à l'intérieur de ce thème. Ne te contente jamais de décrire le thème tel quel : trouve UN angle concret et défendable, et assume-le.\n`;
   } else if (isSujetPrecis) {
-    departInstructionScript = `\nPOINT DE DÉPART : le sujet ci-dessus est déjà précis et arrêté par le créateur — reste rigoureusement ancré dessus. N'élargis JAMAIS vers un thème plus général et ne dévie JAMAIS vers un angle différent de celui donné : approfondis ce sujet exact, ne le remplace pas par un autre.\n`;
+    departInstructionScript = `\nPOINT DE DÉPART : le sujet ci-dessus est déjà précis et arrêté par le créateur, reste rigoureusement ancré dessus. N'élargis JAMAIS vers un thème plus général et ne dévie JAMAIS vers un angle différent de celui donné : approfondis ce sujet exact, ne le remplace pas par un autre.\n`;
   }
 
   // Les choix du créateur (plateforme, objectif) doivent avoir un effet réel
   // et vérifiable sur le script produit, pas juste apparaître en contexte
   // passif. Avant ce correctif, la plateforme n'avait aucun code concret
-  // ("respecte les codes de rythme" sans dire lesquels), et l'objectif —
+  // ("respecte les codes de rythme" sans dire lesquels), et l'objectif,
   // stocké comme une phrase complète (ex. "Renforcer mon expertise et ma
-  // crédibilité") — devait être deviné par l'IA contre des étiquettes
+  // crédibilité"), devait être deviné par l'IA contre des étiquettes
   // courtes qui ne correspondent pas toujours textuellement (aucune ne
   // contient le mot "autorité").
   const codesPlateformeScript = {
@@ -688,32 +688,32 @@ async function generate() {
     'Instagram Reels': 'esthétique soignée, peut installer une micro-narration avant le twist, ton communauté/lifestyle.',
     'YouTube Shorts': 'hook proche d\'un titre de recherche (curiosité ou promesse claire dès les premiers mots), pensé pour capter au scroll ET à la recherche.',
     'Facebook': 'ton plus familier et générationnel, formulations qui invitent explicitement au partage et au commentaire.',
-    'LinkedIn': 'registre professionnel, retour d\'expérience ou enseignement concret, jamais putaclic — la crédibilité prime sur le sensationnalisme.',
+    'LinkedIn': 'registre professionnel, retour d\'expérience ou enseignement concret, jamais putaclic, la crédibilité prime sur le sensationnalisme.',
     'WhatsApp Status': 'très court et personnel, comme un message adressé à des proches/contacts plutôt qu\'à un public anonyme, ton direct et intime.'
   };
   const plateformeInstructionScript = state.plateforme
-    ? `PLATEFORME "${state.plateforme}" — RESPECTE SES CODES : ${codesPlateformeScript[state.plateforme] || 'adapte le rythme et le registre aux usages propres à cette plateforme.'}`
+    ? `PLATEFORME "${state.plateforme}", RESPECTE SES CODES : ${codesPlateformeScript[state.plateforme] || 'adapte le rythme et le registre aux usages propres à cette plateforme.'}`
     : `Aucune plateforme précisée : reste généraliste, adapté à un usage vidéo courte multi-plateformes.`;
 
   const codesObjectifScript = {
-    'Faire plus de vues et maximiser la portée': 'inciter au partage ou à regarder une autre vidéo — la portée prime, pas la conversion.',
-    'Gagner des abonnés qualifiés rapidement': 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent) — jamais un "abonne-toi" générique.',
-    'Générer des ventes via mon contenu': 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre) — sans jamais sonner comme une pub déguisée.',
-    'Renforcer mon expertise et ma crédibilité': 'inciter à commenter son avis ou sauvegarder — démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.'
+    'Faire plus de vues et maximiser la portée': 'inciter au partage ou à regarder une autre vidéo, la portée prime, pas la conversion.',
+    'Gagner des abonnés qualifiés rapidement': 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent), jamais un "abonne-toi" générique.',
+    'Générer des ventes via mon contenu': 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre), sans jamais sonner comme une pub déguisée.',
+    'Renforcer mon expertise et ma crédibilité': 'inciter à commenter son avis ou sauvegarder, démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.'
   };
   const objectifInstructionScript = state.objectif
-    ? `OBJECTIF DU CRÉATEUR "${state.objectif}" — LE CTA FINAL DOIT : ${codesObjectifScript[state.objectif] || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
+    ? `OBJECTIF DU CRÉATEUR "${state.objectif}", LE CTA FINAL DOIT : ${codesObjectifScript[state.objectif] || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
     : `Aucun objectif précisé : vise un CTA équilibré entre portée et fidélisation.`;
 
   try {
     // ════════════════════════════════════════════
-    //  PHASE 1 — LE DIRECTEUR ÉDITORIAL (raisonnement)
+    //  PHASE 1, LE DIRECTEUR ÉDITORIAL (raisonnement)
     //  Analyse le sujet, génère 3 angles, sélectionne le meilleur,
     //  choisit la structure, définit la stratégie de hooks.
     // ════════════════════════════════════════════
     const briefPrompt = `Tu es le Directeur Éditorial de Scriptura, le meilleur stratège de contenu viral francophone. Tu ne rédiges PAS encore. Tu réfléchis comme un directeur créatif de haut niveau avant toute écriture.
 
-RÈGLE FONDAMENTALE, au-dessus de toutes les autres : le script final doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Chaque choix que tu fais ci-dessous doit servir cette règle.
+RÈGLE FONDAMENTALE, au-dessus de toutes les autres : le script final doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok, jamais par une IA généraliste. Chaque choix que tu fais ci-dessous doit servir cette règle.
 
 CONTEXTE :
 - ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles)' : 'Sujet'} : ${sujet}
@@ -731,9 +731,9 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 1. ANALYSE DU SUJET : Quel est l'enjeu réel, la tension cachée, ce qui rend ce sujet émotionnellement puissant ? Quel est l'angle mort que personne n'exploite ? Si le profil du créateur ci-dessus contient des leçons tirées de ses audits précédents, utilise-les activement pour orienter cette analyse.
 
-2. TROIS ANGLES NARRATIFS DIFFÉRENTS : Propose 3 angles VRAIMENT distincts (pas 3 variantes du même). Pour CHAQUE angle, cherche activement au moins un de ces leviers puissants : l'élément inattendu, la contradiction, la révélation, le conflit, la surprise, le paradoxe, le coût caché, le secret, le risque. Un angle qui n'exploite aucun de ces leviers est un angle faible — remplace-le. Par exemple : un angle contre-intuitif, un angle émotionnel/personnel, un angle révélation/coulisses. Chaque angle doit attaquer le sujet différemment.
+2. TROIS ANGLES NARRATIFS DIFFÉRENTS : Propose 3 angles VRAIMENT distincts (pas 3 variantes du même). Pour CHAQUE angle, cherche activement au moins un de ces leviers puissants : l'élément inattendu, la contradiction, la révélation, le conflit, la surprise, le paradoxe, le coût caché, le secret, le risque. Un angle qui n'exploite aucun de ces leviers est un angle faible, remplace-le. Par exemple : un angle contre-intuitif, un angle émotionnel/personnel, un angle révélation/coulisses. Chaque angle doit attaquer le sujet différemment.
 
-3. COMPARAISON ET SÉLECTION : Compare les 3 angles pour ${state.plateforme} et l'objectif "${state.objectif}". L'angle choisi ne doit jamais être simplement "intéressant" : il doit être le PLUS PUISSANT des trois — celui qui a le plus fort potentiel d'arrêt du scroll ET de rétention. Choisis-en UN et justifie en une phrase pourquoi il est le plus fort, pas seulement pourquoi il convient.
+3. COMPARAISON ET SÉLECTION : Compare les 3 angles pour ${state.plateforme} et l'objectif "${state.objectif}". L'angle choisi ne doit jamais être simplement "intéressant" : il doit être le PLUS PUISSANT des trois, celui qui a le plus fort potentiel d'arrêt du scroll ET de rétention. Choisis-en UN et justifie en une phrase pourquoi il est le plus fort, pas seulement pourquoi il convient.
 
 4. STRUCTURE NARRATIVE OPTIMALE : Quelle structure sert le mieux cet angle ? (ex: problème→agitation→solution, boucle ouverte, storytelling chronologique, liste à tension croissante, mythe→réalité...). Choisis la meilleure.
 
@@ -757,7 +757,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       : sujet;
 
     // ════════════════════════════════════════════
-    //  PHASE 2 — LE RÉDACTEUR EN CHEF (écriture + auto-critique)
+    //  PHASE 2, LE RÉDACTEUR EN CHEF (écriture + auto-critique)
     //  Reçoit le brief stratégique, écrit le meilleur contenu,
     //  s'auto-critique et livre la version finale calibrée.
     // ════════════════════════════════════════════
@@ -765,7 +765,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // écrit pour un créateur qui se filme, le cas le plus courant.
     const estFaceless = /faceless|voix off|sans visage/i.test(format);
 
-    const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. RÈGLE FONDAMENTALE, au-dessus de toutes les autres : ce script doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok — jamais par une IA généraliste. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
+    const writePrompt = `Tu es le Rédacteur en Chef de Scriptura, capable de rivaliser avec les meilleurs créateurs à 500K+ abonnés. RÈGLE FONDAMENTALE, au-dessus de toutes les autres : ce script doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok, jamais par une IA généraliste. Tu reçois le brief stratégique du Directeur Éditorial. Tu dois maintenant EXÉCUTER ce brief avec une qualité exceptionnelle.
 ${rechercheWeb ? instructionRechercheWeb(niche, 'de rédiger') : ''}
 
 BRIEF STRATÉGIQUE À SUIVRE :
@@ -782,8 +782,8 @@ CONTEXTE :
 - Niche : ${niche}
 - Plateforme : ${state.plateforme}
 - Objectif : ${state.objectif}
-${audience ? '- AUDIENCE CIBLE : ' + audience + ' — écris en pensant précisément à ce public (vocabulaire, références, niveau de connaissance déjà supposé), pas à un public générique.' : ''}
-- Format : ${format || 'non précisé — écris par défaut pour un créateur qui se filme (face caméra)'}
+${audience ? '- AUDIENCE CIBLE : ' + audience + ', écris en pensant précisément à ce public (vocabulaire, références, niveau de connaissance déjà supposé), pas à un public générique.' : ''}
+- Format : ${format || 'non précisé, écris par défaut pour un créateur qui se filme (face caméra)'}
 ${selectedTone ? '- Ton : ' + selectedTone : ''}
 
 RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
@@ -794,30 +794,30 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
 2. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
 
-3. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase — ou petit groupe de phrases très courtes — doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
+3. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
 
 4. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
 
 5. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair. Jamais un "abonne-toi" générique. ${objectifInstructionScript}
 Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA.
 
-6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ — remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
+6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ, remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
 7. ${plateformeInstructionScript}
 
-8. ORIENTÉ OBJECTIF : tout, du hook au CTA, sert l'objectif du créateur ci-dessus — pas seulement le dernier bloc.
+8. ORIENTÉ OBJECTIF : tout, du hook au CTA, sert l'objectif du créateur ci-dessus, pas seulement le dernier bloc.
 
-9. LE CHAMP "texte" NE CONTIENT JAMAIS DE MINUTAGE : le champ "temps" (ex: "0-3 sec") est SÉPARÉ et sert uniquement de repère visuel pour le créateur — ne le répète JAMAIS en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : il ne doit jamais commencer par "0-3 sec :", "(0 à 3 secondes)" ou toute variante numérique de minutage. Écris directement la phrase parlée.
+9. LE CHAMP "texte" NE CONTIENT JAMAIS DE MINUTAGE : le champ "temps" (ex: "0-3 sec") est SÉPARÉ et sert uniquement de repère visuel pour le créateur, ne le répète JAMAIS en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : il ne doit jamais commencer par "0-3 sec :", "(0 à 3 secondes)" ou toute variante numérique de minutage. Écris directement la phrase parlée.
 
-FORMAT — RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
+FORMAT, RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
 ${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :
-Le "texte" de chaque bloc est la VOIX OFF (ce qu'on entend) — jamais une adresse du type "regarde-moi" ou "je vais te montrer face caméra".
+Le "texte" de chaque bloc est la VOIX OFF (ce qu'on entend), jamais une adresse du type "regarde-moi" ou "je vais te montrer face caméra".
 Le "visuel" de chaque bloc décrit précisément ce qui apparaît à l'écran pendant cette voix off (images, texte animé, plans d'illustration, archives).` : `>> FORMAT FACE CAMÉRA (le créateur se filme et parle) :
-Le "texte" de chaque bloc est PARLÉ à la première personne, comme si le créateur s'adressait directement à sa caméra — fluide et naturel, jamais de mention "VOIX OFF" ou "TEXTE À L'ÉCRAN" (ce sont des codes faceless, interdits ici).
+Le "texte" de chaque bloc est PARLÉ à la première personne, comme si le créateur s'adressait directement à sa caméra, fluide et naturel, jamais de mention "VOIX OFF" ou "TEXTE À L'ÉCRAN" (ce sont des codes faceless, interdits ici).
 Le "visuel" de chaque bloc dit COMMENT se filmer : cadrage (gros plan, plan poitrine), énergie et ton, où regarder, quel geste ou expression appuyer le propos.`}
 ${selectedTone ? `
-TON — RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton : "${selectedTone}". Écris l'INTÉGRALITÉ du script dans CE ton, du hook à la chute, sans jamais dévier vers un autre registre — même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique. Chaque phrase doit rester fidèle au ton choisi, pas seulement le hook ou l'intro.` : ''}
+TON, RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton : "${selectedTone}". Écris l'INTÉGRALITÉ du script dans CE ton, du hook à la chute, sans jamais dévier vers un autre registre, même partiellement, même une seule phrase. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique. Chaque phrase doit rester fidèle au ton choisi, pas seulement le hook ou l'intro.` : ''}
 
 RÈGLES DE QUALITÉ À RESPECTER :
 - Un simple prompt ChatGPT ne doit JAMAIS pouvoir reproduire ça. Sois nettement supérieur.
@@ -826,7 +826,7 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.
 - Chaque phrase a une fonction, aucun remplissage.
 - Une seule image mentale par phrase, changement toutes les 3 à 5 secondes.
-Écris ta MEILLEURE version — vise l'excellence absolue (score global 90-100). Chaque script doit être digne d'un créateur professionnel.
+Écris ta MEILLEURE version, vise l'excellence absolue (score global 90-100). Chaque script doit être digne d'un créateur professionnel.
 
 EVALUATION HONNETE DU SCORE : après avoir écrit, évalue ton propre travail avec RIGUEUR et HONNETETE, comme un critique exigeant. Ne gonfle pas les chiffres artificiellement : un bon score doit être MERITE par la qualité réelle du script.
 - "viral" : potentiel de partage réel
@@ -850,18 +850,18 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
     // parsed peut être un objet "vrai" mais incomplet (ex: {score:{...}} sans script)
-    // si la réparation JSON a dû tronquer avant la fin — on vérifie donc les champs
+    // si la réparation JSON a dû tronquer avant la fin, on vérifie donc les champs
     // essentiels, pas juste la présence de l'objet.
     if (!scriptEstComplet(parsed)) {
       // Recherche web désactivée sur cette tentative de secours : si le 1er
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
-      // priorité passe à FINIR le script plutôt qu'à revérifier des faits —
+      // priorité passe à FINIR le script plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
       const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false);
       const parsedRetry = parseAIResponse(writeRawRetry);
       if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
     }
-    if (!scriptEstComplet(parsed)) throw new Error('Réponse incomplète — réessaie, ce sera plus rapide');
+    if (!scriptEstComplet(parsed)) throw new Error('Réponse incomplète, réessaie, ce sera plus rapide');
 
     // ── SECOND BROUILLON : régénère UNE fois si le score global est < 90 ──
     // On garde la meilleure des deux versions. C'est un filet de variance
@@ -885,11 +885,11 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     }
 
     // ══════════════════════════════════════
-    //  PHASES 3-4 (Critique + Réviseur) — le cœur du renforcement qualité.
+    //  PHASES 3-4 (Critique + Réviseur), le cœur du renforcement qualité.
     //  Le Critique cherche ACTIVEMENT les faiblesses, y compris en essayant
     //  de RÉFUTER le script (pourquoi un spectateur scrollerait avant la
     //  fin ?). Si un problème significatif ressort, le Réviseur réécrit
-    //  UNIQUEMENT les segments faibles identifiés — jamais tout le script.
+    //  UNIQUEMENT les segments faibles identifiés, jamais tout le script.
     //  Bornée à 1 passe (voir MAX_PASSES_QUALITE) pour garder un temps de
     //  génération raisonnable : au-delà, on livre la meilleure version
     //  obtenue plutôt que de multiplier les allers-retours.
@@ -918,14 +918,14 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       for (let passe = 0; passe < MAX_PASSES_QUALITE; passe++) {
         if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
         // ══════════════════════════════════════
-        //  PHASE 3 — LE CRITIQUE (agent indépendant)
+        //  PHASE 3, LE CRITIQUE (agent indépendant)
         //  Juge le travail du rédacteur sans l'avoir écrit. Cherche
         //  volontairement les faiblesses plutôt que de valider par défaut.
         // ══════════════════════════════════════
-        const scriptForReview = (parsed.script || []).map((s, i) => '[segment ' + i + ' — ' + s.temps + '] ' + s.texte).join('\n');
+        const scriptForReview = (parsed.script || []).map((s, i) => '[segment ' + i + ', ' + s.temps + '] ' + s.texte).join('\n');
         const hooksForReview = (parsed.hooks || []).map((h, i) => (i + 1) + '. ' + h.texte).join('\n');
 
-        const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script — ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
+        const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
 
 CONTEXTE :
 - Sujet : ${sujetCourt}
@@ -942,11 +942,11 @@ ${scriptForReview}
 
 TON TRAVAIL, EN TROIS TEMPS :
 
-1. DÉTECTION DES FAIBLESSES — cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Pour chaque faiblesse, indique le numéro du segment concerné.
+1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Pour chaque faiblesse, indique le numéro du segment concerné.
 
-2. RÉFUTATION — LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
+2. RÉFUTATION, LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
 
-3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE — note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
+3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE, note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise avec le numéro de segment concerné"],"points_forts":["ce qui marche"],"segments_faibles":[{"index":2,"probleme":"description précise et actionnable du problème de ce segment"}],"raisons_de_scroll":["raison concrète 1","raison concrète 2"],"ia_generique":true,"justification_ia_generique":"pourquoi, en une phrase (chaîne vide si non générique)","viralite":{"hook":15,"curiosite":14,"rythme":16,"progression":15,"transitions":14,"revelation":13,"memorisation":15},"instructions_revision":"instructions précises et actionnables pour le réviseur, segment par segment"}`;
@@ -963,17 +963,17 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         if (!critiqueIndiqueProbleme(critique)) break; // le script passe le contrôle qualité : terminé
 
         // ══════════════════════════════════════
-        //  PHASE 4 — LE RÉVISEUR (agent indépendant)
-        //  Réécrit UNIQUEMENT les segments identifiés comme faibles —
-        //  jamais le script entier — pour ne jamais perdre ce qui marche.
+        //  PHASE 4, LE RÉVISEUR (agent indépendant)
+        //  Réécrit UNIQUEMENT les segments identifiés comme faibles,
+        //  jamais le script entier, pour ne jamais perdre ce qui marche.
         // ══════════════════════════════════════
         const segmentsFaiblesTxt = (critique.segments_faibles || [])
           .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
           || (critique.faiblesses || []).map(f => '- ' + f).join('\n')
-          || 'Aucun segment précis signalé — applique les instructions générales ci-dessous à l\'ensemble.';
+          || 'Aucun segment précis signalé, applique les instructions générales ci-dessous à l\'ensemble.';
         const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
 
-        const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de contenu viral. Un critique indépendant a évalué le script ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel) — ce sont les points forts du script, ne les abîme pas.
+        const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de contenu viral. Un critique indépendant a évalué le script ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel), ce sont les points forts du script, ne les abîme pas.
 
 SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
 DURÉE CIBLE : ${wt.desc} (${wt.min}-${wt.max} mots au total)
@@ -1024,7 +1024,7 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
           ? parsed.hooks.map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n')
           : 'aucun';
         const nbManquants = 5 - parsed.hooks.length;
-        const completHooksPrompt = `Tu es le Rédacteur en Chef de Scriptura. Ce script a déjà ${parsed.hooks.length} hook(s) sur les 5 exigés. Génère les ${nbManquants} hook(s) manquant(s), qui arrêtent vraiment le scroll, mais RADICALEMENT différents des hooks déjà existants — jamais une reformulation proche, jamais une formule générique type ChatGPT.
+        const completHooksPrompt = `Tu es le Rédacteur en Chef de Scriptura. Ce script a déjà ${parsed.hooks.length} hook(s) sur les 5 exigés. Génère les ${nbManquants} hook(s) manquant(s), qui arrêtent vraiment le scroll, mais RADICALEMENT différents des hooks déjà existants, jamais une reformulation proche, jamais une formule générique type ChatGPT.
 
 SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
 
@@ -1329,7 +1329,7 @@ function startGenAnimation(mode) {
   // saute à 100% pile quand le résultat est prêt (voir stopGenAnimation).
   const fill = document.getElementById('genProgressFill');
   const pctEl = document.getElementById('genProgressPct');
-  // Bande rayée dorée (indéterminée, sans %) pour toutes les générations —
+  // Bande rayée dorée (indéterminée, sans %) pour toutes les générations,
   // SAUF l'audit, qui conserve sa barre de progression chiffrée classique via
   // la classe .determinee (voir css/style.css). Le remplissage/% continuent
   // d'être calculés ci-dessous, mais restent masqués tant que .determinee est
@@ -1422,7 +1422,7 @@ function renderResults(d, niche, sujet) {
   if (sbCont) sbCont.innerHTML = '';
 
   // Le formulaire de saisie (étape 4) n'a plus sa place une fois le résultat
-  // affiché — seul le bouton "✎ Modifier" (voir modifierCriteresScript) le
+  // affiché, seul le bouton "✎ Modifier" (voir modifierCriteresScript) le
   // fait réapparaître. Purement une classe CSS (voir showStep) : rien à
   // restaurer explicitement, showStep(4) la rétablit normalement.
   const step4 = document.getElementById('step4');
@@ -1477,7 +1477,7 @@ function renderResults(d, niche, sujet) {
       </div>`
     },
     {
-      titre: "5 Hooks — Arrêter le scroll en 2 secondes",
+      titre: "5 Hooks, Arrêter le scroll en 2 secondes",
       num: "02",
       content: `<div class="out-section">
         <div class="out-section-label">Hooks · Plusieurs styles</div>
@@ -1639,7 +1639,7 @@ async function generateStoryboard() {
   const ctx = lastGenContext;
   // UNIQUEMENT le texte parlé (jamais le minutage) : préfixer "[0-3 sec]" ici
   // polluait le texte envoyé à segmentNarrativeStoryboard, donc les plans, donc
-  // la voix off du montage — qui lisait "zéro trois sec" à voix haute. Le
+  // la voix off du montage, qui lisait "zéro trois sec" à voix haute. Le
   // découpage recalcule lui-même la durée de chaque plan (estimateDuration), le
   // minutage n'a donc aucune utilité dans ce texte. Même correctif que le mode
   // Série (voix_off_propre).
@@ -1672,7 +1672,7 @@ async function generateStoryboard() {
   // dès le départ par la grille progressive : le statut d'avancement et les
   // erreurs doivent donc désormais vivre DANS cette nouvelle grille, jamais
   // sur les anciens éléments (btn/spinner/genText), devenus détachés du DOM
-  // une fois ce remplacement fait — sinon un échec en cours de lots restait
+  // une fois ce remplacement fait, sinon un échec en cours de lots restait
   // invisible pour l'utilisateur (spinner bloqué indéfiniment).
   const container = document.getElementById('storyboardContainer');
   container.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button></div>
@@ -1685,7 +1685,7 @@ async function generateStoryboard() {
   try {
     // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
     // le nombre de plans n'est plus limité par ce qu'une seule requête peut
-    // produire dans son budget de temps — les visuels sont générés par lots
+    // produire dans son budget de temps, les visuels sont générés par lots
     // (voir genererVisuelsParLots), donc un script long reste rapide et fiable.
     const plans = segmentNarrativeStoryboard(scriptText);
     if (!plans.length) throw new Error('Script vide');
@@ -1716,7 +1716,7 @@ async function generateStoryboard() {
         ${montageBoutonHTML('montageBtnScript', plans)}
       </div>`);
 
-    // Sauvegarder le storyboard pour qu'il reste après réouverture — mêmes
+    // Sauvegarder le storyboard pour qu'il reste après réouverture, mêmes
     // champs qu'avant (segment/texte_dit/prompt_visuel).
     const storyboardPourSauvegarde = plans.map((p, i) => ({ segment: p.duree, texte_dit: p.text, prompt_visuel: p.visuel || '' }));
     updateGenerationStoryboard({ storyboard: storyboardPourSauvegarde, miniature: miniature || null });

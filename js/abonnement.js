@@ -1,5 +1,5 @@
 // ══════════════════════════════════════
-//  SYSTÈME DE LIMITE — 5 GÉNÉRATIONS GRATUITES
+//  SYSTÈME DE LIMITE, 5 GÉNÉRATIONS GRATUITES
 // ══════════════════════════════════════
 const MAX_FREE = 5;
 
@@ -275,7 +275,7 @@ function openPlans(contexte) {
     if (proBadge) proBadge.style.display = 'none';
   } else if (contexte === 'quota') {
     // Quota mensuel atteint : on explique, et on propose une éventuelle
-    // montée en gamme — mais jamais le plan que l'utilisateur a déjà.
+    // montée en gamme, mais jamais le plan que l'utilisateur a déjà.
     const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
     if (tag) tag.textContent = 'Limite du mois atteinte';
     if (titre) titre.innerHTML = 'Tu as utilisé tes<br/>générations du mois';
@@ -381,7 +381,7 @@ const PLANS = {
     prix: '6.000 FCFA',
     titre: 'Passe au plan Creator',
     desc: 'Les 3 modes de création + l\'analyse sommaire de compte, 50 générations par mois.',
-    wa: 'Bonjour, je veux le plan Creator de Scriptura — 6.000 FCFA/mois',
+    wa: 'Bonjour, je veux le plan Creator de Scriptura, 6.000 FCFA/mois',
     features: [
       'Les 3 modes de création : idées, script, storytelling',
       '+ Analyse sommaire de ton compte (@username), dans ta limite de générations',
@@ -394,7 +394,7 @@ const PLANS = {
     prix: '10.000 FCFA',
     titre: 'Passe au plan Pro',
     desc: 'Tout Creator + le diagnostic TikTok et le mode Crée-moi une série. 70 générations + 5 diagnostics par mois.',
-    wa: 'Bonjour, je veux le plan Pro de Scriptura — 10.000 FCFA/mois',
+    wa: 'Bonjour, je veux le plan Pro de Scriptura, 10.000 FCFA/mois',
     features: [
       'Tout le plan Creator',
       '+ Diagnostic TikTok, propulsé par notre IA la plus avancée',
@@ -440,7 +440,7 @@ function acheterPack(index) {
   const p = packs[index];
   if (!p) return;
   const prixFmt = formaterNombre(p.prix) + ' FCFA';
-  const msg = 'Bonjour, je veux acheter ' + p.label + ' Scriptura (diagnostic ou série) — ' + prixFmt;
+  const msg = 'Bonjour, je veux acheter ' + p.label + ' Scriptura (diagnostic ou série), ' + prixFmt;
   window.open('https://wa.me/22995056424?text=' + encodeURIComponent(msg), '_blank');
 }
 

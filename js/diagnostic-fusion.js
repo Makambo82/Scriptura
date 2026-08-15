@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-//  RAPPORT FUSIONNÉ — combine le diagnostic complet (captures, js/audit.js)
+//  RAPPORT FUSIONNÉ, combine le diagnostic complet (captures, js/audit.js)
 //  et le diagnostic sommaire (@nom d'utilisateur, js/diagnostic-sommaire.js)
 //  d'un même créateur en une synthèse plus complète : chaque diagnostic
 //  voit des choses que l'autre ne voit pas (rétention/sources de trafic
 //  côté captures ; bio, ratio vues/abonnés, régularité récente côté
-//  @nom d'utilisateur) — les croiser affine les recommandations.
+//  @nom d'utilisateur), les croiser affine les recommandations.
 //  Réservé au Pro : ne consomme AUCUN quota supplémentaire, c'est une
 //  synthèse de deux diagnostics déjà générés (et déjà payés).
 // ═══════════════════════════════════════════════════════════
@@ -92,10 +92,10 @@ async function genererFusionDiagnostics() {
 
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne DEUX diagnostics déjà réalisés pour le MÊME créateur, à des moments différents et par des méthodes différentes :
 
-1) DIAGNOSTIC COMPLET (basé sur des captures d'écran des statistiques TikTok officielles du créateur — rétention, sources de trafic, audience démographique) :
+1) DIAGNOSTIC COMPLET (basé sur des captures d'écran des statistiques TikTok officielles du créateur, rétention, sources de trafic, audience démographique) :
 ${JSON.stringify(auditGen.contenu || {}).slice(0, 6000)}
 
-2) DIAGNOSTIC SOMMAIRE (basé sur le profil public TikTok @${(sommaireGen.contenu && sommaireGen.contenu.username) || ''} lu via une API tierce — bio, niche, engagement de surface) :
+2) DIAGNOSTIC SOMMAIRE (basé sur le profil public TikTok @${(sommaireGen.contenu && sommaireGen.contenu.username) || ''} lu via une API tierce, bio, niche, engagement de surface) :
 ${JSON.stringify(sommaireGen.contenu || {}).slice(0, 6000)}
 
 TON TRAVAIL : croise ces deux diagnostics pour produire une synthèse PLUS COMPLÈTE que chacun pris séparément. Le diagnostic complet voit la rétention et les sources de trafic (données privées, invisibles au diagnostic sommaire) ; le diagnostic sommaire voit la bio et le ratio vues/abonnés sur la durée (données publiques, absentes du diagnostic complet). Utilise cette complémentarité.

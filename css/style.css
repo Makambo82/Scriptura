@@ -9,7 +9,7 @@
   --gold-pale:rgba(201,168,76,0.12);
   --border:rgba(201,168,76,0.28);
   --border-soft:rgba(201,168,76,0.16);
-  /* Troisième couleur, réservée aux accents premium (palier Pro, réussite) —
+  /* Troisième couleur, réservée aux accents premium (palier Pro, réussite),
      jamais en fond ni en remplacement du doré, seulement pour signaler
      ce qui est "le niveau au-dessus". */
   --emerald:#1F6B4C;
@@ -22,7 +22,7 @@
   --white:#FFFFFF;
 }
 html{scroll-behavior:auto}
-/* Empêche le zoom par double-tap accidentel sur mobile (Safari iOS surtout) —
+/* Empêche le zoom par double-tap accidentel sur mobile (Safari iOS surtout),
    distinct du zoom auto au focus d'un champ (déjà bloqué par le 16px minimum
    sur .ctx-input/.ctx-textarea/.ds-input/.modal-input), cette règle couvre
    un tap/double-tap rapide n'importe où dans l'app. */
@@ -69,7 +69,7 @@ nav{
   color:var(--gold);opacity:0.75;margin-bottom:32px;
 }
 /* Badge logo au-dessus du texte "Propulsé par l'IA" : éclair dans un cadre
-   arrondi avec un filet doré qui tourne en continu — même mécanique que
+   arrondi avec un filet doré qui tourne en continu, même mécanique que
    .hero-mode-btn.audit (voir plus bas), pour lier visuellement le logo au
    mode diagnostic, le plus "haut de gamme" des modes de Scriptura. */
 .hero-logo-badge{
@@ -219,7 +219,7 @@ nav{
 }
 .ctx-input,.ctx-textarea{
   /* 16px minimum : en dessous, Safari iOS zoome automatiquement l'écran
-     au focus d'un champ de saisie — effet de "petit zoom" gênant. */
+     au focus d'un champ de saisie, effet de "petit zoom" gênant. */
   font-family:'Poppins',sans-serif;font-size:1rem;
   background:#3A3A3D;
   border:1px solid rgba(255,255,255,0.15);border-radius:6px;
@@ -1088,9 +1088,9 @@ body.hero-focus .hero-focus-rule{display:block}
 .hero-mode-btn:active{transform:translateY(-1px)}
 .hero-mode-btn .mode-icon{transition:transform 0.3s ease,background 0.3s ease,box-shadow 0.3s ease}
 .hero-mode-btn:hover .mode-icon{transform:scale(1.12);background:rgba(201,168,76,0.2);box-shadow:0 0 16px -2px rgba(201,168,76,0.5)}
-/* Apparition en cascade des cartes de modes (accueil) — désactivée si l'utilisateur
+/* Apparition en cascade des cartes de modes (accueil), désactivée si l'utilisateur
    préfère moins d'animations. "backwards" (pas "forwards") : la carte est cachée
-   pendant son délai puis révélée, et revient à son état de base ensuite — le survol
+   pendant son délai puis révélée, et revient à son état de base ensuite, le survol
    (transform) continue donc de fonctionner normalement. */
 @keyframes modeCardIn{from{opacity:0;transform:translateY(24px) scale(.975)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:no-preference){
@@ -1165,7 +1165,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .why-grid{display:grid;grid-template-columns:1fr;gap:16px;text-align:left}
 @media(min-width:720px){.why-grid{grid-template-columns:1fr 1fr;gap:20px}}
 
-/* ── FAQ (accueil) — accordéon natif <details>, aucun JS ── */
+/* ── FAQ (accueil), accordéon natif <details>, aucun JS ── */
 .faq{max-width:760px;margin:0 auto;padding:48px 12px 32px;text-align:center}
 .faq-list{text-align:left;margin-top:8px}
 .faq-item{border:1px solid var(--border-soft);border-radius:12px;margin-bottom:12px;background:rgba(255,255,255,0.02);overflow:hidden;transition:border-color 0.25s ease}
@@ -1177,7 +1177,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .faq-item[open] .faq-chev{transform:rotate(180deg)}
 .faq-a{padding:0 20px 20px;font-family:'Poppins',sans-serif;font-size:0.92rem;color:var(--text-secondary);line-height:1.7}
 
-/* ── TARIFS (accueil) — réutilise les cartes .plan-card existantes ── */
+/* ── TARIFS (accueil), réutilise les cartes .plan-card existantes ── */
 .pricing{max-width:820px;margin:0 auto;padding:48px 12px 32px;text-align:center}
 .pricing-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin:-24px auto 26px;max-width:460px}
 .pricing-grid{display:grid;grid-template-columns:1fr;gap:16px;text-align:left}
@@ -1492,9 +1492,9 @@ body.hist-select #scrollTopBtn{display:none !important}
   border:none;cursor:pointer;margin-top:10px;transition:color 0.2s;
 }
 .modal-btn-ghost:hover{color:rgba(255,255,255,0.9)}
-/* Bouton "J'ai un code" dans le nav — masqué si déjà abonné */
+/* Bouton "J'ai un code" dans le nav, masqué si déjà abonné */
 body.is-unlocked .nav-code-btn{display:none}
-/* Bouton "S'abonner" dans le nav — masqué si déjà abonné */
+/* Bouton "S'abonner" dans le nav, masqué si déjà abonné */
 body.is-unlocked .nav-subscribe-btn{display:none}
 
 /* ── BARRE D'ACTIONS (sous le ticker) ── */
@@ -1534,7 +1534,7 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   #scrollTopBtn{bottom:18px;right:18px;width:44px;height:44px;font-size:1.2rem}
 }
 
-/* Bouton "S'abonner" dans le nav, juste à gauche du bouton menu — même
+/* Bouton "S'abonner" dans le nav, juste à gauche du bouton menu, même
    effet (cadre doré + reflet animé) que .hero-cta ("Commencer gratuitement"),
    texte en noir. Masqué automatiquement si déjà abonné (règle .nav-subscribe-btn
    plus haut). */
@@ -1627,7 +1627,7 @@ body.is-admin .montage-trigger-btn{display:inline-flex}
 body.is-admin .sidebar-item.nav-contact-btn{display:none}
 /* "Se déconnecter" : uniquement pour les abonnés et le fondateur (un
    non-abonné n'a pas de code, donc rien dont se déconnecter). Ancré en bas
-   de la barre latérale — .sidebar-nav garde flex:1 pour pousser ce bloc
+   de la barre latérale, .sidebar-nav garde flex:1 pour pousser ce bloc
    tout en bas quel que soit le nombre d'items au-dessus. */
 .sidebar-logout{
   border-top:1px solid var(--border-soft);
@@ -1644,7 +1644,7 @@ body.is-unlocked .sidebar-logout{display:block}
   color:rgba(255,150,150,1);
 }
 
-/* Texte "Appuie pour rouvrir" — discret */
+/* Texte "Appuie pour rouvrir", discret */
 .history-reopen{
   font-size:0.72rem;
   color:rgba(255,255,255,0.35);
@@ -1760,7 +1760,7 @@ body.is-unlocked .sidebar-logout{display:block}
 
 /* ── ANIMATION DE GÉNÉRATION : bande rayée dorée (indéterminée) ──
    Remplace la barre de progression chiffrée pour TOUTES les générations
-   (Script, Récit, Idées, Série, storyboards) — les rayures défilent en
+   (Script, Récit, Idées, Série, storyboards), les rayures défilent en
    continu, sans chiffre ni texte. Seul l'audit garde sa barre chiffrée :
    sa barre reçoit dynamiquement .determinee (voir startGenAnimation dans
    js/generation.js), qui la fait retomber sur le style ci-dessus. */
@@ -2188,7 +2188,7 @@ body.is-unlocked .sidebar-logout{display:block}
    Panneau en ligne (pas une boîte de dialogue) : déplacé juste après le
    bouton "Générer la vidéo" qui l'a ouvert (voir ouvrirMontage() dans
    js/montage.js), s'affiche comme une extension du storyboard. Aucun
-   moyen de le fermer — ce n'est pas voulu. */
+   moyen de le fermer, ce n'est pas voulu. */
 .montage-panel{
   display:none;text-align:left;max-width:460px;
   background:none;border:none;
@@ -2403,7 +2403,7 @@ body.is-unlocked .sidebar-logout{display:block}
    leviers, analyse détaillée), habillée en doré + émeraude Scriptura. */
 
 /* L'anneau réutilise .audit-ring-fill (voir plus haut), dont le CSS force
-   stroke:url(#auditRingGrad) — id du dégradé du diagnostic COMPLET. Cette
+   stroke:url(#auditRingGrad), id du dégradé du diagnostic COMPLET. Cette
    carte définit son propre dégradé #dsRingGrad : la règle ci-dessous, plus
    spécifique, doit gagner pour que la couleur (doré ou émeraude) s'applique
    réellement à l'anneau du diagnostic sommaire. */
@@ -2422,7 +2422,7 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-dim-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .ds-dim-icon{font-size:1rem}
 .ds-dim-name{font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:#fff;flex:1}
-/* Badge de score coloré selon le niveau (rouge/orange/émeraude) — utilisé
+/* Badge de score coloré selon le niveau (rouge/orange/émeraude), utilisé
    dans les cartes de dimension du diagnostic complet ET du sommaire
    (js/audit.js niveauScoreSur, .ds-dim-card réutilisée aux deux endroits). */
 .score-badge{

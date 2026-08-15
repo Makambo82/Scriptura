@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  SCRIPTURA — BIBLIOTHÈQUE DE MODÈLES NARRATIFS (MAKAMBO)
+//  SCRIPTURA, BIBLIOTHÈQUE DE MODÈLES NARRATIFS (MAKAMBO)
 //  15 scripts signature servant de référence au mode Storytelling.
 //  Le moteur choisit automatiquement le modèle le plus proche
 //  du sujet demandé, puis s'en inspire pour écrire.
@@ -376,7 +376,7 @@ function choisirTopModeles(sujet, n) {
   // Aucun modèle ne dépasse le seuil de pertinence thématique (sujet trop
   // inhabituel) : on choisit quand même le meilleur candidat disponible,
   // même faible, plutôt que de laisser Scriptura sans AUCUNE référence de
-  // style — respecter un modèle est impératif, jamais optionnel.
+  // style, respecter un modèle est impératif, jamais optionnel.
   const tries = scores.slice().sort((a, b) => b.score - a.score);
   return tries.length ? [tries[0].modele] : [];
 }

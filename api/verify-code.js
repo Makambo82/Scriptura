@@ -1,10 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/verify-code — Vérifie si un code est le code fondateur/admin, ou
+//  /api/verify-code, Vérifie si un code est le code fondateur/admin, ou
 //  un code de secours illimité/mensuel, SANS jamais exposer ces codes au
 //  navigateur.
 //
 //  AVANT cette fonction, ces codes (SCRIPTURA-CELINE, SCRIPTURA-JUIL-2026…)
-//  étaient codés en dur dans js/api.js et js/abonnement.js — n'importe qui
+//  étaient codés en dur dans js/api.js et js/abonnement.js, n'importe qui
 //  ouvrant les outils de développement ou lisant le JS servi par le site
 //  pouvait les lire et se les attribuer gratuitement (accès Pro illimité,
 //  voire le Tableau de bord fondateur). Ils vivent maintenant uniquement
@@ -13,13 +13,13 @@
 //  Les abonnements normaux (payants, avec ligne dans la table Supabase
 //  `abonnes`) continuent d'être vérifiés directement par le client contre
 //  Supabase (voir js/auth.js verifyCode()) : ce fichier ne couvre que les
-//  codes qui n'ont pas — ou pas besoin d'avoir — de ligne Supabase.
+//  codes qui n'ont pas, ou pas besoin d'avoir, de ligne Supabase.
 //
 //  Variables d'environnement attendues (à définir sur Vercel) :
 //  - CODE_ADMIN     : un seul code, donne accès au Tableau de bord + illimité.
 //  - CODES_ILLIMITES: codes VIP séparés par des virgules, illimité SANS Tableau de bord.
 //  - CODES_SECOURS  : codes de secours (accès Pro classique) séparés par des virgules,
-//                      à faire tourner régulièrement — remplace l'ancien CODES_VALIDES.
+//                      à faire tourner régulièrement, remplace l'ancien CODES_VALIDES.
 // ═══════════════════════════════════════════════════════════
 
 export default async function handler(req, res) {

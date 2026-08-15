@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/montage-download — Proxy de téléchargement pour la vidéo rendue.
+//  /api/montage-download, Proxy de téléchargement pour la vidéo rendue.
 //  Un fetch() JS direct vers le CDN Supabase échoue souvent à cause du CORS
 //  (même quand <video src> fonctionne très bien, la lecture du corps de la
-//  réponse via fetch, elle, l'exige) — ce qui faisait retomber js/montage.js
+//  réponse via fetch, elle, l'exige), ce qui faisait retomber js/montage.js
 //  sur l'ouverture brute de la vidéo au lieu du partage natif. En transitant
 //  par ce proxy (même origine que Scriptura), plus de CORS côté client.
 //

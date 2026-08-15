@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/username-scan — Diagnostic sommaire via @nom d'utilisateur TikTok
+//  /api/username-scan, Diagnostic sommaire via @nom d'utilisateur TikTok
 //
 //  Deux sources complémentaires :
 //    • PROFIL  → LamaTok (/v1/user/by/username) : abonnés, likes cumulés,
@@ -33,8 +33,8 @@ function nettoyerCle(k) {
   return s.trim().replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, '');
 }
 
-// Résout l'objet utilisateur dans le profil LamaTok — rangé sous
-// users = { "<pseudo>": { id, secUid, ... } } — et en extrait id + secUid.
+// Résout l'objet utilisateur dans le profil LamaTok, rangé sous
+// users = { "<pseudo>": { id, secUid, ... } }, et en extrait id + secUid.
 function extraireIds(profil) {
   let u = (profil && (profil.users || profil.user)) || {};
   if (Array.isArray(u)) u = u[0] || {};
@@ -80,7 +80,7 @@ function normaliserMedias(data) {
 }
 
 // Récupère les vidéos d'un compte via ScrapTik /user-posts (avec l'id
-// numérique du compte). Pagine via max_cursor pour viser ~30-40 vidéos —
+// numérique du compte). Pagine via max_cursor pour viser ~30-40 vidéos,
 // bien plus fiable pour la Régularité et la Viralité qu'une seule page (~10).
 // Renvoie la liste normalisée, ou null si tout échoue (non-régressif :
 // le diagnostic retombe alors sur l'Engagement).

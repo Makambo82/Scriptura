@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/montage-images — Génère les images du montage via Together AI
+//  /api/montage-images, Génère les images du montage via Together AI
 //  (FLUX.1-schnell, modèle serverless payant), à partir des prompts visuels
 //  déjà écrits par Scriptura pour chaque plan du storyboard (voir
-//  js/storyboard.js genererVisuelsParLots) — rien à écrire de plus pour
+//  js/storyboard.js genererVisuelsParLots), rien à écrire de plus pour
 //  l'utilisateur.
 //
 //  Historique de cette fonction (pour ne pas retenter les mêmes pistes) :
@@ -17,21 +17,21 @@
 //  Chaque prompt est traité indépendamment (échec d'un plan ≠ échec des
 //  autres, même logique que genererVisuelsParLots côté texte).
 //
-//  Réservé au fondateur — la clé TOGETHER_API_KEY reste entièrement côté
+//  Réservé au fondateur, la clé TOGETHER_API_KEY reste entièrement côté
 //  serveur, jamais exposée au navigateur.
 // ═══════════════════════════════════════════════════════════
 
 // Un seul appel à la fois : en parallèle (3 avant), Together AI renvoyait
 // une erreur de limite de débit sur une partie des appels (l'API refusait
 // la génération "en bloc" alors qu'une régénération individuelle, forcément
-// séquentielle, passait toujours) — le compte n'autorise apparemment qu'une
+// séquentielle, passait toujours), le compte n'autorise apparemment qu'une
 // requête d'image à la fois. En plus du séquentiel, on retente automatique-
 // ment une erreur de type limite de débit (429) avant d'abandonner ce plan.
 const CONCURRENCE_MAX = 1;
 const TENTATIVES_MAX = 3;
 // FLUX.1-schnell-Free n'est PAS un modèle serverless standard côté Together
 // AI : il exige un point de terminaison dédié (instance GPU à créer et faire
-// tourner soi-même dans leur dashboard), pas un simple appel API — d'où
+// tourner soi-même dans leur dashboard), pas un simple appel API, d'où
 // l'erreur "Unable to access non-serverless model". La version payante
 // (sans "-Free") est un vrai modèle serverless, facturée à l'image.
 //
@@ -55,7 +55,7 @@ const DIMENSIONS_FORMAT = {
 };
 // Plus de style figé ici : le style graphique choisi par le créateur est déjà
 // présent dans le prompt reçu (footer ajouté côté client par appliquerStyleVisuel,
-// js/api.js) — un préfixe "peinture à l'huile" en dur écraserait ce choix.
+// js/api.js), un préfixe "peinture à l'huile" en dur écraserait ce choix.
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 

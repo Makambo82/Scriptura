@@ -1,11 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-//  MONTAGE VIDÉO — assemblage images + voix off, rendu par FFmpeg
+//  MONTAGE VIDÉO, assemblage images + voix off, rendu par FFmpeg
 //  auto-hébergé (voir api/montage-render.js).
 //  Réservé au fondateur (bouton visible uniquement en body.is-admin).
 //  Boucle complète : les images sont générées par Together AI (voir
 //  api/montage-images.js) à partir des prompts visuels déjà écrits par
 //  Scriptura pour chaque plan, et la voix off par ElevenLabs (voir
-//  api/montage-tts.js) à partir du texte du storyboard — plus rien à
+//  api/montage-tts.js) à partir du texte du storyboard, plus rien à
 //  uploader manuellement. L'horodatage renvoyé par ElevenLabs donne la
 //  durée EXACTE de chaque plan.
 // ═══════════════════════════════════════════════════════════
@@ -14,23 +14,23 @@
 // bridé par le plan gratuit). Dès que le service de rendu externe est déployé
 // (voir render-service/README.md), colle son URL ici pour un rendu 1080p, une
 // synchro image/voix exacte et des transitions variées. Tant que c'est vide,
-// rien ne change — aucune coupure pendant la migration.
+// rien ne change, aucune coupure pendant la migration.
 const MONTAGE_RENDER_URL = 'https://scriptura-production-a540.up.railway.app'; // service de rendu Railway
 const MONTAGE_RENDER_TOKEN = ''; // seulement si MONTAGE_TOKEN est défini côté service
 
-let montagePlans = [];      // [{ text, visuel }] — un par plan du storyboard
-let montageImages = [];     // [{ blob, apercu } | null] — même ordre/longueur que montagePlans
-let montageVoixOff = null;  // { blob, url, durations } — générée par ElevenLabs
+let montagePlans = [];      // [{ text, visuel }], un par plan du storyboard
+let montageImages = [];     // [{ blob, apercu } | null], même ordre/longueur que montagePlans
+let montageVoixOff = null;  // { blob, url, durations }, générée par ElevenLabs
 let montageEnCours = false;
 let montageVoixEnCours = false;
 let montageImagesEnCours = false;
-let montageVoixListe = [];  // [{ id, label }] — voix ElevenLabs configurées (voir api/montage-voices.js)
+let montageVoixListe = [];  // [{ id, label }], voix ElevenLabs configurées (voir api/montage-voices.js)
 let montageVoixId = '';     // id de la voix actuellement choisie
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
 let montageImagesSelection = new Set(); // indices des images cochées pour le téléchargement en lot
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
-// (Récit, Script, Storyboard seul, Série — génération en direct ET
+// (Récit, Script, Storyboard seul, Série, génération en direct ET
 // réouverture depuis l'historique). Masqué par CSS pour tout le monde sauf
 // le fondateur (.montage-trigger-btn, voir css/style.css).
 //
@@ -38,7 +38,7 @@ let montageImagesSelection = new Set(); // indices des images cochées pour le t
 // texte) plutôt que capturé dans une closure : certains appelants (le
 // storyboard déjà généré d'un épisode de Série, voir js/serie.js
 // renderSerieStoryboard) renvoient une chaîne HTML sans jamais avoir de
-// référence DOM directe sur laquelle attacher un .onclick après coup —
+// référence DOM directe sur laquelle attacher un .onclick après coup,
 // l'onclick doit donc être auto-suffisant dès la génération du HTML.
 window._montageSourceStore = window._montageSourceStore || {};
 function storeMontageSource(plans) {
@@ -57,7 +57,7 @@ function montageBoutonHTML(id, plans) {
 
 // Pas une boîte de dialogue : le panneau (#montageModal, un seul exemplaire
 // partagé) est déplacé dans le DOM juste après la ligne de boutons
-// (Copier/Partager/Générer la vidéo — voir .sb-actions-fin, commune aux 4
+// (Copier/Partager/Générer la vidéo, voir .sb-actions-fin, commune aux 4
 // modes de storyboard) qui contenait le bouton cliqué, pour s'afficher
 // comme une extension du storyboard plutôt qu'une fenêtre par-dessus. Rien
 // pour le fermer, sur demande expresse.
@@ -110,7 +110,7 @@ function telechargerBlob(blob, nomFichier) {
 }
 
 // « Télécharger la vidéo » : ouvre la feuille de partage native (iOS/Android)
-// via l'API Web Share en partageant le FICHIER vidéo — c'est ce qui donne
+// via l'API Web Share en partageant le FICHIER vidéo, c'est ce qui donne
 // « Enregistrer la vidéo », AirDrop, Messages, etc. On récupère d'abord la
 // vidéo via notre proxy same-origin (/api/montage-download) pour éviter tout
 // souci CORS de lecture. Repli : téléchargement direct classique si l'API
@@ -139,7 +139,7 @@ async function partagerVideoMontage(btn, url) {
 }
 
 // Convertit une image PNG (générée par Together AI) vers JPEG/WEBP via
-// <canvas> — entièrement côté navigateur, pas d'aller-retour serveur.
+// <canvas>, entièrement côté navigateur, pas d'aller-retour serveur.
 async function convertirImageVers(blob, format) {
   if (format === 'png') return blob;
   const bitmap = await createImageBitmap(blob);
@@ -201,7 +201,7 @@ function toggleToutSelectionnerImages() {
 
 // ── ZIP minimal (méthode "stored", sans compression) ────────────────────
 // Les images sont déjà compressées (PNG/JPEG/WEBP) : recompresser dans le
-// zip n'apporterait rien, autant écrire un zip "stored" — le format le
+// zip n'apporterait rien, autant écrire un zip "stored", le format le
 // plus simple, pas besoin de bibliothèque externe pour ça.
 function crc32(octets) {
   let crc = ~0;
@@ -278,7 +278,7 @@ async function creerZip(fichiers) {
 }
 
 // Télécharge les images cochées (ou toutes, si aucune coche) en un seul
-// fichier .zip — les navigateurs mobiles (Safari iOS en tête) bloquent ou
+// fichier .zip, les navigateurs mobiles (Safari iOS en tête) bloquent ou
 // perturbent plusieurs téléchargements déclenchés coup sur coup, un seul
 // fichier zip évite le problème complètement.
 async function telechargerImagesSelectionnees() {
@@ -305,7 +305,7 @@ async function telechargerImagesSelectionnees() {
   }
 }
 
-// Encode un AudioBuffer décodé (Web Audio API) en WAV PCM 16 bits —
+// Encode un AudioBuffer décodé (Web Audio API) en WAV PCM 16 bits,
 // format simple, pas de dépendance, aucune bibliothèque de conversion
 // audio n'est nécessaire pour ce format.
 function encoderWav(audioBuffer) {
@@ -379,12 +379,12 @@ async function telechargerVoixOffMontage() {
 
 // Le style graphique + le format sont choisis AVANT la génération du storyboard
 // et déjà présents dans le prompt de chaque plan (footer). Le montage réutilise
-// donc les prompts du storyboard tels quels — pas de menu ici.
+// donc les prompts du storyboard tels quels, pas de menu ici.
 
 // ── CHARGER SES PROPRES IMAGES ────────────────────────────────────────────
 // Permet d'utiliser des visuels générés ailleurs (ChatGPT, Gemini…) au lieu
 // (ou en complément) de Together AI. Les fichiers alimentent montageImages
-// exactement comme les images générées ({ blob, apercu }) — le reste du
+// exactement comme les images générées ({ blob, apercu }), le reste du
 // montage (sélection, téléchargement, rendu) fonctionne à l'identique.
 function _assignerImageMontage(i, fichier) {
   if (montageImages.length !== montagePlans.length) montageImages = new Array(montagePlans.length).fill(null);
@@ -426,7 +426,7 @@ async function genererImagesMontage() {
 
   // Un plan à la fois, séquentiellement : chaque image s'affiche dès
   // qu'elle est prête au lieu d'attendre tout le lot (et ça respecte la
-  // même contrainte que api/montage-images.js — Together AI n'accepte
+  // même contrainte que api/montage-images.js, Together AI n'accepte
   // qu'une requête d'image à la fois sur ce compte).
   montageImagesEnCours = true;
   montageImages = new Array(montagePlans.length).fill(null);
@@ -454,7 +454,7 @@ async function genererImagesMontage() {
   }
 
   if (echecs > 0 && err) {
-    err.textContent = echecs + ' image(s) n\'ont pas pu être générées (voir ✕ ci-dessus) — réessaie-les une par une.';
+    err.textContent = echecs + ' image(s) n\'ont pas pu être générées (voir ✕ ci-dessus), réessaie-les une par une.';
     err.style.display = 'block';
   }
   montageImageIndexEnCours = -1;
@@ -490,7 +490,7 @@ async function regenererImageMontage(i) {
 
 // Charge les voix ElevenLabs configurées côté serveur (voir
 // api/montage-voices.js) et remplit le sélecteur. Le menu reste caché s'il
-// n'y a qu'une seule voix disponible — rien à choisir dans ce cas.
+// n'y a qu'une seule voix disponible, rien à choisir dans ce cas.
 async function chargerVoixMontage() {
   const select = document.getElementById('montageVoixSelect');
   if (!select) return;
@@ -689,7 +689,7 @@ async function lancerMontage() {
 
     // Chaque étape est isolée dans son propre try/catch avec un préfixe
     // distinct : une exception native (Supabase, fetch…) qui ne passe pas
-    // par nos messages français habituels reste quand même identifiable —
+    // par nos messages français habituels reste quand même identifiable,
     // sans ça, une erreur générique du navigateur ne dit pas à quelle étape
     // (upload images, upload audio, ou rendu) elle s'est produite.
     // imagesEff : les plans sans image (bloqués) réutilisent l'image voisine,
@@ -715,7 +715,7 @@ async function lancerMontage() {
 
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
     // sondage de statut (contrairement à JSON2Video, remplacé faute de
-    // crédits — voir historique de ce fichier).
+    // crédits, voir historique de ce fichier).
     if (statut) statut.innerHTML = montageStatutHTML('Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…');
     let dataRender;
     try {

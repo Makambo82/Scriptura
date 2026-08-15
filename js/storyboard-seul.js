@@ -56,7 +56,7 @@ function parseScriptNumerote(input) {
   if (segments.length < 2) return null;
 
   // Validation : les numéros ne sont pas tous consécutifs de 1 (sinon c'est peut-être
-  // une liste ordinaire, pas un storyboard numéroté). On accepte les deux cas —
+  // une liste ordinaire, pas un storyboard numéroté). On accepte les deux cas,
   // l'important c'est qu'on a bien un découpage explicite.
   return segments;
 }
@@ -75,7 +75,7 @@ function setupStoryboardSeulButtons() {
   });
 }
 
-// Repart d'un formulaire vide pour un nouveau storyboard — appelée à chaque
+// Repart d'un formulaire vide pour un nouveau storyboard, appelée à chaque
 // entrée fraîche dans ce module (voir openStoryboardSeul juste en dessous) :
 // sans ça, le script collé et la plateforme d'un storyboard précédent
 // restaient silencieusement actifs pour le suivant, même sans rapport avec lui.
@@ -126,7 +126,7 @@ async function generateStoryboardSeul() {
   // ── DÉTECTION : script déjà numéroté ? ──────────────────────────────────
   const segmentsNumerotes = parseScriptNumerote(input);
   if (segmentsNumerotes) {
-    // MODE PROMPTS SEULS : l'utilisateur a déjà découpé — Scriptura génère
+    // MODE PROMPTS SEULS : l'utilisateur a déjà découpé, Scriptura génère
     // uniquement les prompts visuels pour chaque segment tel quel.
     await generatePromptsSeulementPourSegmentsNumerotes(input, segmentsNumerotes);
     return;
@@ -145,7 +145,7 @@ async function generateStoryboardSeul() {
   try {
     // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
     // le nombre de plans n'est plus limité par ce qu'une seule requête peut
-    // produire dans son budget de temps — les visuels sont générés par lots
+    // produire dans son budget de temps, les visuels sont générés par lots
     // (voir genererVisuelsParLots), donc un script long reste rapide et fiable.
     const plans = segmentNarrativeStoryboard(input);
     if (!plans.length) throw new Error('Script vide');
@@ -199,7 +199,7 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
   try {
     // Le découpage est déjà celui de l'utilisateur (segments numérotés) : on
     // ne le touche jamais. Les visuels sont générés par lots (voir
-    // genererVisuelsParLots, js/storyboard.js) au lieu d'un seul appel géant —
+    // genererVisuelsParLots, js/storyboard.js) au lieu d'un seul appel géant,
     // fiable quel que soit le nombre de segments fournis.
     const plansUtilisateur = segments.map(s => ({ text: s.texte, num: s.num }));
 
@@ -237,7 +237,7 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
 //  (voir js/storyboard.js) : la barre de progression (sbProgBar3, définie
 //  dans index.html) monte de façon crédible vers 90% pendant que l'IA
 //  travaille, et les cartes de plans apparaissent lot par lot au fur et à
-//  mesure — jamais toutes d'un coup à la toute fin.
+//  mesure, jamais toutes d'un coup à la toute fin.
 // ═══════════════════════════════════════════════════════════
 async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
   const btnText = document.getElementById('sbSeulBtnText');
@@ -300,7 +300,7 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
 }
 
 // Ajoute les boutons Régénérer/Copier/Partager en fin de grille, une fois le
-// storyboard complet — mêmes actions que afficherStoryboardSeulResultat.
+// storyboard complet, mêmes actions que afficherStoryboardSeulResultat.
 function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
   const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + board.map((s, i) => `Plan ${s.segment || (i + 1)} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
   grid.insertAdjacentHTML('beforeend', `
@@ -312,7 +312,7 @@ function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
   setTimeout(updateScrollBtn, 300);
 }
 
-// Affiche le storyboard déjà complet — utilisé UNIQUEMENT pour la
+// Affiche le storyboard déjà complet, utilisé UNIQUEMENT pour la
 // réouverture depuis l'historique (voir js/historique.js) : ici tout est
 // déjà connu, pas de progression à animer. La génération en direct utilise
 // désormais rendreStoryboardSeulProgressif ci-dessus. Même gabarit visuel

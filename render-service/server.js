@@ -3,11 +3,11 @@
 //
 //  Pourquoi un service séparé : le rendu FFmpeg est trop lourd et trop long
 //  pour le plan Vercel gratuit (300 s / 1 Go imposés, non contournables), ce
-//  qui forçait des compromis — découpage en lots (coupes nettes toutes les 5
+//  qui forçait des compromis, découpage en lots (coupes nettes toutes les 5
 //  images), 720p/15fps, et une synchro image/voix approximative. Sur un vrai
 //  hébergeur (Render, Railway, Fly…) on lève les compromis de qualité :
 //  durées respectées au millième, transitions variées, Ken Burns varié, 1080p.
-//  Le rendu reste découpé en LOTS (voir TAILLE_LOT) — non par limite de temps,
+//  Le rendu reste découpé en LOTS (voir TAILLE_LOT), non par limite de temps,
 //  mais pour borner la mémoire : un seul graphe de ~20 images 1080p sature la
 //  RAM (OOM, "FFmpeg killed / code null"). Les lots sont plus grands que sur
 //  Vercel, donc quasiment tout en fondu croisé, coupure nette rare entre lots.
@@ -45,7 +45,7 @@ const FPS = parseInt(process.env.MONTAGE_FPS || '25', 10);           // 25 = Ken
 const DUREE_TRANSITION = parseFloat(process.env.MONTAGE_TRANSITION || '0.5');
 const ZMAX = 1.20;
 // Nombre de plans rendus ensemble dans UN graphe FFmpeg (donc de flux ouverts
-// en même temps). C'est ce nombre — pas la résolution — qui borne la mémoire :
+// en même temps). C'est ce nombre, pas la résolution, qui borne la mémoire :
 // un seul gros graphe de ~20 images 1080p saturait la RAM du conteneur (OOM,
 // "FFmpeg killed / code null"). Chaque lot est un graphe indépendant, recollé
 // ensuite par le démuxeur concat (copie de flux, quasi gratuite). Fondu croisé
@@ -102,7 +102,7 @@ function kenBurns(preset, D) {
 // du lot, pour que l'alternance Ken Burns ET les transitions restent variées
 // d'un lot à l'autre (pas de répétition au début de chaque lot).
 // Synchro exacte : chaque clip dure (durée voulue + transition), et le fondu
-// vers le plan suivant démarre pile à la frontière narrative cumulée du lot —
+// vers le plan suivant démarre pile à la frontière narrative cumulée du lot,
 // la durée totale du lot reste égale à la somme de ses durées, donc, une fois
 // les lots recollés, à la voix off entière. Chaque image apparaît à sa
 // seconde exacte. Vérifié par exécution réelle.
@@ -154,7 +154,7 @@ function executerFFmpeg(args) {
 
 // Durée RÉELLE d'un fichier média, lue dans l'en-tête par FFmpeg (ffmpeg -i
 // sort "Duration: HH:MM:SS.ss" sur stderr et se termine en erreur sans sortie
-// — c'est normal). Sert de vérité pour caler la vidéo sur la voix off.
+//, c'est normal). Sert de vérité pour caler la vidéo sur la voix off.
 function dureeAudio(chemin) {
   return new Promise((resolve) => {
     const proc = spawn(ffmpegPath, ['-i', chemin]);
@@ -209,7 +209,7 @@ app.post('/render', async (req, res) => {
 
     // Cale la vidéo sur la durée RÉELLE de l'audio : si la somme des durées de
     // segments est un peu inférieure à l'audio (ex. pauses arrondies, silence
-    // final), on allonge la DERNIÈRE image pour combler — la narration n'est
+    // final), on allonge la DERNIÈRE image pour combler, la narration n'est
     // ainsi jamais coupée et la vidéo dure exactement la voix off.
     const dureeReelleAudio = await dureeAudio(cheminAudio);
     const sommeDurees = durees.reduce((s, d) => s + d, 0);
@@ -217,7 +217,7 @@ app.post('/render', async (req, res) => {
       durees[durees.length - 1] += (dureeReelleAudio - sommeDurees);
     }
     const dureeTotale = durees.reduce((s, d) => s + d, 0);
-    console.log(`[render] début — ${images.length} plans, audio ${dureeReelleAudio.toFixed(2)}s, vidéo ${dureeTotale.toFixed(2)}s`);
+    console.log(`[render] début, ${images.length} plans, audio ${dureeReelleAudio.toFixed(2)}s, vidéo ${dureeTotale.toFixed(2)}s`);
 
     // Rendu PAR LOTS (mémoire bornée) : chaque lot = un graphe FFmpeg
     // indépendant, vidéo seule, fondu croisé varié à l'intérieur du lot.

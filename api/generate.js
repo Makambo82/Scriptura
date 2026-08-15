@@ -1,4 +1,4 @@
-// api/generate.js — Fonction serverless Vercel
+// api/generate.js, Fonction serverless Vercel
 // Garde la clé API secrète, vérifie l'abonnement, puis relaie vers Anthropic.
 
 // Vérifie côté serveur qu'un code d'accès correspond à un abonnement valide.
@@ -56,11 +56,11 @@ function dateDuJourFr() {
   return now.getUTCDate() + ' ' + MOIS_FR[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
 }
 function systemDateActuelle() {
-  return `Nous sommes le ${dateDuJourFr()}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir ou "décisifs" pour l'avenir. Si un sujet touche à l'actualité récente, à la politique ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes affirmations avec prudence plutôt qu'avec une certitude que tu n'as pas — et signale-le si c'est pertinent pour le créateur.
+  return `Nous sommes le ${dateDuJourFr()}. Utilise cette date comme repère temporel réel et actuel, quelles que soient tes connaissances d'entraînement. Ne présente jamais un événement ou une année déjà passés comme s'ils étaient encore à venir ou "décisifs" pour l'avenir. Si un sujet touche à l'actualité récente, à la politique ou à des faits susceptibles d'avoir évolué après tes connaissances, formule tes affirmations avec prudence plutôt qu'avec une certitude que tu n'as pas, et signale-le si c'est pertinent pour le créateur.
 
 RÈGLE DE MAJUSCULES (toujours, y COMPRIS pour les titres, accroches et hooks) : une majuscule uniquement en début de phrase/titre et pour les noms propres (personnes, lieux, marques, institutions, acronymes). N'utilise JAMAIS de majuscule au milieu d'une phrase ou d'un titre sur un nom commun, même pour insister ou donner de l'importance à un mot (interdit par exemple : "la Vérité", "le Pouvoir", "une Stratégie", "cette Décision"). Un titre en français n'est JAMAIS écrit en "Title Case" à l'anglaise (une majuscule à chaque mot) : c'est une erreur fréquente à éviter absolument. Exemple INTERDIT : "Le Complot Que La Guinée Cache Depuis 2021". Exemple CORRECT : "Le complot que la Guinée cache depuis 2021" (seuls "Le" en début de titre et "Guinée" en nom propre gardent une majuscule).
 
-RÈGLE DE FORMAT DES NOMBRES (toujours) : quand tu écris un nombre avec un séparateur de milliers et/ou une décimale, utilise EXACTEMENT ce format : le point comme séparateur de milliers, la virgule comme séparateur décimal. Exemple : 107.453,98 — jamais "107 453,98" (espace, la norme française habituelle — ne l'utilise PAS ici malgré ce réflexe), jamais "107,453.98" (format anglo-saxon). Exception impérative : une ANNÉE ne prend JAMAIS de séparateur de milliers, quelle qu'elle soit (2026, 2001, 1990…) — écris-la toujours telle quelle, jamais "2.026" ou "1.990".`;
+RÈGLE DE FORMAT DES NOMBRES (toujours) : quand tu écris un nombre avec un séparateur de milliers et/ou une décimale, utilise EXACTEMENT ce format : le point comme séparateur de milliers, la virgule comme séparateur décimal. Exemple : 107.453,98, jamais "107 453,98" (espace, la norme française habituelle, ne l'utilise PAS ici malgré ce réflexe), jamais "107,453.98" (format anglo-saxon). Exception impérative : une ANNÉE ne prend JAMAIS de séparateur de milliers, quelle qu'elle soit (2026, 2001, 1990…), écris-la toujours telle quelle, jamais "2.026" ou "1.990".`;
 }
 
 export default async function handler(req, res) {
@@ -85,12 +85,12 @@ export default async function handler(req, res) {
     };
     // Recherche web : réservée par le client aux cas qui en ont vraiment besoin
     // (sujets d'actualité/géopolitique/Histoire, voir NICHES_ACTUALITE côté
-    // client js/api.js, ou tendances TikTok pour Recommandations/Idées) —
+    // client js/api.js, ou tendances TikTok pour Recommandations/Idées),
     // jamais activée par défaut, pour ne pas ralentir/coûter plus cher sur les
     // sujets qui n'en ont pas besoin. max_uses par défaut à 1 : au-delà d'un
     // appel de rédaction déjà lourd (jusqu'à 16000 tokens), chaque recherche
     // supplémentaire ajoute un aller-retour réseau qui peut faire dépasser la
-    // limite de temps côté client (55s) et produire une réponse tronquée —
+    // limite de temps côté client (55s) et produire une réponse tronquée,
     // vécu concrètement comme des échecs "réponse incomplète" en mode Script
     // après l'ajout de la recherche web. Le client peut demander jusqu'à 3
     // recherches (web_search_max_uses) pour ses appels plus légers (6000

@@ -117,7 +117,7 @@ function renderCaptures() {
   }).join('');
   renderCouverture();
   // La visibilité du bouton dépend de l'étape (bouton visible seulement à
-  // l'étape finale, ou en mode affiner) — géré par l'assistant guidé.
+  // l'étape finale, ou en mode affiner), géré par l'assistant guidé.
   if (typeof majAffichageBoutonAudit === 'function') majAffichageBoutonAudit();
   else if (btn) btn.style.display = auditCaptures.length ? 'flex' : 'none';
   // Met à jour le statut ✅/⏳ de l'étape courante (la reconnaissance IA est async).
@@ -167,12 +167,12 @@ function retirerCapture(i) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ASSISTANT DE CAPTURE GUIDÉ — une donnée TikTok à la fois
+//  ASSISTANT DE CAPTURE GUIDÉ, une donnée TikTok à la fois
 //  Même exigence qu'avant (5 données, jusqu'à 16 captures) : on ne fait que
 //  guider l'utilisateur écran par écran pour réduire la confusion. Toute la
 //  mécanique (auditCaptures, reconnaissance IA, lancerAudit) reste inchangée.
 // ═══════════════════════════════════════════════════════════
-// ORDRE DES ÉTAPES — pensé pour que l'utilisateur enchaîne les onglets de
+// ORDRE DES ÉTAPES, pensé pour que l'utilisateur enchaîne les onglets de
 // l'écran "Analytique" sans quitter TikTok Studio : Vue d'ensemble → Contenu →
 // Spectateurs sont trois onglets voisins. La meilleure/pire vidéo passe EN
 // DERNIER car elle oblige à sortir d'Analytique pour ouvrir chaque vidéo.
@@ -206,7 +206,7 @@ const AUDIT_ETAPES = [
   {
     titre: "Ton audience",
     path: "TikTok Studio → Analyses → Spectateurs → Sexe, Âge et Emplacements",
-    tip: "Qui te regarde : sexe, âge, pays. En bas de l'écran, appuie tour à tour sur « Sexe », « Âge » puis « Emplacements » et prends une capture de chacun — l'emplacement (pays) est le plus important pour savoir si ton contenu parle à la bonne audience.",
+    tip: "Qui te regarde : sexe, âge, pays. En bas de l'écran, appuie tour à tour sur « Sexe », « Âge » puis « Emplacements » et prends une capture de chacun, l'emplacement (pays) est le plus important pour savoir si ton contenu parle à la bonne audience.",
     label: "Ajouter : audience",
     schema: `<svg viewBox="0 0 200 110" fill="none"><circle cx="58" cy="55" r="28" stroke="rgba(255,255,255,0.15)" stroke-width="12" fill="none"/><circle cx="58" cy="55" r="28" stroke="#C9A84C" stroke-width="12" fill="none" stroke-dasharray="105 71" transform="rotate(-90 58 55)"/><circle cx="58" cy="55" r="28" stroke="#E2C87A" stroke-width="12" fill="none" stroke-dasharray="48 128" stroke-dashoffset="-105" transform="rotate(-90 58 55)"/><rect x="104" y="34" width="66" height="8" rx="4" fill="#E2C87A"/><rect x="104" y="51" width="48" height="8" rx="4" fill="#C9A84C"/><rect x="104" y="68" width="30" height="8" rx="4" fill="rgba(201,168,76,0.5)"/></svg>`,
     exemples: [
@@ -240,7 +240,7 @@ const AUDIT_ETAPES = [
 // Type de donnée attendu à chaque étape (voir AUDIT_TYPES), dans le MÊME ordre
 // que AUDIT_ETAPES ci-dessus : 1 = vue d'ensemble, 3 = top contenus,
 // 4 = audience, 2 = détail vidéo (meilleure ET pire, que la reconnaissance ne
-// sait pas distinguer — c'est normal et sans conséquence).
+// sait pas distinguer, c'est normal et sans conséquence).
 const AUDIT_ETAPE_TYPE = [1, 3, 4, 2, 2];
 
 let auditEtapeIndex = 0;   // 0..AUDIT_ETAPES.length (la dernière = profil + lancement)
@@ -271,7 +271,7 @@ function initAuditWizard(affine) {
   auditAffineMode = !!affine;
   auditEtapeIndex = affine ? AUDIT_ETAPES.length : 0;
   awConfirmSaut = false; // repart propre à chaque entrée dans l'audit
-  // Mode normal (pas "affiner") : formulaire ET captures vides — sinon les
+  // Mode normal (pas "affiner") : formulaire ET captures vides, sinon les
   // captures et le contexte (niche, objectif…) d'un audit précédent (ou
   // annulé) restaient silencieusement actifs pour le suivant, même sans
   // aucun rapport avec lui (même défaut que Script/Idées/Récit/Série, voir
@@ -291,7 +291,7 @@ function initAuditWizard(affine) {
 function masquerUICaptureAudit() {
   ['auditWizard', 'auditContextCard', 'auditAffineNote', 'auditDrop', 'auditThumbs', 'auditCouverture', 'auditBtn']
     .forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
-  // On sort toujours du mode "affiner" en montrant un résultat propre — sinon
+  // On sort toujours du mode "affiner" en montrant un résultat propre, sinon
   // il resterait bloqué à true indéfiniment (rien d'autre ne le remet à
   // false), et auditRetour() finirait par re-afficher le même résultat en
   // boucle au lieu de quitter le module au clic suivant sur "← Retour".
@@ -419,7 +419,7 @@ function auditStepPrecedent() {
 
 
 // ═══════════════════════════════════════════════════════════
-//  AUDIT — Prompt d'analyse + branchement IA + affichage
+//  AUDIT, Prompt d'analyse + branchement IA + affichage
 // ═══════════════════════════════════════════════════════════
 
 // Échappe le HTML pour un affichage sûr
@@ -479,7 +479,7 @@ async function lancerAudit() {
     // Un seul essai (avec recherche web si la niche le demande) suivi, en cas
     // d'échec technique, d'un essai de secours SANS recherche : même principe
     // que Script/Récit/Série/Idées (voir js/generation.js, js/storytelling.js,
-    // js/serie.js) — l'audit est l'appel le plus lourd de l'app (images +
+    // js/serie.js), l'audit est l'appel le plus lourd de l'app (images +
     // modèle Sonnet), donc le plus exposé à une réponse tronquée par le temps
     // limite ; sans ce filet, l'utilisateur devait relancer tout le diagnostic
     // à la main (retélécharger ses captures).
@@ -585,19 +585,19 @@ async function lancerAudit() {
     // afficherEtMaintenant), qui a besoin de currentGenId déjà positionné sur
     // CET audit pour pouvoir y rattacher sa recommandation une fois prête.
     if (typeof saveGeneration === 'function') {
-      try { await saveGeneration('audit', 'Diagnostic TikTok — score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
+      try { await saveGeneration('audit', 'Diagnostic TikTok, score ' + (scoreObtenu ?? '?'), Object.assign({}, parsed, { niche: niche, objectif: objectif })); }
       catch(e) { /* silencieux */ }
     }
 
     renderAudit(parsed, niche, objectif, style);
     // Referme l'UI de capture (visible pendant le mode "affiner") : ce
     // nouveau résultat remplace celui qu'on complétait, plus besoin de la
-    // zone d'upload — voir masquerUICaptureAudit et auditRetour.
+    // zone d'upload, voir masquerUICaptureAudit et auditRetour.
     masquerUICaptureAudit();
 
     // Mémoire du créateur : ce que cet audit vient de révéler, comme "leçons
     // apprises" (tâche de fond, silencieuse). Ne modifie ni ne relit les
-    // règles d'analyse elles-mêmes — uniquement le résultat déjà produit.
+    // règles d'analyse elles-mêmes, uniquement le résultat déjà produit.
     const P = parsed.piliers || {};
     const leconsAudit = [P.meilleure_video?.formule, P.comparatif?.conclusion].filter(Boolean);
     const aEviterAudit = Array.isArray(parsed.plan_action_30j?.erreurs_a_eviter) ? parsed.plan_action_30j.erreurs_a_eviter : [];
@@ -779,7 +779,7 @@ function scoreStorytelling(m) {
   // données réelles : une vidéo virale décrochait à 0:01 et un échec à 0:02.
   // Sur TikTok, la masse quitte dans la première seconde même sur un bon
   // contenu, donc cette seconde ne distingue rien. Ce qui sépare vraiment les
-  // deux, c'est le taux moyen et la complétion — déjà notés en Rétention.
+  // deux, c'est le taux moyen et la complétion, déjà notés en Rétention.
   return sAgrege([
     { obtenu: sCritere(s.hook_present,       5), max: 5 },
     { obtenu: sCritere(s.faible_chute_debut, 5), max: 5 },
@@ -1020,7 +1020,7 @@ function telechargerAuditPDF() {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 124);
-    doc.text('Scriptura — Diagnostic TikTok', MARGE, HAUTEUR - 10);
+    doc.text('Scriptura, Diagnostic TikTok', MARGE, HAUTEUR - 10);
     doc.text(p + ' / ' + total, MARGE + UTILE, HAUTEUR - 10, { align: 'right' });
   }
 
@@ -1086,13 +1086,13 @@ function auditTexteBrut(a, ts) {
   return L.join('\n');
 }
 
-// Palette du score ADN TikTok selon son niveau — un repère de couleur
+// Palette du score ADN TikTok selon son niveau, un repère de couleur
 // immédiat (rouge/orange/émeraude), partagé entre le diagnostic complet
 // (renderAudit) et le diagnostic sommaire (js/diagnostic-sommaire.js) qui
 // utilisent tous les deux ce même anneau de score.
 // Une seule couleur par palier (pas un dégradé de deux teintes) : le chiffre
 // et l'anneau doivent être EXACTEMENT la même couleur, pas juste la même
-// famille — rouge, orange ou vert, sans ambiguïté, comme chez Vervox.
+// famille, rouge, orange ou vert, sans ambiguïté, comme chez Vervox.
 function paletteScoreAudit(score) {
   if (typeof score !== 'number' || Number.isNaN(score)) {
     return { texte: 'var(--gold-light)', ringA: 'var(--gold-light)', ringB: 'var(--gold-light)' };
@@ -1103,7 +1103,7 @@ function paletteScoreAudit(score) {
 }
 
 // Classe de couleur d'un badge de score sur un barème quelconque (ex: 8/20,
-// 24/30) : mêmes seuils proportionnels que paletteScoreAudit — rouge en
+// 24/30) : mêmes seuils proportionnels que paletteScoreAudit, rouge en
 // dessous de 50 % du maximum, orange entre 50 % et 70 %, émeraude à partir
 // de 70 %. Partagé avec js/diagnostic-sommaire.js (mêmes cartes de dimension).
 function niveauScoreSur(valeur, max) {
@@ -1114,7 +1114,7 @@ function niveauScoreSur(valeur, max) {
   return 'niveau-vert';
 }
 
-// "Santé du compte" à partir du score global — n'existait auparavant que
+// "Santé du compte" à partir du score global, n'existait auparavant que
 // dans le diagnostic sommaire ; ajoutée ici pour que les deux diagnostics
 // (complet et sommaire) affichent ce repère de façon cohérente.
 function santeCompteDepuisScore(score) {
@@ -1160,7 +1160,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
 
   // Une dimension n'est notée que si le modèle a renvoyé un vrai nombre.
-  // Sinon elle est "non mesurée" — surtout pas 0/20, qui ferait croire
+  // Sinon elle est "non mesurée", surtout pas 0/20, qui ferait croire
   // à une mauvaise note alors que c'est la donnée qui manque.
   const dimValeur = v => {
     const n = (typeof v === 'number') ? v : parseFloat(v);
@@ -1179,9 +1179,9 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
 
   // Circonférence de l'anneau (rayon 74) pour le calcul du remplissage
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
-  const scoreAffiche = (global == null || Number.isNaN(global)) ? '—' : global;
+  const scoreAffiche = (global == null || Number.isNaN(global)) ? '·' : global;
   // Couleur selon le niveau du score : rouge en dessous de 50, orange entre
-  // 50 et 70, émeraude à partir de 70 — un repère visuel immédiat plutôt
+  // 50 et 70, émeraude à partir de 70, un repère visuel immédiat plutôt
   // qu'une seule nuance de doré quel que soit le résultat.
   const paletteScore = paletteScoreAudit(global);
   const ringColorA = paletteScore.ringA;
@@ -1206,7 +1206,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
           <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="auditScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
-      ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length} — les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
+      ${partiel ? `<div class="audit-score-phrase">Calculé sur ${dimsMesurees.length} dimension${dimsMesurees.length > 1 ? 's' : ''} sur ${SCORE_DIMS.length}, les autres n'ont pas pu être mesurées avec les captures fournies.</div>` : ''}
       ${ts.levier ? `<div class="audit-score-phrase">${auditEsc(ts.levier)}</div>`
         : (ts.levier_dim ? `<div class="audit-score-phrase">Ton levier le plus fort aujourd'hui : ${auditEsc(ts.levier_dim)}.</div>` : '')}
     </div>`;
@@ -1240,7 +1240,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     html += '</div>';
   }
 
-  // Dimensions du score — petites cartes avec badge coloré selon le niveau
+  // Dimensions du score, petites cartes avec badge coloré selon le niveau
   // (rouge/orange/émeraude), même langage visuel que le score global et que
   // les cartes du diagnostic sommaire (.ds-dim-card, réutilisées ici).
   const hasDims = dimsMesurees.length > 0;
@@ -1254,7 +1254,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
           <div class="ds-dim-head">
             <span class="ds-dim-icon">${d.icone}</span>
             <span class="ds-dim-name">${d.label}</span>
-            <span class="score-badge niveau-neutre">—</span>
+            <span class="score-badge niveau-neutre">·</span>
           </div>
         </div>`;
         return;
@@ -1298,7 +1298,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
 
   // ── Comparatif meilleure / pire ──
   const mv = P.meilleure_video, pv = P.pire_video, comp = P.comparatif;
-  // Abonnés gagnés par chaque vidéo (donnée extraite des captures détail — fiable,
+  // Abonnés gagnés par chaque vidéo (donnée extraite des captures détail, fiable,
   // pas une estimation du modèle). Affiché tel quel si visible.
   const M = a.mesures || {};
   const foll = v => (v != null && v !== '' && !isNaN(v)) ? Number(v) : null;
@@ -1318,7 +1318,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     if (dispo(pv)) {
       const sec = pv.seconde_decrochage;
       inner += `<div class="audit-vs-col audit-vs-worst">
-        <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ' — décroche à ' + auditEsc(sec) + 's' : ''}</div>
+        <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ', décroche à ' + auditEsc(sec) + 's' : ''}</div>
         ${pv.constat ? `<div class="audit-vs-text">${auditEsc(pv.constat)}</div>` : ''}
         ${folWorst != null ? badgeFoll(folWorst) : ''}
       </div>`;
@@ -1365,8 +1365,8 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     html += `<div class="audit-block">
       <div class="audit-block-title">📊 Analyse détaillée</div>
       <div class="ds-mini-stats" style="grid-template-columns:1fr 1fr">
-        <div class="ds-mini-stat"><b>${ad.videos_au_dessus_moyenne ?? '—'}${ad.total_videos_analysees ? ' / ' + ad.total_videos_analysees : ''}</b><span>Au-dessus de la moyenne</span></div>
-        <div class="ds-mini-stat"><b>${concepts.length || '—'}</b><span>Concepts récurrents</span></div>
+        <div class="ds-mini-stat"><b>${ad.videos_au_dessus_moyenne ?? '·'}${ad.total_videos_analysees ? ' / ' + ad.total_videos_analysees : ''}</b><span>Au-dessus de la moyenne</span></div>
+        <div class="ds-mini-stat"><b>${concepts.length || '·'}</b><span>Concepts récurrents</span></div>
       </div>
       ${concepts.length ? `<ul class="ds-niche-analyse" style="margin-top:14px">${concepts.map(c => `<li>${auditEsc(c.theme)} <span style="color:var(--muted)">(${auditEsc(c.occurrences)} vidéos)</span></li>`).join('')}</ul>` : ''}
     </div>`;
@@ -1509,7 +1509,7 @@ function animerScoreAudit(valeur, circonference) {
   const numEl = document.getElementById('auditScoreNum');
   const ringEl = document.getElementById('auditRingFill');
   if (valeur == null || Number.isNaN(valeur)) {
-    if (numEl) numEl.textContent = '—';
+    if (numEl) numEl.textContent = '·';
     return;
   }
   const cible = Math.max(0, Math.min(100, valeur));
@@ -1629,7 +1629,7 @@ function lancerIdeesDepuisAudit(niche, objectif) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  "ET MAINTENANT ?" — pont audit → recommandation IA → script
+//  "ET MAINTENANT ?", pont audit → recommandation IA → script
 //  À la fin de chaque analyse, la recommandation personnalisée (titre,
 //  angle, justifications, potentiel) est générée par le moteur partagé
 //  js/recommandations.js (voir afficherEtMaintenant), à partir de ce
@@ -1638,7 +1638,7 @@ function lancerIdeesDepuisAudit(niche, objectif) {
 //  quota : c'est un prolongement de l'audit déjà payé.
 // ═══════════════════════════════════════════════════════════
 
-// Reformule le diagnostic déjà affiché en texte compact pour le prompt —
+// Reformule le diagnostic déjà affiché en texte compact pour le prompt,
 // on ne réutilise que des champs déjà lus ailleurs dans ce fichier (piliers,
 // plan d'action), sans toucher aux règles d'analyse ni au prompt de l'audit.
 function texteDiagnosticOpportunites(a, ts) {

@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  PROFIL CRÉATEUR — mémoire vivante, propre à chaque code utilisateur
+//  PROFIL CRÉATEUR, mémoire vivante, propre à chaque code utilisateur
 //  Trois couches : préférences déclarées (ce que le créateur choisit),
 //  habitudes observées (ce que Scriptura déduit de son usage), leçons
 //  apprises (ce qui marche d'après ses audits et générations passées).
@@ -102,7 +102,7 @@ function ajouterListeProfil(liste, valeurs, max) {
 // fond (jamais bloquant, jamais d'exception remontée à l'appelant). Un champ
 // absent du patch reste inchangé : on n'écrase jamais une valeur connue par
 // du vide, mais une NOUVELLE valeur déclarée remplace bien l'ancienne (le
-// créateur peut changer de niche, de ton, etc. — la mémoire suit l'évolution).
+// créateur peut changer de niche, de ton, etc., la mémoire suit l'évolution).
 async function mettreAJourProfilCreateur(patch) {
   try {
     const profil = await chargerProfilCreateur();
@@ -165,7 +165,7 @@ function preRemplirSiVide(id, valeur) {
 }
 
 // Lit le libellé court de l'option choisie dans un menu de ton (ex: "Storytelling",
-// pas la valeur descriptive longue) — seul format stable mémorisé dans le profil.
+// pas la valeur descriptive longue), seul format stable mémorisé dans le profil.
 function toneCourtDepuisSelect(selectId) {
   const el = document.getElementById(selectId);
   if (!el || !el.value) return null;
@@ -236,7 +236,7 @@ function ligneProfilPourPrompt(profil) {
 
 // Table de correspondance entre les libellés courts des grilles "objectif"
 // (mode idées) et les phrases longues utilisées ailleurs (state.objectif,
-// #auditObjectif) — même mapping que celui déjà utilisé par useIdeaForScript,
+// #auditObjectif), même mapping que celui déjà utilisé par useIdeaForScript,
 // dupliqué ici en lecture seule pour ne pas toucher au code existant.
 const OBJECTIF_COURT_VERS_LONG = {
   'faire des vues': 'Faire plus de vues et maximiser la portée',
