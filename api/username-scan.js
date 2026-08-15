@@ -68,9 +68,13 @@ function normaliserMedias(data) {
     const partages = num(s.share_count, s.shareCount);
     let date = m.create_time ?? m.createTime ?? m.created_at ?? null;
     if (date != null) { date = Number(date); if (date > 1e12) date = Math.round(date / 1000); }
+    // Sujet de la vidéo (légende) : indispensable pour analyser le CONTENU
+    // (niche réelle, top/flop, concepts récurrents), pas seulement les chiffres.
+    const desc = String(m.desc || m.description || m.title || m.content || '').trim().slice(0, 220);
     return {
       vues: vues ?? null, likes: likes ?? null,
-      commentaires: comm ?? null, partages: partages ?? null, date: date ?? null
+      commentaires: comm ?? null, partages: partages ?? null,
+      date: date ?? null, desc
     };
   }).filter(v => v.vues != null || v.likes != null);
 }

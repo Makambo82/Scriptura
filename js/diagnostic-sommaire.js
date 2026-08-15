@@ -1,18 +1,20 @@
 // ═══════════════════════════════════════════════════════════
 //  MODULE DIAGNOSTIC SOMMAIRE — analyse via @nom d'utilisateur TikTok
 //  Alternative légère au diagnostic complet par captures (js/audit.js) :
-//  aucune capture à envoyer. On lit via LamaTok (api/username-scan.js) le
-//  PROFIL PUBLIC ET les dernières vidéos du compte (endpoint medias).
+//  aucune capture à envoyer. api/username-scan.js lit le PROFIL via LamaTok
+//  et la LISTE DES VIDÉOS (vues, dates, ET sujets/légendes) via ScrapTik.
 //
 //  Les 4 dimensions inspirées de Vervox (Engagement, Portée, Régularité,
-//  Viralité) sont donc toutes calculables quand les vidéos sont
-//  récupérées : Engagement à partir des totaux du profil ; Portée,
-//  Régularité et Viralité à partir des vues/dates par vidéo (voir
-//  calculerMetriquesVideos). Si LamaTok ne renvoie pas les vidéos (compte
-//  privé, quota, endpoint indisponible), on retombe proprement sur
-//  l'Engagement seul, sans jamais inventer de chiffre. Score recalculé
-//  côté code (comme js/audit.js) sur les seules dimensions réellement
-//  mesurées, jamais fourni tel quel par l'IA.
+//  Viralité) sont calculables quand les vidéos sont récupérées : Engagement
+//  à partir des totaux du profil ; Portée, Régularité et Viralité à partir
+//  des vues/dates par vidéo (voir calculerMetriquesVideos). En plus, les
+//  SUJETS des vidéos (légendes) alimentent une analyse de CONTENU comme
+//  Vervox : niche réelle, Top/Flop vidéos, concepts récurrents, leviers qui
+//  citent des vidéos précises. Si les vidéos ne sont pas récupérées (clé
+//  ScrapTik absente, compte privé, quota), on retombe proprement sur
+//  l'Engagement seul, sans jamais inventer de chiffre. Score recalculé côté
+//  code (comme js/audit.js) sur les seules dimensions réellement mesurées,
+//  jamais fourni tel quel par l'IA.
 //
 //  Rendu avec la palette Scriptura (doré + émeraude pour les points forts
 //  — même mécanique que l'anneau de score du diagnostic complet).
@@ -223,11 +225,22 @@ Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits (voir b
 
 LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité — n'invente aucune de ces trois valeurs.`;
 
+    // Sujets des vidéos (légendes) triés par vues : nourrit l'analyse de
+    // CONTENU (niche réelle, top/flop, concepts récurrents). Vide si absent.
+    const videosAvecSujet = (Array.isArray(donnees.medias) ? donnees.medias : [])
+      .filter(v => v.desc && typeof v.vues === 'number')
+      .sort((a, b) => b.vues - a.vues);
+    const blocSujets = videosAvecSujet.length >= 3 ? `
+
+SUJETS DES VIDÉOS (${videosAvecSujet.length} vidéos récupérées, triées de la plus vue à la moins vue — sujet réel + performance ; c'est ta SEULE source pour la niche réelle, le top/flop et les concepts récurrents) :
+${videosAvecSujet.slice(0, 20).map(v => `- ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 140)} »`).join('\n')}` : '';
+
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
 PROFIL :
 ${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
 ${blocVideos}
+${blocSujets}
 
 RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false — n'invente jamais un chiffre.
 
@@ -247,9 +260,13 @@ COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score ch
 
 BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
 
-NICHE : identifie la niche/thématique dominante UNIQUEMENT à partir du texte de la bio (tu n'as pas accès aux vidéos, donc pas aux sujets réellement traités). Si la bio ne permet pas de trancher, "disponible": false plutôt que de deviner. Sinon, dis si le positionnement semble clair ou flou d'après ce que la bio annonce, avec 1 à 2 points d'analyse.
+NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique — focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
 
-LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées UNIQUEMENT sur ce que tu observes réellement dans ces données de profil (abonnés, vidéos, likes, bio) — jamais une supposition sur le contenu de vidéos que tu n'as pas vues.
+TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. Repère les 2 à 3 vidéos les PLUS vues (top) et les 2 à 3 MOINS vues (flop). Pour chacune : résume le SUJET en quelques mots (ne recopie pas la légende entière), donne le nombre de vues, et explique en une phrase ce qui a porté ou plombé la performance. Si aucun sujet fourni, laisse les deux listes vides.
+
+CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèmes/angles qui reviennent dans les vidéos (ex. « coups d'État africains », « histoires vraies méconnues », « géopolitique expliquée »). Formule court, comme des étiquettes. Sinon liste vide.
+
+LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil ET sujets/performances des vidéos si fournis). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Jamais de supposition sur des vidéos absentes des données.
 
 SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio) — reste prudent si peu de données sont exploitables.
 
@@ -266,10 +283,13 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
   "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
   "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
+  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "concepts_recurrents": ["<concept 1>", "<concept 2>"],
   "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
 }`;
 
-    const raw = await callAI(MODEL_RAPIDE, 2000, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 2600, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || parsed.profil_trouve === false) {
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
@@ -436,6 +456,39 @@ function afficherDiagnosticSommaireResultat(d, username) {
       ${Array.isArray(niche.analyse) && niche.analyse.length ? `<ul class="ds-niche-analyse">${niche.analyse.map(p => `<li>${diagSommaireEsc(p)}</li>`).join('')}</ul>` : ''}
     </div>` : '';
 
+  // Top / Flop vidéos + concepts récurrents : issus de l'analyse du CONTENU
+  // réel des vidéos (sujets + vues). N'apparaissent que si l'IA les a fournis
+  // (donc uniquement quand la liste des vidéos a été récupérée).
+  const fmtVues = (n) => {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return '';
+    if (v >= 1e6) return (Math.round(v / 1e5) / 10).toString().replace('.', ',') + ' M';
+    if (v >= 1e3) return Math.round(v / 1e3) + ' K';
+    return String(v);
+  };
+  const carteVideos = (titre, tag, tagOk, liste) => (Array.isArray(liste) && liste.length) ? `
+    <div class="score-card">
+      <div class="ds-section-row">
+        <div class="audit-section-label" style="margin-bottom:0">${titre}</div>
+        <span class="ds-tag${tagOk ? ' ds-tag-ok' : ''}">${tag}</span>
+      </div>
+      <ul class="ds-videos-list">
+        ${liste.slice(0, 3).map(v => `<li>
+          <div class="ds-video-head"><span class="ds-video-sujet">${diagSommaireEsc(v.sujet)}</span><span class="ds-video-vues">${fmtVues(v.vues)} vues</span></div>
+          ${v.constat ? `<p class="ds-video-constat">${diagSommaireEsc(v.constat)}</p>` : ''}
+        </li>`).join('')}
+      </ul>
+    </div>` : '';
+  const topHtml = carteVideos('Tes vidéos qui cartonnent', '🔥 Top', true, d.top_videos);
+  const flopHtml = carteVideos('Tes vidéos en retrait', 'À revoir', false, d.flop_videos);
+
+  const concepts = Array.isArray(d.concepts_recurrents) ? d.concepts_recurrents.filter(Boolean) : [];
+  const conceptsHtml = concepts.length ? `
+    <div class="score-card">
+      <div class="audit-section-label">Concepts récurrents</div>
+      <div class="ds-concepts">${concepts.map(c => `<span class="ds-concept-chip">${diagSommaireEsc(c)}</span>`).join('')}</div>
+    </div>` : '';
+
   const leviers = Array.isArray(d.leviers_prioritaires) ? d.leviers_prioritaires : [];
   const leviersHtml = leviers.length ? `
     <div class="score-card">
@@ -507,6 +560,9 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
     ${bioHtml}
     ${nicheHtml}
+    ${topHtml}
+    ${flopHtml}
+    ${conceptsHtml}
     ${leviersHtml}
     ${opportuniteHtml}
 
