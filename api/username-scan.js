@@ -25,8 +25,12 @@ const BASE = 'https://api.lamatok.com';
 // Extrait l'identifiant utilisateur du profil, quel que soit le nommage
 // renvoyé par LamaTok (structure TikTok : user.id / user.secUid, ou plat).
 function extraireIds(profil) {
-  const u = (profil && (profil.user || profil.userInfo?.user || profil.data?.user)) || profil || {};
-  const id = u.id || u.uid || u.user_id || u.userId || profil?.id || null;
+  // LamaTok range l'utilisateur sous "users" (pluriel) ; on couvre aussi les
+  // autres conventions par sécurité. La valeur peut être un objet ou un tableau.
+  let u = (profil && (profil.users || profil.user || profil.userInfo?.user ||
+           profil.data?.user || profil.data?.users)) || profil || {};
+  if (Array.isArray(u)) u = u[0] || {};
+  const id = u.id || u.uid || u.user_id || u.userId || u.uniqueIdOrId || profil?.id || null;
   const secUid = u.secUid || u.sec_uid || u.secuid || profil?.secUid || profil?.sec_uid || null;
   return { id: id ? String(id) : null, secUid: secUid ? String(secUid) : null };
 }
@@ -160,8 +164,8 @@ export default async function handler(req, res) {
     if (debug) {
       reponse._debug = {
         profilCles: Object.keys(profil || {}),
-        userCles: Object.keys((profil && (profil.user || profil.userInfo?.user || profil.data?.user)) || {}),
         idsExtraits: ids,
+        profilExtrait: JSON.stringify(profil || {}).slice(0, 1500),
         tentativesMedias: journal
       };
     }
