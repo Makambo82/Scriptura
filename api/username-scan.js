@@ -80,21 +80,41 @@ function normaliserMedias(data) {
 }
 
 // Récupère les vidéos d'un compte via ScrapTik /user-posts (avec l'id
-// numérique du compte). Renvoie la liste normalisée, ou null si l'appel
-// échoue — le diagnostic reste alors sur l'Engagement (non-régressif).
+// numérique du compte). Pagine via max_cursor pour viser ~30-40 vidéos —
+// bien plus fiable pour la Régularité et la Viralité qu'une seule page (~10).
+// Renvoie la liste normalisée, ou null si tout échoue (non-régressif :
+// le diagnostic retombe alors sur l'Engagement).
 async function recupererVideos(key, ids) {
   if (!ids.id && !ids.secUid) return null;
-  const params = ids.id
-    ? { user_id: ids.id, count: 30, max_cursor: 0 }
-    : { sec_uid: ids.secUid, count: 30 };
-  const url = 'https://' + SCRAPTIK_HOST + '/user-posts?' + new URLSearchParams(params).toString();
-  const rep = await fetch(url, {
-    headers: { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST }
-  });
-  if (!rep.ok) return null;
-  const data = await rep.json();
-  const liste = normaliserMedias(data);
-  return liste.length ? liste : null;
+  const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
+  const CIBLE = 40;      // nombre de vidéos visé
+  const MAX_PAGES = 4;   // borne dure d'appels (coût maîtrisé)
+  const toutes = [];
+  const vues = new Set(); // dédoublonnage léger (date|vues|début de légende)
+  let cursor = 0;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const base = ids.id ? { user_id: ids.id } : { sec_uid: ids.secUid };
+    const url = 'https://' + SCRAPTIK_HOST + '/user-posts?' +
+      new URLSearchParams({ ...base, count: 30, max_cursor: cursor }).toString();
+    let rep;
+    try { rep = await fetch(url, { headers: h }); } catch (e) { break; }
+    if (!rep.ok) break;
+    let data; try { data = await rep.json(); } catch (e) { break; }
+
+    const lot = normaliserMedias(data);
+    for (const v of lot) {
+      const cle = `${v.date}|${v.vues}|${(v.desc || '').slice(0, 24)}`;
+      if (!vues.has(cle)) { vues.add(cle); toutes.push(v); }
+    }
+
+    const hasMore = data && (data.has_more ?? data.hasMore);
+    const suivant = data && (data.max_cursor ?? data.maxCursor ?? data.cursor);
+    if (!lot.length || !hasMore || suivant == null ||
+        Number(suivant) === Number(cursor) || toutes.length >= CIBLE) break;
+    cursor = suivant;
+  }
+  return toutes.length ? toutes : null;
 }
 
 export default async function handler(req, res) {
