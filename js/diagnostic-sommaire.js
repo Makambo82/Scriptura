@@ -262,7 +262,11 @@ BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-
 
 NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique — focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
 
-TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. Repère les 2 à 3 vidéos les PLUS vues (top) et les 2 à 3 MOINS vues (flop). Pour chacune : résume le SUJET en quelques mots (ne recopie pas la légende entière), donne le nombre de vues, et explique en une phrase ce qui a porté ou plombé la performance. Si aucun sujet fourni, laisse les deux listes vides.
+TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
+   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une — ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
+   • FLOP = uniquement les vidéos NETTEMENT EN-DESSOUS de la médiane. Maximum 3.
+   • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée pour l'un ou l'autre).
+   Pour chacune : résume le SUJET en quelques mots (pas la légende entière), donne le nombre de vues, et explique en une phrase la raison de la performance. INTERDIT d'écrire « en deçà de la médiane » pour une vidéo du top, ou « performe bien » pour une vidéo du flop : le constat doit toujours coller à la position réelle vs la médiane.
 
 CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèmes/angles qui reviennent dans les vidéos (ex. « coups d'État africains », « histoires vraies méconnues », « géopolitique expliquée »). Formule court, comme des étiquettes. Sinon liste vide.
 
