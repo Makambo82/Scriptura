@@ -62,7 +62,7 @@ CONTEXTE FOURNI PAR LE CRÉATEUR (à prendre en compte dans ton analyse et tes r
 DIAGNOSTIC SOMMAIRE ANTÉRIEUR DE CE MÊME CRÉATEUR (analyse rapide par @nom d'utilisateur, faite avant cette analyse détaillée, si absent, ignore cette section sans le mentionner) :
 {{DIAGNOSTIC_SOMMAIRE}}
 
-Si un diagnostic sommaire est fourni ci-dessus, tiens-en compte dans ton analyse : vérifie s'il reste cohérent avec ce que montrent les captures (les deux peuvent diverger si le compte a évolué depuis), et évite de répéter telles quelles des recommandations déjà faites à ce créateur, construis plutôt sur ce qu'il sait déjà.
+Si un diagnostic sommaire est fourni ci-dessus, il est PRÉCIEUX : il vient de l'analyse de ses vraies vidéos publiques sur ~6 mois (vues, dates, sujets), donc il voit des choses que les captures ne montrent pas (l'historique complet, un éventuel CHANGEMENT DE CAP/pivot, sa formule gagnante, ses vrais flops). Les captures, elles, montrent ce que lui seul voit : rétention, sources de trafic, démographie. TON TRAVAIL est de CROISER ces deux sources dans le champ "synthese_croisee" (voir plus bas) : ce que le contenu (sommaire) ET la distribution (captures) disent ensemble, et surtout ce que leur croisement révèle qu'aucune des deux ne montrait seule (ex. « ton format tuto performe en contenu ET ta rétention est bonne dessus → double signal, c'est ta locomotive » ou « tes vues récentes ont chuté depuis ton pivot ET ta part de trafic Pour toi a baissé → l'algo te pousse moins depuis le changement »). Vérifie aussi la cohérence entre les deux (ils peuvent diverger si le compte a évolué), et ne répète pas telles quelles des recommandations déjà faites, construis dessus.
 
 RÈGLE IMPÉRATIVE SUR LE FORMAT DE CONTENU : adapte TOUTES tes recommandations au format déclaré. Ne propose jamais une action incompatible avec ce format. En particulier, si le format est "Faceless" (sans visage), ne suggère JAMAIS au créateur de se filmer, de se montrer, de faire du face caméra, de soigner sa présence à l'écran ou son expression faciale. Pour un créateur faceless, une accroche se travaille par la voix off, le texte à l'écran, les visuels, le rythme du montage, la musique et la première image, pas par un visage. Vérifie chaque recommandation avant de l'écrire : est-elle réalisable dans le format déclaré ? Si non, reformule-la pour ce format.
 
@@ -197,6 +197,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     "analyse_detaillee":  { "disponible": <true/false>, "videos_au_dessus_moyenne": <nombre ou null>, "total_videos_analysees": <nombre ou null>, "concepts_recurrents": [ { "theme": "<nom court>", "occurrences": <nombre de vidéos sur ce thème, minimum 2> } ] },
     "audience":           { "disponible": <true/false>, "constat": "<âge/sexe/pays dominant>", "alignement": "<le contenu est-il adapté à cette audience ? ex: 70% France mais références 100% béninoises>" }
   },
+  "synthese_croisee": { "disponible": <true UNIQUEMENT si un diagnostic sommaire a été fourni plus haut ; false sinon, et dans ce cas laisse constat et points vides>, "constat": "<2 à 4 phrases qui CROISENT le contenu (sommaire : niche réelle, formule gagnante, éventuel changement de cap, top/flop sur ~6 mois de vraies vidéos) et la distribution (captures : rétention, sources de trafic, démographie). Dis surtout ce que le CROISEMENT révèle que ni l'une ni l'autre ne montrait seule.>", "points": ["<1 à 3 points de convergence ou de tension entre contenu et distribution, concrets et chiffrés quand possible>"] },
   "axes_prioritaires": [
     { "titre": "<max 6 mots, l'axe à travailler, ex: 'Retenir dans les 3 premières secondes'>", "pourquoi": "<1 phrase, ce que montrent les données de CE compte (pas de généralité)>", "action": "<1 phrase, quoi faire concrètement dès cette semaine, réalisable dans le format déclaré>" }
   ],
@@ -261,14 +262,17 @@ async function dernierDiagnosticSommaire(code) {
   const key = process.env.SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   try {
+    // On récupère les dernières sommaires et on retient la première qui porte
+    // sur SON compte (estMonCompte !== false), jamais un concurrent analysé.
     const r = await fetch(
       url + '/rest/v1/generations?code_acces=eq.' + encodeURIComponent(code) +
-      '&mode=eq.diagnosticSommaire&select=contenu&order=cree_le.desc&limit=1',
+      '&mode=eq.diagnosticSommaire&select=contenu&order=cree_le.desc&limit=8',
       { headers: { apikey: key, Authorization: 'Bearer ' + key } }
     );
     const rows = await r.json();
     if (!Array.isArray(rows) || !rows.length) return null;
-    return rows[0].contenu || null;
+    const mien = rows.find(x => x && x.contenu && x.contenu.estMonCompte !== false);
+    return (mien && mien.contenu) || null;
   } catch (e) { return null; }
 }
 

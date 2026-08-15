@@ -1276,6 +1276,18 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     html += `<div class="ds-sante-row"><span class="ds-tag ${sante.niveau}">Santé du compte : ${sante.label}</span></div>`;
   }
 
+  // Synthèse croisée CONTENU (analyse par @pseudo, ~6 mois de vraies vidéos)
+  // × DISTRIBUTION (captures : rétention, trafic, démographie). Présente
+  // seulement si un diagnostic sommaire de son compte a nourri l'audit.
+  const syn = a.synthese_croisee || {};
+  if (syn.disponible !== false && syn.constat) {
+    html += `<div class="score-card ds-evolution pivot">
+      <div class="ds-section-row"><div class="audit-section-label" style="margin-bottom:0">Contenu × Distribution</div><span class="ds-tag ds-tag-alert">Synthèse croisée</span></div>
+      <p class="audit-diag-constat" style="margin-top:10px">${auditEsc(syn.constat)}</p>
+      ${Array.isArray(syn.points) && syn.points.length ? `<ul class="ds-niche-analyse">${syn.points.map(p => `<li>${auditEsc(p)}</li>`).join('')}</ul>` : ''}
+    </div>`;
+  }
+
   const P = a.piliers || {};
   const dispo = p => p && p.disponible !== false && (p.constat || p.conclusion || p.formule || (p.sujets_notes && p.sujets_notes.length));
 
