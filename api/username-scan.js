@@ -79,18 +79,26 @@ function normaliserMedias(data) {
   }).filter(v => v.vues != null || v.likes != null);
 }
 
-// Récupère les vidéos d'un compte via ScrapTik /user-posts (avec l'id
-// numérique du compte). Pagine via max_cursor pour viser ~30-40 vidéos,
-// bien plus fiable pour la Régularité et la Viralité qu'une seule page (~10).
+// Récupère les vidéos RÉCENTES d'un compte via ScrapTik /user-posts (avec
+// l'id numérique du compte), sur une fenêtre glissante de ~2 mois, comme
+// l'analyse détaillée. Pagine via max_cursor (vidéos renvoyées de la plus
+// récente à la plus ancienne) et s'arrête dès qu'on sort de la fenêtre.
+// Deux garde-fous : un PLANCHER (au moins MIN vidéos même si peu ont été
+// publiées en 2 mois, sinon Régularité/Viralité seraient peu fiables) et un
+// PLAFOND (MAX vidéos, pour borner coût et latence sur les gros comptes).
 // Renvoie la liste normalisée, ou null si tout échoue (non-régressif :
 // le diagnostic retombe alors sur l'Engagement).
 async function recupererVideos(key, ids) {
   if (!ids.id && !ids.secUid) return null;
   const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
-  const CIBLE = 100;     // nombre de vidéos visé
-  const MAX_PAGES = 10;  // borne dure d'appels (coût/latence maîtrisés)
-  const toutes = [];
-  const vues = new Set(); // dédoublonnage léger (date|vues|début de légende)
+  const JOURS_FENETRE = 60;   // ~2 mois
+  const MIN = 20;             // plancher de fiabilité
+  const MAX = 100;            // plafond de coût/latence
+  const MAX_PAGES = 10;
+  const cutoff = Math.floor(Date.now() / 1000) - JOURS_FENETRE * 86400;
+
+  const toutes = [];          // ordre : de la plus récente à la plus ancienne
+  const vues = new Set();     // dédoublonnage léger (date|vues|début de légende)
   let cursor = 0;
 
   for (let page = 0; page < MAX_PAGES; page++) {
@@ -108,13 +116,27 @@ async function recupererVideos(key, ids) {
       if (!vues.has(cle)) { vues.add(cle); toutes.push(v); }
     }
 
+    // La dernière vidéo de la page est-elle déjà hors fenêtre ? (les suivantes
+    // le seront aussi, ScrapTik renvoyant du plus récent au plus ancien.)
+    const dernier = lot[lot.length - 1];
+    const pageHorsFenetre = dernier && typeof dernier.date === 'number' && dernier.date < cutoff;
+
     const hasMore = data && (data.has_more ?? data.hasMore);
     const suivant = data && (data.max_cursor ?? data.maxCursor ?? data.cursor);
     if (!lot.length || !hasMore || suivant == null ||
-        Number(suivant) === Number(cursor) || toutes.length >= CIBLE) break;
+        Number(suivant) === Number(cursor) || toutes.length >= MAX) break;
+    // On a assez de vidéos récentes et on est sorti de la fenêtre : inutile de
+    // continuer à remonter dans le temps.
+    if (pageHorsFenetre && toutes.length >= MIN) break;
     cursor = suivant;
   }
-  return toutes.length ? toutes : null;
+
+  if (!toutes.length) return null;
+  // Fenêtre 2 mois (les vidéos sans date sont conservées, non filtrables) ;
+  // si cela laisse moins que le plancher, on complète avec les plus récentes.
+  const recentes = toutes.filter(v => typeof v.date !== 'number' || v.date >= cutoff);
+  const final = recentes.length >= MIN ? recentes : toutes.slice(0, Math.max(MIN, recentes.length));
+  return final.length ? final : null;
 }
 
 export default async function handler(req, res) {
