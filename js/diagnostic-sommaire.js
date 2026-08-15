@@ -566,11 +566,11 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const estProPayant = dejaAcces && unlocked && (typeof monPalier === 'function') && monPalier() === 'pro';
   const ctaDetailleHtml = dejaAcces ? `
     <div class="ds-alt">
-      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. ${estProPayant ? 'Ton plan Pro te donne' : 'Tu as déjà'} accès à l'<strong>analyse détaillée</strong> : rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. (Sans abonnement, cette analyse est aussi disponible à l'unité avec un jeton.)</p>
+      <p style="margin:0 0 14px">Ici, on a décodé ton <strong>contenu</strong> : ce qui marche, et quoi créer. Pour le <strong>pourquoi de ta distribution</strong>, l'<strong>analyse détaillée</strong> lit tes statistiques privées, invisibles ici : rétention (où l'attention décroche), sources de trafic (Pour toi, abonnés, recherche), démographie de ton audience. ${estProPayant ? 'Incluse dans ton plan Pro.' : 'Tu y as déjà accès.'} (Sans abonnement, aussi disponible à l'unité avec un jeton.)</p>
       <button class="btn-generate" onclick="ouvrirCapturesDepuisChoix()">Lancer l'analyse détaillée →</button>
     </div>` : `
     <div class="ds-alt">
-      <p style="margin:0 0 14px">Ce diagnostic rapide n'est qu'un aperçu. L'<strong>analyse détaillée</strong> va bien plus loin, rétention, sources de trafic, formats qui performent, top et flop de tes vidéos. Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>.</p>
+      <p style="margin:0 0 14px">Ici, on a décodé ton <strong>contenu</strong> : ce qui marche, et quoi créer. L'<strong>analyse détaillée</strong> répond à une autre question, le <strong>pourquoi de ta distribution</strong> : elle lit tes statistiques privées, invisibles ici (rétention, sources de trafic, démographie de ton audience). Disponible avec le plan Pro, ou <strong>à l'unité avec un jeton, sans abonnement</strong>.</p>
       <button class="btn-generate" onclick="openPlans(unlocked ? 'achat-jeton-creator' : 'achat-jeton-nonabonne')">Débloquer l'analyse détaillée →</button>
     </div>`;
 
