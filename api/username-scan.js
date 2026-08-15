@@ -79,19 +79,20 @@ function normaliserMedias(data) {
   }).filter(v => v.vues != null || v.likes != null);
 }
 
-// Récupère les vidéos RÉCENTES d'un compte via ScrapTik /user-posts (avec
-// l'id numérique du compte), sur une fenêtre glissante de ~2 mois, comme
-// l'analyse détaillée. Pagine via max_cursor (vidéos renvoyées de la plus
+// Récupère les vidéos d'un compte via ScrapTik /user-posts (avec l'id
+// numérique du compte), sur une fenêtre d'HISTORIQUE de ~6 mois. Assez large
+// pour couvrir un PIVOT de contenu (le client compare alors avant/après et
+// repère la formule gagnante, même ancienne ; les 4 dimensions restent, elles,
+// calculées sur le récent). Pagine via max_cursor (vidéos renvoyées de la plus
 // récente à la plus ancienne) et s'arrête dès qu'on sort de la fenêtre.
-// Deux garde-fous : un PLANCHER (au moins MIN vidéos même si peu ont été
-// publiées en 2 mois, sinon Régularité/Viralité seraient peu fiables) et un
-// PLAFOND (MAX vidéos, pour borner coût et latence sur les gros comptes).
+// Deux garde-fous : un PLANCHER (au moins MIN vidéos même si peu publiées) et
+// un PLAFOND (MAX vidéos, pour borner coût et latence sur les gros comptes).
 // Renvoie la liste normalisée, ou null si tout échoue (non-régressif :
 // le diagnostic retombe alors sur l'Engagement).
 async function recupererVideos(key, ids) {
   if (!ids.id && !ids.secUid) return null;
   const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
-  const JOURS_FENETRE = 60;   // ~2 mois
+  const JOURS_FENETRE = 180;  // ~6 mois (pour voir un éventuel pivot)
   const MIN = 20;             // plancher de fiabilité
   const MAX = 100;            // plafond de coût/latence
   const MAX_PAGES = 10;

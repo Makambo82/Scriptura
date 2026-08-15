@@ -2470,6 +2470,17 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-concepts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
 .ds-concept-chip{font-size:0.82rem;color:var(--gold-light);background:var(--gold-pale);border:1px solid var(--border-soft);border-radius:999px;padding:6px 14px;line-height:1.3}
 
+/* Évolution du compte (détection de changement de cap / pivot) */
+.ds-evolution.pivot{border-color:rgba(201,168,76,0.4)}
+.ds-tag-alert{color:var(--gold-light);background:var(--gold-pale);border-color:rgba(201,168,76,0.4)}
+.ds-evo-grid{display:grid;gap:10px;margin-top:14px}
+.ds-evo-col{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
+.ds-evo-col p{margin:5px 0 0;font-size:0.86rem;color:var(--text-secondary);line-height:1.5}
+.ds-evo-h{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted)}
+.ds-evo-formule{margin-top:14px;background:var(--gold-pale);border:1px solid rgba(201,168,76,0.35);border-radius:10px;padding:12px 14px}
+.ds-evo-formule p{margin:5px 0 0;font-size:0.88rem;color:#fff;line-height:1.55}
+.ds-evo-formule .ds-evo-h{color:var(--gold-light)}
+
 .ds-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .ds-mini-stat{text-align:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 8px}
 .ds-mini-stat b{display:block;font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--gold-light);margin-bottom:3px}

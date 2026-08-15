@@ -227,55 +227,51 @@ async function lancerDiagnosticSommaire() {
       throw new Error(donnees?.error?.message || "Profil introuvable. Vérifie l'orthographe, ou envoie tes captures pour l'analyse complète.");
     }
 
-    // Métriques calculées à partir des vraies vidéos (endpoint medias). null
-    // si LamaTok n'a pas renvoyé assez de vidéos → on reste sur l'Engagement.
+    // Les vidéos couvrent ~6 mois. Les 4 DIMENSIONS (score) se calculent sur le
+    // RÉCENT (2 derniers mois) = l'état ACTUEL du compte ; l'analyse de contenu
+    // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
     const abonnes = dsAbonnes(donnees.profil);
-    const metriques = calculerMetriquesVideos(donnees.medias, abonnes);
+    const toutesVideos = Array.isArray(donnees.medias) ? donnees.medias : [];
+    const seuilRecent = Math.floor(Date.now() / 1000) - 60 * 86400;
+    const videosRecentes = toutesVideos.filter(v => typeof v.date === 'number' && v.date >= seuilRecent);
+    // Base des dimensions : le récent, avec plancher (les 20 plus récentes si
+    // trop peu de vidéos ces 2 derniers mois) pour rester statistiquement fiable.
+    const baseMetriques = videosRecentes.length >= 15
+      ? videosRecentes
+      : toutesVideos.slice(0, Math.max(15, videosRecentes.length));
+    const metriques = calculerMetriquesVideos(baseMetriques, abonnes);
 
-    // Bloc vidéos injecté dans le prompt UNIQUEMENT si on a des métriques
-    // réelles, sinon on garde la consigne d'origine (profil seul).
     const blocVideos = metriques ? `
 
-DONNÉES PAR VIDÉO (calculées à partir des ${metriques.n} dernières vidéos publiques réelles, ce sont des FAITS, utilise-les tels quels) :
+DONNÉES PAR VIDÉO (calculées sur tes ${metriques.n} vidéos RÉCENTES ~2 derniers mois = état actuel, ce sont des FAITS) :
 - Vues moyennes par vidéo : ${metriques.moyVues}
 - Vues médianes par vidéo : ${metriques.medianeVues}
-- Meilleure vidéo : ${metriques.maxVues} vues
+- Meilleure vidéo récente : ${metriques.maxVues} vues
 ${metriques.ratioPortee != null ? `- Portée : les vidéos font en moyenne ${metriques.ratioPortee}% du nombre d'abonnés en vues` : ''}
 ${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${metriques.videosParSemaine} vidéo(s) par semaine (sur ${metriques.joursCouverts} jours couverts)` : ''}
 - Rapport pic/médiane : la meilleure vidéo fait ${metriques.ratioViral}× les vues de la vidéo médiane ; ${metriques.pctPics}% des vidéos dépassent 2× la médiane.
 
-Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits (voir barèmes plus bas).` : `
+Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits RÉCENTS (voir barèmes plus bas).` : `
 
 LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
 
-    // Sujets des vidéos (légendes) triés par vues : nourrit l'analyse de
-    // CONTENU (niche réelle, top/flop, concepts récurrents). On envoie à l'IA
-    // les PLUS vues ET les MOINS vues : sinon elle ne verrait jamais les vraies
-    // vidéos faibles et le "flop" serait faux (bug corrigé). Vide si absent.
-    const videosAvecSujet = (Array.isArray(donnees.medias) ? donnees.medias : [])
+    // Historique des vidéos AVEC DATES (mois/année), du plus récent au plus
+    // ancien : nourrit la niche, le top/flop, les concepts ET la détection d'un
+    // changement de cap (pivot). Chaque ligne porte [mois/année], vues et sujet.
+    const fmtMois = (ts) => {
+      if (typeof ts !== 'number' || !ts) return '??/????';
+      const d = new Date(ts * 1000);
+      return String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+    };
+    const videosAvecSujet = toutesVideos
       .filter(v => v.desc && typeof v.vues === 'number')
-      .sort((a, b) => b.vues - a.vues);
-    const ligneVideo = v => `- ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 130)} »`;
-    let blocSujets = '';
-    if (videosAvecSujet.length >= 3) {
-      const n = videosAvecSujet.length;
-      if (n <= 40) {
-        blocSujets = `
+      .sort((a, b) => (b.date || 0) - (a.date || 0)); // chronologique, récent d'abord
+    const ligneVideo = v => `- [${fmtMois(v.date)}] ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 120)} »`;
+    const echantillon = videosAvecSujet.slice(0, 80);
+    const blocSujets = echantillon.length >= 3 ? `
 
-SUJETS DES VIDÉOS (${n} vidéos, de la plus vue à la moins vue, sujet réel + performance ; ta SEULE source pour la niche, le top/flop et les concepts récurrents) :
-${videosAvecSujet.map(ligneVideo).join('\n')}`;
-      } else {
-        const haut = videosAvecSujet.slice(0, 25);
-        const bas = videosAvecSujet.slice(-15);
-        blocSujets = `
-
-SUJETS DES VIDÉOS (${n} vidéos analysées), voici les ${haut.length} PLUS VUES puis les ${bas.length} MOINS VUES. C'est ta source pour la niche, le top/flop et les concepts.
-LES PLUS VUES :
-${haut.map(ligneVideo).join('\n')}
-LES MOINS VUES (candidates au flop) :
-${bas.map(ligneVideo).join('\n')}`;
-      }
-    }
+VIDÉOS (${echantillon.length}, de la plus récente à la plus ancienne, format [mois/année] puis vues puis sujet). C'est ta source pour la niche, le top/flop, les concepts ET la détection d'un éventuel changement de cap :
+${echantillon.map(ligneVideo).join('\n')}` : '';
 
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
@@ -312,7 +308,12 @@ TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent
 
 CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèmes/angles qui reviennent dans les vidéos (ex. « coups d'État africains », « histoires vraies méconnues », « géopolitique expliquée »). Formule court, comme des étiquettes. Sinon liste vide.
 
-LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil ET sujets/performances des vidéos si fournis). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Jamais de supposition sur des vidéos absentes des données.
+ÉVOLUTION / CHANGEMENT DE CAP (très important) : examine les DATES [mois/année] ET les SUJETS dans l'ordre chronologique. Le créateur a-t-il CHANGÉ de type de contenu ou de niche à un moment (ex. passage d'un thème A à un thème B, ou d'un format à un autre) ?
+   • Si OUI (bascule nette) : "pivot": true. Situe la période approximative de bascule (mois/année). Résume le contenu AVANT et le contenu APRÈS. COMPARE la performance avec les VRAIS chiffres (vues moyennes avant vs après). Dis clairement quelle période performait le mieux, MÊME si c'est l'ancienne. Si l'ancienne formule marchait mieux, ne dis pas juste « reviens en arrière » : recommande de RÉUTILISER son mécanisme gagnant AU SERVICE du nouvel objectif (ex. vendre un produit EN gardant le storytelling/la tension qui cartonnait). Renseigne "formule_gagnante".
+   • Si NON (contenu stable, pas de bascule) : "pivot": false, "constat" court sur la constance, autres champs vides.
+   Ne PRÉTENDS jamais un pivot qui n'existe pas : base-toi uniquement sur un vrai changement visible dans les dates et sujets.
+
+LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil, sujets/performances des vidéos, et l'ÉVOLUTION si un pivot est détecté). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Si un pivot a fait BAISSER la performance, l'un des leviers DOIT porter sur la réutilisation de la formule gagnante au service du nouvel objectif. Jamais de supposition sur des vidéos absentes des données.
 
 SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio), reste prudent si peu de données sont exploitables.
 
@@ -332,10 +333,11 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
   "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
   "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
   "concepts_recurrents": ["<concept 1>", "<concept 2>"],
+  "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : la bascule et son effet, ou la constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<la formule qui marche le mieux + comment la réutiliser pour l'objectif actuel, ou null>" },
   "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
 }`;
 
-    const raw = await callAI(MODEL_RAPIDE, 2600, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 3000, prompt);
     const parsed = parseAIResponse(raw);
     if (!parsed || parsed.profil_trouve === false) {
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
@@ -582,6 +584,24 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ? `<div class="ds-sante-row"><span class="ds-tag ${sante.niveau}">Santé du compte : ${sante.label}</span></div>`
     : '';
 
+  // Évolution du compte : détection d'un changement de cap (pivot) sur ~6 mois,
+  // avec comparaison avant/après et formule gagnante. N'apparaît que si l'IA a
+  // renvoyé un constat (donc uniquement quand l'historique a été analysé).
+  const evo = d.evolution || {};
+  const evolutionHtml = evo.constat ? `
+    <div class="score-card ds-evolution${evo.pivot ? ' pivot' : ''}">
+      <div class="ds-section-row">
+        <div class="audit-section-label" style="margin-bottom:0">Évolution du compte</div>
+        <span class="ds-tag ${evo.pivot ? 'ds-tag-alert' : 'ds-tag-ok'}">${evo.pivot ? '↪ Changement de cap' : 'Contenu stable'}</span>
+      </div>
+      <p class="audit-diag-constat" style="margin-top:10px">${diagSommaireEsc(evo.constat)}</p>
+      ${(evo.avant || evo.apres) ? `<div class="ds-evo-grid">
+        ${evo.avant ? `<div class="ds-evo-col"><div class="ds-evo-h">Avant</div><p>${diagSommaireEsc(evo.avant)}</p></div>` : ''}
+        ${evo.apres ? `<div class="ds-evo-col"><div class="ds-evo-h">Depuis</div><p>${diagSommaireEsc(evo.apres)}</p></div>` : ''}
+      </div>` : ''}
+      ${evo.formule_gagnante ? `<div class="ds-evo-formule"><div class="ds-evo-h">🏆 Ta formule gagnante</div><p>${diagSommaireEsc(evo.formule_gagnante)}</p></div>` : ''}
+    </div>` : '';
+
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
   // mémoire locale, voir afficherOpportuniteDiagSommaire dans recommandations.js).
   const opportuniteHtml = (!unlocked) ? `<div id="diagSommaireOpportunites"></div>` : '';
@@ -612,6 +632,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
     ${santeRowHtml}
 
+    ${evolutionHtml}
     ${bioHtml}
     ${nicheHtml}
     ${topHtml}

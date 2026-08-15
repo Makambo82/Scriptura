@@ -57,6 +57,10 @@ function resumeDiagnosticSommaire(contenu) {
   if (tops.length) lignes.push('Vidéos qui percent : ' + tops.slice(0, 3).map(v => '« ' + v.sujet + ' » (' + (v.vues != null ? v.vues + ' vues' : '?') + ')').join(' ; '));
   const concepts = Array.isArray(d.concepts_recurrents) ? d.concepts_recurrents.filter(Boolean) : [];
   if (concepts.length) lignes.push('Concepts récurrents : ' + concepts.slice(0, 6).join(', '));
+  // Formule gagnante détectée via un éventuel pivot (js/diagnostic-sommaire.js) :
+  // signal fort pour recommander (réutiliser ce qui marchait le mieux).
+  const evo = d.evolution || {};
+  if (evo.pivot && evo.formule_gagnante) lignes.push('Formule qui performait le mieux (à réutiliser) : ' + evo.formule_gagnante);
   return lignes.join('\n');
 }
 
