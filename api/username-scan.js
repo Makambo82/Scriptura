@@ -75,34 +75,22 @@ function normaliserMedias(data) {
   }).filter(v => v.vues != null || v.likes != null);
 }
 
-// Récupère les vidéos d'un compte via ScrapTik. Essaie /user-posts puis
-// /list-posts, avec user_id puis sec_uid, jusqu'au premier succès chiffré.
-async function recupererVideos(key, ids, journal) {
-  const chemins = ['/user-posts', '/list-posts'];
-  const jeux = [];
-  if (ids.id)     jeux.push({ user_id: ids.id, count: 30, max_cursor: 0 });
-  if (ids.secUid) jeux.push({ sec_uid: ids.secUid, count: 30 });
-  const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
-
-  for (const chemin of chemins) {
-    for (const params of jeux) {
-      const url = 'https://' + SCRAPTIK_HOST + chemin + '?' + new URLSearchParams(params).toString();
-      try {
-        const rep = await fetch(url, { headers: h });
-        const texte = await rep.text();
-        let data = null; try { data = JSON.parse(texte); } catch (e) {}
-        const liste = data ? normaliserMedias(data) : [];
-        if (journal) journal.push({
-          chemin, params: Object.keys(params).join('+'),
-          status: rep.status, nbVideos: liste.length, extrait: texte.slice(0, 700)
-        });
-        if (rep.ok && liste.length) return liste;
-      } catch (e) {
-        if (journal) journal.push({ chemin, params: Object.keys(params).join('+'), erreur: String(e.message || e) });
-      }
-    }
-  }
-  return null;
+// Récupère les vidéos d'un compte via ScrapTik /user-posts (avec l'id
+// numérique du compte). Renvoie la liste normalisée, ou null si l'appel
+// échoue — le diagnostic reste alors sur l'Engagement (non-régressif).
+async function recupererVideos(key, ids) {
+  if (!ids.id && !ids.secUid) return null;
+  const params = ids.id
+    ? { user_id: ids.id, count: 30, max_cursor: 0 }
+    : { sec_uid: ids.secUid, count: 30 };
+  const url = 'https://' + SCRAPTIK_HOST + '/user-posts?' + new URLSearchParams(params).toString();
+  const rep = await fetch(url, {
+    headers: { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST }
+  });
+  if (!rep.ok) return null;
+  const data = await rep.json();
+  const liste = normaliserMedias(data);
+  return liste.length ? liste : null;
 }
 
 export default async function handler(req, res) {
@@ -134,25 +122,15 @@ export default async function handler(req, res) {
     }
 
     // 2) Vidéos via ScrapTik (si la clé est configurée), avec l'id du profil.
-    const debug = req.body?.debug === true;
     const ids = extraireIds(profil);
     const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
-    const journal = debug ? [] : null;
     let medias = null;
     if (scrapKey) {
-      try { medias = await recupererVideos(scrapKey, ids, journal); }
+      try { medias = await recupererVideos(scrapKey, ids); }
       catch (e) { medias = null; }
     }
 
-    const reponse = { profil, medias };
-    if (debug) {
-      reponse._debug = {
-        idsExtraits: ids,
-        scraptikConfiguree: !!scrapKey,
-        tentativesVideos: journal
-      };
-    }
-    return res.status(200).json(reponse);
+    return res.status(200).json({ profil, medias });
 
   } catch (e) {
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
