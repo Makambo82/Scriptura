@@ -94,20 +94,28 @@ async function recupererVideos(key, ids) {
   const h = { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST };
   const JOURS_FENETRE = 180;  // ~6 mois (pour voir un éventuel pivot)
   const MIN = 20;             // plancher de fiabilité
-  const MAX = 100;            // plafond de coût/latence
-  const MAX_PAGES = 10;
+  const MAX = 90;             // plafond de coût/latence
+  const MAX_PAGES = 6;        // borne dure (ScrapTik ~2-4 s/page)
+  const BUDGET_MS = 18000;    // budget temps total (bien sous les 60 s Vercel)
   const cutoff = Math.floor(Date.now() / 1000) - JOURS_FENETRE * 86400;
+  const t0 = Date.now();
 
   const toutes = [];          // ordre : de la plus récente à la plus ancienne
   const vues = new Set();     // dédoublonnage léger (date|vues|début de légende)
   let cursor = 0;
 
   for (let page = 0; page < MAX_PAGES; page++) {
+    if (Date.now() - t0 > BUDGET_MS) break; // ne jamais risquer le timeout Vercel
     const base = ids.id ? { user_id: ids.id } : { sec_uid: ids.secUid };
     const url = 'https://' + SCRAPTIK_HOST + '/user-posts?' +
       new URLSearchParams({ ...base, count: 30, max_cursor: cursor }).toString();
+    // Timeout par page : une page ScrapTik lente ne doit pas bloquer la fonction.
+    const ctrl = new AbortController();
+    const minuteur = setTimeout(() => ctrl.abort(), 7000);
     let rep;
-    try { rep = await fetch(url, { headers: h }); } catch (e) { break; }
+    try { rep = await fetch(url, { headers: h, signal: ctrl.signal }); }
+    catch (e) { break; }
+    finally { clearTimeout(minuteur); }
     if (!rep.ok) break;
     let data; try { data = await rep.json(); } catch (e) { break; }
 

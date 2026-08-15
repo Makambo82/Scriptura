@@ -217,12 +217,27 @@ async function lancerDiagnosticSommaire() {
     // Récupère le profil public via notre fonction serveur (clé LamaTok
     // jamais exposée au navigateur). Profil seul : voir note en tête de
     // fichier sur la limite structurelle de LamaTok (pas de liste de vidéos).
-    const rep = await fetch('/api/username-scan', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username })
-    });
-    const donnees = await rep.json();
+    // Timeout client : si le scan traîne (compte volumineux, service lent), on
+    // échoue proprement avec un message clair plutôt qu'une erreur cryptique.
+    const ctrlScan = new AbortController();
+    const minuteurScan = setTimeout(() => ctrlScan.abort(), 50000);
+    let rep;
+    try {
+      rep = await fetch('/api/username-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username }),
+        signal: ctrlScan.signal
+      });
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error("L'analyse a mis trop de temps. Réessaie dans un instant.");
+      throw new Error("Connexion interrompue. Vérifie ta connexion et réessaie.");
+    } finally {
+      clearTimeout(minuteurScan);
+    }
+    let donnees;
+    try { donnees = await rep.json(); }
+    catch (e) { throw new Error("Réponse illisible du serveur. Réessaie dans un instant."); }
     if (!rep.ok) {
       throw new Error(donnees?.error?.message || "Profil introuvable. Vérifie l'orthographe, ou envoie tes captures pour l'analyse complète.");
     }
