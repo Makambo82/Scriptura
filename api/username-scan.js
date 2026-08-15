@@ -25,13 +25,20 @@ const BASE = 'https://api.lamatok.com';
 // Extrait l'identifiant utilisateur du profil, quel que soit le nommage
 // renvoyé par LamaTok (structure TikTok : user.id / user.secUid, ou plat).
 function extraireIds(profil) {
-  // LamaTok range l'utilisateur sous "users" (pluriel) ; on couvre aussi les
-  // autres conventions par sécurité. La valeur peut être un objet ou un tableau.
+  // LamaTok range l'utilisateur sous "users", qui est un DICTIONNAIRE indexé
+  // par pseudo : { "<username>": { id, secUid, ... } }. On résout donc l'objet
+  // utilisateur, en plongeant d'un niveau si nécessaire.
   let u = (profil && (profil.users || profil.user || profil.userInfo?.user ||
            profil.data?.user || profil.data?.users)) || profil || {};
   if (Array.isArray(u)) u = u[0] || {};
-  const id = u.id || u.uid || u.user_id || u.userId || u.uniqueIdOrId || profil?.id || null;
-  const secUid = u.secUid || u.sec_uid || u.secuid || profil?.secUid || profil?.sec_uid || null;
+  // Si u ne porte pas directement d'id, c'est un dico { pseudo: {user} } :
+  // on prend la première valeur-objet qui contient un id ou un secUid.
+  if (u && typeof u === 'object' && u.id == null && u.secUid == null && u.sec_uid == null) {
+    const candidat = Object.values(u).find(v => v && typeof v === 'object' && (v.id != null || v.secUid != null || v.sec_uid != null));
+    if (candidat) u = candidat;
+  }
+  const id = u.id || u.uid || u.user_id || u.userId || null;
+  const secUid = u.secUid || u.sec_uid || u.secuid || null;
   return { id: id ? String(id) : null, secUid: secUid ? String(secUid) : null };
 }
 
@@ -69,7 +76,7 @@ async function recupererMedias(headers, username, ids, journal) {
         if (journal) journal.push({
           chemin, params: Object.keys(base).join('+'),
           status: rep.status, ok: rep.ok, nbVideos: liste.length,
-          extrait: texte.slice(0, 400)
+          extrait: texte.slice(0, 700)
         });
         if (rep.ok && liste.length) return liste;
       } catch (e) {
