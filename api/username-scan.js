@@ -22,6 +22,30 @@
 
 const BASE = 'https://api.lamatok.com';
 
+// Lit le catalogue OpenAPI de LamaTok et renvoie les endpoints (GET) dont le
+// chemin évoque des vidéos, avec leurs paramètres. Sert à identifier le vrai
+// chemin de listage des vidéos plutôt que de le deviner. Debug uniquement.
+async function sonderOpenapi(headers) {
+  try {
+    let rep = await fetch(BASE + '/openapi.json', { headers });
+    if (!rep.ok) rep = await fetch(BASE + '/openapi.json'); // parfois public sans clé
+    if (!rep.ok) return { status: rep.status };
+    const spec = await rep.json();
+    const paths = spec.paths || {};
+    const pertinents = {};
+    for (const [p, methods] of Object.entries(paths)) {
+      if (!/medi|video|post|feed|aweme|item|clip/i.test(p)) continue;
+      const get = methods.get || methods.GET || {};
+      pertinents[p] = (get.parameters || []).map(pr => ({
+        nom: pr.name, ou: pr.in, requis: !!pr.required
+      }));
+    }
+    return { totalPaths: Object.keys(paths).length, endpointsVideo: pertinents };
+  } catch (e) {
+    return { erreur: String(e.message || e) };
+  }
+}
+
 // Extrait l'identifiant utilisateur du profil, quel que soit le nommage
 // renvoyé par LamaTok (structure TikTok : user.id / user.secUid, ou plat).
 function extraireIds(profil) {
@@ -170,9 +194,8 @@ export default async function handler(req, res) {
     const reponse = { profil, medias };
     if (debug) {
       reponse._debug = {
-        profilCles: Object.keys(profil || {}),
         idsExtraits: ids,
-        profilExtrait: JSON.stringify(profil || {}).slice(0, 1500),
+        catalogue: await sonderOpenapi(headers),
         tentativesMedias: journal
       };
     }
