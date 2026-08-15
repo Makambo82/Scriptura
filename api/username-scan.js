@@ -40,7 +40,11 @@ async function sonderOpenapi(headers) {
         nom: pr.name, ou: pr.in, requis: !!pr.required
       }));
     }
-    return { totalPaths: Object.keys(paths).length, endpointsVideo: pertinents };
+    return {
+      totalPaths: Object.keys(paths).length,
+      toutesLesRoutes: Object.keys(paths),
+      endpointsVideo: pertinents
+    };
   } catch (e) {
     return { erreur: String(e.message || e) };
   }
@@ -181,25 +185,27 @@ export default async function handler(req, res) {
       return res.status(repProfil.status).json({ error: { message } });
     }
 
-    // 2e appel : dernières vidéos. Non-bloquant — si ça échoue, medias reste
-    // null et le client fonctionne comme avant (profil seul).
     const debug = req.body?.debug === true;
     const ids = extraireIds(profil);
-    const journal = debug ? [] : null;
+
+    // Mode debug : on ne sonde plus les vidéos (on sait que le catalogue ne
+    // liste pas les vidéos d'un compte) — on renvoie juste le catalogue des
+    // routes disponibles pour confirmation.
+    if (debug) {
+      return res.status(200).json({
+        profil, medias: null,
+        _debug: { idsExtraits: ids, catalogue: await sonderOpenapi(headers) }
+      });
+    }
+
+    // 2e appel : dernières vidéos. Non-bloquant — si ça échoue, medias reste
+    // null et le client fonctionne comme avant (profil seul).
     let medias = null;
     try {
-      medias = await recupererMedias(headers, propre, ids, journal);
+      medias = await recupererMedias(headers, propre, ids, null);
     } catch (e) { medias = null; }
 
-    const reponse = { profil, medias };
-    if (debug) {
-      reponse._debug = {
-        idsExtraits: ids,
-        catalogue: await sonderOpenapi(headers),
-        tentativesMedias: journal
-      };
-    }
-    return res.status(200).json(reponse);
+    return res.status(200).json({ profil, medias });
 
   } catch (e) {
     return res.status(500).json({
