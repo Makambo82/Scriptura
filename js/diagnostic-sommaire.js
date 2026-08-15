@@ -1,19 +1,18 @@
 // ═══════════════════════════════════════════════════════════
 //  MODULE DIAGNOSTIC SOMMAIRE — analyse via @nom d'utilisateur TikTok
 //  Alternative légère au diagnostic complet par captures (js/audit.js) :
-//  aucune capture à envoyer, uniquement le PROFIL PUBLIC lu via un
-//  service tiers (LamaTok, voir api/username-scan.js).
+//  aucune capture à envoyer. On lit via LamaTok (api/username-scan.js) le
+//  PROFIL PUBLIC ET les dernières vidéos du compte (endpoint medias).
 //
-//  LIMITE STRUCTURELLE IMPORTANTE (vérifiée sur la documentation complète
-//  de LamaTok) : ce service n'expose AUCUN endpoint pour lister les
-//  vidéos d'un compte — seulement le profil agrégé. Sur les 4 dimensions
-//  inspirées de Vervox (Engagement, Portée, Régularité, Viralité), seule
-//  l'Engagement peut être approximée (grossièrement) à partir des totaux
-//  du profil ; les 3 autres ont structurellement besoin de données par
-//  vidéo qu'aucun profil public n'expose, et sont donc TOUJOURS affichées
-//  comme non disponibles plutôt que de fabriquer un chiffre. Score
-//  recalculé côté code (comme js/audit.js) sur les seules dimensions
-//  réellement mesurées, jamais fourni tel quel par l'IA.
+//  Les 4 dimensions inspirées de Vervox (Engagement, Portée, Régularité,
+//  Viralité) sont donc toutes calculables quand les vidéos sont
+//  récupérées : Engagement à partir des totaux du profil ; Portée,
+//  Régularité et Viralité à partir des vues/dates par vidéo (voir
+//  calculerMetriquesVideos). Si LamaTok ne renvoie pas les vidéos (compte
+//  privé, quota, endpoint indisponible), on retombe proprement sur
+//  l'Engagement seul, sans jamais inventer de chiffre. Score recalculé
+//  côté code (comme js/audit.js) sur les seules dimensions réellement
+//  mesurées, jamais fourni tel quel par l'IA.
 //
 //  Rendu avec la palette Scriptura (doré + émeraude pour les points forts
 //  — même mécanique que l'anneau de score du diagnostic complet).
@@ -72,6 +71,41 @@ function analyserAutreCompteDiagSommaire() {
 function diagSommaireEsc(t) {
   return String(t == null ? '' : t).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
+// Extrait le nombre d'abonnés du profil brut, quel que soit le nommage
+// renvoyé par LamaTok (structure TikTok : stats.followerCount, ou plat).
+function dsAbonnes(profil) {
+  const p = profil || {};
+  const s = p.stats || p.statistics || p.user?.stats || p;
+  const v = s.followerCount ?? s.follower_count ?? s.followers ?? p.followerCount ?? p.follower_count ?? null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Calcule à partir des vidéos réelles (endpoint /v1/user/medias) les
+// métriques nécessaires aux dimensions Portée, Régularité et Viralité.
+// Retourne null si trop peu de vidéos chiffrées pour être fiable — le
+// diagnostic retombe alors sur l'Engagement seul (comme avant).
+function calculerMetriquesVideos(medias, abonnes) {
+  const vid = (Array.isArray(medias) ? medias : []).filter(v => typeof v.vues === 'number' && v.vues >= 0);
+  if (vid.length < 3) return null;
+  const vues = vid.map(v => v.vues).sort((a, b) => a - b);
+  const n = vues.length;
+  const moyVues = Math.round(vues.reduce((a, b) => a + b, 0) / n);
+  const medianeVues = n % 2 ? vues[(n - 1) / 2] : Math.round((vues[n / 2 - 1] + vues[n / 2]) / 2);
+  const maxVues = vues[n - 1];
+  const ratioViral = medianeVues > 0 ? Math.round((maxVues / medianeVues) * 10) / 10 : null;
+  const pctPics = Math.round(vid.filter(v => v.vues >= 2 * medianeVues).length / n * 100);
+  const ratioPortee = abonnes ? Math.round((moyVues / abonnes) * 1000) / 10 : null; // en %
+
+  const dates = vid.map(v => v.date).filter(d => typeof d === 'number' && d > 0).sort((a, b) => a - b);
+  let videosParSemaine = null, joursCouverts = null;
+  if (dates.length >= 2) {
+    joursCouverts = Math.max(1, Math.round((dates[dates.length - 1] - dates[0]) / 86400));
+    videosParSemaine = Math.round((dates.length / joursCouverts) * 7 * 10) / 10;
+  }
+  return { n, moyVues, medianeVues, maxVues, ratioViral, pctPics, ratioPortee, videosParSemaine, joursCouverts };
 }
 
 // Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
@@ -168,24 +202,48 @@ async function lancerDiagnosticSommaire() {
       throw new Error(donnees?.error?.message || "Profil introuvable. Vérifie l'orthographe, ou envoie tes captures pour l'analyse complète.");
     }
 
-    // Le nom exact des champs dépend du service tiers : l'IA les identifie
-    // par leur sens plutôt qu'un parsing rigide côté code.
+    // Métriques calculées à partir des vraies vidéos (endpoint medias). null
+    // si LamaTok n'a pas renvoyé assez de vidéos → on reste sur l'Engagement.
+    const abonnes = dsAbonnes(donnees.profil);
+    const metriques = calculerMetriquesVideos(donnees.medias, abonnes);
+
+    // Bloc vidéos injecté dans le prompt UNIQUEMENT si on a des métriques
+    // réelles — sinon on garde la consigne d'origine (profil seul).
+    const blocVideos = metriques ? `
+
+DONNÉES PAR VIDÉO (calculées à partir des ${metriques.n} dernières vidéos publiques réelles — ce sont des FAITS, utilise-les tels quels) :
+- Vues moyennes par vidéo : ${metriques.moyVues}
+- Vues médianes par vidéo : ${metriques.medianeVues}
+- Meilleure vidéo : ${metriques.maxVues} vues
+${metriques.ratioPortee != null ? `- Portée : les vidéos font en moyenne ${metriques.ratioPortee}% du nombre d'abonnés en vues` : ''}
+${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${metriques.videosParSemaine} vidéo(s) par semaine (sur ${metriques.joursCouverts} jours couverts)` : ''}
+- Rapport pic/médiane : la meilleure vidéo fait ${metriques.ratioViral}× les vues de la vidéo médiane ; ${metriques.pctPics}% des vidéos dépassent 2× la médiane.
+
+Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits (voir barèmes plus bas).` : `
+
+LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité — n'invente aucune de ces trois valeurs.`;
+
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
 PROFIL :
 ${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
+${blocVideos}
 
-RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données. Si un champ est absent, mets null / "disponible": false — n'invente jamais un chiffre.
+RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false — n'invente jamais un chiffre.
 
-LIMITE STRUCTURELLE DE CE DIAGNOSTIC (important) : tu n'as accès QU'à ce profil public agrégé, JAMAIS à la liste des vidéos individuelles (dates, vues par vidéo). Ne tente donc JAMAIS d'estimer la régularité de publication, la présence de pics viraux, ou les vues moyennes par vidéo : cette donnée n'existe simplement pas dans ce que tu reçois. Concentre-toi uniquement sur ce qui est calculable à partir des totaux du profil.
+ENGAGEMENT (sur 30) : si le nombre de likes cumulés ET le nombre de vidéos sont présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si c'est proportionnellement élevé ou faible face au nombre d'abonnés. Précise que c'est une estimation (le vrai taux d'engagement nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null.
+   BARÈME /30 (strict) : TRÈS FAIBLE → 0-8 · FAIBLE → 9-15 · CORRECT → 16-22 · FORT → 23-30.
 
-ENGAGEMENT (sur 30, seule dimension chiffrée de ce diagnostic) : si le nombre de likes cumulés ET le nombre de vidéos sont tous deux présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si ce chiffre est proportionnellement élevé ou faible par rapport au nombre d'abonnés. Précise dans le constat que c'est une estimation grossière (pas le vrai taux d'engagement, qui nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null — n'estime rien à la place.
-   BARÈME OBLIGATOIRE DU SCORE /30 (respecte-le strictement, le chiffre doit refléter ton jugement, pas un milieu d'échelle par défaut) :
-   • Engagement TRÈS FAIBLE (ratio dérisoire face à l'audience) → 0 à 8.
-   • Engagement FAIBLE → 9 à 15.
-   • Engagement CORRECT / dans la moyenne → 16 à 22.
-   • Engagement FORT / excellent → 23 à 30.
-   COHÉRENCE ABSOLUE (règle non négociable) : le score chiffré, le mot que tu emploies dans le constat, et la "sante_compte" doivent tous aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" dans le constat tout en mettant 18/30, ou de dire "faible" et de conclure "santé Bonne". Si tu qualifies l'engagement de "très faible", le score DOIT être entre 0 et 8, et la santé ne peut être ni "Excellente" ni "Bonne". Relis-toi avant de répondre : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
+PORTÉE (sur 30) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Base-toi sur le % vues/abonnés (portée) : un compte sain fait souvent 20% ou plus de son audience en vues moyennes ; en dessous de 10%, la portée est faible.
+   BARÈME /30 (strict) : TRÈS FAIBLE (portée < 8% des abonnés) → 0-8 · FAIBLE (8-20%) → 9-15 · CORRECTE (20-50%) → 16-22 · FORTE (> 50%, ou vues qui dépassent l'audience) → 23-30.
+
+RÉGULARITÉ (sur 20) : disponible UNIQUEMENT si la cadence est fournie. Base-toi sur les vidéos/semaine.
+   BARÈME /20 (strict) : quasi inactif (< 0,5/sem) → 0-5 · irrégulier (0,5-2/sem) → 6-11 · régulier (2-5/sem) → 12-16 · très soutenu (> 5/sem) → 17-20.
+
+VIRALITÉ (sur 20) : disponible UNIQUEMENT si le rapport pic/médiane est fourni. Un compte avec des pics nets a un rapport pic/médiane élevé et plusieurs vidéos au-dessus de 2× la médiane. Un rapport proche de 1 = contenu plat, sans percée.
+   BARÈME /20 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-5 · faible (2-4×) → 6-11 · bon (4-10×) → 12-16 · fort potentiel viral (> 10×, plusieurs pics) → 17-20.
+
+COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score chiffré, le mot employé dans le constat, et la "sante_compte" globale doivent aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" avec 18/30, ou de dire "faible" partout et conclure "santé Bonne". Relis-toi : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
 
 BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
 
@@ -202,6 +260,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
   "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
   "compte_verifie": <true/false/null>,
   "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
+  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
   "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
   "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
@@ -301,11 +362,24 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
 
   // Score recalculé ici, jamais fourni tel quel par l'IA (même principe que
-  // js/audit.js) : ramené sur 100 à partir des SEULES dimensions mesurées.
-  // Aujourd'hui, au mieux une seule (Engagement) — voir note en tête de fichier.
-  const eng = d.engagement || {};
-  const engMesurable = eng.disponible !== false && typeof eng.score === 'number' && !Number.isNaN(eng.score);
-  const score = engMesurable ? Math.round((Math.max(0, Math.min(30, eng.score)) / 30) * 100) : null;
+  // js/audit.js) : ramené sur 100 à partir des SEULES dimensions réellement
+  // mesurées. Quand les vidéos sont disponibles (endpoint medias), les 4
+  // dimensions comptent ; sinon, seul l'Engagement (comme avant).
+  const dimEstMesurable = (dim) =>
+    dim && dim.disponible !== false && typeof dim.score === 'number' && !Number.isNaN(dim.score);
+
+  let scoreObtenu = 0, scoreMax = 0, nbDimsMesurees = 0;
+  Object.keys(DS_DIM_META).forEach(cle => {
+    const meta = DS_DIM_META[cle];
+    const dim = d[cle];
+    if (dimEstMesurable(dim)) {
+      scoreObtenu += Math.max(0, Math.min(meta.max, dim.score));
+      scoreMax += meta.max;
+      nbDimsMesurees++;
+    }
+  });
+  const score = scoreMax > 0 ? Math.round((scoreObtenu / scoreMax) * 100) : null;
+
   // Couleur selon le niveau du score : rouge en dessous de 50, orange entre
   // 50 et 70, émeraude à partir de 70 — même palette que js/audit.js
   // (paletteScoreAudit), pour un repère de couleur cohérent entre les deux
@@ -316,18 +390,22 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
   const dimsHtml = Object.keys(DS_DIM_META).map(cle => {
     const meta = DS_DIM_META[cle];
-    const dim = (cle === 'engagement') ? eng : { disponible: false, constat: DS_TOUJOURS_INDISPONIBLE[cle] };
+    // Dimension telle que renvoyée par l'IA ; à défaut (dimension absente de
+    // la réponse), on la marque non disponible avec le texte explicatif dédié.
+    const dim = d[cle] || { disponible: false, constat: DS_TOUJOURS_INDISPONIBLE[cle] };
     // Badge coloré selon le niveau (rouge/orange/émeraude) — voir
     // niveauScoreSur() dans js/audit.js, seuils partagés avec le score global.
-    const disponible = dim.disponible !== false && typeof dim.score === 'number';
+    const disponible = dimEstMesurable(dim);
     const niveau = disponible ? niveauScoreSur(dim.score, meta.max) : 'niveau-neutre';
+    // Constat : celui de l'IA si présent, sinon le texte "non disponible".
+    const constat = dim.constat || DS_TOUJOURS_INDISPONIBLE[cle] || '';
     return `<div class="ds-dim-card">
       <div class="ds-dim-head">
         <span class="ds-dim-icon">${meta.icone}</span>
         <span class="ds-dim-name">${meta.label}</span>
-        <span class="score-badge ${niveau}">${dim.disponible === false ? '—' : (dim.score != null ? dim.score : '—') + '/' + meta.max}</span>
+        <span class="score-badge ${niveau}">${disponible ? (dim.score + '/' + meta.max) : '—'}</span>
       </div>
-      <p class="ds-dim-text">${diagSommaireEsc(dim.constat)}</p>
+      <p class="ds-dim-text">${diagSommaireEsc(constat)}</p>
     </div>`;
   }).join('');
 
@@ -414,9 +492,13 @@ function afficherDiagnosticSommaireResultat(d, username) {
           <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
-      <div class="audit-score-phrase">${engMesurable
-        ? 'Calculé sur 1 dimension (Engagement) sur 4 — Portée, Régularité et Viralité nécessitent des données par vidéo qu\'un simple profil public ne fournit pas.'
-        : 'Score non calculable : les données publiques de ce profil ne permettent d\'estimer aucune des 4 dimensions.'}</div>
+      <div class="audit-score-phrase">${
+        nbDimsMesurees >= 4
+          ? 'Calculé sur les 4 dimensions (Engagement, Portée, Régularité, Viralité), à partir de tes dernières vidéos publiques.'
+          : nbDimsMesurees > 0
+            ? ('Calculé sur ' + nbDimsMesurees + ' dimension' + (nbDimsMesurees > 1 ? 's' : '') + ' sur 4 — les autres nécessitent des données par vidéo que ce compte n\'a pas permis de récupérer.')
+            : 'Score non calculable : les données publiques de ce profil ne permettent d\'estimer aucune des 4 dimensions.'
+      }</div>
     </div>
 
     <div class="ds-dims-grid">${dimsHtml}</div>

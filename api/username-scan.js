@@ -1,21 +1,97 @@
 // ═══════════════════════════════════════════════════════════
 //  /api/username-scan — Diagnostic sommaire via @nom d'utilisateur TikTok
 //  Récupère le profil PUBLIC d'un compte via LamaTok (service tiers,
-//  non-officiel) et renvoie ces données brutes telles quelles : c'est
-//  js/diagnostic-sommaire.js (côté client) qui les transmet ensuite à
-//  l'IA pour en tirer un diagnostic.
+//  non-officiel) ET la liste de ses dernières vidéos, puis renvoie ces
+//  données brutes telles quelles : c'est js/diagnostic-sommaire.js (côté
+//  client) qui en tire ensuite un diagnostic (calculs + IA).
 //
-//  Volontairement PROFIL SEUL : LamaTok n'expose aucun endpoint pour
-//  lister les vidéos d'un compte (vérifié sur leur documentation Swagger
-//  complète — v1/user, v1/media, v1/hashtag, v2 — rien de ce type
-//  n'existe). Les dimensions qui ont besoin de données par vidéo
-//  (régularité, viralité, portée réelle) sont donc structurellement hors
-//  de portée de ce diagnostic sommaire ; seules celles calculables à
-//  partir des totaux du profil le sont (voir js/diagnostic-sommaire.js).
+//  Deux appels LamaTok :
+//    1. /v1/user/by/username  → profil agrégé (abonnés, likes cumulés, bio…)
+//    2. /v1/user/medias       → dernières vidéos avec vues / likes /
+//                               commentaires / partages / date par vidéo.
+//  Le 2e appel débloque les dimensions Portée, Régularité et Viralité, qui
+//  ont besoin de données PAR vidéo (un profil seul ne les fournit pas).
+//
+//  Non-régressif : si l'appel medias échoue (endpoint indisponible, quota,
+//  compte privé…), on renvoie quand même le profil seul avec medias:null —
+//  le client retombe alors sur l'ancien comportement (Engagement seul).
 //
 //  La clé LamaTok reste entièrement côté serveur (LAMATOK_API_KEY) :
 //  jamais exposée au navigateur.
 // ═══════════════════════════════════════════════════════════
+
+const BASE = 'https://api.lamatok.com';
+
+// Extrait l'identifiant utilisateur du profil, quel que soit le nommage
+// renvoyé par LamaTok (structure TikTok : user.id / user.secUid, ou plat).
+function extraireIds(profil) {
+  const u = (profil && (profil.user || profil.userInfo?.user || profil.data?.user)) || profil || {};
+  const id = u.id || u.uid || u.user_id || u.userId || profil?.id || null;
+  const secUid = u.secUid || u.sec_uid || u.secuid || profil?.secUid || profil?.sec_uid || null;
+  return { id: id ? String(id) : null, secUid: secUid ? String(secUid) : null };
+}
+
+// Tente /v1/user/medias avec plusieurs conventions de paramètres, car le nom
+// exact (id / sec_uid / user_id) dépend de la version de l'API LamaTok. On
+// s'arrête au premier succès ; en cas d'échec total, retourne null (le
+// diagnostic reste fonctionnel avec le profil seul).
+async function recupererMedias(headers, username, ids) {
+  const tentatives = [];
+  if (ids.id)     tentatives.push({ id: ids.id, count: 30 });
+  if (ids.secUid) tentatives.push({ sec_uid: ids.secUid, count: 30 });
+  if (ids.id)     tentatives.push({ user_id: ids.id, count: 30 });
+  tentatives.push({ username: username, count: 30 });
+
+  for (const params of tentatives) {
+    try {
+      const qs = new URLSearchParams(params).toString();
+      const rep = await fetch(BASE + '/v1/user/medias?' + qs, { headers });
+      if (!rep.ok) continue;
+      const data = await rep.json();
+      const liste = normaliserMedias(data);
+      if (liste.length) return liste;
+    } catch (e) { /* on tente la convention suivante */ }
+  }
+  return null;
+}
+
+// Aplati la réponse medias (les wrappers TikTok l'emballent différemment :
+// aweme_list, itemList, items, data.medias…) et extrait par vidéo les seuls
+// champs utiles au diagnostic, en tolérant les nombreux alias de nommage.
+function normaliserMedias(data) {
+  const brut =
+    data?.aweme_list || data?.awemeList ||
+    data?.itemList || data?.item_list ||
+    data?.items || data?.medias || data?.videos ||
+    data?.data?.aweme_list || data?.data?.itemList || data?.data?.items ||
+    (Array.isArray(data) ? data : []);
+  if (!Array.isArray(brut)) return [];
+
+  return brut.map(m => {
+    const stats = m.statistics || m.stats || m.statisticsV2 || m;
+    const num = (...alias) => {
+      for (const a of alias) {
+        const v = a;
+        if (v != null && !Number.isNaN(Number(v))) return Number(v);
+      }
+      return null;
+    };
+    const vues = num(stats.play_count, stats.playCount, stats.play, m.play_count, m.playCount);
+    const likes = num(stats.digg_count, stats.diggCount, stats.like_count, stats.likeCount);
+    const comm = num(stats.comment_count, stats.commentCount);
+    const partages = num(stats.share_count, stats.shareCount);
+    // create_time en secondes unix (TikTok) ; certains renvoient ms.
+    let date = m.create_time ?? m.createTime ?? m.created_at ?? m.createdAt ?? null;
+    if (date != null) { date = Number(date); if (date > 1e12) date = Math.round(date / 1000); }
+    return {
+      vues: vues ?? null,
+      likes: likes ?? null,
+      commentaires: comm ?? null,
+      partages: partages ?? null,
+      date: date ?? null
+    };
+  }).filter(v => v.vues != null || v.likes != null); // garde les vidéos réellement chiffrées
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -39,7 +115,7 @@ export default async function handler(req, res) {
     const headers = { accept: 'application/json', 'x-access-key': apiKey };
 
     const repProfil = await fetch(
-      'https://api.lamatok.com/v1/user/by/username?username=' + encodeURIComponent(propre),
+      BASE + '/v1/user/by/username?username=' + encodeURIComponent(propre),
       { headers }
     );
     const profil = await repProfil.json();
@@ -49,7 +125,14 @@ export default async function handler(req, res) {
       return res.status(repProfil.status).json({ error: { message } });
     }
 
-    return res.status(200).json({ profil });
+    // 2e appel : dernières vidéos. Non-bloquant — si ça échoue, medias reste
+    // null et le client fonctionne comme avant (profil seul).
+    let medias = null;
+    try {
+      medias = await recupererMedias(headers, propre, extraireIds(profil));
+    } catch (e) { medias = null; }
+
+    return res.status(200).json({ profil, medias });
 
   } catch (e) {
     return res.status(500).json({
