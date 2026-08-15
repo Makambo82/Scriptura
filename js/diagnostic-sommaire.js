@@ -161,11 +161,42 @@ async function lancerDiagnosticSommaire() {
 
   errorBox.style.display = 'none';
   const brut = (inputEl.value || '').trim();
-  const username = brut.replace(/^@+/, '');
+  // Mode debug caché : un "!" en tête (ex: "!maratrium") affiche à l'écran ce
+  // que LamaTok renvoie pour l'endpoint medias, sans lancer l'IA ni consommer
+  // de quota. Sert uniquement à confirmer le format exact de l'API.
+  const debugMode = brut.startsWith('!');
+  const username = brut.replace(/^!/, '').replace(/^@+/, '');
 
   if (!username || !/^[a-zA-Z0-9._]{2,24}$/.test(username)) {
     errorBox.textContent = "Entre un nom d'utilisateur TikTok valide (lettres, chiffres, points, underscores).";
     errorBox.style.display = 'block';
+    return;
+  }
+
+  // En mode debug on court-circuite tout le flux normal (quota, IA, rendu) :
+  // on interroge le serveur avec debug:true et on affiche le journal brut.
+  if (debugMode) {
+    toggleDiagSommaireEntree(false);
+    btn.disabled = true; spinner.style.display = 'block'; arrow.style.display = 'none';
+    try {
+      const rep = await fetch('/api/username-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, debug: true })
+      });
+      const d = await rep.json();
+      results.innerHTML = '<div class="score-card"><div class="audit-section-label">DEBUG · @'
+        + diagSommaireEsc(username) + '</div><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:var(--gold)">'
+        + diagSommaireEsc(JSON.stringify(d._debug || d, null, 2))
+        + '</pre><button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire()">Fermer</button></div>';
+      results.style.display = 'block';
+    } catch (e) {
+      errorBox.textContent = 'Debug : ' + (e.message || 'erreur');
+      errorBox.style.display = 'block';
+      toggleDiagSommaireEntree(true);
+    } finally {
+      btn.disabled = false; spinner.style.display = 'none'; arrow.style.display = '';
+    }
     return;
   }
 

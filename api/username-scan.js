@@ -35,22 +35,43 @@ function extraireIds(profil) {
 // exact (id / sec_uid / user_id) dépend de la version de l'API LamaTok. On
 // s'arrête au premier succès ; en cas d'échec total, retourne null (le
 // diagnostic reste fonctionnel avec le profil seul).
-async function recupererMedias(headers, username, ids) {
-  const tentatives = [];
-  if (ids.id)     tentatives.push({ id: ids.id, count: 30 });
-  if (ids.secUid) tentatives.push({ sec_uid: ids.secUid, count: 30 });
-  if (ids.id)     tentatives.push({ user_id: ids.id, count: 30 });
-  tentatives.push({ username: username, count: 30 });
+async function recupererMedias(headers, username, ids, journal) {
+  // Plusieurs chemins ET conventions de paramètres testés, car le nom exact
+  // (id / sec_uid / user_id) et le sous-chemin dépendent de la version de
+  // l'API LamaTok. On s'arrête au premier succès qui renvoie des vidéos.
+  const chemins = ['/v1/user/medias', '/v1/user/videos', '/v1/user/posts', '/v1/user/feed'];
+  const jeux = [];
+  if (ids.id)     jeux.push({ id: ids.id });
+  if (ids.id)     jeux.push({ user_id: ids.id });
+  if (ids.secUid) jeux.push({ sec_uid: ids.secUid });
+  if (ids.secUid) jeux.push({ secUid: ids.secUid });
+  jeux.push({ username: username });
 
-  for (const params of tentatives) {
-    try {
-      const qs = new URLSearchParams(params).toString();
-      const rep = await fetch(BASE + '/v1/user/medias?' + qs, { headers });
-      if (!rep.ok) continue;
-      const data = await rep.json();
-      const liste = normaliserMedias(data);
-      if (liste.length) return liste;
-    } catch (e) { /* on tente la convention suivante */ }
+  // Cap le nombre d'appels pour borner latence et coût. En mode debug on
+  // sonde plus large (journal renseigné) ; en mode normal on se limite aux
+  // combinaisons les plus probables tant que le format n'est pas confirmé.
+  const MAX = journal ? 12 : 5;
+  let n = 0;
+  for (const chemin of chemins) {
+    for (const base of jeux) {
+      if (n++ >= MAX) return null;
+      const params = { ...base, count: 30 };
+      const url = BASE + chemin + '?' + new URLSearchParams(params).toString();
+      try {
+        const rep = await fetch(url, { headers });
+        const texte = await rep.text();
+        let data = null; try { data = JSON.parse(texte); } catch (e) {}
+        const liste = data ? normaliserMedias(data) : [];
+        if (journal) journal.push({
+          chemin, params: Object.keys(base).join('+'),
+          status: rep.status, ok: rep.ok, nbVideos: liste.length,
+          extrait: texte.slice(0, 400)
+        });
+        if (rep.ok && liste.length) return liste;
+      } catch (e) {
+        if (journal) journal.push({ chemin, params: Object.keys(base).join('+'), erreur: String(e.message || e) });
+      }
+    }
   }
   return null;
 }
@@ -127,12 +148,24 @@ export default async function handler(req, res) {
 
     // 2e appel : dernières vidéos. Non-bloquant — si ça échoue, medias reste
     // null et le client fonctionne comme avant (profil seul).
+    const debug = req.body?.debug === true;
+    const ids = extraireIds(profil);
+    const journal = debug ? [] : null;
     let medias = null;
     try {
-      medias = await recupererMedias(headers, propre, extraireIds(profil));
+      medias = await recupererMedias(headers, propre, ids, journal);
     } catch (e) { medias = null; }
 
-    return res.status(200).json({ profil, medias });
+    const reponse = { profil, medias };
+    if (debug) {
+      reponse._debug = {
+        profilCles: Object.keys(profil || {}),
+        userCles: Object.keys((profil && (profil.user || profil.userInfo?.user || profil.data?.user)) || {}),
+        idsExtraits: ids,
+        tentativesMedias: journal
+      };
+    }
+    return res.status(200).json(reponse);
 
   } catch (e) {
     return res.status(500).json({
