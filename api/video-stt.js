@@ -80,22 +80,32 @@ function extraireDesc(obj) {
   return desc;
 }
 
-// Télécharge une URL média (borné en taille) avec des en-têtes TikTok crédibles.
+// Télécharge une URL média avec des en-têtes crédibles. Renvoie TOUJOURS un
+// diagnostic ({status, ct, length, ok, buf?}) pour comprendre les échecs.
+const UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const MIN_VIDEO = 50000; // 50 Ko : en dessous, ce n'est pas une vraie vidéo parlée
 async function telechargerMedia(url) {
   const ctrl = new AbortController();
-  const minuteur = setTimeout(() => ctrl.abort(), 20000);
+  const minuteur = setTimeout(() => ctrl.abort(), 25000);
   try {
     const r = await fetch(url, {
       redirect: 'follow', signal: ctrl.signal,
-      headers: { 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)', 'referer': 'https://www.tiktok.com/' }
+      headers: {
+        'user-agent': UA_DESKTOP,
+        'referer': 'https://www.tiktok.com/',
+        'accept': '*/*',
+        'range': 'bytes=0-'   // TikTok CDN exige souvent un Range pour servir la vidéo
+      }
     });
-    if (!r.ok) return null;
     const ct = (r.headers.get('content-type') || '').toLowerCase();
-    if (/text\/html|application\/json/.test(ct)) return null; // page d'erreur, pas un média
+    const diag = { status: r.status, ct };
+    if (!r.ok && r.status !== 206) return { ...diag, ok: false, reason: 'http ' + r.status };
+    if (/text\/html|application\/json/.test(ct)) return { ...diag, ok: false, reason: 'pas un média (html/json)' };
     const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length < 2000) return null; // trop petit pour être une vidéo
-    return { buf, contentType: ct || 'video/mp4' };
-  } catch (e) { return null; }
+    diag.length = buf.length;
+    if (buf.length < MIN_VIDEO) return { ...diag, ok: false, reason: 'trop petit (' + buf.length + ' o)' };
+    return { ...diag, ok: true, buf, contentType: ct || 'video/mp4' };
+  } catch (e) { return { ok: false, reason: e.name === 'AbortError' ? 'timeout' : e.message }; }
   finally { clearTimeout(minuteur); }
 }
 
@@ -171,15 +181,16 @@ export default async function handler(req, res) {
     const urls = urlsVideo(data);
     rapport.nbUrlsVideo = urls.length;
 
-    // 3) télécharger la 1re vidéo exploitable.
+    // 3) télécharger la 1re vidéo exploitable (diagnostic complet par URL).
     let media = null, urlUtilisee = null;
     for (const u of urls) {
       const m = await telechargerMedia(u);
-      rapport.etapes.push({ url: u.slice(0, 90), telecharge: !!m, taille: m ? m.buf.length : 0 });
-      if (m) { media = m; urlUtilisee = u; break; }
+      rapport.etapes.push({ url: u.slice(0, 70), status: m.status, ct: m.ct, taille: m.length || 0, ok: m.ok, raison: m.reason || null });
+      if (m.ok) { media = m; urlUtilisee = u; break; }
     }
-    if (!media) { rapport.verdict = "🔴 Impossible de télécharger la vidéo (URLs protégées/expirées). Voir 'etapes'."; return res.status(200).json(rapport); }
+    if (!media) { rapport.verdict = "🔴 Impossible de télécharger la vidéo (URLs protégées/expirées). Voir 'etapes' (statuts HTTP)."; return res.status(200).json(rapport); }
     rapport.tailleMedia = media.buf.length;
+    rapport.urlUtilisee = urlUtilisee.slice(0, 90);
 
     // 4) ElevenLabs Scribe.
     const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
