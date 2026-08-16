@@ -208,15 +208,33 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
   }
 }
 
-// ── Score de viralité ──
-// DÉTERMINISTE : compté EN CODE à partir des leviers viraux réellement présents
-// (signaux booléens fournis par l'IA), jamais une note libre. Échelle 30-100 :
-// une vidéo virale a déjà une base, chaque levier fort la fait monter.
+// ── Score de viralité (dimensions pondérées) ──
+// DÉTERMINISTE : le CODE calcule tout à partir des leviers réellement présents
+// (signaux booléens fournis par l'IA), jamais une note libre de l'IA. Mêmes
+// signaux ⇒ même score, c'est un pilier de crédibilité.
+//
+// Le score global est découpé en 4 DIMENSIONS PONDÉRÉES (poids = 100 au total),
+// pour montrer OÙ la vidéo est forte ou faible, pas juste un nombre opaque.
+// Chaque dimension = (leviers présents ÷ leviers de la dimension) × son poids ;
+// le global = somme des sous-scores.
 const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes'];
+const DIMENSIONS_VIRAL = [
+  { cle: 'accroche',  label: 'Accroche',  poids: 30, signaux: ['hook_fort', 'question_rhetorique'] },
+  { cle: 'retention', label: 'Rétention', poids: 30, signaux: ['boucle_ouverte', 'cliffhanger', 'escalade'] },
+  { cle: 'ancrage',   label: 'Ancrage',   poids: 25, signaux: ['details_concrets', 'archetypes'] },
+  { cle: 'connexion', label: 'Connexion', poids: 15, signaux: ['deuxieme_personne'] }
+];
 function scoreViraliteRecette(signaux) {
   if (!signaux || typeof signaux !== 'object') return null;
-  const n = SIGNAUX_VIRAL.filter(k => signaux[k] === true).length;
-  return { score: Math.round(30 + 70 * (n / SIGNAUX_VIRAL.length)), leviers: n };
+  let global = 0;
+  const dimensions = DIMENSIONS_VIRAL.map(d => {
+    const presents = d.signaux.filter(k => signaux[k] === true).length;
+    const sousScore = Math.round((presents / d.signaux.length) * d.poids);
+    global += sousScore;
+    return { cle: d.cle, label: d.label, poids: d.poids, sousScore, presents, total: d.signaux.length };
+  });
+  const leviers = SIGNAUX_VIRAL.filter(k => signaux[k] === true).length;
+  return { score: global, leviers, dimensions };
 }
 // Taux d'engagement réel (interactions ÷ vues), en %.
 function _tauxEngagementViral(s) {
@@ -260,8 +278,9 @@ function niveauEngagementViral(taux) {
 // ── Double lecture : Recette × Performance ──
 // La recette (structure) peut être forte alors que les vues sont un coup de
 // chance, et inversement. On croise les deux axes pour un verdict honnête.
-const SEUIL_RECETTE_FORTE = 83;  // 6 leviers sur 8 ou plus
-const SEUIL_MEMOIRE = 90;        // entrée dans la mémoire partagée : 7-8 leviers
+// Seuils sur le score pondéré (0-100). ~6 leviers/8 ≈ 72+, ~7 leviers/8 ≈ 85+.
+const SEUIL_RECETTE_FORTE = 72;  // recette solide (env. 6 leviers sur 8 ou plus)
+const SEUIL_MEMOIRE = 85;        // entrée mémoire partagée : recette d'élite (~7-8 leviers)
 // La performance est « réelle » quand la portée est forte (l'algo a poussé au
 // delà de l'audience) ou, à défaut de connaître les abonnés, quand
 // l'engagement est exceptionnel.
@@ -411,6 +430,16 @@ function afficherRapportViral(d) {
   const statsLigne = (d.stats && d.stats.vues)
     ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${portee ? ` · portée ${portee.affiche} son audience` : ''}</div>` : '';
   const niveauTxt = note ? `${note.leviers >= 6 ? 'Recette très solide' : note.leviers >= 4 ? 'Recette solide' : 'Recette correcte'} · ${note.leviers} leviers viraux` : '';
+  // Détail du score : les 4 dimensions pondérées (calculées en code).
+  const dims = note && Array.isArray(note.dimensions) ? note.dimensions : [];
+  const dimsHtml = dims.length ? `
+    <div class="viral-dims">
+      ${dims.map(dm => `
+        <div class="viral-dim">
+          <div class="viral-dim-top"><span>${dm.label}</span><span class="viral-dim-val">${dm.sousScore}/${dm.poids}</span></div>
+          <div class="viral-dim-bar"><div class="viral-dim-fill" style="width:${Math.round((dm.sousScore / dm.poids) * 100)}%"></div></div>
+        </div>`).join('')}
+    </div>` : '';
   const scoreCardHtml = score != null ? `
     <div class="score-card audit-score-card ds-score-card">
       <div class="audit-score-label">SCORE DE VIRALITÉ</div>
@@ -424,6 +453,7 @@ function afficherRapportViral(d) {
       </div>
       ${statsLigne}
       ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ds-tag-ok">${niveauTxt}</span></div>` : ''}
+      ${dimsHtml}
     </div>` : '';
 
   // Verdict croisé Recette × Performance : recette reproductible, coup de
@@ -542,6 +572,9 @@ function _texteRapportViral(d) {
       if (portee) entete += ' · portée ' + portee.affiche + ' son audience';
     }
     lignes.push(entete);
+    if (Array.isArray(note.dimensions) && note.dimensions.length) {
+      lignes.push('Détail : ' + note.dimensions.map(dm => dm.label + ' ' + dm.sousScore + '/' + dm.poids).join(' · '));
+    }
     const verdict = verdictCroiseViral(note.score, d.stats);
     lignes.push('\nVERDICT : ' + verdict.titre + '. ' + verdict.texte);
   }

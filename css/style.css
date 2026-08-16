@@ -2510,6 +2510,11 @@ body.is-unlocked .sidebar-logout{display:block}
 .viral-verdict-ok{border-left-color:var(--emerald,#2ecc9b)}
 .viral-verdict-alerte{border-left-color:#e0a23a}
 .viral-verdict-neutre{border-left-color:var(--gold-light,#E2C87A)}
+.viral-dims{margin-top:18px;display:flex;flex-direction:column;gap:11px;text-align:left}
+.viral-dim-top{display:flex;justify-content:space-between;align-items:baseline;font-size:0.84rem;color:#d6d6d6;margin-bottom:5px}
+.viral-dim-val{color:var(--gold-light,#E2C87A);font-weight:700;font-size:0.8rem}
+.viral-dim-bar{height:6px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden}
+.viral-dim-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold-light,#E2C87A),#c9a84c);transition:width .9s ease}
 .viral-modele{border:1px dashed rgba(226,200,122,0.4)}
 .viral-modele-list{list-style:none;margin:12px 0 4px;padding:0;counter-reset:vm;display:flex;flex-direction:column;gap:10px}
 .viral-modele-list li{position:relative;background:rgba(226,200,122,0.06);border-radius:10px;padding:10px 12px 10px 40px}

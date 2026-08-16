@@ -17,7 +17,7 @@
 //  l'endpoint dégrade en silence (ok:false), l'app n'est jamais bloquée.
 // ═══════════════════════════════════════════════════════════
 
-const SEUIL_MEMOIRE = 90;   // score de recette minimal pour entrer
+const SEUIL_MEMOIRE = 85;   // score de recette (pondéré) minimal pour entrer
 const MAX_LIRE = 12;        // plafond dur de patterns renvoyés
 
 function config() {
