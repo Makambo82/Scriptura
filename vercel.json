@@ -3,7 +3,7 @@
     "api/generate.js": { "maxDuration": 60 },
     "api/audit.js": { "maxDuration": 60 },
     "api/username-scan.js": { "maxDuration": 60 },
-    "api/video-scan.js": { "maxDuration": 30 },
+    "api/video-transcript.js": { "maxDuration": 30 },
     "api/montage-download.js": { "maxDuration": 60 },
     "api/montage-tts.js": { "maxDuration": 60 },
     "api/montage-images.js": { "maxDuration": 90 },

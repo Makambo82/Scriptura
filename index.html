@@ -1186,6 +1186,15 @@
       </div>
       <div class="ctx-field" id="viralVideoField" style="display:none">
         <label class="ctx-label" id="viralVideoLabel">Texte de la vidéo virale à analyser</label>
+        <div class="ds-field" id="viralLienRow" style="margin-bottom:10px">
+          <span class="ds-at">🔗</span>
+          <input class="ds-input" id="viralLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();recupererTranscriptViral();}"/>
+          <button class="ds-go" id="viralLienBtn" type="button" aria-label="Récupérer" onclick="recupererTranscriptViral()">
+            <span class="sb-gen-spinner" id="viralLienSpinner" style="display:none"></span>
+            <span id="viralLienArrow">→</span>
+          </button>
+        </div>
+        <div id="viralLienNote" style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin:0 0 12px;line-height:1.5">Colle le lien de partage (TikTok), on récupère les sous-titres tout seuls. Sinon, colle le texte à la main ci-dessous.</div>
         <textarea class="ctx-textarea" id="viralVideo" placeholder="Colle ici le texte, les sous-titres ou la description de la vidéo virale que tu as vue. Scriptura va décoder sa structure (hook, rythme, narration) et la recréer pour ton sujet." style="min-height:120px"></textarea>
         <div id="viralVideoAstuce" style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:6px;line-height:1.5">💡 Astuce : sur TikTok, active les sous-titres et copie le texte. Ou décris simplement ce qui se passe dans la vidéo.</div>
       </div>

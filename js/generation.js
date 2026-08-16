@@ -428,6 +428,73 @@ function goBack(n) {
   showStep(n);
 }
 
+// « Analyser une vidéo virale » : à partir d'un lien TikTok collé, récupère
+// automatiquement les sous-titres (voir api/video-transcript.js) et remplit le
+// champ texte, que l'utilisateur peut relire/ajuster avant de générer. En cas
+// d'échec (vidéo sans sous-titres, privée, lien non reconnu), on ne bloque pas :
+// on affiche un message et le collage manuel reste disponible.
+async function recupererTranscriptViral() {
+  const lienEl = document.getElementById('viralLien');
+  const noteEl = document.getElementById('viralLienNote');
+  const btn = document.getElementById('viralLienBtn');
+  const spin = document.getElementById('viralLienSpinner');
+  const arrow = document.getElementById('viralLienArrow');
+  const cible = document.getElementById('viralVideo');
+  if (!lienEl || !cible) return;
+
+  const url = (lienEl.value || '').trim();
+  if (!url) { lienEl.focus(); return; }
+  if (!/^https?:\/\//i.test(url)) {
+    if (noteEl) noteEl.textContent = "Colle un lien complet (qui commence par https://).";
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  if (spin) spin.style.display = 'block';
+  if (arrow) arrow.style.display = 'none';
+  if (noteEl) noteEl.textContent = 'On récupère les sous-titres de la vidéo ☕…';
+
+  // Le service peut mettre quelques secondes (résolution du lien + sous-titres).
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const rep = await fetch('/api/video-transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: ctrl.signal
+    });
+    const data = await rep.json();
+    if (!rep.ok) throw new Error(data?.error?.message || "Récupération impossible.");
+
+    if (data.ok && data.transcript) {
+      // On préfixe la description (contexte utile) si elle apporte quelque chose.
+      const desc = (data.description || '').trim();
+      const bloc = desc && !data.transcript.includes(desc.slice(0, 30))
+        ? 'Description : ' + desc + '\n\nTranscription :\n' + data.transcript
+        : data.transcript;
+      cible.value = bloc;
+      cible.dispatchEvent(new Event('input', { bubbles: true }));
+      if (noteEl) noteEl.textContent = '✅ Sous-titres récupérés, relis-les et ajuste si besoin, puis génère.';
+    } else {
+      // Pas de sous-titres : on met au moins la description, et on invite au manuel.
+      if (data.description) cible.value = data.description;
+      if (noteEl) noteEl.textContent = "Cette vidéo n'a pas de sous-titres exploitables. Décris-la ou colle son texte à la main ci-dessous.";
+    }
+  } catch (e) {
+    if (noteEl) {
+      noteEl.textContent = (e.name === 'AbortError')
+        ? "La récupération a été trop longue. Réessaie, ou colle le texte à la main."
+        : 'Impossible de lire cette vidéo. Colle son texte à la main ci-dessous.';
+    }
+  } finally {
+    clearTimeout(minuteur);
+    if (btn) btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (arrow) arrow.style.display = '';
+  }
+}
+
 // Depuis le bouton "✎ Modifier" du résultat : masque le résultat et
 // rouvre l'étape 4 (le formulaire) pour changer les critères sans jamais
 // effacer les valeurs déjà saisies, contrairement à restart(), qui repart
