@@ -150,12 +150,55 @@ async function recupererVideos(key, ids) {
   return final.length ? final : null;
 }
 
+// Diagnostic (GET ?username=NOM&debug=1) : dit POURQUOI les vidéos ne remontent
+// pas, sans JAMAIS exposer les clés. Consultable directement au navigateur.
+async function scanDebug(propre, lamaKey, scrapKey) {
+  const out = { username: propre, lamaKeyPresent: !!lamaKey, scrapKeyPresent: !!scrapKey };
+  let profil = null;
+  try {
+    const r = await fetch(LAMA_BASE + '/v1/user/by/username?username=' + encodeURIComponent(propre),
+      { headers: { accept: 'application/json', 'x-access-key': lamaKey } });
+    out.lamaStatus = r.status;
+    profil = await r.json();
+  } catch (e) { out.lamaErreur = e.message; }
+  const ids = extraireIds(profil || {});
+  out.idCompte = ids.id ? 'trouvé' : 'ABSENT';
+  out.secUid = ids.secUid ? 'trouvé' : 'ABSENT';
+  if (!scrapKey) { out.scrapRaison = 'SCRAPTIK_API_KEY absente côté serveur'; return out; }
+  if (!ids.id && !ids.secUid) { out.scrapRaison = 'id du compte introuvable dans le profil LamaTok'; return out; }
+  try {
+    const base = ids.id ? { user_id: ids.id } : { sec_uid: ids.secUid };
+    const url = 'https://' + SCRAPTIK_HOST + '/user-posts?' + new URLSearchParams({ ...base, count: 10, max_cursor: 0 }).toString();
+    const r = await fetch(url, { headers: { 'x-rapidapi-key': scrapKey, 'x-rapidapi-host': SCRAPTIK_HOST } });
+    out.scrapStatus = r.status;
+    let data = null;
+    try { data = await r.json(); } catch (e) { out.scrapNonJson = true; }
+    if (data) {
+      out.scrapClesReponse = Object.keys(data).slice(0, 12);
+      out.videosNormalisees = normaliserMedias(data).length;
+      if (!out.videosNormalisees) out.scrapMessage = String(data.message || data.error || data.msg || JSON.stringify(data)).slice(0, 200);
+    }
+  } catch (e) { out.scrapErreur = e.message; }
+  return out;
+}
+
 export default async function handler(req, res) {
+  const lamaKey = process.env.LAMATOK_API_KEY;
+  const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
+
+  // Diagnostic ouvrable au navigateur (GET). Ne renvoie jamais les clés.
+  if (req.method === 'GET') {
+    const username = ((req.query && (req.query.username || req.query.u)) || '').toString().trim().replace(/^@+/, '');
+    const debug = req.query && (req.query.debug || req.query.d);
+    if (!debug || !username) return res.status(400).json({ error: { message: 'Debug : /api/username-scan?username=NOM&debug=1' } });
+    if (!lamaKey) return res.status(200).json({ _debug: { lamaKeyPresent: false, scrapKeyPresent: !!scrapKey } });
+    return res.status(200).json({ _debug: await scanDebug(username, lamaKey, scrapKey) });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   }
 
-  const lamaKey = process.env.LAMATOK_API_KEY;
   if (!lamaKey) {
     return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
   }
@@ -180,7 +223,6 @@ export default async function handler(req, res) {
 
     // 2) Vidéos via ScrapTik (si la clé est configurée), avec l'id du profil.
     const ids = extraireIds(profil);
-    const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
     let medias = null;
     if (scrapKey) {
       try { medias = await recupererVideos(scrapKey, ids); }
