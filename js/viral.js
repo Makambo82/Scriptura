@@ -176,6 +176,7 @@ function afficherRapportViral(d) {
   const res = document.getElementById('viralAnaResults');
   if (!res || !d) return;
   _viralRapport = d;
+  const texteRapport = _texteRapportViral(d); // pour les boutons Copier / Partager
   const form = document.getElementById('viralAnaForm');
   if (form) form.style.display = 'none';
 
@@ -246,10 +247,14 @@ function afficherRapportViral(d) {
     ${facteursHtml}
     ${reprendreHtml}
 
+    <div class="sb-actions-fin">
+      <button class="icon-btn" title="Copier l'analyse" onclick="copyText(this, '${storeCopyText(texteRapport)}')">${ICON_COPY}</button>
+      <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(texteRapport)}')">${ICON_SHARE}</button>
+    </div>
+
     <div class="ds-alt" style="margin-top:8px">
       <p style="margin:0 0 14px">Tu as la recette. Passe à l'action : Scriptura peut <strong>t'écrire un script</strong> qui réutilise cette structure sur TON sujet.</p>
       <button class="btn-generate" onclick="creerScriptDepuisViral()">Créer un script à partir de ça →</button>
-      <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="copierStructureVirale(this)">Copier la structure</button>
     </div>
     <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreVideoVirale()">Analyser une autre vidéo</button>`;
 
@@ -257,9 +262,10 @@ function afficherRapportViral(d) {
   res.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// Copie le rapport en texte lisible.
-function copierStructureVirale(btn) {
-  const d = _viralRapport || {};
+// Construit le rapport en texte lisible (pour les boutons Copier / Partager,
+// mêmes icônes que les autres modes, voir afficherRapportViral).
+function _texteRapportViral(d) {
+  d = d || {};
   const lignes = [];
   if (d.sujet) lignes.push('SUJET : ' + d.sujet);
   if (d.hook) lignes.push('\nHOOK (' + (d.hook.technique || '') + ') : ' + (d.hook.verbatim || '') + '\n' + (d.hook.pourquoi || ''));
@@ -279,13 +285,7 @@ function copierStructureVirale(btn) {
     lignes.push('\nÀ REPRENDRE :');
     d.a_reprendre.forEach(l => lignes.push('- ' + (l.titre || '') + ' : ' + (l.detail || '')));
   }
-  const texte = lignes.join('\n');
-  if (typeof copyText === 'function' && typeof storeCopyText === 'function') {
-    copyText(btn, storeCopyText(texte));
-  } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(texte);
-    if (btn) { const l = btn.textContent; btn.textContent = '✓ Copié !'; setTimeout(() => btn.textContent = l, 2000); }
-  }
+  return lignes.join('\n');
 }
 
 // Handoff vers le flux Script : réutilise le pipeline existant « analyser une
