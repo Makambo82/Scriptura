@@ -97,7 +97,11 @@ async function recupererVideos(key, ids) {
   const JOURS_FENETRE = 180;  // ~6 mois (pour voir un éventuel pivot)
   const MIN = 20;             // plancher de fiabilité
   const MAX = 90;             // plafond de coût/latence
-  const MAX_PAGES = 6;        // borne dure (ScrapTik ~2-4 s/page)
+  // Borne dure ramenée de 6 à 3 pages : chaque page = 1 requête RapidAPI, et le
+  // quota mensuel ScrapTik (plan BASIC) brûle vite. 3 pages (~90 vidéos)
+  // couvrent largement les 4 dimensions (calculées sur le récent) et gardent
+  // assez d'historique pour la détection de pivot.
+  const MAX_PAGES = 3;        // borne dure (ScrapTik ~2-4 s/page, économie quota)
   const BUDGET_MS = 18000;    // budget temps total (bien sous les 60 s Vercel)
   const cutoff = Math.floor(Date.now() / 1000) - JOURS_FENETRE * 86400;
   const t0 = Date.now();
