@@ -112,6 +112,21 @@ function instructionRechercheTendancesTikTok(niche, verbe) {
 // l'écrire, pour rester robuste à un futur remplacement automatique.)
 const REGLE_STYLE_TIRET = "Règle de style permanente (français) : n'emploie JAMAIS le tiret cadratin (le long tiret « em dash », caractère Unicode U+2014) dans ta réponse. Structure tes phrases avec des virgules, des points, des deux-points ou des parenthèses selon le sens.\n\n";
 
+// Tronque une chaîne à N caractères max SANS JAMAIS couper une paire de
+// substituts UTF-16 (emoji, etc.) en deux. Un emoji occupe 2 "caractères"
+// (code units) en JavaScript ; un .slice(0, N) naïf peut tomber pile entre les
+// deux et laisser un caractère orphelin, ce qui fait planter le parseur JSON
+// strict de Claude côté serveur ("no low surrogate in string", 400). Les
+// bios et légendes TikTok sont pleines d'emoji : à utiliser PARTOUT où un tel
+// texte est tronqué avant d'être injecté dans un prompt.
+function tronquerSansCouperEmoji(str, n) {
+  if (typeof str !== 'string' || str.length <= n) return str || '';
+  let s = str.slice(0, n);
+  const dernier = s.charCodeAt(s.length - 1);
+  if (dernier >= 0xD800 && dernier <= 0xDBFF) s = s.slice(0, -1); // haut-substitut orphelin
+  return s;
+}
+
 async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   const promptStyle = REGLE_STYLE_TIRET + prompt;

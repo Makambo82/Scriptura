@@ -36,6 +36,17 @@ function nettoyerCle(k) {
   return s.trim().replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, '');
 }
 
+// Tronque une chaîne à N caractères max SANS couper une paire de substituts
+// UTF-16 (emoji) en deux (mêmes règles que /api/username-scan) : sinon le
+// caractère orphelin fait planter le parseur JSON strict de Claude en aval.
+function tronquerSansCouperEmoji(str, n) {
+  if (typeof str !== 'string' || str.length <= n) return str || '';
+  let s = str.slice(0, n);
+  const dernier = s.charCodeAt(s.length - 1);
+  if (dernier >= 0xD800 && dernier <= 0xDBFF) s = s.slice(0, -1);
+  return s;
+}
+
 // Détail d'UNE vidéo via ScrapTik (/get-post). Renvoie l'objet JSON brut, ou
 // null en cas d'échec (le handler retombe alors sur LamaTok). Non bloquant.
 async function detailScrapTik(id, key) {
@@ -116,7 +127,7 @@ function extraireDesc(obj) {
     if (desc || !o || typeof o !== 'object' || prof > 6 || vus.has(o)) return;
     vus.add(o);
     for (const k of Object.keys(o)) {
-      if (/^(desc|description|title)$/i.test(k) && typeof o[k] === 'string' && o[k].trim().length > 3) { desc = o[k].trim().slice(0, 400); return; }
+      if (/^(desc|description|title)$/i.test(k) && typeof o[k] === 'string' && o[k].trim().length > 3) { desc = tronquerSansCouperEmoji(o[k].trim(), 400); return; }
       if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1);
     }
   })(obj, 0);

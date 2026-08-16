@@ -265,7 +265,7 @@ FOOTER TECHNIQUE OBLIGATOIRE : termine CHAQUE prompt visuel par " 9:16" (le form
 async function genererMiniatureVisuelle(texteComplet, plat) {
   const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}. Voici le texte complet d'un contenu :
 """
-${(texteComplet || '').slice(0, 4000)}
+${tronquerSansCouperEmoji(texteComplet || '', 4000)}
 """
 Crée UN SEUL prompt visuel pour la MINIATURE (image de couverture) de ce contenu. Elle doit être CAPTIVANTE et ANTI-SCROLL : une image forte qui donne immédiatement envie de cliquer, sujet central percutant, émotion visible, couleurs contrastées, composition qui accroche l'œil instantanément. Elle résume la promesse du contenu.
 

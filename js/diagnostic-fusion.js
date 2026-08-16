@@ -93,10 +93,10 @@ async function genererFusionDiagnostics() {
     const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne DEUX diagnostics déjà réalisés pour le MÊME créateur, à des moments différents et par des méthodes différentes :
 
 1) DIAGNOSTIC COMPLET (basé sur des captures d'écran des statistiques TikTok officielles du créateur, rétention, sources de trafic, audience démographique) :
-${JSON.stringify(auditGen.contenu || {}).slice(0, 6000)}
+${tronquerSansCouperEmoji(JSON.stringify(auditGen.contenu || {}), 6000)}
 
 2) DIAGNOSTIC SOMMAIRE (basé sur le profil public TikTok @${(sommaireGen.contenu && sommaireGen.contenu.username) || ''} lu via une API tierce, bio, niche, engagement de surface) :
-${JSON.stringify(sommaireGen.contenu || {}).slice(0, 6000)}
+${tronquerSansCouperEmoji(JSON.stringify(sommaireGen.contenu || {}), 6000)}
 
 TON TRAVAIL : croise ces deux diagnostics pour produire une synthèse PLUS COMPLÈTE que chacun pris séparément. Le diagnostic complet voit la rétention et les sources de trafic (données privées, invisibles au diagnostic sommaire) ; le diagnostic sommaire voit la bio et le ratio vues/abonnés sur la durée (données publiques, absentes du diagnostic complet). Utilise cette complémentarité.
 

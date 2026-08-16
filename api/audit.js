@@ -12,6 +12,18 @@
 // sujet d'actualité (niche "Géopolitique & Actualité", etc.) en présentant
 // des faits ou une année déjà passés comme encore à venir.
 const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+// Tronque une chaîne à N caractères max SANS couper une paire de substituts
+// UTF-16 (emoji) en deux (mêmes règles que /api/username-scan) : sinon le
+// caractère orphelin fait planter le parseur JSON strict de Claude en aval
+// ("no low surrogate in string", 400).
+function tronquerSansCouperEmoji(str, n) {
+  if (typeof str !== 'string' || str.length <= n) return str || '';
+  let s = str.slice(0, n);
+  const dernier = s.charCodeAt(s.length - 1);
+  if (dernier >= 0xD800 && dernier <= 0xDBFF) s = s.slice(0, -1);
+  return s;
+}
 function systemDateActuelle() {
   const now = new Date();
   const dateStr = now.getUTCDate() + ' ' + MOIS_FR[now.getUTCMonth()] + ' ' + now.getUTCFullYear();
@@ -342,7 +354,7 @@ export default async function handler(req, res) {
     // s'il en existe un, voir dernierDiagnosticSommaire ci-dessus.
     const sommaire = await dernierDiagnosticSommaire(code_acces);
     const sommaireTexte = sommaire
-      ? 'Profil TikTok analysé : @' + (sommaire.username || '?') + '. Résultat de ce diagnostic sommaire (JSON) : ' + JSON.stringify(sommaire.diagnostic || {}).slice(0, 3000)
+      ? 'Profil TikTok analysé : @' + (sommaire.username || '?') + '. Résultat de ce diagnostic sommaire (JSON) : ' + tronquerSansCouperEmoji(JSON.stringify(sommaire.diagnostic || {}), 3000)
       : 'Aucun diagnostic sommaire antérieur disponible pour ce créateur.';
 
     // Injection du contexte créateur dans le prompt (valeurs de repli si absentes)

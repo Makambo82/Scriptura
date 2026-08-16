@@ -295,8 +295,8 @@ Génère exactement 10 idées, toutes différentes, classées de la meilleure op
         plateformes: ideaPlatform,
         // Anti-répétition croisée avec les autres modes (voir generate()) :
         // mémorise l'angle et le hook de la meilleure idée retenue.
-        angles_recents: (parsed.idees && parsed.idees[0] && parsed.idees[0].angle) ? String(parsed.idees[0].angle).slice(0, 120) : undefined,
-        hooks_recents: (parsed.idees && parsed.idees[0] && parsed.idees[0].hook) ? String(parsed.idees[0].hook).slice(0, 140) : undefined
+        angles_recents: (parsed.idees && parsed.idees[0] && parsed.idees[0].angle) ? tronquerSansCouperEmoji(String(parsed.idees[0].angle), 120) : undefined,
+        hooks_recents: (parsed.idees && parsed.idees[0] && parsed.idees[0].hook) ? tronquerSansCouperEmoji(String(parsed.idees[0].hook), 140) : undefined
       }
     });
 
@@ -701,7 +701,7 @@ async function generate() {
   const LONG_SEUIL = 400;
   const estTexteLong = sujetBrut.length > LONG_SEUIL;
   const sujet = estTexteLong
-    ? sujetBrut.slice(0, 2000)
+    ? tronquerSansCouperEmoji(sujetBrut, 2000)
     : sujetBrut;
   const audience = document.getElementById('audience').value.trim();
   const format   = document.getElementById('format').value.trim();
@@ -884,7 +884,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // Si l'utilisateur a collé un texte long, on ne le répète pas dans les
     // étapes suivantes : on utilise l'angle dégagé par le directeur éditorial.
     const sujetCourt = estTexteLong
-      ? (brief.angle_choisi || brief.analyse_strategique || sujet.slice(0, 200))
+      ? (brief.angle_choisi || brief.analyse_strategique || tronquerSansCouperEmoji(sujet, 200))
       : sujet;
 
     // ════════════════════════════════════════════
@@ -1257,14 +1257,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         objectifs: state.objectif
       },
       observe: {
-        themes_traites: sujet.slice(0, 80),
+        themes_traites: tronquerSansCouperEmoji(sujet, 80),
         plateformes: state.plateforme,
         // Anti-répétition (voir renforcement du pipeline) : mémorise l'angle,
         // la structure et le hook principal pour ne jamais les recycler
         // à l'identique lors d'une prochaine génération pour ce créateur.
-        angles_recents: brief && brief.angle_choisi ? String(brief.angle_choisi).slice(0, 120) : undefined,
-        structures_recentes: brief && brief.structure ? String(brief.structure).slice(0, 100) : undefined,
-        hooks_recents: (parsed.hooks && parsed.hooks[0] && parsed.hooks[0].texte) ? String(parsed.hooks[0].texte).slice(0, 140) : undefined
+        angles_recents: brief && brief.angle_choisi ? tronquerSansCouperEmoji(String(brief.angle_choisi), 120) : undefined,
+        structures_recentes: brief && brief.structure ? tronquerSansCouperEmoji(String(brief.structure), 100) : undefined,
+        hooks_recents: (parsed.hooks && parsed.hooks[0] && parsed.hooks[0].texte) ? tronquerSansCouperEmoji(String(parsed.hooks[0].texte), 140) : undefined
       }
     });
 

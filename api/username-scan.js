@@ -24,6 +24,19 @@ const SCRAPTIK_HOST = 'scraptik.p.rapidapi.com';
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// Tronque une chaîne à N caractères max SANS couper une paire de substituts
+// UTF-16 (emoji) en deux : sinon le caractère orphelin, une fois envoyé dans
+// un prompt à Claude, fait planter le parseur JSON strict de l'API en aval
+// ("no low surrogate in string", 400). Les légendes TikTok sont pleines
+// d'emoji, à appliquer ici avant tout .slice() sur du texte utilisateur.
+function tronquerSansCouperEmoji(str, n) {
+  if (typeof str !== 'string' || str.length <= n) return str || '';
+  let s = str.slice(0, n);
+  const dernier = s.charCodeAt(s.length - 1);
+  if (dernier >= 0xD800 && dernier <= 0xDBFF) s = s.slice(0, -1);
+  return s;
+}
+
 // Nettoie la clé RapidAPI : si on a collé tout le snippet cURL dans la
 // variable d'environnement (erreur fréquente), on en extrait la vraie valeur
 // du header ; sinon on retire simplement espaces, retours et guillemets.
@@ -72,7 +85,7 @@ function normaliserMedias(data) {
     if (date != null) { date = Number(date); if (date > 1e12) date = Math.round(date / 1000); }
     // Sujet de la vidéo (légende) : indispensable pour analyser le CONTENU
     // (niche réelle, top/flop, concepts récurrents), pas seulement les chiffres.
-    const desc = String(m.desc || m.description || m.title || m.content || '').trim().slice(0, 220);
+    const desc = tronquerSansCouperEmoji(String(m.desc || m.description || m.title || m.content || '').trim(), 220);
     return {
       vues: vues ?? null, likes: likes ?? null,
       commentaires: comm ?? null, partages: partages ?? null,

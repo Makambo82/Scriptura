@@ -154,7 +154,7 @@ async function generateStory() {
   // Script (js/generation.js, LONG_SEUIL/sujetCourt).
   const LONG_SEUIL_STORY = 400;
   const estTexteLongStory = input.length > LONG_SEUIL_STORY;
-  const sujetPourPrompt = estTexteLongStory ? input.slice(0, 2000) : input;
+  const sujetPourPrompt = estTexteLongStory ? tronquerSansCouperEmoji(input, 2000) : input;
 
   // Recherche web : uniquement quand le créateur donne un SUJET court (pas de
   // niche à interroger ici, contrairement aux autres modes, voir js/api.js).

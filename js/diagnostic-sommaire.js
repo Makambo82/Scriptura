@@ -422,7 +422,7 @@ LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le
   const videosAvecSujet = toutesVideos
     .filter(v => v.desc && typeof v.vues === 'number')
     .sort((a, b) => (b.date || 0) - (a.date || 0)); // chronologique, récent d'abord
-  const ligneVideo = v => `- [${fmtMois(v.date)}] ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 120)} »`;
+  const ligneVideo = v => `- [${fmtMois(v.date)}] ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${tronquerSansCouperEmoji(v.desc.replace(/\s+/g, ' '), 120)} »`;
   const echantillon = videosAvecSujet.slice(0, 80);
   const blocSujets = echantillon.length >= 3 ? `
 
@@ -524,7 +524,7 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
   const prompt = `${roleIntro} Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
 PROFIL :
-${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
+${tronquerSansCouperEmoji(JSON.stringify(donnees.profil || {}), 4000)}
 ${blocVideos}
 ${blocSujets}
 
@@ -1061,11 +1061,11 @@ async function afficherComparaisonConcurrent(moiDiag, moiUsername, concurrent) {
     lignes.push({ label: meta.label, max: meta.max, moi: mesur(moiDiag[cle]), lui: mesur(concDiag[cle]) });
   });
   // Synthèse IA (courte, actionnable).
-  const compact = (d) => JSON.stringify({
+  const compact = (d) => tronquerSansCouperEmoji(JSON.stringify({
     sante: d.sante_compte, engagement: d.engagement, portee: d.portee, regularite: d.regularite,
     viralite: d.viralite, niche: d.niche && d.niche.nom, top: d.top_videos,
     formule_gagnante: d.evolution && d.evolution.formule_gagnante, concepts: d.concepts_recurrents
-  }).slice(0, 2500);
+  }), 2500);
   // Le CODE tranche qui gagne chaque dimension (un nombre plus élevé = meilleur).
   // L'IA ne compare JAMAIS les chiffres elle-même : elle ne fait que reformuler
   // ces verdicts, pour ne pas inverser le sens (ex. dire « tu domines » à 16 vs 18).

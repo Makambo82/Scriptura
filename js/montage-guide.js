@@ -102,7 +102,7 @@ function guideMontageBlocHTML(suffixe, plans, contexte, onSave, guideSauve) {
 
 async function _appelerGuideMontage(plans, contexte) {
   const storyboardTexte = plans.map((p, i) =>
-    `Plan ${i + 1} (${p.duree || '?'}) — voix off : "${(p.voix || '').slice(0, 240)}"${p.visuel ? ` — visuel : ${p.visuel.slice(0, 180)}` : ''}`
+    `Plan ${i + 1} (${p.duree || '?'}) — voix off : "${tronquerSansCouperEmoji(p.voix || '', 240)}"${p.visuel ? ` — visuel : ${tronquerSansCouperEmoji(p.visuel, 180)}` : ''}`
   ).join('\n');
 
   const prompt = `Tu es monteur vidéo pro spécialisé TikTok faceless et CapCut (appli mobile). On te donne le STORYBOARD d'une vidéo (plans avec durée, voix off, visuel). Rédige un GUIDE DE MONTAGE CAPCUT SUR-MESURE, adapté au TON, au rythme et aux moments forts de CETTE vidéo précise, jamais un tuto générique. Chaque conseil doit être exécutable tel quel dans CapCut.

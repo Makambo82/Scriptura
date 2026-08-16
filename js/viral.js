@@ -142,7 +142,7 @@ async function lancerAnalyseVirale() {
 ${directivePosture}
 
 ${description ? 'DESCRIPTION : ' + description + '\n\n' : ''}TRANSCRIPT DE LA VIDÉO :
-${texte.slice(0, 6000)}
+${tronquerSansCouperEmoji(texte, 6000)}
 
 Analyse comme un monteur/scénariste pro :
 - LA NICHE : en 1 à 3 mots, le thème/domaine de la vidéo (ex. « finance perso », « cuisine rapide », « histoire », « développement perso », « tech »). Sert à ranger la recette dans la bonne famille.
