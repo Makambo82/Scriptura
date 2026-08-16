@@ -78,7 +78,7 @@ async function lancerAnalyseVirale() {
   let texte = (document.getElementById('viralAnaTexte').value || '').trim();
 
   if (!lien && !texte) {
-    err.textContent = "Colle le lien d'une vidéo virale, ou son texte à la main.";
+    err.textContent = "Colle le lien TikTok d'une vidéo, ou son texte à la main.";
     err.style.display = 'block';
     return;
   }
