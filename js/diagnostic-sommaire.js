@@ -101,14 +101,29 @@ function diagSommaireEsc(t) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
 
-// Extrait le nombre d'abonnés du profil brut, quel que soit le nommage
-// renvoyé par LamaTok (structure TikTok : stats.followerCount, ou plat).
+// Extrait le nombre d'abonnés du profil brut. LamaTok range le compte à une
+// profondeur variable (top-level stats, mais aussi users["<pseudo>"].stats
+// selon les comptes), ce qui faisait échouer une lecture à chemin fixe et
+// marquait la Portée « non calculable » à tort. On cherche donc RÉCURSIVEMENT
+// la 1re valeur numérique > 0 sous une clé d'abonnés, quelle que soit la
+// structure. Le motif est ancré : jamais confondu avec "followingCount".
 function dsAbonnes(profil) {
-  const p = profil || {};
-  const s = p.stats || p.statistics || p.user?.stats || p;
-  const v = s.followerCount ?? s.follower_count ?? s.followers ?? p.followerCount ?? p.follower_count ?? null;
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  const CLES = /^(followercount|follower_count|followers|fans|fanscount|fans_count)$/i;
+  let trouve = null;
+  const vus = new Set();
+  (function scan(o, prof) {
+    if (trouve != null || !o || typeof o !== 'object' || prof > 6 || vus.has(o)) return;
+    vus.add(o);
+    for (const k of Object.keys(o)) {
+      if (CLES.test(k)) {
+        const n = Number(o[k]);
+        if (Number.isFinite(n) && n > 0) { trouve = n; return; }
+      }
+      const val = o[k];
+      if (val && typeof val === 'object') scan(val, prof + 1);
+    }
+  })(profil || {}, 0);
+  return trouve;
 }
 
 // Calcule à partir des vidéos réelles (endpoint /v1/user/medias) les
@@ -365,7 +380,9 @@ CE QUE TU PEUX REPRENDRE ET ADAPTER (leviers) : exactement 3 actions concrètes,
 
 TA FAILLE À EXPLOITER : en 1 à 2 phrases, l'angle que CE concurrent néglige ou fait mal, et que TU peux occuper pour te différencier au lieu d'être une pâle copie. Fonde-toi sur ce que ses vidéos NE couvrent pas.
 
-FAUT-IL VRAIMENT S'EN INSPIRER ? (verdict honnête, essentiel) : ce compte est-il un bon modèle, ou pas ? Sois lucide : un compte peut « exploser » pour de mauvaises raisons NON reproductibles (un seul coup viral isolé ; vues élevées mais engagement faible = audience peu investie ; format non transposable à une autre niche ; tactiques à ne pas copier comme le racolage ou le hors-sujet). Donne "modele" = "oui" (vraie recette à reprendre), "partiel" (du bon à prendre, avec réserves) ou "prudence" (peu ou pas un modèle), et un "constat" qui dit franchement ce qui est reproductible vs ce qui est un piège.
+FAUT-IL VRAIMENT S'EN INSPIRER ? (verdict honnête, essentiel, OBLIGATOIRE) : ce compte est-il un bon modèle, ou pas ? Sois lucide : un compte peut « exploser » pour de mauvaises raisons NON reproductibles (un seul coup viral isolé ; vues élevées mais engagement faible = audience peu investie ; format non transposable à une autre niche ; tactiques à ne pas copier comme le racolage ou le hors-sujet). Donne "modele" = "oui" (vraie recette à reprendre), "partiel" (du bon à prendre, avec réserves) ou "prudence" (peu ou pas un modèle), et un "constat" qui dit franchement ce qui est reproductible vs ce qui est un piège. Ne l'omets JAMAIS.
+
+Les champs "verdict_inspiration" et "faille_exploiter" sont OBLIGATOIRES : remplis-les toujours, ne les laisse jamais vides.
 
 SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fragile"|"Critique") fondée sur les signaux réellement disponibles, prudente si peu de données.`;
 
@@ -394,15 +411,15 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
   "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
+  "verdict_inspiration": { "modele": "<oui|partiel|prudence>", "constat": "<ce qui est reproductible vs ce qui est un piège, 1-2 phrases>" },
+  "faille_exploiter": "<1-2 phrases : l'angle qu'il néglige et que tu peux occuper, ou null>",
   "bio": { "actuelle": "<sa bio telle quelle, ou null>", "etat": "<claire|floue>", "critique": "<ce que révèle son positionnement, 1-2 phrases>" },
   "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
   "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase : pourquoi ça a marché + ce que ça t'apprend>" } ],
   "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
   "concepts_recurrents": ["<concept 1>", "<concept 2>"],
   "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : sa bascule et son effet, ou sa constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<sa formule qui marche le mieux, ou null>" },
-  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<action transposable à TON compte, 2e personne>" } ],
-  "faille_exploiter": "<1-2 phrases : l'angle qu'il néglige et que tu peux occuper, ou null>",
-  "verdict_inspiration": { "modele": "<oui|partiel|prudence>", "constat": "<ce qui est reproductible vs ce qui est un piège, 1-2 phrases>" }
+  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<action transposable à TON compte, 2e personne>" } ]
 }`;
 
   const prompt = `${roleIntro} Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
@@ -434,7 +451,10 @@ RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
 ${schemaJson}`;
 
-  const raw = await callAI(MODEL_RAPIDE, 3000, prompt);
+  // Plafond de tokens large : la réponse (surtout en mode concurrent, avec le
+  // verdict et la faille en plus) est longue ; un plafond trop bas coupait les
+  // derniers champs. Ce plafond n'est pas facturé s'il n'est pas atteint.
+  const raw = await callAI(MODEL_RAPIDE, 4500, prompt);
   const parsed = parseAIResponse(raw);
 
   // NOTES DÉTERMINISTES : on remplace les notes de l'IA (tirées au hasard dans
