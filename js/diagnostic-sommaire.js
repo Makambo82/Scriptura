@@ -169,6 +169,127 @@ function arreterAnimationChargementDs(prog) {
   if (prog) prog.finish();
 }
 
+// Cœur d'analyse de CONTENU réutilisable : à partir des données brutes déjà
+// récupérées (profil LamaTok + vidéos ScrapTik) et du @username, calcule les
+// métriques, bâtit le prompt (dimensions + niche + top/flop + concepts +
+// pivot) et renvoie l'objet diagnostic parsé. Extrait de lancerDiagnosticSommaire
+// pour que l'analyse détaillée (js/audit.js) puisse lancer un scan de contenu
+// silencieux et enrichir sa synthèse croisée, sans dupliquer ce pipeline.
+async function _diagnostiquerContenu(donnees, username) {
+  // Les vidéos couvrent ~6 mois. Les 4 DIMENSIONS (score) se calculent sur le
+  // RÉCENT (2 derniers mois) = l'état ACTUEL du compte ; l'analyse de contenu
+  // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
+  const abonnes = dsAbonnes(donnees.profil);
+  const toutesVideos = Array.isArray(donnees.medias) ? donnees.medias : [];
+  const seuilRecent = Math.floor(Date.now() / 1000) - 60 * 86400;
+  const videosRecentes = toutesVideos.filter(v => typeof v.date === 'number' && v.date >= seuilRecent);
+  // Base des dimensions : le récent, avec plancher (les 20 plus récentes si
+  // trop peu de vidéos ces 2 derniers mois) pour rester statistiquement fiable.
+  const baseMetriques = videosRecentes.length >= 15
+    ? videosRecentes
+    : toutesVideos.slice(0, Math.max(15, videosRecentes.length));
+  const metriques = calculerMetriquesVideos(baseMetriques, abonnes);
+
+  const blocVideos = metriques ? `
+
+DONNÉES PAR VIDÉO (calculées sur tes ${metriques.n} vidéos RÉCENTES ~2 derniers mois = état actuel, ce sont des FAITS) :
+- Vues moyennes par vidéo : ${metriques.moyVues}
+- Vues médianes par vidéo : ${metriques.medianeVues}
+- Meilleure vidéo récente : ${metriques.maxVues} vues
+${metriques.ratioPortee != null ? `- Portée : les vidéos font en moyenne ${metriques.ratioPortee}% du nombre d'abonnés en vues` : ''}
+${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${metriques.videosParSemaine} vidéo(s) par semaine (sur ${metriques.joursCouverts} jours couverts)` : ''}
+- Rapport pic/médiane : la meilleure vidéo fait ${metriques.ratioViral}× les vues de la vidéo médiane ; ${metriques.pctPics}% des vidéos dépassent 2× la médiane.
+
+Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits RÉCENTS (voir barèmes plus bas).` : `
+
+LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
+
+  // Historique des vidéos AVEC DATES (mois/année), du plus récent au plus
+  // ancien : nourrit la niche, le top/flop, les concepts ET la détection d'un
+  // changement de cap (pivot). Chaque ligne porte [mois/année], vues et sujet.
+  const fmtMois = (ts) => {
+    if (typeof ts !== 'number' || !ts) return '??/????';
+    const d = new Date(ts * 1000);
+    return String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+  };
+  const videosAvecSujet = toutesVideos
+    .filter(v => v.desc && typeof v.vues === 'number')
+    .sort((a, b) => (b.date || 0) - (a.date || 0)); // chronologique, récent d'abord
+  const ligneVideo = v => `- [${fmtMois(v.date)}] ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 120)} »`;
+  const echantillon = videosAvecSujet.slice(0, 80);
+  const blocSujets = echantillon.length >= 3 ? `
+
+VIDÉOS (${echantillon.length}, de la plus récente à la plus ancienne, format [mois/année] puis vues puis sujet). C'est ta source pour la niche, le top/flop, les concepts ET la détection d'un éventuel changement de cap :
+${echantillon.map(ligneVideo).join('\n')}` : '';
+
+  const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
+
+PROFIL :
+${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
+${blocVideos}
+${blocSujets}
+
+RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false, n'invente jamais un chiffre.
+
+ENGAGEMENT (sur 30) : si le nombre de likes cumulés ET le nombre de vidéos sont présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si c'est proportionnellement élevé ou faible face au nombre d'abonnés. Précise que c'est une estimation (le vrai taux d'engagement nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null.
+   BARÈME /30 (strict) : TRÈS FAIBLE → 0-8 · FAIBLE → 9-15 · CORRECT → 16-22 · FORT → 23-30.
+
+PORTÉE (sur 30) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Base-toi sur le % vues/abonnés (portée) : un compte sain fait souvent 20% ou plus de son audience en vues moyennes ; en dessous de 10%, la portée est faible.
+   BARÈME /30 (strict) : TRÈS FAIBLE (portée < 8% des abonnés) → 0-8 · FAIBLE (8-20%) → 9-15 · CORRECTE (20-50%) → 16-22 · FORTE (> 50%, ou vues qui dépassent l'audience) → 23-30.
+
+RÉGULARITÉ (sur 20) : disponible UNIQUEMENT si la cadence est fournie. Base-toi sur les vidéos/semaine.
+   BARÈME /20 (strict) : quasi inactif (< 0,5/sem) → 0-5 · irrégulier (0,5-2/sem) → 6-11 · régulier (2-5/sem) → 12-16 · très soutenu (> 5/sem) → 17-20.
+
+VIRALITÉ (sur 20) : disponible UNIQUEMENT si le rapport pic/médiane est fourni. Un compte avec des pics nets a un rapport pic/médiane élevé et plusieurs vidéos au-dessus de 2× la médiane. Un rapport proche de 1 = contenu plat, sans percée.
+   BARÈME /20 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-5 · faible (2-4×) → 6-11 · bon (4-10×) → 12-16 · fort potentiel viral (> 10×, plusieurs pics) → 17-20.
+
+COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score chiffré, le mot employé dans le constat, et la "sante_compte" globale doivent aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" avec 18/30, ou de dire "faible" partout et conclure "santé Bonne". Relis-toi : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
+
+BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
+
+NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique, focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
+
+TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
+   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une, ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
+   • FLOP = à choisir parmi les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane (ce sont les vraies contre-performances, pas des vidéos moyennes). Maximum 3.
+   • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée pour l'un ou l'autre).
+   Pour chacune : résume le SUJET en quelques mots (pas la légende entière), donne le nombre de vues, et explique en une phrase la raison de la performance. INTERDIT d'écrire « en deçà de la médiane » pour une vidéo du top, ou « performe bien » pour une vidéo du flop : le constat doit toujours coller à la position réelle vs la médiane.
+
+CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèmes/angles qui reviennent dans les vidéos (ex. « coups d'État africains », « histoires vraies méconnues », « géopolitique expliquée »). Formule court, comme des étiquettes. Sinon liste vide.
+
+ÉVOLUTION / CHANGEMENT DE CAP (très important) : examine les DATES [mois/année] ET les SUJETS dans l'ordre chronologique. Le créateur a-t-il CHANGÉ de type de contenu ou de niche à un moment (ex. passage d'un thème A à un thème B, ou d'un format à un autre) ?
+   • Si OUI (bascule nette) : "pivot": true. Situe la période approximative de bascule (mois/année). Résume le contenu AVANT et le contenu APRÈS. COMPARE la performance avec les VRAIS chiffres (vues moyennes avant vs après). Dis clairement quelle période performait le mieux, MÊME si c'est l'ancienne. Si l'ancienne formule marchait mieux, ne dis pas juste « reviens en arrière » : recommande de RÉUTILISER son mécanisme gagnant AU SERVICE du nouvel objectif (ex. vendre un produit EN gardant le storytelling/la tension qui cartonnait). Renseigne "formule_gagnante".
+   • Si NON (contenu stable, pas de bascule) : "pivot": false, "constat" court sur la constance, autres champs vides.
+   Ne PRÉTENDS jamais un pivot qui n'existe pas : base-toi uniquement sur un vrai changement visible dans les dates et sujets.
+
+LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil, sujets/performances des vidéos, et l'ÉVOLUTION si un pivot est détecté). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Si un pivot a fait BAISSER la performance, l'un des leviers DOIT porter sur la réutilisation de la formule gagnante au service du nouvel objectif. Jamais de supposition sur des vidéos absentes des données.
+
+SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio), reste prudent si peu de données sont exploitables.
+
+RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement (ex: "12 400 abonnés"), jamais de séparateur anglo-saxon.
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
+{
+  "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
+  "compte_verifie": <true/false/null>,
+  "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
+  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
+  "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
+  "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
+  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "concepts_recurrents": ["<concept 1>", "<concept 2>"],
+  "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : la bascule et son effet, ou la constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<la formule qui marche le mieux + comment la réutiliser pour l'objectif actuel, ou null>" },
+  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
+}`;
+
+  const raw = await callAI(MODEL_RAPIDE, 3000, prompt);
+  return parseAIResponse(raw);
+}
+
 async function lancerDiagnosticSommaire() {
   const inputEl = document.getElementById('diagSommaireInput');
   const errorBox = document.getElementById('diagSommaireErrorBox');
@@ -242,118 +363,9 @@ async function lancerDiagnosticSommaire() {
       throw new Error(donnees?.error?.message || "Profil introuvable. Vérifie l'orthographe, ou envoie tes captures pour l'analyse complète.");
     }
 
-    // Les vidéos couvrent ~6 mois. Les 4 DIMENSIONS (score) se calculent sur le
-    // RÉCENT (2 derniers mois) = l'état ACTUEL du compte ; l'analyse de contenu
-    // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
-    const abonnes = dsAbonnes(donnees.profil);
-    const toutesVideos = Array.isArray(donnees.medias) ? donnees.medias : [];
-    const seuilRecent = Math.floor(Date.now() / 1000) - 60 * 86400;
-    const videosRecentes = toutesVideos.filter(v => typeof v.date === 'number' && v.date >= seuilRecent);
-    // Base des dimensions : le récent, avec plancher (les 20 plus récentes si
-    // trop peu de vidéos ces 2 derniers mois) pour rester statistiquement fiable.
-    const baseMetriques = videosRecentes.length >= 15
-      ? videosRecentes
-      : toutesVideos.slice(0, Math.max(15, videosRecentes.length));
-    const metriques = calculerMetriquesVideos(baseMetriques, abonnes);
-
-    const blocVideos = metriques ? `
-
-DONNÉES PAR VIDÉO (calculées sur tes ${metriques.n} vidéos RÉCENTES ~2 derniers mois = état actuel, ce sont des FAITS) :
-- Vues moyennes par vidéo : ${metriques.moyVues}
-- Vues médianes par vidéo : ${metriques.medianeVues}
-- Meilleure vidéo récente : ${metriques.maxVues} vues
-${metriques.ratioPortee != null ? `- Portée : les vidéos font en moyenne ${metriques.ratioPortee}% du nombre d'abonnés en vues` : ''}
-${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${metriques.videosParSemaine} vidéo(s) par semaine (sur ${metriques.joursCouverts} jours couverts)` : ''}
-- Rapport pic/médiane : la meilleure vidéo fait ${metriques.ratioViral}× les vues de la vidéo médiane ; ${metriques.pctPics}% des vidéos dépassent 2× la médiane.
-
-Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits RÉCENTS (voir barèmes plus bas).` : `
-
-LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
-
-    // Historique des vidéos AVEC DATES (mois/année), du plus récent au plus
-    // ancien : nourrit la niche, le top/flop, les concepts ET la détection d'un
-    // changement de cap (pivot). Chaque ligne porte [mois/année], vues et sujet.
-    const fmtMois = (ts) => {
-      if (typeof ts !== 'number' || !ts) return '??/????';
-      const d = new Date(ts * 1000);
-      return String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
-    };
-    const videosAvecSujet = toutesVideos
-      .filter(v => v.desc && typeof v.vues === 'number')
-      .sort((a, b) => (b.date || 0) - (a.date || 0)); // chronologique, récent d'abord
-    const ligneVideo = v => `- [${fmtMois(v.date)}] ${v.vues} vues${v.commentaires != null ? `, ${v.commentaires} comm.` : ''} : « ${v.desc.replace(/\s+/g, ' ').slice(0, 120)} »`;
-    const echantillon = videosAvecSujet.slice(0, 80);
-    const blocSujets = echantillon.length >= 3 ? `
-
-VIDÉOS (${echantillon.length}, de la plus récente à la plus ancienne, format [mois/année] puis vues puis sujet). C'est ta source pour la niche, le top/flop, les concepts ET la détection d'un éventuel changement de cap :
-${echantillon.map(ligneVideo).join('\n')}` : '';
-
-    const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
-
-PROFIL :
-${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
-${blocVideos}
-${blocSujets}
-
-RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false, n'invente jamais un chiffre.
-
-ENGAGEMENT (sur 30) : si le nombre de likes cumulés ET le nombre de vidéos sont présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si c'est proportionnellement élevé ou faible face au nombre d'abonnés. Précise que c'est une estimation (le vrai taux d'engagement nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null.
-   BARÈME /30 (strict) : TRÈS FAIBLE → 0-8 · FAIBLE → 9-15 · CORRECT → 16-22 · FORT → 23-30.
-
-PORTÉE (sur 30) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Base-toi sur le % vues/abonnés (portée) : un compte sain fait souvent 20% ou plus de son audience en vues moyennes ; en dessous de 10%, la portée est faible.
-   BARÈME /30 (strict) : TRÈS FAIBLE (portée < 8% des abonnés) → 0-8 · FAIBLE (8-20%) → 9-15 · CORRECTE (20-50%) → 16-22 · FORTE (> 50%, ou vues qui dépassent l'audience) → 23-30.
-
-RÉGULARITÉ (sur 20) : disponible UNIQUEMENT si la cadence est fournie. Base-toi sur les vidéos/semaine.
-   BARÈME /20 (strict) : quasi inactif (< 0,5/sem) → 0-5 · irrégulier (0,5-2/sem) → 6-11 · régulier (2-5/sem) → 12-16 · très soutenu (> 5/sem) → 17-20.
-
-VIRALITÉ (sur 20) : disponible UNIQUEMENT si le rapport pic/médiane est fourni. Un compte avec des pics nets a un rapport pic/médiane élevé et plusieurs vidéos au-dessus de 2× la médiane. Un rapport proche de 1 = contenu plat, sans percée.
-   BARÈME /20 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-5 · faible (2-4×) → 6-11 · bon (4-10×) → 12-16 · fort potentiel viral (> 10×, plusieurs pics) → 17-20.
-
-COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score chiffré, le mot employé dans le constat, et la "sante_compte" globale doivent aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" avec 18/30, ou de dire "faible" partout et conclure "santé Bonne". Relis-toi : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
-
-BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
-
-NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique, focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
-
-TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
-   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une, ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
-   • FLOP = à choisir parmi les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane (ce sont les vraies contre-performances, pas des vidéos moyennes). Maximum 3.
-   • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée pour l'un ou l'autre).
-   Pour chacune : résume le SUJET en quelques mots (pas la légende entière), donne le nombre de vues, et explique en une phrase la raison de la performance. INTERDIT d'écrire « en deçà de la médiane » pour une vidéo du top, ou « performe bien » pour une vidéo du flop : le constat doit toujours coller à la position réelle vs la médiane.
-
-CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèmes/angles qui reviennent dans les vidéos (ex. « coups d'État africains », « histoires vraies méconnues », « géopolitique expliquée »). Formule court, comme des étiquettes. Sinon liste vide.
-
-ÉVOLUTION / CHANGEMENT DE CAP (très important) : examine les DATES [mois/année] ET les SUJETS dans l'ordre chronologique. Le créateur a-t-il CHANGÉ de type de contenu ou de niche à un moment (ex. passage d'un thème A à un thème B, ou d'un format à un autre) ?
-   • Si OUI (bascule nette) : "pivot": true. Situe la période approximative de bascule (mois/année). Résume le contenu AVANT et le contenu APRÈS. COMPARE la performance avec les VRAIS chiffres (vues moyennes avant vs après). Dis clairement quelle période performait le mieux, MÊME si c'est l'ancienne. Si l'ancienne formule marchait mieux, ne dis pas juste « reviens en arrière » : recommande de RÉUTILISER son mécanisme gagnant AU SERVICE du nouvel objectif (ex. vendre un produit EN gardant le storytelling/la tension qui cartonnait). Renseigne "formule_gagnante".
-   • Si NON (contenu stable, pas de bascule) : "pivot": false, "constat" court sur la constance, autres champs vides.
-   Ne PRÉTENDS jamais un pivot qui n'existe pas : base-toi uniquement sur un vrai changement visible dans les dates et sujets.
-
-LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil, sujets/performances des vidéos, et l'ÉVOLUTION si un pivot est détecté). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Si un pivot a fait BAISSER la performance, l'un des leviers DOIT porter sur la réutilisation de la formule gagnante au service du nouvel objectif. Jamais de supposition sur des vidéos absentes des données.
-
-SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio), reste prudent si peu de données sont exploitables.
-
-RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement (ex: "12 400 abonnés"), jamais de séparateur anglo-saxon.
-
-Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
-{
-  "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
-  "compte_verifie": <true/false/null>,
-  "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
-  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
-  "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
-  "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
-  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
-  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
-  "concepts_recurrents": ["<concept 1>", "<concept 2>"],
-  "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : la bascule et son effet, ou la constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<la formule qui marche le mieux + comment la réutiliser pour l'objectif actuel, ou null>" },
-  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
-}`;
-
-    const raw = await callAI(MODEL_RAPIDE, 3000, prompt);
-    const parsed = parseAIResponse(raw);
+    // Analyse de contenu (dimensions + niche + top/flop + concepts + pivot) :
+    // pipeline partagé avec l'analyse détaillée (voir _diagnostiquerContenu).
+    const parsed = await _diagnostiquerContenu(donnees, username);
     if (!parsed || parsed.profil_trouve === false) {
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
     }

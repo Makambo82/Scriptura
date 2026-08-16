@@ -428,6 +428,69 @@ function auditEsc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// Analyse détaillée « musclée » : garantit qu'un diagnostic de CONTENU récent
+// (sommaire) de SON compte existe AVANT l'appel /api/audit, pour que le serveur
+// croise contenu × distribution (synthese_croisee, voir api/audit.js).
+//   • Réutilise la dernière sommaire de SON compte si elle est récente (< 10 j).
+//   • Sinon en lance une nouvelle en tâche de fond, avec le @pseudo réutilisé de
+//     la dernière sommaire, ou demandé UNE seule fois s'il est inconnu.
+// Best-effort et SANS quota : n'échoue jamais l'audit (déjà payé), ne décompte
+// aucune analyse sommaire (c'est un enrichissement, pas une génération demandée).
+async function assurerContenuPourAudit(onScan) {
+  try {
+    if (typeof _recentesGenerationsDe !== 'function' || typeof _diagnostiquerContenu !== 'function') return;
+    const sommaires = await _recentesGenerationsDe('diagnosticSommaire', 8);
+    const miennes = (sommaires || []).filter(g => g && g.contenu && g.contenu.estMonCompte !== false);
+
+    // Récente = moins de 10 jours : au-delà, le compte a pu évoluer, on rescanne.
+    const FRAICHEUR_MS = 10 * 24 * 3600 * 1000;
+    const recente = miennes.find(g => {
+      const t = Date.parse(g.cree_le || g.created_at || '');
+      return Number.isFinite(t) && (Date.now() - t) < FRAICHEUR_MS;
+    });
+    if (recente) return; // le serveur la récupérera telle quelle
+
+    // Pas de sommaire récente : il faut un @pseudo. On réutilise celui de la
+    // dernière sommaire de son compte, sinon on le demande une seule fois.
+    let pseudo = (miennes[0] && miennes[0].contenu && miennes[0].contenu.username) || '';
+    if (!pseudo && typeof prompt === 'function') {
+      const saisi = prompt("Pour une analyse plus fine, indique ton @nom d'utilisateur TikTok (on lit tes vidéos publiques pour croiser avec tes statistiques). Laisse vide pour ignorer.");
+      pseudo = (saisi || '').trim().replace(/^@+/, '');
+    }
+    if (!pseudo || !/^[a-zA-Z0-9._]{2,24}$/.test(pseudo)) return; // ignoré proprement
+
+    if (typeof onScan === 'function') onScan();
+
+    // Scan de contenu silencieux (mêmes sources que le diagnostic sommaire).
+    const ctrl = new AbortController();
+    const minuteur = setTimeout(() => ctrl.abort(), 50000);
+    let donnees;
+    try {
+      const rep = await fetch('/api/username-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: pseudo }),
+        signal: ctrl.signal
+      });
+      donnees = await rep.json();
+      if (!rep.ok) return; // best-effort : l'audit continue sans ce contexte
+    } catch (e) { return; }
+    finally { clearTimeout(minuteur); }
+
+    const parsed = await _diagnostiquerContenu(donnees, pseudo);
+    if (!parsed || parsed.profil_trouve === false) return;
+
+    // Sauvegardée comme sommaire de SON compte : /api/audit la croisera, et elle
+    // resservira à la prochaine analyse détaillée (et au rapport fusionné).
+    // Aucun décompte de quota (auto:true la marque comme enrichissement).
+    if (typeof saveGeneration === 'function') {
+      await saveGeneration('diagnosticSommaire', 'Analyse de contenu · @' + pseudo, {
+        username: pseudo, diagnostic: parsed, estMonCompte: true, auto: true
+      });
+    }
+  } catch (e) { /* silencieux : l'audit se déroule sans ce contexte */ }
+}
+
 async function lancerAudit() {
   const err = document.getElementById('auditError');
   const out = document.getElementById('auditOutput');
@@ -464,6 +527,12 @@ async function lancerAudit() {
   startGenAnimation('audit');
 
   try {
+    // Analyse détaillée « musclée » : on s'assure d'abord d'avoir un diagnostic
+    // de contenu récent de SON compte, que le serveur croisera avec les
+    // statistiques des captures (best-effort, ne bloque jamais l'audit).
+    await assurerContenuPourAudit(() => { if (btnText) btnText.textContent = 'Lecture de tes vidéos…'; });
+    if (btnText) btnText.textContent = 'Diagnostic en cours…';
+
     const images = auditCaptures.map(c => ({ base64: c.base64, mediaType: c.mediaType }));
     // Garde-fou : le serveur refuse les envois trop lourds. On vérifie AVANT
     // d'envoyer pour donner un message clair plutôt qu'une erreur technique.
