@@ -107,6 +107,11 @@ async function lancerAnalyseVirale() {
     if (!texte || texte.length < 15) {
       throw new Error("Pas assez de contenu à analyser. Colle le texte de la vidéo à la main.");
     }
+    // Garde-fou : ne jamais envoyer du binaire (image/vidéo mal récupérée) à l'IA.
+    const nonImpr = (texte.slice(0, 800).match(/[\x00-\x08\x0E-\x1F\uFFFD]/g) || []).length;
+    if (nonImpr > 15) {
+      throw new Error("Le contenu récupéré n'est pas lisible. Colle le texte de la vidéo à la main (repli ci-dessous).");
+    }
     _viralTranscript = texte;
 
     if (btnText) btnText.textContent = 'Scriptura décode la recette…';

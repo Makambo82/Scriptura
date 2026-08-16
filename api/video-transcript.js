@@ -33,6 +33,33 @@ async function resoudreLien(url) {
   } catch (e) { return url; }
 }
 
+// Une URL clairement média (image / vidéo / audio) n'est JAMAIS un sous-titre.
+// (la réponse du détail vidéo contient des couvertures JPEG, l'URL du .mp4, etc.)
+function estUrlMedia(u) {
+  // Prudent : uniquement les signaux FORTS (extension de fichier média, ou
+  // marqueurs d'image TikTok tplv). La vraie garde reste estSousTitreTexte sur
+  // le contenu téléchargé, pour ne jamais exclure à tort une piste valide.
+  return /\.(jpe?g|png|webp|heic|heif|avif|gif|bmp|mp4|mov|m4v|webm|m4a|mp3|aac|ogg)(\?|#|$)/i.test(u)
+    || /tplv-|~tplv/i.test(u);
+}
+
+// Le contenu téléchargé est-il un VRAI sous-titre texte (et pas du binaire) ?
+function estSousTitreTexte(txt) {
+  if (!txt || txt.length < 10) return false;
+  // Signatures binaires (image/vidéo) en tête → rejet immédiat.
+  const c0 = txt.charCodeAt(0), c1 = txt.charCodeAt(1);
+  if (c0 === 0xFF && c1 === 0xD8) return false;             // JPEG
+  if (c0 === 0x89 && txt.slice(1, 4) === 'PNG') return false; // PNG
+  if (txt.slice(0, 4) === 'RIFF' || txt.slice(0, 4) === 'GIF8') return false;
+  if (txt.slice(4, 8) === 'ftyp') return false;             // MP4
+  // Trop de caractères non imprimables / de remplacement sur le début → binaire.
+  const ech = txt.slice(0, 800);
+  const nonImpr = (ech.match(/[\x00-\x08\x0E-\x1F�]/g) || []).length;
+  if (nonImpr > 15) return false;
+  // Doit ressembler à un sous-titre (webvtt/srt) ou au moins à du texte lisible.
+  return /WEBVTT|-->|\d{1,2}:\d{2}/.test(txt) || (ech.match(/[A-Za-zÀ-ÿ]{3,}/g) || []).length >= 5;
+}
+
 // Récupère les URLs de sous-titres, en préférant le français si repérable.
 function urlsSousTitres(obj) {
   const found = []; // { url, fr }
@@ -52,7 +79,8 @@ function urlsSousTitres(obj) {
     }
     for (const k of Object.keys(o)) {
       const v = o[k];
-      if (typeof v === 'string' && /^https?:\/\//.test(v) && (objSub || /\.vtt|webvtt|subtitle|caption/i.test(v))) {
+      if (typeof v === 'string' && /^https?:\/\//.test(v) && (objSub || /\.vtt|webvtt|subtitle|caption/i.test(v))
+          && !estUrlMedia(v)) { // jamais une URL d'image/vidéo, même en contexte sous-titres
         found.push({ url: v, fr: objFr || /fra|fr-|_fr/i.test(v) });
       }
       if (v && typeof v === 'object') scan(v, objFr, objSub, prof + 1);
@@ -138,13 +166,18 @@ export default async function handler(req, res) {
     const desc = extraireDesc(data);
     const urls = urlsSousTitres(data);
 
-    // 3) Télécharger la première piste de sous-titres exploitable.
+    // 3) Télécharger la première piste de sous-titres RÉELLEMENT texte. On essaie
+    //    chaque candidat, on rejette tout ce qui n'est pas du sous-titre texte
+    //    (image/vidéo, binaire) : jamais on ne renvoie du binaire comme transcript.
     let transcript = '';
     for (const u of urls) {
       try {
         const st = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0' } });
         if (!st.ok) continue;
+        const ct = (st.headers.get('content-type') || '').toLowerCase();
+        if (/image|video|audio|application\/octet-stream/.test(ct)) continue; // pas du texte
         const brut = await st.text();
+        if (!estSousTitreTexte(brut)) continue;      // garde-fou anti-binaire
         const propre = nettoyerWebvtt(brut);
         if (propre && propre.length > 20) { transcript = propre; break; }
       } catch (e) { /* piste suivante */ }
