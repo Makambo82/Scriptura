@@ -90,11 +90,13 @@ async function genererGuideMontage(plans, contexte, btn, zoneId, onSave) {
 
 // Bloc complet (bouton + zone) prêt à insérer sous n'importe quel storyboard.
 // suffixe : identifiant unique par emplacement. onSave optionnel (persistance).
-function guideMontageBlocHTML(suffixe, plans, contexte, onSave) {
+// guideSauve : si un guide a déjà été généré (réouverture), on l'affiche
+// directement et on masque le bouton.
+function guideMontageBlocHTML(suffixe, plans, contexte, onSave, guideSauve) {
   const zoneId = 'guideZone' + suffixe;
   return `<div class="guide-montage-wrap">
-    ${guideMontageBoutonHTML('guideBtn' + suffixe, zoneId, plans, contexte || '', onSave)}
-    <div class="guide-montage-zone" id="${zoneId}"></div>
+    ${guideSauve ? '' : guideMontageBoutonHTML('guideBtn' + suffixe, zoneId, plans, contexte || '', onSave)}
+    <div class="guide-montage-zone" id="${zoneId}">${guideSauve ? renderGuideMontage(guideSauve) : ''}</div>
   </div>`;
 }
 

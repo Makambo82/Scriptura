@@ -309,7 +309,7 @@ function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       ${montageBoutonHTML('montageBtnSeul', plans || board)}
     </div>
-    ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Seul', plans || board) : ''}`);
+    ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Seul', plans || board, '', updateGenerationGuideMontage) : ''}`);
   setTimeout(updateScrollBtn, 300);
 }
 
@@ -318,7 +318,7 @@ function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
 // déjà connu, pas de progression à animer. La génération en direct utilise
 // désormais rendreStoryboardSeulProgressif ci-dessus. Même gabarit visuel
 // que les modes Script/Récit.
-function afficherStoryboardSeulResultat(board, miniature) {
+function afficherStoryboardSeulResultat(board, miniature, guideSauve) {
   const out = document.getElementById('storyboardSeulOutput');
   if (!out) return;
   masquerFormulaireGeneration('sbSeulFormCard');
@@ -349,7 +349,7 @@ function afficherStoryboardSeulResultat(board, miniature) {
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       ${montageBoutonHTML('montageBtnSeul', board)}
     </div>
-    ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Seul', board) : ''}</div>`;
+    ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Seul', board, '', updateGenerationGuideMontage, guideSauve) : ''}</div>`;
   document.getElementById('sbSeulResults').style.display = 'block';
   setTimeout(updateScrollBtn, 300);
 }

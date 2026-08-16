@@ -1859,7 +1859,7 @@ async function generateStoryboard() {
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnScript', plans)}
       </div>
-      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Script', plans) : ''}`);
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Script', plans, '', updateGenerationGuideMontage) : ''}`);
 
     // Sauvegarder le storyboard pour qu'il reste après réouverture, mêmes
     // champs qu'avant (segment/texte_dit/prompt_visuel).

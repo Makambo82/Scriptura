@@ -64,6 +64,21 @@ async function updateGenerationStoryboard(storyboardData) {
   } catch(e) { console.warn('Maj storyboard échouée', e); }
 }
 
+// Rattache le guide de montage CapCut à la génération courante (script, récit,
+// storyboard seul), pour qu'il réapparaisse à la réouverture. Même mécanisme
+// que updateGenerationStoryboard. currentGenId est déjà positionné, y compris
+// à la réouverture (voir ouvrirGeneration).
+async function updateGenerationGuideMontage(guide) {
+  if (!supabaseClient || !currentGenId) return;
+  try {
+    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
+    if (data && data.contenu) {
+      const nouveauContenu = Object.assign({}, data.contenu, { guide_montage: guide });
+      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
+    }
+  } catch (e) { console.warn('Maj guide de montage échouée', e); }
+}
+
 // Sauvegarde une retouche ciblée (segment de script ou hook modifié) sur la
 // génération déjà enregistrée, pour qu'elle reste visible en rouvrant depuis
 // l'historique, même mécanisme que updateGenerationStoryboard ci-dessus.
@@ -106,7 +121,7 @@ async function sauvegarderRecommandationAudit(data) {
 }
 
 // Réaffiche un storyboard déjà généré (depuis Mes générations), sans régénérer.
-function reafficherStoryboard(sbData, isStory) {
+function reafficherStoryboard(sbData, isStory, guideSauve) {
   if (!sbData || !sbData.storyboard) return;
   const board = sbData.storyboard;
   const miniature = sbData.miniature;
@@ -141,7 +156,7 @@ function reafficherStoryboard(sbData, isStory) {
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnStory', board)}
       </div>
-      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('StoryReouv', board) : ''}</div>`;
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('StoryReouv', board, '', updateGenerationGuideMontage, guideSauve) : ''}</div>`;
     // Cacher le bouton "Générer le storyboard" puisqu'il est déjà là
     const btn = document.getElementById('storyStoryboardBtn');
     if (btn) btn.style.display = 'none';
@@ -176,7 +191,7 @@ function reafficherStoryboard(sbData, isStory) {
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnScript', board)}
       </div>
-      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('ScriptReouv', board) : ''}</div>`;
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('ScriptReouv', board, '', updateGenerationGuideMontage, guideSauve) : ''}</div>`;
     // Cacher le bouton générer
     const btn = document.getElementById('sbGenerateBtn');
     if (btn) btn.style.display = 'none';
@@ -948,14 +963,14 @@ function reopenGeneration(i) {
     renderResults(g.contenu, g.contenu.niche || '', g.titre || '');
     // Réafficher le storyboard sauvegardé s'il existe
     if (g.contenu.storyboard_genere) {
-      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, false), 200);
+      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, false, g.contenu.guide_montage), 200);
     }
   } else if (g.mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
     lastStoryContext = { sujet: g.titre || '', plateforme: '' };
     renderStory(g.contenu);
     if (g.contenu.storyboard_genere) {
-      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, true), 200);
+      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, true, g.contenu.guide_montage), 200);
     }
   } else if (g.mode === 'ideas') {
     document.getElementById('ideasFlow').style.display = 'block';
@@ -1000,7 +1015,7 @@ function reopenGeneration(i) {
       });
     }
     if (csb.storyboard_genere) {
-      afficherStoryboardSeulResultat(csb.storyboard_genere.storyboard, csb.storyboard_genere.miniature || null);
+      afficherStoryboardSeulResultat(csb.storyboard_genere.storyboard, csb.storyboard_genere.miniature || null, csb.guide_montage);
     }
   } else if (g.mode === 'serie') {
     const sfh = document.getElementById('serieFlow');

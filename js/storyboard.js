@@ -403,7 +403,7 @@ async function generateStoryStoryboard() {
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnStory', plans)}
       </div>
-      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Story', plans) : ''}`);
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Story', plans, '', updateGenerationGuideMontage) : ''}`);
 
     // Sauvegarder le storyboard pour qu'il reste après réouverture, mêmes
     // champs qu'avant (segment/duree/texte/visuel), pour rester compatible
