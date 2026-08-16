@@ -2510,6 +2510,12 @@ body.is-unlocked .sidebar-logout{display:block}
 .viral-verdict-ok{border-left-color:var(--emerald,#2ecc9b)}
 .viral-verdict-alerte{border-left-color:#e0a23a}
 .viral-verdict-neutre{border-left-color:var(--gold-light,#E2C87A)}
+.viral-modele{border:1px dashed rgba(226,200,122,0.4)}
+.viral-modele-list{list-style:none;margin:12px 0 4px;padding:0;counter-reset:vm;display:flex;flex-direction:column;gap:10px}
+.viral-modele-list li{position:relative;background:rgba(226,200,122,0.06);border-radius:10px;padding:10px 12px 10px 40px}
+.viral-modele-list li::before{counter-increment:vm;content:counter(vm);position:absolute;left:12px;top:10px;width:20px;height:20px;border-radius:50%;background:rgba(226,200,122,0.18);color:var(--gold-light,#E2C87A);font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+.viral-modele-list .viral-moment{display:block;margin-bottom:2px}
+.viral-modele-list li p{margin:0;font-size:0.9rem;color:#e4e4e4;line-height:1.5}
 
 .ds-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .ds-mini-stat{text-align:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 8px}

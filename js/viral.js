@@ -125,22 +125,33 @@ async function lancerAnalyseVirale() {
     if (btnText) btnText.textContent = 'Scriptura décode la recette…';
     if (note) note.textContent = 'Scriptura décode la recette virale ☕…';
 
-    // 2) Décodage par l'IA. Analyse RESSERRÉE et percutante (pas de redites) :
-    // le déroulé (rétention + structure fusionnés) en quelques temps, les
-    // facteurs majeurs, et les leviers transposables. Plus des SIGNAUX (booléens)
-    // qui servent à calculer le score de viralité EN CODE.
-    const prompt = `Tu es Scriptura, expert TikTok. On te donne le CONTENU d'une vidéo virale (transcript de sa VOIX, et éventuellement sa description). Décode PRÉCISÉMENT et honnêtement ce qui l'a rendue virale. Base-toi UNIQUEMENT sur le contenu fourni, n'invente aucune statistique ni aucun élément absent. Sois PERCUTANT et CONCIS : pas de redites d'une section à l'autre.
+    // 2) Décodage par l'IA. La POSTURE (virale / flop / neutre), déduite EN CODE
+    // des vraies stats, change l'analyse : décoder une recette gagnante, ou
+    // diagnostiquer un échec et prescrire la correction. Analyse resserrée
+    // (pas de redites) + SIGNAUX booléens qui servent à noter EN CODE + un
+    // MODÈLE APPLICABLE (gabarit vierge réutilisable).
+    const posture = posturePerf(statsVideo);
+    const directivePosture = posture === 'flop'
+      ? `POSTURE, DIAGNOSTIC D'ÉCHEC : d'après ses vraies statistiques, cette vidéo a SOUS-PERFORMÉ (elle n'a même pas atteint l'audience de son compte). Ton rôle n'est PAS de la vanter. Diagnostique honnêtement POURQUOI elle n'a pas marché (hook faible ou lent, promesse floue, structure molle, rythme plat, absence de tension, leviers manquants), puis prescris les CORRECTIONS concrètes pour la transformer en vidéo virale. Sois direct mais utile, jamais complaisant.`
+      : posture === 'virale'
+        ? `POSTURE, RECETTE GAGNANTE : d'après ses vraies statistiques, cette vidéo a RÉELLEMENT percé (elle a dépassé l'audience de son compte). Décode la recette qui explique ce succès et ce qui la rend REPRODUCTIBLE sur d'autres sujets.`
+        : `POSTURE, DÉCODAGE : décode objectivement la mécanique de cette vidéo, ce qui fonctionne et ce qui pourrait être renforcé.`;
+    const lbl = _labelsPosture(posture);
+    const prompt = `Tu es Scriptura, expert TikTok. On te donne le CONTENU d'une vidéo (transcript de sa VOIX, et éventuellement sa description). Base-toi UNIQUEMENT sur le contenu fourni, n'invente aucune statistique ni aucun élément absent. Sois PERCUTANT et CONCIS : pas de redites d'une section à l'autre.
+
+${directivePosture}
 
 ${description ? 'DESCRIPTION : ' + description + '\n\n' : ''}TRANSCRIPT DE LA VIDÉO :
 ${texte.slice(0, 6000)}
 
 Analyse comme un monteur/scénariste pro :
 - LA NICHE : en 1 à 3 mots, le thème/domaine de la vidéo (ex. « finance perso », « cuisine rapide », « histoire », « développement perso », « tech »). Sert à ranger la recette dans la bonne famille.
-- LE HOOK : la ou les toutes premières phrases réelles, la technique, pourquoi ça arrête le scroll.
-- LA RECETTE, TEMPS PAR TEMPS : reconstitue le déroulé chronologique en 4 à 6 TEMPS maximum (fusionne structure et rétention : chaque temps = un procédé + le ressort d'attention qu'il crée). Ancre chaque temps dans le contenu réel.
-- POURQUOI ÇA A PERCÉ : 3 à 4 facteurs MAJEURS et déterminants seulement (les plus forts, pas une liste exhaustive).
-- CE QUE TU PEUX REPRENDRE : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
-- SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo, sois rigoureux.
+- LE HOOK : la ou les toutes premières phrases réelles, la technique employée, et ${posture === 'flop' ? 'pourquoi il ne suffit pas à arrêter le scroll' : 'pourquoi il arrête le scroll'}.
+- LA RECETTE, TEMPS PAR TEMPS : reconstitue le déroulé chronologique réel en 4 à 6 TEMPS maximum (chaque temps = un procédé + le ressort d'attention qu'il crée, ou son absence). Ancre chaque temps dans le contenu réel.
+- LE MODÈLE APPLICABLE : transforme cette structure${posture === 'flop' ? ' CORRIGÉE' : ''} en un GABARIT VIERGE réutilisable sur N'IMPORTE QUEL sujet. Chaque étape = un temps + une consigne de remplissage avec des [crochets] (ex. « ouvre par une équation binaire : [ton sujet] voulait X, [autre force] lui a donné Y »). 4 à 6 étapes, concrètes et transposables, jamais liées au sujet précis de la vidéo.
+- ${lbl.pourquoi.toUpperCase()} : 3 à 4 points MAJEURS et déterminants seulement (les plus forts, pas une liste exhaustive).
+- ${lbl.leviers.toUpperCase()} : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
+- SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo, sois rigoureux (une vidéo qui a raté a peu de signaux à true).
 
 RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin.
 
@@ -148,20 +159,22 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
 {
   "niche": "<thème/domaine en 1 à 3 mots>",
   "sujet": "<le sujet réel de la vidéo + l'angle, 1 phrase>",
-  "hook": { "technique": "<nom court de la technique d'accroche>", "verbatim": "<la ou les toutes premières phrases réelles du transcript>", "pourquoi": "<pourquoi ça arrête le scroll, 1-2 phrases>" },
+  "hook": { "technique": "<nom court de la technique d'accroche>", "verbatim": "<la ou les toutes premières phrases réelles du transcript>", "pourquoi": "<${posture === 'flop' ? 'pourquoi ce hook ne suffit pas' : 'pourquoi ça arrête le scroll'}, 1-2 phrases>" },
   "recette": [ { "temps": "<ex: 0-5s / 5-15s / avant la fin>", "titre": "<nom court du procédé>", "detail": "<ce qui se passe + le ressort d'attention, 1-2 phrases, ancré dans la vidéo>" } ],
-  "pourquoi_viral": [ "<facteur majeur 1>", "<facteur majeur 2>", "<facteur majeur 3>" ],
-  "a_reprendre": [ { "titre": "<max 8 mots>", "detail": "<recette transposable à TES sujets, 1-2 phrases>" } ],
+  "modele": [ { "temps": "<ex: 0-5s>", "gabarit": "<consigne de remplissage avec des [crochets], transposable>" } ],
+  "pourquoi_viral": [ "<point majeur 1>", "<point majeur 2>", "<point majeur 3>" ],
+  "a_reprendre": [ { "titre": "<max 8 mots>", "detail": "<${posture === 'flop' ? 'correction concrète à appliquer' : 'recette transposable à TES sujets'}, 1-2 phrases>" } ],
   "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false> }
 }`;
 
-    const raw = await callAI(MODEL_CREATIF, 3000, prompt);
+    const raw = await callAI(MODEL_CREATIF, 3200, prompt);
     const rapport = parseAIResponse(raw);
     if (!rapport || (!rapport.hook && !rapport.recette)) {
       throw new Error("Analyse illisible, réessaie dans un instant.");
     }
     rapport.stats = statsVideo; // vraies stats (pour le score + le contexte)
     rapport.langue = langueVideo;
+    rapport.posture = posture;  // virale / flop / neutre (déjà calculée avant l'IA)
     _viralRapport = rapport;
 
     // 3) Décompte quota + sauvegarde.
@@ -275,6 +288,27 @@ function verdictCroiseViral(score, stats) {
   return { ton: 'neutre', titre: 'Peu à reprendre', texte: 'Ni recette solide ni performance marquante. Il y a mieux à décoder ailleurs.' };
 }
 
+// ── Posture d'analyse : virale, flop ou neutre ──
+// Déterminée par la PERFORMANCE RÉELLE (pas par la recette) : la vidéo a-t-elle
+// marché pour son compte ? virale = elle a dépassé son audience ; flop = elle
+// n'a même pas atteint son audience ; neutre = entre les deux, ou stats
+// inconnues (texte collé à la main). C'est ce qui fait basculer l'analyse entre
+// « décode la recette gagnante » et « diagnostique l'échec + corrige ».
+function posturePerf(stats) {
+  if (!stats || !stats.vues) return 'neutre';
+  if (performanceForte(stats)) return 'virale';
+  const p = porteeViral(stats);
+  const taux = _tauxEngagementViral(stats);
+  const faible = p ? p.ratio < 1.5 : (taux != null && taux < 3);
+  return faible ? 'flop' : 'neutre';
+}
+// Libellés des sections selon la posture (résultat + texte copié).
+function _labelsPosture(posture) {
+  if (posture === 'flop') return { pourquoi: "Pourquoi ça n'a pas marché", leviers: 'Comment la transformer en virale', cta: 'Créer la version virale corrigée →' };
+  if (posture === 'virale') return { pourquoi: 'Pourquoi ça a percé', leviers: 'Ce que tu peux reprendre', cta: 'Créer un script à partir de ça →' };
+  return { pourquoi: 'Ce qui fait la différence', leviers: 'Ce que tu peux reprendre', cta: 'Créer un script à partir de ça →' };
+}
+
 // ── Mémoire partagée : dépôt d'une recette distillée ──
 // Étiquettes lisibles des leviers (pour l'injection dans les autres modes).
 const LEVIERS_LABEL = {
@@ -341,6 +375,11 @@ function afficherRapportViral(d) {
   const recette = Array.isArray(d.recette) ? d.recette : [];
   const facteurs = Array.isArray(d.pourquoi_viral) ? d.pourquoi_viral.filter(Boolean) : [];
   const reprendre = Array.isArray(d.a_reprendre) ? d.a_reprendre : [];
+  const modele = Array.isArray(d.modele) ? d.modele.filter(m => m && (m.temps || m.gabarit)) : [];
+  // Posture (virale / flop / neutre) : stockée sur le rapport, ou recalculée
+  // depuis les stats (réouverture d'un ancien rapport sans posture).
+  const posture = d.posture || posturePerf(d.stats);
+  const lbl = _labelsPosture(posture);
 
   // Score de viralité + vraies stats.
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
@@ -408,19 +447,39 @@ function afficherRapportViral(d) {
       </ul>
     </div>` : '';
 
+  // Le MODÈLE APPLICABLE : gabarit vierge réutilisable, avec bouton pour
+  // l'appliquer directement à un script (voir creerScriptDepuisViral('modele')).
+  const modeleHtml = modele.length ? `
+    <div class="score-card viral-modele">
+      <div class="audit-section-label">Le modèle applicable (à remplir)</div>
+      <ol class="viral-modele-list">
+        ${modele.map(m => `<li>
+          <span class="viral-moment">${viralEsc(m.temps || '')}</span>
+          <p>${viralEsc(m.gabarit || '')}</p>
+        </li>`).join('')}
+      </ol>
+      <button class="btn-generate" style="width:100%;margin-top:6px" onclick="creerScriptDepuisViral('modele')">Réutiliser ce modèle sur mon sujet →</button>
+    </div>` : '';
+
   const facteursHtml = facteurs.length ? `
     <div class="score-card ds-evolution pivot">
-      <div class="audit-section-label">Pourquoi ça a percé</div>
+      <div class="audit-section-label">${viralEsc(lbl.pourquoi)}</div>
       <ul class="ds-niche-analyse">${facteurs.map(f => `<li>${viralEsc(f)}</li>`).join('')}</ul>
     </div>` : '';
 
   const reprendreHtml = reprendre.length ? `
     <div class="score-card">
-      <div class="audit-section-label">Ce que tu peux reprendre</div>
+      <div class="audit-section-label">${viralEsc(lbl.leviers)}</div>
       <ol class="ds-leviers-list">
         ${reprendre.map(l => `<li><b>${viralEsc(l.titre || '')}</b><p>${viralEsc(l.detail || '')}</p></li>`).join('')}
       </ol>
     </div>` : '';
+
+  // Le pont vers le script s'adapte à la posture : refaire un carton, ou livrer
+  // la version corrigée d'un flop.
+  const ctaTexte = posture === 'flop'
+    ? 'Tu as le diagnostic. Passe à l\'action : Scriptura peut <strong>réécrire la version virale</strong> de cette vidéo, adaptée à ton compte.'
+    : 'Tu as la recette. Passe à l\'action : Scriptura peut <strong>t\'écrire un script</strong> qui réutilise cette structure sur TON sujet.';
 
   res.innerHTML = `
     ${scoreCardHtml}
@@ -428,6 +487,7 @@ function afficherRapportViral(d) {
     ${sujetHtml}
     ${hookHtml}
     ${recetteHtml}
+    ${modeleHtml}
     ${facteursHtml}
     ${reprendreHtml}
 
@@ -437,8 +497,8 @@ function afficherRapportViral(d) {
     </div>
 
     <div class="ds-alt" style="margin-top:8px">
-      <p style="margin:0 0 14px">Tu as la recette. Passe à l'action : Scriptura peut <strong>t'écrire un script</strong> qui réutilise cette structure sur TON sujet.</p>
-      <button class="btn-generate" onclick="creerScriptDepuisViral()">Créer un script à partir de ça →</button>
+      <p style="margin:0 0 14px">${ctaTexte}</p>
+      <button class="btn-generate" onclick="creerScriptDepuisViral()">${viralEsc(lbl.cta)}</button>
     </div>
     <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreVideoVirale()">Analyser une autre vidéo</button>`;
 
@@ -452,6 +512,7 @@ function afficherRapportViral(d) {
 function _texteRapportViral(d) {
   d = d || {};
   const lignes = [];
+  const lbl = _labelsPosture(d.posture || posturePerf(d.stats));
   const note = scoreViraliteRecette(d.signaux);
   if (note) {
     let entete = 'SCORE DE VIRALITÉ : ' + note.score + '/100 (' + note.leviers + ' leviers viraux)';
@@ -471,33 +532,56 @@ function _texteRapportViral(d) {
     lignes.push('\nLA RECETTE, TEMPS PAR TEMPS :');
     d.recette.forEach(r => lignes.push('- [' + (r.temps || '') + '] ' + (r.titre || '') + (r.detail ? ' : ' + r.detail : '')));
   }
+  if (Array.isArray(d.modele) && d.modele.length) {
+    lignes.push('\nLE MODÈLE APPLICABLE (à remplir) :');
+    d.modele.forEach(m => lignes.push('- [' + (m.temps || '') + '] ' + (m.gabarit || '')));
+  }
   if (Array.isArray(d.pourquoi_viral) && d.pourquoi_viral.length) {
-    lignes.push('\nPOURQUOI ÇA A PERCÉ :');
+    lignes.push('\n' + lbl.pourquoi.toUpperCase() + ' :');
     d.pourquoi_viral.forEach(f => lignes.push('- ' + f));
   }
   if (Array.isArray(d.a_reprendre) && d.a_reprendre.length) {
-    lignes.push('\nCE QUE TU PEUX REPRENDRE :');
+    lignes.push('\n' + lbl.leviers.toUpperCase() + ' :');
     d.a_reprendre.forEach(l => lignes.push('- ' + (l.titre || '') + ' : ' + (l.detail || '')));
   }
   return lignes.join('\n');
 }
 
-// Handoff vers le flux Script : réutilise le pipeline existant « analyser une
-// vidéo virale et recréer sa recette » (le transcript est déjà en main), en
-// pré-remplissant l'état et le champ, puis en déposant l'utilisateur sur le
-// formulaire (étape 4) où il n'a plus qu'à indiquer SON sujet.
-function creerScriptDepuisViral() {
+// Reconstruit le modèle applicable en texte (pour l'injecter dans le flux Script).
+function _modeleEnTexte(d) {
+  const modele = d && Array.isArray(d.modele) ? d.modele : [];
+  if (!modele.length) return '';
+  const etapes = modele.map(m => '[' + (m.temps || '') + '] ' + (m.gabarit || '')).join('\n');
+  return 'MODÈLE DE STRUCTURE VIRALE À SUIVRE (remplis chaque crochet avec MON sujet, garde la mécanique) :\n' + etapes;
+}
+
+// Handoff vers le flux Script. Deux entrées :
+//  - source 'modele'  : on passe le GABARIT vierge (structure à appliquer).
+//  - source par défaut : on passe le transcript complet (recréer la recette),
+//    ou, pour un flop, la matière à corriger.
+// Dans tous les cas on dépose l'utilisateur sur le formulaire (étape 4) où il
+// n'a plus qu'à indiquer SON sujet.
+function creerScriptDepuisViral(source) {
   if (typeof chooseMode !== 'function') return;
+  const d = _viralRapport || {};
+  const posture = d.posture || posturePerf(d.stats);
   chooseMode('script'); // ouvre le flux Script (empile l'écran actuel)
   if (typeof state === 'object' && state) {
-    state.depart = 'analyser une vidéo virale et recréer sa recette';
+    state.depart = posture === 'flop'
+      ? 'reprendre une vidéo qui a raté et la transformer en version virale'
+      : 'analyser une vidéo virale et recréer sa recette';
     if (!state.objectif) state.objectif = 'Faire plus de vues et maximiser la portée';
     if (!state.plateforme) state.plateforme = 'TikTok';
   }
   if (typeof showStep === 'function') showStep(4);
   if (typeof renderSummary === 'function') renderSummary(); // affiche le champ vidéo virale
   const champ = document.getElementById('viralVideo');
-  if (champ) { champ.value = _viralTranscript || ''; champ.dispatchEvent(new Event('input', { bubbles: true })); }
+  if (champ) {
+    // Modèle : on injecte le gabarit vierge. Sinon : le transcript réel.
+    const contenu = source === 'modele' ? (_modeleEnTexte(d) || _viralTranscript || '') : (_viralTranscript || '');
+    champ.value = contenu;
+    champ.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   const sujet = document.getElementById('sujet');
   if (sujet) setTimeout(() => sujet.focus(), 200);
 }
