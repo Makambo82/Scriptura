@@ -561,27 +561,35 @@ function renderSummary() {
   const viralLabel = document.getElementById('viralVideoLabel');
   const viralInput = document.getElementById('viralVideo');
   const viralAstuce = document.getElementById('viralVideoAstuce');
+  const viralLienRow = document.getElementById('viralLienRow');
+  const viralLienNote = document.getElementById('viralLienNote');
+  const viralSummary = document.getElementById('viralVideoSummary');
   const sujetLabel = document.getElementById('sujetLabel');
-  if (state.depart && state.depart.includes('analyser une vidéo virale')) {
+  // Par défaut, on remet le champ lien et le label visibles (cas générique).
+  if (viralLienRow) viralLienRow.style.display = '';
+  if (viralLienNote) viralLienNote.style.display = '';
+  if (viralLabel) viralLabel.style.display = '';
+
+  const estViral = state.depart && state.depart.includes('analyser une vidéo virale');
+  const estFlop = state.depart && state.depart.includes('vidéo qui a raté');
+  if (estViral || estFlop) {
+    // Ces modes ne sont atteints QUE via le handoff depuis « Analyser une
+    // vidéo » : le transcript est déjà rempli, donc le champ lien n'a plus lieu
+    // d'être. On efface le lien + le label, on relègue la vidéo décodée dans un
+    // repli discret, et on met « Ton sujet » en vedette.
     viralField.style.display = 'flex';
-    viralLabel.textContent = 'Texte de la vidéo virale à analyser';
-    viralInput.placeholder = "Colle ici le texte, les sous-titres ou la description de la vidéo virale que tu as vue. Scriptura va décoder sa structure (hook, rythme, narration) et la recréer pour ton sujet.";
-    viralAstuce.textContent = '💡 Astuce : sur TikTok, active les sous-titres et copie le texte. Ou décris simplement ce qui se passe dans la vidéo.';
-    sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
-  } else if (state.depart && state.depart.includes('vidéo qui a raté')) {
-    // Handoff depuis le mode « Analyser une vidéo » quand la vidéo a floppé :
-    // on repart de sa matière (recette corrigée / modèle) pour livrer la
-    // version virale.
-    viralField.style.display = 'flex';
-    viralLabel.textContent = 'La vidéo qui a raté, à transformer en virale';
-    viralInput.placeholder = "Le diagnostic de la vidéo qui a floppé est déjà repris ici. Indique ton sujet, Scriptura en écrit la version virale corrigée.";
-    viralAstuce.textContent = '💡 Scriptura part du diagnostic et de la structure corrigée pour rendre cette vidéo virale.';
+    if (viralLienRow) viralLienRow.style.display = 'none';
+    if (viralLienNote) viralLienNote.style.display = 'none';
+    if (viralLabel) viralLabel.style.display = 'none';
+    if (viralSummary) viralSummary.textContent = estFlop ? '📼 Voir la vidéo qui a raté' : '📼 Voir la vidéo décodée';
+    if (viralAstuce) viralAstuce.textContent = "💡 Déjà prise en compte. Tu peux la relire ou l'ajuster ici si besoin.";
     sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
   } else if (state.depart && state.depart.includes('améliorer ou adapter')) {
     viralField.style.display = 'flex';
     viralLabel.textContent = 'Ton contenu existant, à améliorer';
     viralInput.placeholder = "Colle ici le texte complet de ta vidéo ou de ton script existant. Scriptura part de CE contenu, garde ton sujet et ton fond, améliore la forme (hook, rythme, structure, CTA).";
-    viralAstuce.textContent = "💡 Colle le script ou les sous-titres tels quels, rien n'est réinventé, seulement amélioré et adapté.";
+    if (viralAstuce) viralAstuce.textContent = "💡 Colle le script ou les sous-titres tels quels, rien n'est réinventé, seulement amélioré et adapté.";
+    if (viralSummary) viralSummary.textContent = '📼 Voir le contenu';
     sujetLabel.textContent = 'Angle ou sujet précis à mettre en avant';
   } else {
     viralField.style.display = 'none';

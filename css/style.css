@@ -2515,6 +2515,11 @@ body.is-unlocked .sidebar-logout{display:block}
 .viral-dim-val{color:var(--gold-light,#E2C87A);font-weight:700;font-size:0.8rem}
 .viral-dim-bar{height:6px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden}
 .viral-dim-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold-light,#E2C87A),#c9a84c);transition:width .9s ease}
+.viral-video-details{margin:2px 0 4px}
+.viral-video-summary{cursor:pointer;font-size:0.8rem;color:var(--gold-light,#E2C87A);opacity:0.8;list-style:none;padding:6px 0;user-select:none}
+.viral-video-summary::-webkit-details-marker{display:none}
+.viral-video-summary::before{content:'▸ ';font-size:0.7rem}
+.viral-video-details[open] .viral-video-summary::before{content:'▾ '}
 .viral-modele{border:1px dashed rgba(226,200,122,0.4)}
 .viral-modele-intro{margin:8px 2px 14px;font-size:0.88rem;line-height:1.5;color:#cfcfcf}
 /* Guide de montage CapCut, dressé comme les prompts du storyboard */
