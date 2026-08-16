@@ -1270,7 +1270,8 @@ const GEN_DUREE = {
   ideas: 12000,
   audit: 18000,
   serie_creation: 30000,
-  serie_episode: 30000
+  serie_episode: 30000,
+  viral: 42000
 };
 
 // ── « RÉPONDRE MAINTENANT » : interruption coopérative ──
@@ -1357,6 +1358,15 @@ const GEN_STEPS = {
     'Développement du récit…',
     'Pose de la tension finale…',
     'Calibrage de la durée…'
+  ],
+  viral: [
+    'Récupération de la vidéo…',
+    'Extraction de la voix…',
+    'Transcription de la parole…',
+    'Décodage du hook…',
+    'Reconstitution de la recette, temps par temps…',
+    'Repérage des leviers viraux…',
+    'Calcul du score de viralité…'
   ]
 };
 const GEN_TAGLINE = {
@@ -1365,7 +1375,8 @@ const GEN_TAGLINE = {
   story: 'Ton storyteller écrit ton récit',
   audit: 'Ton consultant TikTok établit ton diagnostic',
   serie_creation: 'Ton architecte narratif construit ta série',
-  serie_episode: 'Ton scénariste écrit ton épisode'
+  serie_episode: 'Ton scénariste écrit ton épisode',
+  viral: 'Scriptura décode la recette virale'
 };
 
 function startGenAnimation(mode) {

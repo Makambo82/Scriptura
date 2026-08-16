@@ -5,19 +5,60 @@
 //  on RÉCUPÈRE L'AUDIO de la vidéo et on le TRANSCRIT avec ElevenLabs Scribe
 //  (speech-to-text). Marche sur n'importe quelle vidéo qui parle.
 //
-//  Pipeline : lien -> LamaTok /v1/media/by/id -> URL de la vidéo (sans
-//  filigrane si possible) -> téléchargement (en-têtes crédibles + Range) ->
-//  ElevenLabs /v1/speech-to-text (model scribe_v1) -> texte. Clé
-//  ELEVENLABS_API_KEY déjà en place (partagée avec le montage / voix off).
+//  Pipeline : lien -> détail de la vidéo -> URL de la vidéo (sans filigrane si
+//  possible) -> téléchargement (en-têtes crédibles + Range) -> ElevenLabs
+//  /v1/speech-to-text (model scribe_v1) -> texte. Clé ELEVENLABS_API_KEY déjà
+//  en place (partagée avec le montage / voix off).
 //
-//  POST { url } -> { ok, transcript, description, langue }. Non bloquant :
+//  SOURCE DU MÉDIA : ScrapTik en PRINCIPAL (/get-post?aweme_id=), LamaTok en
+//  REPLI (/v1/media/by/id). Raison : LamaTok sert le profil mais rend mal les
+//  URLs vidéo ; ScrapTik est notre source vidéo éprouvée (déjà utilisée pour le
+//  catalogue d'un compte). Si ScrapTik ne rend rien d'exploitable (clé absente,
+//  hoquet, URL qui 403), on retombe sur LamaTok, qui reste un filet fonctionnel.
+//
+//  POST { url } -> { ok, transcript, description, stats, langue }. Non bloquant :
 //  ok=false si la vidéo est indisponible ou sans parole (repli manuel côté client).
 //  Clés 100% côté serveur.
 // ═══════════════════════════════════════════════════════════
 
 const LAMA_BASE = 'https://api.lamatok.com';
+const SCRAPTIK_HOST = 'scraptik.p.rapidapi.com';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
+
+// Nettoie la clé RapidAPI (mêmes règles que /api/username-scan) : tolère qu'on
+// ait collé tout le snippet cURL dans la variable d'environnement.
+function nettoyerCle(k) {
+  if (!k) return '';
+  const s = String(k);
+  const m = s.match(/x-rapidapi-key:\s*['"]?([A-Za-z0-9]{20,})/i);
+  if (m) return m[1];
+  return s.trim().replace(/^['"]+|['"]+$/g, '').replace(/\s+/g, '');
+}
+
+// Détail d'UNE vidéo via ScrapTik (/get-post). Renvoie l'objet JSON brut, ou
+// null en cas d'échec (le handler retombe alors sur LamaTok). Non bloquant.
+async function detailScrapTik(id, key) {
+  const url = 'https://' + SCRAPTIK_HOST + '/get-post?' + new URLSearchParams({ aweme_id: id }).toString();
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(url, { headers: { 'x-rapidapi-key': key, 'x-rapidapi-host': SCRAPTIK_HOST }, signal: ctrl.signal });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+  finally { clearTimeout(minuteur); }
+}
+
+// Détail d'UNE vidéo via LamaTok (/v1/media/by/id). Repli du précédent.
+async function detailLamaTok(id, key) {
+  try {
+    const r = await fetch(LAMA_BASE + '/v1/media/by/id?id=' + encodeURIComponent(id),
+      { headers: { accept: 'application/json', 'x-access-key': key } });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+}
 
 function extraireAwemeId(url) {
   const s = String(url || '');
@@ -173,33 +214,44 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
     }
 
-    // 2) Détail LamaTok -> URLs vidéo.
-    const rep = await fetch(LAMA_BASE + '/v1/media/by/id?id=' + encodeURIComponent(id),
-      { headers: { accept: 'application/json', 'x-access-key': lamaKey } });
-    const data = await rep.json();
-    if (!rep.ok) {
-      const message = (data && (data.message || data.error)) || 'Vidéo introuvable ou privée';
-      return res.status(rep.status).json({ error: { message } });
-    }
-    const description = extraireDesc(data) || '';
-    const stats = extraireStats(data);
-    const urls = urlsVideo(data);
+    // 2) Détail de la vidéo : ScrapTik en PRINCIPAL, LamaTok en REPLI.
+    const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
+    const dataScrap = scrapKey ? await detailScrapTik(id, scrapKey) : null;
+
+    // Description & stats : on prend ce que la source principale donne, complété
+    // par le repli si besoin.
+    let description = dataScrap ? (extraireDesc(dataScrap) || '') : '';
+    let stats = dataScrap ? extraireStats(dataScrap) : null;
 
     // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
+    //    On tente d'abord les URLs ScrapTik, puis, si rien ne passe, LamaTok.
     let media = null;
-    for (const u of urls) {
-      const m = await telechargerMedia(u);
-      if (m.ok) { media = m; break; }
+    if (dataScrap) {
+      for (const u of urlsVideo(dataScrap)) {
+        const m = await telechargerMedia(u);
+        if (m.ok) { media = m; break; }
+      }
+    }
+    if (!media) {
+      const dataLama = await detailLamaTok(id, lamaKey);
+      if (dataLama) {
+        if (!description) description = extraireDesc(dataLama) || '';
+        if (!stats) stats = extraireStats(dataLama);
+        for (const u of urlsVideo(dataLama)) {
+          const m = await telechargerMedia(u);
+          if (m.ok) { media = m; break; }
+        }
+      }
     }
     if (!media) {
       // Non bloquant : le client retombe sur le collage manuel.
-      return res.status(200).json({ ok: false, description, raison: 'video_indisponible' });
+      return res.status(200).json({ ok: false, description, stats, raison: 'video_indisponible' });
     }
 
     // 4) Transcription ElevenLabs Scribe.
     const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
     if (!stt.ok) {
-      return res.status(200).json({ ok: false, description, raison: 'stt_echec' });
+      return res.status(200).json({ ok: false, description, stats, raison: 'stt_echec' });
     }
     const transcript = (stt.text || '').trim().slice(0, MAX_TRANSCRIPT);
     return res.status(200).json({

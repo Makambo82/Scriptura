@@ -90,6 +90,10 @@ async function lancerAnalyseVirale() {
   btn.disabled = true;
   if (spin) spin.style.display = 'block';
   if (btnText) btnText.textContent = 'Analyse en cours…';
+  // Animation plein écran (bande dorée hachée + étapes défilantes), la même
+  // que récit / script / série : l'utilisateur voit ce que fait l'app en
+  // coulisse (récupération, transcription, décodage, score).
+  if (typeof startGenAnimation === 'function') startGenAnimation('viral');
 
   try {
     // 1) Transcript : depuis le lien en priorité, sinon le texte collé.
@@ -176,6 +180,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     err.style.display = 'block';
     if (note) note.textContent = "Colle le lien de partage (TikTok). Pas de lien ? Ouvre le repli et colle le texte de la vidéo.";
   } finally {
+    if (typeof stopGenAnimation === 'function') stopGenAnimation();
     btn.disabled = false;
     if (spin) spin.style.display = 'none';
     if (btnText) btnText.textContent = '🔍 Analyser la vidéo';
