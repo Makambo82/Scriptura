@@ -2517,19 +2517,20 @@ body.is-unlocked .sidebar-logout{display:block}
 .viral-dim-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold-light,#E2C87A),#c9a84c);transition:width .9s ease}
 .viral-modele{border:1px dashed rgba(226,200,122,0.4)}
 .viral-modele-intro{margin:8px 2px 14px;font-size:0.88rem;line-height:1.5;color:#cfcfcf}
-/* Guide de montage CapCut (sous les storyboards) */
+/* Guide de montage CapCut, dressé comme les prompts du storyboard */
 .guide-montage-wrap{margin-top:12px}
 .guide-montage-btn{width:100%;justify-content:center}
 .guide-montage-loading{padding:16px;text-align:center;color:var(--gold-light,#E2C87A);font-size:0.9rem}
+.guide-montage-block{margin-top:18px;padding-top:16px;border-top:1px solid var(--border-soft)}
+.guide-montage-titre{font-size:0.98rem;font-weight:700;color:var(--gold-light,#E2C87A);margin-bottom:10px}
 .guide-intention{margin:0 2px 16px;font-size:0.95rem;line-height:1.55;color:#e4e4e4;font-style:italic}
-.guide-etapes{margin:8px 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:9px}
+.guide-etapes{margin:8px 0 6px;padding-left:22px;display:flex;flex-direction:column;gap:11px}
 .guide-etapes li{color:#d6d6d6;line-height:1.5}
 .guide-etapes li b{color:#fff}
-.guide-etapes li p{margin:2px 0 0;font-size:0.9rem;color:#cdcdcd}
-.guide-plans{list-style:none;margin:8px 0 6px;padding:0;display:flex;flex-direction:column;gap:8px}
-.guide-plans li{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:9px 12px}
-.guide-plans li p{margin:3px 0 0;font-size:0.88rem;color:#d6d6d6;line-height:1.5}
-.guide-plans li b{color:var(--gold-light,#E2C87A);font-weight:600}
+.guide-etapes li p{margin:3px 0 0;font-size:0.9rem;color:#cdcdcd}
+.guide-plan-seg{margin-top:10px}
+.guide-plan-line{margin:4px 0 0;font-size:0.9rem;color:#d6d6d6;line-height:1.5}
+.guide-plan-line b{color:var(--gold-light,#E2C87A);font-weight:600;margin-right:5px}
 .guide-txt{margin:4px 2px 12px;font-size:0.9rem;line-height:1.5;color:#d6d6d6}
 .viral-modele-list{list-style:none;margin:12px 0 4px;padding:0;counter-reset:vm;display:flex;flex-direction:column;gap:10px}
 .viral-modele-list li{position:relative;background:rgba(226,200,122,0.06);border-radius:10px;padding:10px 12px 10px 40px}

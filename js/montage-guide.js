@@ -98,16 +98,16 @@ ${contexte ? '\nCONTEXTE : ' + contexte : ''}
 
 Produis :
 - INTENTION : en 1 à 2 phrases, le feeling de montage visé (nerveux, contemplatif, dramatique, punchy…) déduit du contenu réel.
-- ÉTAPES : le déroulé CapCut dans l'ordre (projet 9:16, import des images générées, pose de la voix off, calage des plans sur les durées, transitions, sous-titres, musique, export). 6 à 8 étapes, chacune adaptée à cette vidéo.
-- PLAN PAR PLAN : pour chaque plan, la transition vers le suivant et l'effet ou le mouvement conseillé (zoom lent, secousse, fondu, cut sec…), cohérent avec le moment.
+- ÉTAPES : le déroulé CapCut dans l'ordre (projet 9:16, import des images générées, pose de la voix off, transitions, sous-titres, musique, export). 5 à 7 étapes GÉNÉRALES et courtes. IMPORTANT : n'énumère JAMAIS les plans un par un dans les étapes (pas de « Plan 1 sur 4,5 sec, Plan 2 sur… »), tout le détail par plan va dans PLAN PAR PLAN ci-dessous. Garde chaque détail d'étape à 1-2 phrases.
+- PLAN PAR PLAN : pour CHAQUE plan, sa durée exacte, la transition vers le suivant, et l'effet ou le mouvement conseillé (zoom lent, secousse, fondu, cut sec…), cohérent avec le moment. Une entrée par plan.
 - MUSIQUE : ambiance conseillée et où monter, baisser ou couper le son.
 - SOUS-TITRES : style (police, taille, couleur, animation) adapté au ton.
 
 RÈGLES : nombres écrits normalement, jamais de tiret cadratin, wording naturel de créateur. Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour :
 {
   "intention": "<1-2 phrases>",
-  "etapes": [ { "titre": "<étape courte>", "detail": "<quoi faire dans CapCut, adapté à cette vidéo>" } ],
-  "par_plan": [ { "plan": "1", "transition": "<vers le plan suivant>", "effet": "<effet/mouvement sur ce plan>" } ],
+  "etapes": [ { "titre": "<étape courte>", "detail": "<consigne générale, 1-2 phrases, SANS énumérer les plans>" } ],
+  "par_plan": [ { "plan": "1", "duree": "<ex: 4,5 sec>", "transition": "<vers le plan suivant>", "effet": "<effet/mouvement sur ce plan>" } ],
   "musique": "<ambiance + où couper/monter>",
   "sous_titres": "<style adapté au ton>"
 }`;
@@ -118,32 +118,31 @@ RÈGLES : nombres écrits normalement, jamais de tiret cadratin, wording naturel
 }
 
 // Rendu du guide (nouvelle génération ou réouverture depuis l'historique).
+// Dressé comme les prompts du storyboard : pas de cadre séparé, mêmes blocs
+// (sb-segment) que les plans, avec un bloc par plan (Plan 01, Plan 02…).
 function renderGuideMontage(g) {
   g = g || {};
   const etapes = Array.isArray(g.etapes) ? g.etapes : [];
   const parPlan = Array.isArray(g.par_plan) ? g.par_plan : [];
   const texte = _texteGuideMontage(g);
   return `
-    <div class="out-card guide-montage-card open" style="margin-top:14px">
-      <div class="out-header" onclick="toggleCard(this.parentElement)">
-        <div class="out-title">🎬 Monter dans CapCut</div>
-        <div class="out-toggle">+</div>
-      </div>
-      <div class="out-body">
-        ${g.intention ? `<p class="guide-intention">${guideMontageEsc(g.intention)}</p>` : ''}
-        ${etapes.length ? `<div class="audit-section-label">Le déroulé dans CapCut</div>
-          <ol class="guide-etapes">${etapes.map(e => `<li><b>${guideMontageEsc(e.titre || '')}</b><p>${guideMontageEsc(e.detail || '')}</p></li>`).join('')}</ol>` : ''}
-        ${parPlan.length ? `<div class="audit-section-label">Plan par plan</div>
-          <ul class="guide-plans">${parPlan.map(p => `<li>
-            <span class="viral-moment">Plan ${guideMontageEsc(p.plan || '')}</span>
-            <p>${p.transition ? `<b>Transition :</b> ${guideMontageEsc(p.transition)}` : ''}${p.effet ? `${p.transition ? ' · ' : ''}<b>Effet :</b> ${guideMontageEsc(p.effet)}` : ''}</p>
-          </li>`).join('')}</ul>` : ''}
-        ${g.musique ? `<div class="audit-section-label">Musique</div><p class="guide-txt">${guideMontageEsc(g.musique)}</p>` : ''}
-        ${g.sous_titres ? `<div class="audit-section-label">Sous-titres</div><p class="guide-txt">${guideMontageEsc(g.sous_titres)}</p>` : ''}
-        <div class="sb-actions-fin">
-          <button class="icon-btn" title="Copier le guide" onclick="copyText(this, '${storeCopyText(texte)}')">${ICON_COPY}</button>
-          <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(texte)}')">${ICON_SHARE}</button>
-        </div>
+    <div class="guide-montage-block">
+      <div class="guide-montage-titre">🎬 Monter dans CapCut</div>
+      ${g.intention ? `<p class="guide-intention">${guideMontageEsc(g.intention)}</p>` : ''}
+      ${etapes.length ? `<ol class="guide-etapes">${etapes.map(e => `<li><b>${guideMontageEsc(e.titre || '')}</b><p>${guideMontageEsc(e.detail || '')}</p></li>`).join('')}</ol>` : ''}
+      ${parPlan.length ? `
+        <div class="sb-visual-label" style="margin-top:16px">Plan par plan</div>
+        ${parPlan.map((p, i) => `
+          <div class="sb-segment guide-plan-seg">
+            <div class="sb-head"><span class="sb-time">${guideMontageEsc(p.duree || '')}</span><span class="sb-index">Plan ${String(p.plan || (i + 1)).padStart(2, '0')}</span></div>
+            ${p.transition ? `<div class="guide-plan-line"><b>Transition</b> ${guideMontageEsc(p.transition)}</div>` : ''}
+            ${p.effet ? `<div class="guide-plan-line"><b>Effet</b> ${guideMontageEsc(p.effet)}</div>` : ''}
+          </div>`).join('')}` : ''}
+      ${g.musique ? `<div class="sb-visual-label" style="margin-top:16px">Musique</div><p class="guide-txt">${guideMontageEsc(g.musique)}</p>` : ''}
+      ${g.sous_titres ? `<div class="sb-visual-label" style="margin-top:12px">Sous-titres</div><p class="guide-txt">${guideMontageEsc(g.sous_titres)}</p>` : ''}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier le guide" onclick="copyText(this, '${storeCopyText(texte)}')">${ICON_COPY}</button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(texte)}')">${ICON_SHARE}</button>
       </div>
     </div>`;
 }
@@ -159,7 +158,7 @@ function _texteGuideMontage(g) {
   }
   if (Array.isArray(g.par_plan) && g.par_plan.length) {
     l.push('\nPLAN PAR PLAN :');
-    g.par_plan.forEach(p => l.push('- Plan ' + (p.plan || '') + ' : transition ' + (p.transition || '') + (p.effet ? ' · effet ' + p.effet : '')));
+    g.par_plan.forEach((p, i) => l.push('Plan ' + String(p.plan || (i + 1)).padStart(2, '0') + (p.duree ? ' (' + p.duree + ')' : '') + ' : transition ' + (p.transition || '') + (p.effet ? ' · effet ' + p.effet : '')));
   }
   if (g.musique) l.push('\nMUSIQUE : ' + g.musique);
   if (g.sous_titres) l.push('\nSOUS-TITRES : ' + g.sous_titres);
