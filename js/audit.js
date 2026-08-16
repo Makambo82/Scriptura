@@ -430,7 +430,7 @@ function auditEsc(s) {
 
 // Analyse détaillée « musclée » : garantit qu'un diagnostic de CONTENU récent
 // (sommaire) de SON compte existe AVANT l'appel /api/audit, pour que le serveur
-// croise contenu × distribution (synthese_croisee, voir api/audit.js).
+// croise contenu × diffusion (synthese_croisee, voir api/audit.js).
 //   • Réutilise la dernière sommaire de SON compte si elle est récente (< 10 j).
 //   • Sinon en lance une nouvelle en tâche de fond, avec le @pseudo réutilisé de
 //     la dernière sommaire, ou demandé UNE seule fois s'il est inconnu.
