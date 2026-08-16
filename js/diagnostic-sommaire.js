@@ -123,7 +123,88 @@ function calculerMetriquesVideos(medias, abonnes) {
     joursCouverts = Math.max(1, Math.round((dates[dates.length - 1] - dates[0]) / 86400));
     videosParSemaine = Math.round((dates.length / joursCouverts) * 7 * 10) / 10;
   }
-  return { n, moyVues, medianeVues, maxVues, ratioViral, pctPics, ratioPortee, videosParSemaine, joursCouverts };
+
+  // Taux d'engagement RÉEL par vidéo (interactions ÷ vues) : la vraie mesure
+  // d'engagement, et surtout STABLE et déterministe. On prend la MÉDIANE (robuste
+  // aux vidéos extrêmes) sur les vidéos qui ont des vues > 0. Exprimé en % (0-100).
+  const avecVues = vid.filter(v => typeof v.vues === 'number' && v.vues > 0);
+  let tauxEngagementPct = null;
+  if (avecVues.length >= 3) {
+    const taux = avecVues.map(v => {
+      const inter = (v.likes || 0) + (v.commentaires || 0) + (v.partages || 0);
+      return inter / v.vues;
+    }).sort((a, b) => a - b);
+    const m = taux.length;
+    const med = m % 2 ? taux[(m - 1) / 2] : (taux[m / 2 - 1] + taux[m / 2]) / 2;
+    tauxEngagementPct = Math.round(med * 1000) / 10; // 1 décimale, en %
+  }
+
+  return { n, moyVues, medianeVues, maxVues, ratioViral, pctPics, ratioPortee, videosParSemaine, joursCouverts, tauxEngagementPct };
+}
+
+// Barème → note : interpolation linéaire DÉTERMINISTE dans une fourchette.
+// Même valeur d'entrée ⇒ toujours la même note (contrairement à l'IA qui, à
+// température 1, tirait un nombre différent dans la fourchette à chaque appel).
+function _dsClamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+function _dsInterp(x, x0, x1, s0, s1) {
+  if (x1 === x0) return Math.round((s0 + s1) / 2);
+  return Math.round(s0 + ((x - x0) / (x1 - x0)) * (s1 - s0));
+}
+
+// Calcule les 4 notes EN CODE à partir des métriques réelles (mêmes barèmes que
+// ceux décrits à l'IA), pour un score parfaitement reproductible. L'IA ne note
+// plus rien : elle ne fournit que les constats et l'analyse qualitative.
+// Renvoie null si aucune métrique (mode « profil seul »), le diagnostic garde
+// alors le comportement dégradé habituel (engagement estimé par l'IA).
+function scorerDimensionsSommaire(m) {
+  if (!m) return null;
+  const dims = {};
+
+  // ENGAGEMENT /30 depuis le taux d'engagement réel (interactions/vues), en %.
+  if (m.tauxEngagementPct != null) {
+    const e = m.tauxEngagementPct;
+    let s;
+    if (e < 3)       s = _dsClamp(_dsInterp(e, 0, 3, 0, 8), 0, 8);
+    else if (e < 7)  s = _dsInterp(e, 3, 7, 9, 15);
+    else if (e < 15) s = _dsInterp(e, 7, 15, 16, 22);
+    else             s = _dsClamp(_dsInterp(e, 15, 30, 23, 30), 23, 30);
+    dims.engagement = { score: s, disponible: true };
+  } else dims.engagement = { score: null, disponible: false };
+
+  // PORTÉE /30 depuis le % vues/abonnés.
+  if (m.ratioPortee != null) {
+    const p = m.ratioPortee;
+    let s;
+    if (p < 8)       s = _dsClamp(_dsInterp(p, 0, 8, 0, 8), 0, 8);
+    else if (p < 20) s = _dsInterp(p, 8, 20, 9, 15);
+    else if (p < 50) s = _dsInterp(p, 20, 50, 16, 22);
+    else             s = _dsClamp(_dsInterp(p, 50, 150, 23, 30), 23, 30);
+    dims.portee = { score: s, disponible: true };
+  } else dims.portee = { score: null, disponible: false };
+
+  // RÉGULARITÉ /20 depuis les vidéos/semaine.
+  if (m.videosParSemaine != null) {
+    const v = m.videosParSemaine;
+    let s;
+    if (v < 0.5)     s = _dsClamp(_dsInterp(v, 0, 0.5, 0, 5), 0, 5);
+    else if (v < 2)  s = _dsInterp(v, 0.5, 2, 6, 11);
+    else if (v < 5)  s = _dsInterp(v, 2, 5, 12, 16);
+    else             s = _dsClamp(_dsInterp(v, 5, 10, 17, 20), 17, 20);
+    dims.regularite = { score: s, disponible: true };
+  } else dims.regularite = { score: null, disponible: false };
+
+  // VIRALITÉ /20 depuis le rapport pic/médiane (et présence de pics).
+  if (m.ratioViral != null) {
+    const r = m.ratioViral;
+    let s;
+    if (r < 2)       s = (m.pctPics > 0) ? 5 : _dsClamp(_dsInterp(r, 1, 2, 0, 5), 0, 5);
+    else if (r < 4)  s = _dsInterp(r, 2, 4, 6, 11);
+    else if (r < 10) s = _dsInterp(r, 4, 10, 12, 16);
+    else             s = _dsClamp(_dsInterp(r, 10, 20, 17, 20), 17, 20);
+    dims.viralite = { score: s, disponible: true };
+  } else dims.viralite = { score: null, disponible: false };
+
+  return dims;
 }
 
 // Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
@@ -196,11 +277,12 @@ DONNÉES PAR VIDÉO (calculées sur tes ${metriques.n} vidéos RÉCENTES ~2 dern
 - Vues moyennes par vidéo : ${metriques.moyVues}
 - Vues médianes par vidéo : ${metriques.medianeVues}
 - Meilleure vidéo récente : ${metriques.maxVues} vues
+${metriques.tauxEngagementPct != null ? `- Taux d'engagement réel (médiane interactions ÷ vues par vidéo) : ${metriques.tauxEngagementPct}%` : ''}
 ${metriques.ratioPortee != null ? `- Portée : les vidéos font en moyenne ${metriques.ratioPortee}% du nombre d'abonnés en vues` : ''}
 ${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${metriques.videosParSemaine} vidéo(s) par semaine (sur ${metriques.joursCouverts} jours couverts)` : ''}
 - Rapport pic/médiane : la meilleure vidéo fait ${metriques.ratioViral}× les vues de la vidéo médiane ; ${metriques.pctPics}% des vidéos dépassent 2× la médiane.
 
-Tu DOIS scorer Portée, Régularité et Viralité à partir de ces faits RÉCENTS (voir barèmes plus bas).` : `
+IMPORTANT : les NOTES chiffrées des 4 dimensions sont recalculées automatiquement par le code à partir de ces faits ; tes constats doivent rester COHÉRENTS avec ces chiffres (ne contredis pas un taux d'engagement de ${metriques.tauxEngagementPct != null ? metriques.tauxEngagementPct + '%' : 'n/a'} ou une portée de ${metriques.ratioPortee != null ? metriques.ratioPortee + '%' : 'n/a'}).` : `
 
 LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
 
@@ -231,8 +313,8 @@ ${blocSujets}
 
 RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false, n'invente jamais un chiffre.
 
-ENGAGEMENT (sur 30) : si le nombre de likes cumulés ET le nombre de vidéos sont présents, calcule les likes moyens par vidéo (likes cumulés ÷ nombre de vidéos), puis juge si c'est proportionnellement élevé ou faible face au nombre d'abonnés. Précise que c'est une estimation (le vrai taux d'engagement nécessiterait les vues par vidéo). Si l'un des deux chiffres manque, "disponible": false et score null.
-   BARÈME /30 (strict) : TRÈS FAIBLE → 0-8 · FAIBLE → 9-15 · CORRECT → 16-22 · FORT → 23-30.
+ENGAGEMENT (sur 30) : si le "Taux d'engagement réel" est fourni ci-dessus, commente-le (interactions ÷ vues par vidéo : c'est la vraie mesure d'engagement). Un taux élevé = audience qui réagit fort. Sinon, à défaut, estime à partir des likes cumulés ÷ nombre de vidéos face aux abonnés, en précisant que c'est une estimation.
+   BARÈME indicatif /30 : TRÈS FAIBLE (< 3%) → 0-8 · FAIBLE (3-7%) → 9-15 · CORRECT (7-15%) → 16-22 · FORT (> 15%) → 23-30.
 
 PORTÉE (sur 30) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Base-toi sur le % vues/abonnés (portée) : un compte sain fait souvent 20% ou plus de son audience en vues moyennes ; en dessous de 10%, la portée est faible.
    BARÈME /30 (strict) : TRÈS FAIBLE (portée < 8% des abonnés) → 0-8 · FAIBLE (8-20%) → 9-15 · CORRECTE (20-50%) → 16-22 · FORTE (> 50%, ou vues qui dépassent l'audience) → 23-30.
@@ -287,7 +369,25 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 }`;
 
   const raw = await callAI(MODEL_RAPIDE, 3000, prompt);
-  return parseAIResponse(raw);
+  const parsed = parseAIResponse(raw);
+
+  // NOTES DÉTERMINISTES : on remplace les notes de l'IA (tirées au hasard dans
+  // les fourchettes des barèmes, d'où des scores différents d'une analyse à
+  // l'autre) par des notes calculées EN CODE à partir des chiffres réels. Même
+  // compte + mêmes données ⇒ même score, toujours. On ne garde de l'IA que le
+  // texte (constat). En mode « profil seul » (pas de vidéos), scores=null ⇒ on
+  // laisse l'estimation d'engagement de l'IA (comportement dégradé inchangé).
+  if (parsed) {
+    const notes = scorerDimensionsSommaire(metriques);
+    if (notes) {
+      ['engagement', 'portee', 'regularite', 'viralite'].forEach(cle => {
+        const codeDim = notes[cle];
+        const constat = (parsed[cle] && parsed[cle].constat) || '';
+        parsed[cle] = { score: codeDim.score, disponible: codeDim.disponible, constat };
+      });
+    }
+  }
+  return parsed;
 }
 
 async function lancerDiagnosticSommaire() {
