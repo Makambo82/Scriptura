@@ -1327,7 +1327,8 @@ const GEN_DUREE = {
   audit: 18000,
   serie_creation: 30000,
   serie_episode: 30000,
-  viral: 42000
+  viral: 42000,
+  montageGuide: 20000
 };
 
 // ── « RÉPONDRE MAINTENANT » : interruption coopérative ──
@@ -1423,6 +1424,14 @@ const GEN_STEPS = {
     'Reconstitution de la recette, temps par temps…',
     'Repérage des leviers viraux…',
     'Calcul du score de viralité…'
+  ],
+  montageGuide: [
+    'Lecture du storyboard…',
+    'Analyse du ton et du rythme…',
+    'Choix des transitions et effets…',
+    'Calage des durées de chaque plan…',
+    'Direction musique et sous-titres…',
+    'Rédaction du guide CapCut…'
   ]
 };
 const GEN_TAGLINE = {
@@ -1432,7 +1441,8 @@ const GEN_TAGLINE = {
   audit: 'Ton consultant TikTok établit ton diagnostic',
   serie_creation: 'Ton architecte narratif construit ta série',
   serie_episode: 'Ton scénariste écrit ton épisode',
-  viral: 'Scriptura décode la recette virale'
+  viral: 'Scriptura décode la recette virale',
+  montageGuide: 'Ton monteur prépare ton CapCut'
 };
 
 function startGenAnimation(mode) {
@@ -1848,7 +1858,8 @@ async function generateStoryboard() {
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPrompts2)}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnScript', plans)}
-      </div>`);
+      </div>
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Script', plans) : ''}`);
 
     // Sauvegarder le storyboard pour qu'il reste après réouverture, mêmes
     // champs qu'avant (segment/texte_dit/prompt_visuel).

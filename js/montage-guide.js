@@ -57,8 +57,9 @@ async function genererGuideMontage(plans, contexte, btn, zoneId, onSave) {
 
   const zone = document.getElementById(zoneId);
   const libelleBtn = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Scriptura prépare ton montage…'; }
-  if (zone) { zone.innerHTML = '<div class="guide-montage-loading">🎬 Scriptura règle ton montage CapCut…</div>'; zone.style.display = 'block'; }
+  if (btn) btn.disabled = true;
+  // Animation plein écran (bande dorée + étapes), comme les autres générations.
+  if (typeof startGenAnimation === 'function') startGenAnimation('montageGuide');
 
   try {
     const guide = await _appelerGuideMontage(norm, contexte);
@@ -76,13 +77,25 @@ async function genererGuideMontage(plans, contexte, btn, zoneId, onSave) {
     }
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
-    if (zone) { zone.innerHTML = renderGuideMontage(guide); zone.style.display = 'block'; }
+    if (zone) { zone.innerHTML = renderGuideMontage(guide); zone.style.display = 'block'; zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
     if (btn) btn.style.display = 'none';
     if (typeof onSave === 'function') { try { onSave(guide); } catch (e) {} }
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = libelleBtn || '🎬 Guide de montage CapCut'; }
     if (zone) { zone.innerHTML = `<div class="error-box" style="display:block;margin-top:12px">Guide impossible : ${guideMontageEsc(e.message || 'réessaie')}.</div>`; zone.style.display = 'block'; }
+  } finally {
+    if (typeof stopGenAnimation === 'function') stopGenAnimation();
   }
+}
+
+// Bloc complet (bouton + zone) prêt à insérer sous n'importe quel storyboard.
+// suffixe : identifiant unique par emplacement. onSave optionnel (persistance).
+function guideMontageBlocHTML(suffixe, plans, contexte, onSave) {
+  const zoneId = 'guideZone' + suffixe;
+  return `<div class="guide-montage-wrap">
+    ${guideMontageBoutonHTML('guideBtn' + suffixe, zoneId, plans, contexte || '', onSave)}
+    <div class="guide-montage-zone" id="${zoneId}"></div>
+  </div>`;
 }
 
 async function _appelerGuideMontage(plans, contexte) {

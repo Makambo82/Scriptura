@@ -140,7 +140,8 @@ function reafficherStoryboard(sbData, isStory) {
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((s,i) => 'Plan ' + (i+1) + ' : ' + (s.visuel||'')).join('\n\n'))}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnStory', board)}
-      </div></div>`;
+      </div>
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('StoryReouv', board) : ''}</div>`;
     // Cacher le bouton "Générer le storyboard" puisqu'il est déjà là
     const btn = document.getElementById('storyStoryboardBtn');
     if (btn) btn.style.display = 'none';
@@ -174,7 +175,8 @@ function reafficherStoryboard(sbData, isStory) {
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tousLesPromptsRe)}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnScript', board)}
-      </div></div>`;
+      </div>
+      ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('ScriptReouv', board) : ''}</div>`;
     // Cacher le bouton générer
     const btn = document.getElementById('sbGenerateBtn');
     if (btn) btn.style.display = 'none';

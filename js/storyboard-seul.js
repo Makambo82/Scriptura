@@ -308,7 +308,8 @@ function ajouterActionsFinStoryboardSeul(grid, board, miniature, plans) {
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       ${montageBoutonHTML('montageBtnSeul', plans || board)}
-    </div>`);
+    </div>
+    ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Seul', plans || board) : ''}`);
   setTimeout(updateScrollBtn, 300);
 }
 
@@ -347,7 +348,8 @@ function afficherStoryboardSeulResultat(board, miniature) {
       <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(sbFullText)}')">${ICON_COPY}</button>
       <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sbFullText)}')">${ICON_SHARE}</button>
       ${montageBoutonHTML('montageBtnSeul', board)}
-    </div></div>`;
+    </div>
+    ${typeof guideMontageBlocHTML === 'function' ? guideMontageBlocHTML('Seul', board) : ''}</div>`;
   document.getElementById('sbSeulResults').style.display = 'block';
   setTimeout(updateScrollBtn, 300);
 }
