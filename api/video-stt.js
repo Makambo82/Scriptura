@@ -123,8 +123,25 @@ function extraireDesc(obj) {
   return desc;
 }
 
-// Statistiques réelles de la vidéo (vues/likes/commentaires/partages) pour le
-// score de viralité. Cherche l'objet qui porte le nombre de vues.
+// Nombre d'abonnés de l'AUTEUR de la vidéo, pour calculer la PORTÉE
+// (vues ÷ abonnés) : le vrai signal de viralité, bien plus honnête que les
+// vues absolues. Cherche la clé de followers à n'importe quelle profondeur.
+function extraireAbonnesAuteur(obj) {
+  const CLES = /^(follower_count|followercount|followers|fans|fans_count|fanscount)$/i;
+  let trouve = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (trouve != null || !o || typeof o !== 'object' || prof > 8 || vus.has(o)) return;
+    vus.add(o);
+    for (const k of Object.keys(o)) {
+      if (CLES.test(k)) { const v = Number(o[k]); if (Number.isFinite(v) && v > 0) { trouve = v; return; } }
+    }
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(obj || {}, 0);
+  return trouve;
+}
+
+// Statistiques réelles de la vidéo (vues/likes/commentaires/partages + abonnés
+// de l'auteur) pour la portée et le score. Cherche l'objet qui porte les vues.
 function extraireStats(obj) {
   let stats = null; const vus = new Set();
   (function scan(o, prof) {
@@ -143,6 +160,10 @@ function extraireStats(obj) {
     }
     for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
   })(obj, 0);
+  if (stats) {
+    const ab = extraireAbonnesAuteur(obj);
+    if (ab != null) stats.abonnesAuteur = ab;
+  }
   return stats;
 }
 

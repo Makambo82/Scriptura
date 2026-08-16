@@ -13,6 +13,9 @@
       "maxDuration": 60,
       "memory": 1024
     },
+    "api/patterns.js": {
+      "maxDuration": 30
+    },
     "api/montage-download.js": {
       "maxDuration": 60
     },

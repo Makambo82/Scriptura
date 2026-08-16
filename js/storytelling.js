@@ -224,7 +224,13 @@ ${blocsCandidats}
     ? `PLATEFORME, RÈGLE ABSOLUE : ce contenu est destiné à ${storyPlatform}. Le récit lui-même ne change pas de structure, mais la LÉGENDE, les HASHTAGS et l'appel à l'action DOIVENT respecter les codes propres à cette plateforme : ${codesPlateforme[storyPlatform] || 'adapte le registre et les hashtags aux usages de cette plateforme précise.'} Ne produis jamais une légende générique valable pour n'importe quelle plateforme.`
     : '';
 
+  // Mémoire virale partagée (le récit n'a pas de niche : mélange universel de
+  // leviers réels). recupererPatternsViraux vient de js/generation.js (global).
+  const memoireViraleStory = (typeof recupererPatternsViraux === 'function')
+    ? await recupererPatternsViraux('') : '';
+
   const storyPrompt = `Tu es le meilleur storyteller narratif francophone, spécialisé dans les récits immersifs, critiques et stylisés pour les réseaux sociaux. Tu produis un script qui capte l'attention immédiatement, la maintient jusqu'à la fin, et marque émotionnellement le spectateur. Le spectateur doit VIVRE la scène, pas seulement la regarder.
+${memoireViraleStory}
 
 SUJET / TEXTE FOURNI PAR L'UTILISATEUR :
 """

@@ -83,6 +83,36 @@ function restartIdeas() {
   document.getElementById('ideasResults').style.display = 'none';
 }
 
+// ── Mémoire virale partagée : injection dans les générations ──
+// Récupère quelques recettes RÉELLEMENT virales déjà décodées (niche d'abord)
+// depuis /api/patterns et les met en forme comme INSPIRATION. Best-effort :
+// renvoie '' si indisponible, jamais bloquant. Consigne stricte côté prompt :
+// s'inspirer des leviers, ADAPTER au sujet, ne jamais copier ni citer la liste.
+async function recupererPatternsViraux(niche, limit) {
+  try {
+    const q = '?limit=' + (limit || 5) + (niche ? '&niche=' + encodeURIComponent(niche) : '');
+    const ctrl = new AbortController();
+    const minuteur = setTimeout(() => ctrl.abort(), 6000);
+    let data;
+    try {
+      const r = await fetch('/api/patterns' + q, { signal: ctrl.signal });
+      data = await r.json();
+    } finally { clearTimeout(minuteur); }
+    if (!data || !data.ok || !Array.isArray(data.patterns) || !data.patterns.length) return '';
+    return _formatPatternsViraux(data.patterns);
+  } catch (e) { return ''; }
+}
+function _formatPatternsViraux(patterns) {
+  const lignes = patterns.slice(0, 6).map((p, i) => {
+    const leviers = Array.isArray(p.leviers) && p.leviers.length ? ' | leviers : ' + p.leviers.join(', ') : '';
+    const principes = Array.isArray(p.principes)
+      ? p.principes.map(x => x && (x.titre || x.detail)).filter(Boolean).slice(0, 2).join(' ; ') : '';
+    const tete = (p.hook_technique || 'accroche') + (p.niche ? ' (' + p.niche + ')' : '');
+    return `${i + 1}. ${tete}${leviers}${principes ? ' | à transposer : ' + principes : ''}`;
+  });
+  return `\nMÉMOIRE VIRALE DE SCRIPTURA (recettes RÉELLEMENT virales déjà décodées, retenues seulement parce que leur structure ET leurs performances l'ont prouvé). Inspire-toi de ces LEVIERS et PRINCIPES pour renforcer ta production, mais ADAPTE-les au sujet ci-dessous, ne les copie JAMAIS tels quels, ne cite jamais cette liste et n'en reprends pas les exemples :\n${lignes.join('\n')}\n`;
+}
+
 function setIdeaLoading(on) {
   const btn = document.getElementById('ideaGenerateBtn');
   btn.disabled = on;
@@ -173,8 +203,11 @@ async function generateIdeas() {
     ? `OBJECTIF DU CRÉATEUR "${ideaGoal}", RESPECTE-LE RIGOUREUSEMENT dans le choix des angles : ${codesObjectifIdees[ideaGoal] || 'adapte les angles à cet objectif précis.'}`
     : `Aucun objectif précisé : équilibre les angles entre portée, fidélisation et démonstration d'expertise.`;
 
+  // Mémoire virale partagée (niche d'abord) : leviers réels pour muscler les idées.
+  const memoireViraleIdees = await recupererPatternsViraux(niche);
+
   const prompt = `Tu es le Directeur Éditorial de Scriptura, expert en contenu viral francophone et stratège TikTok. Tu génères des idées de vidéos VIRALES et NON GÉNÉRIQUES pour CE créateur précis, jamais une liste interchangeable qu'un autre créateur de la même niche pourrait recevoir à l'identique.
-${rechercheWebIdees ? instructionRechercheWeb(niche, 'de proposer des idées') : ''}${instructionRechercheTendancesTikTok(niche, 'de proposer des idées')}
+${rechercheWebIdees ? instructionRechercheWeb(niche, 'de proposer des idées') : ''}${instructionRechercheTendancesTikTok(niche, 'de proposer des idées')}${memoireViraleIdees}
 
 PROFIL DU CRÉATEUR :
 - Niche : ${niche}
@@ -772,6 +805,10 @@ async function generate() {
     ? `OBJECTIF DU CRÉATEUR "${state.objectif}", LE CTA FINAL DOIT : ${codesObjectifScript[state.objectif] || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
     : `Aucun objectif précisé : vise un CTA équilibré entre portée et fidélisation.`;
 
+  // Mémoire virale partagée (niche d'abord) : recettes prouvées pour éclairer
+  // le choix de structure/hook du Directeur Éditorial.
+  const memoireViraleScript = await recupererPatternsViraux(niche);
+
   try {
     // ════════════════════════════════════════════
     //  PHASE 1, LE DIRECTEUR ÉDITORIAL (raisonnement)
@@ -781,6 +818,7 @@ async function generate() {
     const briefPrompt = `Tu es le Directeur Éditorial de Scriptura, le meilleur stratège de contenu viral francophone. Tu ne rédiges PAS encore. Tu réfléchis comme un directeur créatif de haut niveau avant toute écriture.
 
 RÈGLE FONDAMENTALE, au-dessus de toutes les autres : le script final doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok, jamais par une IA généraliste. Chaque choix que tu fais ci-dessous doit servir cette règle.
+${memoireViraleScript}
 
 CONTEXTE :
 - ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles)' : 'Sujet'} : ${sujet}

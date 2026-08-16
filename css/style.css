@@ -2506,6 +2506,10 @@ body.is-unlocked .sidebar-logout{display:block}
 .viral-structure li{margin-bottom:6px}
 .viral-structure b{color:#fff}
 .viral-stats-row{margin-top:12px;text-align:center;font-size:0.92rem;color:#d6d6d6;font-weight:600;letter-spacing:0.01em}
+.viral-verdict{border-left:3px solid var(--border-soft)}
+.viral-verdict-ok{border-left-color:var(--emerald,#2ecc9b)}
+.viral-verdict-alerte{border-left-color:#e0a23a}
+.viral-verdict-neutre{border-left-color:var(--gold-light,#E2C87A)}
 
 .ds-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .ds-mini-stat{text-align:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 8px}

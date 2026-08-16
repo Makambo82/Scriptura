@@ -99,11 +99,13 @@ async function lancerAnalyseVirale() {
     // 1) Transcript : depuis le lien en priorité, sinon le texte collé.
     let description = '';
     let statsVideo = null; // vraies stats de la vidéo (vues/likes…), pour le score
+    let langueVideo = null; // langue détectée par la transcription (pour la mémoire)
     if (lien) {
       if (note) note.textContent = 'On écoute la vidéo et on la transcrit ☕…';
       try {
         const data = await _transcriptDepuisLien(lien);
         statsVideo = data.stats || null;
+        langueVideo = data.langue || null;
         if (data.ok && data.transcript) { texte = data.transcript; description = data.description || ''; }
         else if (data.description && !texte) { texte = data.description; }
       } catch (e) {
@@ -133,6 +135,7 @@ ${description ? 'DESCRIPTION : ' + description + '\n\n' : ''}TRANSCRIPT DE LA VI
 ${texte.slice(0, 6000)}
 
 Analyse comme un monteur/scénariste pro :
+- LA NICHE : en 1 à 3 mots, le thème/domaine de la vidéo (ex. « finance perso », « cuisine rapide », « histoire », « développement perso », « tech »). Sert à ranger la recette dans la bonne famille.
 - LE HOOK : la ou les toutes premières phrases réelles, la technique, pourquoi ça arrête le scroll.
 - LA RECETTE, TEMPS PAR TEMPS : reconstitue le déroulé chronologique en 4 à 6 TEMPS maximum (fusionne structure et rétention : chaque temps = un procédé + le ressort d'attention qu'il crée). Ancre chaque temps dans le contenu réel.
 - POURQUOI ÇA A PERCÉ : 3 à 4 facteurs MAJEURS et déterminants seulement (les plus forts, pas une liste exhaustive).
@@ -143,6 +146,7 @@ RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de sépara
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Structure EXACTE :
 {
+  "niche": "<thème/domaine en 1 à 3 mots>",
   "sujet": "<le sujet réel de la vidéo + l'angle, 1 phrase>",
   "hook": { "technique": "<nom court de la technique d'accroche>", "verbatim": "<la ou les toutes premières phrases réelles du transcript>", "pourquoi": "<pourquoi ça arrête le scroll, 1-2 phrases>" },
   "recette": [ { "temps": "<ex: 0-5s / 5-15s / avant la fin>", "titre": "<nom court du procédé>", "detail": "<ce qui se passe + le ressort d'attention, 1-2 phrases, ancré dans la vidéo>" } ],
@@ -157,6 +161,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
       throw new Error("Analyse illisible, réessaie dans un instant.");
     }
     rapport.stats = statsVideo; // vraies stats (pour le score + le contexte)
+    rapport.langue = langueVideo;
     _viralRapport = rapport;
 
     // 3) Décompte quota + sauvegarde.
@@ -174,6 +179,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
     afficherRapportViral(rapport);
+    // Mémoire partagée : si la recette est élite (>= 90) ET vraiment performante,
+    // on dépose sa version distillée pour nourrir les générations de tous.
+    _deposerPatternViral(rapport);
 
   } catch (e) {
     err.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
@@ -210,6 +218,97 @@ function _fmtVuesViral(n) {
   if (v >= 1e6) return (Math.round(v / 1e5) / 10).toString().replace('.', ',') + ' M';
   if (v >= 1e3) return Math.round(v / 1e3) + ' K';
   return String(v);
+}
+
+// ── Portée : le vrai signal de viralité ──
+// vues ÷ abonnés de l'auteur. Une vidéo est virale quand l'algo la pousse
+// BIEN AU-DELÀ de l'audience du compte, pas juste quand le compteur est gros.
+function porteeViral(stats) {
+  if (!stats || !stats.vues || !stats.abonnesAuteur || stats.abonnesAuteur <= 0) return null;
+  const ratio = stats.vues / stats.abonnesAuteur;
+  let niveau, label;
+  if (ratio >= 10) { niveau = 4; label = 'Explosion'; }
+  else if (ratio >= 5) { niveau = 3; label = 'Forte portée'; }
+  else if (ratio >= 2) { niveau = 2; label = 'Bonne portée'; }
+  else { niveau = 1; label = 'Dans son audience'; }
+  // Ratio lisible : « ×12 » ou « ×3,4 ».
+  const affiche = ratio >= 10 ? '×' + Math.round(ratio) : '×' + (Math.round(ratio * 10) / 10).toString().replace('.', ',');
+  return { ratio, niveau, label, affiche };
+}
+// Niveau d'engagement (interactions ÷ vues) : moyenne TikTok ~5-6%.
+function niveauEngagementViral(taux) {
+  if (taux == null) return null;
+  if (taux >= 10) return { niveau: 4, label: 'Engagement exceptionnel' };
+  if (taux >= 6) return { niveau: 3, label: 'Engagement fort' };
+  if (taux >= 3) return { niveau: 2, label: 'Engagement normal' };
+  return { niveau: 1, label: 'Engagement faible' };
+}
+
+// ── Double lecture : Recette × Performance ──
+// La recette (structure) peut être forte alors que les vues sont un coup de
+// chance, et inversement. On croise les deux axes pour un verdict honnête.
+const SEUIL_RECETTE_FORTE = 83;  // 6 leviers sur 8 ou plus
+const SEUIL_MEMOIRE = 90;        // entrée dans la mémoire partagée : 7-8 leviers
+// La performance est « réelle » quand la portée est forte (l'algo a poussé au
+// delà de l'audience) ou, à défaut de connaître les abonnés, quand
+// l'engagement est exceptionnel.
+function performanceForte(stats) {
+  const p = porteeViral(stats);
+  if (p) return p.niveau >= 3;
+  const taux = _tauxEngagementViral(stats);
+  return taux != null && taux >= 10;
+}
+// Le verdict croisé, avec un titre + une explication. perfConnue=false quand on
+// n'a aucune stat (lien non résolu) : on tombe alors sur une lecture recette seule.
+function verdictCroiseViral(score, stats) {
+  const recetteForte = score != null && score >= SEUIL_RECETTE_FORTE;
+  const perfConnue = !!(stats && stats.vues);
+  if (!perfConnue) {
+    return recetteForte
+      ? { ton: 'ok', titre: 'Recette solide', texte: 'La structure est forte. Les stats réelles manquaient, mais la recette est réutilisable telle quelle.' }
+      : { ton: 'neutre', titre: 'Recette moyenne', texte: 'La structure reste perfectible. À reprendre en renforçant les leviers manquants.' };
+  }
+  const perfForte = performanceForte(stats);
+  if (recetteForte && perfForte) return { ton: 'ok', titre: 'Formule reproductible', texte: 'La structure explique le succès. Tu peux la copier, elle marche par construction, pas par chance.' };
+  if (recetteForte && !perfForte) return { ton: 'neutre', titre: 'Bonne structure, portée bridée', texte: 'La recette est solide mais le sujet, le timing ou la niche ont limité la portée. Réutilisable sur un meilleur angle.' };
+  if (!recetteForte && perfForte) return { ton: 'alerte', titre: 'Probable coup de chance', texte: 'Grosses vues, mais la structure ne les explique pas vraiment (tendance, sujet d\'actu, coup de bol). Reproduis avec prudence.' };
+  return { ton: 'neutre', titre: 'Peu à reprendre', texte: 'Ni recette solide ni performance marquante. Il y a mieux à décoder ailleurs.' };
+}
+
+// ── Mémoire partagée : dépôt d'une recette distillée ──
+// Étiquettes lisibles des leviers (pour l'injection dans les autres modes).
+const LEVIERS_LABEL = {
+  hook_fort: 'hook fort', boucle_ouverte: 'boucle ouverte', cliffhanger: 'cliffhanger',
+  deuxieme_personne: 'adresse à la 2e personne', details_concrets: 'détails concrets',
+  escalade: 'escalade', question_rhetorique: 'question rhétorique', archetypes: 'archétypes'
+};
+// Best-effort, anonymisé : on n'envoie QUE du distillé (technique de hook,
+// leviers, principes transposables, squelette sans verbatim), jamais le
+// transcript ni le pseudo. Le serveur re-vérifie le garde-fou (score >= 90 +
+// perf réelle) avant d'écrire. Ne bloque jamais l'utilisateur.
+function _deposerPatternViral(d) {
+  try {
+    if (!d) return;
+    const note = scoreViraliteRecette(d.signaux);
+    if (!note || note.score < SEUIL_MEMOIRE) return;       // garde-fou côté client
+    if (!performanceForte(d.stats)) return;                // perf réelle exigée
+    const portee = porteeViral(d.stats);
+    const leviers = SIGNAUX_VIRAL.filter(k => d.signaux && d.signaux[k] === true).map(k => LEVIERS_LABEL[k] || k);
+    const principes = (Array.isArray(d.a_reprendre) ? d.a_reprendre : [])
+      .map(p => ({ titre: (p && p.titre) || '', detail: (p && p.detail) || '' }));
+    const squelette = (Array.isArray(d.recette) ? d.recette : [])
+      .map(r => ({ temps: (r && r.temps) || '', titre: (r && r.titre) || '' }));  // pas de detail : zéro verbatim
+    const corps = {
+      niche: d.niche || '', hook_technique: (d.hook && d.hook.technique) || '',
+      leviers, principes, squelette, score: note.score,
+      portee: portee ? portee.ratio : null,
+      engagement: _tauxEngagementViral(d.stats),
+      langue: d.langue || null
+    };
+    fetch('/api/patterns', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corps)
+    }).catch(() => {});   // silencieux : la mémoire ne doit jamais gêner l'utilisateur
+  } catch (e) { /* jamais bloquant */ }
 }
 // Anime l'anneau du score (même mécanique que l'audit / le sommaire).
 function animerScoreViral(valeur, circonference) {
@@ -249,8 +348,10 @@ function afficherRapportViral(d) {
   const score = note ? note.score : null;
   const pal = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(score) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
   const taux = _tauxEngagementViral(d.stats);
+  const portee = porteeViral(d.stats);
+  // Ligne 1 : vues + engagement. Ligne 2 : portée (le vrai signal), si connue.
   const statsLigne = (d.stats && d.stats.vues)
-    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}</div>` : '';
+    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${portee ? ` · portée ${portee.affiche} son audience` : ''}</div>` : '';
   const niveauTxt = note ? `${note.leviers >= 6 ? 'Recette très solide' : note.leviers >= 4 ? 'Recette solide' : 'Recette correcte'} · ${note.leviers} leviers viraux` : '';
   const scoreCardHtml = score != null ? `
     <div class="score-card audit-score-card ds-score-card">
@@ -266,6 +367,19 @@ function afficherRapportViral(d) {
       ${statsLigne}
       ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ds-tag-ok">${niveauTxt}</span></div>` : ''}
     </div>` : '';
+
+  // Verdict croisé Recette × Performance : recette reproductible, coup de
+  // chance, ou structure bridée. Répond à « est-ce une vraie recette ou du bol ».
+  const verdict = verdictCroiseViral(score, d.stats);
+  const tagClasse = verdict.ton === 'ok' ? 'ds-tag-ok' : verdict.ton === 'alerte' ? 'ds-tag-alert' : 'ds-tag';
+  const verdictHtml = `
+    <div class="score-card viral-verdict viral-verdict-${verdict.ton}">
+      <div class="ds-section-row">
+        <div class="audit-section-label" style="margin-bottom:0">Recette ou coup de chance ?</div>
+        <span class="ds-tag ${tagClasse}">${viralEsc(verdict.titre)}</span>
+      </div>
+      <p class="audit-diag-constat" style="margin-top:10px">${viralEsc(verdict.texte)}</p>
+    </div>`;
 
   const sujetHtml = d.sujet ? `
     <div class="score-card">
@@ -310,6 +424,7 @@ function afficherRapportViral(d) {
 
   res.innerHTML = `
     ${scoreCardHtml}
+    ${verdictHtml}
     ${sujetHtml}
     ${hookHtml}
     ${recetteHtml}
@@ -342,9 +457,13 @@ function _texteRapportViral(d) {
     let entete = 'SCORE DE VIRALITÉ : ' + note.score + '/100 (' + note.leviers + ' leviers viraux)';
     if (d.stats && d.stats.vues) {
       const taux = _tauxEngagementViral(d.stats);
+      const portee = porteeViral(d.stats);
       entete += '\n' + _fmtVuesViral(d.stats.vues) + ' vues' + (taux != null ? ' · ' + String(taux).replace('.', ',') + "% d'engagement" : '');
+      if (portee) entete += ' · portée ' + portee.affiche + ' son audience';
     }
     lignes.push(entete);
+    const verdict = verdictCroiseViral(note.score, d.stats);
+    lignes.push('\nVERDICT : ' + verdict.titre + '. ' + verdict.texte);
   }
   if (d.sujet) lignes.push('\nSUJET : ' + d.sujet);
   if (d.hook) lignes.push('\nHOOK (' + (d.hook.technique || '') + ') : ' + (d.hook.verbatim || '') + '\n' + (d.hook.pourquoi || ''));
