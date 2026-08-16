@@ -496,19 +496,18 @@ function afficherRapportViral(d) {
       </ul>
     </div>` : '';
 
-  // Le MODÈLE APPLICABLE : gabarit vierge réutilisable, avec bouton pour
-  // l'appliquer directement à un script (voir creerScriptDepuisViral('modele')).
+  // Le MODÈLE APPLICABLE : gabarit vierge à lire et copier. L'action (créer un
+  // script) est le seul CTA, en bas du résultat, pour ne pas doublonner.
   const modeleHtml = modele.length ? `
     <div class="score-card viral-modele">
       <div class="audit-section-label">Le modèle applicable (à remplir)</div>
-      <p class="viral-modele-intro">C'est la structure de la vidéo, vidée de son sujet. Remplace les trous entre crochets [ ] par le tien : tu gardes la mécanique qui a marché, tu changes juste le contenu. Le bouton en bas le fait pour toi.</p>
+      <p class="viral-modele-intro">C'est la structure de la vidéo, vidée de son sujet. Remplace les trous entre crochets [ ] par le tien : tu gardes la mécanique qui a marché, tu changes juste le contenu. Le bouton « Créer un script » en bas le fait pour toi.</p>
       <ol class="viral-modele-list">
         ${modele.map(m => `<li>
           <span class="viral-moment">${viralEsc(m.temps || '')}</span>
           <p>${viralEsc(m.gabarit || '')}</p>
         </li>`).join('')}
       </ol>
-      <button class="btn-generate" style="width:100%;margin-top:6px" onclick="creerScriptDepuisViral('modele')">Réutiliser ce modèle sur mon sujet →</button>
     </div>` : '';
 
   const facteursHtml = facteurs.length ? `
