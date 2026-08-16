@@ -29,6 +29,15 @@
 // js/recommandations.js) : mes données vs intelligence de niche à adapter.
 let _sommaireEstMonCompte = true;
 
+// Dernier résultat affiché ({ username, diagnostic, estMonCompte }), pour
+// pouvoir enchaîner un FACE-À-FACE : après avoir décodé un concurrent, le
+// bouton « Analyser mon compte » mémorise ce concurrent ici, et l'analyse de
+// MON compte affiche ensuite « Toi face à @concurrent ».
+let _dernierSommaireAffiche = null;
+// Concurrent EN ATTENTE de comparaison (posé par « Analyser mon compte » depuis
+// un résultat concurrent, consommé par la prochaine analyse de mon compte).
+let _comparerAuConcurrent = null;
+
 // Bascule le sélecteur Mon compte / Compte concurrent.
 function choisirScopeSommaire(estMoi) {
   _sommaireEstMonCompte = !!estMoi;
@@ -95,6 +104,16 @@ function analyserAutreCompteDiagSommaire(estMonCompte = true) {
   choisirScopeSommaire(estMonCompte !== false); // pré-règle le scope voulu
   const input = document.getElementById('diagSommaireInput');
   if (input) input.focus();
+}
+
+// « Analyser mon compte » depuis un résultat CONCURRENT : mémorise ce concurrent
+// pour le face-à-face, puis ouvre la saisie pré-réglée sur Mon compte. La
+// comparaison « Toi face à @concurrent » s'affichera après l'analyse de mon compte.
+function analyserMonCompteVsConcurrent() {
+  if (_dernierSommaireAffiche && _dernierSommaireAffiche.estMonCompte === false) {
+    _comparerAuConcurrent = _dernierSommaireAffiche;
+  }
+  analyserAutreCompteDiagSommaire(true);
 }
 
 function diagSommaireEsc(t) {
@@ -607,6 +626,17 @@ async function lancerDiagnosticSommaire() {
 
     afficherDiagnosticSommaireResultat(parsed, username, _sommaireEstMonCompte);
 
+    // FACE-À-FACE : si on vient de « Analyser mon compte » à la suite d'un
+    // concurrent décodé, on ajoute en haut de mon résultat le duel « Toi face à
+    // @concurrent » (best-effort, en tâche de fond, ne bloque pas l'affichage).
+    if (_sommaireEstMonCompte && _comparerAuConcurrent) {
+      const concurrent = _comparerAuConcurrent;
+      _comparerAuConcurrent = null;
+      afficherComparaisonConcurrent(parsed, username, concurrent);
+    } else if (!_sommaireEstMonCompte) {
+      _comparerAuConcurrent = null; // analyse d'un concurrent : on abandonne la comparaison en attente
+    }
+
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
     errorBox.style.display = 'block';
@@ -678,6 +708,8 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   const results = document.getElementById('diagSommaireResults');
   if (!results || !d) return;
   const moi = estMonCompte !== false;
+  // Mémorise ce résultat pour un éventuel face-à-face (voir analyserMonCompteVsConcurrent).
+  _dernierSommaireAffiche = { username: username, diagnostic: d, estMonCompte: moi };
 
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
 
@@ -843,7 +875,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   const ctaConcurrentHtml = `
     <div class="ds-alt">
       <p style="margin:0 0 14px">Tu viens de décoder <strong>@${diagSommaireEsc(username)}</strong>. Pour voir où <strong>tu</strong> te situes face à lui, analyse ton propre compte, tu pourras comparer vos forces et repérer précisément ton retard ou ton avance.</p>
-      <button class="btn-generate" onclick="analyserAutreCompteDiagSommaire(true)">Analyser mon compte →</button>
+      <button class="btn-generate" onclick="analyserMonCompteVsConcurrent()">Analyser mon compte →</button>
     </div>`;
   const ctaDetailleHtml = dejaAcces ? `
     <div class="ds-alt">
@@ -936,4 +968,118 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
     afficherOpportuniteDiagSommaire();
   }
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Score global d'un diagnostic (mêmes règles que l'anneau) : somme des SEULES
+// dimensions mesurées, ramenée sur 100. Sert au duel chiffré du face-à-face.
+function scoreGlobalDepuisDiag(d) {
+  let obt = 0, max = 0;
+  Object.keys(DS_DIM_META).forEach(cle => {
+    const meta = DS_DIM_META[cle], dim = d && d[cle];
+    if (dim && dim.disponible !== false && typeof dim.score === 'number' && !Number.isNaN(dim.score)) {
+      obt += Math.max(0, Math.min(meta.max, dim.score)); max += meta.max;
+    }
+  });
+  return max > 0 ? Math.round(obt / max * 100) : null;
+}
+
+// FACE-À-FACE « Toi face à @concurrent » : ajouté EN HAUT de mon résultat quand
+// je viens de « Analyser mon compte » après avoir décodé un concurrent. Duel
+// chiffré déterministe (score + 4 dimensions, mes chiffres vs les siens) puis
+// synthèse IA (où je mène / suis en retard, et LE levier n°1 à lui prendre).
+// Best-effort : toute erreur laisse simplement mon résultat tel quel.
+async function afficherComparaisonConcurrent(moiDiag, moiUsername, concurrent) {
+  const results = document.getElementById('diagSommaireResults');
+  if (!results || !moiDiag || !concurrent) return;
+  const concUser = (concurrent.username || 'ce compte');
+  const concDiag = concurrent.diagnostic || {};
+
+  // Carte placeholder tout en haut (le duel arrive après l'appel IA).
+  const carte = document.createElement('div');
+  carte.className = 'score-card ds-evolution pivot ds-vs-card';
+  carte.innerHTML = `<div class="ds-vs-loading">On te compare à @${diagSommaireEsc(concUser)} ☕…</div>`;
+  results.insertAdjacentElement('afterbegin', carte);
+
+  // Duel chiffré (déterministe) : score global + 4 dimensions.
+  const mesur = x => (x && x.disponible !== false && typeof x.score === 'number' && !Number.isNaN(x.score)) ? x.score : null;
+  const lignes = [{ label: 'Score global', max: 100, moi: scoreGlobalDepuisDiag(moiDiag), lui: scoreGlobalDepuisDiag(concDiag) }];
+  Object.keys(DS_DIM_META).forEach(cle => {
+    const meta = DS_DIM_META[cle];
+    lignes.push({ label: meta.label, max: meta.max, moi: mesur(moiDiag[cle]), lui: mesur(concDiag[cle]) });
+  });
+  // Synthèse IA (courte, actionnable).
+  const compact = (d) => JSON.stringify({
+    sante: d.sante_compte, engagement: d.engagement, portee: d.portee, regularite: d.regularite,
+    viralite: d.viralite, niche: d.niche && d.niche.nom, top: d.top_videos,
+    formule_gagnante: d.evolution && d.evolution.formule_gagnante, concepts: d.concepts_recurrents
+  }).slice(0, 2500);
+  const duelTexte = lignes.map(l => `- ${l.label} : toi ${l.moi == null ? 'n/a' : l.moi} / lui ${l.lui == null ? 'n/a' : l.lui}`).join('\n');
+  const prompt = `Tu es Scriptura, consultant TikTok. L'utilisateur (@${moiUsername}) vient d'analyser un concurrent (@${concUser}) puis son propre compte. Écris une comparaison PRO, honnête et actionnable, à la 2e personne (« tu »).
+
+DUEL CHIFFRÉ (faits, mêmes barèmes des deux côtés) :
+${duelTexte}
+
+TON COMPTE (@${moiUsername}) : ${compact(moiDiag)}
+LE CONCURRENT (@${concUser}) : ${compact(concDiag)}
+
+Dis clairement où TU le domines et où tu es en RETARD (appuie-toi sur les chiffres du duel, ne les contredis jamais). Puis donne LE levier n°1 à lui prendre pour combler l'écart, en t'appuyant sur sa formule gagnante / ses cartons. Concret, pas de flatterie, pas de généralités. N'emploie pas de tiret cadratin.
+
+Réponds UNIQUEMENT en JSON : { "constat": "<2 à 4 phrases>", "levier_titre": "<max 8 mots>", "levier_detail": "<1-2 phrases>" }`;
+
+  let syn = null;
+  try { syn = parseAIResponse(await callAI(MODEL_RAPIDE, 1200, prompt)); } catch (e) { syn = null; }
+
+  carte.innerHTML = _carteVsHtml(concUser, lignes, syn);
+
+  // Persiste la comparaison dans la génération de mon compte (best-effort), pour
+  // qu'elle réapparaisse à la réouverture depuis l'historique.
+  try {
+    if (typeof currentGenId !== 'undefined' && currentGenId && typeof supabaseClient !== 'undefined' && supabaseClient) {
+      const comparaison = { concurrent: concUser, lignes, synthese: syn };
+      const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
+      if (data && data.contenu) {
+        const nouveau = Object.assign({}, data.contenu, { comparaisonConcurrent: comparaison });
+        await supabaseClient.from('generations').update({ contenu: nouveau }).eq('id', currentGenId);
+      }
+    }
+  } catch (e) { /* silencieux */ }
+}
+
+// Construit le HTML de la carte « Toi face à @concurrent » à partir du duel
+// chiffré (lignes) et de la synthèse. Partagé entre l'affichage en direct
+// (afficherComparaisonConcurrent) et la réouverture depuis l'historique
+// (renderComparaisonSauvegardee), pour un rendu identique sans réappel IA.
+function _carteVsHtml(concUser, lignes, syn) {
+  const cell = (v, max) => (v == null ? '·' : v + '<span class="ds-vs-max">/' + max + '</span>');
+  const corps = (lignes || []).map(l => {
+    const both = l.moi != null && l.lui != null;
+    const gagneMoi = both && l.moi > l.lui, gagneLui = both && l.lui > l.moi;
+    return `<tr>
+      <td class="ds-vs-dim">${diagSommaireEsc(l.label)}</td>
+      <td class="ds-vs-num${gagneMoi ? ' ds-vs-gagne' : ''}">${cell(l.moi, l.max)}${gagneMoi ? ' ▸' : ''}</td>
+      <td class="ds-vs-num${gagneLui ? ' ds-vs-gagne' : ''}">${gagneLui ? '◂ ' : ''}${cell(l.lui, l.max)}</td>
+    </tr>`;
+  }).join('');
+  const tableau = `<table class="ds-vs"><thead><tr>
+      <th></th><th>Toi</th><th>@${diagSommaireEsc(concUser)}</th></tr></thead>
+    <tbody>${corps}</tbody></table>`;
+  return `
+    <div class="ds-section-row">
+      <div class="audit-section-label" style="margin-bottom:0">Toi face à @${diagSommaireEsc(concUser)}</div>
+      <span class="ds-tag ds-tag-alert">Face-à-face</span>
+    </div>
+    <div class="ds-vs-wrap">${tableau}</div>
+    ${syn && syn.constat ? `<p class="audit-diag-constat" style="margin-top:14px">${diagSommaireEsc(syn.constat)}</p>` : ''}
+    ${syn && syn.levier_titre ? `<div class="ds-evo-formule"><div class="ds-evo-h">🎯 Ton levier n°1 face à lui</div><p><b>${diagSommaireEsc(syn.levier_titre)}</b> — ${diagSommaireEsc(syn.levier_detail || '')}</p></div>` : ''}`;
+}
+
+// Réaffiche un face-à-face DÉJÀ calculé (stocké dans la génération) en haut du
+// résultat, sans réappeler l'IA. Utilisé à la réouverture depuis l'historique.
+function renderComparaisonSauvegardee(comp) {
+  const results = document.getElementById('diagSommaireResults');
+  if (!results || !comp || !Array.isArray(comp.lignes)) return;
+  const carte = document.createElement('div');
+  carte.className = 'score-card ds-evolution pivot ds-vs-card';
+  carte.innerHTML = _carteVsHtml(comp.concurrent || 'ce compte', comp.lignes, comp.synthese);
+  results.insertAdjacentElement('afterbegin', carte);
 }

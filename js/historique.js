@@ -974,6 +974,10 @@ function reopenGeneration(i) {
     const cds = g.contenu || {};
     if (typeof afficherDiagnosticSommaireResultat === 'function') {
       afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '', cds.estMonCompte);
+      // Réaffiche le face-à-face « Toi face à @concurrent » s'il avait été calculé.
+      if (cds.comparaisonConcurrent && typeof renderComparaisonSauvegardee === 'function') {
+        renderComparaisonSauvegardee(cds.comparaisonConcurrent);
+      }
     }
   } else if (g.mode === 'storyboardSeul') {
     const sbsh = document.getElementById('storyboardSeulFlow');

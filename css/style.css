@@ -2481,6 +2481,20 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-evo-formule p{margin:5px 0 0;font-size:0.88rem;color:#fff;line-height:1.55}
 .ds-evo-formule .ds-evo-h{color:var(--gold-light)}
 
+/* Face-à-face « Toi face à @concurrent » : duel chiffré */
+.ds-vs-card{border-color:rgba(201,168,76,0.45)}
+.ds-vs-loading{color:var(--gold-light);font-size:0.9rem;font-style:italic;padding:6px 0}
+.ds-vs-wrap{margin-top:12px;overflow-x:auto}
+.ds-vs{width:100%;border-collapse:collapse;font-size:0.9rem}
+.ds-vs thead th{color:var(--muted,#9a9a9a);font-weight:600;font-size:0.8rem;text-align:right;padding:0 10px 8px;text-transform:uppercase;letter-spacing:0.03em}
+.ds-vs thead th:first-child{text-align:left}
+.ds-vs tbody tr{border-top:1px solid var(--border-soft)}
+.ds-vs td{padding:10px}
+.ds-vs-dim{color:#fff;font-weight:500}
+.ds-vs-num{text-align:right;color:#d6d6d6;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ds-vs-max{color:var(--muted,#8a8a8a);font-size:0.78em}
+.ds-vs-gagne{color:var(--gold-light);font-weight:700}
+
 .ds-mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
 .ds-mini-stat{text-align:center;background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 8px}
 .ds-mini-stat b{display:block;font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--gold-light);margin-bottom:3px}
