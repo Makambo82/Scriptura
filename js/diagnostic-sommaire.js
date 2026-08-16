@@ -278,6 +278,17 @@ function scorerDimensionsSommaire(m) {
   return dims;
 }
 
+// Mot de niveau d'une dimension À PARTIR DU SCORE CALCULÉ PAR LE CODE, avec les
+// mêmes bornes que les barèmes. Sert à IMPOSER le qualificatif à l'IA (constats)
+// pour qu'elle ne dise jamais « fort » sur un score faible, ni l'inverse.
+function _dsNiveauMot(cle, score) {
+  if (score == null) return null;
+  if (cle === 'engagement' || cle === 'portee') { // /30
+    return score <= 8 ? 'très faible' : score <= 15 ? 'faible' : score <= 22 ? 'correct' : 'fort';
+  }
+  return score <= 5 ? 'très faible' : score <= 11 ? 'faible' : score <= 16 ? 'correct' : 'fort'; // /20
+}
+
 // Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
 // en cours", jamais les deux affichés en même temps.
 function toggleDiagSommaireEntree(visible) {
@@ -374,6 +385,16 @@ async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
     ? videosRecentes
     : toutesVideos.slice(0, Math.max(15, videosRecentes.length));
   const metriques = calculerMetriquesVideos(baseMetriques, abonnes);
+
+  // NIVEAUX déjà tranchés par le code (mêmes bornes que le barème). On les
+  // impose à l'IA pour que ses CONSTATS n'emploient jamais un qualificatif qui
+  // contredit le score affiché (le score, lui, est recalculé plus bas).
+  const _notesPre = scorerDimensionsSommaire(metriques);
+  const niveauxTexte = _notesPre ? ['engagement', 'portee', 'regularite', 'viralite'].map(cle => {
+    const d = _notesPre[cle], meta = DS_DIM_META[cle];
+    if (!d || d.disponible === false || d.score == null) return `- ${meta.label} : non mesurée (n'en parle pas comme forte ou faible)`;
+    return `- ${meta.label} : ${_dsNiveauMot(cle, d.score)} (${d.score}/${meta.max})`;
+  }).join('\n') : '';
 
   const blocVideos = metriques ? `
 
@@ -521,7 +542,10 @@ RÉGULARITÉ (sur 20) : disponible UNIQUEMENT si la cadence est fournie. Base-to
 VIRALITÉ (sur 20) : disponible UNIQUEMENT si le rapport pic/médiane est fourni. Un compte avec des pics nets a un rapport pic/médiane élevé et plusieurs vidéos au-dessus de 2× la médiane. Un rapport proche de 1 = contenu plat, sans percée.
    BARÈME /20 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-5 · faible (2-4×) → 6-11 · bon (4-10×) → 12-16 · fort potentiel viral (> 10×, plusieurs pics) → 17-20.
 
-COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score chiffré, le mot employé dans le constat, et la "sante_compte" globale doivent aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" avec 18/30, ou de dire "faible" partout et conclure "santé Bonne". Relis-toi : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
+${niveauxTexte ? `NIVEAUX DÉJÀ TRANCHÉS PAR LE CODE (le score AFFICHÉ vient du code, pas de toi). Dans tes constats et dans "sante_compte", emploie EXACTEMENT ces qualificatifs, ne les recalcule pas, ne les contredis jamais (n'écris jamais « fort » sur une dimension marquée « faible ») :
+${niveauxTexte}
+
+` : ''}COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score chiffré, le mot employé dans le constat, et la "sante_compte" globale doivent aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" avec 18/30, ou de dire "faible" partout et conclure "santé Bonne". Relis-toi : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
 ${consignesQualitatives}
 
 RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement (ex: "12 400 abonnés"), jamais de séparateur anglo-saxon.
