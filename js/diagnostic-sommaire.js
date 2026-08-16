@@ -38,13 +38,39 @@ let _dernierSommaireAffiche = null;
 // un résultat concurrent, consommé par la prochaine analyse de mon compte).
 let _comparerAuConcurrent = null;
 
-// Bascule le sélecteur Mon compte / Compte concurrent.
+// Bascule le sélecteur Mon compte / Compte concurrent, ET adapte tout l'écran
+// de saisie au contexte (titre, sous-titre, note, placeholder, et masquage de
+// l'invitation « analyse détaillée » qui n'a de sens que pour MON compte).
 function choisirScopeSommaire(estMoi) {
   _sommaireEstMonCompte = !!estMoi;
   const bMoi = document.getElementById('dsScopeMoi');
   const bConc = document.getElementById('dsScopeConcurrent');
   if (bMoi) bMoi.classList.toggle('actif', _sommaireEstMonCompte);
   if (bConc) bConc.classList.toggle('actif', !_sommaireEstMonCompte);
+  _appliquerTextesScopeEntree();
+}
+
+// Réécrit les textes de l'écran de saisie selon le scope : 2e personne pour MON
+// compte (« ton diagnostic », « ta niche »), tournure concurrent sinon (« décode
+// un concurrent », « sa niche »). L'analyse détaillée (captures de MES stats
+// privées) ne se propose qu'en mode « mon compte ».
+function _appliquerTextesScopeEntree() {
+  const moi = _sommaireEstMonCompte;
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const notePublic = 'Aucune connexion, aucun mot de passe. On lit uniquement ce qui est <strong style="color:rgba(255,255,255,0.7)">public</strong> sur ';
+  if (moi) {
+    set('dsEntreeTitre', 'Ton diagnostic,<br><strong>sans captures.</strong>');
+    set('dsEntreeSub', "Entre ton @nom d'utilisateur : Scriptura lit tes vidéos publiques des 2 derniers mois et décode ta niche, tes formats qui percent, et ce qui plombe ta croissance.");
+    set('dsEntreeNote', notePublic + 'ton profil.');
+  } else {
+    set('dsEntreeTitre', 'Décode un concurrent,<br><strong>sans captures.</strong>');
+    set('dsEntreeSub', 'Entre le @nom du concurrent : Scriptura lit ses vidéos publiques des 2 derniers mois et décode sa niche, ses formats qui percent, et sa recette pour percer.');
+    set('dsEntreeNote', notePublic + 'son profil.');
+  }
+  const inp = document.getElementById('diagSommaireInput');
+  if (inp) inp.placeholder = moi ? 'nom.utilisateur' : 'nom.du.concurrent';
+  const det = document.getElementById('dsEntreeDetaillee');
+  if (det) det.style.display = moi ? '' : 'none';
 }
 
 // Prépare l'écran de choix pour une nouvelle analyse (efface le champ,
@@ -258,6 +284,9 @@ function toggleDiagSommaireEntree(visible) {
   document.querySelectorAll('#diagSommaireFlow .ds-scope, #diagSommaireFlow .ds-field, #diagSommaireFlow .ds-note, #diagSommaireFlow .ds-sep, #diagSommaireFlow .ds-alt').forEach(el => {
     el.style.display = visible ? '' : 'none';
   });
+  // À la réapparition de l'écran de saisie, réappliquer la règle de scope :
+  // l'invitation « analyse détaillée » (.ds-alt) reste masquée en mode concurrent.
+  if (visible) _appliquerTextesScopeEntree();
 }
 
 // Messages qui défilent sous le pourcentage pendant l'analyse, ce

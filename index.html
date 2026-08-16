@@ -358,8 +358,8 @@
     <button class="btn-back" onclick="navBack()">← Retour</button>
     <div class="ideas-header">
       <div class="ideas-eyebrow">Diagnostic sommaire · TikTok</div>
-      <h2 class="ideas-title">Ton diagnostic,<br/><strong>sans captures.</strong></h2>
-      <p class="ideas-sub">Entre ton @nom d'utilisateur : Scriptura lit tes vidéos publiques des 2 derniers mois et décode ta niche, tes formats qui percent, et ce qui plombe ta croissance.</p>
+      <h2 class="ideas-title" id="dsEntreeTitre">Ton diagnostic,<br/><strong>sans captures.</strong></h2>
+      <p class="ideas-sub" id="dsEntreeSub">Entre ton @nom d'utilisateur : Scriptura lit tes vidéos publiques des 2 derniers mois et décode ta niche, tes formats qui percent, et ce qui plombe ta croissance.</p>
     </div>
 
     <div class="ds-scope" role="group" aria-label="Type de compte analysé">
@@ -376,9 +376,9 @@
       </button>
     </div>
     <div class="err" id="diagSommaireErrorBox" style="display:none"></div>
-    <p class="ds-note"><span>🔒</span><span>Aucune connexion, aucun mot de passe. On lit uniquement ce qui est <strong style="color:rgba(255,255,255,0.7)">public</strong> sur ton profil.</span></p>
+    <p class="ds-note"><span>🔒</span><span id="dsEntreeNote">Aucune connexion, aucun mot de passe. On lit uniquement ce qui est <strong style="color:rgba(255,255,255,0.7)">public</strong> sur ton profil.</span></p>
 
-    <div class="ds-alt" style="margin-top:24px">
+    <div class="ds-alt" id="dsEntreeDetaillee" style="margin-top:24px">
       <p style="margin:0 0 14px">Envie de savoir <strong>comment l'algo te pousse (ou pas)</strong> ? L'analyse détaillée lit tes statistiques privées, invisibles ici : rétention (où l'attention décroche), sources de trafic (Pour toi, abonnés, recherche), démographie de ton audience. Avec le plan Pro, ou à l'unité avec un jeton, sans abonnement.</p>
       <button class="btn-storyboard" style="width:100%;justify-content:center" onclick="ouvrirCapturesDepuisChoix()">Passer à l'analyse détaillée →</button>
     </div>
