@@ -568,6 +568,15 @@ function renderSummary() {
     viralInput.placeholder = "Colle ici le texte, les sous-titres ou la description de la vidéo virale que tu as vue. Scriptura va décoder sa structure (hook, rythme, narration) et la recréer pour ton sujet.";
     viralAstuce.textContent = '💡 Astuce : sur TikTok, active les sous-titres et copie le texte. Ou décris simplement ce qui se passe dans la vidéo.';
     sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
+  } else if (state.depart && state.depart.includes('vidéo qui a raté')) {
+    // Handoff depuis le mode « Analyser une vidéo » quand la vidéo a floppé :
+    // on repart de sa matière (recette corrigée / modèle) pour livrer la
+    // version virale.
+    viralField.style.display = 'flex';
+    viralLabel.textContent = 'La vidéo qui a raté, à transformer en virale';
+    viralInput.placeholder = "Le diagnostic de la vidéo qui a floppé est déjà repris ici. Indique ton sujet, Scriptura en écrit la version virale corrigée.";
+    viralAstuce.textContent = '💡 Scriptura part du diagnostic et de la structure corrigée pour rendre cette vidéo virale.';
+    sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
   } else if (state.depart && state.depart.includes('améliorer ou adapter')) {
     viralField.style.display = 'flex';
     viralLabel.textContent = 'Ton contenu existant, à améliorer';
@@ -696,6 +705,9 @@ async function generate() {
   // strictement identiques dans le prompt final malgré la promesse de l'étape
   // 2 : "Scriptura s'adapte à ton point de départ").
   const isViralMode = state.depart && state.depart.includes('analyser une vidéo virale');
+  // Handoff depuis « Analyser une vidéo » quand la vidéo a floppé : on la
+  // transforme en version virale (matière déjà pré-remplie dans le champ vidéo).
+  const isFlopMode = state.depart && state.depart.includes('vidéo qui a raté');
   const isAmeliorerMode = state.depart && state.depart.includes('améliorer ou adapter');
   // "un sujet précis..." recouvre à la fois le choix direct de l'étape 2 et
   // le pont "Générer le script complet" depuis une idée déjà trouvée (voir
@@ -713,6 +725,10 @@ async function generate() {
   }
   if (isViralMode && !viralVideo) {
     errorBox.textContent = 'Colle le texte de la vidéo virale que tu veux analyser.';
+    errorBox.style.display = 'block'; return;
+  }
+  if (isFlopMode && !viralVideo) {
+    errorBox.textContent = 'La vidéo à transformer est vide. Relance l\'analyse pour repartir de sa structure.';
     errorBox.style.display = 'block'; return;
   }
   if (isAmeliorerMode && !viralVideo) {
@@ -767,6 +783,8 @@ async function generate() {
   let departInstructionScript = '';
   if (isViralMode) {
     departInstructionScript = `\nMODE ANALYSE : le créateur veut reproduire la recette de cette vidéo virale :\n[DEBUT]\n${viralVideo}\n[FIN]\nDécode sa structure et sa mécanique (hook, rythme, narration) pour la réappliquer à SON sujet à lui, n'écris jamais sur le sujet de la vidéo virale elle-même.\n`;
+  } else if (isFlopMode) {
+    departInstructionScript = `\nMODE CORRECTION : cette vidéo a SOUS-PERFORMÉ. On te donne son diagnostic et/ou sa structure corrigée :\n[DEBUT]\n${viralVideo}\n[FIN]\nApplique cette mécanique corrigée pour écrire la VERSION VIRALE du script sur le sujet du créateur : hook plus fort, tension mieux tenue, leviers qui manquaient. N'écris pas sur le sujet de la vidéo d'origine, applique sa recette corrigée au sujet du créateur.\n`;
   } else if (isAmeliorerMode) {
     departInstructionScript = `\nMODE AMÉLIORATION : le créateur a déjà ce contenu, à améliorer et adapter, PAS à remplacer par un sujet différent :\n[DEBUT]\n${viralVideo}\n[FIN]\nPars de ce texte précis : garde son sujet et son fond réels, améliore uniquement la forme (hook plus fort, structure plus efficace, rythme, CTA plus clair). N'invente jamais un sujet différent de celui de ce contenu existant.\n`;
   } else if (isIdeeVague) {
