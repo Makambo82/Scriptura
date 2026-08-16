@@ -973,7 +973,7 @@ function reopenGeneration(i) {
     if (typeof toggleDiagSommaireEntree === 'function') toggleDiagSommaireEntree(false);
     const cds = g.contenu || {};
     if (typeof afficherDiagnosticSommaireResultat === 'function') {
-      afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '');
+      afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '', cds.estMonCompte);
     }
   } else if (g.mode === 'storyboardSeul') {
     const sbsh = document.getElementById('storyboardSeulFlow');

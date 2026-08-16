@@ -86,6 +86,16 @@ function analyserAutreCompteDiagSommaire() {
   if (input) input.focus();
 }
 
+// Depuis le résultat d'un CONCURRENT : ramène à l'écran de saisie en forçant le
+// scope sur « Mon compte » (resetDiagnosticSommaireForm remet déjà le sélecteur
+// sur « Mon compte »), pour enchaîner sur l'analyse de son propre compte et se
+// comparer.
+function analyserMonCompteDepuisConcurrent() {
+  resetDiagnosticSommaireForm(); // remet le scope sur « Mon compte »
+  const input = document.getElementById('diagSommaireInput');
+  if (input) input.focus();
+}
+
 function diagSommaireEsc(t) {
   return String(t == null ? '' : t).replace(/[&<>"']/g, c =>
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
@@ -256,7 +266,8 @@ function arreterAnimationChargementDs(prog) {
 // pivot) et renvoie l'objet diagnostic parsé. Extrait de lancerDiagnosticSommaire
 // pour que l'analyse détaillée (js/audit.js) puisse lancer un scan de contenu
 // silencieux et enrichir sa synthèse croisée, sans dupliquer ce pipeline.
-async function _diagnostiquerContenu(donnees, username) {
+async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
+  const moi = estMonCompte !== false;
   // Les vidéos couvrent ~6 mois. Les 4 DIMENSIONS (score) se calculent sur le
   // RÉCENT (2 derniers mois) = l'état ACTUEL du compte ; l'analyse de contenu
   // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
@@ -304,7 +315,97 @@ LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le
 VIDÉOS (${echantillon.length}, de la plus récente à la plus ancienne, format [mois/année] puis vues puis sujet). C'est ta source pour la niche, le top/flop, les concepts ET la détection d'un éventuel changement de cap :
 ${echantillon.map(ligneVideo).join('\n')}` : '';
 
-  const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes d'un profil TikTok (@${username}), au format JSON, récupérées via une API tierce. Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
+  // Intro selon le contexte : MON compte (posture coach, 2e personne) ou un
+  // CONCURRENT (posture décodage, 3e pers. pour décrire le compte, 2e pers.
+  // pour les enseignements adressés à l'utilisateur).
+  const roleIntro = moi
+    ? `Tu es Scriptura, consultant TikTok pour créateurs francophones. On te donne les données PUBLIQUES brutes du compte TikTok de l'utilisateur (@${username}), au format JSON, récupérées via une API tierce. Écris à la 2e personne (« ton compte », « tes vidéos »).`
+    : `Tu es Scriptura, consultant TikTok pour créateurs francophones. L'utilisateur veut analyser un CONCURRENT (@${username}) pour comprendre ce qui fait marcher ce compte et en reprendre ce qui est transposable chez lui. On te donne les données PUBLIQUES brutes de ce compte concurrent, au format JSON, récupérées via une API tierce. RÈGLE D'ÉCRITURE : décris le compte concurrent à la 3e personne (« ce compte », « sa bio », « ses vidéos ») ; adresse à la 2e personne uniquement ce qui concerne l'utilisateur (ce qu'il peut reprendre, sa faille à exploiter). Ne cherche jamais à améliorer le concurrent LUI ; ton but est d'en tirer des enseignements pour l'utilisateur.`;
+
+  // Sections qualitatives : coaching de MON compte vs décodage d'un concurrent.
+  const consignesQualitatives = moi ? `
+BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
+
+NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique, focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points ANCRÉS dans les vidéos observées. Si aucun sujet n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne tranche pas.
+
+TOP & FLOP VIDÉOS : UNIQUEMENT si les sujets sont présents. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
+   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). Maximum 3, ne complète JAMAIS avec des vidéos moyennes.
+   • FLOP = les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane. Maximum 3.
+   • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée).
+   Pour chacune : résume le SUJET en quelques mots, donne les vues, explique en une phrase la raison. Le constat doit coller à la position réelle vs la médiane.
+
+CONCEPTS RÉCURRENTS : 3 à 7 thèmes/angles qui reviennent dans les vidéos, formulés court comme des étiquettes. Sinon liste vide.
+
+ÉVOLUTION / CHANGEMENT DE CAP : examine les DATES [mois/année] ET les SUJETS chronologiquement. Le créateur a-t-il CHANGÉ de type de contenu ?
+   • Si OUI : "pivot": true. Situe la bascule (mois/année), résume AVANT et APRÈS, COMPARE les vues moyennes avant vs après, dis quelle période performait le mieux MÊME si c'est l'ancienne. Si l'ancienne marchait mieux, recommande de RÉUTILISER le mécanisme gagnant au service du nouvel objectif. Renseigne "formule_gagnante".
+   • Si NON : "pivot": false, "constat" court sur la constance, autres champs vides.
+   Ne prétends jamais un pivot inexistant.
+
+LEVIERS PRIORITAIRES : exactement 3 actions concrètes pour TON compte, fondées sur ce que tu observes (profil, performances, et l'ÉVOLUTION si pivot). Cite une vidéo précise et ses vues quand c'est pertinent. Si un pivot a fait BAISSER la performance, un levier DOIT porter sur la réutilisation de la formule gagnante.
+
+SANTÉ DU COMPTE : appréciation globale ("Excellente"|"Bonne"|"Fragile"|"Critique") fondée sur les signaux réellement disponibles, prudente si peu de données.` : `
+SON POSITIONNEMENT (bio) : décris comment CE compte se présente dans sa bio, et ce qui est malin ou efficace dans son positionnement. Ne propose PAS de réécrire sa bio (ce n'est pas ton compte) : repère plutôt ce qu'elle révèle de sa stratégie.
+
+SA NICHE : identifie sa niche / son angle dominant à partir des SUJETS RÉELS de ses vidéos EN PRIORITÉ, complété par la bio. Sois précis et spécifique. Dis si son positionnement est net ou flou, avec 1 à 2 points ANCRÉS dans ses vidéos.
+
+SES CARTONS & SES RATÉS (top/flop) : UNIQUEMENT si les sujets sont présents. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
+   • CARTONS (top) = uniquement ses vidéos NETTEMENT AU-DESSUS de la médiane (ses vraies percées, la recette à décoder). Maximum 3, jamais de remplissage.
+   • RATÉS (flop) = ses vidéos LES MOINS VUES, nettement EN-DESSOUS de la médiane (ce que tu peux éviter). Maximum 3.
+   • Une vidéo proche de la médiane ne va NI dans les cartons NI dans les ratés.
+   Pour chacune : résume le SUJET en quelques mots, donne les vues, explique en une phrase POURQUOI ça a marché (ou raté) et ce que ça t'apprend. Le constat doit coller à la position réelle vs la médiane.
+
+SES CONCEPTS RÉCURRENTS : 3 à 7 angles/formats qui reviennent chez lui, formulés court comme des étiquettes (sa mécanique répétée). Sinon liste vide.
+
+SON ÉVOLUTION : examine ses DATES [mois/année] ET SUJETS chronologiquement. A-t-il CHANGÉ de cap ?
+   • Si OUI : "pivot": true. Situe la bascule (mois/année), résume avant/après, COMPARE ses vues moyennes avant vs après, dis si son pari a payé (c'est une leçon pour toi).
+   • Si NON : "pivot": false, "constat" court sur sa constance, autres champs vides.
+   Ne prétends jamais un pivot inexistant.
+
+CE QUE TU PEUX REPRENDRE ET ADAPTER (leviers) : exactement 3 actions concrètes, TRANSPOSABLES à TON propre compte, tirées de ce qui marche chez lui. Formule à la 2e personne (« reprends… », « adapte… »). Cite une de ses vidéos et ses vues quand c'est pertinent (ex. « sa vidéo sur X a fait Y vues : le ressort, c'est Z, applique-le à ta niche »). Reste concret et réaliste.
+
+TA FAILLE À EXPLOITER : en 1 à 2 phrases, l'angle que CE concurrent néglige ou fait mal, et que TU peux occuper pour te différencier au lieu d'être une pâle copie. Fonde-toi sur ce que ses vidéos NE couvrent pas.
+
+FAUT-IL VRAIMENT S'EN INSPIRER ? (verdict honnête, essentiel) : ce compte est-il un bon modèle, ou pas ? Sois lucide : un compte peut « exploser » pour de mauvaises raisons NON reproductibles (un seul coup viral isolé ; vues élevées mais engagement faible = audience peu investie ; format non transposable à une autre niche ; tactiques à ne pas copier comme le racolage ou le hors-sujet). Donne "modele" = "oui" (vraie recette à reprendre), "partiel" (du bon à prendre, avec réserves) ou "prudence" (peu ou pas un modèle), et un "constat" qui dit franchement ce qui est reproductible vs ce qui est un piège.
+
+SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fragile"|"Critique") fondée sur les signaux réellement disponibles, prudente si peu de données.`;
+
+  // Schéma JSON : le concurrent ajoute "faille_exploiter" et "verdict_inspiration",
+  // et sa bio n'a pas de "suggestions" (on ne réécrit pas la bio d'autrui).
+  const schemaJson = moi ? `{
+  "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
+  "compte_verifie": <true/false/null>,
+  "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
+  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
+  "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
+  "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
+  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "concepts_recurrents": ["<concept 1>", "<concept 2>"],
+  "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : la bascule et son effet, ou la constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<la formule qui marche le mieux + comment la réutiliser, ou null>" },
+  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
+}` : `{
+  "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
+  "compte_verifie": <true/false/null>,
+  "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, 3e personne sur ce compte>" },
+  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
+  "bio": { "actuelle": "<sa bio telle quelle, ou null>", "etat": "<claire|floue>", "critique": "<ce que révèle son positionnement, 1-2 phrases>" },
+  "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
+  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase : pourquoi ça a marché + ce que ça t'apprend>" } ],
+  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "concepts_recurrents": ["<concept 1>", "<concept 2>"],
+  "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : sa bascule et son effet, ou sa constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<sa formule qui marche le mieux, ou null>" },
+  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<action transposable à TON compte, 2e personne>" } ],
+  "faille_exploiter": "<1-2 phrases : l'angle qu'il néglige et que tu peux occuper, ou null>",
+  "verdict_inspiration": { "modele": "<oui|partiel|prudence>", "constat": "<ce qui est reproductible vs ce qui est un piège, 1-2 phrases>" }
+}`;
+
+  const prompt = `${roleIntro} Le nom exact des champs peut varier : identifie-les par leur sens (abonnés, abonnements, likes cumulés reçus sur toutes les vidéos, nombre de vidéos publiées, bio, statut vérifié).
 
 PROFIL :
 ${JSON.stringify(donnees.profil || {}).slice(0, 4000)}
@@ -326,47 +427,12 @@ VIRALITÉ (sur 20) : disponible UNIQUEMENT si le rapport pic/médiane est fourni
    BARÈME /20 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-5 · faible (2-4×) → 6-11 · bon (4-10×) → 12-16 · fort potentiel viral (> 10×, plusieurs pics) → 17-20.
 
 COHÉRENCE ABSOLUE (règle non négociable) : pour CHAQUE dimension, le score chiffré, le mot employé dans le constat, et la "sante_compte" globale doivent aller dans le MÊME sens. Il est INTERDIT d'écrire "très faible" avec 18/30, ou de dire "faible" partout et conclure "santé Bonne". Relis-toi : un lecteur ne doit jamais voir un chiffre qui contredit tes mots.
-
-BIO : évalue la bio actuelle du profil. Est-elle claire, spécifique, révèle-t-elle vraiment ce que fait ce compte ? Si elle est générique ou vague, propose EXACTEMENT 2 alternatives courtes et percutantes, dans le même esprit mais plus révélatrices de la valeur du compte.
-
-NICHE : identifie la niche/thématique dominante à partir des SUJETS RÉELS des vidéos (bloc « SUJETS DES VIDÉOS ») EN PRIORITÉ, complétée par la bio. Sois précis et spécifique (ex. « storytelling historique, focus Afrique francophone », pas juste « histoire »). Dis si le positionnement est clair ou flou d'après ce que révèlent les sujets, avec 1 à 2 points d'analyse ANCRÉS dans les vidéos observées. Si aucun sujet de vidéo n'est fourni, rabats-toi sur la bio seule, et "disponible": false si même la bio ne permet pas de trancher.
-
-TOP & FLOP VIDÉOS : UNIQUEMENT si le bloc « SUJETS DES VIDÉOS » est présent. La médiane des vues de ce compte est ${metriques ? metriques.medianeVues : 'inconnue'}.
-   • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). S'il n'y en a qu'une, n'en mets qu'une, ne complète JAMAIS avec des vidéos moyennes juste pour remplir. Maximum 3.
-   • FLOP = à choisir parmi les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane (ce sont les vraies contre-performances, pas des vidéos moyennes). Maximum 3.
-   • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée pour l'un ou l'autre).
-   Pour chacune : résume le SUJET en quelques mots (pas la légende entière), donne le nombre de vues, et explique en une phrase la raison de la performance. INTERDIT d'écrire « en deçà de la médiane » pour une vidéo du top, ou « performe bien » pour une vidéo du flop : le constat doit toujours coller à la position réelle vs la médiane.
-
-CONCEPTS RÉCURRENTS : UNIQUEMENT si les sujets sont fournis. Liste 3 à 7 thèmes/angles qui reviennent dans les vidéos (ex. « coups d'État africains », « histoires vraies méconnues », « géopolitique expliquée »). Formule court, comme des étiquettes. Sinon liste vide.
-
-ÉVOLUTION / CHANGEMENT DE CAP (très important) : examine les DATES [mois/année] ET les SUJETS dans l'ordre chronologique. Le créateur a-t-il CHANGÉ de type de contenu ou de niche à un moment (ex. passage d'un thème A à un thème B, ou d'un format à un autre) ?
-   • Si OUI (bascule nette) : "pivot": true. Situe la période approximative de bascule (mois/année). Résume le contenu AVANT et le contenu APRÈS. COMPARE la performance avec les VRAIS chiffres (vues moyennes avant vs après). Dis clairement quelle période performait le mieux, MÊME si c'est l'ancienne. Si l'ancienne formule marchait mieux, ne dis pas juste « reviens en arrière » : recommande de RÉUTILISER son mécanisme gagnant AU SERVICE du nouvel objectif (ex. vendre un produit EN gardant le storytelling/la tension qui cartonnait). Renseigne "formule_gagnante".
-   • Si NON (contenu stable, pas de bascule) : "pivot": false, "constat" court sur la constance, autres champs vides.
-   Ne PRÉTENDS jamais un pivot qui n'existe pas : base-toi uniquement sur un vrai changement visible dans les dates et sujets.
-
-LEVIERS PRIORITAIRES : exactement 3 actions concrètes, fondées sur ce que tu observes réellement (profil, sujets/performances des vidéos, et l'ÉVOLUTION si un pivot est détecté). Quand c'est pertinent, CITE une vidéo précise et ses vues pour appuyer (ex. « ta vidéo sur X a fait Y vues : décline ce format »). Si un pivot a fait BAISSER la performance, l'un des leviers DOIT porter sur la réutilisation de la formule gagnante au service du nouvel objectif. Jamais de supposition sur des vidéos absentes des données.
-
-SANTÉ DU COMPTE : une appréciation globale ("Excellente", "Bonne", "Fragile" ou "Critique") fondée sur les signaux réellement disponibles (taille d'audience, ratio likes/vidéos si calculable, clarté de la bio), reste prudent si peu de données sont exploitables.
+${consignesQualitatives}
 
 RÈGLE DE FORMAT DES NOMBRES : dans tes phrases, écris les nombres normalement (ex: "12 400 abonnés"), jamais de séparateur anglo-saxon.
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown autour. Structure EXACTE :
-{
-  "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
-  "compte_verifie": <true/false/null>,
-  "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
-  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
-  "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
-  "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
-  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
-  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
-  "concepts_recurrents": ["<concept 1>", "<concept 2>"],
-  "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : la bascule et son effet, ou la constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<la formule qui marche le mieux + comment la réutiliser pour l'objectif actuel, ou null>" },
-  "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
-}`;
+${schemaJson}`;
 
   const raw = await callAI(MODEL_RAPIDE, 3000, prompt);
   const parsed = parseAIResponse(raw);
@@ -465,7 +531,7 @@ async function lancerDiagnosticSommaire() {
 
     // Analyse de contenu (dimensions + niche + top/flop + concepts + pivot) :
     // pipeline partagé avec l'analyse détaillée (voir _diagnostiquerContenu).
-    const parsed = await _diagnostiquerContenu(donnees, username);
+    const parsed = await _diagnostiquerContenu(donnees, username, _sommaireEstMonCompte);
     if (!parsed || parsed.profil_trouve === false) {
       throw new Error("Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.");
     }
@@ -489,7 +555,7 @@ async function lancerDiagnosticSommaire() {
     });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
-    afficherDiagnosticSommaireResultat(parsed, username);
+    afficherDiagnosticSommaireResultat(parsed, username, _sommaireEstMonCompte);
 
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
@@ -556,9 +622,12 @@ const DS_TOUJOURS_INDISPONIBLE = {
 };
 
 // Affiche le résultat (nouvelle génération OU réouverture depuis l'historique).
-function afficherDiagnosticSommaireResultat(d, username) {
+// estMonCompte : true = mon compte (posture coach), false = un concurrent
+// (posture décodage). Le moteur/score est identique ; seule l'écriture change.
+function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   const results = document.getElementById('diagSommaireResults');
   if (!results || !d) return;
+  const moi = estMonCompte !== false;
 
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
 
@@ -615,8 +684,8 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const bioHtml = bio.actuelle ? `
     <div class="score-card">
       <div class="ds-section-row">
-        <div class="audit-section-label" style="margin-bottom:0">Ton profil</div>
-        <span class="ds-tag${bioOk ? ' ds-tag-ok' : ''}">${bioOk ? 'Bio claire' : 'Bio à retravailler'}</span>
+        <div class="audit-section-label" style="margin-bottom:0">${moi ? 'Ton profil' : 'Son positionnement'}</div>
+        <span class="ds-tag${bioOk ? ' ds-tag-ok' : ''}">${bioOk ? 'Bio claire' : (moi ? 'Bio à retravailler' : 'Bio floue')}</span>
       </div>
       <p class="ds-bio-actuelle">« ${diagSommaireEsc(bio.actuelle)} »</p>
       <p class="audit-diag-constat" style="margin-top:10px">${diagSommaireEsc(bio.critique)}</p>
@@ -630,7 +699,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
   const nicheHtml = (niche.disponible !== false && niche.nom) ? `
     <div class="score-card">
       <div class="ds-section-row">
-        <div class="audit-section-label" style="margin-bottom:0">Ta niche</div>
+        <div class="audit-section-label" style="margin-bottom:0">${moi ? 'Ta niche' : 'Sa niche'}</div>
         <span class="ds-tag${nicheOk ? ' ds-tag-ok' : ''}">${nicheOk ? 'Niche claire' : 'Niche encore floue'}</span>
       </div>
       <div class="audit-diag-constat">${diagSommaireEsc(niche.nom)}</div>
@@ -660,23 +729,48 @@ function afficherDiagnosticSommaireResultat(d, username) {
         </li>`).join('')}
       </ul>
     </div>` : '';
-  const topHtml = carteVideos('Tes vidéos qui cartonnent', '🔥 Top', true, d.top_videos);
-  const flopHtml = carteVideos('Tes vidéos en retrait', 'À revoir', false, d.flop_videos);
+  const topHtml = carteVideos(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons : la recette à décoder', '🔥 Top', true, d.top_videos);
+  const flopHtml = carteVideos(moi ? 'Tes vidéos en retrait' : 'Ses ratés : ce que tu peux éviter', 'À revoir', false, d.flop_videos);
 
   const concepts = Array.isArray(d.concepts_recurrents) ? d.concepts_recurrents.filter(Boolean) : [];
   const conceptsHtml = concepts.length ? `
     <div class="score-card">
-      <div class="audit-section-label">Concepts récurrents</div>
+      <div class="audit-section-label">${moi ? 'Concepts récurrents' : 'Ses concepts récurrents'}</div>
       <div class="ds-concepts">${concepts.map(c => `<span class="ds-concept-chip">${diagSommaireEsc(c)}</span>`).join('')}</div>
     </div>` : '';
 
   const leviers = Array.isArray(d.leviers_prioritaires) ? d.leviers_prioritaires : [];
   const leviersHtml = leviers.length ? `
     <div class="score-card">
-      <div class="audit-section-label">Tes leviers prioritaires</div>
+      <div class="audit-section-label">${moi ? 'Tes leviers prioritaires' : 'Ce que tu peux reprendre et adapter'}</div>
       <ol class="ds-leviers-list">
         ${leviers.map(l => `<li><b>${diagSommaireEsc(l.titre)}</b><p>${diagSommaireEsc(l.detail)}</p></li>`).join('')}
       </ol>
+    </div>` : '';
+
+  // ── Blocs SPÉCIFIQUES au mode concurrent ──
+  // Faille à exploiter : l'angle qu'il néglige, pour se différencier au lieu de
+  // copier. Verdict d'inspiration : est-ce vraiment un modèle à suivre (honnêteté).
+  const faille = (!moi && d.faille_exploiter) ? `
+    <div class="score-card">
+      <div class="audit-section-label">🎯 Ta faille à exploiter</div>
+      <p class="audit-diag-constat" style="margin-top:8px">${diagSommaireEsc(d.faille_exploiter)}</p>
+    </div>` : '';
+
+  const verdict = d.verdict_inspiration || {};
+  const VERDICT_META = {
+    oui:      { tag: '✓ Vrai modèle',        cls: 'ds-tag-ok' },
+    partiel:  { tag: '~ À prendre avec pincettes', cls: '' },
+    prudence: { tag: '⚠ Pas un modèle',      cls: 'ds-tag-alert' }
+  };
+  const vMeta = VERDICT_META[verdict.modele] || VERDICT_META.partiel;
+  const verdictHtml = (!moi && verdict.constat) ? `
+    <div class="score-card ds-evolution${verdict.modele === 'prudence' ? ' pivot' : ''}">
+      <div class="ds-section-row">
+        <div class="audit-section-label" style="margin-bottom:0">Faut-il vraiment s'en inspirer ?</div>
+        <span class="ds-tag ${vMeta.cls}">${vMeta.tag}</span>
+      </div>
+      <p class="audit-diag-constat" style="margin-top:10px">${diagSommaireEsc(verdict.constat)}</p>
     </div>` : '';
 
   // Invitation vers l'analyse détaillée (captures), copie différente selon
@@ -693,6 +787,14 @@ function afficherDiagnosticSommaireResultat(d, username) {
   // admin/illimité a aussi accès, mais n'est pas au plan Pro à proprement
   // parler, donc lui dire "ton plan Pro" serait faux.
   const estProPayant = dejaAcces && unlocked && (typeof monPalier === 'function') && monPalier() === 'pro';
+  // Sur un CONCURRENT, l'analyse détaillée (captures de stats privées) est
+  // impossible, on ne peut pas capturer les stats de quelqu'un d'autre. On
+  // invite plutôt à analyser SON propre compte pour se comparer.
+  const ctaConcurrentHtml = `
+    <div class="ds-alt">
+      <p style="margin:0 0 14px">Tu viens de décoder <strong>@${diagSommaireEsc(username)}</strong>. Pour voir où <strong>tu</strong> te situes face à lui, analyse ton propre compte, tu pourras comparer vos forces et repérer précisément ton retard ou ton avance.</p>
+      <button class="btn-generate" onclick="analyserMonCompteDepuisConcurrent()">Analyser mon compte →</button>
+    </div>`;
   const ctaDetailleHtml = dejaAcces ? `
     <div class="ds-alt">
       <p style="margin:0 0 14px">Ici, on a décodé ton <strong>contenu</strong> : ce qui marche, et quoi créer. Pour savoir <strong>comment l'algo te pousse (ou pas)</strong>, l'<strong>analyse détaillée</strong> lit tes statistiques privées, invisibles ici : rétention (où l'attention décroche), sources de trafic (Pour toi, abonnés, recherche), démographie de ton audience. ${estProPayant ? 'Incluse dans ton plan Pro.' : 'Tu y as déjà accès.'} (Sans abonnement, aussi disponible à l'unité avec un jeton.)</p>
@@ -726,7 +828,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
         ${evo.avant ? `<div class="ds-evo-col"><div class="ds-evo-h">Avant</div><p>${diagSommaireEsc(evo.avant)}</p></div>` : ''}
         ${evo.apres ? `<div class="ds-evo-col"><div class="ds-evo-h">Depuis</div><p>${diagSommaireEsc(evo.apres)}</p></div>` : ''}
       </div>` : ''}
-      ${evo.formule_gagnante ? `<div class="ds-evo-formule"><div class="ds-evo-h">🏆 Ta formule gagnante</div><p>${diagSommaireEsc(evo.formule_gagnante)}</p></div>` : ''}
+      ${evo.formule_gagnante ? `<div class="ds-evo-formule"><div class="ds-evo-h">🏆 ${moi ? 'Ta' : 'Sa'} formule gagnante</div><p>${diagSommaireEsc(evo.formule_gagnante)}</p></div>` : ''}
     </div>` : '';
 
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
@@ -735,7 +837,7 @@ function afficherDiagnosticSommaireResultat(d, username) {
 
   results.innerHTML = `
     <div class="score-card audit-score-card ds-score-card">
-      <div class="audit-score-label">DIAGNOSTIC SOMMAIRE · @${diagSommaireEsc(username)}</div>
+      <div class="audit-score-label">${moi ? 'DIAGNOSTIC SOMMAIRE' : 'ANALYSE CONCURRENT'} · @${diagSommaireEsc(username)}</div>
       <div class="audit-ring-wrap">
         <svg class="audit-ring" viewBox="0 0 170 170">
           <defs>
@@ -760,15 +862,17 @@ function afficherDiagnosticSommaireResultat(d, username) {
     ${santeRowHtml}
 
     ${evolutionHtml}
+    ${verdictHtml}
     ${bioHtml}
     ${nicheHtml}
     ${topHtml}
     ${flopHtml}
     ${conceptsHtml}
     ${leviersHtml}
+    ${faille}
     ${opportuniteHtml}
 
-    ${ctaDetailleHtml}
+    ${moi ? ctaDetailleHtml : ctaConcurrentHtml}
     <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire()">Analyser un autre compte</button>`;
 
   results.style.display = 'block';
