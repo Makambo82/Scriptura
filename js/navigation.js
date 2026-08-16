@@ -45,7 +45,7 @@ function reinitialiserZoom() {
 // Identifie l'écran actuellement visible
 function currentScreen() {
   // Un résultat affiché est un "sous-écran" prioritaire
-  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow' };
+  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow', 'diagSommaireResults': 'diagSommaireFlow' };
   for (const rid in results) {
     const el = document.getElementById(rid);
     if (el && el.style.display !== 'none' && el.offsetParent !== null) {
@@ -101,7 +101,7 @@ function showScreen(screen) {
   // le réaffiche temporairement sans jamais empiler de nouvel écran, un
   // "← Retour" depuis cet état doit donc retomber sur CE résultat, formulaire
   // remasqué, pas sur un écran où les deux se chevauchent.
-  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow' };
+  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow', 'diagSommaireResults': 'diagSommaireFlow' };
   const formCardDuResultat = { 'ideasResults': 'ideasFormCard', 'storyResults': 'storyFormCard', 'sbSeulResults': 'sbSeulFormCard' };
   if (resultParent[screen]) {
     document.getElementById(resultParent[screen]).style.display = 'block';
@@ -109,6 +109,10 @@ function showScreen(screen) {
     if (screen === 'results') {
       const s4 = document.getElementById('step4');
       if (s4) s4.classList.remove('active');
+    } else if (screen === 'diagSommaireResults' && typeof toggleDiagSommaireEntree === 'function') {
+      // On revient sur le RÉSULTAT du diagnostic sommaire : masquer l'écran de
+      // saisie (sinon il s'afficherait au-dessus du résultat restauré).
+      toggleDiagSommaireEntree(false);
     } else if (formCardDuResultat[screen] && typeof masquerFormulaireGeneration === 'function') {
       masquerFormulaireGeneration(formCardDuResultat[screen]);
     }

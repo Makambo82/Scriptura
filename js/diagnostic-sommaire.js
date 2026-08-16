@@ -48,7 +48,11 @@ function resetDiagnosticSommaireForm() {
   const err = document.getElementById('diagSommaireErrorBox');
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   const results = document.getElementById('diagSommaireResults');
-  if (results) { results.style.display = 'none'; results.innerHTML = ''; }
+  // On MASQUE le résultat précédent sans effacer son contenu : ainsi « Retour »
+  // peut le restaurer tel quel (le résultat est un sous-écran de navigation,
+  // voir currentScreen/showScreen dans navigation.js). Il sera de toute façon
+  // remplacé au prochain affichage (afficherDiagnosticSommaireResultat).
+  if (results) results.style.display = 'none';
   // Toujours réafficher le champ de saisie ici : appelée à l'entrée dans le
   // module (chooseMode) comme depuis "Analyser un autre compte", ces deux cas
   // doivent repartir d'un écran de choix visible même si un résultat précédent
@@ -78,20 +82,17 @@ async function ouvrirCapturesDepuisChoix() {
   if (typeof initAuditWizard === 'function') initAuditWizard(false);
 }
 
-// Depuis le résultat affiché, ramène à l'écran de saisie pour analyser un
-// nouveau compte : efface le résultat précédent et réaffiche le champ @.
-function analyserAutreCompteDiagSommaire() {
+// Depuis un résultat affiché, ramène à l'écran de saisie pour une NOUVELLE
+// analyse, en pré-réglant le sélecteur Mon compte / Concurrent selon le bouton :
+//   • « Analyser mon compte » (résultat concurrent) → estMonCompte = true
+//   • « Analyser un autre compte » → même scope que le résultat courant
+//     (concurrent → un autre concurrent ; mon compte → mon compte)
+// Empile d'abord le RÉSULTAT courant (sous-écran reconnu, voir navigation.js)
+// pour que « Retour » y revienne au lieu de sauter à l'accueil/génération.
+function analyserAutreCompteDiagSommaire(estMonCompte = true) {
+  if (typeof pushNav === 'function') pushNav(); // le résultat courant entre dans l'historique
   resetDiagnosticSommaireForm();
-  const input = document.getElementById('diagSommaireInput');
-  if (input) input.focus();
-}
-
-// Depuis le résultat d'un CONCURRENT : ramène à l'écran de saisie en forçant le
-// scope sur « Mon compte » (resetDiagnosticSommaireForm remet déjà le sélecteur
-// sur « Mon compte »), pour enchaîner sur l'analyse de son propre compte et se
-// comparer.
-function analyserMonCompteDepuisConcurrent() {
-  resetDiagnosticSommaireForm(); // remet le scope sur « Mon compte »
+  choisirScopeSommaire(estMonCompte !== false); // pré-règle le scope voulu
   const input = document.getElementById('diagSommaireInput');
   if (input) input.focus();
 }
@@ -842,7 +843,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   const ctaConcurrentHtml = `
     <div class="ds-alt">
       <p style="margin:0 0 14px">Tu viens de décoder <strong>@${diagSommaireEsc(username)}</strong>. Pour voir où <strong>tu</strong> te situes face à lui, analyse ton propre compte, tu pourras comparer vos forces et repérer précisément ton retard ou ton avance.</p>
-      <button class="btn-generate" onclick="analyserMonCompteDepuisConcurrent()">Analyser mon compte →</button>
+      <button class="btn-generate" onclick="analyserAutreCompteDiagSommaire(true)">Analyser mon compte →</button>
     </div>`;
   const ctaDetailleHtml = dejaAcces ? `
     <div class="ds-alt">
@@ -922,7 +923,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
     ${opportuniteHtml}
 
     ${moi ? ctaDetailleHtml : ctaConcurrentHtml}
-    <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire()">Analyser un autre compte</button>`;
+    <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire(${moi})">Analyser un autre compte</button>`;
 
   results.style.display = 'block';
   setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
