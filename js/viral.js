@@ -153,7 +153,7 @@ Analyse comme un monteur/scénariste pro :
 - ${lbl.leviers.toUpperCase()} : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
 - SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo, sois rigoureux (une vidéo qui a raté a peu de signaux à true).
 
-RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin.
+RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin. Les consignes du modèle sont à l'impératif 2e personne CORRECT (« Ouvre », « Accumule », « Conclus », jamais « Conclues »).
 
 Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Structure EXACTE :
 {
@@ -271,8 +271,11 @@ function performanceForte(stats) {
   const taux = _tauxEngagementViral(stats);
   return taux != null && taux >= 10;
 }
-// Le verdict croisé, avec un titre + une explication. perfConnue=false quand on
-// n'a aucune stat (lien non résolu) : on tombe alors sur une lecture recette seule.
+// Le verdict croisé, avec un titre + une explication.
+// RÈGLE DE CRÉDIBILITÉ : on n'affirme JAMAIS un jugement de PORTÉE (« bridée »,
+// « coup de chance ») sans connaître les abonnés de l'auteur. La portée = vues
+// ÷ abonnés ; sans les abonnés, on ne peut pas dire si la vidéo a percé ou non,
+// donc on s'en tient à la recette et on ne prétend rien sur l'algo.
 function verdictCroiseViral(score, stats) {
   const recetteForte = score != null && score >= SEUIL_RECETTE_FORTE;
   const perfConnue = !!(stats && stats.vues);
@@ -281,7 +284,23 @@ function verdictCroiseViral(score, stats) {
       ? { ton: 'ok', titre: 'Recette solide', texte: 'La structure est forte. Les stats réelles manquaient, mais la recette est réutilisable telle quelle.' }
       : { ton: 'neutre', titre: 'Recette moyenne', texte: 'La structure reste perfectible. À reprendre en renforçant les leviers manquants.' };
   }
-  const perfForte = performanceForte(stats);
+  const porteeConnue = !!(stats && stats.abonnesAuteur);
+  const taux = _tauxEngagementViral(stats);
+  const engagementExceptionnel = taux != null && taux >= 10;
+  const engagementFaible = taux != null && taux < 3;
+  // On ne peut trancher sur la performance QUE si on connaît la portée, ou si
+  // l'engagement est si tranché (très haut / très bas) qu'il parle de lui-même.
+  const perfJugeable = porteeConnue || engagementExceptionnel || engagementFaible;
+
+  if (!perfJugeable) {
+    // Vues connues mais portée non mesurable (pas d'abonnés, engagement moyen) :
+    // aucune affirmation sur l'algo, verdict centré sur la recette.
+    return recetteForte
+      ? { ton: 'ok', titre: 'Recette très solide', texte: 'La structure est excellente et réutilisable. Sans le nombre d\'abonnés de l\'auteur, on ne peut pas mesurer la portée réelle, mais la recette, elle, tient.' }
+      : { ton: 'neutre', titre: 'Recette perfectible', texte: 'La structure gagnerait à être renforcée. Portée réelle non mesurable ici (abonnés de l\'auteur inconnus).' };
+  }
+
+  const perfForte = porteeConnue ? (porteeViral(stats).niveau >= 3) : engagementExceptionnel;
   if (recetteForte && perfForte) return { ton: 'ok', titre: 'Formule reproductible', texte: 'La structure explique le succès. Tu peux la copier, elle marche par construction, pas par chance.' };
   if (recetteForte && !perfForte) return { ton: 'neutre', titre: 'Bonne structure, portée bridée', texte: 'La recette est solide mais le sujet, le timing ou la niche ont limité la portée. Réutilisable sur un meilleur angle.' };
   if (!recetteForte && perfForte) return { ton: 'alerte', titre: 'Probable coup de chance', texte: 'Grosses vues, mais la structure ne les explique pas vraiment (tendance, sujet d\'actu, coup de bol). Reproduis avec prudence.' };

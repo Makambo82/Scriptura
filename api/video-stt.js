@@ -140,6 +140,33 @@ function extraireAbonnesAuteur(obj) {
   return trouve;
 }
 
+// Identifiant public (@handle) de l'auteur, pour aller chercher ses abonnés
+// sur son profil quand le détail du post ne les contient pas.
+function extraireAuteurUsername(obj) {
+  let u = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (u || !o || typeof o !== 'object' || prof > 8 || vus.has(o)) return;
+    vus.add(o);
+    for (const k of Object.keys(o)) {
+      if (/^(unique_id|uniqueId|unique_id_modified|uniqueid)$/i.test(k) && typeof o[k] === 'string' && o[k].trim()) { u = o[k].trim(); return; }
+    }
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(obj || {}, 0);
+  return u;
+}
+
+// Abonnés de l'auteur via son profil LamaTok (2e appel, seulement si le nombre
+// manque dans le détail du post). Renvoie null en cas d'échec (non bloquant).
+async function abonnesViaProfil(username, lamaKey) {
+  try {
+    const r = await fetch(LAMA_BASE + '/v1/user/by/username?username=' + encodeURIComponent(username),
+      { headers: { accept: 'application/json', 'x-access-key': lamaKey } });
+    if (!r.ok) return null;
+    const prof = await r.json();
+    return extraireAbonnesAuteur(prof);
+  } catch (e) { return null; }
+}
+
 // Statistiques réelles de la vidéo (vues/likes/commentaires/partages + abonnés
 // de l'auteur) pour la portée et le score. Cherche l'objet qui porte les vues.
 function extraireStats(obj) {
@@ -247,6 +274,7 @@ export default async function handler(req, res) {
     // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
     //    On tente d'abord les URLs ScrapTik, puis, si rien ne passe, LamaTok.
     let media = null;
+    let dataLama = null;
     if (dataScrap) {
       for (const u of urlsVideo(dataScrap)) {
         const m = await telechargerMedia(u);
@@ -254,7 +282,7 @@ export default async function handler(req, res) {
       }
     }
     if (!media) {
-      const dataLama = await detailLamaTok(id, lamaKey);
+      dataLama = await detailLamaTok(id, lamaKey);
       if (dataLama) {
         if (!description) description = extraireDesc(dataLama) || '';
         if (!stats) stats = extraireStats(dataLama);
@@ -267,6 +295,18 @@ export default async function handler(req, res) {
     if (!media) {
       // Non bloquant : le client retombe sur le collage manuel.
       return res.status(200).json({ ok: false, description, stats, raison: 'video_indisponible' });
+    }
+
+    // 3 bis) PORTÉE : le nombre d'abonnés de l'auteur manque souvent dans le
+    // détail d'un post. Sans lui, impossible de mesurer la portée (vues ÷
+    // abonnés), et le verdict devient trompeur. On va donc le chercher sur le
+    // profil de l'auteur (2e appel LamaTok), une seule fois, si besoin.
+    if (stats && stats.vues && !stats.abonnesAuteur) {
+      const username = extraireAuteurUsername(dataScrap) || extraireAuteurUsername(dataLama);
+      if (username) {
+        const ab = await abonnesViaProfil(username, lamaKey);
+        if (ab != null) stats.abonnesAuteur = ab;
+      }
     }
 
     // 4) Transcription ElevenLabs Scribe.
