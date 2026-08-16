@@ -395,7 +395,7 @@ async function ouvrirSerie(id) {
             <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="serieSbProgFill${ep.num}"></div></div>
             <div class="sb-progress-bar-pct" id="serieSbProgPct${ep.num}">0%</div>
           </div>
-          <div id="serieSbZone${ep.num}">${ep.storyboard ? renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num) : ''}</div>
+          <div id="serieSbZone${ep.num}">${ep.storyboard ? renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num, ep.guideMontage) : ''}</div>
         </div>`;
       }
       html += `</div>`;
@@ -533,6 +533,10 @@ async function genererStoryboardEpisode(numEp, isRegen) {
         <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
         <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
         ${montageBoutonHTML('montageBtnSerie' + numEp, plans)}
+      </div>
+      <div class="guide-montage-wrap">
+        ${guideMontageBoutonHTML('guideBtnSerie' + numEp, 'guideZoneSerie' + numEp, plans, '', g => serieSauverGuideMontage(numEp, g))}
+        <div class="guide-montage-zone" id="guideZoneSerie${numEp}"></div>
       </div>`);
 
     // Masquer le bouton (le storyboard affiché + son bouton "Régénérer" prennent le relais)
@@ -560,8 +564,21 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   }
 }
 
+// Persiste le guide de montage CapCut d'un épisode (rattaché comme le
+// storyboard). Non bloquant : si l'écriture échoue, le guide reste affiché.
+async function serieSauverGuideMontage(numEp, guide) {
+  if (!serieCouranteId || typeof supabaseClient === 'undefined') return;
+  try {
+    const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
+    if (error || !serie) return;
+    const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
+    const nouveaux = eps.map(e => e.num === numEp ? Object.assign({}, e, { guideMontage: guide }) : e);
+    await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
+  } catch (e) { /* non bloquant */ }
+}
+
 // Affiche un storyboard de serie (miniature + segments, avec boutons image et copie)
-function renderSerieStoryboard(sb, miniature, numEp) {
+function renderSerieStoryboard(sb, miniature, numEp, guideMontage) {
   if (!Array.isArray(sb) || !sb.length) return '';
   const miniHtml = miniature ? `
     <div class="sb-segment sb-miniature">
@@ -592,6 +609,10 @@ function renderSerieStoryboard(sb, miniature, numEp) {
           <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
           <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
           ${montageBoutonHTML('montageBtnSerie' + numEp, sb)}
+        </div>
+        <div class="guide-montage-wrap">
+          ${guideMontage ? '' : guideMontageBoutonHTML('guideBtnSerie' + numEp, 'guideZoneSerie' + numEp, sb, '', g => serieSauverGuideMontage(numEp, g))}
+          <div class="guide-montage-zone" id="guideZoneSerie${numEp}">${guideMontage ? renderGuideMontage(guideMontage) : ''}</div>
         </div>
       </div>
     </div>
