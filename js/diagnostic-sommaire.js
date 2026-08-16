@@ -1042,16 +1042,34 @@ async function afficherComparaisonConcurrent(moiDiag, moiUsername, concurrent) {
     viralite: d.viralite, niche: d.niche && d.niche.nom, top: d.top_videos,
     formule_gagnante: d.evolution && d.evolution.formule_gagnante, concepts: d.concepts_recurrents
   }).slice(0, 2500);
-  const duelTexte = lignes.map(l => `- ${l.label} : toi ${l.moi == null ? 'n/a' : l.moi} / lui ${l.lui == null ? 'n/a' : l.lui}`).join('\n');
+  // Le CODE tranche qui gagne chaque dimension (un nombre plus élevé = meilleur).
+  // L'IA ne compare JAMAIS les chiffres elle-même : elle ne fait que reformuler
+  // ces verdicts, pour ne pas inverser le sens (ex. dire « tu domines » à 16 vs 18).
+  const verdictLigne = (l) => {
+    if (l.moi == null && l.lui == null) return 'non mesuré des deux côtés';
+    if (l.moi == null) return 'NON MESURÉ chez toi';
+    if (l.lui == null) return 'non mesuré chez lui';
+    if (l.moi > l.lui) return `TU MÈNES (écart ${l.moi - l.lui})`;
+    if (l.lui > l.moi) return `IL MÈNE (écart ${l.lui - l.moi})`;
+    return 'ÉGALITÉ';
+  };
+  const duelTexte = lignes.map(l => `- ${l.label} : toi ${l.moi == null ? 'n/a' : l.moi} / lui ${l.lui == null ? 'n/a' : l.lui} => ${verdictLigne(l)}`).join('\n');
+  const menes = lignes.filter(l => l.moi != null && l.lui != null && l.moi > l.lui).map(l => l.label);
+  const retard = lignes.filter(l => l.moi != null && l.lui != null && l.lui > l.moi).map(l => l.label);
+  const nonMesure = lignes.filter(l => l.moi == null && l.lui != null).map(l => l.label);
+  const resume = `TU MÈNES SUR : ${menes.length ? menes.join(', ') : 'AUCUNE dimension'}\nTU ES EN RETARD SUR : ${retard.length ? retard.join(', ') : 'aucune dimension'}\nNON MESURÉ CHEZ TOI (ne prétends pas mener ou être en retard dessus) : ${nonMesure.length ? nonMesure.join(', ') : 'aucune'}`;
   const prompt = `Tu es Scriptura, consultant TikTok. L'utilisateur (@${moiUsername}) vient d'analyser un concurrent (@${concUser}) puis son propre compte. Écris une comparaison PRO, honnête et actionnable, à la 2e personne (« tu »).
 
-DUEL CHIFFRÉ (faits, mêmes barèmes des deux côtés) :
+DUEL CHIFFRÉ avec VERDICT DÉJÀ CALCULÉ par le code (c'est la vérité, à ne JAMAIS contredire ni recalculer) :
 ${duelTexte}
+
+VERDICT D'ENSEMBLE (calculé par le code) :
+${resume}
 
 TON COMPTE (@${moiUsername}) : ${compact(moiDiag)}
 LE CONCURRENT (@${concUser}) : ${compact(concDiag)}
 
-Dis clairement où TU le domines et où tu es en RETARD (appuie-toi sur les chiffres du duel, ne les contredis jamais). Puis donne LE levier n°1 à lui prendre pour combler l'écart, en t'appuyant sur sa formule gagnante / ses cartons. Concret, pas de flatterie, pas de généralités. N'emploie pas de tiret cadratin.
+RÈGLE ABSOLUE : ne compare jamais les chiffres toi-même et ne décide jamais qui gagne, le code l'a déjà tranché ci-dessus. Reprends EXACTEMENT ces verdicts (« tu mènes » / « il mène » / « égalité » / « non mesuré »). Ne dis jamais que tu domines une dimension marquée « IL MÈNE » ou « NON MESURÉ chez toi ». Puis donne LE levier n°1 à lui prendre pour combler l'écart, en t'appuyant sur sa formule gagnante / ses cartons. Concret, pas de flatterie, pas de généralités. N'emploie pas de tiret cadratin.
 
 Réponds UNIQUEMENT en JSON : { "constat": "<2 à 4 phrases>", "levier_titre": "<max 8 mots>", "levier_detail": "<1-2 phrases>" }`;
 
