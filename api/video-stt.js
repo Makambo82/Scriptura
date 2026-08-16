@@ -82,6 +82,29 @@ function extraireDesc(obj) {
   return desc;
 }
 
+// Statistiques réelles de la vidéo (vues/likes/commentaires/partages) pour le
+// score de viralité. Cherche l'objet qui porte le nombre de vues.
+function extraireStats(obj) {
+  let stats = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (stats || !o || typeof o !== 'object' || prof > 7 || vus.has(o)) return;
+    vus.add(o);
+    const num = (...ks) => { for (const k of ks) { const v = Number(o[k]); if (Number.isFinite(v) && v >= 0) return v; } return null; };
+    const vues = num('play_count', 'playCount', 'view_count', 'viewCount');
+    if (vues != null && vues > 0) {
+      stats = {
+        vues,
+        likes: num('digg_count', 'diggCount', 'like_count', 'likeCount'),
+        commentaires: num('comment_count', 'commentCount'),
+        partages: num('share_count', 'shareCount')
+      };
+      return;
+    }
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(obj, 0);
+  return stats;
+}
+
 // Télécharge une URL média avec des en-têtes crédibles. Renvoie TOUJOURS un
 // diagnostic ({status, ct, length, ok, buf?}) pour comprendre les échecs.
 const UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -159,6 +182,7 @@ export default async function handler(req, res) {
       return res.status(rep.status).json({ error: { message } });
     }
     const description = extraireDesc(data) || '';
+    const stats = extraireStats(data);
     const urls = urlsVideo(data);
 
     // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
@@ -182,6 +206,7 @@ export default async function handler(req, res) {
       ok: transcript.length > 10,
       transcript,
       description,
+      stats,
       langue: stt.lang || null,
       raison: transcript.length > 10 ? null : 'sans_parole'
     });
