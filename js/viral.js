@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  MODE « ANALYSER UNE VIDÉO VIRALE » (autonome)
 //  L'utilisateur colle le lien d'une vidéo virale (TikTok). Scriptura
-//  récupère le transcript (api/video-transcript.js), puis DÉCODE toute la
+//  transcrit sa VOIX (api/video-stt.js, ElevenLabs Scribe), puis DÉCODE toute la
 //  recette : hook, techniques de rétention, sujet, structure du début à la
 //  fin, et ce qui l'a rendue virale. À la fin : copier la structure, ou
 //  créer un script à partir de ça (handoff vers le flux Script).
@@ -51,12 +51,12 @@ function analyserAutreVideoVirale() {
 }
 
 // Récupère le transcript à partir du lien (best-effort). Renvoie {transcript, description}
-// ou null. Réutilise l'endpoint /api/video-transcript déjà en place.
+// ou null. Transcription par la voix via /api/video-stt (ElevenLabs Scribe).
 async function _transcriptDepuisLien(url) {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 30000);
   try {
-    const rep = await fetch('/api/video-transcript', {
+    const rep = await fetch('/api/video-stt', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }), signal: ctrl.signal
     });
@@ -95,7 +95,7 @@ async function lancerAnalyseVirale() {
     // 1) Transcript : depuis le lien en priorité, sinon le texte collé.
     let description = '';
     if (lien) {
-      if (note) note.textContent = 'On récupère les sous-titres de la vidéo ☕…';
+      if (note) note.textContent = 'On écoute la vidéo et on la transcrit ☕…';
       try {
         const data = await _transcriptDepuisLien(lien);
         if (data.ok && data.transcript) { texte = data.transcript; description = data.description || ''; }

@@ -429,7 +429,7 @@ function goBack(n) {
 }
 
 // « Analyser une vidéo virale » : à partir d'un lien TikTok collé, récupère
-// automatiquement les sous-titres (voir api/video-transcript.js) et remplit le
+// automatiquement la transcription par la voix (voir api/video-stt.js) et remplit le
 // champ texte, que l'utilisateur peut relire/ajuster avant de générer. En cas
 // d'échec (vidéo sans sous-titres, privée, lien non reconnu), on ne bloque pas :
 // on affiche un message et le collage manuel reste disponible.
@@ -452,13 +452,13 @@ async function recupererTranscriptViral() {
   if (btn) btn.disabled = true;
   if (spin) spin.style.display = 'block';
   if (arrow) arrow.style.display = 'none';
-  if (noteEl) noteEl.textContent = 'On récupère les sous-titres de la vidéo ☕…';
+  if (noteEl) noteEl.textContent = 'On écoute la vidéo et on la transcrit ☕…';
 
   // Le service peut mettre quelques secondes (résolution du lien + sous-titres).
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 30000);
   try {
-    const rep = await fetch('/api/video-transcript', {
+    const rep = await fetch('/api/video-stt', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),

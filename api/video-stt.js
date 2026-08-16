@@ -1,16 +1,18 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/video-stt, SONDE + moteur « transcription par la voix »
+//  /api/video-stt, TRANSCRIPTION D'UNE VIDÉO PAR LA VOIX
 //
 //  Au lieu de dépendre des sous-titres TikTok (fragiles, URLs expirantes),
 //  on RÉCUPÈRE L'AUDIO de la vidéo et on le TRANSCRIT avec ElevenLabs Scribe
 //  (speech-to-text). Marche sur n'importe quelle vidéo qui parle.
 //
 //  Pipeline : lien -> LamaTok /v1/media/by/id -> URL de la vidéo (sans
-//  filigrane si possible) -> téléchargement -> ElevenLabs /v1/speech-to-text
-//  (model scribe_v1) -> texte. Clé ELEVENLABS_API_KEY déjà en place (montage).
+//  filigrane si possible) -> téléchargement (en-têtes crédibles + Range) ->
+//  ElevenLabs /v1/speech-to-text (model scribe_v1) -> texte. Clé
+//  ELEVENLABS_API_KEY déjà en place (partagée avec le montage / voix off).
 //
-//  Phase 0 : GET /api/video-stt (au navigateur) affiche un formulaire de test.
-//  POST { url } renvoie { ok, transcript, ... } (le mode viral l'utilisera).
+//  POST { url } -> { ok, transcript, description, langue }. Non bloquant :
+//  ok=false si la vidéo est indisponible ou sans parole (repli manuel côté client).
+//  Clés 100% côté serveur.
 // ═══════════════════════════════════════════════════════════
 
 const LAMA_BASE = 'https://api.lamatok.com';
@@ -86,7 +88,7 @@ const UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 const MIN_VIDEO = 50000; // 50 Ko : en dessous, ce n'est pas une vraie vidéo parlée
 async function telechargerMedia(url) {
   const ctrl = new AbortController();
-  const minuteur = setTimeout(() => ctrl.abort(), 25000);
+  const minuteur = setTimeout(() => ctrl.abort(), 15000);
   try {
     const r = await fetch(url, {
       redirect: 'follow', signal: ctrl.signal,
@@ -127,87 +129,64 @@ async function transcrireEleven(buf, contentType, key) {
   finally { clearTimeout(minuteur); }
 }
 
-const PAGE_HTML = `<!doctype html><html lang="fr"><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Sonde STT, Scriptura</title>
-<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0d0d0f;color:#eee;margin:0;padding:22px;line-height:1.5}
-h1{font-size:1.15rem;color:#E2C87A;margin:0 0 4px}p.sub{color:#9a9a9a;font-size:.85rem;margin:0 0 18px}
-input,button{font-size:16px;border-radius:10px;border:1px solid #333;box-sizing:border-box}
-input{width:100%;padding:13px;background:#1a1a1e;color:#fff;margin-bottom:10px}
-button{width:100%;padding:14px;background:#E2C87A;color:#111;font-weight:700;border:none}button:disabled{opacity:.5}
-.verdict{margin-top:18px;padding:14px;border-radius:12px;background:#16161a;border:1px solid #2a2a30;font-size:1rem;font-weight:600}
-pre{margin-top:14px;background:#111;border:1px solid #222;border-radius:10px;padding:12px;overflow:auto;font-size:11px;color:#bdbdbd;max-height:55vh}</style></head>
-<body><h1>Sonde « transcription par la voix »</h1>
-<p class="sub">Colle un lien TikTok : on télécharge l'audio et on le transcrit via ElevenLabs Scribe.</p>
-<input id="u" placeholder="https://vm.tiktok.com/... ou .../video/..." autocapitalize="off" autocorrect="off" spellcheck="false"/>
-<button id="go" onclick="lancer()">Transcrire la vidéo</button>
-<div id="verdict" class="verdict" style="display:none"></div><pre id="out" style="display:none"></pre>
-<script>async function lancer(){var url=document.getElementById('u').value.trim();if(!url)return;
-var b=document.getElementById('go'),v=document.getElementById('verdict'),o=document.getElementById('out');
-b.disabled=true;b.textContent='On transcrit… (quelques secondes)';v.style.display='none';o.style.display='none';
-try{var r=await fetch('/api/video-stt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})});
-var d=await r.json();v.style.display='block';v.textContent=d.verdict||'(pas de verdict)';
-o.style.display='block';o.textContent=JSON.stringify(d,null,2);
-}catch(e){v.style.display='block';v.textContent='Erreur : '+e.message;}finally{b.disabled=false;b.textContent='Transcrire la vidéo';}}</script>
-</body></html>`;
-
 export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   const lamaKey = process.env.LAMATOK_API_KEY;
   const elevenKey = process.env.ELEVENLABS_API_KEY;
+  if (!lamaKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
+  if (!elevenKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (ELEVENLABS_API_KEY)' } });
 
-  const lien = (req.method === 'POST' ? (req.body && req.body.url) : (req.query && req.query.url)) || '';
-  if (req.method === 'GET' && !lien) {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.status(200).send(PAGE_HTML);
-  }
-  if (!lien) return res.status(400).json({ error: 'Fournis ?url=<lien TikTok>' });
-  if (!lamaKey) return res.status(500).json({ error: 'LAMATOK_API_KEY absente' });
-  if (!elevenKey) return res.status(500).json({ error: 'ELEVENLABS_API_KEY absente' });
-
-  const rapport = { lien, etapes: [] };
   try {
-    // 1) id.
-    let urlResolue = lien.trim();
+    const { url } = req.body || {};
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({ error: { message: 'Lien manquant' } });
+    }
+
+    // 1) Résoudre le lien court et extraire l'id.
+    let urlResolue = url.trim();
     let id = extraireAwemeId(urlResolue);
     if (!id) { urlResolue = await resoudreLien(urlResolue); id = extraireAwemeId(urlResolue); }
-    rapport.awemeId = id;
-    if (!id) { rapport.verdict = "Lien TikTok non reconnu."; return res.status(200).json(rapport); }
+    if (!id) {
+      return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
+    }
 
-    // 2) détail LamaTok -> URLs vidéo.
+    // 2) Détail LamaTok -> URLs vidéo.
     const rep = await fetch(LAMA_BASE + '/v1/media/by/id?id=' + encodeURIComponent(id),
       { headers: { accept: 'application/json', 'x-access-key': lamaKey } });
     const data = await rep.json();
-    if (!rep.ok) { rapport.verdict = 'Vidéo introuvable (LamaTok ' + rep.status + ')'; return res.status(200).json(rapport); }
-    rapport.description = extraireDesc(data);
+    if (!rep.ok) {
+      const message = (data && (data.message || data.error)) || 'Vidéo introuvable ou privée';
+      return res.status(rep.status).json({ error: { message } });
+    }
+    const description = extraireDesc(data) || '';
     const urls = urlsVideo(data);
-    rapport.nbUrlsVideo = urls.length;
 
-    // 3) télécharger la 1re vidéo exploitable (diagnostic complet par URL).
-    let media = null, urlUtilisee = null;
+    // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
+    let media = null;
     for (const u of urls) {
       const m = await telechargerMedia(u);
-      rapport.etapes.push({ url: u.slice(0, 70), status: m.status, ct: m.ct, taille: m.length || 0, ok: m.ok, raison: m.reason || null });
-      if (m.ok) { media = m; urlUtilisee = u; break; }
+      if (m.ok) { media = m; break; }
     }
-    if (!media) { rapport.verdict = "🔴 Impossible de télécharger la vidéo (URLs protégées/expirées). Voir 'etapes' (statuts HTTP)."; return res.status(200).json(rapport); }
-    rapport.tailleMedia = media.buf.length;
-    rapport.urlUtilisee = urlUtilisee.slice(0, 90);
+    if (!media) {
+      // Non bloquant : le client retombe sur le collage manuel.
+      return res.status(200).json({ ok: false, description, raison: 'video_indisponible' });
+    }
 
-    // 4) ElevenLabs Scribe.
+    // 4) Transcription ElevenLabs Scribe.
     const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
-    if (!stt.ok) { rapport.verdict = '🔴 Transcription échouée (ElevenLabs ' + stt.status + ') : ' + stt.message; return res.status(200).json(rapport); }
-
+    if (!stt.ok) {
+      return res.status(200).json({ ok: false, description, raison: 'stt_echec' });
+    }
     const transcript = (stt.text || '').trim().slice(0, MAX_TRANSCRIPT);
-    rapport.ok = transcript.length > 10;
-    rapport.langue = stt.lang;
-    rapport.transcript = transcript;
-    rapport.transcriptExtrait = transcript.slice(0, 500);
-    rapport.verdict = rapport.ok
-      ? "✅ TRANSCRIPTION RÉUSSIE par la voix. On peut brancher ça sur le mode Analyse virale."
-      : "🟡 Transcription vide (vidéo sans parole ?).";
-    return res.status(200).json(rapport);
+    return res.status(200).json({
+      ok: transcript.length > 10,
+      transcript,
+      description,
+      langue: stt.lang || null,
+      raison: transcript.length > 10 ? null : 'sans_parole'
+    });
 
   } catch (e) {
-    rapport.verdict = 'Erreur serveur : ' + (e.message || 'inconnue');
-    return res.status(200).json(rapport);
+    return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
   }
 }
