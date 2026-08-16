@@ -217,7 +217,7 @@ function afficherRapportViral(d) {
   const sujetHtml = d.sujet ? `
     <div class="score-card">
       <div class="audit-section-label">Le sujet & l'angle</div>
-      <p class="audit-diag-constat">${viralEsc(d.sujet)}</p>
+      <p class="audit-diag-constat" style="margin-top:16px">${viralEsc(d.sujet)}</p>
     </div>` : '';
 
   const facteursHtml = facteurs.length ? `
