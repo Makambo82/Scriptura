@@ -116,12 +116,43 @@ async function essayer(nom, url, headers) {
   } finally { clearTimeout(t); }
 }
 
+// Formulaire de test servi PAR l'endpoint lui-même : ouvrir /api/video-scan au
+// navigateur affiche cette page (les routes /api/* sont toujours servies, même
+// quand un .html statique ne l'est pas selon la config Vercel).
+const PAGE_HTML = `<!doctype html><html lang="fr"><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Sonde vidéo, Scriptura</title>
+<style>body{font-family:-apple-system,system-ui,sans-serif;background:#0d0d0f;color:#eee;margin:0;padding:22px;line-height:1.5}
+h1{font-size:1.15rem;color:#E2C87A;margin:0 0 4px}p.sub{color:#9a9a9a;font-size:.85rem;margin:0 0 18px}
+input,button{font-size:16px;border-radius:10px;border:1px solid #333;box-sizing:border-box}
+input{width:100%;padding:13px;background:#1a1a1e;color:#fff;margin-bottom:10px}
+button{width:100%;padding:14px;background:#E2C87A;color:#111;font-weight:700;border:none}button:disabled{opacity:.5}
+.verdict{margin-top:18px;padding:14px;border-radius:12px;background:#16161a;border:1px solid #2a2a30;font-size:1rem;font-weight:600}
+pre{margin-top:14px;background:#111;border:1px solid #222;border-radius:10px;padding:12px;overflow:auto;font-size:11px;color:#bdbdbd;max-height:55vh}</style></head>
+<body><h1>Sonde « vidéo par lien »</h1>
+<p class="sub">Colle un lien TikTok viral (idéalement le lien LONG .../video/123…) pour vérifier si on récupère le transcript.</p>
+<input id="u" placeholder="https://www.tiktok.com/@.../video/..." autocapitalize="off" autocorrect="off" spellcheck="false"/>
+<button id="go" onclick="lancer()">Sonder la vidéo</button>
+<div id="verdict" class="verdict" style="display:none"></div><pre id="out" style="display:none"></pre>
+<script>async function lancer(){var url=document.getElementById('u').value.trim();if(!url)return;
+var b=document.getElementById('go'),v=document.getElementById('verdict'),o=document.getElementById('out');
+b.disabled=true;b.textContent='On sonde…';v.style.display='none';o.style.display='none';
+try{var r=await fetch('/api/video-scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})});
+var d=await r.json();v.style.display='block';v.textContent=d.verdict||'(pas de verdict)';
+o.style.display='block';o.textContent=JSON.stringify({verdict:d.verdict,endpointGagnant:d.endpointGagnant,awemeId:d.awemeId,description:d.description,sousTitres:d.sousTitres,transcriptExtrait:d.transcriptExtrait,essais:d.essais},null,2);
+}catch(e){v.style.display='block';v.textContent='Erreur : '+e.message;}finally{b.disabled=false;b.textContent='Sonder la vidéo';}}</script>
+</body></html>`;
+
 export default async function handler(req, res) {
   const lamaKey = process.env.LAMATOK_API_KEY;
   const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
 
   const lien = (req.method === 'POST' ? (req.body && req.body.url) : (req.query && req.query.url)) || '';
   const override = (req.method === 'POST' ? (req.body && req.body.endpoint) : (req.query && req.query.endpoint)) || '';
+  // Ouverture au navigateur (GET sans paramètre) : on sert le formulaire.
+  if (req.method === 'GET' && !lien && !override) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(200).send(PAGE_HTML);
+  }
   if (!lien && !override) {
     return res.status(400).json({ error: "Fournis ?url=<lien TikTok> (ou endpoint= pour un override)" });
   }
