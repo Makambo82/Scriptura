@@ -773,7 +773,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   // copier. Verdict d'inspiration : est-ce vraiment un modèle à suivre (honnêteté).
   const faille = (!moi && d.faille_exploiter) ? `
     <div class="score-card">
-      <div class="audit-section-label">🎯 Ta faille à exploiter</div>
+      <div class="audit-section-label">🎯 Sa faille, ton opportunité</div>
       <p class="audit-diag-constat" style="margin-top:8px">${diagSommaireEsc(d.faille_exploiter)}</p>
     </div>` : '';
 
