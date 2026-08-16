@@ -979,6 +979,12 @@ function reopenGeneration(i) {
         renderComparaisonSauvegardee(cds.comparaisonConcurrent);
       }
     }
+  } else if (g.mode === 'analyseVirale') {
+    const vf = document.getElementById('viralFlow');
+    if (vf) vf.style.display = 'block';
+    const cv = g.contenu || {};
+    if (typeof afficherRapportViral === 'function') afficherRapportViral(cv.rapport || {});
+    if (cv.transcript && typeof _viralTranscript !== 'undefined') _viralTranscript = cv.transcript;
   } else if (g.mode === 'storyboardSeul') {
     const sbsh = document.getElementById('storyboardSeulFlow');
     if (sbsh) sbsh.style.display = 'block';

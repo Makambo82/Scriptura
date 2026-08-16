@@ -220,6 +220,13 @@
         <span class="mode-desc">Un récit immersif signature</span>
       </span>
     </button>
+    <button class="hero-mode-btn" onclick="ouvrirAnalyseVirale()">
+      <span class="mode-icon">🔍</span>
+      <span class="mode-body">
+        <span class="mode-label">Analyser une vidéo virale</span>
+        <span class="mode-desc">Décode la recette d'un carton et réutilise-la</span>
+      </span>
+    </button>
   </div>
   <p class="hero-free">Aucun compte requis</p>
 </section>
@@ -524,6 +531,40 @@
       <p style="margin-top:14px;color:var(--text-secondary);font-size:0.9rem">Scriptura croise tes deux diagnostics…</p>
     </div>
     <div id="fusionResults"></div>
+  </div>
+</section>
+
+<!-- ══ MODULE ANALYSER UNE VIDÉO VIRALE ══ -->
+<section id="viralFlow" style="display:none">
+  <div class="ds-wrap">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Analyse virale · TikTok</div>
+      <h2 class="ideas-title">Décode une vidéo<br/><strong>qui cartonne.</strong></h2>
+      <p class="ideas-sub">Colle le lien d'une vidéo virale : Scriptura décortique tout ce qui l'a fait percer, du hook à la fin, et te montre comment le réutiliser sur tes sujets.</p>
+    </div>
+
+    <div id="viralAnaForm">
+      <div class="ds-field">
+        <span class="ds-at">🔗</span>
+        <input class="ds-input" id="viralAnaLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();lancerAnalyseVirale();}"/>
+      </div>
+      <p class="ds-note" id="viralAnaNote" style="margin-top:10px"><span>🔒</span><span>Colle le lien de partage (TikTok). Pas de lien ? Ouvre le repli et colle le texte de la vidéo.</span></p>
+
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;color:rgba(255,255,255,0.55);font-size:0.85rem">Pas de lien ? Colle le texte de la vidéo</summary>
+        <textarea class="ctx-textarea" id="viralAnaTexte" placeholder="Colle ici les sous-titres ou la description de la vidéo, ou décris ce qui s'y passe." style="min-height:110px;margin-top:10px"></textarea>
+      </details>
+
+      <div class="err" id="viralAnaError" style="display:none;margin-top:14px"></div>
+
+      <button class="btn-generate" id="viralAnaBtn" style="width:100%;margin-top:18px" onclick="lancerAnalyseVirale()">
+        <span class="sb-gen-spinner" id="viralAnaSpinner" style="display:none"></span>
+        <span id="viralAnaBtnText">🔍 Analyser la vidéo</span>
+      </button>
+    </div>
+
+    <div id="viralAnaResults" style="display:none;margin-top:24px"></div>
   </div>
 </section>
 
@@ -1054,14 +1095,6 @@
         </div>
         <div class="choice-arrow">→</div>
       </div>
-      <div class="choice" onclick="choose('depart','analyser une vidéo virale et recréer sa recette',2)">
-        <div class="choice-icon">🔍</div>
-        <div class="choice-body">
-          <div class="choice-label">Analyser une vidéo virale</div>
-          <div class="choice-desc">J'ai vu une vidéo qui cartonne, Scriptura décode sa recette et la recrée pour moi.</div>
-        </div>
-        <div class="choice-arrow">→</div>
-      </div>
     </div>
   </div>
 
@@ -1329,6 +1362,7 @@
 <script src="js/storytelling.js"></script>
 <script src="js/storyboard.js"></script>
 <script src="js/storyboard-seul.js"></script>
+<script src="js/viral.js"></script>
 <script src="js/montage.js"></script>
 <script src="js/diagnostic-sommaire.js"></script>
 <script src="js/diagnostic-fusion.js"></script>
