@@ -243,23 +243,52 @@ function toggleDiagSommaireEntree(visible) {
 // Messages qui défilent sous le pourcentage pendant l'analyse, ce
 // diagnostic est rapide (un seul profil public à lire), contrairement au
 // diagnostic complet par captures qui peut prendre plusieurs minutes.
-const DS_LOADING_MESSAGES = [
-  'On récupère ton profil…',
-  'On calcule ton engagement…',
-  'On analyse ta bio et ta niche…',
-  'On identifie tes leviers prioritaires…'
-];
+// Deux jeux selon le contexte : MON compte (2e personne) vs un CONCURRENT
+// (3e personne pour le décrire, 2e personne pour ce que j'en tire).
+const DS_LOADING = {
+  moi: {
+    titre: 'Analyse de ton compte<br/>en cours',
+    sous: 'On analyse ton profil public pour identifier tes forces et ce qui freine ta croissance.',
+    note: "Plus tu as de contenus, plus l'analyse est fouillée : on lit tes vidéos des 2 derniers mois, une à une. Quelques secondes de plus ☕, on s'occupe du reste.",
+    messages: [
+      'On récupère ton profil…',
+      'On calcule ton engagement…',
+      'On analyse ta bio et ta niche…',
+      'On identifie tes leviers prioritaires…'
+    ]
+  },
+  concurrent: {
+    titre: 'Analyse du concurrent<br/>en cours',
+    sous: 'On décode ce profil public pour repérer ce qui le fait marcher, et ce que tu peux en reprendre.',
+    note: "Plus il a de contenus, plus l'analyse est fouillée : on lit ses vidéos des 2 derniers mois, une à une. Quelques secondes de plus ☕, on s'occupe du reste.",
+    messages: [
+      'On récupère son profil…',
+      'On calcule son engagement…',
+      'On analyse sa bio et sa niche…',
+      'On repère ce que tu peux lui reprendre…'
+    ]
+  }
+};
 let _dsLoadingTimer = null;
 
-function demarrerAnimationChargementDs() {
+function demarrerAnimationChargementDs(estMonCompte = true) {
+  const T = (estMonCompte !== false) ? DS_LOADING.moi : DS_LOADING.concurrent;
+  // Adapte les textes fixes de l'écran de chargement au contexte.
+  const titreEl = document.getElementById('dsLoadingTitle');
+  const sousEl = document.getElementById('dsLoadingSub');
+  const noteEl = document.getElementById('dsLoadingNote');
+  if (titreEl) titreEl.innerHTML = T.titre;
+  if (sousEl) sousEl.textContent = T.sous;
+  if (noteEl) noteEl.textContent = T.note;
+
   const pctEl = document.getElementById('dsLoadingPct');
   const statusEl = document.getElementById('dsLoadingStatus');
-  if (statusEl) statusEl.textContent = DS_LOADING_MESSAGES[0];
+  if (statusEl) statusEl.textContent = T.messages[0];
   let i = 0;
   if (_dsLoadingTimer) clearInterval(_dsLoadingTimer);
   _dsLoadingTimer = setInterval(() => {
-    i = (i + 1) % DS_LOADING_MESSAGES.length;
-    if (statusEl) statusEl.textContent = DS_LOADING_MESSAGES[i];
+    i = (i + 1) % T.messages.length;
+    if (statusEl) statusEl.textContent = T.messages[i];
   }, 1600);
   // Réutilise le même moteur de progression estimée que le storyboard
   // (js/storyboard.js), durée courte car un seul appel léger est en jeu ici.
@@ -518,7 +547,7 @@ async function lancerDiagnosticSommaire() {
   toggleDiagSommaireEntree(false);
   const loadingEl = document.getElementById('diagSommaireLoading');
   if (loadingEl) loadingEl.style.display = 'block';
-  const dsProg = demarrerAnimationChargementDs();
+  const dsProg = demarrerAnimationChargementDs(_sommaireEstMonCompte);
 
   try {
     // Récupère le profil public via notre fonction serveur (clé LamaTok
