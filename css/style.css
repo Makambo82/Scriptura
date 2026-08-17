@@ -2500,6 +2500,15 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-vs-gagne{color:var(--gold-light);font-weight:700}
 
 /* Analyse virale : rétention + structure */
+/* La carte de score réutilise .ds-score-card (cohérence visuelle avec le
+   diagnostic sommaire), ce qui hérite malheureusement de la règle
+   .ds-score-card .audit-ring-fill{stroke:url(#dsRingGrad)} (voir plus haut) :
+   #dsRingGrad n'existe pas ici, l'anneau ne reçoit alors AUCUNE couleur alors
+   que le chiffre au centre, lui, l'a (style inline). Cette règle, plus
+   spécifique et plus tardive dans la feuille, réaligne l'anneau sur son
+   propre dégradé #viralRingGrad (voir js/viral.js). */
+.viral-score-card .audit-ring-fill{stroke:url(#viralRingGrad)}
+.viral-score-rappel{margin:10px 2px 0;font-size:0.78rem;color:var(--muted,#8a8a8a);line-height:1.4}
 .viral-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
 .viral-list li{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
 .viral-list-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}

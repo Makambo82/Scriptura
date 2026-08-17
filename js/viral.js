@@ -450,9 +450,16 @@ function afficherRapportViral(d) {
           <div class="viral-dim-bar"><div class="viral-dim-fill" style="width:${Math.round((dm.sousScore / dm.poids) * 100)}%"></div></div>
         </div>`).join('')}
     </div>` : '';
+  // Sur un flop, un gros score vert « SCORE DE VIRALITÉ » en haut, avant toute
+  // explication, laisse croire à tort que la vidéo a cartonné : ce score
+  // mesure la SOLIDITÉ DE LA RECETTE (structure), jamais le résultat réel.
+  // Libellé honnête + rappel explicite selon la posture.
+  const scoreLabel = posture === 'flop' ? 'SCORE DE LA RECETTE' : 'SCORE DE VIRALITÉ';
+  const scoreRappel = posture === 'flop'
+    ? '<div class="viral-score-rappel">Mesure la structure, pas le résultat : cette vidéo a floppé (diagnostic ci-dessous).</div>' : '';
   const scoreCardHtml = score != null ? `
-    <div class="score-card audit-score-card ds-score-card">
-      <div class="audit-score-label">SCORE DE VIRALITÉ</div>
+    <div class="score-card audit-score-card ds-score-card viral-score-card">
+      <div class="audit-score-label">${scoreLabel}</div>
       <div class="audit-ring-wrap">
         <svg class="audit-ring" viewBox="0 0 170 170">
           <defs><linearGradient id="viralRingGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${pal.ringA}"/><stop offset="100%" stop-color="${pal.ringB}"/></linearGradient></defs>
@@ -461,6 +468,7 @@ function afficherRapportViral(d) {
         </svg>
         <div class="audit-ring-center"><div class="audit-score-num" style="color:${pal.texte}"><span id="viralScoreNum">0</span><span class="audit-score-suffix">/100</span></div></div>
       </div>
+      ${scoreRappel}
       ${statsLigne}
       ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ds-tag-ok">${niveauTxt}</span></div>` : ''}
       ${dimsHtml}
