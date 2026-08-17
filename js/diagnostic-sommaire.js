@@ -2,7 +2,7 @@
 //  MODULE DIAGNOSTIC SOMMAIRE, analyse via @nom d'utilisateur TikTok
 //  Alternative légère au diagnostic complet par captures (js/audit.js) :
 //  aucune capture à envoyer. api/username-scan.js lit le PROFIL via LamaTok
-//  et la LISTE DES VIDÉOS (vues, dates, ET sujets/légendes) via ScrapTik.
+//  et la LISTE DES VIDÉOS (vues, dates, ET sujets/légendes) via TikHub.
 //
 //  Les 4 dimensions inspirées de Vervox (Engagement, Portée, Régularité,
 //  Viralité) sont calculables quand les vidéos sont récupérées : Engagement
@@ -11,7 +11,7 @@
 //  SUJETS des vidéos (légendes) alimentent une analyse de CONTENU comme
 //  Vervox : niche réelle, Top/Flop vidéos, concepts récurrents, leviers qui
 //  citent des vidéos précises. Si les vidéos ne sont pas récupérées (clé
-//  ScrapTik absente, compte privé, quota), on retombe proprement sur
+//  TikHub absente, compte privé, quota), on retombe proprement sur
 //  l'Engagement seul, sans jamais inventer de chiffre. Score recalculé côté
 //  code (comme js/audit.js) sur les seules dimensions réellement mesurées,
 //  jamais fourni tel quel par l'IA.
@@ -365,7 +365,7 @@ function arreterAnimationChargementDs(prog) {
 }
 
 // Cœur d'analyse de CONTENU réutilisable : à partir des données brutes déjà
-// récupérées (profil LamaTok + vidéos ScrapTik) et du @username, calcule les
+// récupérées (profil LamaTok + vidéos TikHub) et du @username, calcule les
 // métriques, bâtit le prompt (dimensions + niche + top/flop + concepts +
 // pivot) et renvoie l'objet diagnostic parsé. Extrait de lancerDiagnosticSommaire
 // pour que l'analyse détaillée (js/audit.js) puisse lancer un scan de contenu

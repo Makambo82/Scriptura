@@ -32,7 +32,7 @@ de moi-même, comme un pro qui possède le produit.
   chiffres réels, l'IA ne note jamais (elle rédige les constats). Mêmes données
   ⇒ même score. C'est un pilier de crédibilité, ne jamais y déroger.
 - **Analyses** : sommaire (`js/diagnostic-sommaire.js`, via @pseudo, LamaTok +
-  ScrapTik) ; détaillée (`js/audit.js`, captures). Mode « mon compte » vs
+  TikHub) ; détaillée (`js/audit.js`, captures). Mode « mon compte » vs
   « concurrent » : écriture et sections différentes.
 - **Déploiement** : développer sur la branche de feature, vérifier, puis
   **merge fast-forward vers `main`** (prod Vercel). Rien n'est en ligne tant que
