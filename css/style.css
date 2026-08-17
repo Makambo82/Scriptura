@@ -463,6 +463,12 @@ footer strong{color:var(--gold)}
 /* Réservé aux comptes admin, même logique que .sidebar-item.nav-admin-btn */
 .footer-link-btn.nav-admin-btn{display:none}
 body.is-admin .footer-link-btn.nav-admin-btn{display:block}
+/* Mêmes règles que les items équivalents du sidebar (.sidebar-item.nav-*) :
+   S'abonner/J'ai un code disparaissent une fois abonné (fondateur compris),
+   Nous contacter disparaît seulement pour le fondateur (déjà en contact direct). */
+body.is-unlocked .footer-link-btn.nav-subscribe-btn{display:none}
+body.is-unlocked .footer-link-btn.nav-code-btn{display:none}
+body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 @media(max-width:480px){
   footer{padding:40px 12px}
   .footer-links{gap:14px}
