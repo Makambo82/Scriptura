@@ -516,7 +516,13 @@ function afficherRapportViral(d) {
 
   // Le MODÈLE APPLICABLE : gabarit vierge à lire et copier. L'action (créer un
   // script) est le seul CTA, en bas du résultat, pour ne pas doublonner.
-  const modeleHtml = modele.length ? `
+  // GARDE-FOU : n'a de sens QUE si la recette est vraiment solide (score >=
+  // SEUIL_RECETTE_FORTE). Sur un verdict « Peu à reprendre » (recette faible,
+  // qu'elle ait floppé ou percé par chance), il n'y a rien de structurel à
+  // ériger en modèle, dresser quand même un gabarit contredirait le verdict
+  // affiché juste au-dessus.
+  const recetteFortePourModele = score != null && score >= SEUIL_RECETTE_FORTE;
+  const modeleHtml = (modele.length && recetteFortePourModele) ? `
     <div class="score-card viral-modele">
       <div class="audit-section-label">Le modèle applicable (à remplir)</div>
       <p class="viral-modele-intro">C'est la structure de la vidéo, vidée de son sujet. Remplace les trous entre crochets [ ] par le tien : tu gardes la mécanique qui a marché, tu changes juste le contenu. Le bouton « Créer un script » en bas le fait pour toi.</p>
@@ -614,7 +620,9 @@ function _texteRapportViral(d) {
     lignes.push('\nLA RECETTE, TEMPS PAR TEMPS :');
     d.recette.forEach(r => lignes.push('- [' + (r.temps || '') + '] ' + (r.titre || '') + (r.detail ? ' : ' + r.detail : '')));
   }
-  if (Array.isArray(d.modele) && d.modele.length) {
+  // Même garde-fou que l'affichage : pas de modèle dans le texte copié si la
+  // recette est trop faible pour justifier un gabarit réutilisable.
+  if (Array.isArray(d.modele) && d.modele.length && note && note.score >= SEUIL_RECETTE_FORTE) {
     lignes.push('\nLE MODÈLE APPLICABLE (à remplir) :');
     d.modele.forEach(m => lignes.push('- [' + (m.temps || '') + '] ' + (m.gabarit || '')));
   }
