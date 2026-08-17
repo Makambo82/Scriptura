@@ -1322,6 +1322,25 @@
 </section>
 
 <footer>
+  <div class="footer-links">
+    <div class="footer-links-col">
+      <div class="footer-links-title">Modes</div>
+      <button type="button" class="footer-link-btn" onclick="chooseMode('audit')">Analyser mon compte TikTok</button>
+      <button type="button" class="footer-link-btn" onclick="ouvrirAnalyseVirale()">Analyser une vidéo</button>
+      <button type="button" class="footer-link-btn" onclick="demarrerModeDepuisAccueil('ideas')">Trouve-moi des idées</button>
+      <button type="button" class="footer-link-btn" onclick="demarrerModeDepuisAccueil('script')">J'ai une idée</button>
+      <button type="button" class="footer-link-btn" onclick="demarrerModeDepuisAccueil('story')">Storytelling</button>
+      <button type="button" class="footer-link-btn" onclick="chooseMode('serie')">Crée-moi une série</button>
+      <button type="button" class="footer-link-btn" onclick="sidebarGo('storyboardSeul')">Storyboard d'un script</button>
+    </div>
+    <div class="footer-links-col">
+      <div class="footer-links-title">Mon compte</div>
+      <button type="button" class="footer-link-btn" onclick="sidebarGo('history')">Mes générations</button>
+      <button type="button" class="footer-link-btn" onclick="sidebarGo('subscribe')">S'abonner</button>
+      <button type="button" class="footer-link-btn" onclick="sidebarGo('code')">J'ai un code</button>
+      <button type="button" class="footer-link-btn nav-admin-btn" onclick="sidebarGo('admin')">Tableau de bord</button>
+    </div>
+  </div>
   <div class="footer-contact">
     <span class="footer-contact-text">Questions & suggestions</span>
     <a href="https://wa.me/22995056424?text=Bonjour%2C+j%27ai+une+question+concernant+Scriptura" target="_blank" class="footer-wa-btn">

@@ -440,6 +440,27 @@ footer{
 }
 footer strong{color:var(--gold)}
 
+/* ── FOOTER : LIENS RAPIDES (tous les modes + mon compte, accessibles
+   depuis n'importe quel écran, le footer restant toujours dans le DOM) ── */
+.footer-links{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:48px 56px;
+  margin-bottom:32px;text-align:left;
+}
+.footer-links-col{display:flex;flex-direction:column;gap:10px;min-width:190px}
+.footer-links-title{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--gold);margin-bottom:2px;
+}
+.footer-link-btn{
+  background:none;border:none;padding:0;margin:0;text-align:left;cursor:pointer;
+  font-family:'Poppins',sans-serif;font-size:0.82rem;color:rgba(255,255,255,0.6);
+  transition:color 0.2s;
+}
+.footer-link-btn:hover{color:var(--gold)}
+/* Réservé aux comptes admin, même logique que .sidebar-item.nav-admin-btn */
+.footer-link-btn.nav-admin-btn{display:none}
+body.is-admin .footer-link-btn.nav-admin-btn{display:block}
+
 @media(max-width:600px){
   nav{padding:14px 16px}
   .nav-right{gap:8px}
