@@ -13,8 +13,18 @@
 -- dans les variables d'environnement Vercel (Réglages du projet Supabase >
 -- API > "service_role"). Sans cette clé côté serveur, plus personne ne
 -- pourrait se connecter (le serveur ne pourrait plus lire `abonnes` non plus).
+--
+-- CORRECTIF (vérifié en prod) : la première version de ce
+-- fichier tentait de retirer une politique nommée "abonnes anon read/write",
+-- un nom supposé mais qui ne correspondait à rien en réalité. La véritable
+-- politique ouverte en prod s'appelle "lecture_publique_abonnes" (SELECT,
+-- using(true), rôle public) : le premier passage de ce script avait donc
+-- bien activé la RLS mais laissé cette politique active, sans effet réel
+-- sur l'exposition de la table. Corrigé ci-dessous avec le vrai nom.
 
--- Retire l'ancienne politique ouverte si elle existe sous ce nom.
+-- Retire la politique de lecture publique réellement en place.
+drop policy if exists "lecture_publique_abonnes" on abonnes;
+-- Gardé au cas où une autre politique aurait existé sous ce nom ailleurs.
 drop policy if exists "abonnes anon read/write" on abonnes;
 
 alter table abonnes enable row level security;
