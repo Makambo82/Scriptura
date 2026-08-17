@@ -76,9 +76,23 @@ function extraireAwemeId(url) {
   return null;
 }
 
+// Seuls les domaines TikTok légitimes peuvent être suivis par le serveur :
+// sans ce verrou, `url` (fournie par le client) permettait de faire du
+// serveur un relais vers une adresse arbitraire (interne ou externe), le
+// serveur suivant les redirections sans aucune vérification.
+const HOTES_TIKTOK_AUTORISES = /^(?:[a-z0-9-]+\.)?tiktok\.com$/i;
+function hoteAutorise(url) {
+  try { return HOTES_TIKTOK_AUTORISES.test(new URL(url).hostname); }
+  catch (e) { return false; }
+}
+
 async function resoudreLien(url) {
+  if (!hoteAutorise(url)) return url; // hôte non-TikTok : on n'essaie même pas de le suivre
   try {
     const r = await fetch(url, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (iPhone)' } });
+    // Vérifie aussi la destination finale : une redirection TikTok légitime
+    // ne mène jamais hors de tiktok.com.
+    if (!hoteAutorise(r.url)) return url;
     return r.url || url;
   } catch (e) { return url; }
 }

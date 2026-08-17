@@ -62,7 +62,19 @@ const DUREE_TRANSITION = 0.5;
 // le pic de mémoire constant quel que soit le nombre total de plans.
 const TAILLE_LOT = 5;
 
+// Même hôte de confiance que api/montage-download.js : `images[].url` et
+// `audioUrl` sont fournies par le client (uploadées par js/montage.js dans
+// ce même bucket Supabase juste avant l'appel), et étaient jusqu'ici
+// téléchargées sans aucune vérification, un appel direct pouvait donc faire
+// du serveur un proxy vers n'importe quelle adresse (interne ou externe).
+const HOTES_AUTORISES = [/^nlkfqxllunbvppulpnzl\.supabase\.co$/i];
+function hoteAutorise(url) {
+  try { return HOTES_AUTORISES.some(re => re.test(new URL(url).hostname)); }
+  catch (e) { return false; }
+}
+
 async function telechargerVers(url, cheminLocal) {
+  if (!hoteAutorise(url)) throw new Error('Hôte non autorisé : ' + url);
   const rep = await fetch(url);
   if (!rep.ok) throw new Error('Téléchargement échoué (' + rep.status + ') : ' + url);
   const tampon = Buffer.from(await rep.arrayBuffer());

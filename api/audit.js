@@ -272,7 +272,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, images, objectif, niche, frequence, style, code_acces, mode, no_web_search } = req.body || {};
+    const { model, max_tokens, objectif, niche, frequence, style, code_acces, mode, no_web_search } = req.body || {};
+    // Plafond dur sur le nombre d'images par appel (l'interface en prévoit
+    // 1 à 12, voir AUDIT_PROMPT ci-dessus) : sans lui, un appel direct
+    // pouvait envoyer un nombre arbitraire d'images à Claude et gonfler le
+    // coût de l'analyse.
+    const MAX_IMAGES = 15;
+    const imagesBrutes = req.body && req.body.images;
+    const images = Array.isArray(imagesBrutes) ? imagesBrutes.slice(0, MAX_IMAGES) : imagesBrutes;
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: { message: 'Aucune image reçue' } });
