@@ -10,11 +10,12 @@
 //  /v1/speech-to-text (model scribe_v1) -> texte. Clé ELEVENLABS_API_KEY déjà
 //  en place (partagée avec le montage / voix off).
 //
-//  SOURCE DU MÉDIA : ScrapTik en PRINCIPAL (/get-post?aweme_id=), LamaTok en
-//  REPLI (/v1/media/by/id). Raison : LamaTok sert le profil mais rend mal les
-//  URLs vidéo ; ScrapTik est notre source vidéo éprouvée (déjà utilisée pour le
-//  catalogue d'un compte). Si ScrapTik ne rend rien d'exploitable (clé absente,
-//  hoquet, URL qui 403), on retombe sur LamaTok, qui reste un filet fonctionnel.
+//  SOURCE DU MÉDIA : LamaTok en PRINCIPAL (/v1/media/by/id), ScrapTik en
+//  REPLI (/get-post?aweme_id=). Raison : ScrapTik a un quota RapidAPI mensuel
+//  limité (vite épuisé, utilisé aussi par le diagnostic sommaire) ; LamaTok n'a
+//  pas cette contrainte et a déjà transcrit des vidéos avec succès en solo.
+//  Si LamaTok ne rend rien d'exploitable, on retombe sur ScrapTik (si sa clé
+//  existe et son quota le permet), qui reste un filet de résilience.
 //
 //  POST { url } -> { ok, transcript, description, stats, langue }. Non bloquant :
 //  ok=false si la vidéo est indisponible ou sans parole (repli manuel côté client).
@@ -273,31 +274,32 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
     }
 
-    // 2) Détail de la vidéo : ScrapTik en PRINCIPAL, LamaTok en REPLI.
-    const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
-    const dataScrap = scrapKey ? await detailScrapTik(id, scrapKey) : null;
+    // 2) Détail de la vidéo : LamaTok en PRINCIPAL, ScrapTik en REPLI (voir
+    // note en tête de fichier : ScrapTik a un quota mensuel limité).
+    const dataLama = await detailLamaTok(id, lamaKey);
 
     // Description & stats : on prend ce que la source principale donne, complété
     // par le repli si besoin.
-    let description = dataScrap ? (extraireDesc(dataScrap) || '') : '';
-    let stats = dataScrap ? extraireStats(dataScrap) : null;
+    let description = dataLama ? (extraireDesc(dataLama) || '') : '';
+    let stats = dataLama ? extraireStats(dataLama) : null;
 
     // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
-    //    On tente d'abord les URLs ScrapTik, puis, si rien ne passe, LamaTok.
+    //    On tente d'abord les URLs LamaTok, puis, si rien ne passe, ScrapTik.
     let media = null;
-    let dataLama = null;
-    if (dataScrap) {
-      for (const u of urlsVideo(dataScrap)) {
+    let dataScrap = null;
+    if (dataLama) {
+      for (const u of urlsVideo(dataLama)) {
         const m = await telechargerMedia(u);
         if (m.ok) { media = m; break; }
       }
     }
     if (!media) {
-      dataLama = await detailLamaTok(id, lamaKey);
-      if (dataLama) {
-        if (!description) description = extraireDesc(dataLama) || '';
-        if (!stats) stats = extraireStats(dataLama);
-        for (const u of urlsVideo(dataLama)) {
+      const scrapKey = nettoyerCle(process.env.SCRAPTIK_API_KEY);
+      dataScrap = scrapKey ? await detailScrapTik(id, scrapKey) : null;
+      if (dataScrap) {
+        if (!description) description = extraireDesc(dataScrap) || '';
+        if (!stats) stats = extraireStats(dataScrap);
+        for (const u of urlsVideo(dataScrap)) {
           const m = await telechargerMedia(u);
           if (m.ok) { media = m; break; }
         }
@@ -313,7 +315,7 @@ export default async function handler(req, res) {
     // abonnés), et le verdict devient trompeur. On va donc le chercher sur le
     // profil de l'auteur (2e appel LamaTok), une seule fois, si besoin.
     if (stats && stats.vues && !stats.abonnesAuteur) {
-      const username = extraireAuteurUsername(dataScrap) || extraireAuteurUsername(dataLama);
+      const username = extraireAuteurUsername(dataLama) || extraireAuteurUsername(dataScrap);
       if (username) {
         const ab = await abonnesViaProfil(username, lamaKey);
         if (ab != null) stats.abonnesAuteur = ab;
