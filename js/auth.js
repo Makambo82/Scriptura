@@ -24,10 +24,13 @@ function closeModal() {
   document.getElementById('codeInput').value = '';
 }
 
-// Interroge /api/verify-code pour savoir si `code` est le code fondateur ou
-// un code VIP/secours (voir api/verify-code.js) et mémorise le verdict,
-// jamais le code lui-même, dans localStorage. Ne lève jamais d'erreur :
-// en cas d'échec réseau, on part du principe qu'il n'y a ni admin ni illimité.
+// Interroge /api/verify-code pour connaître les droits RÉELS d'un code :
+// admin/VIP/secours (env Vercel), abonnement normal ou jeton (relu côté
+// serveur dans Supabase avec la clé service_role, jamais depuis le
+// navigateur, voir api/verify-code.js). Mémorise le verdict, jamais le code
+// lui-même en clair au-delà de scriptura_code (déjà le cas avant). Ne lève
+// jamais d'erreur : en cas d'échec réseau, on part du principe qu'il n'y a
+// ni admin ni illimité (le code peut quand même être valide, voir verifyCode).
 async function verifierStatutServeur(code) {
   try {
     const r = await fetch('/api/verify-code', {
@@ -57,101 +60,53 @@ async function verifyCode() {
     return;
   }
 
-  // Vérification via Supabase (codes personnels dans la table abonnes)
-  if (supabaseClient) {
-    // Afficher un état de chargement sur le bouton
-    const btn = document.querySelector('#modalOverlay .btn-generate') || document.querySelector('#modalOverlay button');
-    const btnLabel = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Vérification…'; }
+  const btn = document.querySelector('#modalOverlay .btn-generate') || document.querySelector('#modalOverlay button');
+  const btnLabel = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Vérification…'; }
 
-    try {
-      const { data, error } = await supabaseClient
-        .from('abonnes')
-        .select('*')
-        .eq('code', code)
-        .maybeSingle();
+  // Seule source de vérité : le serveur (admin/VIP/secours, ou abonnement/
+  // jeton relu dans Supabase avec la clé service_role). Plus de requête
+  // Supabase directe depuis le navigateur (voir supabase/abonnes_rls.sql).
+  const verdict = await verifierStatutServeur(code);
 
-      if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
+  if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
 
-      if (error) throw error;
-
-      if (!data) {
-        errorEl.textContent = 'Code invalide. Vérifie ta saisie ou contacte-nous.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      if (!data.actif) {
-        errorEl.textContent = 'Ce code a été désactivé. Contacte-nous pour réactiver ton accès.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      if (data.expire_le) {
-        const expire = new Date(data.expire_le);
-        const aujourdhui = new Date();
-        aujourdhui.setHours(0,0,0,0);
-        if (expire < aujourdhui) {
-          errorEl.textContent = 'Ton abonnement a expiré. Renouvelle pour retrouver l\'accès.';
-          errorEl.style.display = 'block';
-          return;
-        }
-      }
-
-      // Code "jeton seul" : achat d'une ou plusieurs analyses à l'unité,
-      // sans abonnement. On NE bascule PAS en "unlocked" : l'utilisateur
-      // reste sur le statut non-abonné (5 générations gratuites, pas
-      // d'accès aux modes Pro), on stocke juste le code pour que le
-      // système de jetons (lireJetonsAudit / consommerJetonAudit) le
-      // retrouve et le décompte à l'usage.
-      if (String(data.plan || '').trim().toLowerCase() === 'jeton') {
-        localStorage.setItem('scriptura_code', code);
-        closeModal();
-        renderGenCounter();
-        closePaywall();
-        return;
-      }
-
-      // Code valide ! (abonnement normal : Creator ou Pro)
-      unlocked = true;
-      localStorage.setItem('scriptura_unlocked', 'true');
-      localStorage.setItem('scriptura_code', code);
-      // Mémoriser la date d'expiration pour l'afficher dans le pop-up abonné
-      if (data.expire_le) localStorage.setItem('scriptura_expire', data.expire_le);
-      else localStorage.removeItem('scriptura_expire');
-      // Palier d'abonnement (colonne "plan" côté Supabase)
-      localStorage.setItem('scriptura_plan',
-        String(data.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
-      // Ce code a-t-il en plus un statut admin/illimité (voir api/verify-code.js) ?
-      await verifierStatutServeur(code);
-      document.body.classList.add('is-unlocked');
-      appliquerClasseAdmin();
-      closeModal();
-      renderGenCounter();
-      closePaywall();
-      return;
-
-    } catch(e) {
-      if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
-      // Repli sur la vérification serveur si Supabase échoue
+  if (!verdict.valid) {
+    if (verdict.raison === 'compte désactivé') {
+      errorEl.textContent = 'Ce code a été désactivé. Contacte-nous pour réactiver ton accès.';
+    } else if (verdict.raison === 'abonnement expiré') {
+      errorEl.textContent = 'Ton abonnement a expiré. Renouvelle pour retrouver l\'accès.';
+    } else {
+      errorEl.textContent = 'Code invalide. Vérifie ta saisie ou contacte-nous.';
     }
+    errorEl.style.display = 'block';
+    return;
   }
 
-  // Repli : le code n'a pas de ligne Supabase (ou Supabase est indisponible),
-  // il ne peut être valide que s'il s'agit du code admin ou d'un code VIP/secours,
-  // vérifié uniquement côté serveur (voir api/verify-code.js).
-  const verdict = await verifierStatutServeur(code);
-  if (verdict.valid) {
-    unlocked = true;
-    localStorage.setItem('scriptura_unlocked', 'true');
+  // Code "jeton seul" : achat d'une ou plusieurs analyses à l'unité, sans
+  // abonnement. On NE bascule PAS en "unlocked" : l'utilisateur reste sur
+  // le statut non-abonné (5 générations gratuites, pas d'accès aux modes
+  // Pro), on stocke juste le code pour que le solde de jetons (voir
+  // lireJetonsAudit) le retrouve.
+  if (verdict.jeton) {
     localStorage.setItem('scriptura_code', code);
-    localStorage.setItem('scriptura_plan', verdict.plan || 'pro');
-    document.body.classList.add('is-unlocked');
-    appliquerClasseAdmin();
     closeModal();
     renderGenCounter();
     closePaywall();
-  } else {
-    errorEl.textContent = 'Code invalide.';
-    errorEl.style.display = 'block';
+    return;
   }
+
+  // Code valide : abonnement normal (Creator/Pro), ou admin/VIP/secours.
+  unlocked = true;
+  localStorage.setItem('scriptura_unlocked', 'true');
+  localStorage.setItem('scriptura_code', code);
+  if (verdict.expireLe) localStorage.setItem('scriptura_expire', verdict.expireLe);
+  else localStorage.removeItem('scriptura_expire');
+  localStorage.setItem('scriptura_plan', String(verdict.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
+  document.body.classList.add('is-unlocked');
+  appliquerClasseAdmin();
+  closeModal();
+  renderGenCounter();
+  closePaywall();
 }
 

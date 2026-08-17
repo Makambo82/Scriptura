@@ -556,7 +556,7 @@ ${schemaJson}`;
   // Plafond de tokens large : la réponse (surtout en mode concurrent, avec le
   // verdict et la faille en plus) est longue ; un plafond trop bas coupait les
   // derniers champs. Ce plafond n'est pas facturé s'il n'est pas atteint.
-  const raw = await callAI(MODEL_RAPIDE, 4500, prompt);
+  const raw = await callAI(MODEL_RAPIDE, 4500, prompt, undefined, false, undefined, 'diagnosticSommaire');
   const parsed = parseAIResponse(raw);
 
   // NOTES DÉTERMINISTES : on remplace les notes de l'IA (tirées au hasard dans
@@ -636,7 +636,7 @@ async function lancerDiagnosticSommaire() {
       rep = await fetch('/api/username-scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, code_acces: localStorage.getItem('scriptura_code') || null }),
         signal: ctrlScan.signal
       });
     } catch (e) {
@@ -671,9 +671,10 @@ async function lancerDiagnosticSommaire() {
       renderGenCounter();
       checkRappelAbonnement();
     }
-    // Quota dédié (mensuel ou gratuit) épuisé : cette analyse a été autorisée
-    // par un jeton, on le décompte maintenant, après le succès.
-    if (droit.viaJeton) await consommerJetonAudit();
+    // Le jeton (si utilisé pour débloquer cette analyse) est désormais
+    // décompté côté SERVEUR par /api/username-scan lui-même (voir
+    // api/_lib/acces.js verifierQuota, mode 'diagnosticSommaire'), plus
+    // besoin de le refaire ici : ce serait un double décompte.
 
     const titre = 'Diagnostic sommaire · @' + username;
     saveGeneration('diagnosticSommaire', titre, {
@@ -1102,7 +1103,7 @@ RÈGLE ABSOLUE : ne compare jamais les chiffres toi-même et ne décide jamais q
 Réponds UNIQUEMENT en JSON : { "constat": "<2 à 4 phrases>", "levier_titre": "<max 8 mots>", "levier_detail": "<1-2 phrases>" }`;
 
   let syn = null;
-  try { syn = parseAIResponse(await callAI(MODEL_RAPIDE, 1200, prompt)); } catch (e) { syn = null; }
+  try { syn = parseAIResponse(await callAI(MODEL_RAPIDE, 1200, prompt, undefined, false, undefined, 'diagnosticSommaire')); } catch (e) { syn = null; }
 
   carte.innerHTML = _carteVsHtml(concUser, lignes, syn);
 

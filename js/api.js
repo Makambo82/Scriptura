@@ -135,8 +135,13 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
+  // `mode` : identifie le quota à vérifier CÔTÉ SERVEUR (voir api/_lib/acces.js) :
+  // 'creation' par défaut (idées/script/récit), ou 'creationSerie'
+  // (Pro/jeton pour entrer, voir js/serie.js). diagnosticSommaire/analyseVirale/
+  // audit passent par leurs propres routes (username-scan/video-stt/audit),
+  // pas par callAI.
   const promptStyle = REGLE_STYLE_TIRET + prompt;
   // Coupe la requête après 55s (juste sous les 60s de maxDuration côté serveur,
   // voir vercel.json) : sans ça, une requête bloquée reste pendue indéfiniment
@@ -156,7 +161,8 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
           messages: [{ role: "user", content: promptStyle }],
           code_acces: localStorage.getItem('scriptura_code') || null,
           web_search: !!webSearch,
-          web_search_max_uses: webSearchMaxUses || undefined
+          web_search_max_uses: webSearchMaxUses || undefined,
+          mode: mode || 'creation'
         }),
         signal: controller.signal
       });
@@ -168,8 +174,15 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     } finally {
       clearTimeout(delaiMax);
     }
-    // Abonnement expiré/désactivé refusé par le serveur
+    // Abonnement expiré/désactivé, OU quota du mode atteint : deux refus
+    // distincts renvoyés par le serveur avec le même statut HTTP (403),
+    // distingués par error.code (voir api/generate.js).
     if (res.status === 403) {
+      let payload = null;
+      try { payload = await res.json(); } catch (e) {}
+      if (payload && payload.error && payload.error.code === 'QUOTA_ATTEINT') {
+        return { ok: false, recoverable: false, detail: 'quota atteint', quotaAtteint: true };
+      }
       if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
       return { ok: false, recoverable: false, detail: 'accès refusé' };
     }

@@ -58,7 +58,7 @@ async function _transcriptDepuisLien(url) {
   try {
     const rep = await fetch('/api/video-stt', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }), signal: ctrl.signal
+      body: JSON.stringify({ url, code_acces: localStorage.getItem('scriptura_code') || null }), signal: ctrl.signal
     });
     const data = await rep.json();
     if (!rep.ok) throw new Error(data?.error?.message || 'Récupération impossible');
@@ -182,7 +182,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
   "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false> }
 }`;
 
-    const raw = await callAI(MODEL_CREATIF, 3200, prompt);
+    const raw = await callAI(MODEL_CREATIF, 3200, prompt, undefined, false, undefined, 'analyseVirale');
     const rapport = parseAIResponse(raw);
     if (!rapport || (!rapport.hook && !rapport.recette)) {
       throw new Error("Analyse illisible, réessaie dans un instant.");
@@ -203,9 +203,10 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
       renderGenCounter();
       checkRappelAbonnement();
     }
-    // Quota dédié (mensuel ou gratuit) épuisé : cette analyse a été autorisée
-    // par un jeton, on le décompte maintenant, après le succès.
-    if (droit.viaJeton) await consommerJetonAudit();
+    // Le jeton (si utilisé pour débloquer cette analyse) est désormais
+    // décompté côté SERVEUR par /api/video-stt lui-même (voir
+    // api/_lib/acces.js verifierQuota, mode 'analyseVirale'), plus besoin de
+    // le refaire ici : ce serait un double décompte.
     const titreCourt = (rapport.sujet || 'vidéo virale').slice(0, 50);
     saveGeneration('analyseVirale', 'Analyse virale · ' + titreCourt, {
       lien: lien || null, transcript: texte, rapport: rapport

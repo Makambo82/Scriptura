@@ -141,12 +141,12 @@ Un bon concept de série : un fil conducteur clair, chaque épisode autonome mai
 ${instructionRechercheWeb(niche, 'de proposer des concepts')}Réponds UNIQUEMENT en JSON, sans texte autour :
 [{"titre":"...","pitch":"une phrase qui explique le fil conducteur"}]`;
   try {
-    let raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, nicheNecessiteRecherche(niche));
+    let raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, nicheNecessiteRecherche(niche), undefined, 'creationSerie');
     let concepts = serieParseJSON(raw);
     // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
     // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
     if (!Array.isArray(concepts) || !concepts.length) {
-      raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, false);
+      raw = await callAI(MODEL_CREATIF, 1500, prompt, undefined, false, undefined, 'creationSerie');
       concepts = serieParseJSON(raw);
     }
     if (!Array.isArray(concepts) || !concepts.length) throw new Error('vide');
@@ -263,12 +263,12 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 }
 L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
 
-    let rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche));
+    let rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche), undefined, 'creationSerie');
     let bible = serieParseJSON(rawBible);
     // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
     // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
     if (!bible || !bible.premisse) {
-      rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, false);
+      rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, false, undefined, 'creationSerie');
       bible = serieParseJSON(rawBible);
     }
     if (!bible || !bible.premisse) throw new Error('construction impossible');
@@ -291,10 +291,10 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     }).select().single();
     if (error) throw error;
 
-    // Série créée avec succès : si l'accès venait d'un jeton, on le décompte.
-    if (moyen === 'jeton') {
-      try { await consommerJetonAudit(); } catch (e) { /* silencieux */ }
-    }
+    // Le jeton (si utilisé pour entrer) est désormais décompté côté SERVEUR
+    // par /api/generate lui-même (mode 'creationSerie', voir
+    // api/_lib/acces.js verifierAccesProOuJeton), plus besoin de le refaire
+    // ici : ce serait un double décompte.
 
     document.getElementById('serieCreation').style.display = 'none';
     document.getElementById('serieConcept').value = '';
@@ -753,12 +753,12 @@ CHAMP SUPPLÉMENTAIRE OBLIGATOIRE, "voix_off_propre" : en plus de "script" (le t
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","voix_off_propre":"uniquement le texte parlé, sans étiquette ni minutage","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
 
-    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche));
+    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche), undefined, 'creationSerie');
     let ep = serieParseJSON(raw);
     // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
     // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
     if (!ep || !ep.script) {
-      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false);
+      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false, undefined, 'creationSerie');
       ep = serieParseJSON(raw);
     }
     // Normalisation : si l'IA retourne script ou directives comme objet, on convertit en texte
@@ -817,7 +817,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 
       let correctedEp = null;
       try {
-        const correctRawSerie = await callAI(MODEL_CREATIF, 2500, correctionPromptSerie);
+        const correctRawSerie = await callAI(MODEL_CREATIF, 2500, correctionPromptSerie, undefined, false, undefined, 'creationSerie');
         correctedEp = serieParseJSON(correctRawSerie);
       } catch(e) { break; /* en cas d'erreur, on garde la version actuelle */ }
 

@@ -21,6 +21,8 @@
 //  serveur, jamais exposée au navigateur.
 // ═══════════════════════════════════════════════════════════
 
+import { resoudreDroits } from './_lib/acces.js';
+
 // Un seul appel à la fois : en parallèle (3 avant), Together AI renvoyait
 // une erreur de limite de débit sur une partie des appels (l'API refusait
 // la génération "en bloc" alors qu'une régénération individuelle, forcément
@@ -124,6 +126,14 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
+
+  // Réservé au fondateur (voir en-tête de fichier) : jusqu'ici seulement
+  // vérifié côté CSS (body.is-admin), donc contournable par un appel direct.
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  }
+
   const prompts = Array.isArray(body?.prompts) ? body.prompts.map(p => String(p || '').trim()) : [];
   if (!prompts.length || prompts.every(p => !p)) {
     return res.status(400).json({ error: { message: 'Aucun prompt à générer' } });

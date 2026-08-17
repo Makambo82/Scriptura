@@ -676,10 +676,9 @@ async function lancerAudit() {
       lecons: { recommandations_permanentes: leconsAudit, dernier_score_audit: scoreObtenu }
     });
 
-    // Si l'audit a été payé avec un jeton, on le décompte maintenant (après succès)
-    if (moyenAudit === 'jeton') {
-      try { await consommerJetonAudit(); } catch(e) { /* silencieux */ }
-    }
+    // Le jeton (si utilisé) est désormais décompté côté SERVEUR par
+    // /api/audit lui-même (voir api/_lib/acces.js verifierQuota), plus
+    // besoin de le refaire ici : ce serait un double décompte.
 
   } catch (e) {
     err.textContent = 'Diagnostic impossible : ' + (e.message || 'réessaie dans un instant');

@@ -85,18 +85,23 @@ async function chargerCarteActifs24h() {
   }
 }
 
-// ── Abonnés actifs, par formule (comptage exact, ne charge pas les lignes) ──
+// ── Abonnés actifs, par formule (comptage exact, via /api/admin-stats) ──
+// La table `abonnes` est verrouillée par RLS (voir supabase/abonnes_rls.sql) :
+// le rôle anon (celui du navigateur) n'y a plus aucun accès direct. Ces
+// comptes passent donc par une route serveur qui revérifie l'admin
+// elle-même (jamais un simple flag localStorage, voir api/admin-stats.js).
 async function chargerCarteAbonnes() {
   try {
-    const { count: total, error: e1 } = await supabaseClient.from('abonnes').select('*', { count: 'exact', head: true });
-    if (e1) throw e1;
-    const { count: actifs, error: e2 } = await supabaseClient.from('abonnes').select('*', { count: 'exact', head: true }).eq('actif', true);
-    if (e2) throw e2;
-    const { count: creator } = await supabaseClient.from('abonnes').select('*', { count: 'exact', head: true }).eq('actif', true).eq('plan', 'creator');
-    const { count: pro } = await supabaseClient.from('abonnes').select('*', { count: 'exact', head: true }).eq('actif', true).eq('plan', 'pro');
-    const sousTexte = (total || 0) + ' au total (actifs + désactivés) · '
-      + (creator || 0) + ' Creator · ' + (pro || 0) + ' Pro';
-    return carteStatAdmin('Abonnés actifs', actifs || 0, sousTexte);
+    const r = await fetch('/api/admin-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
+    const sousTexte = (data.total || 0) + ' au total (actifs + désactivés) · '
+      + (data.creator || 0) + ' Creator · ' + (data.pro || 0) + ' Pro';
+    return carteStatAdmin('Abonnés actifs', data.actifs || 0, sousTexte);
   } catch (e) {
     return carteErreurAdmin('Abonnés actifs', e);
   }

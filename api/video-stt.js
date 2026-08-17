@@ -19,10 +19,13 @@
 //  Clés 100% côté serveur.
 // ═══════════════════════════════════════════════════════════
 
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
+
 const LAMA_BASE = 'https://api.lamatok.com';
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
+const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte jusqu'à 3 API payées par appel
 
 // Tronque une chaîne à N caractères max SANS couper une paire de substituts
 // UTF-16 (emoji) en deux (mêmes règles que /api/username-scan) : sinon le
@@ -251,9 +254,24 @@ export default async function handler(req, res) {
   if (!elevenKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (ELEVENLABS_API_KEY)' } });
 
   try {
-    const { url } = req.body || {};
+    const { url, code_acces } = req.body || {};
     if (!url || typeof url !== 'string' || !url.trim()) {
       return res.status(400).json({ error: { message: 'Lien manquant' } });
+    }
+
+    // Verrou serveur : droits réels + quota dédié (mensuel pour un plan,
+    // 1 seule fois à vie sinon), jamais une valeur envoyée par le client.
+    const droits = await resoudreDroits(code_acces);
+    if (!droits.ok) {
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+    }
+    if (droits.anonyme) {
+      const limiteIP = await verifierLimiteAnonyme(req, 'video-stt', PLAFOND_ANONYME_JOUR);
+      if (!limiteIP.ok) return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
+    }
+    const verdict = await verifierQuota(droits, 'analyseVirale', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
     }
 
     // 1) Résoudre le lien court et extraire l'id.

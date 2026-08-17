@@ -38,6 +38,7 @@
 
 import ffmpegPath from 'ffmpeg-static';
 import { spawn } from 'child_process';
+import { resoudreDroits } from './_lib/acces.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -174,6 +175,13 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
+  // Réservé au fondateur (voir en-tête de fichier) : jusqu'ici seulement
+  // vérifié côté CSS (body.is-admin), donc contournable par un appel direct.
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  }
+
   const images = Array.isArray(body?.images) ? body.images : [];
   const audioUrl = typeof body?.audioUrl === 'string' ? body.audioUrl : '';
   if (!images.length || !audioUrl) {

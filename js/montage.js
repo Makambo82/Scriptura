@@ -441,7 +441,7 @@ async function genererImagesMontage() {
       const rep = await fetch('/api/montage-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text], format: ratioDuPrompt(montagePlans[i].visuel || '') })
+        body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text], format: ratioDuPrompt(montagePlans[i].visuel || ''), code_acces: localStorage.getItem('scriptura_code') || null })
       });
       const data = await rep.json();
       const img = data.images && data.images[0];
@@ -474,7 +474,7 @@ async function regenererImageMontage(i) {
     const rep = await fetch('/api/montage-images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: [plan.visuel || plan.text], format: ratioDuPrompt(plan.visuel || '') })
+      body: JSON.stringify({ prompts: [plan.visuel || plan.text], format: ratioDuPrompt(plan.visuel || ''), code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await rep.json();
     const img = data.images && data.images[0];
@@ -531,7 +531,7 @@ async function genererVoixOffMontage() {
     const rep = await fetch('/api/montage-tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments: montagePlans.map(p => p.text), voiceId: montageVoixId })
+      body: JSON.stringify({ segments: montagePlans.map(p => p.text), voiceId: montageVoixId, code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La voix off n\'a pas pu être générée.');
@@ -724,10 +724,15 @@ async function lancerMontage() {
       const urlRendu = MONTAGE_RENDER_URL ? MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render' : '/api/montage-render';
       const entetes = { 'Content-Type': 'application/json' };
       if (MONTAGE_RENDER_URL && MONTAGE_RENDER_TOKEN) entetes['x-montage-token'] = MONTAGE_RENDER_TOKEN;
+      // Le code d'accès n'est envoyé qu'au repli Vercel (/api/montage-render,
+      // dans ce dépôt, désormais protégé côté serveur) : jamais au service
+      // Railway externe, hors de notre contrôle.
+      const corpsRendu = { images, audioUrl: dataAudio.publicUrl, format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || '') };
+      if (!MONTAGE_RENDER_URL) corpsRendu.code_acces = localStorage.getItem('scriptura_code') || null;
       const rRender = await fetch(urlRendu, {
         method: 'POST',
         headers: entetes,
-        body: JSON.stringify({ images, audioUrl: dataAudio.publicUrl, format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || '') })
+        body: JSON.stringify(corpsRendu)
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');

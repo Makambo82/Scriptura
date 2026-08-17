@@ -10,6 +10,8 @@
 //  clé ELEVENLABS_API_KEY reste entièrement côté serveur.
 // ═══════════════════════════════════════════════════════════
 
+import { resoudreDroits } from './_lib/acces.js';
+
 // Mêmes voix que /api/montage-voices (voir ce fichier pour le format de
 // ELEVENLABS_VOICES), dupliqué plutôt qu'importé : chaque fonction
 // serverless de ce projet reste autonome, aucun module partagé entre elles.
@@ -62,6 +64,14 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
+
+  // Réservé au fondateur (voir en-tête de fichier) : jusqu'ici seulement
+  // vérifié côté CSS (body.is-admin), donc contournable par un appel direct.
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  }
+
   const segments = Array.isArray(body?.segments) ? body.segments.map(s => retirerMinuterie(String(s || '').trim())) : [];
   if (!segments.length || segments.every(s => !s)) {
     return res.status(400).json({ error: { message: 'Aucun texte à narrer' } });

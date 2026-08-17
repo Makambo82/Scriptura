@@ -21,8 +21,11 @@
 //  Debug : body.debug=true renvoie _debug (id extrait + réponses des sources).
 // ═══════════════════════════════════════════════════════════
 
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
+
 const LAMA_BASE = 'https://api.lamatok.com';
 const TIKHUB_BASE = 'https://api.tikhub.io';
+const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte 2 API payées par appel
 
 function attendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -209,11 +212,14 @@ export default async function handler(req, res) {
   const lamaKey = process.env.LAMATOK_API_KEY;
   const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
 
-  // Diagnostic ouvrable au navigateur (GET). Ne renvoie jamais les clés.
+  // Diagnostic ouvrable au navigateur (GET), réservé aux comptes admin (déclenche
+  // de vrais appels payés) : ?username=NOM&debug=1&code_acces=CODE.
   if (req.method === 'GET') {
     const username = ((req.query && (req.query.username || req.query.u)) || '').toString().trim().replace(/^@+/, '');
     const debug = req.query && (req.query.debug || req.query.d);
     if (!debug || !username) return res.status(400).json({ error: { message: 'Debug : /api/username-scan?username=NOM&debug=1' } });
+    const droitsDebug = await resoudreDroits((req.query && req.query.code_acces) || '');
+    if (!droitsDebug.isAdmin) return res.status(403).json({ error: { message: 'Réservé aux comptes admin' } });
     if (!lamaKey) return res.status(200).json({ _debug: { lamaKeyPresent: false, tikhubKeyPresent: !!tikhubKey } });
     return res.status(200).json({ _debug: await scanDebug(username, lamaKey, tikhubKey) });
   }
@@ -227,10 +233,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { username } = req.body || {};
+    const { username, code_acces } = req.body || {};
     if (!username || typeof username !== 'string' || !username.trim()) {
       return res.status(400).json({ error: { message: "Nom d'utilisateur manquant" } });
     }
+
+    // Verrou serveur : droits réels + quota dédié (mensuel pour un plan,
+    // 1 seule fois à vie sinon), jamais une valeur envoyée par le client.
+    const droits = await resoudreDroits(code_acces);
+    if (!droits.ok) {
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+    }
+    if (droits.anonyme) {
+      const limiteIP = await verifierLimiteAnonyme(req, 'username-scan', PLAFOND_ANONYME_JOUR);
+      if (!limiteIP.ok) return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
+    }
+    const verdict = await verifierQuota(droits, 'diagnosticSommaire', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: 'Quota de diagnostics sommaires atteint.', code: 'QUOTA_ATTEINT', raison: verdict.raison } });
+    }
+
     const propre = username.trim().replace(/^@+/, '');
 
     // 1) Profil via LamaTok

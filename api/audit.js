@@ -6,6 +6,14 @@
 //
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
+import { resoudreDroits, verifierQuota } from './_lib/acces.js';
+
+// Seuls modèles réellement utilisés par cette route (voir MODEL_AUDIT côté
+// client pour l'analyse réelle, 'classify' plus bas utilise Haiku en dur).
+const MODELES_AUTORISES = new Set(['claude-haiku-4-5-20251001', 'claude-sonnet-4-6']);
+const MODELE_DEFAUT = 'claude-haiku-4-5-20251001';
+// Plafond dur, aligné sur le max légitime existant (8000, voir js/audit.js).
+const MAX_TOKENS_PLAFOND = 8000;
 
 // Date réelle du jour, injectée dans l'appel d'audit principal (même principe
 // que api/generate.js) : sans repère temporel, le modèle peut analyser un
@@ -224,44 +232,6 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 
 Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un consultant qui dit quoi faire.`;
 
-// Vérifie côté serveur qu'un code d'accès correspond à un abonnement valide.
-// Les codes admin/illimité (voir api/verify-code.js) n'ont pas de ligne
-// Supabase : on les reconnaît ici via les mêmes variables d'environnement,
-// pour éviter une requête Supabase inutile, mais même sans cette
-// vérification, un code absent de la table "abonnes" retourne déjà
-// { ok: true } plus bas (ligne "aucune ligne trouvée"), donc ce n'est
-// qu'une optimisation, jamais la seule porte d'accès.
-async function verifierAcces(code) {
-  if (!code) return { ok: true };
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) return { ok: true };
-  const codeUpper = String(code).toUpperCase();
-  const codeAdmin = (process.env.CODE_ADMIN || '').trim().toUpperCase();
-  const codesIllimites = (process.env.CODES_ILLIMITES || '')
-    .split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
-  if ((codeAdmin && codeUpper === codeAdmin) || codesIllimites.includes(codeUpper)) return { ok: true };
-  try {
-    const r = await fetch(
-      url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=actif,expire_le',
-      { headers: { apikey: key, Authorization: 'Bearer ' + key } }
-    );
-    const rows = await r.json();
-    if (!Array.isArray(rows) || rows.length === 0) return { ok: true };
-    const ab = rows[0];
-    if (ab.actif === false) return { ok: false, raison: 'compte désactivé' };
-    if (ab.expire_le) {
-      const ds = String(ab.expire_le).split('T')[0].split(' ')[0].replace(/\//g, '-');
-      const p = ds.split('-');
-      if (p.length === 3) {
-        const exp = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]), 23, 59, 59, 999);
-        if (!isNaN(exp.getTime()) && exp < new Date()) return { ok: false, raison: 'abonnement expiré' };
-      }
-    }
-    return { ok: true };
-  } catch (e) { return { ok: true }; }
-}
-
 // Relit le dernier diagnostic sommaire (js/diagnostic-sommaire.js) enregistré
 // pour ce code d'accès, pour que l'analyse détaillée en tienne compte,
 // abonné (Creator/Pro) ou non-abonné ayant acheté des jetons : les deux ont
@@ -344,10 +314,16 @@ export default async function handler(req, res) {
       return res.status(200).json(dataC);
     }
 
-    // Verrou serveur : refuser si l'abonnement est expiré ou désactivé
-    const acces = await verifierAcces(code_acces);
-    if (!acces.ok) {
-      return res.status(403).json({ error: { message: 'Accès refusé : ' + acces.raison, code: 'ACCES_REFUSE' } });
+    // Verrou serveur : droits réels (jamais une valeur du client), puis quota
+    // dédié de l'audit détaillé (0/mois pour Creator sans jeton, 5/mois pour
+    // Pro, jamais accessible à un visiteur anonyme, voir verifierQuota).
+    const droits = await resoudreDroits(code_acces);
+    if (!droits.ok) {
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+    }
+    const verdict = await verifierQuota(droits, 'audit', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: 'Accès réservé au plan Pro (ou à l\'unité avec un jeton).', code: 'QUOTA_ATTEINT', raison: verdict.raison } });
     }
 
     // Diagnostic sommaire antérieur du même créateur (même code d'accès),
@@ -383,6 +359,10 @@ export default async function handler(req, res) {
 
     content.push({ type: 'text', text: promptFinal });
 
+    // Modèle et nombre de tokens : jamais transmis tels quels.
+    const modeleFinal = MODELES_AUTORISES.has(model) ? model : MODELE_DEFAUT;
+    const maxTokensFinal = Math.min(Math.max(parseInt(max_tokens, 10) || 8000, 1), MAX_TOKENS_PLAFOND);
+
     // Appel à l'API Anthropic
     const reponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -392,8 +372,8 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify(Object.assign({
-        model: model || 'claude-haiku-4-5-20251001',
-        max_tokens: max_tokens || 8000,
+        model: modeleFinal,
+        max_tokens: maxTokensFinal,
         system: systemDateActuelle(),
         messages: [{ role: 'user', content: content }]
       }, (NICHES_ACTUALITE.includes(niche) && !no_web_search) ? { tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }] } : {}))

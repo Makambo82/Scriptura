@@ -114,7 +114,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 
 Donne exactement 3 leviers prioritaires, les plus importants pour ce compte, classés du plus au moins prioritaire.`;
 
-    const raw = await callAI(MODEL_CREATIF, 3000, prompt);
+    const raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false, undefined, 'diagnosticFusion');
     const parsed = parseAIResponse(raw);
     if (!parsed) throw new Error('Réponse illisible, réessaie');
 

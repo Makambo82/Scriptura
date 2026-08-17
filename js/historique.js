@@ -362,25 +362,31 @@ async function droitAnalyseVirale() {
   return { ok: false, raison: 'quota', limite };
 }
 
-// Vérifie le quota d'audits du mois (compteur séparé de la création).
-// Lit le nombre de jetons d'analyse de l'abonné courant, directement depuis
-// Supabase (jamais mis en cache : ça change à chaque audit).
+// Lit le solde de jetons de l'abonné courant, pour l'affichage et les
+// vérifications d'AFFICHAGE côté client (le vrai contrôle, lui, est fait
+// côté serveur au moment de l'opération, voir api/_lib/acces.js). Passe par
+// /api/verify-code (clé service_role côté serveur) plutôt qu'une lecture
+// directe de `abonnes` : la RLS interdit désormais cet accès direct au rôle
+// anon (voir supabase/abonnes_rls.sql).
 async function lireJetonsAudit() {
-  if (!supabaseClient) return 0;
   const code = localStorage.getItem('scriptura_code');
   if (!code) return 0;
   try {
-    const { data, error } = await supabaseClient
-      .from('abonnes')
-      .select('jetons_audit')
-      .eq('code', code)
-      .maybeSingle();
-    if (error || !data) return 0;
-    return parseInt(data.jetons_audit) || 0;
+    const r = await fetch('/api/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await r.json();
+    return parseInt(data.jetons, 10) || 0;
   } catch(e) { console.warn('Lecture jetons échouée', e); return 0; }
 }
 
-// Décrémente d'un jeton l'abonné courant, après un audit consommé sur jeton.
+// Ancienne fonction de décompte client d'un jeton : n'est plus appelée
+// nulle part (chaque flux protégé décompte désormais le jeton lui-même
+// côté SERVEUR au moment de l'opération, voir api/_lib/acces.js
+// consommerJetonServeur). Laissée en place, non référencée, pour limiter le
+// diff plutôt que de la supprimer.
 async function consommerJetonAudit() {
   if (!supabaseClient) return;
   const code = localStorage.getItem('scriptura_code');
