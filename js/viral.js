@@ -194,6 +194,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
+    if (typeof pushNav === 'function') pushNav();
     afficherRapportViral(rapport);
     // Mémoire partagée : si la recette est élite (>= 90) ET vraiment performante,
     // on dépose sa version distillée pour nourrir les générations de tous.
