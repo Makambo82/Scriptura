@@ -50,7 +50,22 @@ export default async function handler(req, res) {
       compter('&actif=eq.true&plan=eq.creator'),
       compter('&actif=eq.true&plan=eq.pro')
     ]);
-    return res.status(200).json({ total, actifs, creator, pro });
+
+    // Générations par mode, 30 derniers jours (js/admin.js chargerCarteModes,
+    // qui lisait `generations` en direct avec la clé anon avant que la
+    // table ne soit verrouillée, voir supabase/generations_series_rls.sql).
+    let parMode = {};
+    try {
+      const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+      const rModes = await fetch(
+        cfg.url + '/rest/v1/generations?select=mode&cree_le=gte.' + encodeURIComponent(depuis30),
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rows = await rModes.json().catch(() => []);
+      (Array.isArray(rows) ? rows : []).forEach(r => { const m = r.mode || 'autre'; parMode[m] = (parMode[m] || 0) + 1; });
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
+    return res.status(200).json({ total, actifs, creator, pro, parMode });
   } catch (e) {
     return res.status(200).json({ indisponible: true });
   }

@@ -1108,15 +1108,17 @@ Réponds UNIQUEMENT en JSON : { "constat": "<2 à 4 phrases>", "levier_titre": "
   carte.innerHTML = _carteVsHtml(concUser, lignes, syn);
 
   // Persiste la comparaison dans la génération de mon compte (best-effort), pour
-  // qu'elle réapparaisse à la réouverture depuis l'historique.
+  // qu'elle réapparaisse à la réouverture depuis l'historique. Passe par le
+  // serveur (clé service_role) comme le reste des écritures sur `generations`,
+  // voir api/generations.js action 'patch'.
   try {
-    if (typeof currentGenId !== 'undefined' && currentGenId && typeof supabaseClient !== 'undefined' && supabaseClient) {
+    if (typeof currentGenId !== 'undefined' && currentGenId) {
       const comparaison = { concurrent: concUser, lignes, synthese: syn };
-      const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
-      if (data && data.contenu) {
-        const nouveau = Object.assign({}, data.contenu, { comparaisonConcurrent: comparaison });
-        await supabaseClient.from('generations').update({ contenu: nouveau }).eq('id', currentGenId);
-      }
+      await fetch('/api/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'patch', code: getUserRef(), id: currentGenId, champs: { comparaisonConcurrent: comparaison } })
+      });
     }
   } catch (e) { /* silencieux */ }
 }

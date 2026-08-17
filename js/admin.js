@@ -107,30 +107,29 @@ async function chargerCarteAbonnes() {
   }
 }
 
-// Le nom exact de la colonne de date sur `generations` n'est pas garanti
-// (dépend de comment la table a été créée) : on essaie plusieurs noms
-// courants plutôt que de dépendre d'un seul, pour éviter un aller-retour.
-const CANDIDATS_COLONNE_DATE = ['created_at', 'inserted_at', 'date_creation', 'created', 'date'];
-
-// ── Répartition des générations par mode sur 30 jours ──
+// ── Répartition des générations par mode sur 30 jours, via /api/admin-stats ──
+// La table `generations` est verrouillée par RLS (voir
+// supabase/generations_series_rls.sql) : passe désormais par la même route
+// serveur (revérifie l'admin elle-même) que chargerCarteAbonnes.
 async function chargerCarteModes() {
-  const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-  let derniereErreur = null;
-  for (const colonne of CANDIDATS_COLONNE_DATE) {
-    try {
-      const { data, error } = await supabaseClient.from('generations').select('mode').gte(colonne, depuis30);
-      if (error) { derniereErreur = error; continue; }
-      const parMode = {};
-      (data || []).forEach(r => { const m = r.mode || 'autre'; parMode[m] = (parMode[m] || 0) + 1; });
-      const lignes = Object.entries(parMode)
-        .sort((a, b) => b[1] - a[1])
-        .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
-        .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
-      return `<div class="score-card">
-        <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
-        <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
-      </div>`;
-    } catch (e) { derniereErreur = e; }
+  try {
+    const r = await fetch('/api/admin-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
+    const parMode = data.parMode || {};
+    const lignes = Object.entries(parMode)
+      .sort((a, b) => b[1] - a[1])
+      .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
+      .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
+    return `<div class="score-card">
+      <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
+      <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
+    </div>`;
+  } catch (e) {
+    return carteErreurAdmin('Générations par mode · 30 jours', e);
   }
-  return carteErreurAdmin('Générations par mode · 30 jours', derniereErreur);
 }

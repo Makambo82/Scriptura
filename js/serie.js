@@ -8,6 +8,26 @@ let serieNbEpisodes = 5;      // choix par défaut
 let serieDuree = '45 à 60 secondes'; // durée cible de chaque épisode
 let serieCouranteId = null;   // série ouverte dans le détail
 
+// Lit une série via le serveur (clé service_role), vérifie qu'elle
+// appartient bien au code courant (voir api/series.js action 'get') :
+// la table `series` n'accepte plus l'accès direct du rôle anon.
+async function _serieGet(id) {
+  const params = new URLSearchParams({ action: 'get', code: getUserRef(), id });
+  const r = await fetch('/api/series?' + params.toString());
+  const rep = await r.json();
+  if (!rep || !rep.ok || !rep.data) throw new Error('série introuvable');
+  return rep.data;
+}
+// Met à jour une série (episodes/episode_courant/statut) via le serveur,
+// voir api/series.js action 'update'.
+async function _serieUpdate(id, patch) {
+  await fetch('/api/series', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'update', code: getUserRef(), id, patch })
+  });
+}
+
 // Le genre choisi doit avoir un effet réel sur la mécanique de la série, pas
 // juste apparaître en contexte passif, utilisé à la fois pour la bible
 // (promptBible) et pour chaque épisode (genererEpisode).
@@ -44,18 +64,18 @@ function initSerieSelects() {
   });
 }
 
-// Charge les séries de l'utilisateur depuis Supabase
+// Charge les séries de l'utilisateur, via le serveur (clé service_role) :
+// la table `series` n'accepte plus l'accès direct du rôle anon, voir
+// supabase/generations_series_rls.sql et api/series.js.
 async function chargerSeries() {
   const bloc = document.getElementById('serieListeBloc');
   const liste = document.getElementById('serieListe');
-  if (!supabaseClient || !liste) return;
+  if (!liste) return;
   try {
-    const { data, error } = await supabaseClient
-      .from('series')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .order('cree_le', { ascending: false });
-    if (error) throw error;
+    const params = new URLSearchParams({ action: 'list', code: getUserRef() });
+    const r = await fetch('/api/series?' + params.toString());
+    const rep = await r.json();
+    const data = (rep && rep.ok) ? rep.data : [];
     if (!data || !data.length) { if (bloc) bloc.style.display = 'none'; return; }
     liste.innerHTML = data.map(s => {
       const total = s.nb_episodes || 5;
@@ -277,19 +297,17 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     bible.format = format;              // faceless / face caméra : dicte l'écriture de chaque épisode
 
     const titre = (bible.titre || concept.split('—')[0]).trim().slice(0, 90);
-    const { data, error } = await supabaseClient.from('series').insert({
-      code_acces: getUserRef(),
-      titre: titre,
-      concept: concept,
-      niche: niche,
-      style: style,
-      genre: genre,
-      bible: bible,
-      nb_episodes: serieNbEpisodes,
-      episode_courant: 0,
-      episodes: []
-    }).select().single();
-    if (error) throw error;
+    const rSave = await fetch('/api/series', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save', code: getUserRef(), titre, concept, niche, style, genre, bible,
+        nb_episodes: serieNbEpisodes
+      })
+    });
+    const repSave = await rSave.json();
+    if (!repSave || !repSave.ok) throw new Error('création impossible');
+    const data = repSave.data;
 
     // Le jeton (si utilisé pour entrer) est désormais décompté côté SERVEUR
     // par /api/generate lui-même (mode 'creationSerie', voir
@@ -329,8 +347,7 @@ async function ouvrirSerie(id) {
   detail.style.display = 'block';
   detail.innerHTML = '<p class="serie-card-concept">Chargement…</p>';
   try {
-    const { data, error } = await supabaseClient.from('series').select('*').eq('id', id).single();
-    if (error) throw error;
+    const data = await _serieGet(id);
     const total = data.nb_episodes || 5;
     const eps = Array.isArray(data.episodes) ? data.episodes : [];
     // Format réel de la série (bible.format), data.style est le TON depuis
@@ -488,8 +505,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     </div>`;
 
   try {
-    const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
-    if (error) throw error;
+    const serie = await _serieGet(serieCouranteId);
     const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
     const ep = eps.find(e => e.num === numEp);
     if (!ep) return;
@@ -548,7 +564,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const nouveaux = eps.map(e => e.num === numEp
       ? Object.assign({}, e, { storyboard: storyboardFinal, miniature: miniature || null })
       : e);
-    await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
+    await _serieUpdate(serieCouranteId, { episodes: nouveaux });
   } catch(e) {
     if (statut) statut.remove();
     if (grid) grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="genererStoryboardEpisode(${numEp})" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
@@ -567,13 +583,12 @@ async function genererStoryboardEpisode(numEp, isRegen) {
 // Persiste le guide de montage CapCut d'un épisode (rattaché comme le
 // storyboard). Non bloquant : si l'écriture échoue, le guide reste affiché.
 async function serieSauverGuideMontage(numEp, guide) {
-  if (!serieCouranteId || typeof supabaseClient === 'undefined') return;
+  if (!serieCouranteId) return;
   try {
-    const { data: serie, error } = await supabaseClient.from('series').select('*').eq('id', serieCouranteId).single();
-    if (error || !serie) return;
+    const serie = await _serieGet(serieCouranteId);
     const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
     const nouveaux = eps.map(e => e.num === numEp ? Object.assign({}, e, { guideMontage: guide }) : e);
-    await supabaseClient.from('series').update({ episodes: nouveaux }).eq('id', serieCouranteId);
+    await _serieUpdate(serieCouranteId, { episodes: nouveaux });
   } catch (e) { /* non bloquant */ }
 }
 
@@ -622,17 +637,13 @@ function renderSerieStoryboard(sb, miniature, numEp, guideMontage) {
 // Revient à la liste des séries depuis le détail
 // Lit les séries de l'utilisateur pour l'historique (les plus récentes d'abord)
 async function chargerSeriesHistorique() {
-  if (!supabaseClient) return [];
   const code = localStorage.getItem('scriptura_code');
   if (!code) return []; // pas de séries pour un visiteur sans code
   try {
-    const { data, error } = await supabaseClient
-      .from('series')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .order('cree_le', { ascending: false });
-    if (error) throw error;
-    return data || [];
+    const params = new URLSearchParams({ action: 'list', code: getUserRef() });
+    const r = await fetch('/api/series?' + params.toString());
+    const rep = await r.json();
+    return (rep && rep.ok) ? (rep.data || []) : [];
   } catch(e) { console.warn('Chargement séries (historique) échoué', e); return []; }
 }
 
@@ -678,9 +689,7 @@ async function genererEpisode() {
   startGenAnimation('serie_episode');
 
   try {
-    const { data: serie, error: e1 } = await supabaseClient
-      .from('series').select('*').eq('id', serieCouranteId).single();
-    if (e1) throw e1;
+    const serie = await _serieGet(serieCouranteId);
     const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
     const num = eps.length + 1;
     const total = serie.nb_episodes || 5;
@@ -834,12 +843,11 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 
     const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script }]);
     const termine = nouveaux.length >= total;
-    const { error: e2 } = await supabaseClient.from('series').update({
+    await _serieUpdate(serieCouranteId, {
       episodes: nouveaux,
       episode_courant: nouveaux.length,
       statut: termine ? 'terminee' : 'en_cours'
-    }).eq('id', serieCouranteId);
-    if (e2) throw e2;
+    });
 
     // Enregistre aussi dans l'historique (et compte dans le quota du mois).
     // serie_id est ajouté uniquement pour cet enregistrement (ep lui-même

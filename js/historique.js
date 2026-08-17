@@ -24,16 +24,22 @@ function _normaliserRecherche(s) {
   return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+// Passe par le serveur (clé service_role) plutôt qu'un accès Supabase
+// direct : la table `generations` n'accepte plus l'accès du rôle anon
+// (voir supabase/generations_series_rls.sql), n'importe qui pouvait sinon
+// lire/modifier/supprimer la ligne de n'importe quel autre utilisateur en
+// appelant Supabase directement. Toutes les fonctions de ce fichier qui
+// touchaient `generations`/`series` en direct suivent le même principe.
 async function saveGeneration(mode, titre, contenu) {
-  if (!supabaseClient) { currentGenId = null; return; }
-
   // Régénération GRATUITE : on met à jour la ligne existante au lieu d'en créer une
   // nouvelle → ça ne compte pas comme une génération supplémentaire dans le quota.
   if (_regenGratuiteEnCours && currentGenId) {
     try {
-      await supabaseClient.from('generations')
-        .update({ titre: titre || 'Sans titre', contenu: contenu })
-        .eq('id', currentGenId);
+      await fetch('/api/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save-regen', code: getUserRef(), id: currentGenId, titre: titre || 'Sans titre', contenu })
+      });
     } catch(e) { console.warn('Maj régénération échouée', e); }
     return; // on garde le même currentGenId, aucune nouvelle ligne créée
   }
@@ -41,27 +47,34 @@ async function saveGeneration(mode, titre, contenu) {
   // Génération normale (ou 3e régénération+) : nouvelle ligne = compte dans le quota
   currentGenId = null;
   try {
-    const { data, error } = await supabaseClient.from('generations').insert({
-      code_acces: getUserRef(),
-      mode: mode,
-      titre: titre || 'Sans titre',
-      contenu: contenu
-    }).select('id').single();
-    if (!error && data) currentGenId = data.id;
+    const r = await fetch('/api/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save', code: getUserRef(), mode: mode, titre: titre || 'Sans titre', contenu })
+    });
+    const data = await r.json();
+    if (data && data.ok) currentGenId = data.id;
   } catch(e) { console.warn('Sauvegarde échouée', e); }
+}
+
+// Fusionne `champs` dans le `contenu` de la génération courante, côté
+// serveur (lecture + fusion + écriture en une seule requête, voir
+// api/generations.js action 'patch'). Partagé par les fonctions ci-dessous,
+// qui ne différaient auparavant que par les champs à fusionner.
+async function _patchGenerationCourante(champs) {
+  if (!currentGenId) return;
+  try {
+    await fetch('/api/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'patch', code: getUserRef(), id: currentGenId, champs })
+    });
+  } catch (e) { console.warn('Mise à jour de la génération échouée', e); }
 }
 
 // Met à jour une génération existante (pour y rattacher le storyboard généré)
 async function updateGenerationStoryboard(storyboardData) {
-  if (!supabaseClient || !currentGenId) return;
-  try {
-    // Récupérer le contenu actuel, y ajouter le storyboard, puis réenregistrer
-    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
-    if (data && data.contenu) {
-      const nouveauContenu = Object.assign({}, data.contenu, { storyboard_genere: storyboardData });
-      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
-    }
-  } catch(e) { console.warn('Maj storyboard échouée', e); }
+  await _patchGenerationCourante({ storyboard_genere: storyboardData });
 }
 
 // Rattache le guide de montage CapCut à la génération courante (script, récit,
@@ -69,55 +82,28 @@ async function updateGenerationStoryboard(storyboardData) {
 // que updateGenerationStoryboard. currentGenId est déjà positionné, y compris
 // à la réouverture (voir ouvrirGeneration).
 async function updateGenerationGuideMontage(guide) {
-  if (!supabaseClient || !currentGenId) return;
-  try {
-    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
-    if (data && data.contenu) {
-      const nouveauContenu = Object.assign({}, data.contenu, { guide_montage: guide });
-      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
-    }
-  } catch (e) { console.warn('Maj guide de montage échouée', e); }
+  await _patchGenerationCourante({ guide_montage: guide });
 }
 
 // Sauvegarde une retouche ciblée (segment de script ou hook modifié) sur la
 // génération déjà enregistrée, pour qu'elle reste visible en rouvrant depuis
 // l'historique, même mécanisme que updateGenerationStoryboard ci-dessus.
 async function sauvegarderRetouche() {
-  if (!supabaseClient || !currentGenId) return;
-  try {
-    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
-    if (data && data.contenu) {
-      const nouveauContenu = Object.assign({}, data.contenu, { script: currentScript, hooks: currentHooks });
-      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
-    }
-  } catch(e) { console.warn('Sauvegarde de la retouche échouée', e); }
+  await _patchGenerationCourante({ script: currentScript, hooks: currentHooks });
 }
 
 // Même principe que sauvegarderRetouche, pour le mode Storytelling
 // (currentStory.recit / currentStory.hooks au lieu de currentScript / currentHooks).
 async function sauvegarderRetoucheStory() {
-  if (!supabaseClient || !currentGenId || !currentStory) return;
-  try {
-    const { data } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
-    if (data && data.contenu) {
-      const nouveauContenu = Object.assign({}, data.contenu, { recit: currentStory.recit, hooks: currentStory.hooks });
-      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
-    }
-  } catch(e) { console.warn('Sauvegarde de la retouche (récit) échouée', e); }
+  if (!currentStory) return;
+  await _patchGenerationCourante({ recit: currentStory.recit, hooks: currentStory.hooks });
 }
 
 // Sauvegarde la recommandation "Et maintenant ?" générée après un audit tout
 // juste terminé, pour qu'elle reste identique en rouvrant cet audit depuis
 // l'historique (même mécanisme que sauvegarderRetouche/updateGenerationStoryboard).
 async function sauvegarderRecommandationAudit(data) {
-  if (!supabaseClient || !currentGenId) return;
-  try {
-    const { data: row } = await supabaseClient.from('generations').select('contenu').eq('id', currentGenId).single();
-    if (row && row.contenu) {
-      const nouveauContenu = Object.assign({}, row.contenu, { recommandation_ia: data });
-      await supabaseClient.from('generations').update({ contenu: nouveauContenu }).eq('id', currentGenId);
-    }
-  } catch(e) { console.warn('Sauvegarde de la recommandation IA échouée', e); }
+  await _patchGenerationCourante({ recommandation_ia: data });
 }
 
 // Réaffiche un storyboard déjà généré (depuis Mes générations), sans régénérer.
@@ -201,30 +187,16 @@ function reafficherStoryboard(sbData, isStory, guideSauve) {
 // Compte les générations faites ce mois-ci par l'utilisateur (anti-abus abonnés).
 // typeVoulu : 'creation' (les 3 modes) ou 'audit'. Sans argument, compte tout.
 async function countMonthGenerations(typeVoulu) {
-  if (!supabaseClient) return 0;
   try {
     // Début du mois courant : le 1er à 00:00
     const now = new Date();
     const debutMois = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    let req = supabaseClient
-      .from('generations')
-      .select('*', { count: 'exact', head: true })
-      .eq('code_acces', getUserRef())
-      .gte('cree_le', debutMois.toISOString());
-    if (typeVoulu === 'audit') {
-      req = req.eq('mode', 'audit');
-    } else if (typeVoulu === 'diagnosticSommaire') {
-      req = req.eq('mode', 'diagnosticSommaire');
-    } else if (typeVoulu === 'analyseVirale') {
-      req = req.eq('mode', 'analyseVirale');
-    } else if (typeVoulu === 'creation') {
-      // L'audit complet, le diagnostic sommaire ET l'analyse vidéo ont chacun
-      // leur propre compteur mensuel séparé : on les exclut du quota de création.
-      req = req.neq('mode', 'audit').neq('mode', 'diagnosticSommaire').neq('mode', 'analyseVirale');
-    }
-    const { count, error } = await req;
-    if (error) throw error;
-    return count || 0;
+    const params = new URLSearchParams({
+      action: 'count', code: getUserRef(), type: typeVoulu || '', depuis: debutMois.toISOString()
+    });
+    const r = await fetch('/api/generations?' + params.toString());
+    const data = await r.json();
+    return (data && data.ok) ? (data.count || 0) : 0;
   } catch(e) { console.warn('Comptage du mois échoué', e); return 0; }
 }
 
@@ -427,27 +399,29 @@ async function peutAuditer() {
 
 // Supprime une ou plusieurs générations dans Supabase
 async function deleteGenerations(ids) {
-  if (!supabaseClient || !ids || !ids.length) return false;
+  if (!ids || !ids.length) return false;
   try {
-    const { error } = await supabaseClient
-      .from('generations')
-      .delete()
-      .in('id', ids);
-    if (error) throw error;
-    return true;
+    const r = await fetch('/api/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', code: getUserRef(), ids })
+    });
+    const data = await r.json();
+    return !!(data && data.ok);
   } catch(e) { console.warn('Suppression échouée', e); return false; }
 }
 
 // Supprime des séries (table dédiée)
 async function deleteSeries(ids) {
-  if (!supabaseClient || !ids || !ids.length) return false;
+  if (!ids || !ids.length) return false;
   try {
-    const { error } = await supabaseClient
-      .from('series')
-      .delete()
-      .in('id', ids);
-    if (error) throw error;
-    return true;
+    const r = await fetch('/api/series', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', code: getUserRef(), ids })
+    });
+    const data = await r.json();
+    return !!(data && data.ok);
   } catch(e) { console.warn('Suppression série échouée', e); return false; }
 }
 
@@ -860,12 +834,14 @@ function _histItem(id) {
 // Enregistre l'état favori côté serveur, en arrière-plan (ne bloque jamais
 // l'interface). L'affichage, lui, a déjà été mis à jour tout de suite.
 function _persisterFavori(table, ids, valeur) {
-  if (!supabaseClient || !ids.length) return;
-  try {
-    supabaseClient.from(table).update({ favori: valeur }).in('id', ids)
-      .then(function (r) { if (r && r.error) console.warn('Favori non enregistré', r.error); })
-      .catch(function (e) { console.warn('Favori non enregistré', e); });
-  } catch (e) { console.warn('Favori non enregistré', e); }
+  if (!ids.length) return;
+  const route = table === 'series' ? '/api/series' : '/api/generations';
+  fetch(route, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'favori', code: getUserRef(), ids, valeur })
+  }).then(function (r) { if (!r.ok) console.warn('Favori non enregistré'); })
+    .catch(function (e) { console.warn('Favori non enregistré', e); });
 }
 
 // Ajoute/retire UNE génération (ou série) des favoris. Réponse INSTANTANÉE :
@@ -1120,18 +1096,13 @@ function recoPrincipale(contenu) {
 let _rappelAuditCourant = null;
 
 async function verifierRappelAudit() {
-  if (!supabaseClient || !unlocked) return; // réservé aux abonnés connectés
+  if (!unlocked) return; // réservé aux abonnés connectés
   try {
-    const { data, error } = await supabaseClient
-      .from('generations')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .eq('mode', 'audit')
-      .order('cree_le', { ascending: false })
-      .limit(1);
-    if (error || !data || !data.length) return;
-
-    const audit = data[0];
+    const params = new URLSearchParams({ action: 'last', code: getUserRef(), mode: 'audit' });
+    const r = await fetch('/api/generations?' + params.toString());
+    const rep = await r.json();
+    const audit = rep && rep.ok && rep.data;
+    if (!audit) return;
     // Déjà rappelé pour cet audit ? on n'insiste pas.
     const dejaVu = localStorage.getItem('scriptura_rappel_' + audit.id);
     if (dejaVu) return;
@@ -1197,16 +1168,11 @@ function fermerRappelAudit() {
 const HIST_TAILLE_PAGE = 50;
 
 async function loadGenerations(offset) {
-  if (!supabaseClient) return [];
   const debut = offset || 0;
   try {
-    const { data, error } = await supabaseClient
-      .from('generations')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .order('cree_le', { ascending: false })
-      .range(debut, debut + HIST_TAILLE_PAGE - 1);
-    if (error) throw error;
-    return data || [];
+    const params = new URLSearchParams({ action: 'list', code: getUserRef(), offset: String(debut) });
+    const r = await fetch('/api/generations?' + params.toString());
+    const data = await r.json();
+    return (data && data.ok) ? (data.data || []) : [];
   } catch(e) { console.warn('Chargement échoué', e); return []; }
 }

@@ -10,18 +10,15 @@
 // ═══════════════════════════════════════════════════════════
 
 // Récupère la dernière génération d'un mode donné pour l'utilisateur courant.
+// Passe par le serveur (clé service_role) : la table `generations` n'accepte
+// plus l'accès direct du rôle anon, voir supabase/generations_series_rls.sql
+// et api/generations.js.
 async function _derniereGenerationDe(mode) {
-  if (!supabaseClient) return null;
   try {
-    const { data, error } = await supabaseClient
-      .from('generations')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .eq('mode', mode)
-      .order('cree_le', { ascending: false })
-      .limit(1);
-    if (error || !Array.isArray(data) || !data.length) return null;
-    return data[0];
+    const params = new URLSearchParams({ action: 'last', code: getUserRef(), mode });
+    const r = await fetch('/api/generations?' + params.toString());
+    const rep = await r.json();
+    return (rep && rep.ok) ? rep.data : null;
   } catch (e) { console.warn('Lecture génération échouée', e); return null; }
 }
 
@@ -30,17 +27,11 @@ async function _derniereGenerationDe(mode) {
 // comptes de concurrents qu'il a analysés (tag estMonCompte, voir
 // js/diagnostic-sommaire.js). Best-effort : [] en cas d'erreur.
 async function _recentesGenerationsDe(mode, n) {
-  if (!supabaseClient) return [];
   try {
-    const { data, error } = await supabaseClient
-      .from('generations')
-      .select('*')
-      .eq('code_acces', getUserRef())
-      .eq('mode', mode)
-      .order('cree_le', { ascending: false })
-      .limit(n || 8);
-    if (error || !Array.isArray(data)) return [];
-    return data;
+    const params = new URLSearchParams({ action: 'last', code: getUserRef(), mode, limit: String(n || 8) });
+    const r = await fetch('/api/generations?' + params.toString());
+    const rep = await r.json();
+    return (rep && rep.ok && Array.isArray(rep.data)) ? rep.data : [];
   } catch (e) { console.warn('Lecture générations échouée', e); return []; }
 }
 
