@@ -994,33 +994,20 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     }
     if (!scriptEstComplet(parsed)) throw new Error('Réponse incomplète, réessaie, ce sera plus rapide');
 
-    // ── SECOND BROUILLON : régénère UNE fois si le score global est < 90 ──
-    // On garde la meilleure des deux versions. C'est un filet de variance
-    // créative : parfois un 2e jet est simplement meilleur, au-delà de ce que
-    // le Critique/Réviseur peut corriger sur un brouillon donné.
-    function scoreGlobal(p) {
-      if (!p || !p.score) return 100; // pas de score = on ne bloque pas
-      const s = p.score;
-      const vals = [s.viral, s.hook, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
-      return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
-    }
-    if (!repondreMaintenant && scoreGlobal(parsed) < 90) {
-      try {
-        const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
-        const parsed2 = parseAIResponse(writeRaw2);
-        // On garde la meilleure des deux versions (jamais une version tronquée)
-        if (scriptEstComplet(parsed2) && scoreGlobal(parsed2) > scoreGlobal(parsed)) {
-          parsed = parsed2;
-        }
-      } catch(e) { /* si la 2e tentative échoue, on garde la première */ }
-    }
-
     // ══════════════════════════════════════
     //  PHASES 3-4 (Critique + Réviseur), le cœur du renforcement qualité.
     //  Le Critique cherche ACTIVEMENT les faiblesses, y compris en essayant
     //  de RÉFUTER le script (pourquoi un spectateur scrollerait avant la
     //  fin ?). Si un problème significatif ressort, le Réviseur réécrit
-    //  UNIQUEMENT les segments faibles identifiés, jamais tout le script.
+    //  UNIQUEMENT les segments faibles identifiés, jamais tout le script,
+    //  SAUF si le Critique juge le brouillon fondamentalement faible (voir
+    //  critiqueIndiqueProblemeFondamental) : dans ce cas seulement, un
+    //  second brouillon complet est retenté (filet de variance créative,
+    //  qu'une révision segment par segment ne suffirait pas à corriger).
+    //  Décidé par le Critique (indépendant), jamais par l'auto-évaluation du
+    //  Rédacteur : avant ce correctif, un score honnête mais < 90 déclenchait
+    //  déjà une réécriture complète, même pour un script déjà correct que le
+    //  Critique/Réviseur, moins coûteux, aurait suffi à peaufiner.
     //  Bornée à 1 passe (voir MAX_PASSES_QUALITE) pour garder un temps de
     //  génération raisonnable : au-delà, on livre la meilleure version
     //  obtenue plutôt que de multiplier les allers-retours.
@@ -1038,6 +1025,18 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         if (c.viralite && typeof c.viralite === 'object') {
           const vals = Object.values(c.viralite).filter(v => typeof v === 'number');
           if (vals.length && (vals.reduce((a, b) => a + b, 0) / vals.length) < 14) return true; // moyenne sur 20
+        }
+        return false;
+      }
+      // Sous-ensemble plus sévère : justifie un second brouillon COMPLET
+      // plutôt qu'une révision ciblée (générique ET jugé "à améliorer" à la
+      // fois, ou viralité nettement en dessous même du seuil de révision).
+      function critiqueIndiqueProblemeFondamental(c) {
+        if (!c) return false;
+        if (c.verdict === 'à améliorer' && c.ia_generique === true) return true;
+        if (c.viralite && typeof c.viralite === 'object') {
+          const vals = Object.values(c.viralite).filter(v => typeof v === 'number');
+          if (vals.length && (vals.reduce((a, b) => a + b, 0) / vals.length) < 11) return true; // moyenne sur 20
         }
         return false;
       }
@@ -1092,6 +1091,22 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         critique = nouvelleCritique;
 
         if (!critiqueIndiqueProbleme(critique)) break; // le script passe le contrôle qualité : terminé
+
+        if (!repondreMaintenant && passe === 0 && critiqueIndiqueProblemeFondamental(critique)) {
+          // ── SECOND BROUILLON COMPLET ──
+          // Le Critique (indépendant) juge le premier brouillon fondamentalement
+          // faible (générique ET jugé "à améliorer", ou viralité très basse) :
+          // une révision segment par segment ne suffirait pas, on retente une
+          // écriture complète plutôt que de rafistoler.
+          try {
+            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
+            const parsed2 = parseAIResponse(writeRaw2);
+            if (scriptEstComplet(parsed2)) {
+              parsed = parsed2;
+              continue; // relance une passe de critique sur ce nouveau brouillon
+            }
+          } catch(e) { /* si le second brouillon échoue, on continue avec la révision ciblée */ }
+        }
 
         // ══════════════════════════════════════
         //  PHASE 4, LE RÉVISEUR (agent indépendant)

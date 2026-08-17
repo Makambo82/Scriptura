@@ -334,33 +334,27 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     const modeleUtilise = candidatsModeles.find(m => m.titre === parsed.modele_utilise) || candidatsModeles[0] || null;
     const structureModeleRef = modeleUtilise ? modeleUtilise.script.trim() : '';
 
-    // ── SCORE RÉEL : régénère UNE fois si le récit n'est pas excellent (< 90) ──
-    // Filet de variance créative : parfois un 2e jet est simplement meilleur.
-    function scoreGlobalStory(p) {
-      if (!p || !p.score) return 100;
-      const s = p.score;
-      const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
-      return vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 100;
-    }
-    if (!repondreMaintenant && scoreGlobalStory(parsed) < 90) {
-      try {
-        const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
-        const parsed2 = parseAIResponse(raw2);
-        if (parsed2 && parsed2.recit && parsed2.score && scoreGlobalStory(parsed2) > scoreGlobalStory(parsed)) {
-          parsed = parsed2;
-        }
-      } catch(e) { /* garde la première version si échec */ }
-    }
-
     // ── CRITIQUE + RÉVISEUR (comme le mode script) ──
     // Le récit avait longtemps ce maillon manquant. Un Critique indépendant
     // cherche les faiblesses segment par segment ; si un problème ressort, un
     // Réviseur réécrit UNIQUEMENT les segments faibles. Sauté si l'utilisateur
-    // a demandé « Répondre maintenant ».
+    // a demandé « Répondre maintenant ». Si le Critique (indépendant) juge le
+    // brouillon fondamentalement faible (voir critiqueRecitProblemeFondamental),
+    // un second brouillon complet est retenté une fois plutôt qu'une révision
+    // ciblée insuffisante, exactement comme le mode script (js/generation.js) :
+    // avant ce correctif, un score honnête mais < 90 déclenchait déjà une
+    // réécriture complète décidée par l'auto-évaluation du Rédacteur lui-même,
+    // même pour un récit déjà correct que le Critique/Réviseur, moins coûteux,
+    // aurait suffi à peaufiner. Bornée à 2 passes pour garder un temps de
+    // génération raisonnable.
+    const MAX_PASSES_QUALITE_RECIT = 2;
     if (!repondreMaintenant) {
       try {
-        const recitForReview = (parsed.recit || []).map((s, i) => '[segment ' + i + ', ' + (s.segment || '') + '] ' + s.texte).join('\n');
-        const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
+        for (let passe = 0; passe < MAX_PASSES_QUALITE_RECIT; passe++) {
+          if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
+
+          const recitForReview = (parsed.recit || []).map((s, i) => '[segment ' + i + ', ' + (s.segment || '') + '] ' + s.texte).join('\n');
+          const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
 
 SUJET : ${sujetPourPrompt}
 RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
@@ -376,19 +370,46 @@ TON TRAVAIL :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
 
-        const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt);
-        const critique = parseAIResponse(critiqueRaw);
+          const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt);
+          const critique = parseAIResponse(critiqueRaw);
+          if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
 
-        function critiqueRecitProbleme(c) {
-          if (!c) return false;
-          if (c.verdict === 'à améliorer') return true;
-          if (c.ia_generique === true) return true;
-          if (Array.isArray(c.segments_faibles) && c.segments_faibles.length > 0) return true;
-          if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length > 0) return true;
-          return false;
-        }
+          function critiqueRecitProbleme(c) {
+            if (!c) return false;
+            if (c.verdict === 'à améliorer') return true;
+            if (c.ia_generique === true) return true;
+            if (Array.isArray(c.segments_faibles) && c.segments_faibles.length > 0) return true;
+            if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length > 0) return true;
+            return false;
+          }
+          // Sous-ensemble plus sévère : justifie un second brouillon COMPLET
+          // plutôt qu'une révision ciblée (générique ET jugé "à améliorer" à la
+          // fois, ou un nombre de segments faibles couvrant une bonne partie du récit).
+          function critiqueRecitProblemeFondamental(c) {
+            if (!c) return false;
+            if (c.verdict === 'à améliorer' && c.ia_generique === true) return true;
+            if (Array.isArray(c.segments_faibles) && Array.isArray(parsed.recit) && parsed.recit.length > 0 && c.segments_faibles.length / parsed.recit.length >= 0.6) return true;
+            return false;
+          }
 
-        if (!repondreMaintenant && critique && critiqueRecitProbleme(critique)) {
+          if (!critiqueRecitProbleme(critique)) break; // le récit passe le contrôle qualité : terminé
+
+          if (!repondreMaintenant && passe === 0 && critiqueRecitProblemeFondamental(critique)) {
+            // ── SECOND BROUILLON COMPLET ──
+            // Le Critique (indépendant) juge le premier brouillon fondamentalement
+            // faible : une révision segment par segment ne suffirait pas, on
+            // retente une écriture complète plutôt que de rafistoler.
+            try {
+              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
+              const parsed2 = parseAIResponse(raw2);
+              if (parsed2 && parsed2.recit) {
+                parsed = parsed2;
+                if (storyTon) parsed.ton = storyTon;
+                continue; // relance une passe de critique sur ce nouveau brouillon
+              }
+            } catch(e) { /* si le second brouillon échoue, on continue avec la révision ciblée */ }
+          }
+
           const segmentsFaiblesTxt = (critique.segments_faibles || [])
             .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
             || 'Applique les instructions générales ci-dessous.';
@@ -414,12 +435,16 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"Hook","texte":"..."}]}`;
 
-          const reviseRaw = await callAI(MODEL_CREATIF, 16000, revisePrompt);
-          const revised = parseAIResponse(reviseRaw);
-          if (revised && Array.isArray(revised.recit) && revised.recit.length) {
-            parsed.recit = revised.recit;
-            if (Array.isArray(revised.hooks) && revised.hooks.length) parsed.hooks = revised.hooks;
-          }
+          try {
+            const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt);
+            const revised = parseAIResponse(reviseRaw);
+            if (revised && Array.isArray(revised.recit) && revised.recit.length) {
+              parsed.recit = revised.recit;
+              if (Array.isArray(revised.hooks) && revised.hooks.length) parsed.hooks = revised.hooks;
+            } else {
+              break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
+            }
+          } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
         }
       } catch(e) { /* si la critique/révision échoue, on garde la meilleure version obtenue */ }
     }
