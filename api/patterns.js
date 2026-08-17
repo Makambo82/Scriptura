@@ -12,9 +12,13 @@
 //         jamais faire confiance au client). Non bloquant.
 //  GET  ?niche=...&limit=8      -> { ok, patterns:[...] }, niche d'abord.
 //
-//  Stockage Supabase (SUPABASE_URL / SUPABASE_ANON_KEY, déjà côté serveur).
-//  Table : voir supabase/patterns_viraux.sql. Si absente/non configurée,
-//  l'endpoint dégrade en silence (ok:false), l'app n'est jamais bloquée.
+//  Stockage Supabase (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) : la table
+//  n'accepte plus l'écriture directe du rôle anon (voir
+//  supabase/patterns_viraux_rls.sql) pour qu'un appel direct à Supabase ne
+//  puisse plus contourner le garde-fou vérifié ci-dessous. La lecture, elle,
+//  reste publique (donnée anonymisée, faite pour inspirer tout le monde).
+//  Si la clé service_role est absente, l'endpoint dégrade en silence
+//  (ok:false), l'app n'est jamais bloquée.
 // ═══════════════════════════════════════════════════════════
 
 const SEUIL_MEMOIRE = 85;   // score de recette (pondéré) minimal pour entrer
@@ -22,7 +26,7 @@ const MAX_LIRE = 12;        // plafond dur de patterns renvoyés
 
 function config() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return url && key ? { url, key } : null;
 }
 function entetes(key) {
