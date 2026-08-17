@@ -108,6 +108,12 @@ async function resoudreDroits(code) {
 // toutes les deux "encore disponible" avant que l'une des deux n'écrive.
 // Ces fonctions font la vérification du plafond ET l'écriture en une seule
 // instruction SQL côté Postgres, atomique par construction.
+// Renvoie true/false (résultat réel de la fonction SQL), ou null si la
+// fonction n'existe pas encore (supabase/usage_serveur.sql pas exécuté) ou
+// en cas de panne réseau/Supabase : null est un état INDÉTERMINÉ, jamais
+// traité comme "refusé" par les appelants (voir plus bas), même philosophie
+// que le reste de ce module : ne jamais enfermer un abonné légitime dehors
+// à cause d'une panne d'infrastructure ou d'une migration pas encore faite.
 async function appelerRpc(cfg, fonction, params) {
   try {
     const r = await fetch(cfg.url + '/rest/v1/rpc/' + fonction, {
@@ -116,7 +122,8 @@ async function appelerRpc(cfg, fonction, params) {
       body: JSON.stringify(params)
     });
     if (!r.ok) return null;
-    return await r.json();
+    const data = await r.json();
+    return typeof data === 'boolean' ? data : null;
   } catch (e) { return null; }
 }
 
@@ -127,9 +134,9 @@ async function appelerRpc(cfg, fonction, params) {
 // fonctionnalité normale de suppression d'historique), donc les compter
 // pour le quota permettait de supprimer son historique pour regagner du
 // quota à volonté. Ce compteur, lui, n'est accessible qu'au service_role.
+// Renvoie true (consommé), false (plafond atteint), ou null (indéterminé).
 async function consommerUsage(cfg, ref, plafond) {
-  const res = await appelerRpc(cfg, 'consommer_usage', { p_ref: ref, p_plafond: plafond });
-  return res === true;
+  return await appelerRpc(cfg, 'consommer_usage', { p_ref: ref, p_plafond: plafond });
 }
 
 // Clé de période pour le compteur d'usage : mensuelle (plans Creator/Pro
@@ -145,11 +152,12 @@ function cleUsage(code, mode, aVie) {
 // supabase/usage_serveur.sql) : l'ancien lire-puis-écrire permettait à deux
 // requêtes simultanées de lire le même solde avant que l'une des deux
 // n'écrive, et de consommer deux fois le même jeton. Renvoie true si décompté.
+// Renvoie true (décompté), false (plus de jeton), ou null (indéterminé,
+// voir appelerRpc).
 async function consommerJetonServeur(code, cfgArg) {
   const cfg = cfgArg || config();
-  if (!cfg || !code) return false;
-  const res = await appelerRpc(cfg, 'decrementer_jeton', { p_code: code });
-  return res === true;
+  if (!cfg || !code) return null;
+  return await appelerRpc(cfg, 'decrementer_jeton', { p_code: code });
 }
 
 // Vérifie le quota pour un mode donné, avec repli jeton si prévu pour ce
@@ -173,11 +181,13 @@ async function verifierQuota(droits, mode, code) {
   const plafond = aUnPlanReconnu ? limitePlan : (mode === 'creation' ? MAX_FREE : (MODES_GRATUIT_UNIQUE[mode] || 0));
   const ref = cleUsage(code, mode, !aUnPlanReconnu);
   const consomme = await consommerUsage(cfg, ref, plafond);
-  if (consomme) return { ok: true };
+  if (consomme === true) return { ok: true };
+  if (consomme === null) return { ok: true }; // fonction SQL pas encore installée ou panne : dégradation
 
   if (MODES_JETON[mode] && droits.jetons > 0) {
     const viaJeton = await consommerJetonServeur(code, cfg);
-    if (viaJeton) return { ok: true, viaJeton: true };
+    if (viaJeton === true) return { ok: true, viaJeton: true };
+    if (viaJeton === null) return { ok: true }; // même dégradation
   }
   return { ok: false, raison: 'quota' };
 }
@@ -213,7 +223,10 @@ async function verifierLimiteAnonyme(req, fonction, plafond, sansExpiration) {
   const cle = sansExpiration ? 'avie' : new Date().toISOString().slice(0, 10);
   const ref = 'anon_' + fonction + '_' + cle + '_' + hashCourt(ipDuRequest(req));
   const consomme = await consommerUsage(cfg, ref, plafond);
-  return consomme ? { ok: true } : { ok: false, raison: 'limite_anonyme' };
+  // false = plafond réellement atteint. true ou null (indéterminé) : on
+  // laisse passer, jamais bloquer un visiteur pour une panne ou une
+  // migration pas encore faite.
+  return consomme === false ? { ok: false, raison: 'limite_anonyme' } : { ok: true };
 }
 
 // Accès réservé Pro OU jeton (audit détaillé, mode Série) : mêmes règles
@@ -223,7 +236,8 @@ async function verifierAccesProOuJeton(droits, code) {
   if (droits.plan === 'pro') return { ok: true };
   if (droits.jetons > 0) {
     const consomme = await consommerJetonServeur(code, config());
-    if (consomme) return { ok: true, viaJeton: true };
+    if (consomme === true) return { ok: true, viaJeton: true };
+    if (consomme === null) return { ok: true }; // indéterminé : dégradation
   }
   return { ok: false, raison: 'acces_requis' };
 }
