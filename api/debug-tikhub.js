@@ -32,8 +32,8 @@ export default async function handler(req, res) {
   out.profilReponse = profil.data;
 
   const secUid =
-    profil.data?.data?.user?.secUid || profil.data?.data?.secUid ||
-    profil.data?.user?.secUid || profil.data?.secUid || null;
+    profil.data?.data?.userInfo?.user?.secUid || profil.data?.data?.user?.secUid ||
+    profil.data?.data?.secUid || profil.data?.user?.secUid || profil.data?.secUid || null;
   out.secUidTrouve = secUid || 'ABSENT (voir profilReponse pour trouver le bon chemin)';
 
   if (!secUid) return res.status(200).json({ _debug: out });
