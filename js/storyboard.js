@@ -352,18 +352,18 @@ async function generateStoryStoryboard() {
           <span class="sb-index">Couverture</span>
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-visual">${m}</div>
+        <div class="sb-visual">${auditEsc(m)}</div>
         ${blocGenImage(storeCopyText(m))}
       </div>`;
   const cartePlan = (i, p) => `
       <div class="sb-segment">
         <div class="sb-head">
-          <span class="sb-time">${p.duree || ''}</span>
+          <span class="sb-time">${auditEsc(p.duree || '')}</span>
           <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
         </div>
-        <div class="sb-dit">"${p.text || ''}"</div>
+        <div class="sb-dit">"${auditEsc(p.text || '')}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${p.visuel || ''}</div>
+        <div class="sb-visual">${auditEsc(p.visuel || '')}</div>
         ${blocGenImage(storeCopyText(p.visuel || ''))}
       </div>`;
 

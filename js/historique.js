@@ -123,18 +123,18 @@ function reafficherStoryboard(sbData, isStory, guideSauve) {
           <span class="sb-index">Couverture</span>
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-visual">${miniature}</div>
+        <div class="sb-visual">${auditEsc(miniature)}</div>
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtmlSt}${board.map((s, i) => `
       <div class="sb-segment">
         <div class="sb-head">
-          <span class="sb-time">${s.duree || ''}</span>
+          <span class="sb-time">${auditEsc(s.duree || '')}</span>
           <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
         </div>
-        <div class="sb-dit">"${s.texte || ''}"</div>
+        <div class="sb-dit">"${auditEsc(s.texte || '')}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${s.visuel || ''}</div>
+        <div class="sb-visual">${auditEsc(s.visuel || '')}</div>
         ${blocGenImage(storeCopyText(s.visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
@@ -157,19 +157,19 @@ function reafficherStoryboard(sbData, isStory, guideSauve) {
           <span class="sb-index">Couverture</span>
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-visual">${miniature}</div>
+        <div class="sb-visual">${auditEsc(miniature)}</div>
         ${blocGenImage(storeCopyText(miniature||''))}
       </div>` : '';
     const tousLesPromptsRe = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '') + board.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel||'')).join('\n\n');
     container.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardIdee')">↻ Régénérer</button></div><div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-list">${miniHtml}${board.map((seg, i) => `
       <div class="sb-segment">
         <div class="sb-head">
-          <span class="sb-time">${seg.segment}</span>
+          <span class="sb-time">${auditEsc(seg.segment)}</span>
           <span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span>
         </div>
-        <div class="sb-dit">"${seg.texte_dit}"</div>
+        <div class="sb-dit">"${auditEsc(seg.texte_dit)}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${seg.prompt_visuel}</div>
+        <div class="sb-visual">${auditEsc(seg.prompt_visuel)}</div>
         ${blocGenImage(storeCopyText(seg.prompt_visuel||''))}
       </div>`).join('')}
       <div class="sb-actions-fin">
@@ -704,7 +704,7 @@ function _afficherListeFiltree() {
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
           <div class="history-card-head">
-            <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || g.mode}</span>
+            <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || auditEsc(g.mode)}</span>
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-title">${serieEsc(histTitreCourt(g.titre))}</div>

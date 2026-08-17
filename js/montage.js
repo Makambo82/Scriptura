@@ -744,8 +744,8 @@ async function lancerMontage() {
       ? `<div class="montage-statut" style="margin:0 0 10px">${nbRemplaces} plan(s) sans image (bloqué·s) remplacé·s par l'image voisine. Régénère ces images puis relance le montage pour un rendu complet.</div>`
       : '';
     if (resultat) resultat.innerHTML = note + `
-      <video class="montage-video" src="${dataRender.url}" controls playsinline></video>
-      <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${dataRender.url}')" type="button">⬇ Télécharger la vidéo</button>`;
+      <video class="montage-video" src="${auditEsc(dataRender.url)}" controls playsinline></video>
+      <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${auditEsc(dataRender.url)}')" type="button">⬇ Télécharger la vidéo</button>`;
   } catch (e) {
     if (statut) statut.style.display = 'none';
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }

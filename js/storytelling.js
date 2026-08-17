@@ -641,8 +641,8 @@ function renderStory(d) {
     titre: d.titre || 'Ton récit',
     content: `
       <div class="out-section">
-        ${d.ton ? `<div class="story-meta"><span class="script-meta-item">🎭 Ton ${d.ton}</span></div>` : ''}
-        ${d.analyse ? `<div class="legende-block" style="margin-top:14px">${d.analyse}</div>` : ''}
+        ${d.ton ? `<div class="story-meta"><span class="script-meta-item">🎭 Ton ${auditEsc(d.ton)}</span></div>` : ''}
+        ${d.analyse ? `<div class="legende-block" style="margin-top:14px">${auditEsc(d.analyse)}</div>` : ''}
       </div>`
   });
 
@@ -655,8 +655,8 @@ function renderStory(d) {
         <div class="out-section-label">Accroches · Plusieurs styles</div>
         <div class="hooks-list" id="storyHooksList">${d.hooks.map((h, i) => `
           <div class="hook-item" data-idx="${i}">
-            <div class="hook-style">${h.style || ('Hook ' + (i+1))}</div>
-            <div class="hook-text" id="storyHookText${i}">${h.texte || ''}</div>
+            <div class="hook-style">${auditEsc(h.style || ('Hook ' + (i+1)))}</div>
+            <div class="hook-text" id="storyHookText${i}">${auditEsc(h.texte || '')}</div>
           </div>`).join('')}</div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, texteHooksStory())">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, texteHooksStory())">${ICON_SHARE}</button></div>
       </div>`
@@ -670,7 +670,7 @@ function renderStory(d) {
       <div class="out-section">
         <div class="story-block" id="storyRecitBlock">${(d.recit || []).map((s, i) => `
           <div class="story-segment" data-idx="${i}">
-            <div class="story-segment-text" id="storySegText${i}">${(s.texte || '').replace(/\n/g, '<br/>')}</div>
+            <div class="story-segment-text" id="storySegText${i}">${auditEsc(s.texte || '').replace(/\n/g, '<br/>')}</div>
           </div>`).join('')}</div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyStory(this)">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareStory(this)">${ICON_SHARE}</button></div>
       </div>`
@@ -684,8 +684,8 @@ function renderStory(d) {
       titre: 'Légende & Hashtags',
       content: `
       <div class="out-section">
-        ${d.legende ? `<div class="legende-block">${sansHashtags(d.legende)}</div>` : ''}
-        ${tags.length ? `<div class="hashtags-wrap" style="margin-top:14px">${tags.map(t => `<span class="hashtag-chip">${t}</span>`).join('')}</div>` : ''}
+        ${d.legende ? `<div class="legende-block">${auditEsc(sansHashtags(d.legende))}</div>` : ''}
+        ${tags.length ? `<div class="hashtags-wrap" style="margin-top:14px">${tags.map(t => `<span class="hashtag-chip">${auditEsc(t)}</span>`).join('')}</div>` : ''}
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + (tags.length ? '\n\n' + tags.join(' ') : ''))}')">${ICON_SHARE}</button></div>
       </div>`
     });
@@ -700,7 +700,7 @@ function renderStory(d) {
         <div class="hooks-list">${(d.variantes_titre || []).map((t, i) => `
           <div class="hook-item">
             <span class="hook-style">Version ${i === 0 ? 'A' : 'B'}</span>
-            ${t}
+            ${auditEsc(t)}
           </div>`).join('')}
         </div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText((d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText((d.variantes_titre || []).map((t,i) => 'Version ' + (i===0?'A':'B') + ' : ' + t).join('\n\n'))}')">${ICON_SHARE}</button></div>
@@ -733,7 +733,7 @@ function renderStory(d) {
   out.innerHTML = scoreHTML + sections.map((sec, i) => `
     <div class="out-card sb-appear${i === 0 ? ' open' : ''}" style="animation-delay:${(i + 1) * 0.12}s">
       <div class="out-header" onclick="toggleCard(this.parentElement)">
-        <div class="out-title">${sec.titre}</div>
+        <div class="out-title">${auditEsc(sec.titre)}</div>
         <div class="out-toggle">+</div>
       </div>
       <div class="out-body">

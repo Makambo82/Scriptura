@@ -317,21 +317,21 @@ function renderIdeas(idees, niche) {
   list.innerHTML = idees.map((idea, i) => `
     <div class="out-card idea-card">
       <div class="out-header" onclick="toggleCard(this.parentElement)">
-        <div class="out-title idea-titre">${idea.titre || ''}</div>
+        <div class="out-title idea-titre">${auditEsc(idea.titre || '')}</div>
         <div class="out-toggle">+</div>
       </div>
       <div class="out-body">
         <div class="idea-section">
           <div class="idea-section-label">◆ L'angle</div>
-          <div class="idea-section-text">${idea.angle || ''}</div>
+          <div class="idea-section-text">${auditEsc(idea.angle || '')}</div>
         </div>
         <div class="idea-section">
           <div class="idea-section-label">◆ Pourquoi ça marche</div>
-          <div class="idea-section-text">${idea.pourquoi || ''}</div>
+          <div class="idea-section-text">${auditEsc(idea.pourquoi || '')}</div>
         </div>
         <div class="idea-section">
           <div class="idea-section-label">◆ Hook de départ</div>
-          <div class="idea-hook">"${idea.hook || ''}"</div>
+          <div class="idea-hook">"${auditEsc(idea.hook || '')}"</div>
         </div>
         <div class="idea-actions">
           <button class="idea-btn-script" onclick="useIdeaForScript(${i})">🎬 Générer le script complet</button>
@@ -1619,12 +1619,12 @@ function renderResults(d, niche, sujet) {
       num: "01",
       content: `<div class="out-section">
         <div class="out-section-label">Analyse virale & angle choisi</div>
-        <div class="legende-block">${d.analyse || ''}</div>
+        <div class="legende-block">${auditEsc(d.analyse || '')}</div>
         ${lastGenContext && lastGenContext.brief && lastGenContext.brief.angle_choisi ? `
         <div class="strategy-block">
-          <div class="strategy-item"><span class="strategy-tag">◆ Angle retenu</span>${lastGenContext.brief.angle_choisi}</div>
-          ${lastGenContext.brief.structure ? `<div class="strategy-item"><span class="strategy-tag">◆ Structure</span>${lastGenContext.brief.structure}</div>` : ''}
-          ${lastGenContext.brief.emotion_dominante ? `<div class="strategy-item"><span class="strategy-tag">◆ Émotion clé</span>${lastGenContext.brief.emotion_dominante}</div>` : ''}
+          <div class="strategy-item"><span class="strategy-tag">◆ Angle retenu</span>${auditEsc(lastGenContext.brief.angle_choisi)}</div>
+          ${lastGenContext.brief.structure ? `<div class="strategy-item"><span class="strategy-tag">◆ Structure</span>${auditEsc(lastGenContext.brief.structure)}</div>` : ''}
+          ${lastGenContext.brief.emotion_dominante ? `<div class="strategy-item"><span class="strategy-tag">◆ Émotion clé</span>${auditEsc(lastGenContext.brief.emotion_dominante)}</div>` : ''}
         </div>` : ''}
       </div>`
     },
@@ -1635,8 +1635,8 @@ function renderResults(d, niche, sujet) {
         <div class="out-section-label">Hooks · Plusieurs styles</div>
         <div class="hooks-list" id="hooksList">${(d.hooks || []).map((h, i) => `
           <div class="hook-item" data-idx="${i}">
-            <span class="hook-style">${h.style}</span>
-            <span id="hookText${i}">${h.texte}</span>
+            <span class="hook-style">${auditEsc(h.style)}</span>
+            <span id="hookText${i}">${auditEsc(h.texte)}</span>
           </div>`).join('')}
         </div>
       </div>`
@@ -1645,10 +1645,10 @@ function renderResults(d, niche, sujet) {
       titre: "Script complet",
       num: "03",
       content: `<div class="out-section">
-        <div class="out-section-label">Script · ${state.plateforme}</div>
+        <div class="out-section-label">Script · ${auditEsc(state.plateforme)}</div>
         <div class="script-block" id="scriptBlock">${(d.script || []).map((s, i) => `
           <div class="script-row" data-idx="${i}">
-            <div class="script-text" id="scriptText${i}">${s.texte}</div>
+            <div class="script-text" id="scriptText${i}">${auditEsc(s.texte)}</div>
           </div>`).join('')}
         </div>
       </div>`
@@ -1659,8 +1659,8 @@ function renderResults(d, niche, sujet) {
       sansBoutonGenerique: true,
       content: `<div class="out-section">
         <div class="out-section-label">Légende</div>
-        <div class="legende-block">${sansHashtags(d.legende || '')}</div>
-        <div class="hashtags">${(d.hashtags || []).slice(0, 5).map(h => `<span class="ht">${h.toLowerCase()}</span>`).join('')}</div>
+        <div class="legende-block">${auditEsc(sansHashtags(d.legende || ''))}</div>
+        <div class="hashtags">${(d.hashtags || []).slice(0, 5).map(h => `<span class="ht">${auditEsc(h.toLowerCase())}</span>`).join('')}</div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(sansHashtags(d.legende || '') + '\n\n' + (d.hashtags||[]).slice(0, 5).map(h => h.toLowerCase()).join(' '))}')">${ICON_SHARE}</button></div>
       </div>`
     },
@@ -1672,7 +1672,7 @@ function renderResults(d, niche, sujet) {
         <div class="hooks-list">${(d.variantes_titre || []).map((t, i) => `
           <div class="hook-item">
             <span class="hook-style">Version ${i === 0 ? 'A' : 'B'}</span>
-            ${t}
+            ${auditEsc(t)}
           </div>`).join('')}
         </div>
       </div>`
@@ -1805,18 +1805,18 @@ async function generateStoryboard() {
           <span class="sb-index">Couverture</span>
         </div>
         <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
-        <div class="sb-visual">${m}</div>
+        <div class="sb-visual">${auditEsc(m)}</div>
         ${blocGenImage(storeCopyText(m))}
       </div>`;
   const cartePlan = (i, p) => `
       <div class="sb-segment">
         <div class="sb-head">
-          <span class="sb-time">${p.duree || ''}</span>
+          <span class="sb-time">${auditEsc(p.duree || '')}</span>
           <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
         </div>
-        <div class="sb-dit">"${p.text || ''}"</div>
+        <div class="sb-dit">"${auditEsc(p.text || '')}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
-        <div class="sb-visual">${p.visuel || ''}</div>
+        <div class="sb-visual">${auditEsc(p.visuel || '')}</div>
         ${blocGenImage(storeCopyText(p.visuel || ''))}
       </div>`;
 

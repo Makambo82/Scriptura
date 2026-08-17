@@ -31,10 +31,15 @@ let unlocked = localStorage.getItem('scriptura_unlocked') === 'true';
 function ligneCodeInfos() {
   const code = (localStorage.getItem('scriptura_code') || '').trim();
   if (!code) return '';
-  const codeEchappe = code.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Le code vient de la saisie libre de l'utilisateur (voir syncHistory,
+  // js/historique.js), jamais validée côté serveur avant d'être stockée :
+  // auditEsc() échappe aussi bien le texte affiché que la valeur glissée
+  // dans l'attribut onclick (elle-même déjà échappée pour rester une chaîne
+  // JS valide entre apostrophes).
+  const codeEchappe = auditEsc(code.replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
   return '<div class="infos-ligne"><span class="infos-label">Ton code</span>'
     + '<span class="infos-val" style="cursor:pointer;user-select:all" title="Toucher pour copier"'
-    + ' onclick="copierCodeInfos(this, \'' + codeEchappe + '\')">' + code + ' ⧉</span></div>';
+    + ' onclick="copierCodeInfos(this, \'' + codeEchappe + '\')">' + auditEsc(code) + ' ⧉</span></div>';
 }
 
 // Copie le code dans le presse-papier, avec un retour visuel bref.

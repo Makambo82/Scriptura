@@ -422,10 +422,13 @@ function auditStepPrecedent() {
 //  AUDIT, Prompt d'analyse + branchement IA + affichage
 // ═══════════════════════════════════════════════════════════
 
-// Échappe le HTML pour un affichage sûr
+// Échappe le HTML pour un affichage sûr. Couvre aussi les guillemets (pas
+// seulement &<>) : cette fonction est réutilisée par d'autres fichiers pour
+// échapper du texte inséré dans des attributs (ex. onclick="...'...'"), où
+// un guillemet non échappé permettrait de sortir de l'attribut.
 function auditEsc(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
 // Analyse détaillée « musclée » : garantit qu'un diagnostic de CONTENU récent
@@ -1445,7 +1448,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     html += `<div class="audit-block">
       <div class="audit-block-title">📊 Analyse détaillée</div>
       <div class="ds-mini-stats" style="grid-template-columns:1fr 1fr">
-        <div class="ds-mini-stat"><b>${ad.videos_au_dessus_moyenne ?? '·'}${ad.total_videos_analysees ? ' / ' + ad.total_videos_analysees : ''}</b><span>Au-dessus de la moyenne</span></div>
+        <div class="ds-mini-stat"><b>${auditEsc(ad.videos_au_dessus_moyenne ?? '·')}${ad.total_videos_analysees ? ' / ' + auditEsc(ad.total_videos_analysees) : ''}</b><span>Au-dessus de la moyenne</span></div>
         <div class="ds-mini-stat"><b>${concepts.length || '·'}</b><span>Concepts récurrents</span></div>
       </div>
       ${concepts.length ? `<ul class="ds-niche-analyse" style="margin-top:14px">${concepts.map(c => `<li>${auditEsc(c.theme)} <span style="color:var(--muted)">(${auditEsc(c.occurrences)} vidéos)</span></li>`).join('')}</ul>` : ''}

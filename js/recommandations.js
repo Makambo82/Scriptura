@@ -655,8 +655,13 @@ function salutationAccueil() {
     const h = maintenant.getHours();
     base = h < 12 ? 'Bonjour' : (h < 18 ? 'Bon après-midi' : 'Bonsoir');
   }
+  // prenom vient du code d'accès (localStorage.scriptura_code), saisi
+  // librement par l'utilisateur (voir syncHistory, js/historique.js) et
+  // jamais validé côté serveur avant stockage : échappé avant d'être inséré
+  // dans le HTML de la salutation (toutes les utilisations le sont).
   const prenom = prenomDepuisCode();
-  return prenom ? (base + ' ' + prenom + ' 👋') : (base + ' 👋');
+  const prenomSur = prenom ? escaperReco(prenom) : prenom;
+  return prenomSur ? (base + ' ' + prenomSur + ' 👋') : (base + ' 👋');
 }
 
 // ── Cache journalier de la recommandation d'accueil ──
