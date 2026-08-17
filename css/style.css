@@ -441,9 +441,12 @@ footer{
 footer strong{color:var(--gold)}
 
 /* ── FOOTER : LIENS RAPIDES (tous les modes + mon compte, accessibles
-   depuis n'importe quel écran, le footer restant toujours dans le DOM) ── */
+   depuis n'importe quel écran, le footer restant toujours dans le DOM) ──
+   Les deux colonnes restent CÔTE À CÔTE à toutes les tailles d'écran
+   (flex-wrap:nowrap), y compris mobile, voir le media query ci-dessous
+   qui rétrécit colonnes/police plutôt que de les faire passer à la ligne. */
 .footer-links{
-  display:flex;flex-wrap:wrap;justify-content:center;gap:48px 56px;
+  display:flex;flex-wrap:nowrap;justify-content:center;gap:32px;
   margin-bottom:32px;text-align:left;
 }
 .footer-links-col{display:flex;flex-direction:column;gap:10px;min-width:190px}
@@ -454,12 +457,19 @@ footer strong{color:var(--gold)}
 .footer-link-btn{
   background:none;border:none;padding:0;margin:0;text-align:left;cursor:pointer;
   font-family:'Poppins',sans-serif;font-size:0.82rem;color:rgba(255,255,255,0.6);
-  transition:color 0.2s;
+  text-decoration:none;transition:color 0.2s;
 }
 .footer-link-btn:hover{color:var(--gold)}
 /* Réservé aux comptes admin, même logique que .sidebar-item.nav-admin-btn */
 .footer-link-btn.nav-admin-btn{display:none}
 body.is-admin .footer-link-btn.nav-admin-btn{display:block}
+@media(max-width:480px){
+  footer{padding:40px 12px}
+  .footer-links{gap:14px}
+  .footer-links-col{min-width:0;flex:1 1 0}
+  .footer-links-title{font-size:0.52rem;letter-spacing:0.1em}
+  .footer-link-btn{font-size:0.72rem}
+}
 
 @media(max-width:600px){
   nav{padding:14px 16px}
