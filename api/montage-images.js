@@ -134,7 +134,13 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
   }
 
-  const prompts = Array.isArray(body?.prompts) ? body.prompts.map(p => String(p || '').trim()) : [];
+  // Plafond dur sur le nombre de prompts par appel : sans ça, un appel
+  // direct (même avec un code admin légitime mais falsifié en volume)
+  // pouvait demander un nombre arbitraire d'images payantes en une requête.
+  // 40 couvre largement un storyboard réel (généré par lots plus petits, voir
+  // js/storyboard.js), sans jamais brider un usage normal.
+  const MAX_PROMPTS = 40;
+  const prompts = Array.isArray(body?.prompts) ? body.prompts.slice(0, MAX_PROMPTS).map(p => String(p || '').trim()) : [];
   if (!prompts.length || prompts.every(p => !p)) {
     return res.status(400).json({ error: { message: 'Aucun prompt à générer' } });
   }

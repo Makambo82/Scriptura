@@ -101,35 +101,55 @@ async function resoudreDroits(code) {
   }
 }
 
-// Compte les générations d'un code pour un mode donné, depuis Supabase
-// (service role). depuisISO=null → comptage à VIE (codes sans plan reconnu).
-async function compterGenerations(cfg, code, mode, depuisISO) {
-  let url = cfg.url + '/rest/v1/generations?code_acces=eq.' + encodeURIComponent(code) + '&select=id';
-  url += (mode === 'creation')
-    ? '&mode=not.in.(audit,diagnosticSommaire,analyseVirale)'
-    : '&mode=eq.' + encodeURIComponent(mode);
-  if (depuisISO) url += '&cree_le=gte.' + encodeURIComponent(depuisISO);
-  const r = await fetch(url, { headers: entetes(cfg.key) });
-  const rows = await r.json().catch(() => []);
-  return Array.isArray(rows) ? rows.length : 0;
+// Appelle une fonction Postgres (RPC) exposée par PostgREST, avec la clé
+// service_role. Utilisé pour les décomptes ATOMIQUES (voir
+// supabase/usage_serveur.sql) : un lire-puis-écrire fait depuis Node n'est
+// pas protégé contre deux requêtes strictement simultanées qui liraient
+// toutes les deux "encore disponible" avant que l'une des deux n'écrive.
+// Ces fonctions font la vérification du plafond ET l'écriture en une seule
+// instruction SQL côté Postgres, atomique par construction.
+async function appelerRpc(cfg, fonction, params) {
+  try {
+    const r = await fetch(cfg.url + '/rest/v1/rpc/' + fonction, {
+      method: 'POST',
+      headers: entetes(cfg.key),
+      body: JSON.stringify(params)
+    });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
 }
 
-// Décompte UN jeton pour ce code (service role). Renvoie true si décompté.
+// Incrémente le compteur d'usage `ref` de 1 SI encore sous `plafond` (table
+// usage_serveur, jamais exposée au client, voir supabase/usage_serveur.sql).
+// Remplace l'ancien comptage des lignes `generations` : ces lignes restent
+// supprimables par le client depuis "Mes générations" (RLS ouverte,
+// fonctionnalité normale de suppression d'historique), donc les compter
+// pour le quota permettait de supprimer son historique pour regagner du
+// quota à volonté. Ce compteur, lui, n'est accessible qu'au service_role.
+async function consommerUsage(cfg, ref, plafond) {
+  const res = await appelerRpc(cfg, 'consommer_usage', { p_ref: ref, p_plafond: plafond });
+  return res === true;
+}
+
+// Clé de période pour le compteur d'usage : mensuelle (plans Creator/Pro
+// reconnus, se recharge chaque mois) ou à vie (codes jeton/inconnus, jamais
+// remise à zéro), voir supabase/usage_serveur.sql.
+function cleUsage(code, mode, aVie) {
+  if (aVie) return 'usage_' + code + '_' + mode + '_avie';
+  const d = new Date();
+  return 'usage_' + code + '_' + mode + '_' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+// Décompte UN jeton pour ce code, de façon ATOMIQUE (voir decrementer_jeton,
+// supabase/usage_serveur.sql) : l'ancien lire-puis-écrire permettait à deux
+// requêtes simultanées de lire le même solde avant que l'une des deux
+// n'écrive, et de consommer deux fois le même jeton. Renvoie true si décompté.
 async function consommerJetonServeur(code, cfgArg) {
   const cfg = cfgArg || config();
   if (!cfg || !code) return false;
-  try {
-    const r = await fetch(cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=jetons_audit', { headers: entetes(cfg.key) });
-    const rows = await r.json();
-    const actuel = (Array.isArray(rows) && rows[0]) ? (parseInt(rows[0].jetons_audit, 10) || 0) : 0;
-    if (actuel <= 0) return false;
-    const rep = await fetch(cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code), {
-      method: 'PATCH',
-      headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
-      body: JSON.stringify({ jetons_audit: actuel - 1 })
-    });
-    return rep.ok;
-  } catch (e) { return false; }
+  const res = await appelerRpc(cfg, 'decrementer_jeton', { p_code: code });
+  return res === true;
 }
 
 // Vérifie le quota pour un mode donné, avec repli jeton si prévu pour ce
@@ -150,32 +170,26 @@ async function verifierQuota(droits, mode, code) {
   const limitePlan = droits.plan ? (LIMITES_MOIS[droits.plan] || {})[mode] : null;
   const aUnPlanReconnu = limitePlan != null;
 
-  try {
-    if (aUnPlanReconnu) {
-      const debutMois = new Date(); debutMois.setDate(1); debutMois.setHours(0, 0, 0, 0);
-      const n = await compterGenerations(cfg, code, mode, debutMois.toISOString());
-      if (n < limitePlan) return { ok: true };
-    } else {
-      const plafondGratuit = mode === 'creation' ? MAX_FREE : (MODES_GRATUIT_UNIQUE[mode] || 0);
-      const n = await compterGenerations(cfg, code, mode, null);
-      if (n < plafondGratuit) return { ok: true };
-    }
-  } catch (e) {
-    return { ok: true }; // panne de comptage : ne jamais bloquer un abonné légitime pour ça
-  }
+  const plafond = aUnPlanReconnu ? limitePlan : (mode === 'creation' ? MAX_FREE : (MODES_GRATUIT_UNIQUE[mode] || 0));
+  const ref = cleUsage(code, mode, !aUnPlanReconnu);
+  const consomme = await consommerUsage(cfg, ref, plafond);
+  if (consomme) return { ok: true };
 
   if (MODES_JETON[mode] && droits.jetons > 0) {
-    const consomme = await consommerJetonServeur(code, cfg);
-    if (consomme) return { ok: true, viaJeton: true };
+    const viaJeton = await consommerJetonServeur(code, cfg);
+    if (viaJeton) return { ok: true, viaJeton: true };
   }
   return { ok: false, raison: 'quota' };
 }
 
 // ── Filet best-effort pour les appels VRAIMENT anonymes (aucun code) ──
-// Réutilise la table `quotas` déjà en place (ref/used), pilotée ici par
-// l'IP VUE PAR VERCEL (x-forwarded-for), jamais une IP auto-déclarée par le
-// client. La date est encodée directement dans `ref` (repart à zéro chaque
-// jour), pas besoin de nouvelle colonne sur la table existante.
+// Compte par l'IP VUE PAR VERCEL (x-forwarded-for), jamais une IP
+// auto-déclarée par le client. Écrit dans `usage_serveur` (voir plus haut),
+// PAS dans `quotas` : `quotas` reste en écriture ouverte au client pour
+// l'ancien compteur d'affichage multi-appareil (fetchServerQuota/
+// bumpServerQuota, js/api.js, purement informatif), et un anonyme aurait pu
+// y écrire directement la même clé pour remettre son propre compteur à
+// zéro. `usage_serveur` est fermée au rôle anon dès sa création.
 function ipDuRequest(req) {
   const xff = req.headers && req.headers['x-forwarded-for'];
   const brut = Array.isArray(xff) ? xff[0] : String(xff || '');
@@ -189,23 +203,17 @@ function hashCourt(s) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
   return 'h' + Math.abs(h).toString(36);
 }
-async function verifierLimiteAnonyme(req, fonction, plafond) {
+// `sansExpiration` : true pour un plafond "à vie" (jamais remis à zéro,
+// ex. les 5 générations gratuites d'un visiteur qui n'a jamais tapé de
+// code), false pour un plafond journalier classique (repart à zéro chaque
+// jour, ex. le filet anti-abus des routes coûteuses).
+async function verifierLimiteAnonyme(req, fonction, plafond, sansExpiration) {
   const cfg = config();
   if (!cfg) return { ok: true }; // clé service role absente : dégradation
-  const jour = new Date().toISOString().slice(0, 10);
-  const ref = 'anon_' + fonction + '_' + jour + '_' + hashCourt(ipDuRequest(req));
-  try {
-    const r = await fetch(cfg.url + '/rest/v1/quotas?ref=eq.' + encodeURIComponent(ref) + '&select=used', { headers: entetes(cfg.key) });
-    const rows = await r.json();
-    const dejaUtilises = (Array.isArray(rows) && rows[0]) ? (rows[0].used || 0) : 0;
-    if (dejaUtilises >= plafond) return { ok: false, raison: 'limite_anonyme' };
-    await fetch(cfg.url + '/rest/v1/quotas', {
-      method: 'POST',
-      headers: { ...entetes(cfg.key), Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ ref, used: dejaUtilises + 1, maj_le: new Date().toISOString() })
-    });
-    return { ok: true };
-  } catch (e) { return { ok: true }; } // ne jamais bloquer sur une panne du filet
+  const cle = sansExpiration ? 'avie' : new Date().toISOString().slice(0, 10);
+  const ref = 'anon_' + fonction + '_' + cle + '_' + hashCourt(ipDuRequest(req));
+  const consomme = await consommerUsage(cfg, ref, plafond);
+  return consomme ? { ok: true } : { ok: false, raison: 'limite_anonyme' };
 }
 
 // Accès réservé Pro OU jeton (audit détaillé, mode Série) : mêmes règles
@@ -226,5 +234,6 @@ export {
   verifierLimiteAnonyme,
   verifierAccesProOuJeton,
   consommerJetonServeur,
-  LIMITES_MOIS
+  LIMITES_MOIS,
+  MAX_FREE
 };

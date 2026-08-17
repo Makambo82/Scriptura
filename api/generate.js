@@ -3,7 +3,7 @@
 // demandé, puis relaie vers Anthropic. Voir api/_lib/acces.js pour le détail
 // de la résolution des droits (le serveur ne fait plus confiance au client :
 // ni pour le plan, ni pour le quota, ni pour le modèle/nombre de tokens).
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierAccesProOuJeton } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierAccesProOuJeton, MAX_FREE } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par l'app pour ce type d'appel (voir
 // MODEL_CREATIF/MODEL_RAPIDE, js/api.js) : un modèle demandé hors de cette
@@ -72,7 +72,16 @@ export default async function handler(req, res) {
     } else {
       if (droits.anonyme) {
         const limiteIP = await verifierLimiteAnonyme(req, 'generate', PLAFOND_ANONYME_JOUR);
+        // Filet journalier (anti-abus, se recharge chaque jour) ET plafond
+        // à vie pour la création (les "5 générations gratuites" annoncées
+        // par l'interface) : sans ce second filet, un visiteur qui n'a
+        // jamais tapé de code n'était borné que par le filet journalier,
+        // rechargé chaque jour, donc jamais vraiment limité à 5 au total.
+        const limiteAVie = (modeDemande === 'creation')
+          ? await verifierLimiteAnonyme(req, 'generate_creation', MAX_FREE, true)
+          : { ok: true };
         if (!limiteIP.ok) verdict = limiteIP;
+        else if (!limiteAVie.ok) verdict = limiteAVie;
         else verdict = await verifierQuota(droits, modeDemande, code_acces);
       } else {
         verdict = await verifierQuota(droits, modeDemande, code_acces);

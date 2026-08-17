@@ -72,7 +72,10 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
   }
 
-  const segments = Array.isArray(body?.segments) ? body.segments.map(s => retirerMinuterie(String(s || '').trim())) : [];
+  // Plafond dur sur le nombre de segments par appel, même logique que
+  // MAX_PROMPTS sur /api/montage-images : borne le coût d'un appel direct.
+  const MAX_SEGMENTS = 40;
+  const segments = Array.isArray(body?.segments) ? body.segments.slice(0, MAX_SEGMENTS).map(s => retirerMinuterie(String(s || '').trim())) : [];
   if (!segments.length || segments.every(s => !s)) {
     return res.status(400).json({ error: { message: 'Aucun texte à narrer' } });
   }
