@@ -16,9 +16,6 @@
     "api/patterns.js": {
       "maxDuration": 30
     },
-    "api/debug-tikhub.js": {
-      "maxDuration": 30
-    },
     "api/montage-download.js": {
       "maxDuration": 60
     },

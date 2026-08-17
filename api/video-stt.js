@@ -10,12 +10,14 @@
 //  /v1/speech-to-text (model scribe_v1) -> texte. Clé ELEVENLABS_API_KEY déjà
 //  en place (partagée avec le montage / voix off).
 //
-//  SOURCE DU MÉDIA : LamaTok en PRINCIPAL (/v1/media/by/id), ScrapTik en
-//  REPLI (/get-post?aweme_id=). Raison : ScrapTik a un quota RapidAPI mensuel
-//  limité (vite épuisé, utilisé aussi par le diagnostic sommaire) ; LamaTok n'a
-//  pas cette contrainte et a déjà transcrit des vidéos avec succès en solo.
-//  Si LamaTok ne rend rien d'exploitable, on retombe sur ScrapTik (si sa clé
-//  existe et son quota le permet), qui reste un filet de résilience.
+//  SOURCE DU MÉDIA : LamaTok en PRINCIPAL (/v1/media/by/id), puis TikHub
+//  (/fetch_post_detail, payé au crédit) en REPLI, puis ScrapTik
+//  (/get-post?aweme_id=) en DERNIER RECOURS. Raison : ScrapTik a un
+//  abonnement RapidAPI fixe (99€/mois, jugé trop cher tant que le compte n'a
+//  pas d'abonnés) ; LamaTok reste gratuit/prioritaire et a déjà transcrit des
+//  vidéos avec succès en solo. TikHub prend le relais sans coût fixe si
+//  LamaTok ne rend rien d'exploitable, ScrapTik ne sert plus que de filet de
+//  secours si sa clé est encore configurée.
 //
 //  POST { url } -> { ok, transcript, description, stats, langue }. Non bloquant :
 //  ok=false si la vidéo est indisponible ou sans parole (repli manuel côté client).
@@ -24,6 +26,7 @@
 
 const LAMA_BASE = 'https://api.lamatok.com';
 const SCRAPTIK_HOST = 'scraptik.p.rapidapi.com';
+const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
 
@@ -70,6 +73,23 @@ async function detailLamaTok(id, key) {
     if (!r.ok) return null;
     return await r.json();
   } catch (e) { return null; }
+}
+
+// Détail d'UNE vidéo via TikHub (/fetch_post_detail, payé au crédit). Repli
+// de LamaTok, avant le dernier recours ScrapTik. Renvoie l'objet JSON brut :
+// urlsVideo/extraireDesc/extraireStats scannent déjà n'importe quelle forme
+// de champs (playCount/diggCount/desc/downloadAddr…, confirmés identiques
+// à ceux de TikHub sur une vraie réponse), pas besoin de parseur dédié.
+async function detailTikHub(id, key) {
+  const url = TIKHUB_BASE + '/api/v1/tiktok/web/fetch_post_detail?' + new URLSearchParams({ itemId: id }).toString();
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + key }, signal: ctrl.signal });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch (e) { return null; }
+  finally { clearTimeout(minuteur); }
 }
 
 function extraireAwemeId(url) {
@@ -274,8 +294,8 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
     }
 
-    // 2) Détail de la vidéo : LamaTok en PRINCIPAL, ScrapTik en REPLI (voir
-    // note en tête de fichier : ScrapTik a un quota mensuel limité).
+    // 2) Détail de la vidéo : LamaTok en PRINCIPAL, TikHub en REPLI, ScrapTik
+    // en DERNIER RECOURS (voir note en tête de fichier).
     const dataLama = await detailLamaTok(id, lamaKey);
 
     // Description & stats : on prend ce que la source principale donne, complété
@@ -284,13 +304,26 @@ export default async function handler(req, res) {
     let stats = dataLama ? extraireStats(dataLama) : null;
 
     // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
-    //    On tente d'abord les URLs LamaTok, puis, si rien ne passe, ScrapTik.
+    //    On tente d'abord les URLs LamaTok, puis TikHub, puis ScrapTik.
     let media = null;
+    let dataTikHub = null;
     let dataScrap = null;
     if (dataLama) {
       for (const u of urlsVideo(dataLama)) {
         const m = await telechargerMedia(u);
         if (m.ok) { media = m; break; }
+      }
+    }
+    if (!media) {
+      const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
+      dataTikHub = tikhubKey ? await detailTikHub(id, tikhubKey) : null;
+      if (dataTikHub) {
+        if (!description) description = extraireDesc(dataTikHub) || '';
+        if (!stats) stats = extraireStats(dataTikHub);
+        for (const u of urlsVideo(dataTikHub)) {
+          const m = await telechargerMedia(u);
+          if (m.ok) { media = m; break; }
+        }
       }
     }
     if (!media) {
@@ -315,7 +348,7 @@ export default async function handler(req, res) {
     // abonnés), et le verdict devient trompeur. On va donc le chercher sur le
     // profil de l'auteur (2e appel LamaTok), une seule fois, si besoin.
     if (stats && stats.vues && !stats.abonnesAuteur) {
-      const username = extraireAuteurUsername(dataLama) || extraireAuteurUsername(dataScrap);
+      const username = extraireAuteurUsername(dataLama) || extraireAuteurUsername(dataTikHub) || extraireAuteurUsername(dataScrap);
       if (username) {
         const ab = await abonnesViaProfil(username, lamaKey);
         if (ab != null) stats.abonnesAuteur = ab;
