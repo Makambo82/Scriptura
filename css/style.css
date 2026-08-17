@@ -2524,6 +2524,8 @@ body.is-unlocked .sidebar-logout{display:block}
 .viral-video-summary::-webkit-details-marker{display:none}
 .viral-video-summary::before{content:'▸ ';font-size:0.7rem}
 .viral-video-details[open] .viral-video-summary::before{content:'▾ '}
+.viral-transcript-card .viral-video-summary{font-size:0.85rem}
+.viral-transcript-texte{margin:10px 2px 2px;font-size:0.86rem;line-height:1.6;color:#c9c9c9;white-space:pre-wrap}
 .viral-modele{border:1px dashed rgba(226,200,122,0.4)}
 .viral-modele-intro{margin:8px 2px 14px;font-size:0.88rem;line-height:1.5;color:#cfcfcf}
 /* Guide de montage CapCut, dressé comme les prompts du storyboard */

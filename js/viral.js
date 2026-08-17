@@ -175,6 +175,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     rapport.stats = statsVideo; // vraies stats (pour le score + le contexte)
     rapport.langue = langueVideo;
     rapport.posture = posture;  // virale / flop / neutre (déjà calculée avant l'IA)
+    rapport.transcript = texte; // ce que Scriptura a vraiment entendu/lu (repli affiché)
     _viralRapport = rapport;
 
     // 3) Décompte quota + sauvegarde.
@@ -524,6 +525,17 @@ function afficherRapportViral(d) {
       </ol>
     </div>` : '';
 
+  // Transcription complète (ce que Scriptura a vraiment entendu/lu) : repliée
+  // par défaut, en annexe technique après l'analyse, pas devant. Sert à
+  // vérifier la source si un constat surprend, sans encombrer l'écran.
+  const transcriptHtml = d.transcript ? `
+    <div class="score-card viral-transcript-card">
+      <details class="viral-video-details">
+        <summary class="viral-video-summary">📝 Voir la transcription complète</summary>
+        <p class="viral-transcript-texte">${viralEsc(d.transcript)}</p>
+      </details>
+    </div>` : '';
+
   // Le pont vers le script s'adapte à la posture : refaire un carton, ou livrer
   // la version corrigée d'un flop.
   const ctaTexte = posture === 'flop'
@@ -539,6 +551,7 @@ function afficherRapportViral(d) {
     ${modeleHtml}
     ${facteursHtml}
     ${reprendreHtml}
+    ${transcriptHtml}
 
     <div class="sb-actions-fin">
       <button class="icon-btn" title="Copier l'analyse" onclick="copyText(this, '${storeCopyText(texteRapport)}')">${ICON_COPY}</button>
