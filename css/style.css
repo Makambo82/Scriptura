@@ -1339,15 +1339,6 @@ body.hero-focus .hero-focus-rule{display:block}
 }
 .idea-btn-copy:hover{border-color:var(--gold);color:var(--gold)}
 
-.hero-mode-btn.storytelling{
-  background:rgba(255,255,255,0.02);
-  border-color:rgba(201,168,76,0.18);
-}
-.hero-mode-btn.storytelling:hover{
-  border-color:rgba(201,168,76,0.55);
-  background:rgba(201,168,76,0.05);
-}
-
 /* ── AFFICHAGE STORYTELLING ── */
 .story-meta{display:flex;gap:12px;flex-wrap:wrap}
 .story-block{display:flex;flex-direction:column;gap:18px;margin-bottom:18px}
@@ -1971,13 +1962,6 @@ body.is-unlocked .sidebar-logout{display:block}
   border-top: 1px solid rgba(255,255,255,0.07);
 }
 
-/* ── MODE SÉRIE ── */
-.hero-mode-btn.serie{
-  background:rgba(201,168,76,0.06);
-  border-color:rgba(201,168,76,0.45);
-}
-.hero-mode-btn.serie:hover{background:rgba(201,168,76,0.12);border-color:var(--gold)}
-.hero-mode-btn.serie .mode-label{color:var(--gold-light)}
 @keyframes seriePulse{
   0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0),0 0 10px 0 rgba(201,168,76,0.12)}
   50%{box-shadow:0 0 0 1px rgba(201,168,76,0.3),0 0 20px 2px rgba(201,168,76,0.3)}
