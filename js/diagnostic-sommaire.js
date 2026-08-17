@@ -597,7 +597,8 @@ async function lancerDiagnosticSommaire() {
   }
 
   // Quota DÉDIÉ à l'analyse sommaire (compteur mensuel séparé de la création) :
-  // non-abonné 1 (sur ses 5 gratuites), Creator 10/mois, Pro 30/mois.
+  // non-abonné 1 (sur ses 5 gratuites), Creator 10/mois, Pro 25/mois. Au-delà,
+  // un jeton en débloque une de plus (droit.viaJeton, décompté après succès).
   const droit = await droitAnalyseSommaire();
   if (!droit.ok) {
     if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
@@ -670,6 +671,9 @@ async function lancerDiagnosticSommaire() {
       renderGenCounter();
       checkRappelAbonnement();
     }
+    // Quota dédié (mensuel ou gratuit) épuisé : cette analyse a été autorisée
+    // par un jeton, on le décompte maintenant, après le succès.
+    if (droit.viaJeton) await consommerJetonAudit();
 
     const titre = 'Diagnostic sommaire · @' + username;
     saveGeneration('diagnosticSommaire', titre, {

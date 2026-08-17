@@ -83,9 +83,22 @@ async function lancerAnalyseVirale() {
     return;
   }
 
-  // Quotas : c'est une génération (comme storyboard seul).
-  if (!unlocked && usedGen >= MAX_FREE) { openPlans('nouveau'); return; }
-  if (!(await peutGenerer('viralAnaError'))) return;
+  // Quota DÉDIÉ à l'analyse vidéo (compteur mensuel séparé de la création) :
+  // non-abonné 1 (sur ses 5 gratuites), Creator 6/mois, Pro 15/mois. Au-delà,
+  // un jeton en débloque une de plus (droit.viaJeton, décompté après succès).
+  const droit = await droitAnalyseVirale();
+  if (!droit.ok) {
+    if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
+    if (droit.raison === 'quota') {
+      err.textContent = 'Tu as atteint ta limite d\'analyses vidéo ce mois-ci (' + droit.limite + '). Elle se recharge le 1er du mois prochain.';
+      err.style.display = 'block';
+      return;
+    }
+    // Non-abonné : analyse gratuite déjà utilisée (ou plus de générations
+    // gratuites) → on propose l'abonnement.
+    openPlans('nouveau');
+    return;
+  }
 
   btn.disabled = true;
   if (spin) spin.style.display = 'block';
@@ -185,9 +198,14 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
       usedGen++;
       localStorage.setItem('scriptura_used', usedGen);
       bumpServerQuota(usedGen);
+      const vf = parseInt(localStorage.getItem('scriptura_viral_used') || '0', 10) + 1;
+      localStorage.setItem('scriptura_viral_used', String(vf));
       renderGenCounter();
       checkRappelAbonnement();
     }
+    // Quota dédié (mensuel ou gratuit) épuisé : cette analyse a été autorisée
+    // par un jeton, on le décompte maintenant, après le succès.
+    if (droit.viaJeton) await consommerJetonAudit();
     const titreCourt = (rapport.sujet || 'vidéo virale').slice(0, 50);
     saveGeneration('analyseVirale', 'Analyse virale · ' + titreCourt, {
       lien: lien || null, transcript: texte, rapport: rapport

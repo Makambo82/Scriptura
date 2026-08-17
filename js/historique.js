@@ -215,10 +215,12 @@ async function countMonthGenerations(typeVoulu) {
       req = req.eq('mode', 'audit');
     } else if (typeVoulu === 'diagnosticSommaire') {
       req = req.eq('mode', 'diagnosticSommaire');
+    } else if (typeVoulu === 'analyseVirale') {
+      req = req.eq('mode', 'analyseVirale');
     } else if (typeVoulu === 'creation') {
-      // L'audit complet ET le diagnostic sommaire ont chacun leur propre
-      // compteur mensuel séparé : on les exclut du quota de création.
-      req = req.neq('mode', 'audit').neq('mode', 'diagnosticSommaire');
+      // L'audit complet, le diagnostic sommaire ET l'analyse vidéo ont chacun
+      // leur propre compteur mensuel séparé : on les exclut du quota de création.
+      req = req.neq('mode', 'audit').neq('mode', 'diagnosticSommaire').neq('mode', 'analyseVirale');
     }
     const { count, error } = await req;
     if (error) throw error;
@@ -309,26 +311,55 @@ async function peutGenerer(errorBoxId) {
 }
 
 // Décide si l'utilisateur peut lancer une ANALYSE SOMMAIRE (@nom d'utilisateur).
-// Compteur mensuel dédié, séparé de la création : Creator 10, Pro 30. Un
-// non-abonné y a droit 1 fois (aussi décomptée sur ses 5 gratuites).
-// Retourne { ok:true } ou { ok:false, raison, limite }.
+// Compteur mensuel dédié, séparé de la création : Creator 10, Pro 25. Un
+// non-abonné y a droit 1 fois (aussi décomptée sur ses 5 gratuites). Une fois
+// ce quota dédié épuisé (abonné ou non-abonné), un jeton acheté à l'unité en
+// débloque une de plus (voir lireJetonsAudit/consommerJetonAudit, pool
+// partagé avec l'audit détaillé et la série) : `viaJeton` dans le retour
+// dit à l'appelant de décompter le jeton APRÈS un succès.
+// Retourne { ok:true, viaJeton? } ou { ok:false, raison, limite }.
 async function droitAnalyseSommaire() {
   if (estIllimite()) return { ok: true };
 
   if (!unlocked) {
-    // Non-abonné : 1 analyse sommaire ET dans la limite des 5 gratuites.
+    // Non-abonné (avec ou sans jetons achetés) : 1 analyse sommaire ET dans
+    // la limite des 5 gratuites. Au-delà, un jeton en débloque une de plus.
     const sommFaites = parseInt(localStorage.getItem('scriptura_sommaire_used') || '0', 10);
-    if (sommFaites >= MAX_SOMMAIRE_GRATUIT) return { ok: false, raison: 'sommaire_gratuit' };
-    if (usedGen >= MAX_FREE) return { ok: false, raison: 'free' };
-    return { ok: true };
+    if (sommFaites < MAX_SOMMAIRE_GRATUIT && usedGen < MAX_FREE) return { ok: true };
+    if (await lireJetonsAudit() > 0) return { ok: true, viaJeton: true };
+    return { ok: false, raison: sommFaites >= MAX_SOMMAIRE_GRATUIT ? 'sommaire_gratuit' : 'free' };
   }
 
-  // Abonné : abonnement valide + quota mensuel dédié non atteint.
+  // Abonné : abonnement valide + quota mensuel dédié, sinon jeton.
   if (await abonnementExpire()) return { ok: false, raison: 'expire' };
   const limite = limitesDuPalier().sommaire || 0;
   const faites = await countMonthGenerations('diagnosticSommaire');
-  if (faites >= limite) return { ok: false, raison: 'quota', limite };
-  return { ok: true };
+  if (faites < limite) return { ok: true };
+  if (await lireJetonsAudit() > 0) return { ok: true, viaJeton: true };
+  return { ok: false, raison: 'quota', limite };
+}
+
+// Décide si l'utilisateur peut lancer une ANALYSE VIDÉO (lien TikTok).
+// Même mécanique que droitAnalyseSommaire ci-dessus (quota mensuel dédié +
+// repli jeton), avec ses propres constantes : Creator 6, Pro 15, non-abonné
+// 1 fois (aussi décomptée sur ses 5 gratuites).
+// Retourne { ok:true, viaJeton? } ou { ok:false, raison, limite }.
+async function droitAnalyseVirale() {
+  if (estIllimite()) return { ok: true };
+
+  if (!unlocked) {
+    const viralFaites = parseInt(localStorage.getItem('scriptura_viral_used') || '0', 10);
+    if (viralFaites < MAX_VIRAL_GRATUIT && usedGen < MAX_FREE) return { ok: true };
+    if (await lireJetonsAudit() > 0) return { ok: true, viaJeton: true };
+    return { ok: false, raison: viralFaites >= MAX_VIRAL_GRATUIT ? 'viral_gratuit' : 'free' };
+  }
+
+  if (await abonnementExpire()) return { ok: false, raison: 'expire' };
+  const limite = limitesDuPalier().viral || 0;
+  const faites = await countMonthGenerations('analyseVirale');
+  if (faites < limite) return { ok: true };
+  if (await lireJetonsAudit() > 0) return { ok: true, viaJeton: true };
+  return { ok: false, raison: 'quota', limite };
 }
 
 // Vérifie le quota d'audits du mois (compteur séparé de la création).

@@ -18,17 +18,25 @@ const CRITIQUE_ACTIVE = true;
 // La création (idées, script, storytelling, diagnostic sommaire) et
 // l'audit complet ont des compteurs séparés : un audit ne consomme pas le
 // quota de création et inversement. Le diagnostic sommaire (@nom
-// d'utilisateur) a désormais son PROPRE compteur mensuel, séparé de la
-// création : Creator 10/mois, Pro 30/mois. Un non-abonné en a droit à 1
-// (décomptée aussi sur ses 5 générations gratuites, voir MAX_SOMMAIRE_GRATUIT).
+// d'utilisateur) et l'analyse vidéo (lien TikTok) ont chacun leur PROPRE
+// compteur mensuel, séparé de la création : sommaire Creator 10/mois, Pro
+// 25/mois ; analyse vidéo Creator 6/mois, Pro 15/mois (plus bas que le
+// sommaire : elle consomme deux API payées au crédit, transcription
+// ElevenLabs + décodage TikHub, coût double par appel). Un non-abonné a
+// droit à 1 de chaque (décomptée aussi sur ses 5 générations gratuites, voir
+// MAX_SOMMAIRE_GRATUIT / MAX_VIRAL_GRATUIT). Une fois le quota mensuel
+// dédié épuisé (sommaire ou vidéo), un jeton acheté à l'unité en débloque
+// une de plus (voir droitAnalyseSommaire / droitAnalyseVirale).
 // Ces limites sont indicatives côté client (anti-abus), la vérité reste
 // le comptage Supabase par type.
 const LIMITES_MOIS = {
-  creator: { creation: 50, audit: 0, sommaire: 10 },
-  pro:     { creation: 70, audit: 5, sommaire: 30 }
+  creator: { creation: 40, audit: 0, sommaire: 10, viral: 6 },
+  pro:     { creation: 70, audit: 5, sommaire: 25, viral: 15 }
 };
-// Non-abonné : 1 seule analyse sommaire (prélevée sur ses 5 gratuites).
+// Non-abonné : 1 seule analyse sommaire / 1 seule analyse vidéo (prélevées
+// aussi sur ses 5 générations gratuites).
 const MAX_SOMMAIRE_GRATUIT = 1;
+const MAX_VIRAL_GRATUIT = 1;
 // Repli si le plan n'est pas reconnu : on applique le moins-disant (Creator).
 function limitesDuPalier() {
   return LIMITES_MOIS[monPalier()] || LIMITES_MOIS.creator;
