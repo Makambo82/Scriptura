@@ -148,7 +148,9 @@ Analyse comme un monteur/scénariste pro :
 - LA NICHE : en 1 à 3 mots, le thème/domaine de la vidéo (ex. « finance perso », « cuisine rapide », « histoire », « développement perso », « tech »). Sert à ranger la recette dans la bonne famille.
 - LE HOOK : la ou les toutes premières phrases réelles, la technique employée, et ${posture === 'flop' ? 'pourquoi il ne suffit pas à arrêter le scroll' : 'pourquoi il arrête le scroll'}.
 - LA RECETTE, TEMPS PAR TEMPS : reconstitue le déroulé chronologique réel en 4 à 6 TEMPS maximum (chaque temps = un procédé + le ressort d'attention qu'il crée, ou son absence). Ancre chaque temps dans le contenu réel.
-- LE MODÈLE APPLICABLE : transforme cette structure${posture === 'flop' ? ' CORRIGÉE' : ''} en un GABARIT VIERGE réutilisable sur N'IMPORTE QUEL sujet. Chaque étape = un temps + une consigne de remplissage avec des [crochets] (ex. « ouvre par une équation binaire : [ton sujet] voulait X, [autre force] lui a donné Y »). 4 à 6 étapes, concrètes et transposables, jamais liées au sujet précis de la vidéo.
+- LE MODÈLE APPLICABLE : transforme cette structure${posture === 'flop' ? ' CORRIGÉE' : ''} en un GABARIT VIERGE réutilisable sur N'IMPORTE QUEL sujet. Chaque étape = un temps + une consigne de remplissage avec des [crochets]${posture === 'flop'
+      ? `, et ce modèle DOIT intégrer les CORRECTIONS que tu donnes juste au-dessus dans ${lbl.leviers.toUpperCase()}, jamais reproduire le défaut d'origine (ex. si tu recommandes d'ouvrir sur un fait daté plutôt qu'un paradoxe abstrait, la 1re étape du modèle doit être « ouvre par un fait daté et précis : [élément], [date/chiffre], [ce qui a changé] », PAS « ouvre par une équation binaire/un paradoxe »). Relis ton propre modèle avant de répondre : s'il reproduit encore le problème que tu viens de diagnostiquer, corrige-le`
+      : ' (ex. « ouvre par une équation binaire : [ton sujet] voulait X, [autre force] lui a donné Y »)'}. 4 à 6 étapes, concrètes et transposables, jamais liées au sujet précis de la vidéo.
 - ${lbl.pourquoi.toUpperCase()} : 3 à 4 points MAJEURS et déterminants seulement (les plus forts, pas une liste exhaustive).
 - ${lbl.leviers.toUpperCase()} : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
 - SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo, sois rigoureux (une vidéo qui a raté a peu de signaux à true).
@@ -263,8 +265,15 @@ function porteeViral(stats) {
   else if (ratio >= 5) { niveau = 3; label = 'Forte portée'; }
   else if (ratio >= 2) { niveau = 2; label = 'Bonne portée'; }
   else { niveau = 1; label = 'Dans son audience'; }
-  // Ratio lisible : « ×12 » ou « ×3,4 ».
-  const affiche = ratio >= 10 ? '×' + Math.round(ratio) : '×' + (Math.round(ratio * 10) / 10).toString().replace('.', ',');
+  // Ratio lisible : « ×12 » ou « ×3,4 ». Sous 0,1, l'arrondi normal donnerait
+  // « ×0 », qui ressemble à une erreur d'affichage plutôt qu'à une vraie mesure
+  // (le calcul est juste, un ratio proche de zéro reste une donnée réelle) :
+  // on affiche alors « < ×0,1 » pour rester lisible sans jamais dire « zéro ».
+  const affiche = ratio >= 10
+    ? '×' + Math.round(ratio)
+    : ratio < 0.1
+      ? '< ×0,1'
+      : '×' + (Math.round(ratio * 10) / 10).toString().replace('.', ',');
   return { ratio, niveau, label, affiche };
 }
 // Niveau d'engagement (interactions ÷ vues) : moyenne TikTok ~5-6%.
