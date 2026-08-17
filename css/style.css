@@ -914,6 +914,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .footer-contact{
   display:flex;align-items:center;justify-content:center;gap:14px;
   margin-bottom:24px;flex-wrap:wrap;
+  padding-top:24px;border-top:1px solid rgba(201,168,76,0.25);
 }
 .footer-contact-text{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;
