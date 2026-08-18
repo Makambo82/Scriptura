@@ -34,6 +34,10 @@ function resetOutilsTikTok() {
   if (form) form.style.display = '';
   const res = document.getElementById('outilsResults');
   if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+  const btnT = document.getElementById('outilsTranscriptionBtn');
+  const btnD = document.getElementById('outilsTelechargementBtn');
+  if (btnT) btnT.classList.remove('actif');
+  if (btnD) btnD.classList.remove('actif');
   _outilsTranscript = '';
   _outilsVideoBlob = null;
 }
@@ -97,6 +101,7 @@ async function lancerOutilTikTok(type) {
   const label = txt.textContent;
 
   btn.disabled = true;
+  btn.classList.add('actif');
   if (autreBtn) autreBtn.disabled = true;
   if (spin) spin.style.display = 'inline-block';
   txt.textContent = type === 'transcription' ? 'Transcription…' : 'Recherche…';
@@ -124,6 +129,7 @@ async function lancerOutilTikTok(type) {
       afficherResultatTelechargement(blob);
     }
   } catch (e) {
+    btn.classList.remove('actif'); // échec : pas de résultat à mettre en avant
     err.textContent = e.message || 'Une erreur est survenue, réessaie.';
     err.style.display = 'block';
   } finally {

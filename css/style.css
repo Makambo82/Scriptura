@@ -2424,12 +2424,17 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-alt strong{color:var(--gold-light);font-weight:600}
 .ds-alt a{color:var(--gold-light);text-decoration:underline;cursor:pointer;white-space:nowrap}
 
-/* ── OUTILS TIKTOK (services annexes : transcription / téléchargement) ── */
-.outils-btn-row{display:flex;gap:12px;margin-top:22px}
-.outils-btn-row .btn-generate{width:auto;flex:1;padding:15px 10px;font-size:0.68rem}
-@media(max-width:480px){
-  .outils-btn-row{flex-direction:column}
-}
+/* ── OUTILS TIKTOK (services annexes : transcription / téléchargement) ──
+   Boutons dans le même style que .ds-scope-btn (bascule "Mon compte /
+   Compte concurrent" du diagnostic sommaire) : ici deux actions distinctes
+   plutôt qu'un choix exclusif, donc aucune des deux ne porte .actif par
+   défaut. Ajustement scopé (gap icône/texte, sans toucher .ds-scope-btn
+   partagé avec le diagnostic sommaire). */
+.outils-btn-row.ds-scope .ds-scope-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+/* Le spinner (.sb-gen-spinner) est conçu pour un fond doré plein (.btn-generate) :
+   contour clair sur fond doré. Ici les boutons restent sombres tant qu'ils ne
+   sont pas .actif, un spinner sombre y serait invisible. */
+.outils-btn-row.ds-scope .sb-gen-spinner{border-color:rgba(255,255,255,0.25);border-top-color:var(--gold-light)}
 .outils-result-card{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:22px 20px;margin-top:24px;text-align:left}
 .outils-result-card h3{font-family:'Cinzel',serif;font-weight:500;font-size:0.9rem;color:var(--gold-light);margin:0 0 14px;letter-spacing:0.02em}
 .outils-transcript{white-space:pre-wrap;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.6;max-height:340px;overflow-y:auto;margin-bottom:16px;padding-right:4px}
