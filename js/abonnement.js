@@ -455,12 +455,12 @@ const PLANS = {
     nom: 'Creator',
     prix: '6.000 FCFA',
     titre: 'Passe au plan Creator',
-    desc: 'Les 3 modes de création + l\'analyse sommaire de compte, 50 générations par mois.',
+    desc: 'Les 3 modes de création + l\'analyse sommaire de compte, 40 générations par mois.',
     wa: 'Bonjour, je veux le plan Creator de Scriptura, 6.000 FCFA/mois',
     features: [
       'Les 3 modes de création : idées, script, storytelling',
       '+ Analyse sommaire de ton compte (@username), dans ta limite de générations',
-      '50 générations par mois',
+      '40 générations par mois',
       'Mobile Money accepté'
     ]
   },
