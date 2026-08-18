@@ -1507,7 +1507,10 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
 
   // ── Pont vers le contenu ── (la recommandation IA ci-dessous propose déjà
   // "Créer le script" et "Voir d'autres recommandations", ce bouton faisait doublon)
-  html += `<div id="auditOpportunites"></div></div>`;
+  html += `<div id="auditOpportunites"></div>
+    <div id="auditFusionBanner" class="ds-alt" style="display:none;margin-top:20px;cursor:pointer" onclick="ouvrirFusionDiagnostics()">
+      🔗 Tu as fait tes deux diagnostics,<strong>découvre le rapport fusionné, plus complet →</strong>
+    </div></div>`;
 
   out.innerHTML = html;
   animerScoreAudit(global, RING_C);
@@ -1519,6 +1522,10 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // n'a pas encore fini de les enregistrer en mémoire (ça se fait plus bas,
   // après cet appel) : on ne veut pas attendre pour les connaître.
   if (typeof afficherEtMaintenant === 'function') afficherEtMaintenant(a, ts, oppNiche, oppObjectif);
+  // Propose le rapport fusionné dès que ce diagnostic complète la paire avec
+  // un diagnostic sommaire déjà fait, directement ici, pas seulement
+  // retrouvé plus tard dans "Mes générations".
+  if (typeof verifierBanniereFusion === 'function') verifierBanniereFusion('auditFusionBanner');
 }
 
 // Fait apparaître la forme du radar en fondu, une fois le SVG dans le DOM.

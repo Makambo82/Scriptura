@@ -42,10 +42,15 @@ function _sommaireEstMien(gen) {
   return !!(gen && gen.contenu && gen.contenu.estMonCompte !== false);
 }
 
-// Affiche (ou masque) la bannière dans l'historique : visible uniquement
-// pour un Pro ayant au moins un diagnostic complet ET un diagnostic sommaire.
-async function verifierBanniereFusion() {
-  const banniere = document.getElementById('fusionBanner');
+// Affiche (ou masque) la bannière de rapport fusionné, visible uniquement
+// pour un Pro ayant au moins un diagnostic complet ET un diagnostic sommaire
+// de SON compte. Appelée directement en bas du résultat qui vient d'être
+// généré (diagnostic sommaire ET diagnostic complet, chacun avec sa propre
+// bannière dans le DOM, id passé en paramètre) : dès que l'utilisateur a
+// les deux, la proposition doit être immédiate, pas seulement retrouvée en
+// rouvrant "Mes générations" plus tard.
+async function verifierBanniereFusion(elementId) {
+  const banniere = document.getElementById(elementId);
   if (!banniere) return;
   banniere.style.display = 'none';
   if (!unlocked || (typeof monPalier === 'function' && monPalier() !== 'pro')) return;

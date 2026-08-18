@@ -1013,7 +1013,10 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
     ${opportuniteHtml}
 
     ${moi ? ctaDetailleHtml : ctaConcurrentHtml}
-    <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire(${moi})">Analyser un autre compte</button>`;
+    <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire(${moi})">Analyser un autre compte</button>
+    ${moi ? `<div id="dsFusionBanner" class="ds-alt" style="display:none;margin-top:20px;cursor:pointer" onclick="ouvrirFusionDiagnostics()">
+      🔗 Tu as fait tes deux diagnostics,<strong>découvre le rapport fusionné, plus complet →</strong>
+    </div>` : ''}`;
 
   results.style.display = 'block';
   setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
@@ -1025,6 +1028,10 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   if (!unlocked && typeof afficherOpportuniteDiagSommaire === 'function') {
     afficherOpportuniteDiagSommaire();
   }
+  // Propose le rapport fusionné dès que ce diagnostic (le sien) complète la
+  // paire avec un diagnostic complet déjà fait, directement ici, pas
+  // seulement retrouvé plus tard dans "Mes générations".
+  if (moi && typeof verifierBanniereFusion === 'function') verifierBanniereFusion('dsFusionBanner');
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
