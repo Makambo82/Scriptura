@@ -16,10 +16,39 @@ import {
   extraireDesc, extraireStats, extraireAuteurUsername, abonnesViaProfil,
   telechargerMedia, resoudreVideoTikTok
 } from './_lib/tiktok-media.js';
+import ffmpegPath from 'ffmpeg-static';
+import { spawn } from 'child_process';
+import { promises as fsp } from 'fs';
+import path from 'path';
+import os from 'os';
 
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte jusqu'à 3 API payées par appel
+
+// Extrait UNE frame de la vidéo (pour juger le "hook visuel", voir js/viral.js),
+// à 0,3s plutôt qu'à 0s : la toute première image est souvent noire ou un
+// reliquat de transition sur TikTok. Best-effort, ne bloque JAMAIS la
+// transcription (le score se dégrade proprement sans ce signal si ça échoue).
+async function extraireFrameHook(buf) {
+  const dossier = await fsp.mkdtemp(path.join(os.tmpdir(), 'frame-'));
+  const cheminVideo = path.join(dossier, 'v.mp4');
+  const cheminImage = path.join(dossier, 'f.jpg');
+  try {
+    await fsp.writeFile(cheminVideo, buf);
+    await new Promise((resolve, reject) => {
+      const proc = spawn(ffmpegPath, ['-y', '-ss', '0.3', '-i', cheminVideo, '-frames:v', '1', '-q:v', '3', cheminImage]);
+      let stderr = '';
+      proc.stderr.on('data', (d) => { stderr += d.toString(); });
+      proc.on('error', reject);
+      proc.on('close', (code) => code === 0 ? resolve() : reject(new Error('ffmpeg (code ' + code + ') : ' + stderr.slice(-500))));
+    });
+    const img = await fsp.readFile(cheminImage);
+    return img.toString('base64');
+  } finally {
+    await fsp.rm(dossier, { recursive: true, force: true }).catch(() => {});
+  }
+}
 
 // ═══ TRANSCRIPTION (voir l'ancien api/video-stt.js) ═══
 
@@ -110,7 +139,12 @@ async function handleTranscription(req, res) {
       }
     }
 
-    const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
+    // Frame + transcription en parallèle (indépendantes, même buffer vidéo) :
+    // la frame ne doit jamais retarder ni faire échouer la transcription.
+    const [stt, frameHook] = await Promise.all([
+      transcrireEleven(media.buf, media.contentType, elevenKey),
+      extraireFrameHook(media.buf).catch(() => null)
+    ]);
     if (!stt.ok) {
       return res.status(200).json({ ok: false, description, stats, raison: 'stt_echec' });
     }
@@ -121,6 +155,7 @@ async function handleTranscription(req, res) {
       description,
       stats,
       langue: stt.lang || null,
+      frame_hook: frameHook || null,
       raison: transcript.length > 10 ? null : 'sans_parole'
     });
 

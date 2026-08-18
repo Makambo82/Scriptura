@@ -135,14 +135,24 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, imageBase64) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   // `mode` : identifie le quota à vérifier CÔTÉ SERVEUR (voir api/_lib/acces.js) :
   // 'creation' par défaut (idées/script/récit), ou 'creationSerie'
   // (Pro/jeton pour entrer, voir js/serie.js). diagnosticSommaire/analyseVirale/
   // audit passent par leurs propres routes (username-scan/video-stt/audit),
   // pas par callAI.
+  // `imageBase64` (optionnel) : une image JPEG en base64 (sans préfixe
+  // data:), jointe au message pour une analyse visuelle (ex. hook visuel de
+  // la 1re frame d'une vidéo, voir js/viral.js). api/generate.js relaie
+  // `messages` tel quel à Anthropic, aucun changement serveur nécessaire.
   const promptStyle = REGLE_STYLE_TIRET + prompt;
+  const contenuMessage = imageBase64
+    ? [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+        { type: 'text', text: promptStyle }
+      ]
+    : promptStyle;
   // Coupe la requête après 55s (juste sous les 60s de maxDuration côté serveur,
   // voir vercel.json) : sans ça, une requête bloquée reste pendue indéfiniment
   // côté navigateur au lieu d'échouer proprement et de déclencher une nouvelle
@@ -158,7 +168,7 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
         body: JSON.stringify({
           model: useModel,
           max_tokens: maxTokens,
-          messages: [{ role: "user", content: promptStyle }],
+          messages: [{ role: "user", content: contenuMessage }],
           code_acces: localStorage.getItem('scriptura_code') || null,
           web_search: !!webSearch,
           web_search_max_uses: webSearchMaxUses || undefined,
