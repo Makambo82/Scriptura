@@ -1,29 +1,24 @@
 // ═══════════════════════════════════════════════════════════
 //  /api/username-scan, Diagnostic sommaire via @nom d'utilisateur TikTok
 //
-//  Deux sources complémentaires :
-//    • PROFIL  → LamaTok (/v1/user/by/username) : abonnés, likes cumulés,
-//      nb de vidéos, bio, statut vérifié. (clé LAMATOK_API_KEY)
+//  UNE SEULE source depuis le retrait de LamaTok (quota épuisé, panne
+//  constatée en production) : TikHub pour TOUT.
+//    • PROFIL  → TikHub (/fetch_user_profile) : abonnés, likes cumulés,
+//      nb de vidéos, bio, statut vérifié, ET le secUid (le même appel
+//      couvre les deux, plus besoin d'un 2e appel dédié au secUid).
 //    • VIDÉOS  → TikHub (/fetch_user_post) : liste des dernières vidéos avec
-//      vues / likes / commentaires / partages / date par vidéo. LamaTok ne
-//      liste PAS les vidéos d'un compte (catalogue vérifié). (clé
-//      TIKHUB_API_KEY, payé au crédit, sans abonnement fixe)
+//      vues / likes / commentaires / partages / date par vidéo.
+//      (clé TIKHUB_API_KEY, payé au crédit, sans abonnement fixe)
 //
-//  TikHub a besoin du secUid (pas de l'id numérique) pour lister les vidéos.
-//  On réutilise d'abord celui déjà présent dans le profil LamaTok (coût
-//  zéro) ; s'il manque, un seul appel TikHub supplémentaire (fetch_user_profile)
-//  va le chercher.
+//  Non-régressif : si les vidéos ne remontent pas, `medias` reste null et le
+//  client retombe sur l'Engagement seul (profil).
 //
-//  Non-régressif : si TikHub ne répond pas, `medias` reste null et le client
-//  retombe sur l'Engagement seul (profil).
-//
-//  Les clés restent entièrement côté serveur : jamais exposées au navigateur.
+//  La clé reste entièrement côté serveur : jamais exposée au navigateur.
 //  Debug : body.debug=true renvoie _debug (id extrait + réponses des sources).
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
 
-const LAMA_BASE = 'https://api.lamatok.com';
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte 2 API payées par appel
 
@@ -42,10 +37,12 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-// Résout l'objet utilisateur dans le profil LamaTok, rangé sous
-// users = { "<pseudo>": { id, secUid, ... } }, et en extrait id + secUid.
+// Résout l'objet utilisateur dans le profil TikHub, rangé sous
+// data.userInfo.user = { id, secUid, ... } (chemin confirmé sur de vraies
+// réponses). Recherche récursive en repli, au cas où la profondeur varie
+// d'un compte à l'autre (même logique de tolérance que dsAbonnes côté client).
 function extraireIds(profil) {
-  let u = (profil && (profil.users || profil.user)) || {};
+  let u = (profil && (profil.userInfo?.user || profil.user || profil.users)) || {};
   if (Array.isArray(u)) u = u[0] || {};
   if (u && typeof u === 'object' && u.id == null && u.secUid == null) {
     const c = Object.values(u).find(v => v && typeof v === 'object' && (v.id != null || v.secUid != null));
@@ -89,17 +86,29 @@ function normaliserMedias(data) {
   }).filter(v => v.vues != null || v.likes != null);
 }
 
-// secUid via TikHub (fetch_user_profile), seulement si le profil LamaTok ne
-// l'avait pas déjà fourni : coût d'UN crédit TikHub supplémentaire, à éviter
-// quand on peut. Chemin confirmé sur de vraies réponses : data.userInfo.user.secUid.
+// Profil complet via TikHub (fetch_user_profile) : abonnés, likes cumulés,
+// nb de vidéos, bio, statut vérifié ET secUid en un seul appel. Renvoie
+// data.data (contient userInfo.user + userInfo.stats), ou null si indisponible.
+async function profilViaTikHub(username, key) {
+  const url = TIKHUB_BASE + '/api/v1/tiktok/web/fetch_user_profile?' +
+    new URLSearchParams({ uniqueId: username }).toString();
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + key } });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) {
+    const message = (data && (data.message || data.error)) || 'Profil introuvable ou privé';
+    return { ok: false, status: r.status, message };
+  }
+  return { ok: true, profil: data && data.data ? data.data : data };
+}
+
+// secUid via TikHub (fetch_user_profile), en repli si le profil déjà récupéré
+// ne l'avait pas fourni. Chemin confirmé sur de vraies réponses : data.userInfo.user.secUid.
 async function secUidViaTikHub(username, key) {
   try {
-    const url = TIKHUB_BASE + '/api/v1/tiktok/web/fetch_user_profile?' +
-      new URLSearchParams({ uniqueId: username }).toString();
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + key } });
-    if (!r.ok) return null;
-    const data = await r.json();
-    return data?.data?.userInfo?.user?.secUid || data?.data?.user?.secUid || null;
+    const rep = await profilViaTikHub(username, key);
+    if (!rep.ok) return null;
+    const ids = extraireIds(rep.profil);
+    return ids.secUid;
   } catch (e) { return null; }
 }
 
@@ -175,20 +184,19 @@ async function recupererVideosTikHub(key, secUid) {
 
 // Diagnostic (GET ?username=NOM&debug=1) : dit POURQUOI les vidéos ne remontent
 // pas, sans JAMAIS exposer les clés. Consultable directement au navigateur.
-async function scanDebug(propre, lamaKey, tikhubKey) {
-  const out = { username: propre, lamaKeyPresent: !!lamaKey, tikhubKeyPresent: !!tikhubKey };
+async function scanDebug(propre, tikhubKey) {
+  const out = { username: propre, tikhubKeyPresent: !!tikhubKey };
+  if (!tikhubKey) { out.tikhubRaison = 'TIKHUB_API_KEY absente côté serveur'; return out; }
+
   let profil = null;
   try {
-    const r = await fetch(LAMA_BASE + '/v1/user/by/username?username=' + encodeURIComponent(propre),
-      { headers: { accept: 'application/json', 'x-access-key': lamaKey } });
-    out.lamaStatus = r.status;
-    profil = await r.json();
-  } catch (e) { out.lamaErreur = e.message; }
+    const rep = await profilViaTikHub(propre, tikhubKey);
+    out.profilOk = rep.ok;
+    if (rep.ok) profil = rep.profil; else out.profilMessage = rep.message;
+  } catch (e) { out.profilErreur = e.message; }
   const ids = extraireIds(profil || {});
   out.idCompte = ids.id ? 'trouvé' : 'ABSENT';
-  out.secUid = ids.secUid ? 'trouvé (profil LamaTok)' : 'ABSENT du profil LamaTok';
-
-  if (!tikhubKey) { out.tikhubRaison = 'TIKHUB_API_KEY absente côté serveur'; return out; }
+  out.secUid = ids.secUid ? 'trouvé (profil TikHub)' : 'ABSENT du profil TikHub';
 
   let secUid = ids.secUid;
   if (!secUid) { secUid = await secUidViaTikHub(propre, tikhubKey); out.secUidViaTikHub = secUid ? 'trouvé' : 'ABSENT'; }
@@ -209,7 +217,6 @@ async function scanDebug(propre, lamaKey, tikhubKey) {
 }
 
 export default async function handler(req, res) {
-  const lamaKey = process.env.LAMATOK_API_KEY;
   const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
 
   // Diagnostic ouvrable au navigateur (GET), réservé aux comptes admin (déclenche
@@ -220,16 +227,15 @@ export default async function handler(req, res) {
     if (!debug || !username) return res.status(400).json({ error: { message: 'Debug : /api/username-scan?username=NOM&debug=1' } });
     const droitsDebug = await resoudreDroits((req.query && req.query.code_acces) || '');
     if (!droitsDebug.isAdmin) return res.status(403).json({ error: { message: 'Réservé aux comptes admin' } });
-    if (!lamaKey) return res.status(200).json({ _debug: { lamaKeyPresent: false, tikhubKeyPresent: !!tikhubKey } });
-    return res.status(200).json({ _debug: await scanDebug(username, lamaKey, tikhubKey) });
+    return res.status(200).json({ _debug: await scanDebug(username, tikhubKey) });
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   }
 
-  if (!lamaKey) {
-    return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
+  if (!tikhubKey) {
+    return res.status(500).json({ error: { message: 'Clé API absente côté serveur (TIKHUB_API_KEY)' } });
   }
 
   try {
@@ -255,33 +261,27 @@ export default async function handler(req, res) {
 
     const propre = username.trim().replace(/^@+/, '');
 
-    // 1) Profil via LamaTok
-    const repProfil = await fetch(
-      LAMA_BASE + '/v1/user/by/username?username=' + encodeURIComponent(propre),
-      { headers: { accept: 'application/json', 'x-access-key': lamaKey } }
-    );
-    const profil = await repProfil.json();
+    // 1) Profil via TikHub (abonnés, likes cumulés, bio, secUid en un appel)
+    const repProfil = await profilViaTikHub(propre, tikhubKey);
     if (!repProfil.ok) {
-      const message = (profil && (profil.message || profil.error)) || 'Profil introuvable ou privé';
-      return res.status(repProfil.status).json({ error: { message } });
+      return res.status(repProfil.status || 502).json({ error: { message: repProfil.message } });
     }
+    const profil = repProfil.profil;
 
-    // 2) Vidéos via TikHub (payé au crédit), avec le secUid du profil (déjà
-    // fourni par LamaTok si présent, sinon un appel TikHub dédié va le chercher).
+    // 2) Vidéos via TikHub (payé au crédit), avec le secUid déjà fourni par
+    // le profil ci-dessus (repli sur un appel dédié si absent).
     let medias = null;
-    if (tikhubKey) {
-      const ids = extraireIds(profil);
-      let secUid = ids.secUid;
-      if (!secUid) secUid = await secUidViaTikHub(propre, tikhubKey);
-      if (secUid) {
-        try { medias = await recupererVideosTikHub(tikhubKey, secUid); }
-        catch (e) { medias = null; }
-        // Auto-réessai UNE fois si aucune vidéo n'est revenue (raté
-        // transitoire : lenteur, hoquet). Coût borné.
-        if (!medias) {
-          await attendre(900);
-          try { medias = await recupererVideosTikHub(tikhubKey, secUid); } catch (e) {}
-        }
+    const ids = extraireIds(profil);
+    let secUid = ids.secUid;
+    if (!secUid) secUid = await secUidViaTikHub(propre, tikhubKey);
+    if (secUid) {
+      try { medias = await recupererVideosTikHub(tikhubKey, secUid); }
+      catch (e) { medias = null; }
+      // Auto-réessai UNE fois si aucune vidéo n'est revenue (raté
+      // transitoire : lenteur, hoquet). Coût borné.
+      if (!medias) {
+        await attendre(900);
+        try { medias = await recupererVideosTikHub(tikhubKey, secUid); } catch (e) {}
       }
     }
 

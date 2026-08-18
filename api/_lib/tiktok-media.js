@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════
 //  api/_lib/tiktok-media.js, MODULE SERVEUR PARTAGÉ : résolution d'un lien
-//  TikTok vers le détail d'une vidéo (LamaTok en principal, TikHub en
-//  repli) et extraction (description, stats, URLs média). Extrait de
-//  api/video-stt.js (transcription) pour être réutilisé tel quel par
-//  api/tiktok-download.js (lien direct, sans transcription), plutôt que de
-//  dupliquer cette logique de résolution entre les deux routes.
+//  TikTok vers le détail d'une vidéo (TikHub, seule source depuis le retrait
+//  de LamaTok, quota épuisé côté LamaTok) et extraction (description, stats,
+//  URLs média). Extrait de api/video-stt.js (transcription) pour être
+//  réutilisé tel quel par api/tiktok-download.js (lien direct, sans
+//  transcription), plutôt que de dupliquer cette logique entre les deux
+//  routes.
 // ═══════════════════════════════════════════════════════════
 
-const LAMA_BASE = 'https://api.lamatok.com';
 const TIKHUB_BASE = 'https://api.tikhub.io';
 
 // Tronque une chaîne à N caractères max SANS couper une paire de substituts
@@ -21,18 +21,8 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-// Détail d'UNE vidéo via LamaTok (/v1/media/by/id). Source principale.
-async function detailLamaTok(id, key) {
-  try {
-    const r = await fetch(LAMA_BASE + '/v1/media/by/id?id=' + encodeURIComponent(id),
-      { headers: { accept: 'application/json', 'x-access-key': key } });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch (e) { return null; }
-}
-
-// Détail d'UNE vidéo via TikHub (/fetch_post_detail, payé au crédit). Repli
-// de LamaTok. Renvoie l'objet JSON brut :
+// Détail d'UNE vidéo via TikHub (/fetch_post_detail, payé au crédit). Seule
+// source depuis le retrait de LamaTok. Renvoie l'objet JSON brut :
 // urlsVideo/extraireDesc/extraireStats scannent déjà n'importe quelle forme
 // de champs (playCount/diggCount/desc/downloadAddr…, confirmés identiques
 // à ceux de TikHub sur une vraie réponse), pas besoin de parseur dédié.
@@ -80,7 +70,7 @@ async function resoudreLien(url) {
   } catch (e) { return url; }
 }
 
-// Cherche une URL de VIDÉO/AUDIO téléchargeable dans la réponse LamaTok.
+// Cherche une URL de VIDÉO/AUDIO téléchargeable dans la réponse TikHub.
 // On privilégie play_addr / download_addr, et les URLs marquées mime video.
 function urlsVideo(obj) {
   const found = []; // { url, score }
@@ -157,15 +147,19 @@ function extraireAuteurUsername(obj) {
   return u;
 }
 
-// Abonnés de l'auteur via son profil LamaTok (2e appel, seulement si le nombre
-// manque dans le détail du post). Renvoie null en cas d'échec (non bloquant).
-async function abonnesViaProfil(username, lamaKey) {
+// Abonnés de l'auteur via son profil TikHub (2e appel, seulement si le
+// nombre manque dans le détail du post). Renvoie null en cas d'échec (non
+// bloquant). Même endpoint que secUidViaTikHub (api/username-scan.js),
+// extraireAbonnesAuteur scanne récursivement, insensible à la profondeur
+// exacte du champ dans la réponse.
+async function abonnesViaProfil(username, tikhubKey) {
   try {
-    const r = await fetch(LAMA_BASE + '/v1/user/by/username?username=' + encodeURIComponent(username),
-      { headers: { accept: 'application/json', 'x-access-key': lamaKey } });
+    const url = TIKHUB_BASE + '/api/v1/tiktok/web/fetch_user_profile?' +
+      new URLSearchParams({ uniqueId: username }).toString();
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tikhubKey } });
     if (!r.ok) return null;
-    const prof = await r.json();
-    return extraireAbonnesAuteur(prof);
+    const data = await r.json();
+    return extraireAbonnesAuteur(data);
   } catch (e) { return null; }
 }
 
@@ -225,46 +219,35 @@ async function telechargerMedia(url) {
   finally { clearTimeout(minuteur); }
 }
 
-// Résout un lien TikTok (court ou long) vers son détail complet, en
-// combinant LamaTok (principal) et TikHub (repli). Renvoie
-// { id, dataLama, dataTikHub, description, stats } ou null si le lien n'a
-// pas pu être identifié comme une vidéo TikTok.
-async function resoudreVideoTikTok(url, lamaKey, tikhubKey) {
+// Résout un lien TikTok (court ou long) vers son détail complet via TikHub
+// (seule source depuis le retrait de LamaTok). Renvoie
+// { id, dataTikHub, description, stats } ou null si le lien n'a pas pu être
+// identifié comme une vidéo TikTok.
+async function resoudreVideoTikTok(url, tikhubKey) {
   let urlResolue = String(url || '').trim();
   let id = extraireAwemeId(urlResolue);
   if (!id) { urlResolue = await resoudreLien(urlResolue); id = extraireAwemeId(urlResolue); }
   if (!id) return null;
 
-  const dataLama = await detailLamaTok(id, lamaKey);
-  let description = dataLama ? (extraireDesc(dataLama) || '') : '';
-  let stats = dataLama ? extraireStats(dataLama) : null;
-
-  let dataTikHub = null;
-  const lamaUrls = dataLama ? urlsVideo(dataLama) : [];
-  if (!lamaUrls.length && tikhubKey) {
-    dataTikHub = await detailTikHub(id, tikhubKey);
-    if (dataTikHub) {
-      if (!description) description = extraireDesc(dataTikHub) || '';
-      if (!stats) stats = extraireStats(dataTikHub);
-    }
-  }
+  const dataTikHub = tikhubKey ? await detailTikHub(id, tikhubKey) : null;
+  let description = dataTikHub ? (extraireDesc(dataTikHub) || '') : '';
+  let stats = dataTikHub ? extraireStats(dataTikHub) : null;
 
   // Portée : le nombre d'abonnés de l'auteur manque souvent dans le détail
-  // d'un post, un 2e appel LamaTok sur son profil le complète si besoin.
-  if (stats && stats.vues && !stats.abonnesAuteur) {
-    const username = extraireAuteurUsername(dataLama) || extraireAuteurUsername(dataTikHub);
+  // d'un post, un 2e appel sur son profil TikHub le complète si besoin.
+  if (stats && stats.vues && !stats.abonnesAuteur && tikhubKey) {
+    const username = extraireAuteurUsername(dataTikHub);
     if (username) {
-      const ab = await abonnesViaProfil(username, lamaKey);
+      const ab = await abonnesViaProfil(username, tikhubKey);
       if (ab != null) stats.abonnesAuteur = ab;
     }
   }
 
-  return { id, dataLama, dataTikHub, description, stats };
+  return { id, dataTikHub, description, stats };
 }
 
 export {
   tronquerSansCouperEmoji,
-  detailLamaTok,
   detailTikHub,
   extraireAwemeId,
   hoteAutorise,
