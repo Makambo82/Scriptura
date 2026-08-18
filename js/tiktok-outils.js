@@ -187,8 +187,23 @@ async function _outilsFetchVideo(url) {
   } finally { clearTimeout(minuteur); }
 }
 
+// L'API de transcription (ElevenLabs) renvoie un seul bloc de texte continu,
+// sans aucun paragraphe. On le regroupe par phrases (splitIntoSentences,
+// déjà utilisé pour le découpage narratif du storyboard, voir js/storyboard.js)
+// pour une lecture confortable, plutôt qu'un pavé de texte ininterrompu.
+function formaterTranscriptEnParagraphes(texte) {
+  if (typeof splitIntoSentences !== 'function') return texte || '';
+  const phrases = splitIntoSentences(texte);
+  if (!phrases.length) return texte || '';
+  const paragraphes = [];
+  for (let i = 0; i < phrases.length; i += 3) {
+    paragraphes.push(phrases.slice(i, i + 3).join(' '));
+  }
+  return paragraphes.join('\n\n');
+}
+
 function afficherResultatTranscription(data) {
-  _outilsTranscript = data.transcript || '';
+  _outilsTranscript = formaterTranscriptEnParagraphes(data.transcript || '');
   const form = document.getElementById('outilsForm');
   if (form) form.style.display = 'none';
   const res = document.getElementById('outilsResults');
