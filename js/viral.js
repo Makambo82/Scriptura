@@ -457,8 +457,11 @@ function afficherRapportViral(d) {
   const taux = _tauxEngagementViral(d.stats);
   const portee = porteeViral(d.stats);
   // Ligne 1 : vues + engagement. Ligne 2 : portée (le vrai signal), si connue.
+  // Le nombre d'abonnés est affiché entre parenthèses à côté de la portée :
+  // sans lui, le ratio ("×0,2 son audience") n'est pas vérifiable par le
+  // lecteur, qui ne voit que les vues et peut trouver le verdict arbitraire.
   const statsLigne = (d.stats && d.stats.vues)
-    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${portee ? ` · portée ${portee.affiche} son audience` : ''}</div>` : '';
+    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${portee ? ` · portée ${portee.affiche} son audience (${_fmtVuesViral(d.stats.abonnesAuteur)} abonnés)` : ''}</div>` : '';
   // Seuils alignés sur SEUIL_RECETTE_FORTE/SEUIL_MEMOIRE (score pondéré), pas
   // sur le simple compte de leviers : un compte brut de signaux ignore leur
   // pondération par dimension et pouvait afficher « Recette solide » (vert)
@@ -632,7 +635,7 @@ function _texteRapportViral(d) {
       const taux = _tauxEngagementViral(d.stats);
       const portee = porteeViral(d.stats);
       entete += '\n' + _fmtVuesViral(d.stats.vues) + ' vues' + (taux != null ? ' · ' + String(taux).replace('.', ',') + "% d'engagement" : '');
-      if (portee) entete += ' · portée ' + portee.affiche + ' son audience';
+      if (portee) entete += ' · portée ' + portee.affiche + ' son audience (' + _fmtVuesViral(d.stats.abonnesAuteur) + ' abonnés)';
     }
     lignes.push(entete);
     if (Array.isArray(note.dimensions) && note.dimensions.length) {
