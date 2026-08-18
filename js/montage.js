@@ -112,14 +112,14 @@ function telechargerBlob(blob, nomFichier) {
 // « Télécharger la vidéo » : ouvre la feuille de partage native (iOS/Android)
 // via l'API Web Share en partageant le FICHIER vidéo, c'est ce qui donne
 // « Enregistrer la vidéo », AirDrop, Messages, etc. On récupère d'abord la
-// vidéo via notre proxy same-origin (/api/montage-download) pour éviter tout
+// vidéo via notre proxy same-origin (/api/montage-media?action=download) pour éviter tout
 // souci CORS de lecture. Repli : téléchargement direct classique si l'API
 // n'est pas disponible (ordinateur de bureau, vieux navigateur).
 async function partagerVideoMontage(btn, url) {
   const libelle = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
   try {
-    const rep = await fetch('/api/montage-download?url=' + encodeURIComponent(url));
+    const rep = await fetch('/api/montage-media?action=download&url=' + encodeURIComponent(url));
     if (!rep.ok) throw new Error('récupération impossible');
     const blob = await rep.blob();
     const fichier = new File([blob], 'scriptura-montage.mp4', { type: 'video/mp4' });
@@ -131,7 +131,7 @@ async function partagerVideoMontage(btn, url) {
   } catch (e) {
     // Annulation du partage par l'utilisateur : on ne fait rien.
     if (!(e && e.name === 'AbortError')) {
-      window.open('/api/montage-download?url=' + encodeURIComponent(url), '_blank');
+      window.open('/api/montage-media?action=download&url=' + encodeURIComponent(url), '_blank');
     }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = libelle; }
@@ -438,7 +438,7 @@ async function genererImagesMontage() {
     montageImageIndexEnCours = i;
     renderMontageEtat();
     try {
-      const rep = await fetch('/api/montage-images', {
+      const rep = await fetch('/api/montage-media?action=images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text], format: ratioDuPrompt(montagePlans[i].visuel || ''), code_acces: localStorage.getItem('scriptura_code') || null })
@@ -471,7 +471,7 @@ async function regenererImageMontage(i) {
   montageImagesEnCours = true;
   renderMontageEtat();
   try {
-    const rep = await fetch('/api/montage-images', {
+    const rep = await fetch('/api/montage-media?action=images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompts: [plan.visuel || plan.text], format: ratioDuPrompt(plan.visuel || ''), code_acces: localStorage.getItem('scriptura_code') || null })
@@ -489,13 +489,13 @@ async function regenererImageMontage(i) {
 }
 
 // Charge les voix ElevenLabs configurées côté serveur (voir
-// api/montage-voices.js) et remplit le sélecteur. Le menu reste caché s'il
-// n'y a qu'une seule voix disponible, rien à choisir dans ce cas.
+// api/montage-media.js action=voices) et remplit le sélecteur. Le menu
+// reste caché s'il n'y a qu'une seule voix disponible, rien à choisir dans ce cas.
 async function chargerVoixMontage() {
   const select = document.getElementById('montageVoixSelect');
   if (!select) return;
   try {
-    const rep = await fetch('/api/montage-voices');
+    const rep = await fetch('/api/montage-media?action=voices');
     const data = await rep.json();
     montageVoixListe = Array.isArray(data.voices) ? data.voices : [];
   } catch (e) {
@@ -528,7 +528,7 @@ async function genererVoixOffMontage() {
   montageVoixEnCours = true;
   renderMontageEtat();
   try {
-    const rep = await fetch('/api/montage-tts', {
+    const rep = await fetch('/api/montage-media?action=tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ segments: montagePlans.map(p => p.text), voiceId: montageVoixId, code_acces: localStorage.getItem('scriptura_code') || null })

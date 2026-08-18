@@ -491,7 +491,7 @@ async function recupererTranscriptViral() {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 30000);
   try {
-    const rep = await fetch('/api/video-stt', {
+    const rep = await fetch('/api/tiktok-video?action=transcription', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),

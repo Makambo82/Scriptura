@@ -1114,10 +1114,10 @@ Réponds UNIQUEMENT en JSON : { "constat": "<2 à 4 phrases>", "levier_titre": "
   try {
     if (typeof currentGenId !== 'undefined' && currentGenId) {
       const comparaison = { concurrent: concUser, lignes, synthese: syn };
-      await fetch('/api/generations', {
+      await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'patch', code: getUserRef(), id: currentGenId, champs: { comparaisonConcurrent: comparaison } })
+        body: JSON.stringify({ resource: 'generations', action: 'patch', code: getUserRef(), id: currentGenId, champs: { comparaisonConcurrent: comparaison } })
       });
     }
   } catch (e) { /* silencieux */ }

@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 //  MODULE « OUTILS TIKTOK » (service annexe, hors modes de création)
 //  Deux actions indépendantes à partir d'un même lien : transcription
-//  (texte parlé, via /api/video-stt, déjà utilisé en interne par le mode
-//  Analyse vidéo virale) et téléchargement (lien direct vers la vidéo,
-//  sans filigrane si possible, via /api/tiktok-download, sans passer par
-//  nos serveurs : pas de gros fichier qui transite par la fonction
-//  serverless). Même quota mensuel que l'analyse vidéo (droitAnalyseVirale,
-//  js/historique.js) : mêmes API payées mises à contribution.
+//  (texte parlé, via /api/tiktok-video?action=transcription, déjà utilisé
+//  en interne par le mode Analyse vidéo virale) et téléchargement (la
+//  vidéo elle-même, via /api/tiktok-video?action=download, proxy même
+//  origine pour permettre le partage natif). Même quota mensuel que
+//  l'analyse vidéo (droitAnalyseVirale, js/historique.js) : mêmes API
+//  payées mises à contribution.
 // ═══════════════════════════════════════════════════════════
 
 function outilsEsc(t) {
@@ -103,7 +103,7 @@ async function lancerOutilTikTok(type) {
 
   try {
     if (type === 'transcription') {
-      const data = await _outilsFetchJson('/api/video-stt', lien);
+      const data = await _outilsFetchJson('/api/tiktok-video?action=transcription', lien);
       if (!data.ok || !data.transcript) {
         throw new Error(data.raison === 'sans_parole'
           ? "Cette vidéo ne contient pas de parole détectable."
@@ -160,15 +160,16 @@ async function _outilsFetchJson(route, url) {
   } finally { clearTimeout(minuteur); }
 }
 
-// Téléchargement : la vidéo elle-même (voir api/tiktok-download.js, proxy
-// même origine, nécessaire pour le partage natif ci-dessous, un fetch()
-// direct vers le CDN TikTok échouerait la plupart du temps, CORS).
+// Téléchargement : la vidéo elle-même (voir api/tiktok-video.js action
+// download, proxy même origine, nécessaire pour le partage natif
+// ci-dessous, un fetch() direct vers le CDN TikTok échouerait la plupart
+// du temps, CORS).
 async function _outilsFetchVideo(url) {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 55000);
   try {
-    const params = new URLSearchParams({ url, code_acces: localStorage.getItem('scriptura_code') || '' });
-    const r = await fetch('/api/tiktok-download?' + params.toString(), { signal: ctrl.signal });
+    const params = new URLSearchParams({ action: 'download', url, code_acces: localStorage.getItem('scriptura_code') || '' });
+    const r = await fetch('/api/tiktok-video?' + params.toString(), { signal: ctrl.signal });
     await _outilsGererErreurReponse(r);
     return await r.blob();
   } finally { clearTimeout(minuteur); }

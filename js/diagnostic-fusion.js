@@ -15,8 +15,8 @@
 // et api/generations.js.
 async function _derniereGenerationDe(mode) {
   try {
-    const params = new URLSearchParams({ action: 'last', code: getUserRef(), mode });
-    const r = await fetch('/api/generations?' + params.toString());
+    const params = new URLSearchParams({ resource: 'generations', action: 'last', code: getUserRef(), mode });
+    const r = await fetch('/api/data?' + params.toString());
     const rep = await r.json();
     return (rep && rep.ok) ? rep.data : null;
   } catch (e) { console.warn('Lecture génération échouée', e); return null; }
@@ -28,8 +28,8 @@ async function _derniereGenerationDe(mode) {
 // js/diagnostic-sommaire.js). Best-effort : [] en cas d'erreur.
 async function _recentesGenerationsDe(mode, n) {
   try {
-    const params = new URLSearchParams({ action: 'last', code: getUserRef(), mode, limit: String(n || 8) });
-    const r = await fetch('/api/generations?' + params.toString());
+    const params = new URLSearchParams({ resource: 'generations', action: 'last', code: getUserRef(), mode, limit: String(n || 8) });
+    const r = await fetch('/api/data?' + params.toString());
     const rep = await r.json();
     return (rep && rep.ok && Array.isArray(rep.data)) ? rep.data : [];
   } catch (e) { console.warn('Lecture générations échouée', e); return []; }

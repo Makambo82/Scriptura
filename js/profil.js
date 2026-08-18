@@ -66,7 +66,7 @@ async function chargerProfilCreateur() {
     try {
       // Passe par le serveur (clé service_role), voir mettreAJourProfilApresGeneration
       // plus bas pour le pourquoi (accès direct anon retiré sur cette table).
-      const r = await fetch('/api/profil-createur?code=' + encodeURIComponent(getUserRef()));
+      const r = await fetch('/api/data?resource=profil&code=' + encodeURIComponent(getUserRef()));
       const data = await r.json();
       _profilCreateur = fusionnerProfilProfond(base, (data && data.profil) || {});
     } catch (e) {
@@ -136,10 +136,10 @@ async function mettreAJourProfilCreateur(patch) {
     // direct : la table `profils_createurs` n'accepte plus l'accès du rôle
     // anon (voir supabase/profils_createurs_rls.sql), n'importe qui pouvait
     // sinon lire ou écrire le profil de n'importe quel code d'accès.
-    fetch('/api/profil-createur', {
+    fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: getUserRef(), profil: profil })
+      body: JSON.stringify({ resource: 'profil', code: getUserRef(), profil: profil })
     }).catch(e => console.warn('Mise à jour du profil créateur échouée', e));
   } catch (e) {
     console.warn('Mise à jour du profil créateur échouée', e);

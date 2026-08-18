@@ -9,24 +9,14 @@
     "api/username-scan.js": {
       "maxDuration": 60
     },
-    "api/video-stt.js": {
+    "api/tiktok-video.js": {
       "maxDuration": 60,
       "memory": 1024
     },
     "api/patterns.js": {
       "maxDuration": 30
     },
-    "api/tiktok-download.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "api/montage-download.js": {
-      "maxDuration": 60
-    },
-    "api/montage-tts.js": {
-      "maxDuration": 60
-    },
-    "api/montage-images.js": {
+    "api/montage-media.js": {
       "maxDuration": 90
     },
     "api/montage-render.js": {

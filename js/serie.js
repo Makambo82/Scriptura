@@ -12,19 +12,19 @@ let serieCouranteId = null;   // série ouverte dans le détail
 // appartient bien au code courant (voir api/series.js action 'get') :
 // la table `series` n'accepte plus l'accès direct du rôle anon.
 async function _serieGet(id) {
-  const params = new URLSearchParams({ action: 'get', code: getUserRef(), id });
-  const r = await fetch('/api/series?' + params.toString());
+  const params = new URLSearchParams({ resource: 'series', action: 'get', code: getUserRef(), id });
+  const r = await fetch('/api/data?' + params.toString());
   const rep = await r.json();
   if (!rep || !rep.ok || !rep.data) throw new Error('série introuvable');
   return rep.data;
 }
 // Met à jour une série (episodes/episode_courant/statut) via le serveur,
-// voir api/series.js action 'update'.
+// voir api/data.js resource 'series' action 'update'.
 async function _serieUpdate(id, patch) {
-  await fetch('/api/series', {
+  await fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'update', code: getUserRef(), id, patch })
+    body: JSON.stringify({ resource: 'series', action: 'update', code: getUserRef(), id, patch })
   });
 }
 
@@ -72,8 +72,8 @@ async function chargerSeries() {
   const liste = document.getElementById('serieListe');
   if (!liste) return;
   try {
-    const params = new URLSearchParams({ action: 'list', code: getUserRef() });
-    const r = await fetch('/api/series?' + params.toString());
+    const params = new URLSearchParams({ resource: 'series', action: 'list', code: getUserRef() });
+    const r = await fetch('/api/data?' + params.toString());
     const rep = await r.json();
     const data = (rep && rep.ok) ? rep.data : [];
     if (!data || !data.length) { if (bloc) bloc.style.display = 'none'; return; }
@@ -297,11 +297,11 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
     bible.format = format;              // faceless / face caméra : dicte l'écriture de chaque épisode
 
     const titre = (bible.titre || concept.split('—')[0]).trim().slice(0, 90);
-    const rSave = await fetch('/api/series', {
+    const rSave = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'save', code: getUserRef(), titre, concept, niche, style, genre, bible,
+        resource: 'series', action: 'save', code: getUserRef(), titre, concept, niche, style, genre, bible,
         nb_episodes: serieNbEpisodes
       })
     });
@@ -640,8 +640,8 @@ async function chargerSeriesHistorique() {
   const code = localStorage.getItem('scriptura_code');
   if (!code) return []; // pas de séries pour un visiteur sans code
   try {
-    const params = new URLSearchParams({ action: 'list', code: getUserRef() });
-    const r = await fetch('/api/series?' + params.toString());
+    const params = new URLSearchParams({ resource: 'series', action: 'list', code: getUserRef() });
+    const r = await fetch('/api/data?' + params.toString());
     const rep = await r.json();
     return (rep && rep.ok) ? (rep.data || []) : [];
   } catch(e) { console.warn('Chargement séries (historique) échoué', e); return []; }

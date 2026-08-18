@@ -1,36 +1,28 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/video-stt, TRANSCRIPTION D'UNE VIDÉO PAR LA VOIX
+//  /api/tiktok-video, REGROUPE 2 routes vidéo TikTok qui étaient chacune
+//  leur propre fonction serverless (video-stt, tiktok-download) : le plan
+//  Vercel Hobby plafonne à 12 fonctions serverless par déploiement, dépassé
+//  silencieusement (voir api/data.js pour le détail de l'incident).
+//  Consolidation mécanique, comportement de chaque route inchangé : un
+//  champ `action` (query) sélectionne la route d'origine. Les deux
+//  partagent déjà la résolution de lien (api/_lib/tiktok-media.js).
 //
-//  Au lieu de dépendre des sous-titres TikTok (fragiles, URLs expirantes),
-//  on RÉCUPÈRE L'AUDIO de la vidéo et on le TRANSCRIT avec ElevenLabs Scribe
-//  (speech-to-text). Marche sur n'importe quelle vidéo qui parle.
-//
-//  Pipeline : lien -> détail de la vidéo -> URL de la vidéo (sans filigrane si
-//  possible) -> téléchargement (en-têtes crédibles + Range) -> ElevenLabs
-//  /v1/speech-to-text (model scribe_v1) -> texte. Clé ELEVENLABS_API_KEY déjà
-//  en place (partagée avec le montage / voix off).
-//
-//  SOURCE DU MÉDIA : LamaTok en PRINCIPAL (/v1/media/by/id), TikHub
-//  (/fetch_post_detail, payé au crédit) en REPLI. TikHub prend le relais
-//  sans coût fixe si LamaTok ne rend rien d'exploitable.
-//
-//  POST { url } -> { ok, transcript, description, stats, langue }. Non bloquant :
-//  ok=false si la vidéo est indisponible ou sans parole (repli manuel côté client).
-//  Clés 100% côté serveur.
+//  action=transcription (POST, JSON) | action=download (GET, flux binaire)
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
 import {
   detailLamaTok, detailTikHub, extraireAwemeId, resoudreLien, urlsVideo,
-  extraireDesc, extraireStats, extraireAbonnesAuteur, extraireAuteurUsername,
-  abonnesViaProfil, telechargerMedia
+  extraireDesc, extraireStats, extraireAuteurUsername, abonnesViaProfil,
+  telechargerMedia, resoudreVideoTikTok
 } from './_lib/tiktok-media.js';
 
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte jusqu'à 3 API payées par appel
 
-// Transcrit un buffer audio/vidéo via ElevenLabs Scribe.
+// ═══ TRANSCRIPTION (voir l'ancien api/video-stt.js) ═══
+
 async function transcrireEleven(buf, contentType, key) {
   const form = new FormData();
   const type = /audio|video/.test(contentType) ? contentType : 'video/mp4';
@@ -48,7 +40,7 @@ async function transcrireEleven(buf, contentType, key) {
   finally { clearTimeout(minuteur); }
 }
 
-export default async function handler(req, res) {
+async function handleTranscription(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   const lamaKey = process.env.LAMATOK_API_KEY;
   const elevenKey = process.env.ELEVENLABS_API_KEY;
@@ -61,8 +53,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: { message: 'Lien manquant' } });
     }
 
-    // Verrou serveur : droits réels + quota dédié (mensuel pour un plan,
-    // 1 seule fois à vie sinon), jamais une valeur envoyée par le client.
     const droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
       return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
@@ -76,7 +66,6 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
     }
 
-    // 1) Résoudre le lien court et extraire l'id.
     let urlResolue = url.trim();
     let id = extraireAwemeId(urlResolue);
     if (!id) { urlResolue = await resoudreLien(urlResolue); id = extraireAwemeId(urlResolue); }
@@ -84,17 +73,11 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
     }
 
-    // 2) Détail de la vidéo : LamaTok en PRINCIPAL, TikHub en REPLI (voir
-    // note en tête de fichier).
     const dataLama = await detailLamaTok(id, lamaKey);
 
-    // Description & stats : on prend ce que la source principale donne, complété
-    // par le repli si besoin.
     let description = dataLama ? (extraireDesc(dataLama) || '') : '';
     let stats = dataLama ? extraireStats(dataLama) : null;
 
-    // 3) Télécharger la 1re vidéo réellement exploitable (en-têtes crédibles).
-    //    On tente d'abord les URLs LamaTok, puis TikHub.
     let media = null;
     let dataTikHub = null;
     if (dataLama) {
@@ -116,14 +99,9 @@ export default async function handler(req, res) {
       }
     }
     if (!media) {
-      // Non bloquant : le client retombe sur le collage manuel.
       return res.status(200).json({ ok: false, description, stats, raison: 'video_indisponible' });
     }
 
-    // 3 bis) PORTÉE : le nombre d'abonnés de l'auteur manque souvent dans le
-    // détail d'un post. Sans lui, impossible de mesurer la portée (vues ÷
-    // abonnés), et le verdict devient trompeur. On va donc le chercher sur le
-    // profil de l'auteur (2e appel LamaTok), une seule fois, si besoin.
     if (stats && stats.vues && !stats.abonnesAuteur) {
       const username = extraireAuteurUsername(dataLama) || extraireAuteurUsername(dataTikHub);
       if (username) {
@@ -132,7 +110,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // 4) Transcription ElevenLabs Scribe.
     const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
     if (!stt.ok) {
       return res.status(200).json({ ok: false, description, stats, raison: 'stt_echec' });
@@ -150,4 +127,69 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
   }
+}
+
+// ═══ TÉLÉCHARGEMENT (voir l'ancien api/tiktok-download.js) ═══
+
+async function handleDownload(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+  const lamaKey = process.env.LAMATOK_API_KEY;
+  if (!lamaKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
+
+  const url = req.query?.url;
+  const code_acces = req.query?.code_acces || null;
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: { message: 'Lien manquant' } });
+  }
+
+  try {
+    const droits = await resoudreDroits(code_acces);
+    if (!droits.ok) {
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+    }
+    if (droits.anonyme) {
+      const limiteIP = await verifierLimiteAnonyme(req, 'tiktok-download', PLAFOND_ANONYME_JOUR);
+      if (!limiteIP.ok) return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
+    }
+    const verdict = await verifierQuota(droits, 'analyseVirale', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
+    }
+
+    const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
+    const resolu = await resoudreVideoTikTok(url, lamaKey, tikhubKey);
+    if (!resolu) {
+      return res.status(422).json({ error: { message: 'Lien TikTok non reconnu. Vérifie le lien.' } });
+    }
+
+    const candidats = [
+      ...(resolu.dataLama ? urlsVideo(resolu.dataLama) : []),
+      ...(resolu.dataTikHub ? urlsVideo(resolu.dataTikHub) : [])
+    ];
+
+    let media = null;
+    for (const u of candidats) {
+      const m = await telechargerMedia(u);
+      if (m.ok) { media = m; break; }
+    }
+    if (!media) {
+      return res.status(502).json({ error: { message: 'Vidéo indisponible au téléchargement pour l\'instant. Réessaie plus tard, ou avec un autre lien.' } });
+    }
+
+    res.setHeader('Content-Type', media.contentType || 'video/mp4');
+    res.setHeader('Content-Disposition', 'attachment; filename="scriptura-tiktok.mp4"');
+    return res.status(200).send(media.buf);
+
+  } catch (e) {
+    return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
+  }
+}
+
+// ═══ POINT D'ENTRÉE COMMUN ═══
+
+export default async function handler(req, res) {
+  const action = req.query?.action;
+  if (action === 'download') return handleDownload(req, res);
+  if (action === 'transcription') return handleTranscription(req, res);
+  return res.status(400).json({ error: { message: 'action inconnue' } });
 }

@@ -51,12 +51,12 @@ function analyserAutreVideoVirale() {
 }
 
 // Récupère le transcript à partir du lien (best-effort). Renvoie {transcript, description}
-// ou null. Transcription par la voix via /api/video-stt (ElevenLabs Scribe).
+// ou null. Transcription par la voix via /api/tiktok-video (ElevenLabs Scribe).
 async function _transcriptDepuisLien(url) {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 30000);
   try {
-    const rep = await fetch('/api/video-stt', {
+    const rep = await fetch('/api/tiktok-video?action=transcription', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, code_acces: localStorage.getItem('scriptura_code') || null }), signal: ctrl.signal
     });
@@ -204,9 +204,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
       checkRappelAbonnement();
     }
     // Le jeton (si utilisé pour débloquer cette analyse) est désormais
-    // décompté côté SERVEUR par /api/video-stt lui-même (voir
-    // api/_lib/acces.js verifierQuota, mode 'analyseVirale'), plus besoin de
-    // le refaire ici : ce serait un double décompte.
+    // décompté côté SERVEUR par /api/tiktok-video (action=transcription)
+    // lui-même (voir api/_lib/acces.js verifierQuota, mode 'analyseVirale'),
+    // plus besoin de le refaire ici : ce serait un double décompte.
     const titreCourt = (rapport.sujet || 'vidéo virale').slice(0, 50);
     saveGeneration('analyseVirale', 'Analyse virale · ' + titreCourt, {
       lien: lien || null, transcript: texte, rapport: rapport

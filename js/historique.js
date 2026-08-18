@@ -35,10 +35,10 @@ async function saveGeneration(mode, titre, contenu) {
   // nouvelle → ça ne compte pas comme une génération supplémentaire dans le quota.
   if (_regenGratuiteEnCours && currentGenId) {
     try {
-      await fetch('/api/generations', {
+      await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'save-regen', code: getUserRef(), id: currentGenId, titre: titre || 'Sans titre', contenu })
+        body: JSON.stringify({ resource: 'generations', action: 'save-regen', code: getUserRef(), id: currentGenId, titre: titre || 'Sans titre', contenu })
       });
     } catch(e) { console.warn('Maj régénération échouée', e); }
     return; // on garde le même currentGenId, aucune nouvelle ligne créée
@@ -47,10 +47,10 @@ async function saveGeneration(mode, titre, contenu) {
   // Génération normale (ou 3e régénération+) : nouvelle ligne = compte dans le quota
   currentGenId = null;
   try {
-    const r = await fetch('/api/generations', {
+    const r = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', code: getUserRef(), mode: mode, titre: titre || 'Sans titre', contenu })
+      body: JSON.stringify({ resource: 'generations', action: 'save', code: getUserRef(), mode: mode, titre: titre || 'Sans titre', contenu })
     });
     const data = await r.json();
     if (data && data.ok) currentGenId = data.id;
@@ -64,10 +64,10 @@ async function saveGeneration(mode, titre, contenu) {
 async function _patchGenerationCourante(champs) {
   if (!currentGenId) return;
   try {
-    await fetch('/api/generations', {
+    await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'patch', code: getUserRef(), id: currentGenId, champs })
+      body: JSON.stringify({ resource: 'generations', action: 'patch', code: getUserRef(), id: currentGenId, champs })
     });
   } catch (e) { console.warn('Mise à jour de la génération échouée', e); }
 }
@@ -192,9 +192,9 @@ async function countMonthGenerations(typeVoulu) {
     const now = new Date();
     const debutMois = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     const params = new URLSearchParams({
-      action: 'count', code: getUserRef(), type: typeVoulu || '', depuis: debutMois.toISOString()
+      resource: 'generations', action: 'count', code: getUserRef(), type: typeVoulu || '', depuis: debutMois.toISOString()
     });
-    const r = await fetch('/api/generations?' + params.toString());
+    const r = await fetch('/api/data?' + params.toString());
     const data = await r.json();
     return (data && data.ok) ? (data.count || 0) : 0;
   } catch(e) { console.warn('Comptage du mois échoué', e); return 0; }
@@ -404,10 +404,10 @@ async function peutAuditer() {
 async function deleteGenerations(ids) {
   if (!ids || !ids.length) return false;
   try {
-    const r = await fetch('/api/generations', {
+    const r = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', code: getUserRef(), ids })
+      body: JSON.stringify({ resource: 'generations', action: 'delete', code: getUserRef(), ids })
     });
     const data = await r.json();
     return !!(data && data.ok);
@@ -418,10 +418,10 @@ async function deleteGenerations(ids) {
 async function deleteSeries(ids) {
   if (!ids || !ids.length) return false;
   try {
-    const r = await fetch('/api/series', {
+    const r = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', code: getUserRef(), ids })
+      body: JSON.stringify({ resource: 'series', action: 'delete', code: getUserRef(), ids })
     });
     const data = await r.json();
     return !!(data && data.ok);
@@ -838,11 +838,11 @@ function _histItem(id) {
 // l'interface). L'affichage, lui, a déjà été mis à jour tout de suite.
 function _persisterFavori(table, ids, valeur) {
   if (!ids.length) return;
-  const route = table === 'series' ? '/api/series' : '/api/generations';
-  fetch(route, {
+  const resource = table === 'series' ? 'series' : 'generations';
+  fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'favori', code: getUserRef(), ids, valeur })
+    body: JSON.stringify({ resource, action: 'favori', code: getUserRef(), ids, valeur })
   }).then(function (r) { if (!r.ok) console.warn('Favori non enregistré'); })
     .catch(function (e) { console.warn('Favori non enregistré', e); });
 }
@@ -1101,8 +1101,8 @@ let _rappelAuditCourant = null;
 async function verifierRappelAudit() {
   if (!unlocked) return; // réservé aux abonnés connectés
   try {
-    const params = new URLSearchParams({ action: 'last', code: getUserRef(), mode: 'audit' });
-    const r = await fetch('/api/generations?' + params.toString());
+    const params = new URLSearchParams({ resource: 'generations', action: 'last', code: getUserRef(), mode: 'audit' });
+    const r = await fetch('/api/data?' + params.toString());
     const rep = await r.json();
     const audit = rep && rep.ok && rep.data;
     if (!audit) return;
@@ -1173,8 +1173,8 @@ const HIST_TAILLE_PAGE = 50;
 async function loadGenerations(offset) {
   const debut = offset || 0;
   try {
-    const params = new URLSearchParams({ action: 'list', code: getUserRef(), offset: String(debut) });
-    const r = await fetch('/api/generations?' + params.toString());
+    const params = new URLSearchParams({ resource: 'generations', action: 'list', code: getUserRef(), offset: String(debut) });
+    const r = await fetch('/api/data?' + params.toString());
     const data = await r.json();
     return (data && data.ok) ? (data.data || []) : [];
   } catch(e) { console.warn('Chargement échoué', e); return []; }

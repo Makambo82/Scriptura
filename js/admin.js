@@ -85,17 +85,17 @@ async function chargerCarteActifs24h() {
   }
 }
 
-// ── Abonnés actifs, par formule (comptage exact, via /api/admin-stats) ──
+// ── Abonnés actifs, par formule (comptage exact, via /api/data resource=admin-stats) ──
 // La table `abonnes` est verrouillée par RLS (voir supabase/abonnes_rls.sql) :
 // le rôle anon (celui du navigateur) n'y a plus aucun accès direct. Ces
 // comptes passent donc par une route serveur qui revérifie l'admin
 // elle-même (jamais un simple flag localStorage, voir api/admin-stats.js).
 async function chargerCarteAbonnes() {
   try {
-    const r = await fetch('/api/admin-stats', {
+    const r = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify({ resource: 'admin-stats', code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await r.json();
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
@@ -107,16 +107,16 @@ async function chargerCarteAbonnes() {
   }
 }
 
-// ── Répartition des générations par mode sur 30 jours, via /api/admin-stats ──
+// ── Répartition des générations par mode sur 30 jours, via /api/data resource=admin-stats ──
 // La table `generations` est verrouillée par RLS (voir
 // supabase/generations_series_rls.sql) : passe désormais par la même route
 // serveur (revérifie l'admin elle-même) que chargerCarteAbonnes.
 async function chargerCarteModes() {
   try {
-    const r = await fetch('/api/admin-stats', {
+    const r = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify({ resource: 'admin-stats', code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await r.json();
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
