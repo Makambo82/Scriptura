@@ -1,38 +1,45 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/tiktok-download, LIEN DIRECT DE TÉLÉCHARGEMENT D'UNE VIDÉO TIKTOK
+//  /api/tiktok-download, PROXY DE TÉLÉCHARGEMENT D'UNE VIDÉO TIKTOK
 //
-//  Résout un lien TikTok vers le détail de la vidéo (LamaTok en principal,
-//  TikHub en repli, voir api/_lib/tiktok-media.js, partagé avec
-//  api/video-stt.js) et renvoie l'URL média la mieux notée (sans filigrane
-//  en priorité). Contrairement à video-stt.js, ne télécharge PAS la vidéo
-//  côté serveur : le navigateur du créateur récupère directement depuis
-//  cette URL, pas de gros fichier qui transite par la fonction serverless
-//  (durée/taille limitées sur Vercel), pas de coût de bande passante ici.
-//  Ces URLs peuvent expirer après quelques minutes (CDN TikTok), le client
-//  doit prévenir l'utilisateur de télécharger rapidement.
+//  Résout le lien (LamaTok en principal, TikHub en repli, voir
+//  api/_lib/tiktok-media.js, partagé avec api/video-stt.js), télécharge la
+//  vidéo CÔTÉ SERVEUR (même en-têtes crédibles que la transcription), puis
+//  la RENVOIE au navigateur (même origine que Scriptura, jamais de CORS).
 //
-//  POST { url, code_acces } -> { ok, videoUrl, description, stats } ou
-//  { ok:false, raison }. Même quota mensuel que l'analyse vidéo
-//  (verifierQuota 'analyseVirale', voir api/_lib/acces.js) : mêmes API
-//  payées (LamaTok/TikHub) mises à contribution pour résoudre le lien.
+//  Pourquoi pas un simple lien direct vers le CDN TikTok ? Le bouton
+//  "Télécharger" (js/tiktok-outils.js) doit pouvoir ouvrir la feuille de
+//  partage native (Web Share API, `files`) pour que le créateur enregistre
+//  la vidéo directement dans sa galerie, exactement comme le montage
+//  (js/montage.js, api/montage-download.js). Cette API exige un fichier
+//  RÉEL en main côté navigateur, jamais une simple URL distante : un
+//  fetch() direct vers le CDN TikTok échouerait aussi la plupart du temps
+//  (CORS). Même coût serveur que la transcription (déjà acceptée), qui
+//  télécharge déjà la vidéo entière pour la même vidéo.
+//
+//  GET ?url=<lien TikTok>&code_acces=<code|vide> -> flux vidéo binaire, ou
+//  JSON d'erreur. Même quota mensuel que l'analyse vidéo (verifierQuota
+//  'analyseVirale', voir api/_lib/acces.js), vérifié UNE seule fois ici
+//  (le bouton de partage, lui, réutilise le fichier déjà récupéré, aucun
+//  second appel serveur).
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
-import { resoudreVideoTikTok, urlsVideo } from './_lib/tiktok-media.js';
+import { resoudreVideoTikTok, urlsVideo, telechargerMedia } from './_lib/tiktok-media.js';
 
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, mêmes API payées que video-stt
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+  if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   const lamaKey = process.env.LAMATOK_API_KEY;
   if (!lamaKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
 
-  try {
-    const { url, code_acces } = req.body || {};
-    if (!url || typeof url !== 'string' || !url.trim()) {
-      return res.status(400).json({ error: { message: 'Lien manquant' } });
-    }
+  const url = req.query?.url;
+  const code_acces = req.query?.code_acces || null;
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: { message: 'Lien manquant' } });
+  }
 
+  try {
     // Verrou serveur : droits réels + quota dédié, jamais une valeur envoyée
     // par le client (même bucket que l'analyse vidéo, voir en-tête de fichier).
     const droits = await resoudreDroits(code_acces);
@@ -58,16 +65,19 @@ export default async function handler(req, res) {
       ...(resolu.dataLama ? urlsVideo(resolu.dataLama) : []),
       ...(resolu.dataTikHub ? urlsVideo(resolu.dataTikHub) : [])
     ];
-    if (!candidats.length) {
-      return res.status(200).json({ ok: false, description: resolu.description, stats: resolu.stats, raison: 'video_indisponible' });
+
+    let media = null;
+    for (const u of candidats) {
+      const m = await telechargerMedia(u);
+      if (m.ok) { media = m; break; }
+    }
+    if (!media) {
+      return res.status(502).json({ error: { message: 'Vidéo indisponible au téléchargement pour l\'instant. Réessaie plus tard, ou avec un autre lien.' } });
     }
 
-    return res.status(200).json({
-      ok: true,
-      videoUrl: candidats[0],
-      description: resolu.description,
-      stats: resolu.stats
-    });
+    res.setHeader('Content-Type', media.contentType || 'video/mp4');
+    res.setHeader('Content-Disposition', 'attachment; filename="scriptura-tiktok.mp4"');
+    return res.status(200).send(media.buf);
 
   } catch (e) {
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });

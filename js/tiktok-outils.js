@@ -14,7 +14,8 @@ function outilsEsc(t) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
-let _outilsTranscript = ''; // pour le bouton Copier
+let _outilsTranscript = ''; // pour les boutons Copier/Partager
+let _outilsVideoBlob = null; // vidéo déjà récupérée, pour le bouton Télécharger (pas de 2e appel serveur)
 
 function ouvrirOutilsTikTok() {
   if (typeof pushNav === 'function') pushNav();
@@ -33,6 +34,8 @@ function resetOutilsTikTok() {
   if (form) form.style.display = '';
   const res = document.getElementById('outilsResults');
   if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+  _outilsTranscript = '';
+  _outilsVideoBlob = null;
 }
 
 function outilsAutreVideo() {
@@ -100,7 +103,7 @@ async function lancerOutilTikTok(type) {
 
   try {
     if (type === 'transcription') {
-      const data = await _outilsFetch('/api/video-stt', lien);
+      const data = await _outilsFetchJson('/api/video-stt', lien);
       if (!data.ok || !data.transcript) {
         throw new Error(data.raison === 'sans_parole'
           ? "Cette vidéo ne contient pas de parole détectable."
@@ -109,12 +112,10 @@ async function lancerOutilTikTok(type) {
       _outilsDecompteApresSucces();
       afficherResultatTranscription(data);
     } else {
-      const data = await _outilsFetch('/api/tiktok-download', lien);
-      if (!data.ok || !data.videoUrl) {
-        throw new Error("Vidéo indisponible au téléchargement direct pour l'instant. Réessaie plus tard, ou avec un autre lien.");
-      }
+      txt.textContent = 'Préparation de la vidéo…';
+      const blob = await _outilsFetchVideo(lien);
       _outilsDecompteApresSucces();
-      afficherResultatTelechargement(data);
+      afficherResultatTelechargement(blob);
     }
   } catch (e) {
     err.textContent = e.message || 'Une erreur est survenue, réessaie.';
@@ -127,7 +128,25 @@ async function lancerOutilTikTok(type) {
   }
 }
 
-async function _outilsFetch(route, url) {
+async function _outilsGererErreurReponse(r) {
+  if (r.status === 403) {
+    let payload = null;
+    try { payload = await r.json(); } catch (e) {}
+    if (payload && payload.error && payload.error.code === 'QUOTA_ATTEINT') {
+      throw new Error(payload.error.message || 'Quota atteint.');
+    }
+    if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+    throw new Error('Accès refusé.');
+  }
+  if (!r.ok) {
+    let payload = null;
+    try { payload = await r.json(); } catch (e) {}
+    throw new Error((payload && payload.error && payload.error.message) || 'Erreur serveur.');
+  }
+}
+
+// Transcription : JSON classique (texte, pas de gros volume).
+async function _outilsFetchJson(route, url) {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 40000);
   try {
@@ -136,18 +155,22 @@ async function _outilsFetch(route, url) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, code_acces: localStorage.getItem('scriptura_code') || null })
     });
-    if (r.status === 403) {
-      let payload = null;
-      try { payload = await r.json(); } catch (e) {}
-      if (payload && payload.error && payload.error.code === 'QUOTA_ATTEINT') {
-        throw new Error(payload.error.message || 'Quota atteint.');
-      }
-      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
-      throw new Error('Accès refusé.');
-    }
-    const data = await r.json();
-    if (!r.ok) throw new Error((data && data.error && data.error.message) || 'Erreur serveur.');
-    return data;
+    await _outilsGererErreurReponse(r);
+    return await r.json();
+  } finally { clearTimeout(minuteur); }
+}
+
+// Téléchargement : la vidéo elle-même (voir api/tiktok-download.js, proxy
+// même origine, nécessaire pour le partage natif ci-dessous, un fetch()
+// direct vers le CDN TikTok échouerait la plupart du temps, CORS).
+async function _outilsFetchVideo(url) {
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 55000);
+  try {
+    const params = new URLSearchParams({ url, code_acces: localStorage.getItem('scriptura_code') || '' });
+    const r = await fetch('/api/tiktok-download?' + params.toString(), { signal: ctrl.signal });
+    await _outilsGererErreurReponse(r);
+    return await r.blob();
   } finally { clearTimeout(minuteur); }
 }
 
@@ -160,25 +183,55 @@ function afficherResultatTranscription(data) {
     <div class="outils-result-card">
       <h3>📝 Transcription</h3>
       <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
-      <button class="btn-generate" id="outilsCopyBtn" style="width:100%" onclick="copySection('outilsCopyBtn', _outilsTranscript)">Copier le texte</button>
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier" id="outilsCopyBtn" onclick="copySection('outilsCopyBtn', _outilsTranscript)">${ICON_COPY}</button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, _outilsTranscript)">${ICON_SHARE}</button>
+      </div>
     </div>
     <button class="btn-back" style="margin-top:18px" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
   `;
   res.style.display = 'block';
 }
 
-function afficherResultatTelechargement(data) {
+function afficherResultatTelechargement(blob) {
+  _outilsVideoBlob = blob;
   const form = document.getElementById('outilsForm');
   if (form) form.style.display = 'none';
   const res = document.getElementById('outilsResults');
   res.innerHTML = `
     <div class="outils-result-card">
       <h3>⬇️ Téléchargement</h3>
-      ${data.description ? `<div class="outils-dl-desc">${outilsEsc(data.description)}</div>` : ''}
-      <a class="btn-generate" style="width:100%;text-decoration:none;box-sizing:border-box" href="${outilsEsc(data.videoUrl)}" target="_blank" rel="noopener noreferrer">Ouvrir la vidéo ⬇️</a>
-      <p class="outils-dl-note">Le lien s'ouvre dans un nouvel onglet (sans filigrane si disponible) : fais un clic droit → « Enregistrer la vidéo sous » pour la sauvegarder. Ce lien peut expirer après quelques minutes, télécharge rapidement.</p>
+      <p class="outils-dl-desc">Ta vidéo est prête.</p>
+      <button class="btn-generate" id="outilsDlBtn" style="width:100%" onclick="outilsPartagerVideo()">Télécharger la vidéo ⬇️</button>
+      <p class="outils-dl-note">Sur téléphone, ça ouvre la fenêtre de partage pour l'enregistrer directement dans ta galerie. Sur ordinateur, elle se télécharge normalement.</p>
     </div>
     <button class="btn-back" style="margin-top:18px" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
   `;
   res.style.display = 'block';
+}
+
+// Ouvre la feuille de partage native (fichier déjà en main, pas de nouvel
+// appel serveur) pour enregistrer directement dans la galerie/pellicule.
+// Repli desktop : téléchargement classique (voir telechargerBlob,
+// js/montage.js, même mécanique que « Télécharger la vidéo » du montage).
+async function outilsPartagerVideo() {
+  if (!_outilsVideoBlob) return;
+  const btn = document.getElementById('outilsDlBtn');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
+  try {
+    const fichier = new File([_outilsVideoBlob], 'scriptura-tiktok.mp4', { type: _outilsVideoBlob.type || 'video/mp4' });
+    if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
+      await navigator.share({ files: [fichier], title: 'Vidéo TikTok' });
+    } else if (typeof telechargerBlob === 'function') {
+      telechargerBlob(_outilsVideoBlob, 'scriptura-tiktok.mp4');
+    }
+  } catch (e) {
+    // Annulation du partage par l'utilisateur : on ne fait rien.
+    if (!(e && e.name === 'AbortError') && typeof telechargerBlob === 'function') {
+      telechargerBlob(_outilsVideoBlob, 'scriptura-tiktok.mp4');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }

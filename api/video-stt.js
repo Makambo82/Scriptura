@@ -23,41 +23,12 @@ import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acc
 import {
   detailLamaTok, detailTikHub, extraireAwemeId, resoudreLien, urlsVideo,
   extraireDesc, extraireStats, extraireAbonnesAuteur, extraireAuteurUsername,
-  abonnesViaProfil
+  abonnesViaProfil, telechargerMedia
 } from './_lib/tiktok-media.js';
 
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte jusqu'à 3 API payées par appel
-
-// Télécharge une URL média avec des en-têtes crédibles. Renvoie TOUJOURS un
-// diagnostic ({status, ct, length, ok, buf?}) pour comprendre les échecs.
-const UA_DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-const MIN_VIDEO = 50000; // 50 Ko : en dessous, ce n'est pas une vraie vidéo parlée
-async function telechargerMedia(url) {
-  const ctrl = new AbortController();
-  const minuteur = setTimeout(() => ctrl.abort(), 15000);
-  try {
-    const r = await fetch(url, {
-      redirect: 'follow', signal: ctrl.signal,
-      headers: {
-        'user-agent': UA_DESKTOP,
-        'referer': 'https://www.tiktok.com/',
-        'accept': '*/*',
-        'range': 'bytes=0-'   // TikTok CDN exige souvent un Range pour servir la vidéo
-      }
-    });
-    const ct = (r.headers.get('content-type') || '').toLowerCase();
-    const diag = { status: r.status, ct };
-    if (!r.ok && r.status !== 206) return { ...diag, ok: false, reason: 'http ' + r.status };
-    if (/text\/html|application\/json/.test(ct)) return { ...diag, ok: false, reason: 'pas un média (html/json)' };
-    const buf = Buffer.from(await r.arrayBuffer());
-    diag.length = buf.length;
-    if (buf.length < MIN_VIDEO) return { ...diag, ok: false, reason: 'trop petit (' + buf.length + ' o)' };
-    return { ...diag, ok: true, buf, contentType: ct || 'video/mp4' };
-  } catch (e) { return { ok: false, reason: e.name === 'AbortError' ? 'timeout' : e.message }; }
-  finally { clearTimeout(minuteur); }
-}
 
 // Transcrit un buffer audio/vidéo via ElevenLabs Scribe.
 async function transcrireEleven(buf, contentType, key) {

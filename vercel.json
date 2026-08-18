@@ -17,7 +17,8 @@
       "maxDuration": 30
     },
     "api/tiktok-download.js": {
-      "maxDuration": 30
+      "maxDuration": 60,
+      "memory": 1024
     },
     "api/montage-download.js": {
       "maxDuration": 60
