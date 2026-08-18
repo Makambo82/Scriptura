@@ -214,6 +214,7 @@ Analyse comme un monteur/scénariste pro :
   • escalade : la tension ou les enjeux montent PROGRESSIVEMENT d'une étape à l'autre (chaque temps plus fort que le précédent), pas un récit à intensité constante ou plate.
   • question_rhetorique : une question est posée sans attendre de réponse, pour faire réfléchir ou créer un effet dramatique.
   • archetypes : la vidéo mobilise une figure archétypale reconnaissable (le héros, la victime, le manipulateur…), pas un personnage neutre.
+  • appel_action : la vidéo demande EXPLICITEMENT une action au spectateur (s'abonner, commenter, partager, regarder jusqu'au bout, suivre pour la suite…), pas juste un sous-entendu ou une implication vague.
 
 RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin. Les consignes du modèle sont à l'impératif 2e personne CORRECT (« Ouvre », « Accumule », « Conclus », jamais « Conclues »).
 
@@ -226,7 +227,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
   "modele": [ { "temps": "<ex: 0-5s>", "gabarit": "<consigne de remplissage avec des [crochets], transposable>" } ],
   "pourquoi_viral": [ "<point majeur 1>", "<point majeur 2>", "<point majeur 3>" ],
   "a_reprendre": [ { "titre": "<max 8 mots>", "detail": "<${posture === 'flop' ? 'correction concrète à appliquer' : 'recette transposable à TES sujets'}, 1-2 phrases>" } ],
-  "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false> }
+  "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false>, "appel_action": <true/false> }
 }`;
 
     const raw = await callAI(MODEL_CREATIF, 3200, prompt, undefined, false, undefined, 'analyseVirale');
@@ -287,12 +288,16 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
 // pour montrer OÙ la vidéo est forte ou faible, pas juste un nombre opaque.
 // Chaque dimension = (leviers présents ÷ leviers de la dimension) × son poids ;
 // le global = somme des sous-scores.
-const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes'];
+const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes', 'appel_action'];
 const DIMENSIONS_VIRAL = [
   { cle: 'accroche',  label: 'Accroche',  poids: 30, signaux: ['hook_fort', 'question_rhetorique'] },
   { cle: 'retention', label: 'Rétention', poids: 30, signaux: ['boucle_ouverte', 'cliffhanger', 'escalade'] },
   { cle: 'ancrage',   label: 'Ancrage',   poids: 25, signaux: ['details_concrets', 'archetypes'] },
-  { cle: 'connexion', label: 'Connexion', poids: 15, signaux: ['deuxieme_personne'] }
+  // Connexion & CTA : le levier « appel à l'action » est ajouté ici plutôt que
+  // dans une dimension à part, il mesure la même chose que « deuxieme_personne »
+  // (l'engagement direct du spectateur), comme le fait Vervox avec son critère
+  // unique « CTA & engagement » (15/100).
+  { cle: 'connexion', label: 'Connexion & CTA', poids: 15, signaux: ['deuxieme_personne', 'appel_action'] }
 ];
 function scoreViraliteRecette(signaux) {
   if (!signaux || typeof signaux !== 'object') return null;
@@ -355,9 +360,10 @@ function niveauEngagementViral(taux) {
 // ── Double lecture : Recette × Performance ──
 // La recette (structure) peut être forte alors que les vues sont un coup de
 // chance, et inversement. On croise les deux axes pour un verdict honnête.
-// Seuils sur le score pondéré (0-100). ~6 leviers/8 ≈ 72+, ~7 leviers/8 ≈ 85+.
-const SEUIL_RECETTE_FORTE = 72;  // recette solide (env. 6 leviers sur 8 ou plus)
-const SEUIL_MEMOIRE = 85;        // entrée mémoire partagée : recette d'élite (~7-8 leviers)
+// Seuils sur le score PONDÉRÉ (0-100, la somme des 4 dimensions), pas sur un
+// simple compte de leviers (9 signaux au total, tous n'ont pas le même poids).
+const SEUIL_RECETTE_FORTE = 72;  // recette solide
+const SEUIL_MEMOIRE = 85;        // entrée mémoire partagée : recette d'élite
 // La performance est « réelle » quand la portée est forte (l'algo a poussé au
 // delà de l'audience) ou, à défaut de connaître les abonnés, quand
 // l'engagement est exceptionnel.

@@ -574,6 +574,11 @@ ${schemaJson}`;
         parsed[cle] = { score: codeDim.score, disponible: codeDim.disponible, constat };
       });
     }
+    // Abonnés bruts au moment de CE diagnostic, sauvegardés avec lui (voir
+    // saveGeneration) pour permettre de calculer une évolution d'un diagnostic
+    // à l'autre du même compte (voir evolutionAbonnesDiagSommaire), sans appel
+    // API supplémentaire : juste une lecture de l'historique déjà là.
+    parsed.abonnes = abonnes;
   }
   return parsed;
 }
@@ -758,6 +763,74 @@ const DS_TOUJOURS_INDISPONIBLE = {
   regularite: "Non calculable sans la date de chaque vidéo, une donnée absente d'un profil public. Le diagnostic complet (captures) le permet.",
   viralite: "Non calculable sans pouvoir comparer tes vidéos entre elles individuellement, donnée indisponible via un simple profil public."
 };
+
+// ── Évolution des abonnés (7 / 30 / 90 jours), inspiré de Vervox ──
+// 100% déterministe et sans appel API supplémentaire : compare le nombre
+// d'abonnés de CE diagnostic aux diagnostics PRÉCÉDENTS du MÊME compte déjà
+// sauvegardés dans l'historique (voir _diagnostiquerContenu, qui attache
+// désormais `abonnes` à chaque diagnostic sauvegardé). Les analyses sommaires
+// étant limitées mensuellement, l'historique reste souvent clairsemé : pour
+// chaque fenêtre on prend le point le plus proche (tolérance ±50% de la
+// fenêtre) plutôt que d'exiger une correspondance exacte au jour près.
+async function evolutionAbonnesDiagSommaire(username, abonnesActuels, estMonCompte) {
+  if (abonnesActuels == null || typeof _recentesGenerationsDe !== 'function') return null;
+  const historique = await _recentesGenerationsDe('diagnosticSommaire', 40);
+  const memeCompte = (historique || []).filter(g =>
+    g && g.contenu && g.contenu.username === username &&
+    (g.contenu.estMonCompte !== false) === (estMonCompte !== false) &&
+    g.contenu.diagnostic && typeof g.contenu.diagnostic.abonnes === 'number'
+  );
+  if (!memeCompte.length) return null;
+
+  const maintenant = Date.now();
+  const FENETRES = [{ jours: 7, label: '7 jours' }, { jours: 30, label: '30 jours' }, { jours: 90, label: '90 jours' }];
+  const points = FENETRES.map(f => {
+    let meilleur = null, meilleurEcart = Infinity;
+    memeCompte.forEach(g => {
+      const t = Date.parse(g.cree_le || g.created_at || '');
+      if (!Number.isFinite(t)) return;
+      const ageJours = (maintenant - t) / 86400000;
+      if (ageJours < f.jours * 0.5 || ageJours > f.jours * 1.5) return; // hors tolérance
+      const ecart = Math.abs(ageJours - f.jours);
+      if (ecart < meilleurEcart) { meilleurEcart = ecart; meilleur = g; }
+    });
+    if (!meilleur) return null;
+    const avant = meilleur.contenu.diagnostic.abonnes;
+    const delta = abonnesActuels - avant;
+    const pct = avant > 0 ? Math.round((delta / avant) * 1000) / 10 : null;
+    return { label: f.label, delta, pct };
+  }).filter(Boolean);
+
+  return points.length ? points : null;
+}
+
+// Remplit le placeholder #dsAbonnesEvolution après coup (async, best-effort) :
+// n'affiche rien si l'historique ne permet aucune comparaison fiable, plutôt
+// qu'un chiffre approximatif ou trompeur.
+async function afficherEvolutionAbonnesDiagSommaire(username, abonnesActuels, estMonCompte) {
+  const cible = document.getElementById('dsAbonnesEvolution');
+  if (!cible) return;
+  let points = null;
+  try { points = await evolutionAbonnesDiagSommaire(username, abonnesActuels, estMonCompte); }
+  catch (e) { return; }
+  if (!points || !points.length) return;
+  const moi = estMonCompte !== false;
+  cible.innerHTML = `
+    <div class="score-card">
+      <div class="audit-section-label">${moi ? 'Évolution de tes abonnés' : 'Évolution de ses abonnés'}</div>
+      <div class="ds-abo-evo-grid">
+        ${points.map(p => {
+          const classe = p.delta > 0 ? 'ds-abo-evo-up' : p.delta < 0 ? 'ds-abo-evo-down' : '';
+          const signe = p.delta > 0 ? '+' : '';
+          const pctTxt = p.pct != null ? ` (${p.pct > 0 ? '+' : ''}${String(p.pct).replace('.', ',')}%)` : '';
+          return `<div class="ds-abo-evo-item">
+            <div class="ds-abo-evo-periode">${diagSommaireEsc(p.label)}</div>
+            <div class="ds-abo-evo-delta ${classe}">${signe}${p.delta.toLocaleString('fr-FR')}${pctTxt}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
 
 // Affiche le résultat (nouvelle génération OU réouverture depuis l'historique).
 // estMonCompte : true = mon compte (posture coach), false = un concurrent
@@ -1001,6 +1074,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
 
     ${santeRowHtml}
 
+    <div id="dsAbonnesEvolution"></div>
     ${evolutionHtml}
     ${verdictHtml}
     ${bioHtml}
@@ -1032,6 +1106,9 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   // paire avec un diagnostic complet déjà fait, directement ici, pas
   // seulement retrouvé plus tard dans "Mes générations".
   if (moi && typeof verifierBanniereFusion === 'function') verifierBanniereFusion('dsFusionBanner');
+  // Évolution des abonnés vs diagnostics précédents du même compte (mon
+  // compte OU un concurrent suivi dans le temps), en tâche de fond.
+  afficherEvolutionAbonnesDiagSommaire(username, d.abonnes, moi);
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
