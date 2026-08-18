@@ -232,25 +232,28 @@ function parseDateFlexible(val) {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
-// Vérifie EN DIRECT (Supabase) si l'abonnement courant est expiré.
-// Renvoie true seulement si une date existe et qu'elle est dépassée.
+// Vérifie EN DIRECT si l'abonnement courant est expiré (ou désactivé), en
+// relisant le statut réel côté serveur (voir /api/verify-code, clé
+// service_role) : la RLS verrouillée sur `abonnes` (voir
+// supabase/abonnes_rls.sql) interdit désormais toute lecture directe depuis
+// le navigateur. Fetch dédié (plutôt que verifierStatutServeur, js/auth.js) :
+// celle-ci avale ses erreurs réseau en un `valid:false` sans le signaler,
+// ce qui bloquerait ici un abonné légitime sur un simple raté réseau, alors
+// que le doute doit toujours jouer en sa faveur.
 async function abonnementExpire() {
   if (!unlocked) return false;
   const code = localStorage.getItem('scriptura_code');
   if (!code) return false;
   if (estIllimite()) return false;
-  if (!supabaseClient) return false;
   try {
-    const { data, error } = await supabaseClient
-      .from('abonnes').select('expire_le, actif').eq('code', code).maybeSingle();
-    if (error || !data) return false; // en cas de doute, on ne bloque pas
-    if (data.actif === false) return true; // compte désactivé
-    if (!data.expire_le) return false; // pas de date = pas d'expiration
-    const expire = parseDateFlexible(data.expire_le);
-    if (!expire) return false; // date illisible : on ne bloque pas
-    // L'abonné garde accès tout le jour de sa date, bascule expiré le lendemain.
-    expire.setHours(23, 59, 59, 999);
-    return expire < new Date();
+    const r = await fetch('/api/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const verdict = await r.json();
+    if (!verdict || verdict.indisponible) return false; // réseau/config incertains : on n'enferme pas l'abonné dehors
+    return verdict.valid === false;
   } catch(e) { return false; } // réseau incertain : on n'enferme pas l'abonné dehors
 }
 

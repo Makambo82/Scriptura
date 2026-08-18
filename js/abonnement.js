@@ -58,7 +58,6 @@ async function ouvrirInfosAbonne() {
   const corps = document.getElementById('infosAbonneCorps');
   if (!overlay || !corps) return;
 
-  const monCode = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   const compteIllimite = estIllimite();
 
   corps.innerHTML = '<p class="serie-card-concept">Chargement…</p>';
@@ -96,18 +95,11 @@ async function ouvrirInfosAbonne() {
   html += ligneCodeInfos();
   html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Plan ${planNom}</span></div>`;
 
-  // Validité : lue en direct depuis Supabase (fiable pour tous)
+  // Validité : mémorisée à la connexion (voir verifyCode, js/auth.js), lue
+  // sur /api/verify-code avec la clé service_role. Plus de lecture directe
+  // de `abonnes` ici : la RLS verrouillée sur cette table (voir
+  // supabase/abonnes_rls.sql) l'interdit désormais au navigateur.
   let expireStr = localStorage.getItem('scriptura_expire');
-  if (supabaseClient && monCode) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('abonnes').select('expire_le').eq('code', monCode).maybeSingle();
-      if (!error && data && data.expire_le) {
-        expireStr = data.expire_le;
-        localStorage.setItem('scriptura_expire', expireStr);
-      }
-    } catch(e) { /* on garde le localStorage si la lecture échoue */ }
-  }
   if (expireStr) {
     const dd = new Date(expireStr);
     const dateFmt = dd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -136,6 +128,84 @@ async function ouvrirInfosAbonne() {
 function fermerInfosAbonne() {
   const o = document.getElementById('infosAbonneOverlay');
   if (o) o.classList.remove('active');
+}
+
+// ══════════════════════════════════════
+//  BANNIÈRE COMPTE, expiration proche / générations bientôt épuisées
+//  Purement informatif : le vrai contrôle d'accès reste côté serveur (voir
+//  api/_lib/acces.js), cette bannière ne fait qu'inviter l'abonné à agir
+//  avant d'être bloqué. Fermeture mémorisée pour la journée (localStorage),
+//  redemandée le lendemain tant que la situation persiste, pour rester
+//  utile sans harceler à chaque rechargement de page.
+// ══════════════════════════════════════
+const NOTIF_COMPTE_SEUIL_JOURS = 7;
+const NOTIF_COMPTE_SEUIL_GEN = 3;
+
+function cleNotifCompteJour() {
+  return 'scriptura_notif_compte_fermee_' + new Date().toISOString().slice(0, 10);
+}
+
+function positionnerNotifCompte(bar) {
+  const nav = document.querySelector('nav');
+  bar.style.top = (nav ? nav.offsetHeight : 70) + 'px';
+}
+
+function fermerNotifCompte() {
+  const bar = document.getElementById('notifCompteBar');
+  if (bar) bar.classList.remove('visible');
+  localStorage.setItem(cleNotifCompteJour(), 'true');
+}
+
+function ouvrirDepuisNotifCompte() {
+  fermerNotifCompte();
+  if (typeof ouvrirInfosAbonne === 'function') ouvrirInfosAbonne();
+}
+
+async function verifierNotifCompte() {
+  // Non-abonnés : déjà couverts par le rappel d'abonnement (checkRappelAbonnement,
+  // js/auth.js). Accès illimité (fondateur/VIP) : rien à surveiller.
+  if (!unlocked || estIllimite()) return;
+  if (localStorage.getItem(cleNotifCompteJour())) return; // déjà fermée aujourd'hui
+
+  const messages = [];
+
+  // Abonnement bientôt expiré
+  const expireStr = localStorage.getItem('scriptura_expire');
+  if (expireStr && typeof parseDateFlexible === 'function') {
+    const expire = parseDateFlexible(expireStr);
+    if (expire) {
+      expire.setHours(23, 59, 59, 999);
+      const joursRestants = Math.ceil((expire - new Date()) / 86400000);
+      if (joursRestants >= 0 && joursRestants <= NOTIF_COMPTE_SEUIL_JOURS) {
+        messages.push(joursRestants === 0
+          ? 'ton abonnement expire aujourd\'hui'
+          : 'ton abonnement expire dans ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : ''));
+      }
+    }
+  }
+
+  // Générations de création bientôt épuisées ce mois-ci
+  try {
+    const limite = limitesDuPalier().creation;
+    const faites = await countMonthGenerations('creation');
+    const reste = limite - faites;
+    if (reste >= 0 && reste <= NOTIF_COMPTE_SEUIL_GEN) {
+      messages.push(reste === 0
+        ? 'il ne te reste plus de génération ce mois-ci'
+        : 'il te reste ' + reste + ' génération' + (reste > 1 ? 's' : '') + ' ce mois-ci');
+    }
+  } catch (e) { /* pas de message généré si le comptage échoue */ }
+
+  if (!messages.length) return;
+
+  const bar = document.getElementById('notifCompteBar');
+  const txt = document.getElementById('notifCompteTxt');
+  if (!bar || !txt) return;
+  const phrase = messages.join(' · ');
+  txt.innerHTML = phrase.charAt(0).toUpperCase() + phrase.slice(1)
+    + ' · <span class="notif-compte-lien" onclick="ouvrirDepuisNotifCompte()">Voir mon abonnement</span>';
+  positionnerNotifCompte(bar);
+  bar.classList.add('visible');
 }
 
 function renderGenCounter() {

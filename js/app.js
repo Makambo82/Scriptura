@@ -70,6 +70,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 800);
     // Renseigner le décompte du bandeau d'accueil (12/50, 26/70…)
     setTimeout(() => { try { updateQuotaJour(); } catch(e) {} }, 900);
+    // Bannière expiration proche / générations bientôt épuisées (voir
+    // verifierNotifCompte, js/abonnement.js). Après le contrôle d'expiration
+    // ci-dessus : inutile de la montrer à un abonné qu'on vient de déconnecter.
+    setTimeout(() => { try { verifierNotifCompte(); } catch(e) {} }, 1100);
   }
   // Rappel des recommandations : on laisse le temps à Supabase de s'initialiser
   setTimeout(verifierRappelAudit, 1500);

@@ -26,6 +26,12 @@
   </div>
 </nav>
 
+<!-- Bannière compte : abonnement bientôt expiré / générations bientôt épuisées (abonnés uniquement, voir verifierNotifCompte dans js/abonnement.js) -->
+<div class="notif-compte-bar" id="notifCompteBar" role="status">
+  <span id="notifCompteTxt"></span>
+  <button class="notif-compte-close" onclick="fermerNotifCompte()" aria-label="Fermer">✕</button>
+</div>
+
 <!-- ══ MENU LATÉRAL ══ -->
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <aside class="sidebar" id="sidebar">

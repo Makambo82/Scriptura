@@ -43,6 +43,35 @@ nav{
 .logo em{color:var(--gold);font-style:normal}
 .nav-tag{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;color:var(--gold);opacity:0.6;text-transform:uppercase}
 
+/* ── BANNIÈRE COMPTE (abonnement bientôt expiré / générations bientôt
+   épuisées) : fixe, juste sous la nav, chevauche légèrement le haut du
+   contenu quand visible plutôt que de repousser toute la mise en page
+   (bandeau temporaire et fermable, pas une section permanente). ── */
+.notif-compte-bar{
+  /* `top` posé en JS (hauteur réelle de la nav, voir positionnerNotifCompte
+     dans js/abonnement.js) : la hauteur de la nav varie selon l'écran
+     (padding réduit en mobile, voir plus bas), un chiffre fixe ici se
+     désynchroniserait sur certaines tailles. */
+  display:none;position:fixed;left:0;right:0;z-index:99;
+  background:rgba(28,28,30,0.98);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  padding:11px 44px 11px 20px;
+  align-items:center;justify-content:center;gap:12px;
+  font-family:'Poppins',sans-serif;font-size:0.82rem;color:var(--gold-light);
+  text-align:center;line-height:1.4;
+}
+.notif-compte-bar.visible{display:flex}
+.notif-compte-lien{color:var(--gold);text-decoration:underline;cursor:pointer;font-weight:500}
+.notif-compte-close{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:transparent;border:none;color:var(--muted);font-size:1rem;
+  cursor:pointer;line-height:1;padding:6px;flex-shrink:0;
+}
+.notif-compte-close:hover{color:var(--white)}
+@media(max-width:640px){
+  .notif-compte-bar{padding:10px 40px 10px 14px;font-size:0.74rem;gap:6px}
+}
+
 /* HERO */
 .hero{
   min-height:100vh;display:flex;flex-direction:column;
