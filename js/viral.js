@@ -66,6 +66,30 @@ async function _transcriptDepuisLien(url) {
   } finally { clearTimeout(minuteur); }
 }
 
+// Normalise un lien TikTok pour la comparaison (retire la query string et le
+// slash final) : suffisant pour détecter le cas courant (même lien recollé
+// tel quel), sans dupliquer côté client la résolution complète d'ID vidéo
+// déjà faite côté serveur (api/_lib/tiktok-media.js).
+function _lienViralNormalise(u) {
+  return String(u || '').trim().split('?')[0].replace(/\/+$/, '');
+}
+
+// Cherche, parmi les analyses vidéo déjà sauvegardées de l'utilisateur, une
+// dont le lien correspond exactement (voir lancerAnalyseVirale). Best-effort :
+// ne bloque jamais une nouvelle analyse en cas d'erreur réseau.
+async function _analyseViraleExistante(lien) {
+  try {
+    const cible = _lienViralNormalise(lien);
+    if (!cible) return null;
+    const params = new URLSearchParams({ resource: 'generations', action: 'last', code: getUserRef(), mode: 'analyseVirale', limit: '30' });
+    const r = await fetch('/api/data?' + params.toString());
+    const rep = await r.json();
+    const rows = (rep && rep.ok && Array.isArray(rep.data)) ? rep.data : [];
+    const trouve = rows.find(g => g.contenu && g.contenu.lien && _lienViralNormalise(g.contenu.lien) === cible);
+    return (trouve && trouve.contenu && trouve.contenu.rapport) ? trouve.contenu.rapport : null;
+  } catch (e) { return null; }
+}
+
 async function lancerAnalyseVirale() {
   const err = document.getElementById('viralAnaError');
   const note = document.getElementById('viralAnaNote');
@@ -81,6 +105,21 @@ async function lancerAnalyseVirale() {
     err.textContent = "Colle le lien TikTok d'une vidéo, ou son texte à la main.";
     err.style.display = 'block';
     return;
+  }
+
+  // Même lien déjà analysé ? Les SIGNAUX (leviers viraux) sont jugés par l'IA
+  // à chaque appel, donc pas garantis identiques d'une fois sur l'autre même
+  // pour la même vidéo, ce qui ferait varier le score pourtant censé être
+  // déterministe (pilier de crédibilité). On réutilise donc l'analyse déjà
+  // sauvegardée pour ce lien plutôt que d'en refaire une : même vidéo, même
+  // résultat, garanti, et ça évite aussi de reconsommer du quota / un appel IA.
+  if (lien) {
+    const existante = await _analyseViraleExistante(lien);
+    if (existante) {
+      if (typeof pushNav === 'function') pushNav();
+      afficherRapportViral(existante);
+      return;
+    }
   }
 
   // Quota DÉDIÉ à l'analyse vidéo (compteur mensuel séparé de la création) :
@@ -166,7 +205,15 @@ Analyse comme un monteur/scénariste pro :
       : ' (ex. « ouvre par une équation binaire : [ton sujet] voulait X, [autre force] lui a donné Y »)'}. 4 à 6 étapes, concrètes et transposables, jamais liées au sujet précis de la vidéo.
 - ${lbl.pourquoi.toUpperCase()} : 3 à 4 points MAJEURS et déterminants seulement (les plus forts, pas une liste exhaustive).
 - ${lbl.leviers.toUpperCase()} : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
-- SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo, sois rigoureux (une vidéo qui a raté a peu de signaux à true).
+- SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo EN CODE (score déterministe), sois rigoureux et tranché, jamais approximatif (une vidéo qui a raté a peu de signaux à true) :
+  • hook_fort : la toute première phrase crée une tension ou une promesse assez forte pour empêcher physiquement de scroller, pas une simple phrase d'intro banale.
+  • boucle_ouverte : une question ou une promesse posée tôt reste délibérément SANS réponse immédiate, pour forcer à rester jusqu'à la résolution.
+  • cliffhanger : un moment de suspense EXPLICITE est ménagé (souvent avant une révélation), où l'issue reste incertaine jusqu'au dernier instant. Absent si le récit se contente d'avancer sans ce suspense marqué.
+  • deuxieme_personne : la vidéo s'adresse DIRECTEMENT et de façon RÉCURRENTE au spectateur (« tu », « toi », « vous »), pas une seule occurrence isolée.
+  • details_concrets : des faits précis et vérifiables (dates, chiffres, noms, lieux) ancrent le récit, pas des généralités vagues.
+  • escalade : la tension ou les enjeux montent PROGRESSIVEMENT d'une étape à l'autre (chaque temps plus fort que le précédent), pas un récit à intensité constante ou plate.
+  • question_rhetorique : une question est posée sans attendre de réponse, pour faire réfléchir ou créer un effet dramatique.
+  • archetypes : la vidéo mobilise une figure archétypale reconnaissable (le héros, la victime, le manipulateur…), pas un personnage neutre.
 
 RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin. Les consignes du modèle sont à l'impératif 2e personne CORRECT (« Ouvre », « Accumule », « Conclus », jamais « Conclues »).
 
