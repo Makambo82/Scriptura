@@ -2435,7 +2435,12 @@ body.is-unlocked .sidebar-logout{display:block}
    plutôt qu'un choix exclusif, donc aucune des deux ne porte .actif par
    défaut. Ajustement scopé (gap icône/texte, sans toucher .ds-scope-btn
    partagé avec le diagnostic sommaire). */
-.outils-btn-row.ds-scope .ds-scope-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.outils-btn-row.ds-scope .ds-scope-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0}
+/* Le libellé ne doit jamais passer à la ligne : les deux boutons sont côte
+   à côte à largeur égale (flex:1), un texte qui s'enroule sur 2 lignes ferait
+   grandir tout le bouton (et son voisin, même hauteur), un redimensionnement
+   gênant au clic. Coupé proprement (…) plutôt que débordé si jamais trop long. */
+#outilsTranscriptionBtnText,#outilsTelechargementBtnText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 /* Le spinner (.sb-gen-spinner) est conçu pour un fond doré plein (.btn-generate) :
    contour clair sur fond doré. Ici les boutons restent sombres tant qu'ils ne
    sont pas .actif, un spinner sombre y serait invisible. */

@@ -119,7 +119,12 @@ async function lancerOutilTikTok(type) {
   btn.classList.add('actif');
   if (autreBtn) autreBtn.disabled = true;
   if (spin) spin.style.display = 'inline-block';
-  txt.textContent = type === 'transcription' ? 'Transcription…' : 'Recherche…';
+  // Un seul libellé fixe pendant toute l'action (jamais "Recherche…" PUIS
+  // "Préparation de la vidéo…") : un texte qui change en cours de route peut
+  // changer de largeur et forcer le bouton à passer sur 2 lignes, donc à
+  // grandir, un redimensionnement gênant vu que les deux boutons sont
+  // côte à côte (voir .outils-btn-row, largeur égale flex:1 sur les deux).
+  txt.textContent = type === 'transcription' ? 'Transcription…' : 'Téléchargement…';
 
   const progBar = document.getElementById('outilsProgBar');
   const progFill = document.getElementById('outilsProgFill');
@@ -150,7 +155,6 @@ async function lancerOutilTikTok(type) {
       if (typeof pushNav === 'function') pushNav();
       afficherResultatTranscription(data);
     } else {
-      txt.textContent = 'Préparation de la vidéo…';
       const blob = await _outilsFetchVideo(lien);
       if (prog) prog.finish();
       _outilsDecompteApresSucces();
