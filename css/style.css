@@ -257,6 +257,11 @@ nav{
 }
 .ctx-input:focus,.ctx-textarea:focus{border-color:rgba(201,168,76,0.45)}
 .ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.45);font-size:0.82rem}
+/* Un <select> n'a pas de ::placeholder : tant que son option "Choisir..."
+   (value="") reste la sélection courante, le texte doit rester grisé comme
+   un placeholder, jamais blanc plein (qui donne l'impression trompeuse d'un
+   choix déjà fait). Redevient blanc dès qu'une vraie option est choisie. */
+select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .ctx-textarea{resize:vertical;min-height:90px;line-height:1.7}
 
 /* SUMMARY ROW */

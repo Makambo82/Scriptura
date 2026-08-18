@@ -393,6 +393,21 @@ function formatVisuelActuel() {
   } catch (e) { return '9:16'; }
 }
 
+// Distinct de *VisuelActuel() ci-dessus : renvoie null si le créateur n'a
+// JAMAIS fait ce choix lui-même (à ne pas confondre avec le défaut interne
+// utilisé pour générer quand même, voir optionsStoryboardHTML). Sert
+// uniquement à savoir si le <select> doit afficher un vrai choix ou son
+// option "Choisir…".
+function styleVisuelChoisi() {
+  try { return localStorage.getItem('scriptura_style_visuel'); } catch (e) { return null; }
+}
+function formatVisuelChoisi() {
+  try {
+    const f = localStorage.getItem('scriptura_format_visuel');
+    return FORMATS_VISUELS.some(x => x.id === f) ? f : null;
+  } catch (e) { return null; }
+}
+
 function formatVisuelInfos(id) {
   return FORMATS_VISUELS.find(f => f.id === id) || FORMATS_VISUELS[0];
 }
@@ -415,11 +430,19 @@ function changerFormatVisuel(id) {
 // Bloc de choix "Style graphique + Format", inséré AVANT chaque bouton
 // « Générer le storyboard » (tous les modes). Réglé avant génération pour que
 // chaque prompt reçoive le bon footer (style + ratio). Les <select> reflètent
-// le choix mémorisé (localStorage) au moment où le bloc est construit.
+// le choix mémorisé (localStorage) au moment où le bloc est construit. Tant
+// qu'aucun choix n'a jamais été fait (nouvel utilisateur), affiche "Choisir…"
+// plutôt qu'une vraie option déjà cochée, qui donnerait l'impression fausse
+// d'un choix déjà fait : la génération utilisera quand même un défaut
+// raisonnable (styleVisuelActuel/formatVisuelActuel) si le créateur ignore
+// ces menus et lance directement.
 function optionsStoryboardHTML() {
+  const stChoisi = styleVisuelChoisi(), fmtChoisi = formatVisuelChoisi();
   const st = styleVisuelActuel(), fmt = formatVisuelActuel();
-  const styleOpts = STYLES_VISUELS.map(s => `<option value="${s.id}"${s.id === st ? ' selected' : ''}>${s.label}</option>`).join('');
-  const fmtOpts = FORMATS_VISUELS.map(f => `<option value="${f.id}"${f.id === fmt ? ' selected' : ''}>${f.label}</option>`).join('');
+  const styleOpts = (stChoisi ? '' : '<option value="">Choisir ton style…</option>')
+    + STYLES_VISUELS.map(s => `<option value="${s.id}"${stChoisi && s.id === st ? ' selected' : ''}>${s.label}</option>`).join('');
+  const fmtOpts = (fmtChoisi ? '' : '<option value="">Choisir ton format…</option>')
+    + FORMATS_VISUELS.map(f => `<option value="${f.id}"${fmtChoisi && f.id === fmt ? ' selected' : ''}>${f.label}</option>`).join('');
   return `<div class="sb-options-visuelles">
     <label class="sb-opt"><span>Style graphique</span>
       <select class="ctx-input" onchange="changerStyleVisuel(this.value)">${styleOpts}</select></label>
