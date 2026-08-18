@@ -110,11 +110,17 @@ async function lancerOutilTikTok(type) {
           : "Impossible de récupérer cette vidéo. Vérifie le lien.");
       }
       _outilsDecompteApresSucces();
+      // Empile l'écran nu (formulaire encore visible ici) AVANT de passer
+      // au résultat : un « ← Retour » depuis le résultat retombe ainsi sur
+      // ce même écran, lien encore rempli, jamais sur l'accueil (même
+      // mécanique que lancerAnalyseVirale, js/viral.js).
+      if (typeof pushNav === 'function') pushNav();
       afficherResultatTranscription(data);
     } else {
       txt.textContent = 'Préparation de la vidéo…';
       const blob = await _outilsFetchVideo(lien);
       _outilsDecompteApresSucces();
+      if (typeof pushNav === 'function') pushNav();
       afficherResultatTelechargement(blob);
     }
   } catch (e) {
