@@ -251,6 +251,11 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
   });
   prog.start();
 
+  // Empile l'écran nu (formulaire encore visible ici) AVANT de passer au
+  // résultat : un « ← Retour » depuis le résultat retombe ainsi sur ce même
+  // écran, script encore rempli, jamais sur l'accueil (même mécanique que
+  // lancerAnalyseVirale, js/viral.js, et lancerOutilTikTok, js/tiktok-outils.js).
+  if (typeof pushNav === 'function') pushNav();
   masquerFormulaireGeneration('sbSeulFormCard');
   document.getElementById('sbSeulResults').style.display = 'block';
   const out = document.getElementById('storyboardSeulOutput');
