@@ -361,6 +361,20 @@
     </details>
   </div>
 </section>
+
+<!-- OUTILS TIKTOK (services annexes, hors modes de création) -->
+<section class="how">
+  <div class="how-eyebrow">Services annexes</div>
+  <h2 class="how-title">Des outils TikTok<br/><strong>en plus des modes.</strong></h2>
+  <p class="pricing-note">Colle le lien d'une vidéo TikTok, récupère sa transcription ou télécharge-la, sans passer par un mode de création.</p>
+  <button class="hero-mode-btn" style="max-width:420px;margin:24px auto 0" onclick="ouvrirOutilsTikTok()">
+    <span class="mode-icon">🎬</span>
+    <span class="mode-body">
+      <span class="mode-label">Transcrire ou télécharger une vidéo</span>
+      <span class="mode-desc">Colle un lien TikTok, choisis ce qu'il te faut</span>
+    </span>
+  </button>
+</section>
 </div>
 
 <!-- FLOW -->
@@ -571,6 +585,39 @@
     </div>
 
     <div id="viralAnaResults" style="display:none;margin-top:24px"></div>
+  </div>
+</section>
+
+<!-- ══ MODULE OUTILS TIKTOK (service annexe : transcription / téléchargement) ══ -->
+<section id="tiktokOutilsFlow" style="display:none">
+  <div class="ds-wrap">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Service annexe · TikTok</div>
+      <h2 class="ideas-title">Transcris ou télécharge<br/><strong>une vidéo TikTok.</strong></h2>
+      <p class="ideas-sub">Colle le lien d'une vidéo TikTok, puis choisis ce qu'il te faut : le texte parlé, ou la vidéo elle-même.</p>
+    </div>
+
+    <div id="outilsForm">
+      <div class="ds-field">
+        <span class="ds-at">🔗</span>
+        <input class="ds-input" id="outilsLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();}"/>
+      </div>
+      <div class="err" id="outilsError" style="display:none;margin-top:14px"></div>
+
+      <div class="outils-btn-row">
+        <button class="btn-generate" id="outilsTranscriptionBtn" onclick="lancerOutilTikTok('transcription')">
+          <span class="sb-gen-spinner" id="outilsTranscriptionSpinner" style="display:none"></span>
+          <span id="outilsTranscriptionBtnText">📝 Transcription</span>
+        </button>
+        <button class="btn-generate" id="outilsTelechargementBtn" onclick="lancerOutilTikTok('telechargement')">
+          <span class="sb-gen-spinner" id="outilsTelechargementSpinner" style="display:none"></span>
+          <span id="outilsTelechargementBtnText">⬇️ Téléchargement</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="outilsResults" style="display:none"></div>
   </div>
 </section>
 
@@ -1384,6 +1431,7 @@
 <script src="js/storyboard.js"></script>
 <script src="js/storyboard-seul.js"></script>
 <script src="js/viral.js"></script>
+<script src="js/tiktok-outils.js"></script>
 <script src="js/montage.js"></script>
 <script src="js/montage-guide.js"></script>
 <script src="js/diagnostic-sommaire.js"></script>

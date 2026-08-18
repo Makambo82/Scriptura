@@ -13,7 +13,7 @@ let navStack = [];
 // masquerTousLesEcrans() sont désormais la SEULE source de vérité : toute
 // fonction qui ouvre un écran doit appeler masquerTousLesEcrans() plutôt que
 // de refaire sa propre liste.
-const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow'];
+const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow'];
 function masquerTousLesEcrans() {
   TOUS_LES_ECRANS.forEach(id => {
     const el = document.getElementById(id);
@@ -45,7 +45,7 @@ function reinitialiserZoom() {
 // Identifie l'écran actuellement visible
 function currentScreen() {
   // Un résultat affiché est un "sous-écran" prioritaire
-  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow', 'diagSommaireResults': 'diagSommaireFlow', 'viralAnaResults': 'viralFlow' };
+  const results = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow', 'diagSommaireResults': 'diagSommaireFlow', 'viralAnaResults': 'viralFlow', 'outilsResults': 'tiktokOutilsFlow' };
   for (const rid in results) {
     const el = document.getElementById(rid);
     if (el && el.style.display !== 'none' && el.offsetParent !== null) {
@@ -53,7 +53,7 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow']) {
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow']) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }
@@ -101,8 +101,8 @@ function showScreen(screen) {
   // le réaffiche temporairement sans jamais empiler de nouvel écran, un
   // "← Retour" depuis cet état doit donc retomber sur CE résultat, formulaire
   // remasqué, pas sur un écran où les deux se chevauchent.
-  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow', 'diagSommaireResults': 'diagSommaireFlow', 'viralAnaResults': 'viralFlow' };
-  const formCardDuResultat = { 'ideasResults': 'ideasFormCard', 'storyResults': 'storyFormCard', 'sbSeulResults': 'sbSeulFormCard', 'viralAnaResults': 'viralAnaForm' };
+  const resultParent = { 'results': 'flow', 'ideasResults': 'ideasFlow', 'storyResults': 'storyFlow', 'sbSeulResults': 'storyboardSeulFlow', 'diagSommaireResults': 'diagSommaireFlow', 'viralAnaResults': 'viralFlow', 'outilsResults': 'tiktokOutilsFlow' };
+  const formCardDuResultat = { 'ideasResults': 'ideasFormCard', 'storyResults': 'storyFormCard', 'sbSeulResults': 'sbSeulFormCard', 'viralAnaResults': 'viralAnaForm', 'outilsResults': 'outilsForm' };
   if (resultParent[screen]) {
     document.getElementById(resultParent[screen]).style.display = 'block';
     document.getElementById(screen).style.display = 'block';
@@ -126,7 +126,7 @@ function showScreen(screen) {
   } else {
     document.getElementById(screen).style.display = 'block';
     // Masquer les résultats de ce module (on revient au formulaire)
-    const childRes = { 'flow':'results', 'ideasFlow':'ideasResults', 'storyFlow':'storyResults', 'storyboardSeulFlow':'sbSeulResults', 'viralFlow':'viralAnaResults' };
+    const childRes = { 'flow':'results', 'ideasFlow':'ideasResults', 'storyFlow':'storyResults', 'storyboardSeulFlow':'sbSeulResults', 'viralFlow':'viralAnaResults', 'tiktokOutilsFlow':'outilsResults' };
     if (childRes[screen]) {
       const r = document.getElementById(childRes[screen]);
       if (r) r.style.display = 'none';
@@ -134,7 +134,7 @@ function showScreen(screen) {
     // Filet de sécurité : sur l'écran nu (sans résultat), le formulaire doit
     // TOUJOURS être visible, sinon, si on y arrive juste après avoir quitté
     // un résultat dont le formulaire était masqué, l'écran paraîtrait vide.
-    const formCardDuFlow = { 'storyFlow': 'storyFormCard', 'ideasFlow': 'ideasFormCard', 'storyboardSeulFlow': 'sbSeulFormCard', 'viralFlow': 'viralAnaForm' };
+    const formCardDuFlow = { 'storyFlow': 'storyFormCard', 'ideasFlow': 'ideasFormCard', 'storyboardSeulFlow': 'sbSeulFormCard', 'viralFlow': 'viralAnaForm', 'tiktokOutilsFlow': 'outilsForm' };
     if (formCardDuFlow[screen]) {
       const fc = document.getElementById(formCardDuFlow[screen]);
       if (fc && fc.style.display === 'none') fc.style.display = '';

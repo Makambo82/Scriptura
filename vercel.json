@@ -16,6 +16,9 @@
     "api/patterns.js": {
       "maxDuration": 30
     },
+    "api/tiktok-download.js": {
+      "maxDuration": 30
+    },
     "api/montage-download.js": {
       "maxDuration": 60
     },
