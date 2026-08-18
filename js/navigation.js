@@ -27,20 +27,48 @@ function masquerTousLesEcrans() {
 //  sur tous les modes : comme l'app change d'écran sans jamais recharger
 //  la page, un zoom résiduel (pincement accidentel, ou reliquat du zoom
 //  système sur un champ) pouvait persister d'un écran à l'autre. Tous les
-//  champs de saisie sont déjà en 16px minimum (voir css/style.css), donc
-//  ce n'est pas un focus qui zoome, c'est un état de zoom qui traîne.
-//  On le réinitialise à chaque changement d'écran, via le point de passage
-//  unique déjà utilisé par tous les modes (masquerTousLesEcrans).
+//  champs de saisie sont déjà en 16px minimum (voir css/style.css), mais
+//  certains navigateurs mobiles (Safari iOS notamment) zooment quand même
+//  légèrement au focus d'un champ, malgré le 16px, et ne redézooment pas
+//  toujours tout seuls en le quittant : le zoom traîne alors tel quel,
+//  sur le même écran, bien avant tout changement d'écran. On réinitialise
+//  donc À LA FOIS à chaque changement d'écran (masquerTousLesEcrans) ET dès
+//  qu'un champ de saisie perd le focus (délégation sur document, couvre
+//  aussi les champs ajoutés dynamiquement en HTML par l'app).
 // ═══════════════════════════════════════════════════════════
+// Contenu d'origine capturé UNE SEULE FOIS au chargement : si on le relisait
+// à chaque appel via getAttribute(), deux réinitialisations rapprochées (ex.
+// un changement d'écran juste après la perte de focus d'un champ, les deux
+// déclenchent désormais reinitialiserZoom) captureraient l'une le contenu
+// déjà modifié par l'autre comme "original", et l'ajout de suffixe finirait
+// par s'empiler indéfiniment au lieu de revenir au vrai réglage de départ.
+const _viewportOriginal = (() => {
+  const meta = document.querySelector('meta[name="viewport"]');
+  return (meta && meta.getAttribute('content')) || 'width=device-width, initial-scale=1.0';
+})();
+let _zoomResetTimer = null;
 function reinitialiserZoom() {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta) return;
-  const original = meta.getAttribute('content') || 'width=device-width, initial-scale=1.0';
   // Forcer un instant le zoom à 1 (le navigateur applique le changement),
   // puis revenir au réglage normal pour ne jamais bloquer le pincement.
-  meta.setAttribute('content', original + ', maximum-scale=1.0, user-scalable=no');
-  setTimeout(() => { meta.setAttribute('content', original); }, 150);
+  meta.setAttribute('content', _viewportOriginal + ', maximum-scale=1.0, user-scalable=no');
+  if (_zoomResetTimer) clearTimeout(_zoomResetTimer);
+  _zoomResetTimer = setTimeout(() => {
+    meta.setAttribute('content', _viewportOriginal);
+    _zoomResetTimer = null;
+  }, 150);
 }
+document.addEventListener('focusout', (e) => {
+  const t = e.target;
+  if (!t) return;
+  // Cases/fichiers exclus : jamais de zoom au focus sur ceux-là, inutile de
+  // réinitialiser à chaque coche (l'historique et les images du montage en
+  // cochent plusieurs d'affilée en mode sélection).
+  const estChampTexte = (t.tagName === 'INPUT' && !['checkbox', 'file', 'radio'].includes(t.type))
+    || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
+  if (estChampTexte) reinitialiserZoom();
+});
 
 // Identifie l'écran actuellement visible
 function currentScreen() {
