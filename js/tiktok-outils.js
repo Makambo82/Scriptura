@@ -38,23 +38,8 @@ function resetOutilsTikTok() {
   const btnD = document.getElementById('outilsTelechargementBtn');
   if (btnT) btnT.classList.remove('actif');
   if (btnD) btnD.classList.remove('actif');
-  _outilsMasquerProgBar();
   _outilsTranscript = '';
   _outilsVideoBlob = null;
-}
-
-// Bande dorée de progression estimée, même moteur que le storyboard
-// (createProgress, js/storyboard.js) : monte de façon crédible pendant que
-// l'API travaille (téléchargement de la vidéo + transcription côté serveur,
-// nettement plus long qu'une génération texte, d'où une durée estimée plus
-// longue), jamais un simple cercle sans indication de progression.
-function _outilsMasquerProgBar() {
-  const pb = document.getElementById('outilsProgBar');
-  if (pb) pb.style.display = 'none';
-  const fill = document.getElementById('outilsProgFill');
-  if (fill) fill.style.width = '0%';
-  const pct = document.getElementById('outilsProgPct');
-  if (pct) pct.textContent = '0%';
 }
 
 function outilsAutreVideo() {
@@ -119,19 +104,9 @@ async function lancerOutilTikTok(type) {
   btn.classList.add('actif');
   if (autreBtn) autreBtn.disabled = true;
   if (spin) spin.style.display = 'inline-block';
-  txt.textContent = type === 'transcription' ? 'Transcription…' : 'Recherche…';
-
-  const progBar = document.getElementById('outilsProgBar');
-  const progFill = document.getElementById('outilsProgFill');
-  const progPct = document.getElementById('outilsProgPct');
-  // Durée estimée plus longue que pour une génération texte : la vidéo est
-  // téléchargée puis (pour la transcription) transcrite côté serveur.
-  const dureeEstimee = type === 'transcription' ? 16000 : 10000;
-  const prog = (typeof createProgress === 'function')
-    ? createProgress((p) => { if (progFill) progFill.style.width = p + '%'; if (progPct) progPct.textContent = p + '%'; }, dureeEstimee)
-    : null;
-  if (progBar) progBar.style.display = 'flex';
-  if (prog) prog.start();
+  // Rien d'autre que le cercle tournant + ce libellé pendant l'appel : pas de
+  // texte à étapes ni de barre de progression, juste l'action en cours.
+  txt.textContent = type === 'transcription' ? 'Transcription…' : 'Téléchargement…';
 
   try {
     if (type === 'transcription') {
@@ -141,7 +116,6 @@ async function lancerOutilTikTok(type) {
           ? "Cette vidéo ne contient pas de parole détectable."
           : "Impossible de récupérer cette vidéo. Vérifie le lien.");
       }
-      if (prog) prog.finish();
       _outilsDecompteApresSucces();
       // Empile l'écran nu (formulaire encore visible ici) AVANT de passer
       // au résultat : un « ← Retour » depuis le résultat retombe ainsi sur
@@ -150,16 +124,12 @@ async function lancerOutilTikTok(type) {
       if (typeof pushNav === 'function') pushNav();
       afficherResultatTranscription(data);
     } else {
-      txt.textContent = 'Préparation de la vidéo…';
       const blob = await _outilsFetchVideo(lien);
-      if (prog) prog.finish();
       _outilsDecompteApresSucces();
       if (typeof pushNav === 'function') pushNav();
       afficherResultatTelechargement(blob);
     }
   } catch (e) {
-    if (prog) prog.stop();
-    _outilsMasquerProgBar();
     btn.classList.remove('actif'); // échec : pas de résultat à mettre en avant
     err.textContent = e.message || 'Une erreur est survenue, réessaie.';
     err.style.display = 'block';
