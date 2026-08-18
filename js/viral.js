@@ -459,7 +459,14 @@ function afficherRapportViral(d) {
   // Ligne 1 : vues + engagement. Ligne 2 : portée (le vrai signal), si connue.
   const statsLigne = (d.stats && d.stats.vues)
     ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${portee ? ` · portée ${portee.affiche} son audience` : ''}</div>` : '';
-  const niveauTxt = note ? `${note.leviers >= 6 ? 'Recette très solide' : note.leviers >= 4 ? 'Recette solide' : 'Recette correcte'} · ${note.leviers} leviers viraux` : '';
+  // Seuils alignés sur SEUIL_RECETTE_FORTE/SEUIL_MEMOIRE (score pondéré), pas
+  // sur le simple compte de leviers : un compte brut de signaux ignore leur
+  // pondération par dimension et pouvait afficher « Recette solide » (vert)
+  // alors que le verdict croisé juste en dessous disait l'inverse pour le
+  // même score (ex. 5 leviers/8 mais 65/100, sous le seuil de 72).
+  const recetteForteBadge = score != null && score >= SEUIL_RECETTE_FORTE;
+  const niveauTxt = note ? `${score >= SEUIL_MEMOIRE ? 'Recette très solide' : recetteForteBadge ? 'Recette solide' : 'Recette perfectible'} · ${note.leviers} leviers viraux` : '';
+  const niveauTagClasse = recetteForteBadge ? 'ds-tag-ok' : 'ds-tag';
   // Détail du score : les 4 dimensions pondérées (calculées en code).
   const dims = note && Array.isArray(note.dimensions) ? note.dimensions : [];
   const dimsHtml = dims.length ? `
@@ -490,7 +497,7 @@ function afficherRapportViral(d) {
       </div>
       ${scoreRappel}
       ${statsLigne}
-      ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ds-tag-ok">${niveauTxt}</span></div>` : ''}
+      ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ${niveauTagClasse}">${niveauTxt}</span></div>` : ''}
       ${dimsHtml}
     </div>` : '';
 
