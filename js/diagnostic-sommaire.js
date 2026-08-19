@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 //  MODULE DIAGNOSTIC SOMMAIRE, analyse via @nom d'utilisateur TikTok
 //  Alternative légère au diagnostic complet par captures (js/audit.js) :
-//  aucune capture à envoyer. api/username-scan.js lit le PROFIL via LamaTok
-//  et la LISTE DES VIDÉOS (vues, dates, ET sujets/légendes) via TikHub.
+//  aucune capture à envoyer. api/username-scan.js lit le PROFIL et la LISTE
+//  DES VIDÉOS (vues, dates, ET sujets/légendes) via TikHub, seule source.
 //
 //  Les 4 dimensions inspirées de Vervox (Engagement, Portée, Régularité,
 //  Viralité) sont calculables quand les vidéos sont récupérées : Engagement
@@ -147,7 +147,7 @@ function diagSommaireEsc(t) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
 
-// Extrait le nombre d'abonnés du profil brut. LamaTok range le compte à une
+// Extrait le nombre d'abonnés du profil brut. TikHub range le compte à une
 // profondeur variable (top-level stats, mais aussi users["<pseudo>"].stats
 // selon les comptes), ce qui faisait échouer une lecture à chemin fixe et
 // marquait la Portée « non calculable » à tort. On cherche donc RÉCURSIVEMENT
@@ -365,7 +365,7 @@ function arreterAnimationChargementDs(prog) {
 }
 
 // Cœur d'analyse de CONTENU réutilisable : à partir des données brutes déjà
-// récupérées (profil LamaTok + vidéos TikHub) et du @username, calcule les
+// récupérées (profil + vidéos TikHub) et du @username, calcule les
 // métriques, bâtit le prompt (dimensions + niche + top/flop + concepts +
 // pivot) et renvoie l'objet diagnostic parsé. Extrait de lancerDiagnosticSommaire
 // pour que l'analyse détaillée (js/audit.js) puisse lancer un scan de contenu
@@ -629,9 +629,8 @@ async function lancerDiagnosticSommaire() {
   const dsProg = demarrerAnimationChargementDs(_sommaireEstMonCompte);
 
   try {
-    // Récupère le profil public via notre fonction serveur (clé LamaTok
-    // jamais exposée au navigateur). Profil seul : voir note en tête de
-    // fichier sur la limite structurelle de LamaTok (pas de liste de vidéos).
+    // Récupère le profil public via notre fonction serveur (clé TikHub
+    // jamais exposée au navigateur).
     // Timeout client : si le scan traîne (compte volumineux, service lent), on
     // échoue proprement avec un message clair plutôt qu'une erreur cryptique.
     const ctrlScan = new AbortController();
@@ -756,7 +755,7 @@ const DS_DIM_META = {
 };
 
 // Ces 3 dimensions ont structurellement besoin de données par vidéo
-// (dates, vues individuelles) qu'aucun profil public LamaTok n'expose,
+// (dates, vues individuelles) qu'aucun profil public n'expose,
 // toujours non disponibles ici, jamais une estimation inventée.
 const DS_TOUJOURS_INDISPONIBLE = {
   portee: "Non calculable avec un simple profil public : TikTok n'expose pas le nombre de vues par vidéo à cette échelle. Le diagnostic complet (captures) le permet.",

@@ -12,7 +12,7 @@
 
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
 import {
-  detailLamaTok, detailTikHub, extraireAwemeId, resoudreLien, urlsVideo,
+  detailTikHub, extraireAwemeId, resoudreLien, urlsVideo,
   extraireDesc, extraireStats, extraireAuteurUsername, abonnesViaProfil,
   telechargerMedia, resoudreVideoTikTok
 } from './_lib/tiktok-media.js';
@@ -71,9 +71,9 @@ async function transcrireEleven(buf, contentType, key) {
 
 async function handleTranscription(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
-  const lamaKey = process.env.LAMATOK_API_KEY;
+  const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
   const elevenKey = process.env.ELEVENLABS_API_KEY;
-  if (!lamaKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
+  if (!tikhubKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (TIKHUB_API_KEY)' } });
   if (!elevenKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (ELEVENLABS_API_KEY)' } });
 
   try {
@@ -102,29 +102,16 @@ async function handleTranscription(req, res) {
       return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
     }
 
-    const dataLama = await detailLamaTok(id, lamaKey);
+    const dataTikHub = await detailTikHub(id, tikhubKey);
 
-    let description = dataLama ? (extraireDesc(dataLama) || '') : '';
-    let stats = dataLama ? extraireStats(dataLama) : null;
+    let description = dataTikHub ? (extraireDesc(dataTikHub) || '') : '';
+    let stats = dataTikHub ? extraireStats(dataTikHub) : null;
 
     let media = null;
-    let dataTikHub = null;
-    if (dataLama) {
-      for (const u of urlsVideo(dataLama)) {
+    if (dataTikHub) {
+      for (const u of urlsVideo(dataTikHub)) {
         const m = await telechargerMedia(u);
         if (m.ok) { media = m; break; }
-      }
-    }
-    if (!media) {
-      const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
-      dataTikHub = tikhubKey ? await detailTikHub(id, tikhubKey) : null;
-      if (dataTikHub) {
-        if (!description) description = extraireDesc(dataTikHub) || '';
-        if (!stats) stats = extraireStats(dataTikHub);
-        for (const u of urlsVideo(dataTikHub)) {
-          const m = await telechargerMedia(u);
-          if (m.ok) { media = m; break; }
-        }
       }
     }
     if (!media) {
@@ -132,9 +119,9 @@ async function handleTranscription(req, res) {
     }
 
     if (stats && stats.vues && !stats.abonnesAuteur) {
-      const username = extraireAuteurUsername(dataLama) || extraireAuteurUsername(dataTikHub);
+      const username = extraireAuteurUsername(dataTikHub);
       if (username) {
-        const ab = await abonnesViaProfil(username, lamaKey);
+        const ab = await abonnesViaProfil(username, tikhubKey);
         if (ab != null) stats.abonnesAuteur = ab;
       }
     }
@@ -168,8 +155,8 @@ async function handleTranscription(req, res) {
 
 async function handleDownload(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
-  const lamaKey = process.env.LAMATOK_API_KEY;
-  if (!lamaKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (LAMATOK_API_KEY)' } });
+  const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
+  if (!tikhubKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (TIKHUB_API_KEY)' } });
 
   const url = req.query?.url;
   const code_acces = req.query?.code_acces || null;
@@ -191,16 +178,12 @@ async function handleDownload(req, res) {
       return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
     }
 
-    const tikhubKey = (process.env.TIKHUB_API_KEY || '').trim();
-    const resolu = await resoudreVideoTikTok(url, lamaKey, tikhubKey);
+    const resolu = await resoudreVideoTikTok(url, tikhubKey);
     if (!resolu) {
       return res.status(422).json({ error: { message: 'Lien TikTok non reconnu. Vérifie le lien.' } });
     }
 
-    const candidats = [
-      ...(resolu.dataLama ? urlsVideo(resolu.dataLama) : []),
-      ...(resolu.dataTikHub ? urlsVideo(resolu.dataTikHub) : [])
-    ];
+    const candidats = resolu.dataTikHub ? urlsVideo(resolu.dataTikHub) : [];
 
     let media = null;
     for (const u of candidats) {
