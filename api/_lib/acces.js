@@ -70,9 +70,17 @@ async function resoudreDroits(code) {
 
   try {
     const r = await fetch(
-      cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=actif,expire_le,plan,jetons_audit',
+      cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(codeUpper) + '&select=actif,expire_le,plan,jetons_audit',
       { headers: entetes(cfg.key) }
     );
+    if (!r.ok) {
+      // Erreur Supabase (clé invalide, schéma, RLS, quota API…) : SANS cette
+      // distinction, une simple panne était auparavant traitée exactement
+      // comme "code inconnu" (rows.length===0 par défaut de r.json() en
+      // erreur), ce qui plafonnait TOUT abonné réel à 5 générations gratuites
+      // à vie au lieu de son quota mensuel réel, à la moindre erreur d'API.
+      return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
+    }
     const rows = await r.json();
     if (!Array.isArray(rows) || rows.length === 0) {
       // Code absent de Supabase (et pas admin/VIP) : traité comme non-abonné,
