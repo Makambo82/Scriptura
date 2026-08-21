@@ -532,64 +532,55 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // ══════════════════════════════════════
-    //  CONTRÔLE PROGRAMMATIQUE DE LA FIDÉLITÉ DE CLÔTURE
+    //  NORMALISATION FINALE DE LA CLÔTURE (systématique, plus détection)
     //  Volontairement APRÈS le contrôle de durée ci-dessus : ce dernier peut
     //  réécrire le récit EN ENTIER (donc aussi la clôture) avec une simple
     //  consigne "garde la même structure", sans redonner le texte exact du
     //  modèle, un filet bien plus faible que celui-ci. Placé avant, ce
     //  contrôle voyait sa correction parfois défaite par la correction de
-    //  durée qui suivait juste après, symptôme observé en usage réel : la
-    //  clôture perdait sa triple question alors que ce contrôle l'avait
-    //  déjà rétablie. En dernière position, rien ne peut plus l'annuler.
-    //  Le Critique éditorial plus haut a accès au script exact du modèle
-    //  suivi (voir structureModeleRef), mais reste un jugement d'IA, pas une
-    //  garantie : sur un vrai récit généré, la clôture a pu rester une
-    //  simple punchline alors que le modèle suivi (ex. Kadhafi, Traoré) se
-    //  termine par une triple question, sans que le Critique ne le signale.
-    //  On vérifie donc mécaniquement, comme pour le nombre de mots : le
-    //  modèle se termine-t-il par une triple question (2 "?" ou plus) ? Le
-    //  récit fait-il pareil ? Si les deux ne correspondent pas, on corrige
-    //  UNIQUEMENT le segment de clôture, sans toucher au reste.
+    //  durée qui suivait juste après, symptôme observé en usage réel.
+    //  Cette étape tournait AUPARAVANT seulement si un détecteur (compte de
+    //  "?") jugeait la clôture non conforme. Abandonné : sur des vrais
+    //  essais, des clôtures avec déjà 3 "?" mais une structure tronquée
+    //  (intro fusionnée, 3e branche "Ou que" absente) passaient le
+    //  détecteur alors qu'elles n'étaient pas fidèles, ET certains modèles
+    //  légitimes clôturent sur une chute non-interrogative (Snowden,
+    //  Madoff), rendant un simple seuil de "?" incapable de trancher
+    //  fiablement dans les deux sens. Cette passe tourne donc désormais
+    //  SYSTÉMATIQUEMENT sur chaque récit, coût négligeable (un appel Haiku
+    //  court) pour une fidélité de clôture garantie plutôt que dépendante
+    //  d'un détecteur imparfait.
     // ══════════════════════════════════════
-    function detecteTripleQuestion(texte) {
-      return ((texte || '').match(/\?/g) || []).length >= 2;
-    }
-
     if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
       const clotureModeleSeule = structureModeleRef.split('\n\n').pop() || '';
-      const modeleAttendTripleQuestion = detecteTripleQuestion(clotureModeleSeule);
       const dernierSegment = parsed.recit[parsed.recit.length - 1];
-      const recitATripleQuestion = detecteTripleQuestion(dernierSegment.texte || '');
 
-      if (modeleAttendTripleQuestion !== recitATripleQuestion) {
-        try {
-          const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. La clôture du récit ci-dessous ne respecte PAS la forme de clôture du modèle de référence réellement suivi pour ce récit, c'est l'erreur la plus grave que Scriptura puisse commettre en clôture.
+      try {
+        const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : la clôture du récit doit reproduire EXACTEMENT la structure de la clôture du modèle de référence ci-dessous (même nombre de phrases/questions, même enchaînement), avec le contenu adapté au sujet du récit.
 
 CLÔTURE ACTUELLE DU RÉCIT :
 ${dernierSegment.texte}
 
-CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE À REPRODUIRE DANS SA FORME (même structure, pas les mêmes mots) :
+CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE À REPRODUIRE DANS SA FORME (même structure phrase par phrase, pas les mêmes mots) :
 """
 ${clotureModeleSeule}
 """
 
-PROBLÈME : ${modeleAttendTripleQuestion ? 'Le modèle se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") mais la clôture actuelle ne le fait pas.' : 'Le modèle NE se termine PAS par une triple question, mais la clôture actuelle en impose une, ce n\'est pas fidèle au modèle.'}
-
 RÈGLES :
-- Réécris UNIQUEMENT la clôture, dans la structure exacte du modèle ci-dessus (${modeleAttendTripleQuestion ? 'triple question miroir, adaptée au sujet' : 'la forme réelle du modèle, sans triple question forcée'}).
-- Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), elle est obligatoire dans tous les cas, quel que soit le modèle. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
+- Réécris la clôture pour qu'elle suive la structure du modèle ci-dessus PHRASE PAR PHRASE : si le modèle a une phrase d'intro suivie de 3 questions/phrases parallèles, le récit doit avoir exactement ça, ni moins ni plus, aucune phrase fusionnée ou sautée.
+- Si la clôture actuelle suit déjà fidèlement cette structure, renvoie-la telle quelle (ne change rien inutilement).
+- Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), elle est obligatoire dans tous les cas. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
 - Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture change.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"cloture":"la nouvelle clôture complète corrigée"}`;
 
-          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
-          const correctionCloture = parseAIResponse(correctionClotureRaw);
-          if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
-            dernierSegment.texte = correctionCloture.cloture.trim();
-          }
-        } catch (e) { /* si la correction échoue, on garde la clôture actuelle */ }
-      }
+        const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
+        const correctionCloture = parseAIResponse(correctionClotureRaw);
+        if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
+          dernierSegment.texte = correctionCloture.cloture.trim();
+        }
+      } catch (e) { /* si la correction échoue, on garde la clôture actuelle */ }
     }
 
     if (!unlocked && !_regenGratuiteEnCours) {
