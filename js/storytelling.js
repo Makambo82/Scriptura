@@ -261,17 +261,17 @@ MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
 
 8. Ajoute au moins un élément qui pousse à SAUVEGARDER : un fait rare, une citation mémorable, une révélation choc, un chiffre marquant.
 
-9. CLÔTURE NARRATIVE (structure DÉPENDANTE du modèle choisi, pas automatique) : reproduis la structure de fin exacte du modèle choisi plus haut, quelle qu'elle soit. Triple question miroir (clôture PAR DÉFAUT, uniquement si aucun modèle ne s'applique) :
+9. CLÔTURE NARRATIVE, TOUJOURS UNE TRIPLE QUESTION MIROIR : c'est la marque de fabrique de Scriptura, les 15 modèles de référence s'y tiennent SANS EXCEPTION, ce n'est jamais une option parmi d'autres.
    "Alors, que retenir de cette histoire ?
    Que... ?
    Que... ?
    Ou que... ?"
-   Ces questions doivent heurter, interpeller, et pousser à commenter/partager.
+   Ces questions doivent heurter, interpeller, et pousser à commenter/partager, adaptées précisément au sujet, jamais un gabarit générique.
 
-10. SIGNATURE MÉTAPOÉTIQUE, OBLIGATOIRE DANS TOUS LES RÉCITS, SANS EXCEPTION, quel que soit le modèle choisi. Aucun des 15 modèles de référence ne contient cette phrase eux-mêmes, c'est volontaire : c'est une exigence SUPPLÉMENTAIRE de Scriptura, à ajouter systématiquement, jamais une simple clôture de secours. Ajoute, juste avant ou après la clôture narrative du point 9, une phrase de forme fixe "Moi, je t'ai pas [X]. Je t'ai [Y].", ton poétique, ironique, lucide, qui frappe fort en une seule image, adaptée précisément au sujet. Elle agit comme signature narrative de Scriptura.
+10. SIGNATURE MÉTAPOÉTIQUE, OBLIGATOIRE DANS TOUS LES RÉCITS, SANS EXCEPTION. Aucun des 15 modèles de référence ne contient cette phrase eux-mêmes, c'est volontaire : c'est une exigence SUPPLÉMENTAIRE de Scriptura, à ajouter systématiquement, jamais une simple clôture de secours. Ajoute, juste avant ou après la triple question du point 9, une phrase de forme fixe "Moi, je t'ai pas [X]. Je t'ai [Y].", ton poétique, ironique, lucide, qui frappe fort en une seule image, adaptée précisément au sujet. Elle agit comme signature narrative de Scriptura.
     Exemple : "Moi, je t'ai pas raconté une fuite. Je t'ai montré ce que devient un empire quand il rentre dans une valise."
 
-RAPPEL, LA STRUCTURE DU MODÈLE CHOISI (POINT 9) PRIME TOUJOURS SUR LA CLÔTURE PAR DÉFAUT ; LA SIGNATURE (POINT 10) EST TOUJOURS OBLIGATOIRE EN PLUS : le point 9 n'est qu'un filet de sécurité utilisé quand aucun modèle ne s'applique. Un modèle a TOUJOURS été choisi (voir plus haut) : regarde comment SA propre clôture est construite, triple question, chute sèche, question unique, silence, autre chose, et REPRODUIS EXACTEMENT CETTE STRUCTURE-LÀ, pas automatiquement la triple question du point 9. Ne plaque JAMAIS la triple question sur un récit dont le modèle se termine autrement : c'est une trahison de la structure du modèle, l'erreur la plus visible et la plus grave que Scriptura puisse commettre en clôture. La signature métapoétique du point 10, elle, s'ajoute TOUJOURS, peu importe le modèle et peu importe sa propre clôture, ce n'est jamais optionnel, contrairement à la triple question.
+RAPPEL, LE DERNIER SEGMENT CONTIENT TOUJOURS LES DEUX : la triple question du point 9 ET la signature du point 10, jamais l'une sans l'autre. Un récit qui livre uniquement la signature métapoétique sans la triple question qui la précède (ou l'inverse) est un ÉCHEC DE CLÔTURE, l'erreur la plus visible et la plus grave que Scriptura puisse commettre.
 
 ${tonInstruction}
 
@@ -282,7 +282,7 @@ STYLE ET LANGUE :
 - UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image.
 - LE CHAMP "texte" DE CHAQUE SEGMENT NE CONTIENT JAMAIS DE MINUTAGE : le champ "segment" (ex: "Hook", "Contexte") est SÉPARÉ et sert uniquement de repère pour le créateur, ne répète jamais un minutage chiffré ("0-3 sec", "0:00-0:05"...) en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : écris directement la phrase parlée.
 
-EXIGENCE DE PERFECTION : Avant de livrer, relis ton récit. S'il n'atteint pas un niveau où un storyteller professionnel ne trouverait rien à améliorer, réécris-le. Vérifie que le hook arrête le scroll, que la tension tient du début à la fin, que la clôture reproduit fidèlement la structure de fin du modèle choisi (pas automatiquement la triple question si ce n'est pas ainsi que ce modèle se termine), et que la signature métapoétique est bien présente, elle, contrairement à la triple question, est obligatoire dans tous les cas, quel que soit le modèle.
+EXIGENCE DE PERFECTION : Avant de livrer, relis ton récit. S'il n'atteint pas un niveau où un storyteller professionnel ne trouverait rien à améliorer, réécris-le. Vérifie que le hook arrête le scroll, que la tension tient du début à la fin, et que le DERNIER segment contient bien les DEUX éléments obligatoires : la triple question miroir (point 9) ET la signature métapoétique (point 10), jamais l'une sans l'autre.
 
 EN PLUS DU RÉCIT, génère aussi :
 - 5 HOOKS alternatifs (variations du hook d'ouverture, chacun dans un style différent mais gardant l'esprit paradoxal/choc)
@@ -298,9 +298,9 @@ Vise l'excellence absolue (score global 90-100). EVALUATION HONNETE : évalue to
 Si ton récit ne mérite pas 90+, réécris-le AVANT de répondre.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la clôture, dans la structure exacte du modèle choisi, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
-Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT reproduire la structure de clôture du modèle choisi (triple question UNIQUEMENT si c'est ainsi que ce modèle précis se termine) ET inclure dans tous les cas la signature métapoétique, obligatoire quel que soit le modèle. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que la clôture a bien été respectée.`;
+Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
 
   try {
     const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
@@ -364,7 +364,7 @@ ${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT S
 TON TRAVAIL :
 1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
 2. RÉFUTATION, cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
-3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) : le récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui, pas seulement sa clôture, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Si le récit s'écarte du squelette du modèle (une étape sautée, réordonnée, ou développée alors que le modèle ne fait que l'effleurer, ou l'inverse), c'est un écart de calque à signaler dans segments_faibles. Porte une attention PARTICULIÈRE à la forme exacte de sa clôture (triple question, punchline, chute sèche, question unique, silence, autre chose) : si le modèle se termine par une triple question et que le récit ne le fait pas (ou l'inverse), c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser, c'est l'écart le plus visible et le plus grave que Scriptura puisse commettre.
+3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) : le récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Si le récit s'écarte du squelette du modèle (une étape sautée, réordonnée, ou développée alors que le modèle ne fait que l'effleurer, ou l'inverse), c'est un écart de calque à signaler dans segments_faibles. Vérifie SPÉCIFIQUEMENT que le dernier segment se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") : si elle est absente, c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser, c'est l'écart le plus visible et le plus grave que Scriptura puisse commettre.
 4. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi, si elle est absente, générique ou faible, signale-le comme un problème à corriger.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -429,7 +429,7 @@ ${raisonsScrollTxt ? '\nRAISONS DE DÉCROCHAGE À ÉLIMINER :\n' + raisonsScroll
 RÈGLES :
 - Ne touche JAMAIS un segment non listé ci-dessus.
 - Renvoie la liste COMPLÈTE des segments dans le même ordre, avec le même nombre total et les mêmes valeurs de "segment" (fonction narrative).
-- Si le dernier segment (clôture) est réécrit, reproduis EXACTEMENT la forme de clôture du script du modèle ci-dessus (triple question UNIQUEMENT si c'est ainsi que ce modèle se termine), ET assure-toi que la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") reste présente, adaptée au sujet et percutante, elle est obligatoire dans tous les cas, quel que soit le modèle.
+- Si le dernier segment (clôture) est réécrit, il DOIT contenir la triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?", adaptée au sujet) ET la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), les deux systématiquement, percutantes et adaptées au sujet.
 - Réécris aussi les 5 hooks si le critique a signalé un hook faible, sinon garde-les.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -447,59 +447,6 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
         }
       } catch(e) { /* si la critique/révision échoue, on garde la meilleure version obtenue */ }
-    }
-
-    // ══════════════════════════════════════
-    //  CONTRÔLE PROGRAMMATIQUE DE LA FIDÉLITÉ DE CLÔTURE
-    //  Le Critique éditorial ci-dessus a maintenant accès au script exact du
-    //  modèle suivi (voir structureModeleRef), mais reste un jugement d'IA,
-    //  pas une garantie : sur un vrai récit généré, la clôture a pu rester
-    //  une simple punchline alors que le modèle suivi (ex. Kadhafi, Traoré)
-    //  se termine par une triple question, sans que le Critique ne le
-    //  signale. On vérifie donc mécaniquement, comme pour le nombre de
-    //  mots : le modèle se termine-t-il par une triple question (2 "?" ou
-    //  plus) ? Le récit fait-il pareil ? Si les deux ne correspondent pas,
-    //  on corrige UNIQUEMENT le segment de clôture, sans toucher au reste.
-    // ══════════════════════════════════════
-    function detecteTripleQuestion(texte) {
-      return ((texte || '').match(/\?/g) || []).length >= 2;
-    }
-
-    if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
-      const clotureModeleSeule = structureModeleRef.split('\n\n').pop() || '';
-      const modeleAttendTripleQuestion = detecteTripleQuestion(clotureModeleSeule);
-      const dernierSegment = parsed.recit[parsed.recit.length - 1];
-      const recitATripleQuestion = detecteTripleQuestion(dernierSegment.texte || '');
-
-      if (modeleAttendTripleQuestion !== recitATripleQuestion) {
-        try {
-          const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. La clôture du récit ci-dessous ne respecte PAS la forme de clôture du modèle de référence réellement suivi pour ce récit, c'est l'erreur la plus grave que Scriptura puisse commettre en clôture.
-
-CLÔTURE ACTUELLE DU RÉCIT :
-${dernierSegment.texte}
-
-CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE À REPRODUIRE DANS SA FORME (même structure, pas les mêmes mots) :
-"""
-${clotureModeleSeule}
-"""
-
-PROBLÈME : ${modeleAttendTripleQuestion ? 'Le modèle se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") mais la clôture actuelle ne le fait pas.' : 'Le modèle NE se termine PAS par une triple question, mais la clôture actuelle en impose une, ce n\'est pas fidèle au modèle.'}
-
-RÈGLES :
-- Réécris UNIQUEMENT la clôture, dans la structure exacte du modèle ci-dessus (${modeleAttendTripleQuestion ? 'triple question miroir, adaptée au sujet' : 'la forme réelle du modèle, sans triple question forcée'}).
-- Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), elle est obligatoire dans tous les cas, quel que soit le modèle. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
-- Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture change.
-
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"cloture":"la nouvelle clôture complète corrigée"}`;
-
-          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
-          const correctionCloture = parseAIResponse(correctionClotureRaw);
-          if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
-            dernierSegment.texte = correctionCloture.cloture.trim();
-          }
-        } catch (e) { /* si la correction échoue, on garde la clôture actuelle */ }
-      }
     }
 
     // ══════════════════════════════════════
@@ -564,7 +511,7 @@ ${tropCourt ? 'Le récit est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + 
 RÈGLES :
 - Le nouveau récit DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
 - Garde le ton "${parsed.ton || 'déjà établi dans le récit ci-dessus'}" strictement, du début à la fin.
-- Garde les mêmes segments (même "segment" et même ordre), le hook en premier, et dans le dernier segment la MÊME structure de clôture que le récit actuel ci-dessus (ne la remplace jamais par une triple question si ce n'était pas déjà sa forme). Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y].") intacte et bien présente, elle est obligatoire dans tous les cas.
+- Garde les mêmes segments (même "segment" et même ordre), le hook en premier, et dans le dernier segment garde OU rétablis les deux éléments obligatoires : la triple question miroir ET la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), intactes et bien présentes, systématiques quelle que soit la longueur.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"recit":[{"segment":"Hook","texte":"..."}]}`;
@@ -581,6 +528,67 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         } else {
           break; // parsing échoué, on garde la version actuelle
         }
+      }
+    }
+
+    // ══════════════════════════════════════
+    //  CONTRÔLE PROGRAMMATIQUE DE LA FIDÉLITÉ DE CLÔTURE
+    //  Volontairement APRÈS le contrôle de durée ci-dessus : ce dernier peut
+    //  réécrire le récit EN ENTIER (donc aussi la clôture) avec une simple
+    //  consigne "garde la même structure", sans redonner le texte exact du
+    //  modèle, un filet bien plus faible que celui-ci. Placé avant, ce
+    //  contrôle voyait sa correction parfois défaite par la correction de
+    //  durée qui suivait juste après, symptôme observé en usage réel : la
+    //  clôture perdait sa triple question alors que ce contrôle l'avait
+    //  déjà rétablie. En dernière position, rien ne peut plus l'annuler.
+    //  Le Critique éditorial plus haut a accès au script exact du modèle
+    //  suivi (voir structureModeleRef), mais reste un jugement d'IA, pas une
+    //  garantie : sur un vrai récit généré, la clôture a pu rester une
+    //  simple punchline alors que le modèle suivi (ex. Kadhafi, Traoré) se
+    //  termine par une triple question, sans que le Critique ne le signale.
+    //  On vérifie donc mécaniquement, comme pour le nombre de mots : le
+    //  modèle se termine-t-il par une triple question (2 "?" ou plus) ? Le
+    //  récit fait-il pareil ? Si les deux ne correspondent pas, on corrige
+    //  UNIQUEMENT le segment de clôture, sans toucher au reste.
+    // ══════════════════════════════════════
+    function detecteTripleQuestion(texte) {
+      return ((texte || '').match(/\?/g) || []).length >= 2;
+    }
+
+    if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
+      const clotureModeleSeule = structureModeleRef.split('\n\n').pop() || '';
+      const modeleAttendTripleQuestion = detecteTripleQuestion(clotureModeleSeule);
+      const dernierSegment = parsed.recit[parsed.recit.length - 1];
+      const recitATripleQuestion = detecteTripleQuestion(dernierSegment.texte || '');
+
+      if (modeleAttendTripleQuestion !== recitATripleQuestion) {
+        try {
+          const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. La clôture du récit ci-dessous ne respecte PAS la forme de clôture du modèle de référence réellement suivi pour ce récit, c'est l'erreur la plus grave que Scriptura puisse commettre en clôture.
+
+CLÔTURE ACTUELLE DU RÉCIT :
+${dernierSegment.texte}
+
+CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE À REPRODUIRE DANS SA FORME (même structure, pas les mêmes mots) :
+"""
+${clotureModeleSeule}
+"""
+
+PROBLÈME : ${modeleAttendTripleQuestion ? 'Le modèle se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") mais la clôture actuelle ne le fait pas.' : 'Le modèle NE se termine PAS par une triple question, mais la clôture actuelle en impose une, ce n\'est pas fidèle au modèle.'}
+
+RÈGLES :
+- Réécris UNIQUEMENT la clôture, dans la structure exacte du modèle ci-dessus (${modeleAttendTripleQuestion ? 'triple question miroir, adaptée au sujet' : 'la forme réelle du modèle, sans triple question forcée'}).
+- Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), elle est obligatoire dans tous les cas, quel que soit le modèle. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
+- Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture change.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"cloture":"la nouvelle clôture complète corrigée"}`;
+
+          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
+          const correctionCloture = parseAIResponse(correctionClotureRaw);
+          if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
+            dernierSegment.texte = correctionCloture.cloture.trim();
+          }
+        } catch (e) { /* si la correction échoue, on garde la clôture actuelle */ }
       }
     }
 
