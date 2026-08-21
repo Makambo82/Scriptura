@@ -36,6 +36,11 @@ async function ligneAbonne(code) {
       cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(code) + '&select=actif,expire_le,plan,jetons_audit',
       { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
     );
+    // Erreur Supabase (clé invalide, schéma, RLS, quota API…) : sans cette
+    // vérification, une panne était traitée exactement comme "code inconnu"
+    // (rows.length===0 par défaut de r.json() en erreur), donc "code
+    // invalide" affiché à un abonné réel à la moindre erreur d'API.
+    if (!r.ok) return { indisponible: true };
     const rows = await r.json();
     if (!Array.isArray(rows) || rows.length === 0) return null;
     return rows[0];
