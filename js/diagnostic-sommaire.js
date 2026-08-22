@@ -172,6 +172,32 @@ function dsAbonnes(profil) {
   return trouve;
 }
 
+// Extrait le nombre total de "j'aime" cumulés sur l'ensemble du compte
+// (tous les cœurs reçus, toutes vidéos confondues), même recherche
+// récursive et tolérante que dsAbonnes ci-dessus. "heartCount"/"heart" est
+// le nom standard côté TikTok pour ce total, à ne pas confondre avec
+// digg_count/like_count qui désignent les likes d'UNE seule vidéo
+// (utilisés ailleurs pour les vidéos individuelles, voir normaliserMedias
+// côté serveur) : le motif ci-dessous exclut volontairement ces alias.
+function dsLikesCumules(profil) {
+  const CLES = /^(heartcount|heart_count|heart|totalfavorited|total_favorited)$/i;
+  let trouve = null;
+  const vus = new Set();
+  (function scan(o, prof) {
+    if (trouve != null || !o || typeof o !== 'object' || prof > 6 || vus.has(o)) return;
+    vus.add(o);
+    for (const k of Object.keys(o)) {
+      if (CLES.test(k)) {
+        const n = Number(o[k]);
+        if (Number.isFinite(n) && n > 0) { trouve = n; return; }
+      }
+      const val = o[k];
+      if (val && typeof val === 'object') scan(val, prof + 1);
+    }
+  })(profil || {}, 0);
+  return trouve;
+}
+
 // Calcule à partir des vidéos réelles (endpoint /v1/user/medias) les
 // métriques nécessaires aux dimensions Portée, Régularité et Viralité.
 // Retourne null si trop peu de vidéos chiffrées pour être fiable, le
@@ -376,6 +402,7 @@ async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
   // RÉCENT (2 derniers mois) = l'état ACTUEL du compte ; l'analyse de contenu
   // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
   const abonnes = dsAbonnes(donnees.profil);
+  const likesCumules = dsLikesCumules(donnees.profil);
   const toutesVideos = Array.isArray(donnees.medias) ? donnees.medias : [];
   const seuilRecent = Math.floor(Date.now() / 1000) - 60 * 86400;
   const videosRecentes = toutesVideos.filter(v => typeof v.date === 'number' && v.date >= seuilRecent);
@@ -579,6 +606,7 @@ ${schemaJson}`;
     // à l'autre du même compte (voir evolutionAbonnesDiagSommaire), sans appel
     // API supplémentaire : juste une lecture de l'historique déjà là.
     parsed.abonnes = abonnes;
+    parsed.likesCumules = likesCumules;
   }
   return parsed;
 }
@@ -1025,6 +1053,16 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
     ? `<div class="ds-sante-row"><span class="ds-tag ${sante.niveau}">Santé du compte : ${sante.label}</span></div>`
     : '';
 
+  // Abonnés / likes cumulés : entre le score et la santé du compte, pour
+  // situer le score dans le contexte réel de la taille du compte (retour
+  // créateur explicite). N'affiche que ce qui a pu être extrait, jamais un
+  // "0" ou "non disponible" trompeur si TikHub n'a pas remonté la valeur.
+  const statsCompteHtml = (d.abonnes || d.likesCumules) ? `
+    <div class="ds-stats-row">
+      ${d.abonnes ? `<div class="ds-stat-item">${ICO('people')}<span class="ds-stat-num">${formaterNombre(d.abonnes)}</span><span class="ds-stat-label">Abonnés</span></div>` : ''}
+      ${d.likesCumules ? `<div class="ds-stat-item">${ICO('heart')}<span class="ds-stat-num">${formaterNombre(d.likesCumules)}</span><span class="ds-stat-label">J'aime</span></div>` : ''}
+    </div>` : '';
+
   // Évolution du compte : détection d'un changement de cap (pivot) sur ~6 mois,
   // avec comparaison avant/après et formule gagnante. N'apparaît que si l'IA a
   // renvoyé un constat (donc uniquement quand l'historique a été analysé).
@@ -1066,6 +1104,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
           <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
+      ${statsCompteHtml}
       ${santeRowHtml}
     </div>
 

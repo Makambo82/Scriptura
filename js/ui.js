@@ -28,7 +28,8 @@ const _ICO_PATHS = {
   image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M4 17l4.5-4.5 3.5 3 3-2.5L20.5 17"/>',
   download: '<path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/>',
   folder: '<path d="M4 7a1 1 0 0 1 1-1h4l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7Z"/>',
-  coins: '<circle cx="8.5" cy="15.5" r="5"/><circle cx="15.5" cy="8.5" r="5"/>'
+  coins: '<circle cx="8.5" cy="15.5" r="5"/><circle cx="15.5" cy="8.5" r="5"/>',
+  heart: '<path d="M12 20s-7-4.35-9.33-9.02C1.02 7.86 2.6 5 5.5 5c1.87 0 3.32 1.02 4 2.36C10.18 6.02 11.63 5 13.5 5c2.9 0 4.48 2.86 2.83 5.98C19 15.65 12 20 12 20Z"/>'
 };
 function ICO(nom, cls) {
   const p = _ICO_PATHS[nom];
