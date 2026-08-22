@@ -286,6 +286,121 @@ const SCRIPTURA_MODELES = [
   }
 ];
 
+// ── FICHE ADN de chaque modèle, la MÉCANIQUE narrative, pas ses mots-clés ──
+// Ce que choisirModeleSemantique() (plus bas) donne à l'IA pour juger un
+// modèle : sa structure en étapes réelles, son rythme, le type de son hook,
+// et surtout les sujets avec lesquels sa mécanique fonctionne OU PAS,
+// l'information qu'un simple thème ne peut jamais donner. Rédigée à la
+// main à partir d'une lecture complète des 15 scripts ci-dessus.
+const SCRIPTURA_MODELES_ADN = {
+  fritzl: {
+    structure: 'Hook choc → transition → contexte (ville calme, fausse normalité) → détonateur (disparition) → immersion 2e personne (le voisin) → révélation de l\'horreur cachée → montée en détails glaçants → procès → clôture',
+    rythme: 'Lent et glaçant au début, densité maximale sur la révélation de l\'horreur, ralentit sur le procès',
+    typeHook: 'Dissonance temporelle ("Ils ont vécu X ans... Et personne n\'a rien vu.")',
+    sujetsCompatibles: 'true crime, prédateurs, secrets de famille, horreur cachée derrière une façade normale, banalité du mal',
+    sujetsIncompatibles: 'sujets factuels neutres, tutoriels, actualité pure sans noirceur humaine'
+  },
+  kadhafi: {
+    structure: 'Hook paradoxe destin → transition → contexte/origines → ascension au pouvoir → montée en puissance et excès → basculement (révolte) → chute violente → clôture',
+    rythme: 'Progressif, accélération nette dans le dernier tiers (la chute)',
+    typeHook: 'Paradoxe de destin ("Il voulait X. Il a fini Y.")',
+    sujetsCompatibles: 'dictateurs, chefs d\'État flamboyants, figures de pouvoir spectaculaires, arc ascension puis chute',
+    sujetsIncompatibles: 'sujets sans arc de pouvoir clair, tutoriels, comparaisons'
+  },
+  traore: {
+    structure: 'Hook contraste de statut → transition → contexte (pays en crise) → arrivée au pouvoir → immersion 2e personne → portée symbolique/populaire → tensions et menaces → clôture',
+    rythme: 'Grave et posé, densité stable, pas d\'accélération finale marquée',
+    typeHook: 'Contraste d\'identité/statut ("X n\'était pas Y. C\'était juste Z.")',
+    sujetsCompatibles: 'leaders émergents, figures politiques actuelles, espoir populaire, souveraineté, symboles collectifs',
+    sujetsIncompatibles: 'sujets sans dimension politique ou collective, tutoriels'
+  },
+  musulin: {
+    structure: 'Hook ironique → transition → portrait du personnage → jour J minute par minute → immersion → fuite → ironie du système/verdict → clôture',
+    rythme: 'Rapide et ludique, ironique de bout en bout, pas de passage lent',
+    typeHook: 'Ironie/reformulation ("Il n\'a pas fait X. Il a juste Y.")',
+    sujetsCompatibles: 'crimes astucieux sans violence, failles de système exploitées avec sang-froid, ironie sociale',
+    sujetsIncompatibles: 'sujets tragiques ou graves (le ton ironique y serait déplacé), tutoriels'
+  },
+  sean_combs: {
+    structure: 'Hook ambition/chute → transition → ascension (contexte + montée) → apogée (pouvoir, fêtes) → premiers signes sombres → scandale/accusations → chute publique → clôture',
+    rythme: 'Montée longue et progressive, bascule nette aux deux tiers, accélération sur le scandale final',
+    typeHook: 'Ambition/chute ("Il voulait X. Il a fini par Y.")',
+    sujetsCompatibles: 'célébrités, empires médiatiques/business bâtis puis fissurés, scandales de pouvoir, chute publique',
+    sujetsIncompatibles: 'sujets sans montée préalable ni statut à perdre, factuel pur'
+  },
+  pompei: {
+    structure: 'Hook fatalité → transition → contexte (prospérité, fausse sécurité) → détonateur soudain → plusieurs immersions 2e personne successives → minute par minute de la catastrophe → redécouverte/mémoire → question éthique → clôture',
+    rythme: 'Lent et contemplatif au début, extrêmement dense sur l\'instant de la catastrophe, ralentit à nouveau pour la réflexion finale',
+    typeHook: 'Fatalité, absence de temps pour réagir ("Ils n\'ont pas eu le temps de X. Alors Y.")',
+    sujetsCompatibles: 'catastrophes soudaines (naturelles, attentats, accidents de masse, bombardements), événements qui tuent en un instant une population entière, réflexion sur la civilisation/le destin humain',
+    sujetsIncompatibles: 'sujets progressifs sans instant de bascule brutal, tutoriels, comparaisons, listes'
+  },
+  snowden: {
+    structure: 'Hook trahison apparente → transition → contexte (formation, patriote convaincu) → détonateur (découverte du système) → dilemme moral → immersion 2e personne → fuite/révélation → conséquences/exil → clôture (chute non-interrogative)',
+    rythme: 'Posé, dilemme intérieur développé longuement, accélère nettement sur la fuite',
+    typeHook: 'Trahison apparente qui cache une loyauté réelle ("Il croyait servir X. Il a fini par Y.")',
+    sujetsCompatibles: 'lanceurs d\'alerte, dilemmes moraux face à un système, désobéissance par conviction, vérité contre institution',
+    sujetsIncompatibles: 'sujets sans dilemme moral central, factuel pur'
+  },
+  pape: {
+    structure: 'Annonce factuelle immédiate → contexte du rituel/protocole → présentation des favoris en tension → plusieurs tours de bascule → dénouement surprise → clôture',
+    rythme: 'Cérémonial et mystique, tension qui monte à chaque étape du processus, pas de hook choc initial',
+    typeHook: 'Annonce factuelle directe, sans paradoxe ni choc (le seul modèle de la bibliothèque dans ce cas)',
+    sujetsCompatibles: 'institutions, rituels de pouvoir/succession, élections ou processus formels avec un résultat surprise',
+    sujetsIncompatibles: 'sujets sans processus formel ni rituel, factuel pur sans tension de procédure, listes'
+  },
+  central_park: {
+    structure: 'Hook injustice → transition → contexte (le crime initial) → portraits des accusés → immersion (interrogatoire) → procès/condamnation injuste → révélation de la vérité (des années après) → réparation partielle → clôture',
+    rythme: 'Dense, alterne factuel et immersion, indignation qui monte crescendo',
+    typeHook: 'Injustice par contraste âge/peine ("Ils avaient entre X et Y ans. Ils ont été Z à tort.")',
+    sujetsCompatibles: 'erreurs judiciaires, racisme ou biais systémiques, injustices collectives, réhabilitation tardive',
+    sujetsIncompatibles: 'sujets individuels sans dimension systémique/collective, tutoriels'
+  },
+  bourdin: {
+    structure: 'Hook chiffre choc → transition → contexte (multiples identités volées) → cas central développé → immersion (la famille trompée) → démasquage → psychologie du personnage → clôture',
+    rythme: 'Étrange et psychologique, alterne factuel froid et introspection sur les motivations',
+    typeHook: 'Contraste chiffre/absence de gain matériel ("Il a volé X. Mais aucun Y.")',
+    sujetsCompatibles: 'imposture, manipulation psychologique, quête d\'identité ou de reconnaissance, mensonge pathologique',
+    sujetsIncompatibles: 'sujets factuels sans ressort psychologique, tutoriels'
+  },
+  carlos_ghosn: {
+    structure: 'Hook contraste statut/objet dérisoire → transition → contexte (empire, prestige) → chute/arrestation → immersion → plan d\'évasion → fuite spectaculaire → statut actuel/impunité → clôture',
+    rythme: 'Contraste fort : lent et cérémonial sur le prestige, très rapide et cinématographique sur l\'évasion',
+    typeHook: 'Contraste statut/déchéance via un objet inattendu ("Il était X. Il a fini Y.")',
+    sujetsCompatibles: 'chutes de dirigeants, évasions ou fuites spectaculaires, justice internationale, impunité des puissants',
+    sujetsIncompatibles: 'sujets sans rebondissement final marquant, sans plan/exécution notable'
+  },
+  le_pen: {
+    structure: 'Hook ambition/sanction → transition → contexte (ambition politique) → mécanisme du délit expliqué en détail → mise en perspective politique → hypocrisie ambiante → clôture',
+    rythme: 'Analytique et posé, peu d\'accélération, plus explicatif qu\'immersif',
+    typeHook: 'Ambition contrastée par une sanction ("Elle rêvait de X. Elle a fini avec Y.")',
+    sujetsCompatibles: 'procès politiques, corruption ou détournements, ambitions politiques déchues, hypocrisie du système',
+    sujetsIncompatibles: 'sujets sans mécanisme juridique ou politique précis à expliquer'
+  },
+  ali: {
+    structure: 'Hook contraste statut/symbole → transition → contexte (oppression systémique) → bascule vers la lutte → actions clandestines → traque → mort héroïque → postérité/mythe → clôture',
+    rythme: 'Grave et montant, densité maximale sur la traque finale',
+    typeHook: 'Contraste statut social modeste/symbole historique ("X était un [statut modeste]. [Institution] en a fait un symbole.")',
+    sujetsCompatibles: 'résistance, luttes de libération ou d\'indépendance, héros populaires nés de l\'injustice, colonisation',
+    sujetsIncompatibles: 'sujets sans dimension collective/systémique, sans oppression à combattre'
+  },
+  femmes_tabac: {
+    structure: 'Hook contraste espoir/illusion → transition → contexte (norme sociale contraignante) → entrée en scène du stratège → plan élaboré → mise en scène publique du plan → révélation de l\'ampleur/chiffres → clôture',
+    rythme: 'Analytique et stratégique, un pic de mise en scène (l\'événement clé), puis chute vers les chiffres finaux',
+    typeHook: 'Contraste espoir/illusion ("Ils cherchaient X. On leur a offert Y.")',
+    sujetsCompatibles: 'manipulation de masse, propagande, marketing et psychologie sociale, illusions collectives organisées',
+    sujetsIncompatibles: 'sujets sans dimension de manipulation ou d\'influence organisée'
+  },
+  madoff: {
+    structure: 'Hook ironie → transition → contexte (réputation, confiance installée) → mécanisme de l\'arnaque expliqué → immersion (l\'investisseur piégé) → ampleur croissante/victimes → chute soudaine → clôture (chute non-interrogative)',
+    rythme: 'Explicatif et posé, tension qui monte via l\'ampleur croissante, chute rapide à la toute fin',
+    typeHook: 'Ironie par inversion d\'attente ("Il ne vendait pas X, il vendait Y.")',
+    sujetsCompatibles: 'fraudes financières, confiance trahie à grande échelle, aveuglement collectif organisé',
+    sujetsIncompatibles: 'sujets sans mécanisme de confiance/tromperie au cœur du récit'
+  }
+};
+SCRIPTURA_MODELES.forEach(m => { if (SCRIPTURA_MODELES_ADN[m.id]) Object.assign(m, SCRIPTURA_MODELES_ADN[m.id]); });
+
 // ── Sélection du modèle le plus proche d'un sujet ──
 // Compare le sujet aux thèmes/titres de chaque modèle et retourne le meilleur.
 function choisirModele(sujet) {
@@ -332,26 +447,21 @@ function choisirModele(sujet) {
   return meilleurScore >= 4 ? meilleur : null;
 }
 
-// ── Présélection rapide de plusieurs modèles candidats ──
-// Même algorithme de score que choisirModele() ci-dessus (aucun appel
-// réseau/IA, purement local et donc quasi instantané), mais renvoie les N
-// meilleurs au lieu d'un seul. Sert à transmettre plusieurs candidats
-// crédibles au moteur Storytelling, qui choisit lui-même en interne (dans
-// le même appel IA, sans étape supplémentaire) celui dont la mécanique
-// narrative sert le mieux le récit demandé.
-//
+// ── Présélection lexicale, RÉSERVÉE au secours technique ──
 // PUREMENT LEXICAL (mots du sujet vs mots des thèmes) : ne capte QUE les
-// sujets qui partagent un mot avec un thème. Un sujet historique inhabituel
-// (ex. "la guerre de Hiroshima") ne partage aucun mot avec "catastrophe,
-// éruption, tragédie, destin" (les thèmes de Pompéi), alors que les DEUX
-// racontent la même mécanique narrative (un événement soudain qui tue une
-// population entière en un instant, un moment de bascule pour l'humanité) :
-// un vrai bon choix, mais invisible à cet algorithme, aucun mot en commun.
-// `strict=true` : ne renvoie QUE les correspondances lexicales fiables (peut
-// renvoyer []), pour laisser la place à choisirModelesSemantique() ci-dessous
-// en repli. `strict=false` (par défaut, comportement historique) : si aucune
-// correspondance fiable, renvoie quand même le meilleur score même faible,
-// pour ne JAMAIS laisser Scriptura sans aucune référence de style.
+// sujets qui partagent un mot avec un thème, aveugle à la MÉCANIQUE
+// narrative. Ratait par exemple "Les figés de Pompéi" pour "la guerre de
+// Hiroshima" (zéro mot commun avec "catastrophe, éruption, tragédie,
+// destin"), alors que les deux racontent la même mécanique. Décision du
+// propriétaire : un choix de script sur la seule similarité de mots n'est
+// pas fiable. N'est donc PLUS le mécanisme de choix normal (voir
+// choisirModelesSemantique ci-dessous, appelé en premier par le moteur
+// Storytelling) : cette fonction ne sert plus qu'en dernier recours si
+// l'appel IA sémantique échoue techniquement (panne réseau/API), pour ne
+// jamais laisser Scriptura sans aucune référence de style pendant une
+// panne. `strict=true` : ne renvoie QUE les correspondances fiables (peut
+// renvoyer []). `strict=false` : si aucune correspondance fiable, renvoie
+// quand même le meilleur score même faible (dernier filet).
 function choisirTopModeles(sujet, n, strict) {
   if (!sujet || !SCRIPTURA_MODELES.length) return [];
   const s = sujet.toLowerCase();
@@ -396,24 +506,37 @@ function choisirTopModeles(sujet, n, strict) {
   return tries.length ? [tries[0].modele] : [];
 }
 
-// ── Sélection SÉMANTIQUE par IA, en repli quand le filtre lexical échoue ──
-// Le filtre ci-dessus ne voit que des mots, jamais la MÉCANIQUE d'un
-// sujet ; un léger appel IA (juste les 15 titres + thèmes, pas les scripts
-// complets, donc peu coûteux et rapide) comble ce trou : il peut reconnaître
-// que "la guerre de Hiroshima" et "Les figés de Pompéi" (catastrophe,
-// tragédie, destin) racontent la même mécanique, malgré zéro mot commun.
-// Renvoie jusqu'à n modèles, ou [] si l'appel échoue/ne matche rien (le
-// code appelant retombe alors sur le filtre lexical en tout dernier recours).
+// ── Sélection SÉMANTIQUE par IA, MÉCANISME PRINCIPAL de choix de modèle ──
+// Le filtre lexical ci-dessus (choisirTopModeles/choisirModele) ne voit que
+// des mots, jamais la MÉCANIQUE d'un sujet : il ratait "Les figés de
+// Pompéi" pour "la guerre de Hiroshima" (zéro mot commun entre "guerre"/
+// "hiroshima" et les thèmes de Pompéi), alors que les deux racontent
+// exactement la même mécanique (un instant qui tue une population entière,
+// un basculement pour l'humanité). Un choix de script sur la seule
+// similarité de mots n'est pas fiable, décision du propriétaire : ce n'est
+// donc plus un simple repli, c'est désormais LE mécanisme de sélection.
+//
+// Envoie la fiche ADN de chacun des 15 modèles (structure en étapes,
+// rythme, type de hook, sujets compatibles ET incompatibles), pas
+// seulement des thèmes : de quoi juger une vraie compatibilité de
+// mécanique, pas une coïncidence de vocabulaire. Renvoie jusqu'à n
+// modèles classés du meilleur au moins bon, ou [] si l'appel échoue
+// (panne réseau/IA), auquel cas le code appelant retombe sur le filtre
+// lexical en tout dernier recours, uniquement pour ne jamais laisser
+// Scriptura sans aucune référence de style pendant une panne technique.
 async function choisirModelesSemantique(sujet, n) {
   if (!sujet || !SCRIPTURA_MODELES.length || typeof callAI !== 'function') return [];
   try {
-    const liste = SCRIPTURA_MODELES.map(m => `- "${m.titre}" (thèmes : ${m.themes.join(', ')})`).join('\n');
-    const prompt = `Voici la bibliothèque de scripts modèles de Scriptura (titre + thèmes de chacun) :
+    const liste = SCRIPTURA_MODELES.map(m =>
+      `── "${m.titre}" ──\nStructure : ${m.structure || 'n/d'}\nRythme : ${m.rythme || 'n/d'}\nType de hook : ${m.typeHook || 'n/d'}\nCompatible avec : ${m.sujetsCompatibles || 'n/d'}\nINCOMPATIBLE avec : ${m.sujetsIncompatibles || 'n/d'}`
+    ).join('\n\n');
+    const prompt = `Voici la bibliothèque de scripts modèles de Scriptura, chacun décrit par sa MÉCANIQUE narrative réelle (pas juste son thème) :
+
 ${liste}
 
 SUJET DU CRÉATEUR : "${sujet}"
 
-Choisis les ${n || 3} modèles dont la MÉCANIQUE NARRATIVE (pas seulement le thème littéral) sert le mieux ce sujet précis. Regarde au-delà des mots : un sujet historique catastrophique peut correspondre à un modèle sur une AUTRE catastrophe historique même si aucun mot du sujet n'apparaît dans ses thèmes (ex : un attentat ou un bombardement peut calquer sur un modèle de catastrophe naturelle soudaine, les deux racontent la même mécanique, un instant qui bascule et tue en masse). Classe du meilleur au moins bon.
+Identifie d'abord la mécanique narrative du sujet du créateur (nature de l'événement, dynamique, ce qui bascule), PUIS choisis les ${n || 3} modèles dont la structure/rythme/type de hook servent le mieux CETTE mécanique précise, jamais sur la base d'une simple ressemblance de mots ou de thème. Vérifie explicitement qu'aucun des modèles choisis n'a ce sujet dans sa liste "INCOMPATIBLE avec". Un sujet historique catastrophique et soudain peut par exemple parfaitement correspondre à un modèle sur une AUTRE catastrophe soudaine même si aucun mot ne se recoupe, les deux partagent la même mécanique. Classe du meilleur au moins bon.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec les TITRES EXACTS (copiés tel quel dans la liste ci-dessus) :
 {"titres":["titre du meilleur candidat","titre du 2e",...]}`;
