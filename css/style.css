@@ -126,13 +126,20 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
   content:'';position:absolute;inset:1px;border-radius:13px;
   background:linear-gradient(rgba(201,168,76,0.08),rgba(201,168,76,0.08)),var(--bg);z-index:1;
 }
-.hero-logo-badge svg{position:relative;z-index:2}
+.hero-logo-badge svg{position:relative;z-index:2;animation:heroBoltPulse 2s ease-in-out infinite}
 @keyframes heroLogoSpin{
   from{transform:translate(-50%,-50%) rotate(0deg)}
   to{transform:translate(-50%,-50%) rotate(360deg)}
 }
+/* Seul l'éclair respire, jamais le cadre (qui a déjà sa propre animation
+   de bordure tournante ci-dessus, indépendante). */
+@keyframes heroBoltPulse{
+  0%,100%{opacity:0.75;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.14)}
+}
 @media(prefers-reduced-motion:reduce){
   .hero-logo-badge::before{animation:none;background:rgba(201,168,76,0.5)}
+  .hero-logo-badge svg{animation:none}
 }
 .hero h1{
   font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
