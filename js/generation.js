@@ -1403,14 +1403,19 @@ const GEN_STEPS = {
     'Recherche de sujets méconnus…',
     'Sélection des idées les plus virales…'
   ],
+  // Étapes RÉELLES du moteur récit (voir generateStory, js/storytelling.js) :
+  // elles ne défilent pas sur un minuteur aveugle mais avancent au vrai
+  // moment où chaque phase serveur démarre (via avancerEtapeGen), pour que
+  // ce que voit le créateur corresponde à ce qui se passe vraiment. L'ordre
+  // et le nombre suivent exactement les phases pilotées dans generateStory.
   story: [
-    'Analyse du sujet et de sa tension…',
-    'Choix du ton narratif…',
-    'Écriture du hook percutant…',
-    'Construction de l\'immersion…',
-    'Montée de la tension…',
-    'Ciselage de la chute et signature…',
-    'Perfection narrative finale…'
+    'Choix du modèle narratif de référence…',
+    'Écriture de ton récit…',
+    'Relecture par le critique éditorial…',
+    'Corrections ciblées du récit…',
+    'Calibrage de la durée…',
+    'Hook et ouverture au cordeau…',
+    'Contrôle anti-plagiat et finition…'
   ],
   audit: [
     'Lecture des captures…',
@@ -1523,15 +1528,48 @@ function startGenAnimation(mode) {
   }
   if (skipNote) skipNote.style.display = avecSkip ? 'block' : 'none';
 
-  // Défilement des étapes textuelles (indépendant de la barre)
-  genInterval = setInterval(() => {
-    if (current < total - 1) {
-      steps[current].classList.remove('active');
-      steps[current].classList.add('done');
-      current++;
-      steps[current].classList.add('active');
-    }
-  }, 3200);
+  // Défilement des étapes textuelles (indépendant de la barre).
+  // Mode récit : PAS de minuteur aveugle. Les étapes sont pilotées par les
+  // vraies phases du moteur (generateStory appelle avancerEtapeGen à chaque
+  // phase serveur). La barre de progression continue de bouger toute seule,
+  // donc une étape qui reste affichée pendant une phase longue (l'écriture
+  // dure vraiment ~30 s) est honnête, pas figée. Les autres modes gardent
+  // le défilement estimé sur minuteur.
+  if (mode === 'story') {
+    genInterval = null;
+  } else {
+    genInterval = setInterval(() => {
+      if (current < total - 1) {
+        steps[current].classList.remove('active');
+        steps[current].classList.add('done');
+        current++;
+        steps[current].classList.add('active');
+      }
+    }, 3200);
+  }
+}
+
+// Avance l'étape ACTIVE de l'overlay de génération jusqu'à AU MOINS `cible`
+// (index 0-based), de façon monotone : ne revient jamais en arrière, ne
+// dépasse jamais la dernière étape. Utilisé par les modes qui connaissent
+// leurs vraies phases serveur (récit) pour refléter l'état réel plutôt qu'un
+// minuteur. Sans effet si l'overlay n'est pas monté (appel défensif).
+function avancerEtapeGen(cible) {
+  const stepsContainer = document.getElementById('genSteps');
+  if (!stepsContainer) return;
+  const steps = stepsContainer.querySelectorAll('.gen-step');
+  if (!steps.length) return;
+  const max = steps.length - 1;
+  const cibleClamp = Math.max(0, Math.min(cible | 0, max));
+  let courant = 0;
+  steps.forEach((s, i) => { if (s.classList.contains('active')) courant = i; });
+  if (cibleClamp <= courant) return; // jamais en arrière
+  for (let i = courant; i < cibleClamp; i++) {
+    steps[i].classList.remove('active');
+    steps[i].classList.add('done');
+  }
+  steps[cibleClamp].classList.remove('done');
+  steps[cibleClamp].classList.add('active');
 }
 
 function stopGenAnimation() {
