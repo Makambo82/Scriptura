@@ -174,7 +174,7 @@ async function generateStoryboardSeul() {
   } finally {
     btn.disabled = false;
     spinner.style.display = 'none';
-    btnText.textContent = '🎬 Générer le storyboard';
+    btnText.textContent = 'Générer le storyboard';
   }
 }
 
@@ -227,7 +227,7 @@ async function generatePromptsSeulementPourSegmentsNumerotes(input, segments) {
   } finally {
     btn.disabled = false;
     spinner.style.display = 'none';
-    btnText.textContent = '🎬 Générer le storyboard';
+    btnText.textContent = 'Générer le storyboard';
   }
 }
 
@@ -259,7 +259,7 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
   masquerFormulaireGeneration('sbSeulFormCard');
   document.getElementById('sbSeulResults').style.display = 'block';
   const out = document.getElementById('storyboardSeulOutput');
-  out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="sbSeulGrid" style="margin-top:18px"></div>`;
+  out.innerHTML = `<div class="sb-aide">${ICO('bulb')} Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="sbSeulGrid" style="margin-top:18px"></div>`;
   const grid = document.getElementById('sbSeulGrid');
 
   const carteMiniature = (m) => `
@@ -268,7 +268,7 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
           <span class="sb-time">★ Miniature</span>
           <span class="sb-index">Couverture</span>
         </div>
-        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-visual-label">${ICO('image')} Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${serieEsc(m)}</div>
         ${blocGenImage(storeCopyText(m))}
       </div>`;
@@ -279,7 +279,7 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
           <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
         </div>
         <div class="sb-dit">"${serieEsc(p.text || '')}"</div>
-        <div class="sb-visual-label">🖼️ Prompt visuel</div>
+        <div class="sb-visual-label">${ICO('image')} Prompt visuel</div>
         <div class="sb-visual">${serieEsc(p.visuel || '')}</div>
         ${blocGenImage(storeCopyText(p.visuel || ''))}
       </div>`;
@@ -333,19 +333,19 @@ function afficherStoryboardSeulResultat(board, miniature, guideSauve) {
         <span class="sb-time">★ Miniature</span>
         <span class="sb-index">Couverture</span>
       </div>
-      <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+      <div class="sb-visual-label">${ICO('image')} Prompt de la miniature (anti-scroll)</div>
       <div class="sb-visual">${serieEsc(miniature)}</div>
       ${blocGenImage(storeCopyText(miniature || ''))}
     </div>` : '';
   const sbFullText = (miniature ? `MINIATURE : ${miniature}\n\n` : '') + board.map((s, i) => `Plan ${s.segment || (i + 1)} (${s.duree || ''})\n${s.texte || ''}\nVisuel : ${s.visuel || ''}`).join('\n\n');
-  out.innerHTML = `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtml}${board.map((s, i) => `
+  out.innerHTML = `<div class="sb-aide">${ICO('bulb')} Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" style="margin-top:18px">${miniHtml}${board.map((s, i) => `
     <div class="sb-segment">
       <div class="sb-head">
         <span class="sb-time">${s.duree || ''}</span>
         <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
       </div>
       <div class="sb-dit">"${serieEsc(s.texte)}"</div>
-      <div class="sb-visual-label">🖼️ Prompt visuel</div>
+      <div class="sb-visual-label">${ICO('image')} Prompt visuel</div>
       <div class="sb-visual">${serieEsc(s.visuel)}</div>
       ${blocGenImage(storeCopyText(s.visuel || ''))}
     </div>`).join('')}

@@ -351,7 +351,7 @@ async function generateStoryStoryboard() {
           <span class="sb-time">★ Miniature</span>
           <span class="sb-index">Couverture</span>
         </div>
-        <div class="sb-visual-label">🖼️ Prompt de la miniature (anti-scroll)</div>
+        <div class="sb-visual-label">${ICO('image')} Prompt de la miniature (anti-scroll)</div>
         <div class="sb-visual">${auditEsc(m)}</div>
         ${blocGenImage(storeCopyText(m))}
       </div>`;
@@ -362,7 +362,7 @@ async function generateStoryStoryboard() {
           <span class="sb-index">Plan ${String(i + 1).padStart(2, '0')}</span>
         </div>
         <div class="sb-dit">"${auditEsc(p.text || '')}"</div>
-        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual-label">${ICO('image')} Prompt visuel</div>
         <div class="sb-visual">${auditEsc(p.visuel || '')}</div>
         ${blocGenImage(storeCopyText(p.visuel || ''))}
       </div>`;
@@ -374,7 +374,7 @@ async function generateStoryStoryboard() {
     const plans = segmentNarrativeStoryboard(currentStoryText);
     if (!plans.length) throw new Error('Récit vide');
 
-    out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
+    out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">${ICO('bulb')} Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
     const grid = document.getElementById('storyStoryboardGrid');
 
     let miniature = '';
@@ -428,7 +428,7 @@ async function generateStoryStoryboard() {
     const pb2 = document.getElementById('sbProgBar2'); if (pb2) setTimeout(() => { pb2.style.display = 'none'; }, 600);
     btn.disabled = false;
     document.getElementById('storyboardSpinner2').style.display = 'none';
-    document.getElementById('storyStoryboardText').textContent = '🎬 Générer le storyboard visuel';
+    document.getElementById('storyStoryboardText').textContent = 'Générer le storyboard visuel';
   }
 }
 
