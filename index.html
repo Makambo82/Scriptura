@@ -576,7 +576,7 @@
 
       <button class="btn-generate" id="viralAnaBtn" style="width:100%;margin-top:18px" onclick="lancerAnalyseVirale()">
         <span class="sb-gen-spinner" id="viralAnaSpinner" style="display:none"></span>
-        <span id="viralAnaBtnText">🔍 Analyser la vidéo</span>
+        <span id="viralAnaBtnText">Analyser la vidéo</span>
       </button>
     </div>
 
@@ -604,11 +604,11 @@
       <div class="outils-btn-row ds-scope">
         <button type="button" class="ds-scope-btn" id="outilsTranscriptionBtn" onclick="lancerOutilTikTok('transcription')">
           <span class="sb-gen-spinner" id="outilsTranscriptionSpinner" style="display:none"></span>
-          <span id="outilsTranscriptionBtnText">📝 Transcrire</span>
+          <span id="outilsTranscriptionBtnText">Transcrire</span>
         </button>
         <button type="button" class="ds-scope-btn" id="outilsTelechargementBtn" onclick="lancerOutilTikTok('telechargement')">
           <span class="sb-gen-spinner" id="outilsTelechargementSpinner" style="display:none"></span>
-          <span id="outilsTelechargementBtnText">⬇️ Télécharger</span>
+          <span id="outilsTelechargementBtnText">Télécharger</span>
         </button>
       </div>
 
@@ -779,8 +779,8 @@
       <div class="ctx-field">
         <label class="ctx-label">Format du récit</label>
         <div class="btn-grid" id="storyFormatGrid">
-          <button type="button" class="grid-btn" data-val="long">📖 Narratif long (immersif, sans limite)</button>
-          <button type="button" class="grid-btn" data-val="court">⚡ Court (durée précise)</button>
+          <button type="button" class="grid-btn" data-val="long">Narratif long (immersif, sans limite)</button>
+          <button type="button" class="grid-btn" data-val="court">Court (durée précise)</button>
         </div>
       </div>
 
@@ -823,7 +823,7 @@
 
       <button class="btn-generate" id="storyGenerateBtn" onclick="generateStory()">
         <div class="spinner" id="storySpinner"></div>
-        <span id="storyBtnText">✍️ Créer mon récit</span>
+        <span id="storyBtnText">Créer mon récit</span>
       </button>
     </div>
 
@@ -877,7 +877,7 @@
       <div id="sbSeulOptionsVisuelles"></div>
       <button class="btn-storyboard" id="sbSeulGenerateBtn" onclick="generateStoryboardSeul()">
         <span class="sb-gen-spinner" id="sbSeulGenSpinner"></span>
-        <span id="sbSeulBtnText">🎬 Générer le storyboard</span>
+        <span id="sbSeulBtnText">Générer le storyboard</span>
       </button>
     </div>
 
@@ -1036,7 +1036,7 @@
 
       <button class="btn-generate" id="ideaGenerateBtn" onclick="generateIdeas()">
         <div class="spinner" id="ideaSpinner"></div>
-        <span id="ideaBtnText">💡 Générer mes idées de contenu</span>
+        <span id="ideaBtnText">Générer mes idées de contenu</span>
       </button>
     </div>
 
@@ -1616,8 +1616,8 @@
     <div class="montage-section">
       <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">🎨 Générer les images</button>
-        <button class="btn-regenerate" id="montageChargerImagesBtn" onclick="declencherUploadImages()" type="button" title="Charger tes propres images (ex. générées avec ChatGPT ou Gemini), dans l'ordre des plans">📁 Charger mes images</button>
+        <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">Générer les images</button>
+        <button class="btn-regenerate" id="montageChargerImagesBtn" onclick="declencherUploadImages()" type="button" title="Charger tes propres images (ex. générées avec ChatGPT ou Gemini), dans l'ordre des plans">Charger mes images</button>
         <select class="ctx-input" id="montageImgFormatSelect" style="flex:0 0 auto;width:auto" title="Format de téléchargement des images">
           <option value="png">PNG</option>
           <option value="jpeg">JPEG</option>
@@ -1626,7 +1626,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
         <button class="btn-regenerate" id="montageSelectAllBtn" onclick="toggleToutSelectionnerImages()" type="button">Tout sélectionner</button>
-        <button class="btn-regenerate" id="montageDlSelectionBtn" onclick="telechargerImagesSelectionnees()" type="button">⬇ Télécharger la sélection (.zip)</button>
+        <button class="btn-regenerate" id="montageDlSelectionBtn" onclick="telechargerImagesSelectionnees()" type="button">Télécharger la sélection (.zip)</button>
       </div>
       <div class="sb-progress-bar" id="montageImagesLoader" style="display:none;max-width:none;margin-top:14px">
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill"></div></div>
@@ -1638,7 +1638,7 @@
       <div class="montage-section-label">Voix off</div>
       <select class="ctx-input" id="montageVoixSelect" style="display:none;margin-bottom:10px" onchange="changerVoixMontage(this.value)"></select>
       <div id="montageVoixZone">
-        <button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">🎙️ Générer la voix off</button>
+        <button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>
       </div>
     </div>
 
@@ -1646,7 +1646,7 @@
     <div class="montage-statut" id="montageStatut" style="display:none">Envoi des fichiers…</div>
     <div id="montageResultat"></div>
 
-    <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:16px">🎬 Lancer le montage</button>
+    <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:16px">Lancer le montage</button>
 </div>
 
 <!-- AGRANDISSEMENT D'IMAGE DU STUDIO (lightbox) -->

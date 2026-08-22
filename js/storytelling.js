@@ -98,7 +98,7 @@ function setStoryLoading(on) {
   const btn = document.getElementById('storyGenerateBtn');
   btn.disabled = on;
   document.getElementById('storySpinner').style.display = on ? 'block' : 'none';
-  document.getElementById('storyBtnText').textContent = on ? 'Scriptura écrit ton récit…' : '✍️ Créer mon récit';
+  document.getElementById('storyBtnText').textContent = on ? 'Scriptura écrit ton récit…' : 'Créer mon récit';
   if (on) startGenAnimation('story');
   else stopGenAnimation();
 }

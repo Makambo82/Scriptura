@@ -31,7 +31,7 @@ function storeGuideSource(data) {
 // contexte : texte libre (ton, titre…). onSave(guide) : persistance côté appelant.
 function guideMontageBoutonHTML(idBtn, zoneId, plans, contexte, onSave) {
   const key = storeGuideSource({ plans: plans || [], contexte: contexte || '', zoneId, onSave });
-  return `<button class="btn-regenerate guide-montage-btn" id="${idBtn}" type="button" onclick="genererGuideMontageParCle('${key}', this)">🎬 Guide de montage CapCut</button>`;
+  return `<button class="btn-regenerate guide-montage-btn" id="${idBtn}" type="button" onclick="genererGuideMontageParCle('${key}', this)">Guide de montage CapCut</button>`;
 }
 function genererGuideMontageParCle(key, btn) {
   const s = window._guideMontageStore[key];
@@ -81,7 +81,7 @@ async function genererGuideMontage(plans, contexte, btn, zoneId, onSave) {
     if (btn) btn.style.display = 'none';
     if (typeof onSave === 'function') { try { onSave(guide); } catch (e) {} }
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = libelleBtn || '🎬 Guide de montage CapCut'; }
+    if (btn) { btn.disabled = false; btn.textContent = libelleBtn || 'Guide de montage CapCut'; }
     if (zone) { zone.innerHTML = `<div class="error-box" style="display:block;margin-top:12px">Guide impossible : ${guideMontageEsc(e.message || 'réessaie')}.</div>`; zone.style.display = 'block'; }
   } finally {
     if (typeof stopGenAnimation === 'function') stopGenAnimation();
