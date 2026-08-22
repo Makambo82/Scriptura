@@ -2586,6 +2586,14 @@ body.is-unlocked .sidebar-logout{display:block}
 
 .ds-sante-row{text-align:center;margin:12px 0 24px}
 
+/* Abonnés / likes cumulés du compte : entre le score et le tag "Santé du
+   compte" (voir afficherDiagnosticSommaireResultat, js/diagnostic-sommaire.js). */
+.ds-stats-row{display:flex;justify-content:center;align-items:center;gap:26px;margin:10px 0 16px;flex-wrap:wrap}
+.ds-stat-item{display:flex;align-items:center;gap:7px}
+.ds-stat-item .ico{color:var(--gold);opacity:0.85;flex-shrink:0}
+.ds-stat-num{font-family:'Playfair Display',serif;font-weight:600;font-size:1.05rem;color:#fff;white-space:nowrap}
+.ds-stat-label{font-size:0.66rem;letter-spacing:0.05em;color:var(--text-secondary);text-transform:uppercase}
+
 .ds-tag{
   display:inline-block;max-width:100%;white-space:normal;word-break:break-word;
   padding:5px 12px;border-radius:999px;
