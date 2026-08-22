@@ -10,16 +10,29 @@ const ICON_DELETE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none"
 const ICON_SEARCH = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><line x1="15.6" y1="15.6" x2="21" y2="21"/></svg>';
 const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><circle cx="16" cy="6" r="2.6" fill="var(--bg)"/><circle cx="8" cy="12" r="2.6" fill="var(--bg)"/><circle cx="13" cy="18" r="2.6" fill="var(--bg)"/></svg>';
 
+// Icônes de mode (trait fin doré, mêmes visuels que les cartes d'accueil).
+// Définies ici en dur car historique.js est chargé avant ui.js (où vit ICO()) :
+// ces libellés sont construits au chargement, ICO() n'existerait pas encore.
+const _icoMode = (p) => '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+const ICO_MODE = {
+  audit:          _icoMode('<path d="M4 19h16"/><rect x="5.5" y="14" width="3" height="5" rx=".6"/><rect x="10.5" y="10" width="3" height="9" rx=".6"/><rect x="15.5" y="6" width="3" height="13" rx=".6"/>'),
+  serie:          _icoMode('<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M8 6v12"/><path d="M16 6v12"/>'),
+  ideas:          _icoMode('<path d="M9.5 18.5h5"/><path d="M10.5 21h3"/><path d="M12 3.5c-3.6 0-6 2.7-5.4 6.1.3 1.7 1.4 2.9 2.4 3.9.6.6.9 1.2 1 2h4c.1-.8.4-1.4 1-2 1-1 2.1-2.2 2.4-3.9C18 6.2 15.6 3.5 12 3.5Z"/>'),
+  script:         _icoMode('<path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/>'),
+  story:          _icoMode('<path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/><path d="M4.5 19.5l3-1.2"/>'),
+  storyboardSeul: _icoMode('<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 12h17"/><path d="M12 5v14"/>')
+};
+
 // Types disponibles pour le filtre "par mode" (menu ouvert par l'icône curseurs).
 const HIST_MODES_FILTRE = [
   { v: null,     label: 'Tous' },
-  { v: 'audit',  label: '📊 Diagnostic' },
+  { v: 'audit',  label: ICO_MODE.audit + ' Diagnostic' },
   { v: 'diagnosticSommaire', label: '@ Diagnostic sommaire' },
-  { v: 'serie',  label: '🎞️ Série' },
-  { v: 'ideas',  label: '💡 Idées' },
-  { v: 'script', label: '🎬 Script' },
-  { v: 'story',  label: '✍️ Récit' },
-  { v: 'storyboardSeul', label: '🗂️ Storyboard' }
+  { v: 'serie',  label: ICO_MODE.serie + ' Série' },
+  { v: 'ideas',  label: ICO_MODE.ideas + ' Idées' },
+  { v: 'script', label: ICO_MODE.script + ' Script' },
+  { v: 'story',  label: ICO_MODE.story + ' Récit' },
+  { v: 'storyboardSeul', label: ICO_MODE.storyboardSeul + ' Storyboard' }
 ];
 // Normalise pour une recherche insensible à la casse ET aux accents.
 function _normaliserRecherche(s) {
@@ -658,7 +671,7 @@ function _afficherListeFiltree() {
     return;
   }
 
-  const modeLabels = { script: '🎬 Script', ideas: '💡 Idées', story: '✍️ Récit', audit: '📊 Diagnostic', serie: '🎞️ Série', storyboardSeul: '🗂️ Storyboard' };
+  const modeLabels = { script: ICO_MODE.script + ' Script', ideas: ICO_MODE.ideas + ' Idées', story: ICO_MODE.story + ' Récit', audit: ICO_MODE.audit + ' Diagnostic', serie: ICO_MODE.serie + ' Série', storyboardSeul: ICO_MODE.storyboardSeul + ' Storyboard' };
   const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C', storyboardSeul: '#E2C87A' };
 
   // Séries et générations sont fusionnées dans UNE seule liste,
@@ -681,7 +694,7 @@ function _afficherListeFiltree() {
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${sid}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
           <div class="history-card-head">
-            <span class="history-mode" style="color:#C9A84C">🎞️ Série</span>
+            <span class="history-mode" style="color:#C9A84C">${ICO_MODE.serie} Série</span>
             ${fini ? '<span class="serie-badge-fini">Terminée</span>' : `<span class="history-date">${formaterNombre(fait)}/${formaterNombre(total)} épisodes</span>`}
           </div>
           <div class="history-title">${serieEsc(s.titre || 'Série sans titre')}</div>
