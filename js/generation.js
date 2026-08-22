@@ -754,14 +754,20 @@ async function generate() {
   if (!_regenGratuiteEnCours) resetRegen('script');
   const niche    = document.getElementById('niche').value.trim();
   const sujetBrut = document.getElementById('sujet').value.trim();
-  // Le champ accepte aussi bien quelques mots qu'un texte long collé.
-  // Au-delà d'un certain volume, on le traite comme une MATIÈRE de référence :
-  // on le borne pour ne pas faire exploser les prompts (le sujet est réutilisé
-  // à plusieurs étapes), et on prévient le modèle de ne pas le recopier.
+  // Le champ accepte aussi bien quelques mots qu'un texte long collé (un
+  // article entier, plusieurs pages). Au-delà d'un certain volume, on le
+  // traite comme une MATIÈRE de référence : le Directeur Éditorial (seule
+  // phase à recevoir ce texte complet, les phases suivantes ne travaillent
+  // plus que sur l'angle déjà distillé, voir sujetCourt plus bas) doit
+  // pouvoir en tenir compte EN ENTIER pour faire une vraie synthèse, pas
+  // juste lire le début et perdre tout ce qui suit. La borne ci-dessous
+  // reste large (~20 000 caractères, largement au-delà de la fenêtre de
+  // contexte du modèle) : c'est un garde-fou contre un collage aberrant
+  // (des centaines de pages), pas une limite pensée pour un article normal.
   const LONG_SEUIL = 400;
   const estTexteLong = sujetBrut.length > LONG_SEUIL;
   const sujet = estTexteLong
-    ? tronquerSansCouperEmoji(sujetBrut, 2000)
+    ? tronquerSansCouperEmoji(sujetBrut, 20000)
     : sujetBrut;
   const audience = document.getElementById('audience').value.trim();
   const format   = document.getElementById('format').value.trim();
