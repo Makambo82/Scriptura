@@ -35,6 +35,129 @@ function ICO(nom, cls) {
   return '<svg class="' + (cls || 'ico') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
 }
 
+// ── MENU DÉROULANT MAISON (remplace les <select> à choix nombreux) ──
+// Sur mobile, la liste d'un <select> natif est dessinée par l'OS (plein
+// écran sur iOS Safari) : aucun contrôle possible sur sa hauteur ou son
+// apparence depuis la page. Ce composant construit un menu maison (bouton +
+// liste limitée à ~6 choix visibles, petite flèche de défilement discrète)
+// tout en laissant le <select> original dans le DOM, masqué : .value,
+// .selectedIndex et tout addEventListener('change') déjà branché ailleurs
+// (js/app.js, js/generation.js…) continuent de fonctionner sans y toucher.
+// Les options sont relues en direct à CHAQUE ouverture (jamais mises en
+// cache) : certains select se remplissent après coup (ex. #serieNiche,
+// recopié depuis #auditNiche au moment d'ouvrir le mode Série).
+function initCustomSelect(select) {
+  if (!select || select.dataset.customInit === '1') return;
+  select.dataset.customInit = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'custom-select';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'custom-select-trigger';
+  trigger.setAttribute('aria-haspopup', 'listbox');
+  trigger.innerHTML = '<span class="cs-label"></span>'
+    + '<svg class="cs-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  wrap.appendChild(trigger);
+
+  const panel = document.createElement('div');
+  panel.className = 'custom-select-panel';
+  panel.innerHTML = '<div class="custom-select-scroll-hint top" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></div>'
+    + '<div class="custom-select-list" role="listbox"></div>'
+    + '<div class="custom-select-scroll-hint bottom" aria-hidden="true"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></div>';
+  wrap.appendChild(panel);
+
+  const list = panel.querySelector('.custom-select-list');
+  const hintTop = panel.querySelector('.custom-select-scroll-hint.top');
+  const hintBottom = panel.querySelector('.custom-select-scroll-hint.bottom');
+  const labelEl = trigger.querySelector('.cs-label');
+
+  function majTrigger() {
+    const opt = select.options[select.selectedIndex];
+    labelEl.textContent = opt ? opt.textContent : '';
+    trigger.classList.toggle('placeholder', !select.value);
+  }
+
+  function majIndicateurs() {
+    hintTop.classList.toggle('visible', list.scrollTop > 4);
+    hintBottom.classList.toggle('visible', list.scrollTop + list.clientHeight < list.scrollHeight - 4);
+  }
+
+  function construireListe() {
+    list.innerHTML = '';
+    Array.prototype.forEach.call(select.options, function (opt) {
+      const item = document.createElement('div');
+      item.className = 'custom-select-option' + (opt.value === select.value ? ' selected' : '');
+      item.setAttribute('role', 'option');
+      item.innerHTML = '<svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>' + (opt.textContent || '') + '</span>';
+      item.addEventListener('click', function () {
+        select.value = opt.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        majTrigger();
+        fermer();
+      });
+      list.appendChild(item);
+    });
+  }
+
+  function fermer() {
+    wrap.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
+  }
+
+  function ouvrir() {
+    if (wrap.classList.contains('open')) return;
+    document.querySelectorAll('.custom-select.open').forEach(function (autre) {
+      if (autre !== wrap) autre.classList.remove('open');
+    });
+    construireListe();
+    wrap.classList.add('open');
+    trigger.setAttribute('aria-expanded', 'true');
+    // Repart de l'option déjà choisie, pas toujours du tout début de la liste.
+    const selected = list.querySelector('.custom-select-option.selected');
+    if (selected) list.scrollTop = Math.max(0, selected.offsetTop - list.clientHeight / 2 + selected.clientHeight / 2);
+    majIndicateurs();
+  }
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (wrap.classList.contains('open')) fermer(); else ouvrir();
+  });
+  list.addEventListener('scroll', majIndicateurs);
+  document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) fermer(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && wrap.classList.contains('open')) { fermer(); trigger.focus(); }
+  });
+
+  // Certains endroits du code posent select.value directement (ex.
+  // preRemplirSiVide, js/profil.js) sans jamais déclencher 'change' : sans
+  // cette interception, le bouton affiché resterait bloqué sur l'ancien
+  // libellé. Délègue entièrement au setter natif, se contente d'écouter.
+  const nativeValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  if (nativeValueDesc && nativeValueDesc.set) {
+    Object.defineProperty(select, 'value', {
+      get: function () { return nativeValueDesc.get.call(select); },
+      set: function (v) { nativeValueDesc.set.call(select, v); majTrigger(); },
+      configurable: true
+    });
+  }
+  select.addEventListener('change', majTrigger);
+
+  majTrigger();
+}
+
+function initCustomSelects() {
+  ['niche', 'ideaNiche', 'auditNiche', 'serieNiche', 'audience', 'ideaAudience',
+   'tone', 'ideaTone', 'serieStyle', 'auditFrequence', 'serieGenre']
+    .forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) initCustomSelect(el);
+    });
+}
+
 // ── MASQUER/RÉVÉLER LE FORMULAIRE DE SAISIE UNE FOIS LE RÉSULTAT AFFICHÉ ──
 // Une fois une génération réussie, son formulaire (niche, sujet, ton…) n'a
 // plus sa place à l'écran : seul le résultat compte. masquerFormulaireGeneration

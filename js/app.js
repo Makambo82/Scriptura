@@ -138,6 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupIdeaButtons();
   setupStoryButtons();
   setupStoryboardSeulButtons();
+  if (typeof initCustomSelects === 'function') initCustomSelects();
 
   // Recommandation IA de l'accueil (fonctionnalité Premium) : purement
   // additive, ne touche à rien d'autre. Ne fait rien pour un utilisateur

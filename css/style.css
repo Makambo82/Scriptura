@@ -270,6 +270,56 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
 select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .ctx-textarea{resize:vertical;min-height:90px;line-height:1.7}
 
+/* ── MENU DÉROULANT MAISON ──────────────────────────────────────────
+   Remplace le rendu d'un <select> natif à choix nombreux (niche, audience,
+   ton, fréquence, genre) : sur mobile, la liste native est dessinée par
+   l'OS (plein écran sur iOS Safari), impossible à limiter en hauteur ou à
+   personnaliser depuis la page. Voir initCustomSelect, js/ui.js : le
+   <select> original reste dans le DOM, masqué, .value et tout addEventListener
+   ('change') déjà branché ailleurs continuent de fonctionner normalement. */
+.custom-select{position:relative}
+.custom-select select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
+.custom-select-trigger{
+  font-family:'Poppins',sans-serif;font-size:1rem;
+  background:#3A3A3D;border:1px solid rgba(255,255,255,0.15);border-radius:6px;
+  padding:13px 40px 13px 16px;color:#FFFFFF;outline:none;
+  transition:border-color 0.2s;width:100%;box-sizing:border-box;
+  display:flex;align-items:center;position:relative;cursor:pointer;text-align:left;
+}
+.custom-select-trigger .cs-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.custom-select-trigger.placeholder .cs-label{color:rgba(255,255,255,0.45);font-size:0.82rem}
+.custom-select-trigger:focus{border-color:rgba(201,168,76,0.45)}
+.custom-select-trigger .cs-chevron{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.45);transition:transform 0.2s;flex-shrink:0}
+.custom-select.open .custom-select-trigger .cs-chevron{transform:translateY(-50%) rotate(180deg)}
+.custom-select.open .custom-select-trigger{border-color:rgba(201,168,76,0.45)}
+.custom-select-panel{
+  position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;
+  background:#2E2E30;border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 16px 40px -10px rgba(0,0,0,0.65);
+  display:none;overflow:hidden;
+}
+.custom-select.open .custom-select-panel{display:block}
+.custom-select-list{max-height:254px;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 0}
+.custom-select-option{
+  padding:11px 16px;font-family:'Poppins',sans-serif;font-size:0.92rem;color:rgba(255,255,255,0.8);
+  cursor:pointer;display:flex;align-items:center;gap:10px;line-height:1.35;
+}
+.custom-select-option .cs-check{width:14px;flex:0 0 auto;color:var(--gold);visibility:hidden}
+.custom-select-option.selected{color:var(--gold-light)}
+.custom-select-option.selected .cs-check{visibility:visible}
+.custom-select-option:hover{background:rgba(201,168,76,0.1);color:#fff}
+/* Petite flèche discrète : indique qu'on peut glisser vers le haut ou le bas
+   pour voir d'autres choix, visible uniquement quand il reste du contenu
+   caché de ce côté (voir majIndicateurs, js/ui.js). */
+.custom-select-scroll-hint{
+  position:absolute;left:50%;transform:translateX(-50%);
+  width:26px;height:16px;display:flex;align-items:center;justify-content:center;
+  color:rgba(201,168,76,0.8);opacity:0;pointer-events:none;transition:opacity 0.15s;z-index:2;
+}
+.custom-select-scroll-hint.top{top:0;background:linear-gradient(to bottom,#2E2E30 45%,transparent)}
+.custom-select-scroll-hint.bottom{bottom:0;background:linear-gradient(to top,#2E2E30 45%,transparent)}
+.custom-select-scroll-hint.visible{opacity:1}
+
 /* SUMMARY ROW */
 .summary{
   display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;
