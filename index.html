@@ -1324,6 +1324,22 @@
         <p class="ctx-note">Le format change la façon d'écrire : en faceless, la voix off et le texte à l'écran portent tout ; en face caméra, tu parles directement à ta caméra.</p>
       </div>
 
+      <!-- Visible uniquement pour l'objectif "Générer des ventes" (voir
+           syncVenteFieldVisibilite, js/generation.js), pour que le CTA et
+           l'angle du script soient concrets plutôt que génériques. -->
+      <div class="ctx-field" id="venteField" style="display:none">
+        <label class="ctx-label">Ce que tu vends (optionnel)</label>
+        <textarea class="ctx-textarea" id="venteDescription" style="min-height:70px" placeholder="Ex : une formation TikTok en ligne, un ebook de recettes, un service de coaching…"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <label class="btn-regenerate" style="display:inline-block" for="venteFichierInput">Joindre une photo produit ou un PDF</label>
+          <input type="file" id="venteFichierInput" accept="image/*,application/pdf" style="display:none" onchange="chargerFichierVente(this.files)"/>
+          <span id="venteFichierNom" style="font-size:0.82rem;color:var(--text-secondary)"></span>
+          <button type="button" class="btn-regenerate" id="venteFichierRetirerBtn" style="display:none" onclick="retirerFichierVente()">Retirer</button>
+        </div>
+        <div class="error-box" id="venteFichierError" style="display:none;margin-top:8px"></div>
+        <p class="ctx-note">Scriptura peut lire une photo de ton produit ou un PDF court (ebook, brochure, jusqu'à une vingtaine de pages) pour construire un angle et une offre plus précis, pas seulement génériques.</p>
+      </div>
+
       <div class="ctx-field">
         <label class="ctx-label">Ton & voix</label>
         <select class="ctx-input" id="tone">

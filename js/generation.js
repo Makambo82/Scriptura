@@ -461,6 +461,10 @@ function showStep(n) {
   // les chemins qui l'affichent (avance normale, retour depuis l'étape 3,
   // pré-remplissage venant d'ailleurs, ex. creerScriptDepuisViral).
   if (n === 2 && typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
+  // Le champ "Ce que tu vends" (étape 3) n'a de sens que pour l'objectif
+  // ventes : le resynchroniser ici couvre tous les chemins qui affichent
+  // cette étape, pas seulement l'avancée normale depuis l'étape 2.
+  if (n === 3 && typeof syncVenteFieldVisibilite === 'function') syncVenteFieldVisibilite();
   document.getElementById('flow').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -520,6 +524,67 @@ document.addEventListener('keydown', function (e) {
   const wrap = document.getElementById('platformPicker');
   if (wrap && wrap.classList.contains('open')) wrap.classList.remove('open');
 });
+
+// ── OBJECTIF "VENTES" (étape 3) : description + fichier joint ──
+// Photo produit ou PDF (ebook, brochure…) pour que l'angle et l'offre du
+// script soient concrets, pas seulement génériques (retour créateur
+// explicite). compresserImage() vient de js/audit.js (portée globale,
+// déjà utilisée pour les captures) : même traitement, réutilisé tel quel.
+let venteFichier = null; // { base64, mediaType, nom } | null
+const VENTE_PDF_MAX_OCTETS = 3 * 1024 * 1024; // ~3 Mo bruts, une vingtaine de pages d'un PDF texte
+
+function syncVenteFieldVisibilite() {
+  const champ = document.getElementById('venteField');
+  if (champ) champ.style.display = (state.objectif === 'Générer des ventes via mon contenu') ? '' : 'none';
+}
+
+function lireFichierEnBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Lecture du fichier impossible.'));
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function chargerFichierVente(files) {
+  const f = files && files[0];
+  const err = document.getElementById('venteFichierError');
+  const nomEl = document.getElementById('venteFichierNom');
+  const retirerBtn = document.getElementById('venteFichierRetirerBtn');
+  err.style.display = 'none';
+  if (!f) return;
+  try {
+    if (f.type === 'application/pdf') {
+      if (f.size > VENTE_PDF_MAX_OCTETS) {
+        throw new Error('PDF trop volumineux (max ~3 Mo, une vingtaine de pages). Garde l\'essentiel : sommaire, page produit, avis.');
+      }
+      const base64 = await lireFichierEnBase64(f);
+      venteFichier = { base64, mediaType: 'application/pdf', nom: f.name };
+    } else if (f.type.startsWith('image/')) {
+      const compresse = await compresserImage(f);
+      venteFichier = { base64: compresse.base64, mediaType: compresse.mediaType, nom: f.name };
+    } else {
+      throw new Error('Format non pris en charge : joins une image ou un PDF.');
+    }
+    nomEl.textContent = venteFichier.nom;
+    retirerBtn.style.display = '';
+  } catch (e) {
+    venteFichier = null;
+    nomEl.textContent = '';
+    retirerBtn.style.display = 'none';
+    err.textContent = e.message || 'Impossible de lire ce fichier.';
+    err.style.display = 'block';
+  }
+  document.getElementById('venteFichierInput').value = '';
+}
+
+function retirerFichierVente() {
+  venteFichier = null;
+  document.getElementById('venteFichierNom').textContent = '';
+  document.getElementById('venteFichierRetirerBtn').style.display = 'none';
+  document.getElementById('venteFichierError').style.display = 'none';
+}
 
 // « Analyser une vidéo virale » : à partir d'un lien TikTok collé, récupère
 // automatiquement la transcription par la voix (voir api/video-stt.js) et remplit le
@@ -771,6 +836,8 @@ async function generate() {
     : sujetBrut;
   const audience = document.getElementById('audience').value.trim();
   const format   = document.getElementById('format').value.trim();
+  const venteDescription = (state.objectif === 'Générer des ventes via mon contenu')
+    ? document.getElementById('venteDescription').value.trim() : '';
   const viralVideo = document.getElementById('viralVideo').value.trim();
   // Les 4 choix de l'étape "Avec quoi commences-tu ?" doivent chacun produire
   // un résultat concrètement différent, pas seulement les 2 premiers.
@@ -892,26 +959,54 @@ async function generate() {
   // eux aussi en dépendre rigoureusement (retour créateur explicite).
   // "corps" alimente le brief stratégique ET la consigne du Rédacteur en
   // Chef, "cta" reste la consigne spécifique du dernier bloc.
+  // "trame" : squelette narratif par défaut, une base solide pour le
+  // Directeur Éditorial, pas un carcan absolu, il garde la main pour s'en
+  // écarter avec une vraie raison (voir consigne d'adaptation ci-dessous et
+  // l'appel à cette trame dans le brief). "critique" : questions propres à
+  // cet objectif que le Critique Éditorial doit se poser en plus de sa
+  // grille générale (anti-IA-générique, clichés...), jamais à sa place.
   const codesObjectifScript = {
     'Faire plus de vues et maximiser la portée': {
       corps: 'privilégie l\'angle et l\'émotion qui donnent le plus envie de PARTAGER ou d\'enchaîner sur une autre vidéo du compte (surprise, choc, humour, forte identification), la portée prime sur la conversion. La structure et les relances doivent maximiser la rétention pure jusqu\'au bout, sans jamais ralentir pour expliquer ou vendre quoi que ce soit.',
-      cta: 'inciter au partage ou à regarder une autre vidéo, la portée prime, pas la conversion.'
+      cta: 'inciter au partage ou à regarder une autre vidéo, la portée prime, pas la conversion.',
+      trame: 'hook → anomalie ou paradoxe → première révélation → nouvelle question qui relance la curiosité → contexte bref → révélation plus forte → twist → conclusion mémorable.',
+      critique: 'Les 3 premières secondes donnent-elles vraiment envie de rester ? Y a-t-il un ou plusieurs moments où la tension retombe (un passage à vide, une baisse de rythme) ? Chaque phrase justifie-t-elle vraiment sa présence, ou une partie pourrait-elle être supprimée sans perte ?'
     },
     'Gagner des abonnés qualifiés rapidement': {
       corps: 'construis un angle qui donne une signature reconnaissable au créateur (un point de vue, une expertise, une manière de traiter ce type de sujet), pas un contenu isolé et interchangeable. La structure doit laisser deviner qu\'il y a une suite ou un contenu récurrent à suivre, l\'émotion dominante doit créer de l\'attachement au créateur autant qu\'au sujet.',
-      cta: 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent), jamais un "abonne-toi" générique.'
+      cta: 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent), jamais un "abonne-toi" générique.',
+      trame: 'hook → histoire ou information forte → valeur livrée au spectateur → signature éditoriale (la manière propre au créateur de traiter ce type de sujet, pas générique) → ouverture vers un autre contenu du compte → pourquoi suivre ce compte précisément → CTA d\'abonnement.',
+      critique: 'Le créateur a-t-il une identité claire et reconnaissable dans ce script, ou pourrait-il être signé par n\'importe quel compte ? Le spectateur comprend-il concrètement pourquoi suivre CE compte plutôt qu\'un autre sur le même sujet ? Le script donne-t-il envie de voir la prochaine vidéo, pas seulement d\'avoir aimé celle-ci ?'
     },
     'Générer des ventes via mon contenu': {
       corps: 'construis l\'angle autour d\'un problème réel et douloureux pour l\'audience, que l\'offre du créateur résout implicitement. Privilégie une structure problème → agitation → solution assumée, l\'émotion dominante doit créer le désir ou l\'urgence d\'agir, jamais du contenu purement informatif qui n\'oriente vers rien.',
-      cta: 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre), sans jamais sonner comme une pub déguisée.'
+      cta: 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre), sans jamais sonner comme une pub déguisée.',
+      trame: 'problème → prise de conscience → aggravation ou enjeu réel de ce problème → nouvelle façon de voir ce problème → solution → preuve ou crédibilité → offre → CTA. L\'offre n\'apparaît jamais avant que le désir soit réellement construit.',
+      critique: 'Le problème posé est-il assez important pour justifier qu\'on y consacre du temps et, potentiellement, de l\'argent ? Le désir est-il vraiment construit avant que l\'offre apparaisse, ou l\'offre arrive-t-elle trop tôt/brutalement ? L\'objection la plus probable du spectateur (prix, doute, "ça marche vraiment ?") est-elle anticipée d\'une façon ou d\'une autre ?'
     },
     'Renforcer mon expertise et ma crédibilité': {
       corps: 'choisis un angle qui démontre une maîtrise réelle et non évidente du sujet (nuance, contre-intuition, preuve concrète), jamais un contenu superficiel ou putaclic. Privilégie une structure de démonstration/preuve plutôt qu\'une simple accroche, l\'émotion dominante visée est le respect et la confiance envers le créateur, pas seulement le divertissement.',
-      cta: 'inciter à commenter son avis ou sauvegarder, démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.'
+      cta: 'inciter à commenter son avis ou sauvegarder, démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.',
+      trame: 'thèse forte et assumée → fait ou preuve concrète → contexte → nuance (ce qui est vrai mais incomplet dans la vision commune) → analyse → contre-argument pris au sérieux → conclusion originale, pas une simple reformulation de la thèse de départ.',
+      critique: 'Les affirmations sont-elles précises et vérifiables, ou vagues et invérifiables ? Y a-t-il une vraie nuance (une distinction, une limite reconnue), ou seulement une déclaration d\'autorité sans démonstration ? Le script démontre-t-il l\'expertise par le raisonnement, ou se contente-t-il de l\'affirmer ("je suis expert donc crois-moi") ?'
     }
   };
   const objectifCorpsScript = codesObjectifScript[state.objectif] && codesObjectifScript[state.objectif].corps;
   const objectifCtaScript = codesObjectifScript[state.objectif] && codesObjectifScript[state.objectif].cta;
+  const objectifTrameScript = codesObjectifScript[state.objectif] && codesObjectifScript[state.objectif].trame;
+  const objectifCritiqueScript = codesObjectifScript[state.objectif] && codesObjectifScript[state.objectif].critique;
+
+  // Objectif ventes : ce que le créateur vend rend l'angle et l'offre
+  // concrets plutôt que génériques (retour créateur explicite). Le fichier
+  // joint (photo produit ou PDF) n'est lu qu'à cette seule phase (comme le
+  // texte source long, voir sujet/sujetCourt plus bas) : les phases
+  // suivantes travaillent sur l'angle déjà distillé par le Directeur
+  // Éditorial, pas sur le fichier brut, pour ne pas répéter son coût.
+  const estObjectifVentes = state.objectif === 'Générer des ventes via mon contenu';
+  const venteContexteScript = (estObjectifVentes && (venteDescription || venteFichier))
+    ? `\nCE QUE LE CRÉATEUR VEND : ${venteDescription || '(voir le fichier joint au message)'}${venteFichier ? ' Un fichier joint au message (photo du produit ou extrait du document fourni) donne des détails supplémentaires, utilise-le activement pour construire un angle, une preuve et une offre concrets, pas génériques.' : ''}\n`
+    : '';
+  const venteFichierPourBrief = (estObjectifVentes && venteFichier) ? venteFichier : undefined;
   const objectifInstructionScript = state.objectif
     ? `OBJECTIF DU CRÉATEUR "${state.objectif}", LE CTA FINAL DOIT : ${objectifCtaScript || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
     : `Aucun objectif précisé : vise un CTA équilibré entre portée et fidélisation.`;
@@ -946,6 +1041,7 @@ ${selectedTone ? '- Ton souhaité : ' + selectedTone : ''}
 ${profilLigneScript ? '- ' + profilLigneScript : ''}
 ${departInstructionScript}
 ${objectifCorpsInstructionScript}
+${venteContexteScript}
 
 TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différence) :
 
@@ -955,7 +1051,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 3. COMPARAISON ET SÉLECTION : Compare les 3 angles pour ${state.plateforme} et l'objectif "${state.objectif}". L'angle choisi ne doit jamais être simplement "intéressant" : il doit être le PLUS PUISSANT des trois, celui qui a le plus fort potentiel d'arrêt du scroll ET de rétention. Choisis-en UN et justifie en une phrase pourquoi il est le plus fort, pas seulement pourquoi il convient.
 
-4. STRUCTURE NARRATIVE OPTIMALE : Quelle structure sert le mieux cet angle ? (ex: problème→agitation→solution, boucle ouverte, storytelling chronologique, liste à tension croissante, mythe→réalité...). Choisis la meilleure.
+4. STRUCTURE NARRATIVE OPTIMALE : Quelle structure sert le mieux cet angle ? ${objectifTrameScript ? `Base-toi sur cette trame par défaut pour l'objectif du créateur, une base solide et éprouvée, pas un carcan : ${objectifTrameScript} Adapte le NOMBRE d'étapes de cette trame au nombre de blocs disponibles pour la durée choisie (indiqué plus bas) : à peu de blocs, fusionne ou élague les étapes les moins essentielles, mais ne sacrifie JAMAIS le hook ni la conclusion/CTA. Tu peux t'en écarter si tu as une meilleure structure pour CE sujet précis, mais seulement avec une vraie raison, pas par réflexe.` : '(ex: problème→agitation→solution, boucle ouverte, storytelling chronologique, liste à tension croissante, mythe→réalité...)'} Choisis la meilleure.
 
 5. STRATÉGIE ÉMOTIONNELLE ET RÉTENTION : Quelle émotion dominante veux-tu déclencher ? Pour tenir l'attention jusqu'au bout, appuie-toi consciemment sur ta connaissance de la psychologie humaine et choisis, parmi ces leviers, celui ou ceux qui serviront le mieux CE sujet (nomme-le/les) : la BOUCLE OUVERTE MAINTENUE (une tension posée tôt, jamais refermée avant la fin), la RÉCOMPENSE IMPRÉVISIBLE (varier le rythme et les révélations pour que le spectateur ne puisse jamais deviner ce qui vient), l'ESCALADE DES ENJEUX (chaque relance plus forte que la précédente, jamais un plateau), ou le MICRO-CLIFFHANGER (une relance juste avant chaque coupure mentale naturelle). Précise où placer les "retention hooks" (relances qui réaccrochent) et quel levier psychologique chacun exploite.
 
@@ -968,7 +1064,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase : pourquoi c'est le PLUS PUISSANT des 3, pas juste pourquoi il convient","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant, déjà validée contre le test de prévisibilité, avec le levier psychologique choisi nommé explicitement","strategie_retention":"où placer les relances pour tenir jusqu'au bout, avec le(s) levier(s) psychologique(s) exploité(s) nommé(s)","strategie_cta":"l'action précise à demander en fin de script"}`;
 
-    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt);
+    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt, undefined, false, undefined, undefined, venteFichierPourBrief);
     const brief = parseAIResponse(briefRaw) || {};
     // Si l'utilisateur a collé un texte long, on ne le répète pas dans les
     // étapes suivantes : on utilise l'angle dégagé par le directeur éditorial.
@@ -1163,7 +1259,7 @@ ${scriptForReview}
 TON TRAVAIL, EN TROIS TEMPS :
 
 1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Vérifie aussi que l'angle, l'émotion et la structure servent vraiment l'objectif du créateur ci-dessus (pas seulement le CTA final) : si le corps du script pourrait être identique quel que soit l'objectif choisi, c'est une faiblesse à signaler. Pour chaque faiblesse, indique le numéro du segment concerné.
-
+${objectifCritiqueScript ? `\n1bis. CONTRÔLE SPÉCIFIQUE À L'OBJECTIF "${state.objectif}" : ${objectifCritiqueScript} Toute réponse négative ou mitigée à ces questions est une faiblesse à signaler, au même titre que celles du point 1.\n` : ''}
 2. RÉFUTATION, LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
 
 3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE, note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
@@ -2061,6 +2157,8 @@ function restart() {
   selectedTone = '';
   selectedDuree = '';
   document.getElementById('dureeGrid').value = '';
+  document.getElementById('venteDescription').value = '';
+  if (typeof retirerFichierVente === 'function') retirerFichierVente();
   document.getElementById('results').style.display = 'none';
   showStep(1);
 }
