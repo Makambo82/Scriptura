@@ -1675,6 +1675,11 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   font-size:1.1rem;width:24px;flex:0 0 24px;
   display:inline-flex;align-items:center;justify-content:center;
 }
+.sidebar-icon svg{width:20px;height:20px;display:block;color:var(--gold-light)}
+/* Icône en ligne dans un texte/badge (hérite de la couleur du texte via
+   currentColor, donc respecte l'or, l'émeraude, etc.). Style trait fin,
+   même famille que le logo et les icônes de cartes. */
+.ico{width:1em;height:1em;display:inline-block;vertical-align:-0.14em;flex:none}
 .sidebar-footer{
   font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.12em;text-transform:uppercase;
   color:rgba(255,255,255,0.3);text-align:left;padding:20px 14px 0;

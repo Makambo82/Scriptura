@@ -265,9 +265,9 @@ function escaperReco(s) { return (typeof auditEsc === 'function') ? auditEsc(s) 
 // badgeSourceReco et css/style.css (.reco-source-tag.premium).
 function infoSourceReco(reco) {
   const s = (reco && reco.source ? String(reco.source) : '').trim().toLowerCase();
-  if (s === 'diagnostic') return { icone: '📊', texte: "D'après ton diagnostic TikTok", premium: true };
-  if (s === 'creations' || s === 'créations') return { icone: '🎬', texte: "D'après tes créations", premium: false };
-  if (s === 'mixte' || s.includes('deux')) return { icone: '🧭', texte: "D'après ton diagnostic et tes créations", premium: true };
+  if (s === 'diagnostic') return { icone: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><rect x="5.5" y="13" width="3" height="6" rx="0.6"/><rect x="10.5" y="9" width="3" height="10" rx="0.6"/><rect x="15.5" y="6" width="3" height="13" rx="0.6"/></svg>', texte: "D'après ton diagnostic TikTok", premium: true };
+  if (s === 'creations' || s === 'créations') return { icone: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4-8 4-8-4 8-4Z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg>', texte: "D'après tes créations", premium: false };
+  if (s === 'mixte' || s.includes('deux')) return { icone: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2Z"/></svg>', texte: "D'après ton diagnostic et tes créations", premium: true };
   return null;
 }
 function badgeSourceReco(reco) {
@@ -276,17 +276,17 @@ function badgeSourceReco(reco) {
 }
 
 function carteRecommandationHero(reco, avecRafraichir) {
-  const justifs = (reco.justifications || []).map(j => `<div class="audit-diag-interp">✔ ${escaperReco(j)}</div>`).join('');
+  const justifs = (reco.justifications || []).map(j => `<div class="audit-diag-interp"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg> ${escaperReco(j)}</div>`).join('');
   return `
     <div class="reco-header-row">
-      <div class="audit-score-label" style="margin-bottom:0">🎯 RECOMMANDATION IA</div>
+      <div class="audit-score-label" style="margin-bottom:0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
       ${avecRafraichir ? boutonActualiserReco() : ''}
     </div>
     <div class="idea-titre" style="font-size:1.25rem;margin-bottom:10px">${escaperReco(reco.titre)}</div>
     <div class="audit-diag-constat">${escaperReco(reco.angle)}</div>
     <div class="audit-section-label" style="margin-top:18px">Pourquoi cette recommandation ?</div>
     <div style="margin:10px 0 4px">${justifs}</div>
-    <div class="reco-tags">${badgeSourceReco(reco)}<span class="summary-tag">🔥 Potentiel estimé : ${escaperReco(reco.potentiel || 'Moyen')}</span></div>
+    <div class="reco-tags">${badgeSourceReco(reco)}<span class="summary-tag"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 3-2 4.2-2 7a2 2 0 0 0 4 0c0-.6-.2-1.1-.5-1.6 2 1 3.5 2.9 3.5 5.1a5 5 0 0 1-10 0C7 12 9.5 9.3 12 3Z"/></svg> Potentiel estimé : ${escaperReco(reco.potentiel || 'Moyen')}</span></div>
   `;
 }
 
@@ -296,7 +296,7 @@ function carteRecommandationHero(reco, avecRafraichir) {
 // complète (justifications, hook, ton conseillé) réservée aux abonnés.
 function carteRecommandationSommaire(reco) {
   return `
-    <div class="audit-score-label">🎯 UNE IDÉE POUR TOI</div>
+    <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> UNE IDÉE POUR TOI</div>
     <div class="idea-titre" style="font-size:1.1rem;margin-bottom:8px">${escaperReco(reco.titre)}</div>
     <div class="audit-diag-constat" style="font-weight:400;color:var(--text-secondary)">${escaperReco(reco.angle)}</div>
   `;
@@ -321,14 +321,14 @@ function rendreRecommandationSommaire(containerId, data, entete) {
     ${entete || ''}
     <div class="score-card">
       ${carteRecommandationSommaire(data.recommandations[0])}
-      <button class="btn-generate" style="margin-top:14px" onclick="creerScriptDepuisRecommandation(0)">🎬 Créer le script</button>
+      <button class="btn-generate" style="margin-top:14px" onclick="creerScriptDepuisRecommandation(0)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg> Créer le script</button>
       <div class="ds-result-subscribe" style="margin-top:12px">✦ Abonne-toi pour un suivi personnalisé complet : 6 recommandations détaillées, hooks, tons conseillés, et un script en un clic.</div>
     </div>`;
   zone.style.display = 'block';
 }
 
 function carteRecommandationSecondaire(reco, index) {
-  const justifs = (reco.justifications || []).map(j => '✔ ' + escaperReco(j)).join('<br/>');
+  const justifs = (reco.justifications || []).map(j => '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg> ' + escaperReco(j)).join('<br/>');
   return `<div class="out-card idea-card">
     <div class="out-header" onclick="toggleCard(this.parentElement)">
       <div class="out-title idea-titre">${escaperReco(reco.titre)}</div>
@@ -339,7 +339,7 @@ function carteRecommandationSecondaire(reco, index) {
       <div class="idea-section"><div class="idea-section-label">◆ Pourquoi</div><div class="idea-section-text">${justifs}</div></div>
       <div class="idea-section"><div class="idea-section-label">◆ Potentiel</div><div class="idea-section-text">${escaperReco(reco.potentiel || 'Moyen')}</div></div>
       ${infoSourceReco(reco) ? `<div class="idea-section"><div class="idea-section-label">◆ Basé sur</div><div class="idea-section-text">${infoSourceReco(reco).icone} ${infoSourceReco(reco).texte}</div></div>` : ''}
-      <div class="idea-actions"><button class="idea-btn-script" onclick="creerScriptDepuisRecommandation(${index})">🎬 Créer le script</button></div>
+      <div class="idea-actions"><button class="idea-btn-script" onclick="creerScriptDepuisRecommandation(${index})"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg> Créer le script</button></div>
     </div>
   </div>`;
 }
@@ -747,7 +747,7 @@ async function initAccueilPremium() {
     console.warn('Accueil personnalisé indisponible', e);
     zone.innerHTML = `
       <div class="score-card">
-        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
         <div class="audit-diag-interp">Scriptura n'a pas pu préparer ta recommandation du jour pour le moment. Réessaie un peu plus tard.</div>
       </div>`;
     zone.style.display = 'block';
@@ -805,11 +805,11 @@ async function initAccueilPremiumInterne(zone) {
     zone.innerHTML = dejaSommaireAnon ? `
       <div class="results-heading">${salutationAccueil()}</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait, il me manque une génération (une idée, un script ou un récit) pour te proposer une vraie recommandation, fiable.</div>
-      <button class="btn-generate" onclick="demarrerIdeesDepuisSommaire()">💡 Trouver mes premières idées</button>
+      <button class="btn-generate" onclick="demarrerIdeesDepuisSommaire()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 18.5h5"/><path d="M10.5 21h3"/><path d="M12 3.5c-3.6 0-6 2.7-5.4 6.1.3 1.7 1.4 2.9 2.4 3.9.6.6.9 1.2 1 2h4c.1-.8.4-1.4 1-2 1-1 2.1-2.2 2.4-3.9C18 6.2 15.6 3.5 12 3.5Z"/></svg> Trouver mes premières idées</button>
     ` : `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
       <div class="ideas-sub" style="margin:6px 0 20px">Pour des recommandations vraiment pensées pour toi, commence par analyser ton compte TikTok.</div>
-      <button class="btn-generate" onclick="chooseMode('audit')">📊 Analyser mon compte</button>
+      <button class="btn-generate" onclick="chooseMode('audit')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><rect x="5.5" y="13" width="3" height="6" rx="0.6"/><rect x="10.5" y="9" width="3" height="10" rx="0.6"/><rect x="15.5" y="6" width="3" height="13" rx="0.6"/></svg> Analyser mon compte</button>
     `;
     zone.style.display = 'block';
     return;
@@ -833,7 +833,7 @@ async function initAccueilPremiumInterne(zone) {
     // plutôt que de voir un accueil vide et silencieux pendant ce temps.
     zone.innerHTML = `${entete}
       <div class="score-card">
-        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
         <div class="audit-diag-interp">Je prépare ta recommandation du jour, ça arrive dans un instant…</div>
       </div>`;
     zone.style.display = 'block';
@@ -859,16 +859,16 @@ async function initAccueilPremiumInterne(zone) {
     const dejaSommaire = await aFaitDiagnosticSommaire();
     zone.innerHTML = dejaSommaire ? `${entete}
       <div class="score-card">
-        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Ton diagnostic sommaire est fait, bien joué.</div>
         <div class="audit-diag-interp">Il me manque encore une génération (une idée, un script ou un récit) pour te faire une recommandation vraiment fiable, le diagnostic sommaire seul ne montre que ta bio et ta niche, pas encore ce qui fonctionne pour toi.</div>
-        <button class="btn-generate" style="margin-top:14px" onclick="demarrerIdeesDepuisSommaire()">💡 Trouver mes premières idées</button>
+        <button class="btn-generate" style="margin-top:14px" onclick="demarrerIdeesDepuisSommaire()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 18.5h5"/><path d="M10.5 21h3"/><path d="M12 3.5c-3.6 0-6 2.7-5.4 6.1.3 1.7 1.4 2.9 2.4 3.9.6.6.9 1.2 1 2h4c.1-.8.4-1.4 1-2 1-1 2.1-2.2 2.4-3.9C18 6.2 15.6 3.5 12 3.5Z"/></svg> Trouver mes premières idées</button>
       </div>` : `${entete}
       <div class="score-card">
-        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Scriptura apprend encore tes habitudes.</div>
         <div class="audit-diag-interp">Analyse ton compte TikTok : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
-        <button class="btn-generate" style="margin-top:14px" onclick="chooseMode('audit')">📊 Analyser mon compte</button>
+        <button class="btn-generate" style="margin-top:14px" onclick="chooseMode('audit')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><rect x="5.5" y="13" width="3" height="6" rx="0.6"/><rect x="10.5" y="9" width="3" height="10" rx="0.6"/><rect x="15.5" y="6" width="3" height="13" rx="0.6"/></svg> Analyser mon compte</button>
       </div>`;
     zone.style.display = 'block';
     return;
@@ -882,7 +882,7 @@ async function initAccueilPremiumInterne(zone) {
     // déjà ce principe pour l'autre cas de figure).
     zone.innerHTML = `${entete}
       <div class="score-card">
-        <div class="audit-score-label">🎯 RECOMMANDATION IA</div>
+        <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
         <div class="audit-diag-interp">Scriptura n'a pas pu préparer ta recommandation du jour pour le moment. Réessaie un peu plus tard.</div>
       </div>`;
     zone.style.display = 'block';
@@ -957,5 +957,5 @@ async function afficherOpportuniteDiagSommaire() {
     return;
   }
 
-  rendreRecommandationSommaire('diagSommaireOpportunites', data, '<div class="audit-section-label">🎯 En plus de ce diagnostic</div>');
+  rendreRecommandationSommaire('diagSommaireOpportunites', data, '<div class="audit-section-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> En plus de ce diagnostic</div>');
 }
