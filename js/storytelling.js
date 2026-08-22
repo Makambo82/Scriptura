@@ -257,8 +257,8 @@ ${longueurInstruction}
 
 MÉTHODE NARRATIVE OBLIGATOIRE (ta signature) :
 
-1. HOOK EN 2 PHRASES BRÈVES : paradoxal, choquant, dérangeant, fataliste ou intrigant. Il doit stopper le scroll immédiatement.
-   Exemples du style : "Il n'a pas fait un braquage. Il a juste pris une décision." / "Il voulait devenir le guide du monde arabe. Il a fini lynché dans un tuyau." / "Ils ont vécu 24 ans sans lumière. Et personne n'a rien vu."
+1. HOOK EN 2 PHRASES BRÈVES, MAXIMUM 16 MOTS AU TOTAL POUR LES DEUX PHRASES (mesuré sur les 15 modèles réels de Scriptura : jamais plus de 15 mots, aucune phrase individuelle de plus de 8 mots) : paradoxal, choquant, dérangeant, fataliste ou intrigant. Il doit stopper le scroll immédiatement. "Brèves" n'est pas une suggestion de style, c'est une contrainte de longueur stricte : chaque mot compte, aucune proposition subordonnée, aucun décor, va directement à l'os du paradoxe.
+   Exemples du style, avec leur nombre de mots : "Il n'a pas fait un braquage. Il a juste pris une décision." (13 mots) / "Il voulait devenir le guide du monde arabe. Il a fini lynché dans un tuyau." (15 mots) / "Ils ont vécu 24 ans sans lumière. Et personne n'a rien vu." (12 mots)
 
 2. OUVERTURE, TOUJOURS UN SEGMENT À PART ENTIÈRE (jamais fusionnée avec le Hook ou le Contexte) : Enchaîne avec "Aujourd'hui, on parle de..." (ou variante fluide) qui pose le personnage ou l'enjeu. Voir "Ouverture" dans le format JSON plus bas : ce segment doit apparaître, distinct du Hook et du Contexte.
 
@@ -588,24 +588,29 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       const segSuivant = parsed.recit[1];
       const modeleHookSeul = structureModeleRef ? (structureModeleRef.split('\n\n')[0] || '') : '';
       const hookPlagie = modeleHookSeul && partageDesMotsAvecModeleHook(segHook.texte, modeleHookSeul, 7);
+      // Plafond mesuré sur les 15 vrais modèles : jamais plus de 15 mots
+      // pour les deux phrases du hook réunies (moyenne 11). Sans ce
+      // contrôle, un hook "2 phrases" pouvait rester correct en nombre de
+      // phrases tout en étant deux fois plus long qu'aucun hook réel.
+      const compterMotsHook = (t) => ((t || '').trim().match(/\S+/g) || []).length;
+      const hookTropLong = compterMotsHook(segHook.texte) > 16;
       // Déjà correct UNIQUEMENT si la transition est dans un AUTRE segment
       // que le hook (vraiment séparée) ET que le hook ne recopie pas le
-      // hook du modèle : un hook copié mot pour mot est structurellement
-      // "correct" (2 phrases, ouverture séparée) mais reste un plagiat.
-      const dejaCorrect = !detecteOuverture(segHook.texte) && segSuivant && detecteOuverture(segSuivant.texte) && !hookPlagie;
+      // hook du modèle ET qu'il tient dans le plafond de mots réel.
+      const dejaCorrect = !detecteOuverture(segHook.texte) && segSuivant && detecteOuverture(segSuivant.texte) && !hookPlagie && !hookTropLong;
       if (!dejaCorrect) try {
-        const correctionOuverturePrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : les deux premiers éléments du récit doivent être un HOOK de EXACTEMENT 2 phrases brèves, ENTIÈREMENT NOUVELLES et propres à ce sujet, suivi d'une OUVERTURE séparée qui commence par "Aujourd'hui, on parle de..." (ou une variante fluide comme "Aujourd'hui, on va parler de..."), jamais fusionnés en un seul bloc.
+        const correctionOuverturePrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : les deux premiers éléments du récit doivent être un HOOK de EXACTEMENT 2 phrases brèves (MAXIMUM 16 MOTS AU TOTAL, mesuré sur les 15 vrais modèles de Scriptura qui ne dépassent jamais 15 mots), ENTIÈREMENT NOUVELLES et propres à ce sujet, suivi d'une OUVERTURE séparée qui commence par "Aujourd'hui, on parle de..." (ou une variante fluide comme "Aujourd'hui, on va parler de..."), jamais fusionnés en un seul bloc.
 
-SEGMENT ACTUEL À CORRIGER (peut déjà être correct, contenir le hook ET l'ouverture fusionnés, ou être un hook trop proche du modèle) :
+SEGMENT ACTUEL À CORRIGER (peut déjà être correct, contenir le hook ET l'ouverture fusionnés, être un hook trop proche du modèle, ou un hook trop long) :
 ${segHook.texte}
 
 SEGMENT SUIVANT DANS LE RÉCIT (déjà correct, INCHANGÉ après ta correction, donné seulement pour contexte, ne le duplique pas) :
 ${segSuivant ? segSuivant.texte : '(aucun)'}
-${hookPlagie ? '\n⚠️ ALERTE : le hook actuel ci-dessus REPREND DES MOTS DU HOOK DU MODÈLE DE RÉFÉRENCE (détecté mécaniquement). C\'est un PLAGIAT, même partiel. Tu DOIS écrire un hook totalement nouveau, avec un vocabulaire et une image différents, qui vise le MÊME EFFET (paradoxe/choc/dissonance) mais jamais les mêmes mots.\n' : ''}
+${hookPlagie ? '\n⚠️ ALERTE PLAGIAT : le hook actuel ci-dessus REPREND DES MOTS DU HOOK DU MODÈLE DE RÉFÉRENCE (détecté mécaniquement). C\'est un PLAGIAT, même partiel. Tu DOIS écrire un hook totalement nouveau, avec un vocabulaire et une image différents, qui vise le MÊME EFFET (paradoxe/choc/dissonance) mais jamais les mêmes mots.\n' : ''}${hookTropLong ? `\n⚠️ ALERTE LONGUEUR : le hook actuel fait ${compterMotsHook(segHook.texte)} mots, largement au-dessus du maximum de 16 (les vrais modèles ne dépassent jamais 15). Coupe TOUT ce qui n'est pas strictement nécessaire au paradoxe/choc : supprime les détails, les subordonnées, les précisions, garde uniquement l'os de la phrase. Le surplus d'information appartient à l'ouverture ou au contexte, pas au hook.\n` : ''}
 RÈGLES :
-- "hook" : EXACTEMENT 2 phrases brèves, paradoxales/choquantes/dérangeantes/intrigantes, qui arrêtent le scroll immédiatement, avec un vocabulaire 100% nouveau (jamais repris du modèle, même partiellement). Si le segment actuel en contient plus, garde uniquement les 2 premières phrases qui font vraiment office de hook.
+- "hook" : EXACTEMENT 2 phrases brèves, MAXIMUM 16 MOTS AU TOTAL pour les deux réunies, paradoxales/choquantes/dérangeantes/intrigantes, qui arrêtent le scroll immédiatement, avec un vocabulaire 100% nouveau (jamais repris du modèle, même partiellement). Si le segment actuel en contient plus (en phrases ou en mots), condense-le au strict essentiel : garde uniquement l'idée qui fait vraiment office de hook.
 - "ouverture" : 1 à 3 phrases courtes commençant par "Aujourd'hui, on parle de..." (ou variante fluide), qui posent le personnage ou l'enjeu. Si cette transition existe déjà dans le segment actuel, réutilise-la et ajuste-la légèrement si besoin pour qu'elle tienne seule. Si elle est absente, écris-la, cohérente avec le sujet et le ton du récit.
-- Ne perds AUCUNE information factuelle importante du segment actuel : si elle ne rentre pas dans les 2 phrases du hook, glisse-la dans l'ouverture plutôt que de la supprimer.
+- Ne perds AUCUNE information factuelle importante du segment actuel : si elle ne rentre pas dans les 16 mots du hook, glisse-la dans l'ouverture plutôt que de la supprimer.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hook":"...","ouverture":"..."}`;
