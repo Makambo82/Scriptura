@@ -140,21 +140,23 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, imageBase64) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, fichierJoint) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   // `mode` : identifie le quota à vérifier CÔTÉ SERVEUR (voir api/_lib/acces.js) :
   // 'creation' par défaut (idées/script/récit), ou 'creationSerie'
   // (Pro/jeton pour entrer, voir js/serie.js). diagnosticSommaire/analyseVirale/
   // audit passent par leurs propres routes (username-scan/video-stt/audit),
   // pas par callAI.
-  // `imageBase64` (optionnel) : une image JPEG en base64 (sans préfixe
-  // data:), jointe au message pour une analyse visuelle (ex. hook visuel de
-  // la 1re frame d'une vidéo, voir js/viral.js). api/generate.js relaie
-  // `messages` tel quel à Anthropic, aucun changement serveur nécessaire.
+  // `fichierJoint` (optionnel) : { base64, mediaType }, une image (JPEG) ou
+  // un PDF joint au message pour analyse (ex. photo produit ou ebook pour
+  // l'objectif "générer des ventes", voir js/generation.js). Anthropic lit
+  // les deux nativement via un content block dédié ('image' ou 'document'),
+  // api/generate.js relaie `messages` tel quel, aucun changement serveur
+  // nécessaire.
   const promptStyle = REGLE_STYLE_TIRET + prompt;
-  const contenuMessage = imageBase64
+  const contenuMessage = fichierJoint
     ? [
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+        { type: fichierJoint.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: fichierJoint.mediaType, data: fichierJoint.base64 } },
         { type: 'text', text: promptStyle }
       ]
     : promptStyle;
