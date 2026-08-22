@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
   setupStoryButtons();
   setupStoryboardSeulButtons();
   if (typeof initCustomSelects === 'function') initCustomSelects();
+  if (typeof initToggleButtonsAll === 'function') initToggleButtonsAll();
 
   // Recommandation IA de l'accueil (fonctionnalité Premium) : purement
   // additive, ne touche à rien d'autre. Ne fait rien pour un utilisateur
@@ -146,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof initAccueilPremium === 'function') initAccueilPremium();
 });
 
-// ── TON (menu déroulant) & DURÉE (grille de boutons), GROUPES INDÉPENDANTS ──
+// ── TON & DURÉE (menus déroulants), GROUPES INDÉPENDANTS ──
 let selectedDuree = '';
 
 const toneSelectEl = document.getElementById('tone');
@@ -154,10 +155,7 @@ if (toneSelectEl) {
   toneSelectEl.addEventListener('change', function() { selectedTone = this.value; });
 }
 
-document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#dureeGrid .grid-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    selectedDuree = btn.dataset.val;
-  });
-});
+const dureeSelectEl = document.getElementById('dureeGrid');
+if (dureeSelectEl) {
+  dureeSelectEl.addEventListener('change', function() { selectedDuree = this.value; });
+}
