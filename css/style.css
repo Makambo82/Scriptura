@@ -1208,6 +1208,10 @@ body.hero-focus .hero-focus-rule{display:block}
 .hero-mode-btn.primary .mode-desc{color:rgba(255,255,255,0.6)}
 .hero-mode-btn.primary .mode-icon{filter:none}
 .mode-icon{font-size:1.5rem;margin:0;flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(201,168,76,0.08);border-radius:11px}
+/* Icônes en trait fin doré (style du logo éclair), remplacent les anciens
+   emojis système : rendu identique sur tous les appareils, cohérent avec
+   l'univers premium. currentColor = doré clair, ajustable par état. */
+.mode-icon svg{width:24px;height:24px;display:block;color:var(--gold-light)}
 .mode-label{
   font-family:'Cinzel',serif;font-size:0.86rem;font-weight:500;
   letter-spacing:0.08em;text-transform:uppercase;color:var(--white);line-height:1.3;
