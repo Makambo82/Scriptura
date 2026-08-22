@@ -410,9 +410,9 @@ function useIdeaForScript(index) {
   // Point de départ : on a déjà tout, c'est un sujet précis
   state.depart = 'un sujet précis que je veux développer';
 
-  // Comme TOUS les choix sont reportés, on saute directement au récap (étape 4)
+  // Comme TOUS les choix sont reportés, on saute directement au récap (étape 3)
   if (state.objectif && state.plateforme) {
-    showStep(4);
+    showStep(3);
     renderSummary();
   } else {
     // Au cas où il manquerait objectif ou plateforme, on va à l'étape 1
@@ -443,23 +443,79 @@ function copyIdea(index, btn) {
 // ── NAVIGATION ──
 function choose(key, val, nextStep) {
   state[key] = val;
-  if (nextStep === 3 && key === 'plateforme') {
-    showStep(4);
-    renderSummary();
-  } else {
-    showStep(nextStep + 1);
-  }
+  // "depart" est le dernier choix avant l'étape contexte (résumé objectif +
+  // point de départ + plateforme) : avant, c'était le choix plateforme qui
+  // déclenchait ce récap, cette responsabilité lui revient maintenant.
+  if (key === 'depart') renderSummary();
+  showStep(nextStep + 1);
 }
 
 function showStep(n) {
   document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
   document.getElementById('step' + n).classList.add('active');
+  // L'étape 2 porte le menu plateforme : le resynchroniser ici couvre tous
+  // les chemins qui l'affichent (avance normale, retour depuis l'étape 3,
+  // pré-remplissage venant d'ailleurs, ex. creerScriptDepuisViral).
+  if (n === 2 && typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
   document.getElementById('flow').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function goBack(n) {
   showStep(n);
 }
+
+// ── PLATEFORME (menu repliable, étape 2) ──
+// Remplace l'ancienne étape 3 dédiée : pré-remplie sur TikTok, modifiable en
+// un clic, sans bloquer l'avancée instantanée de idée-vague/sujet-précis.
+function togglePlatformPicker() {
+  const wrap = document.getElementById('platformPicker');
+  if (wrap) wrap.classList.toggle('open');
+}
+
+function fermerPlatformPicker() {
+  const wrap = document.getElementById('platformPicker');
+  if (wrap) wrap.classList.remove('open');
+}
+
+function choisirPlateforme(val, el) {
+  state.plateforme = val;
+  document.querySelectorAll('#platformPanel .custom-select-option').forEach(o => o.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  const iconWrap = document.getElementById('platformTriggerIconWrap');
+  const svg = el ? el.querySelector('svg') : null;
+  if (iconWrap && svg) iconWrap.innerHTML = svg.outerHTML;
+  const label = document.getElementById('platformTriggerLabel');
+  if (label) label.textContent = val;
+  fermerPlatformPicker();
+}
+
+// Remet le bouton/icône du menu plateforme en phase avec state.plateforme,
+// utile quand celui-ci a été renseigné ailleurs qu'en cliquant une option
+// (pré-remplissage, retour arrière, restart…).
+function syncPlatformPickerVisuel() {
+  const label = document.getElementById('platformTriggerLabel');
+  const iconWrap = document.getElementById('platformTriggerIconWrap');
+  if (!label || !iconWrap) return;
+  const val = state.plateforme || 'TikTok';
+  label.textContent = val;
+  document.querySelectorAll('#platformPanel .custom-select-option').forEach(o => o.classList.remove('selected'));
+  const opt = document.querySelector('#platformPanel .custom-select-option[data-val="' + val.replace(/"/g, '\\"') + '"]');
+  if (opt) {
+    opt.classList.add('selected');
+    const svg = opt.querySelector('svg');
+    if (svg) iconWrap.innerHTML = svg.outerHTML;
+  }
+}
+
+document.addEventListener('click', function (e) {
+  const wrap = document.getElementById('platformPicker');
+  if (wrap && !wrap.contains(e.target)) wrap.classList.remove('open');
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  const wrap = document.getElementById('platformPicker');
+  if (wrap && wrap.classList.contains('open')) wrap.classList.remove('open');
+});
 
 // « Analyser une vidéo virale » : à partir d'un lien TikTok collé, récupère
 // automatiquement la transcription par la voix (voir api/video-stt.js) et remplit le
@@ -529,16 +585,16 @@ async function recupererTranscriptViral() {
 }
 
 // Depuis le bouton "✎ Modifier" du résultat : masque le résultat et
-// rouvre l'étape 4 (le formulaire) pour changer les critères sans jamais
+// rouvre l'étape 3 (le formulaire) pour changer les critères sans jamais
 // effacer les valeurs déjà saisies, contrairement à restart(), qui repart
-// de zéro. Voir renderResults(), qui masque l'étape 4 à l'affichage du résultat.
+// de zéro. Voir renderResults(), qui masque l'étape 3 à l'affichage du résultat.
 function modifierCriteresScript() {
   // Empile l'écran résultat AVANT de le masquer : un "← Retour" pendant la
   // modification retombe ainsi directement sur ce résultat (formulaire
   // remasqué, voir showScreen), jamais plus loin en arrière.
   pushNav();
   document.getElementById('results').style.display = 'none';
-  showStep(4);
+  showStep(3);
 }
 
 function renderSummary() {
@@ -1626,12 +1682,12 @@ function renderResults(d, niche, sujet) {
   const sbCont = document.getElementById('storyboardContainer');
   if (sbCont) sbCont.innerHTML = '';
 
-  // Le formulaire de saisie (étape 4) n'a plus sa place une fois le résultat
+  // Le formulaire de saisie (étape 3) n'a plus sa place une fois le résultat
   // affiché, seul le bouton "✎ Modifier" (voir modifierCriteresScript) le
   // fait réapparaître. Purement une classe CSS (voir showStep) : rien à
-  // restaurer explicitement, showStep(4) la rétablit normalement.
-  const step4 = document.getElementById('step4');
-  if (step4) step4.classList.remove('active');
+  // restaurer explicitement, showStep(3) la rétablit normalement.
+  const step3 = document.getElementById('step3');
+  if (step3) step3.classList.remove('active');
 
   list.innerHTML = '';
 
@@ -1955,6 +2011,8 @@ async function generateStoryboard() {
 
 function restart() {
   Object.keys(state).forEach(k => state[k] = '');
+  state.plateforme = 'TikTok';
+  if (typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
   document.getElementById('niche').value = '';
   document.getElementById('sujet').value = '';
   document.getElementById('audience').value = '';

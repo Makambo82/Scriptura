@@ -763,7 +763,7 @@ function _modeleEnTexte(d) {
 //  - source 'modele'  : on passe le GABARIT vierge (structure à appliquer).
 //  - source par défaut : on passe le transcript complet (recréer la recette),
 //    ou, pour un flop, la matière à corriger.
-// Dans tous les cas on dépose l'utilisateur sur le formulaire (étape 4) où il
+// Dans tous les cas on dépose l'utilisateur sur le formulaire (étape 3) où il
 // n'a plus qu'à indiquer SON sujet.
 function creerScriptDepuisViral(source) {
   if (typeof chooseMode !== 'function') return;
@@ -777,7 +777,7 @@ function creerScriptDepuisViral(source) {
     if (!state.objectif) state.objectif = 'Faire plus de vues et maximiser la portée';
     if (!state.plateforme) state.plateforme = 'TikTok';
   }
-  if (typeof showStep === 'function') showStep(4);
+  if (typeof showStep === 'function') showStep(3);
   if (typeof renderSummary === 'function') renderSummary(); // affiche le champ vidéo virale
   const champ = document.getElementById('viralVideo');
   if (champ) {
