@@ -8,6 +8,11 @@
 const MODEL_CREATIF = "claude-haiku-4-5-20251001";    // Haiku partout (rapide et fiable)
 const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, storyboards (vitesse)
 const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : tâche complexe, qualité premium
+// Le premier jet du récit reste sur Haiku (rapide), mais juger si un hook
+// "arrête vraiment le scroll" et réécrire les segments faibles est un
+// jugement créatif fin, pas mécanique : Haiku jugeant Haiku était complaisant.
+// Sonnet pour ces deux appels ciblés seulement (même logique que MODEL_AUDIT).
+const MODEL_QUALITE_RECIT = "claude-sonnet-4-6";
 
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents,
 // avec critique sévère + réécriture ciblée + contrôle anti-générique, voir

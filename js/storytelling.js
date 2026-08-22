@@ -386,7 +386,7 @@ TON TRAVAIL :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
 
-          const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt);
+          const critiqueRaw = await callAI(MODEL_QUALITE_RECIT, 2500, critiquePrompt);
           const critique = parseAIResponse(critiqueRaw);
           if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
 
@@ -452,7 +452,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"Hook","texte":"..."}]}`;
 
           try {
-            const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt);
+            const reviseRaw = await callAI(MODEL_QUALITE_RECIT, 8000, revisePrompt);
             const revised = parseAIResponse(reviseRaw);
             if (revised && Array.isArray(revised.recit) && revised.recit.length) {
               parsed.recit = revised.recit;
