@@ -197,9 +197,11 @@ async function generateStory() {
 
 ════════════════════════════════════════════
 MODÈLES DE RÉFÉRENCE CANDIDATS (ta propre signature narrative, ${candidats.length} option${candidats.length > 1 ? 's' : ''} pertinente${candidats.length > 1 ? 's' : ''} pour ce sujet)
-${candidats.length > 1 ? 'AVANT D\'ÉCRIRE, choisis EN SILENCE (ne l\'annonce jamais dans ta réponse) celui des candidats ci-dessous dont la structure narrative, le rythme, la progression dramatique et la montée en tension serviront le mieux CE récit précis, pas seulement celui dont le thème ressemble le plus au sujet. Une fois ce choix fait, utilise EXCLUSIVEMENT ce modèle unique comme référence absolue de style, de rythme, de ton et de structure : ne mélange JAMAIS plusieurs modèles entre eux.' : 'Utilise ce script comme RÉFÉRENCE ABSOLUE de style, de rythme, de ton et de structure.'} Ne le copie pas mot pour mot, mais CALQUE ton récit dessus : reprends son SQUELETTE narratif exact, étape par étape, dans le MÊME ordre, avec le MÊME dosage entre ce qu'il développe longuement et ce qu'il ne fait qu'effleurer, comme si tu posais un calque transparent sur sa structure et que tu écrivais par-dessus avec un sujet différent. Repère aussi les PROCÉDÉS RHÉTORIQUES qu'il emploie (anaphore, ironie, personnification, ellipse, images visuelles, antithèse, etc.) et réutilise-les dans ton récit avec la MÊME fréquence et la MÊME fonction narrative que dans le modèle, pas seulement son ton de surface. IMPRÈGNE-toi aussi de sa manière : la façon dont le hook frappe, dont les phrases sont courtes et rythmées, dont la tension monte, et SURTOUT la façon PRÉCISE dont IL referme le récit, reproduis exactement cette structure de clôture, quelle qu'elle soit (triple question, signature, chute sèche, question unique, autre chose), pas une clôture générique. Ton nouveau récit doit avoir EXACTEMENT ce niveau de qualité et cette voix.
+${candidats.length > 1 ? 'AVANT D\'ÉCRIRE, choisis EN SILENCE (ne l\'annonce jamais dans ta réponse) celui des candidats ci-dessous dont la structure narrative, le rythme, la progression dramatique et la montée en tension serviront le mieux CE récit précis, pas seulement celui dont le thème ressemble le plus au sujet. Une fois ce choix fait, utilise EXCLUSIVEMENT ce modèle unique comme référence absolue de style, de rythme, de ton et de structure : ne mélange JAMAIS plusieurs modèles entre eux.' : 'Utilise ce script comme RÉFÉRENCE ABSOLUE de style, de rythme, de ton et de structure.'}
 
-PRIORITÉ ABSOLUE DE CE MODÈLE (règle très importante) : le choix et le respect d'un modèle de référence n'est PAS optionnel, c'est une exigence centrale de Scriptura. Ton récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui. Si la STRUCTURE de ce modèle (l'ordre de ses étapes narratives, ce qu'il choisit de développer ou de survoler) diffère de la MÉTHODE NARRATIVE OBLIGATOIRE listée plus bas, c'est TOUJOURS la structure du modèle choisi qui prime. La méthode ci-dessous ne comble que ce que le modèle ne couvre pas explicitement, elle ne le remplace jamais.
+INTERDICTION ABSOLUE DE COPIE, MÊME PARTIELLE, MÊME REFORMULÉE : tu ne dois JAMAIS reprendre une phrase du modèle en te contentant de changer un ou deux mots. Exemple d'ÉCHEC GRAVE déjà constaté : le modèle se termine par "Que parfois, la beauté ne sauve rien ?" et le récit livré dit "Que parfois, la tendresse ne sauve rien ?", même construction, un seul mot changé, ce n'est PAS calquer, c'est du plagiat déguisé. CALQUE veut dire reprendre son SQUELETTE narratif exact, étape par étape, dans le MÊME ordre, avec le MÊME dosage entre ce qu'il développe longuement et ce qu'il ne fait qu'effleurer, comme si tu posais un calque transparent sur sa structure et que tu écrivais entièrement par-dessus, avec des PHRASES 100% NOUVELLES, propres à CE sujet précis. Repère aussi les PROCÉDÉS RHÉTORIQUES qu'il emploie (anaphore, ironie, personnification, ellipse, images visuelles, antithèse, etc.) et réutilise-les dans ton récit avec la MÊME fréquence et la MÊME fonction narrative que dans le modèle, jamais ses mots. IMPRÈGNE-toi aussi de sa manière : la façon dont le hook frappe, dont les phrases sont courtes et rythmées, dont la tension monte, et SURTOUT la façon PRÉCISE dont IL referme le récit, reproduis exactement cette structure de clôture, quelle qu'elle soit (triple question, signature, chute sèche, question unique, autre chose), pas une clôture générique, mais avec un texte entièrement neuf. Ton objectif n'est jamais de coller au modèle par sécurité : c'est de faire AUSSI BIEN, IDÉALEMENT MIEUX que lui, avec exactement la même mécanique, une exécution plus percutante, plus précise, plus surprenante sur CE sujet précis, jamais un ersatz affadi de son texte original.
+
+PRIORITÉ ABSOLUE DE CE MODÈLE (règle très importante) : le choix et le respect d'un modèle de référence n'est PAS optionnel, c'est une exigence centrale de Scriptura. Ton récit doit être CALQUÉ sur ce modèle (sa mécanique, sa structure), jamais RECOPIÉ (ses mots, ses phrases). Si la STRUCTURE de ce modèle (l'ordre de ses étapes narratives, ce qu'il choisit de développer ou de survoler) diffère de la MÉTHODE NARRATIVE OBLIGATOIRE listée plus bas, c'est TOUJOURS la structure du modèle choisi qui prime. La méthode ci-dessous ne comble que ce que le modèle ne couvre pas explicitement, elle ne le remplace jamais.
 
 ${blocsCandidats}
 ════════════════════════════════════════════
@@ -378,7 +380,8 @@ TON TRAVAIL :
 1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
 2. RÉFUTATION, cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
 3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) : le récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Si le récit s'écarte du squelette du modèle (une étape sautée, réordonnée, ou développée alors que le modèle ne fait que l'effleurer, ou l'inverse), c'est un écart de calque à signaler dans segments_faibles. Vérifie SPÉCIFIQUEMENT que le dernier segment se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") : si elle est absente, c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser, c'est l'écart le plus visible et le plus grave que Scriptura puisse commettre.
-4. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi, si elle est absente, générique ou faible, signale-le comme un problème à corriger.
+4. PLAGIAT, vérification OBLIGATOIRE, indépendante des points précédents : compare chaque phrase du récit, mot par mot, aux phrases du script du modèle. Si une phrase du récit reprend la construction ou l'essentiel des mots d'une phrase du modèle (même avec un ou deux mots changés, ex. "Que parfois, la tendresse ne sauve rien ?" copié sur "Que parfois, la beauté ne sauve rien ?"), c'est un PLAGIAT à signaler explicitement dans segments_faibles, quel que soit le segment concerné (hook, clôture, ou autre). Une bonne exécution du calque ne partage JAMAIS de phrase reconnaissable avec le modèle, seulement sa mécanique.
+5. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi, si elle est absente, générique ou faible, signale-le comme un problème à corriger.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
@@ -565,24 +568,42 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     function detecteOuverture(texte) {
       return /aujourd['’]?hui,?\s+(?:on|nous)\s+(?:parle|allons parler|va parler)/i.test(texte || '');
     }
+    // Même détecteur mécanique de plagiat que la clôture plus bas (déclaré
+    // ici, function hoisted, disponible partout dans ce bloc try malgré
+    // l'ordre d'apparition dans le fichier).
+    function partageDesMotsAvecModeleHook(texte, reference, n) {
+      const normaliser = (s) => (s || '').toLowerCase().replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+      const motsTexte = normaliser(texte);
+      const motsRef = normaliser(reference);
+      const N = n || 7;
+      const refNGrams = new Set();
+      for (let i = 0; i <= motsRef.length - N; i++) refNGrams.add(motsRef.slice(i, i + N).join(' '));
+      for (let i = 0; i <= motsTexte.length - N; i++) {
+        if (refNGrams.has(motsTexte.slice(i, i + N).join(' '))) return true;
+      }
+      return false;
+    }
     if (!repondreMaintenant && Array.isArray(parsed.recit) && parsed.recit.length >= 1) {
       const segHook = parsed.recit[0];
       const segSuivant = parsed.recit[1];
+      const modeleHookSeul = structureModeleRef ? (structureModeleRef.split('\n\n')[0] || '') : '';
+      const hookPlagie = modeleHookSeul && partageDesMotsAvecModeleHook(segHook.texte, modeleHookSeul, 7);
       // Déjà correct UNIQUEMENT si la transition est dans un AUTRE segment
-      // que le hook (vraiment séparée) : si elle est DANS le hook, c'est
-      // précisément le bug de fusion à corriger, pas un cas déjà bon.
-      const dejaCorrect = !detecteOuverture(segHook.texte) && segSuivant && detecteOuverture(segSuivant.texte);
+      // que le hook (vraiment séparée) ET que le hook ne recopie pas le
+      // hook du modèle : un hook copié mot pour mot est structurellement
+      // "correct" (2 phrases, ouverture séparée) mais reste un plagiat.
+      const dejaCorrect = !detecteOuverture(segHook.texte) && segSuivant && detecteOuverture(segSuivant.texte) && !hookPlagie;
       if (!dejaCorrect) try {
-        const correctionOuverturePrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : les deux premiers éléments du récit doivent être un HOOK de EXACTEMENT 2 phrases brèves, suivi d'une OUVERTURE séparée qui commence par "Aujourd'hui, on parle de..." (ou une variante fluide comme "Aujourd'hui, on va parler de..."), jamais fusionnés en un seul bloc.
+        const correctionOuverturePrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : les deux premiers éléments du récit doivent être un HOOK de EXACTEMENT 2 phrases brèves, ENTIÈREMENT NOUVELLES et propres à ce sujet, suivi d'une OUVERTURE séparée qui commence par "Aujourd'hui, on parle de..." (ou une variante fluide comme "Aujourd'hui, on va parler de..."), jamais fusionnés en un seul bloc.
 
-SEGMENT ACTUEL À CORRIGER (peut déjà être correct, ou contenir le hook ET l'ouverture fusionnés) :
+SEGMENT ACTUEL À CORRIGER (peut déjà être correct, contenir le hook ET l'ouverture fusionnés, ou être un hook trop proche du modèle) :
 ${segHook.texte}
 
 SEGMENT SUIVANT DANS LE RÉCIT (déjà correct, INCHANGÉ après ta correction, donné seulement pour contexte, ne le duplique pas) :
 ${segSuivant ? segSuivant.texte : '(aucun)'}
-
+${hookPlagie ? '\n⚠️ ALERTE : le hook actuel ci-dessus REPREND DES MOTS DU HOOK DU MODÈLE DE RÉFÉRENCE (détecté mécaniquement). C\'est un PLAGIAT, même partiel. Tu DOIS écrire un hook totalement nouveau, avec un vocabulaire et une image différents, qui vise le MÊME EFFET (paradoxe/choc/dissonance) mais jamais les mêmes mots.\n' : ''}
 RÈGLES :
-- "hook" : EXACTEMENT 2 phrases brèves, paradoxales/choquantes/dérangeantes/intrigantes, qui arrêtent le scroll immédiatement. Si le segment actuel en contient plus, garde uniquement les 2 premières phrases qui font vraiment office de hook.
+- "hook" : EXACTEMENT 2 phrases brèves, paradoxales/choquantes/dérangeantes/intrigantes, qui arrêtent le scroll immédiatement, avec un vocabulaire 100% nouveau (jamais repris du modèle, même partiellement). Si le segment actuel en contient plus, garde uniquement les 2 premières phrases qui font vraiment office de hook.
 - "ouverture" : 1 à 3 phrases courtes commençant par "Aujourd'hui, on parle de..." (ou variante fluide), qui posent le personnage ou l'enjeu. Si cette transition existe déjà dans le segment actuel, réutilise-la et ajuste-la légèrement si besoin pour qu'elle tienne seule. Si elle est absente, écris-la, cohérente avec le sujet et le ton du récit.
 - Ne perds AUCUNE information factuelle importante du segment actuel : si elle ne rentre pas dans les 2 phrases du hook, glisse-la dans l'ouverture plutôt que de la supprimer.
 
@@ -619,36 +640,60 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     //  court) pour une fidélité de clôture garantie plutôt que dépendante
     //  d'un détecteur imparfait.
     // ══════════════════════════════════════
+    // Détecte un chevauchement de N mots CONSÉCUTIFS entre deux textes :
+    // signal fiable de copie (même partielle, même avec un mot ou deux
+    // changés autour), contrairement à une comparaison de thème ou de
+    // longueur. Utilisé ci-dessous pour vérifier qu'une clôture "déjà
+    // conforme structurellement" n'est pas simplement... le texte du modèle
+    // recopié (qui, par définition, suit sa propre structure à la perfection).
+    function partageDesMotsAvecModele(texte, reference, n) {
+      const normaliser = (s) => (s || '').toLowerCase().replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+      const motsTexte = normaliser(texte);
+      const motsRef = normaliser(reference);
+      const N = n || 7;
+      const refNGrams = new Set();
+      for (let i = 0; i <= motsRef.length - N; i++) refNGrams.add(motsRef.slice(i, i + N).join(' '));
+      for (let i = 0; i <= motsTexte.length - N; i++) {
+        if (refNGrams.has(motsTexte.slice(i, i + N).join(' '))) return true;
+      }
+      return false;
+    }
+
     if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
       const clotureModeleSeule = structureModeleRef.split('\n\n').pop() || '';
       const dernierSegment = parsed.recit[parsed.recit.length - 1];
 
-      try {
-        const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : la clôture du récit doit reproduire EXACTEMENT la structure de la clôture du modèle de référence ci-dessous (même nombre de phrases/questions, même enchaînement), avec le contenu adapté au sujet du récit.
+      for (let tentative = 0; tentative < 2; tentative++) {
+        try {
+          const plagieDejaDetecte = tentative > 0; // 2e passage seulement si la 1re a laissé du plagiat
+          const correctionClotureFormPrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : la clôture du récit doit reproduire EXACTEMENT la structure de la clôture du modèle de référence ci-dessous (même nombre de phrases/questions, même enchaînement), avec un CONTENU ENTIÈREMENT NOUVEAU, propre au sujet du récit.
 
 CLÔTURE ACTUELLE DU RÉCIT :
 ${dernierSegment.texte}
 
-CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE À REPRODUIRE DANS SA FORME (même structure phrase par phrase, pas les mêmes mots) :
+CLÔTURE EXACTE DU MODÈLE DE RÉFÉRENCE (référence de FORME UNIQUEMENT, même structure phrase par phrase) :
 """
 ${clotureModeleSeule}
 """
-
+${plagieDejaDetecte ? '\n⚠️ ALERTE : la clôture actuelle ci-dessus REPREND DES MOTS DU MODÈLE (détecté mécaniquement, pas une supposition). C\'est un PLAGIAT, même partiel, même avec quelques mots changés. Tu DOIS la réécrire avec un vocabulaire et des images totalement différents du modèle, en gardant uniquement sa structure.\n' : ''}
 RÈGLES :
 - Réécris la clôture pour qu'elle suive la structure du modèle ci-dessus PHRASE PAR PHRASE : si le modèle a une phrase d'intro suivie de 3 questions/phrases parallèles, le récit doit avoir exactement ça, ni moins ni plus, aucune phrase fusionnée ou sautée.
-- Si la clôture actuelle suit déjà fidèlement cette structure, renvoie-la telle quelle (ne change rien inutilement).
+- INTERDICTION ABSOLUE de reprendre une phrase du modèle telle quelle ou en changeant juste un ou deux mots (ex. "Que parfois, la tendresse ne sauve rien ?" copié sur "Que parfois, la beauté ne sauve rien ?" est un ÉCHEC). Chaque phrase doit être NOUVELLE, écrite pour CE sujet précis, viser AUSSI BIEN sinon MIEUX que le modèle dans la même mécanique, jamais une simple substitution de mots.
 - Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), elle est obligatoire dans tous les cas. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
-- Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture change.
+- Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture s'aligne sur le modèle, jamais son texte.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"cloture":"la nouvelle clôture complète corrigée"}`;
 
-        const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
-        const correctionCloture = parseAIResponse(correctionClotureRaw);
-        if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
-          dernierSegment.texte = correctionCloture.cloture.trim();
-        }
-      } catch (e) { /* si la correction échoue, on garde la clôture actuelle */ }
+          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
+          const correctionCloture = parseAIResponse(correctionClotureRaw);
+          if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
+            dernierSegment.texte = correctionCloture.cloture.trim();
+          }
+        } catch (e) { break; /* si la correction échoue, on garde la clôture actuelle */ }
+
+        if (!partageDesMotsAvecModele(dernierSegment.texte, clotureModeleSeule, 7)) break; // propre, inutile de retenter
+      }
     }
 
     if (!unlocked && !_regenGratuiteEnCours) {
