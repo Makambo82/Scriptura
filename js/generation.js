@@ -877,15 +877,37 @@ async function generate() {
     ? `PLATEFORME "${state.plateforme}", RESPECTE SES CODES : ${codesPlateformeScript[state.plateforme] || 'adapte le rythme et le registre aux usages propres à cette plateforme.'}`
     : `Aucune plateforme précisée : reste généraliste, adapté à un usage vidéo courte multi-plateformes.`;
 
+  // L'objectif ne doit pas se limiter au CTA final : l'angle, l'émotion
+  // dominante et la structure choisis par le Directeur Éditorial doivent
+  // eux aussi en dépendre rigoureusement (retour créateur explicite).
+  // "corps" alimente le brief stratégique ET la consigne du Rédacteur en
+  // Chef, "cta" reste la consigne spécifique du dernier bloc.
   const codesObjectifScript = {
-    'Faire plus de vues et maximiser la portée': 'inciter au partage ou à regarder une autre vidéo, la portée prime, pas la conversion.',
-    'Gagner des abonnés qualifiés rapidement': 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent), jamais un "abonne-toi" générique.',
-    'Générer des ventes via mon contenu': 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre), sans jamais sonner comme une pub déguisée.',
-    'Renforcer mon expertise et ma crédibilité': 'inciter à commenter son avis ou sauvegarder, démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.'
+    'Faire plus de vues et maximiser la portée': {
+      corps: 'privilégie l\'angle et l\'émotion qui donnent le plus envie de PARTAGER ou d\'enchaîner sur une autre vidéo du compte (surprise, choc, humour, forte identification), la portée prime sur la conversion. La structure et les relances doivent maximiser la rétention pure jusqu\'au bout, sans jamais ralentir pour expliquer ou vendre quoi que ce soit.',
+      cta: 'inciter au partage ou à regarder une autre vidéo, la portée prime, pas la conversion.'
+    },
+    'Gagner des abonnés qualifiés rapidement': {
+      corps: 'construis un angle qui donne une signature reconnaissable au créateur (un point de vue, une expertise, une manière de traiter ce type de sujet), pas un contenu isolé et interchangeable. La structure doit laisser deviner qu\'il y a une suite ou un contenu récurrent à suivre, l\'émotion dominante doit créer de l\'attachement au créateur autant qu\'au sujet.',
+      cta: 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent), jamais un "abonne-toi" générique.'
+    },
+    'Générer des ventes via mon contenu': {
+      corps: 'construis l\'angle autour d\'un problème réel et douloureux pour l\'audience, que l\'offre du créateur résout implicitement. Privilégie une structure problème → agitation → solution assumée, l\'émotion dominante doit créer le désir ou l\'urgence d\'agir, jamais du contenu purement informatif qui n\'oriente vers rien.',
+      cta: 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre), sans jamais sonner comme une pub déguisée.'
+    },
+    'Renforcer mon expertise et ma crédibilité': {
+      corps: 'choisis un angle qui démontre une maîtrise réelle et non évidente du sujet (nuance, contre-intuition, preuve concrète), jamais un contenu superficiel ou putaclic. Privilégie une structure de démonstration/preuve plutôt qu\'une simple accroche, l\'émotion dominante visée est le respect et la confiance envers le créateur, pas seulement le divertissement.',
+      cta: 'inciter à commenter son avis ou sauvegarder, démontrer une maîtrise réelle du sujet, jamais du contenu superficiel.'
+    }
   };
+  const objectifCorpsScript = codesObjectifScript[state.objectif] && codesObjectifScript[state.objectif].corps;
+  const objectifCtaScript = codesObjectifScript[state.objectif] && codesObjectifScript[state.objectif].cta;
   const objectifInstructionScript = state.objectif
-    ? `OBJECTIF DU CRÉATEUR "${state.objectif}", LE CTA FINAL DOIT : ${codesObjectifScript[state.objectif] || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
+    ? `OBJECTIF DU CRÉATEUR "${state.objectif}", LE CTA FINAL DOIT : ${objectifCtaScript || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
     : `Aucun objectif précisé : vise un CTA équilibré entre portée et fidélisation.`;
+  const objectifCorpsInstructionScript = state.objectif
+    ? `OBJECTIF DU CRÉATEUR "${state.objectif}", CECI DOIT GUIDER L'ANGLE, L'ÉMOTION ET LA STRUCTURE (pas seulement le CTA final) : ${objectifCorpsScript || 'choisis l\'angle, l\'émotion et la structure qui servent le mieux cet objectif précis, formulé exactement comme le créateur l\'a choisi.'}`
+    : `Aucun objectif précisé : choisis l'angle et la structure les plus solides dans l'absolu.`;
 
   // Mémoire virale partagée (niche d'abord) : recettes prouvées pour éclairer
   // le choix de structure/hook du Directeur Éditorial.
@@ -913,6 +935,7 @@ ${format ? '- Format : ' + format : ''}
 ${selectedTone ? '- Ton souhaité : ' + selectedTone : ''}
 ${profilLigneScript ? '- ' + profilLigneScript : ''}
 ${departInstructionScript}
+${objectifCorpsInstructionScript}
 
 TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différence) :
 
@@ -992,7 +1015,7 @@ Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est l
 
 7. ${plateformeInstructionScript}
 
-8. ORIENTÉ OBJECTIF : tout, du hook au CTA, sert l'objectif du créateur ci-dessus, pas seulement le dernier bloc.
+8. ORIENTÉ OBJECTIF DU DÉBUT À LA FIN, PAS SEULEMENT LE CTA : ${objectifCorpsInstructionScript} Le brief stratégique ci-dessus a déjà dû en tenir compte pour l'angle, l'émotion et la structure, vérifie que ton texte le reflète vraiment, pas seulement le dernier bloc.
 
 9. LE CHAMP "texte" NE CONTIENT JAMAIS DE MINUTAGE : le champ "temps" (ex: "0-3 sec") est SÉPARÉ et sert uniquement de repère visuel pour le créateur, ne le répète JAMAIS en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : il ne doit jamais commencer par "0-3 sec :", "(0 à 3 secondes)" ou toute variante numérique de minutage. Écris directement la phrase parlée.
 
@@ -1117,6 +1140,7 @@ CONTEXTE :
 - Sujet : ${sujetCourt}
 - Plateforme : ${state.plateforme}
 - Objectif : ${state.objectif}
+${objectifCorpsInstructionScript}
 - Durée cible : ${wt.desc} (${wt.min}-${wt.max} mots)
 - Angle stratégique prévu : ${brief.angle_choisi || 'non précisé'}
 
@@ -1128,7 +1152,7 @@ ${scriptForReview}
 
 TON TRAVAIL, EN TROIS TEMPS :
 
-1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Pour chaque faiblesse, indique le numéro du segment concerné.
+1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Vérifie aussi que l'angle, l'émotion et la structure servent vraiment l'objectif du créateur ci-dessus (pas seulement le CTA final) : si le corps du script pourrait être identique quel que soit l'objectif choisi, c'est une faiblesse à signaler. Pour chaque faiblesse, indique le numéro du segment concerné.
 
 2. RÉFUTATION, LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
 
@@ -1178,6 +1202,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de contenu viral. Un critique indépendant a évalué le script ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel), ce sont les points forts du script, ne les abîme pas.
 
 SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
+${objectifCorpsInstructionScript}
 DURÉE CIBLE : ${wt.desc} (${wt.min}-${wt.max} mots au total)
 
 SCRIPT ACTUEL (segments numérotés) :
