@@ -493,69 +493,6 @@ let _searchQuery = '';    // texte de recherche (titres)
 let _searchOpen = false;  // champ de recherche déployé ?
 let _filterOpen = false;  // menu de filtre par type déployé ?
 
-// ══════════════════════════════════════
-//  GLISSEMENT POUR SUPPRIMER (Mes générations)
-//  Glisser une carte vers la gauche révèle un bouton "Supprimer".
-//  Le panier reste disponible : deux façons de supprimer, au choix.
-//  Ne se déclenche jamais en mode sélection, ni sur un défilement vertical.
-// ══════════════════════════════════════
-let _swipeDepart = null;
-
-function fermerTousLesSwipes(sauf) {
-  document.querySelectorAll('.swipe-wrap.ouvert').forEach(w => {
-    if (w !== sauf) w.classList.remove('ouvert');
-  });
-}
-
-function initSwipeHistorique() {
-  const liste = document.getElementById('historyList');
-  if (!liste || liste.dataset.swipeInit === '1') return;
-  liste.dataset.swipeInit = '1';
-
-  liste.addEventListener('touchstart', function(e) {
-    if (_selectMode) return; // en mode sélection, on ne glisse pas
-    const wrap = e.target.closest('.swipe-wrap');
-    if (!wrap) return;
-    const t = e.touches[0];
-    _swipeDepart = { x: t.clientX, y: t.clientY, wrap: wrap, decide: false, horizontal: false };
-  }, { passive: true });
-
-  liste.addEventListener('touchmove', function(e) {
-    if (!_swipeDepart) return;
-    const t = e.touches[0];
-    const dx = t.clientX - _swipeDepart.x;
-    const dy = t.clientY - _swipeDepart.y;
-    // On tranche une seule fois du sens : si c'est vertical, on laisse
-    // la page défiler normalement et on abandonne le glissement.
-    if (!_swipeDepart.decide) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return; // trop tôt pour décider
-      _swipeDepart.decide = true;
-      _swipeDepart.horizontal = Math.abs(dx) > Math.abs(dy);
-      if (!_swipeDepart.horizontal) { _swipeDepart = null; return; }
-    }
-  }, { passive: true });
-
-  liste.addEventListener('touchend', function(e) {
-    if (!_swipeDepart || !_swipeDepart.horizontal) { _swipeDepart = null; return; }
-    const t = e.changedTouches[0];
-    const dx = t.clientX - _swipeDepart.x;
-    const wrap = _swipeDepart.wrap;
-    if (dx < -40) {            // glissé vers la gauche : on révèle
-      fermerTousLesSwipes(wrap);
-      wrap.classList.add('ouvert');
-    } else if (dx > 20) {      // glissé vers la droite : on referme
-      wrap.classList.remove('ouvert');
-    }
-    _swipeDepart = null;
-  }, { passive: true });
-
-  // Un clic ailleurs referme la carte ouverte
-  liste.addEventListener('click', function(e) {
-    if (e.target.closest('.swipe-action')) return; // sauf sur le bouton lui-même
-    const wrap = e.target.closest('.swipe-wrap');
-    fermerTousLesSwipes(wrap && wrap.classList.contains('ouvert') ? null : wrap);
-  });
-}
 
 // Titre court et propre pour la liste « Mes générations ».
 // Un script lancé depuis une recommandation reçoit un « sujet » composé
@@ -688,8 +625,6 @@ function _afficherListeFiltree() {
     const selectClass = _selectMode ? ' selecting' : '';
     const estFav = !!s.favori;
     const html = `
-      <div class="swipe-wrap" data-swipe="${sid}">
-      ${!_selectMode ? `<button class="swipe-action" onclick="deleteOneSerie('${s.id}')">Supprimer</button>` : ''}
       <div class="history-card${selectClass}${estFav ? ' favori' : ''}${_selectedIds.has(sid) ? ' selected' : ''}" data-id="${sid}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${sid}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
@@ -704,7 +639,7 @@ function _afficherListeFiltree() {
           <button class="history-fav${estFav ? ' actif' : ''}" onclick="event.stopPropagation(); toggleFavori('${sid}')" title="${estFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="Favori">${ICON_FAV}</button>
           <button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')" aria-label="Supprimer">${ICON_DELETE}</button>
         </div>` : ''}
-      </div></div>`;
+      </div>`;
     items.push({ t: new Date(s.cree_le).getTime() || 0, fav: estFav, html: html });
   });
 
@@ -715,8 +650,6 @@ function _afficherListeFiltree() {
     const selectClass = _selectMode ? ' selecting' : '';
     const estFav = !!g.favori;
     const html = `
-      <div class="swipe-wrap" data-swipe="${g.id}">
-      ${!_selectMode ? `<button class="swipe-action" onclick="deleteOne('${g.id}')">Supprimer</button>` : ''}
       <div class="history-card${selectClass}${estFav ? ' favori' : ''}" data-id="${g.id}">
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
@@ -731,7 +664,7 @@ function _afficherListeFiltree() {
           <button class="history-fav${estFav ? ' actif' : ''}" onclick="event.stopPropagation(); toggleFavori('${g.id}')" title="${estFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="Favori">${ICON_FAV}</button>
           <button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')" aria-label="Supprimer">${ICON_DELETE}</button>
         </div>` : ''}
-      </div></div>`;
+      </div>`;
     items.push({ t: date.getTime() || 0, fav: estFav, html: html });
   });
 
@@ -741,7 +674,6 @@ function _afficherListeFiltree() {
     + (_histHasMore && !_selectMode ? '<button class="btn-regenerate" style="width:100%;margin-top:14px" '
       + (_histChargementPlus ? 'disabled' : 'onclick="chargerPlusHistorique()"') + '>'
       + (_histChargementPlus ? 'Chargement…' : 'Charger l\'historique plus ancien') + '</button>' : '');
-  initSwipeHistorique();
 }
 
 function updateHistoryToolbar() {
