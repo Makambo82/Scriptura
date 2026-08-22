@@ -48,19 +48,25 @@ nav{
    contenu quand visible plutôt que de repousser toute la mise en page
    (bandeau temporaire et fermable, pas une section permanente). ── */
 .notif-compte-bar{
-  /* `top` posé en JS (hauteur réelle de la nav, voir positionnerNotifCompte
-     dans js/abonnement.js) : la hauteur de la nav varie selon l'écran
-     (padding réduit en mobile, voir plus bas), un chiffre fixe ici se
-     désynchroniserait sur certaines tailles. */
-  display:none;position:fixed;left:0;right:0;z-index:99;
+  /* En FLUX NORMAL (plus position:fixed) : la barre pousse le contenu vers le
+     bas au lieu de le recouvrir, et défile avec la page (elle disparaît sous
+     le menu fixe quand on scrolle). `margin-top` = hauteur réelle de la nav
+     fixe, posé en JS (positionnerNotifCompte, js/abonnement.js) car cette
+     hauteur varie selon l'écran (padding réduit en mobile). Quand la barre
+     est visible, le contenu juste en dessous ne doit plus dégager la nav
+     lui-même (la barre s'en charge) : voir body.notif-visible plus bas. */
+  display:none;position:relative;z-index:1;
   background:rgba(28,28,30,0.98);border-bottom:1px solid var(--border);
-  backdrop-filter:blur(20px);
   padding:11px 44px 11px 20px;
   align-items:center;justify-content:center;gap:12px;
   font-family:'Poppins',sans-serif;font-size:0.82rem;color:var(--gold-light);
   text-align:center;line-height:1.4;
 }
 .notif-compte-bar.visible{display:flex}
+/* La barre (au-dessus, avec sa marge = hauteur de la nav) dégage déjà le menu
+   fixe : le contenu qui suit ne rajoute pas son propre dégagement. */
+body.notif-visible .ticker-wrap{margin-top:0}
+body.notif-visible.hero-focus .hero{padding-top:28px}
 .notif-compte-lien{color:var(--gold);text-decoration:underline;cursor:pointer;font-weight:500}
 .notif-compte-close{
   position:absolute;right:14px;top:50%;transform:translateY(-50%);

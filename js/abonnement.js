@@ -146,13 +146,16 @@ function cleNotifCompteJour() {
 }
 
 function positionnerNotifCompte(bar) {
+  // La barre est en flux normal : sa marge haute la place juste sous le menu
+  // fixe (dont la hauteur varie selon l'écran), sans recouvrir le contenu.
   const nav = document.querySelector('nav');
-  bar.style.top = (nav ? nav.offsetHeight : 70) + 'px';
+  bar.style.marginTop = (nav ? nav.offsetHeight : 70) + 'px';
 }
 
 function fermerNotifCompte() {
   const bar = document.getElementById('notifCompteBar');
   if (bar) bar.classList.remove('visible');
+  document.body.classList.remove('notif-visible');
   localStorage.setItem(cleNotifCompteJour(), 'true');
 }
 
@@ -206,6 +209,7 @@ async function verifierNotifCompte() {
     + ' · <span class="notif-compte-lien" onclick="ouvrirDepuisNotifCompte()">Voir mon abonnement</span>';
   positionnerNotifCompte(bar);
   bar.classList.add('visible');
+  document.body.classList.add('notif-visible');
 }
 
 function renderGenCounter() {
