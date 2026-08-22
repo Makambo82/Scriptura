@@ -470,7 +470,7 @@ function creerScriptDepuisRecommandation(index) {
   state.depart = 'un sujet précis que je veux développer';
 
   if (state.objectif && state.plateforme) {
-    showStep(4);
+    showStep(3);
     renderSummary();
   } else {
     showStep(1);

@@ -320,6 +320,19 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .custom-select-scroll-hint.bottom{bottom:0;background:linear-gradient(to top,#2E2E30 45%,transparent)}
 .custom-select-scroll-hint.visible{opacity:1}
 
+/* ── PLATEFORME (menu repliable, étape 2) ──────────────────────────
+   Réutilise le look du menu déroulant maison (.custom-select-trigger,
+   .custom-select-panel, .custom-select-option) : mêmes classes, wrapper
+   en plus avec .platform-picker pour l'icône de marque à gauche du libellé.
+   Voir choisirPlateforme()/togglePlatformPicker(), js/generation.js. */
+.pf-logo{width:18px;height:18px;flex-shrink:0;color:var(--gold);display:block}
+.platform-picker .cs-label{margin-left:10px}
+.custom-select-option.platform-option{gap:12px}
+/* Liste fixe de 6 plateformes, jamais plus : contrairement aux select remplis
+   de données (niche, audience…), pas besoin de plafonner/faire défiler, les
+   254px hérités de .custom-select-list coupaient la dernière ligne de 9px. */
+.platform-picker .custom-select-list{max-height:none;overflow-y:visible}
+
 /* SUMMARY ROW */
 .summary{
   display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px;
