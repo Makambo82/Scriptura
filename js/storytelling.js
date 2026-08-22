@@ -545,6 +545,61 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // ══════════════════════════════════════
+    //  NORMALISATION FINALE DU HOOK ET DE L'OUVERTURE
+    //  Retour terrain répété : le hook (point 1, EXACTEMENT 2 phrases) se
+    //  retrouve fusionné avec l'Ouverture (point 2, "Aujourd'hui, on parle
+    //  de...") en un seul bloc de 4 phrases ou plus, l'exemple JSON montrant
+    //  bien un segment "Ouverture" séparé (voir plus haut) n'a pas suffi à
+    //  le rendre fiable à chaque fois. Contrairement à la clôture (qui
+    //  ÉCRASE toujours le dernier segment en place, donc sans risque à
+    //  tourner sur un récit déjà correct), cette correction-ci INSÈRE un
+    //  nouveau segment : la lancer sur un récit où l'Ouverture est déjà
+    //  bien séparée créerait un doublon. D'où une garde simple (la
+    //  transition "Aujourd'hui, on parle de..." est-elle déjà présente,
+    //  peu importe le libellé exact du segment ?) avant de déclencher la
+    //  correction, plutôt que de tourner à chaque fois sans condition.
+    //  Placé après le contrôle de durée pour la même raison que la clôture :
+    //  ce dernier réécrit le récit en entier et pourrait sinon défaire cette
+    //  correction juste après.
+    // ══════════════════════════════════════
+    function detecteOuverture(texte) {
+      return /aujourd['’]?hui,?\s+(?:on|nous)\s+(?:parle|allons parler|va parler)/i.test(texte || '');
+    }
+    if (!repondreMaintenant && Array.isArray(parsed.recit) && parsed.recit.length >= 1) {
+      const segHook = parsed.recit[0];
+      const segSuivant = parsed.recit[1];
+      // Déjà correct UNIQUEMENT si la transition est dans un AUTRE segment
+      // que le hook (vraiment séparée) : si elle est DANS le hook, c'est
+      // précisément le bug de fusion à corriger, pas un cas déjà bon.
+      const dejaCorrect = !detecteOuverture(segHook.texte) && segSuivant && detecteOuverture(segSuivant.texte);
+      if (!dejaCorrect) try {
+        const correctionOuverturePrompt = `Tu es le Réviseur en Chef de Scriptura. Passe finale de fidélité : les deux premiers éléments du récit doivent être un HOOK de EXACTEMENT 2 phrases brèves, suivi d'une OUVERTURE séparée qui commence par "Aujourd'hui, on parle de..." (ou une variante fluide comme "Aujourd'hui, on va parler de..."), jamais fusionnés en un seul bloc.
+
+SEGMENT ACTUEL À CORRIGER (peut déjà être correct, ou contenir le hook ET l'ouverture fusionnés) :
+${segHook.texte}
+
+SEGMENT SUIVANT DANS LE RÉCIT (déjà correct, INCHANGÉ après ta correction, donné seulement pour contexte, ne le duplique pas) :
+${segSuivant ? segSuivant.texte : '(aucun)'}
+
+RÈGLES :
+- "hook" : EXACTEMENT 2 phrases brèves, paradoxales/choquantes/dérangeantes/intrigantes, qui arrêtent le scroll immédiatement. Si le segment actuel en contient plus, garde uniquement les 2 premières phrases qui font vraiment office de hook.
+- "ouverture" : 1 à 3 phrases courtes commençant par "Aujourd'hui, on parle de..." (ou variante fluide), qui posent le personnage ou l'enjeu. Si cette transition existe déjà dans le segment actuel, réutilise-la et ajuste-la légèrement si besoin pour qu'elle tienne seule. Si elle est absente, écris-la, cohérente avec le sujet et le ton du récit.
+- Ne perds AUCUNE information factuelle importante du segment actuel : si elle ne rentre pas dans les 2 phrases du hook, glisse-la dans l'ouverture plutôt que de la supprimer.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"hook":"...","ouverture":"..."}`;
+
+        const correctionOuvertureRaw = await callAI(MODEL_CREATIF, 1200, correctionOuverturePrompt);
+        const correctionOuverture = parseAIResponse(correctionOuvertureRaw);
+        if (correctionOuverture && typeof correctionOuverture.hook === 'string' && correctionOuverture.hook.trim()
+            && typeof correctionOuverture.ouverture === 'string' && correctionOuverture.ouverture.trim()) {
+          parsed.recit[0] = { segment: segHook.segment || 'Hook', texte: correctionOuverture.hook.trim() };
+          parsed.recit.splice(1, 0, { segment: 'Ouverture', texte: correctionOuverture.ouverture.trim() });
+        }
+      } catch (e) { /* si la correction échoue, on garde le hook/ouverture actuels */ }
+    }
+
+    // ══════════════════════════════════════
     //  NORMALISATION FINALE DE LA CLÔTURE (systématique, plus détection)
     //  Volontairement APRÈS le contrôle de durée ci-dessus : ce dernier peut
     //  réécrire le récit EN ENTIER (donc aussi la clôture) avec une simple
