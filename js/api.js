@@ -376,12 +376,12 @@ async function fetchServerQuota() {
 // des images du montage (Together). "footer" en anglais car les prompts le sont
 // (les générateurs suivent bien mieux l'anglais). "neutre" = aucun style imposé.
 const STYLES_VISUELS = [
-  { id: 'peinture',  label: "🎨 Peinture à l'huile",        footer: 'Rendered as a classic oil painting with visible brushstrokes and canvas texture, a painterly fine-art illustration, not a photograph.' },
-  { id: 'neutre',    label: '⚪ Style neutre',                footer: '' },
-  { id: 'cinema',    label: '🎬 Cinématographique réaliste', footer: 'Cinematic photorealistic still, dramatic film lighting, rich cinematic color grading, shallow depth of field, movie-like atmosphere.' },
-  { id: 'aquarelle', label: '💧 Aquarelle',                  footer: 'Soft watercolor painting, delicate washes of color, gentle bleeding edges, light paper texture, poetic and airy mood.' },
-  { id: 'bd',        label: '💥 BD / illustration moderne',  footer: 'Modern comic-book graphic illustration, bold flat colors, clean crisp black outlines, cel-shaded contemporary cartoon look.' },
-  { id: 'nb',        label: '◐ Noir & blanc dramatique',    footer: 'Dramatic black-and-white monochrome image, high-contrast chiaroscuro lighting, deep shadows and bright highlights, timeless, no color.' },
+  { id: 'peinture',  label: "Peinture à l'huile",        footer: 'Rendered as a classic oil painting with visible brushstrokes and canvas texture, a painterly fine-art illustration, not a photograph.' },
+  { id: 'neutre',    label: 'Style neutre',                footer: '' },
+  { id: 'cinema',    label: 'Cinématographique réaliste', footer: 'Cinematic photorealistic still, dramatic film lighting, rich cinematic color grading, shallow depth of field, movie-like atmosphere.' },
+  { id: 'aquarelle', label: 'Aquarelle',                  footer: 'Soft watercolor painting, delicate washes of color, gentle bleeding edges, light paper texture, poetic and airy mood.' },
+  { id: 'bd',        label: 'BD / illustration moderne',  footer: 'Modern comic-book graphic illustration, bold flat colors, clean crisp black outlines, cel-shaded contemporary cartoon look.' },
+  { id: 'nb',        label: 'Noir & blanc dramatique',    footer: 'Dramatic black-and-white monochrome image, high-contrast chiaroscuro lighting, deep shadows and bright highlights, timeless, no color.' },
 ];
 // Repère pour retirer un footer de style déjà présent (quel qu'il soit) avant
 // d'en appliquer un autre, construit à partir du 1er mot distinctif de chacun.
@@ -391,9 +391,9 @@ const REGEX_FOOTER_STYLE = /\s*(Rendered as a classic oil painting|Cinematic pho
 // requis par FLUX). `video` = dimensions du rendu final (raisonnables pour la
 // mémoire du conteneur de rendu). L'id est aussi le footer de ratio du prompt.
 const FORMATS_VISUELS = [
-  { id: '9:16', label: '📱 Vertical 9:16', imgW: 768,  imgH: 1344, vidW: 720,  vidH: 1280 },
-  { id: '16:9', label: '🖥️ Horizontal 16:9', imgW: 1344, imgH: 768,  vidW: 1280, vidH: 720 },
-  { id: '1:1',  label: '⬛ Carré 1:1',     imgW: 1024, imgH: 1024, vidW: 1000, vidH: 1000 },
+  { id: '9:16', label: 'Vertical 9:16', imgW: 768,  imgH: 1344, vidW: 720,  vidH: 1280 },
+  { id: '16:9', label: 'Horizontal 16:9', imgW: 1344, imgH: 768,  vidW: 1280, vidH: 720 },
+  { id: '1:1',  label: 'Carré 1:1',     imgW: 1024, imgH: 1024, vidW: 1000, vidH: 1000 },
 ];
 
 function styleVisuelActuel() {
