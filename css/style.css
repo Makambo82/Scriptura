@@ -1486,25 +1486,27 @@ body.hero-focus .hero-focus-rule{display:block}
 .history-card-body{flex:1;padding:0}
 .history-check{display:flex;align-items:center;padding-right:14px}
 .history-check input{width:20px;height:20px;accent-color:var(--gold);cursor:pointer}
+/* Colonne d'actions à droite d'une carte : favori (marque-page) + corbeille.
+   Deux tuiles arrondies discrètes, icône en trait fin doré (style du logo). */
+.history-actions{display:flex;flex-direction:column;align-items:center;gap:10px;padding-left:6px}
+.history-fav,
 .history-delete{
-  background:transparent;border:none;color:rgba(255,255,255,0.35);
-  font-size:1.1rem;cursor:pointer;padding:0 4px;
-  transition:color 0.2s;
+  width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;
+  background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.16);border-radius:10px;
+  color:var(--gold-light);cursor:pointer;padding:0;
+  transition:color 0.2s,background 0.2s,border-color 0.2s,transform 0.12s;
 }
-.history-delete:hover{color:#E88}
-
-/* Colonne d'actions à droite d'une carte : favori (marque-page) + corbeille */
-.history-actions{display:flex;flex-direction:column;align-items:center;gap:14px;padding-left:6px}
-.history-fav{
-  background:transparent;border:none;color:rgba(255,255,255,0.38);
-  cursor:pointer;padding:0 4px;line-height:0;
-  transition:color 0.2s,transform 0.12s;
-}
-.history-fav svg{fill:currentColor;display:block}
-.history-fav:hover{color:rgba(255,255,255,0.7)}
-.history-fav.actif{color:var(--gold)}
-.history-fav.actif:hover{color:var(--gold-light)}
-.history-fav:active{transform:scale(0.85)}
+.history-fav svg,
+.history-delete svg{display:block}
+.history-fav:hover,
+.history-delete:hover{background:rgba(201,168,76,0.16)}
+.history-fav:active,
+.history-delete:active{transform:scale(0.9)}
+/* Favori actif : marque-page rempli en or */
+.history-fav.actif{color:var(--gold);background:rgba(201,168,76,0.16);border-color:rgba(201,168,76,0.4)}
+.history-fav.actif svg{fill:currentColor}
+/* Supprimer : vire au rouge au survol (action destructrice) */
+.history-delete:hover{color:#E88;border-color:rgba(238,136,136,0.4);background:rgba(238,136,136,0.1)}
 .history-card.favori{border-color:rgba(201,168,76,0.45)}
 
 /* Icône + libellé dans les boutons de la barre d'outils */
@@ -1654,12 +1656,6 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 .sidebar-logo em{color:var(--gold);font-style:normal}
 .sidebar-close{background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;padding:4px}
 .sidebar-close:hover{color:#fff}
-.sidebar-counter{
-  background:rgba(201,168,76,0.08);border:1px solid var(--border-soft);
-  border-radius:10px;padding:16px;margin-bottom:24px;text-align:center;
-}
-.sidebar-counter-label{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);opacity:0.7;margin-bottom:6px}
-.sidebar-counter-value{font-family:'Playfair Display',serif;font-size:1.15rem;color:#fff}
 .sidebar-nav{display:flex;flex-direction:column;gap:6px;flex:1}
 .sidebar-item{
   display:flex;align-items:center;justify-content:flex-start;gap:12px;

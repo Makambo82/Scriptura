@@ -205,7 +205,6 @@ window.addEventListener('resize', updateScrollBtn);
 function openSidebar() {
   document.getElementById('sidebar').classList.add('active');
   document.getElementById('sidebarOverlay').classList.add('active');
-  updateSidebarCounter();
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('active');
@@ -235,21 +234,3 @@ function seDeconnecter() {
   location.reload();
 }
 
-// Met à jour le compteur affiché dans la sidebar
-async function updateSidebarCounter() {
-  const el = document.getElementById('sidebarCounterValue');
-  if (!el) return;
-  if (unlocked) {
-    if (estIllimite()) {
-      el.textContent = '✦ Illimité';
-      return;
-    }
-    const faites = await countMonthGenerations('creation');
-    const limiteCreation = limitesDuPalier().creation;
-    const faitesAff = Math.min(faites, limiteCreation);
-    el.textContent = faitesAff + ' / ' + limiteCreation + ' ce mois';
-  } else {
-    const faitesAff = Math.min(usedGen, MAX_FREE);
-    el.textContent = faitesAff + ' / ' + MAX_FREE + ' gratuites';
-  }
-}
