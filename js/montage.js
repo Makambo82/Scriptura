@@ -52,7 +52,7 @@ function ouvrirMontageParCle(key, boutonEl) {
 }
 function montageBoutonHTML(id, plans) {
   const cle = storeMontageSource(plans);
-  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}', this)">🎬 Générer la vidéo</button>`;
+  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}', this)">Générer la vidéo</button>`;
 }
 
 // Pas une boîte de dialogue : le panneau (#montageModal, un seul exemplaire
@@ -562,7 +562,7 @@ function renderMontageEtat() {
       if (img) return `<div class="audit-thumb">
         <img src="${img.apercu}" alt="" style="cursor:zoom-in" onclick="agrandirImageMontage(${i})" title="Agrandir">
         <input type="checkbox" class="montage-thumb-select" title="Sélectionner" ${montageImagesSelection.has(i) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectionImage(${i})">
-        <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">⬇</button>
+        <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">${ICO('download')}</button>
       </div>`;
       if (montageImagesEnCours && i >= montageImageIndexEnCours) {
         return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
@@ -570,14 +570,14 @@ function renderMontageEtat() {
       // Plan sans image : régénérer via IA (↻) OU charger sa propre image (📁).
       return `<div class="audit-thumb montage-thumb-echec">
         <span class="montage-thumb-retry" onclick="regenererImageMontage(${i})" title="Régénérer via l'IA">↻</span>
-        <button class="montage-thumb-upload" onclick="event.stopPropagation();declencherUploadImageSlot(${i})" title="Charger une image pour ce plan">📁</button>
+        <button class="montage-thumb-upload" onclick="event.stopPropagation();declencherUploadImageSlot(${i})" title="Charger une image pour ce plan">${ICO('folder')}</button>
       </div>`;
     }).join('');
   }
   const btnGenImg = document.getElementById('montageGenImagesBtn');
   if (btnGenImg) {
     btnGenImg.disabled = montageImagesEnCours;
-    btnGenImg.textContent = montageImagesEnCours ? 'Génération des images…' : (nbPretes ? '↻ Régénérer les images' : '🎨 Générer les images');
+    btnGenImg.textContent = montageImagesEnCours ? 'Génération des images…' : (nbPretes ? '↻ Régénérer les images' : 'Générer les images');
   }
   // Bande rayée dorée pendant la génération des images (même animation que les
   // autres générations). Les vignettes continuent d'apparaître progressivement
@@ -613,11 +613,11 @@ function renderMontageEtat() {
             <option value="mp3">MP3</option>
             <option value="wav">WAV</option>
           </select>
-          <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">⬇ Télécharger</button>
+          <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">Télécharger</button>
         </div>
         <button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`;
     } else {
-      zoneVoix.innerHTML = `<button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">🎙️ Générer la voix off</button>`;
+      zoneVoix.innerHTML = `<button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>`;
     }
   }
 
@@ -745,7 +745,7 @@ async function lancerMontage() {
       : '';
     if (resultat) resultat.innerHTML = note + `
       <video class="montage-video" src="${auditEsc(dataRender.url)}" controls playsinline></video>
-      <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${auditEsc(dataRender.url)}')" type="button">⬇ Télécharger la vidéo</button>`;
+      <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${auditEsc(dataRender.url)}')" type="button">Télécharger la vidéo</button>`;
   } catch (e) {
     if (statut) statut.style.display = 'none';
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }

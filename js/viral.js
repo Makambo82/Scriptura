@@ -284,7 +284,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     if (typeof stopGenAnimation === 'function') stopGenAnimation();
     btn.disabled = false;
     if (spin) spin.style.display = 'none';
-    if (btnText) btnText.textContent = '🔍 Analyser la vidéo';
+    if (btnText) btnText.textContent = 'Analyser la vidéo';
   }
 }
 

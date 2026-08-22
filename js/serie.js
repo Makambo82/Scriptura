@@ -406,7 +406,7 @@ async function ouvrirSerie(id) {
           ${ep.storyboard ? '' : optionsStoryboardHTML()}
           <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})" style="${ep.storyboard ? 'display:none' : ''}">
             <span class="sb-gen-spinner" id="serieSbSpinner${ep.num}"></span>
-            <span id="serieSbBtnText${ep.num}">🎬 Générer le storyboard de cet épisode</span>
+            <span id="serieSbBtnText${ep.num}">Générer le storyboard de cet épisode</span>
           </button>
           <div class="sb-progress-bar" id="serieSbProgBar${ep.num}" style="display:none">
             <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="serieSbProgFill${ep.num}"></div></div>
@@ -575,7 +575,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     if (pb) setTimeout(() => { pb.style.display = 'none'; }, 600);
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = 'none';
-    if (btnText) btnText.textContent = '🎬 Générer le storyboard de cet épisode';
+    if (btnText) btnText.textContent = 'Générer le storyboard de cet épisode';
     _regenGratuiteEnCours = false;
   }
 }

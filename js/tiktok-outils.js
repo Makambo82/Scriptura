@@ -265,7 +265,7 @@ function afficherResultatTelechargement(blob) {
     <div class="outils-result-card">
       <h3>⬇️ Téléchargement</h3>
       <p class="outils-dl-desc">Ta vidéo est prête.</p>
-      <button class="btn-generate" id="outilsDlBtn" style="width:100%" onclick="outilsPartagerVideo()">Télécharger la vidéo ⬇️</button>
+      <button class="btn-generate" id="outilsDlBtn" style="width:100%" onclick="outilsPartagerVideo()">Télécharger la vidéo</button>
       <p class="outils-dl-note">Sur téléphone, ça ouvre la fenêtre de partage pour l'enregistrer directement dans ta galerie. Sur ordinateur, elle se télécharge normalement.</p>
     </div>
     <button class="btn-back" style="margin-top:18px" onclick="outilsAutreVideo()">← Essayer un autre lien</button>

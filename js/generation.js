@@ -117,7 +117,7 @@ function setIdeaLoading(on) {
   const btn = document.getElementById('ideaGenerateBtn');
   btn.disabled = on;
   document.getElementById('ideaSpinner').style.display = on ? 'block' : 'none';
-  document.getElementById('ideaBtnText').textContent = on ? 'Scriptura brainstorme…' : '💡 Générer mes idées de contenu';
+  document.getElementById('ideaBtnText').textContent = on ? 'Scriptura brainstorme…' : 'Générer mes idées de contenu';
   if (on) startGenAnimation('ideas');
   else stopGenAnimation();
 }
@@ -334,7 +334,7 @@ function renderIdeas(idees, niche) {
           <div class="idea-hook">"${auditEsc(idea.hook || '')}"</div>
         </div>
         <div class="idea-actions">
-          <button class="idea-btn-script" onclick="useIdeaForScript(${i})">🎬 Générer le script complet</button>
+          <button class="idea-btn-script" onclick="useIdeaForScript(${i})">Générer le script complet</button>
           <button class="idea-btn-copy icon-btn" title="Copier" onclick="copyIdea(${i}, this)">${ICON_COPY}</button><button class="idea-btn-share icon-btn" title="Partager" onclick="shareIdea(${i}, this)">${ICON_SHARE}</button>
         </div>
       </div>
@@ -508,7 +508,7 @@ async function recupererTranscriptViral() {
         : data.transcript;
       cible.value = bloc;
       cible.dispatchEvent(new Event('input', { bubbles: true }));
-      if (noteEl) noteEl.textContent = '✅ Sous-titres récupérés, relis-les et ajuste si besoin, puis génère.';
+      if (noteEl) noteEl.textContent = 'Sous-titres récupérés, relis-les et ajuste si besoin, puis génère.';
     } else {
       // Pas de sous-titres : on met au moins la description, et on invite au manuel.
       if (data.description) cible.value = data.description;
@@ -581,15 +581,15 @@ function renderSummary() {
     if (viralLienRow) viralLienRow.style.display = 'none';
     if (viralLienNote) viralLienNote.style.display = 'none';
     if (viralLabel) viralLabel.style.display = 'none';
-    if (viralSummary) viralSummary.textContent = estFlop ? '📼 Voir la vidéo qui a raté' : '📼 Voir la vidéo décodée';
-    if (viralAstuce) viralAstuce.textContent = "💡 Déjà prise en compte. Tu peux la relire ou l'ajuster ici si besoin.";
+    if (viralSummary) viralSummary.textContent = estFlop ? 'Voir la vidéo qui a raté' : ' Voir la vidéo décodée';
+    if (viralAstuce) viralAstuce.textContent = "Déjà prise en compte. Tu peux la relire ou l'ajuster ici si besoin.";
     sujetLabel.textContent = 'Ton sujet à toi (ce dont TU veux parler)';
   } else if (state.depart && state.depart.includes('améliorer ou adapter')) {
     viralField.style.display = 'flex';
     viralLabel.textContent = 'Ton contenu existant, à améliorer';
     viralInput.placeholder = "Colle ici le texte complet de ta vidéo ou de ton script existant. Scriptura part de CE contenu, garde ton sujet et ton fond, améliore la forme (hook, rythme, structure, CTA).";
-    if (viralAstuce) viralAstuce.textContent = "💡 Colle le script ou les sous-titres tels quels, rien n'est réinventé, seulement amélioré et adapté.";
-    if (viralSummary) viralSummary.textContent = '📼 Voir le contenu';
+    if (viralAstuce) viralAstuce.textContent = "Colle le script ou les sous-titres tels quels, rien n'est réinventé, seulement amélioré et adapté.";
+    if (viralSummary) viralSummary.textContent = 'Voir le contenu';
     sujetLabel.textContent = 'Angle ou sujet précis à mettre en avant';
   } else {
     viralField.style.display = 'none';
@@ -1738,7 +1738,7 @@ function renderResults(d, niche, sujet) {
         ${optionsStoryboardHTML()}
         <button class="btn-storyboard" id="sbGenerateBtn" onclick="generateStoryboard()">
           <span class="sb-gen-spinner" id="sbGenSpinner"></span>
-          <span id="sbGenText">🎬 Générer le storyboard visuel</span>
+          <span id="sbGenText">Générer le storyboard visuel</span>
         </button>
         <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
           <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
@@ -1945,7 +1945,7 @@ async function generateStoryboard() {
     if (pb1) setTimeout(() => { pb1.style.display = 'none'; }, 600);
     if (btn) btn.disabled = false;
     if (spinner) spinner.style.display = 'none';
-    if (genText) genText.textContent = '🎬 Générer le storyboard visuel';
+    if (genText) genText.textContent = 'Générer le storyboard visuel';
   }
 }
 
