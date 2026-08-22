@@ -147,23 +147,30 @@ function diagSommaireEsc(t) {
     ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
 
-// Extrait le nombre d'abonnés du profil brut. TikHub range le compte à une
-// profondeur variable (top-level stats, mais aussi users["<pseudo>"].stats
-// selon les comptes), ce qui faisait échouer une lecture à chemin fixe et
-// marquait la Portée « non calculable » à tort. On cherche donc RÉCURSIVEMENT
-// la 1re valeur numérique > 0 sous une clé d'abonnés, quelle que soit la
-// structure. Le motif est ancré : jamais confondu avec "followingCount".
-function dsAbonnes(profil) {
-  const CLES = /^(followercount|follower_count|followers|fans|fanscount|fans_count)$/i;
+const DS_CLES_ABONNES = /^(followercount|follower_count|followers|fans|fanscount|fans_count)$/i;
+const DS_CLES_LIKES = /^(heartcount|heart_count|heart|totalfavorited|total_favorited|diggcount|digg_count)$/i;
+
+// Trouve l'objet "stats" du COMPTE lui-même dans le profil brut. TikHub
+// range le compte à une profondeur variable (top-level stats, mais aussi
+// users["<pseudo>"].stats selon les comptes), ce qui faisait échouer une
+// lecture à chemin fixe. On cherche donc RÉCURSIVEMENT le premier objet qui
+// porte une clé d'abonnés valide (> 0), ancré pour ne jamais confondre avec
+// "followingCount". Abonnés ET likes cumulés sont ensuite lus comme deux
+// clés VOISINES de ce même objet (jamais deux scans indépendants) : un
+// scan séparé pour les likes pouvait dériver vers une branche non liée du
+// profil (ex. un compte suggéré, une vidéo épinglée) et y trouver, par
+// coïncidence de nommage, une valeur sans rapport avec CE compte, ce qui
+// produisait déjà vu en pratique deux chiffres identiques (abonnés = likes).
+function dsStatsCompte(profil) {
   let trouve = null;
   const vus = new Set();
   (function scan(o, prof) {
     if (trouve != null || !o || typeof o !== 'object' || prof > 6 || vus.has(o)) return;
     vus.add(o);
     for (const k of Object.keys(o)) {
-      if (CLES.test(k)) {
+      if (DS_CLES_ABONNES.test(k)) {
         const n = Number(o[k]);
-        if (Number.isFinite(n) && n > 0) { trouve = n; return; }
+        if (Number.isFinite(n) && n > 0) { trouve = o; return; }
       }
       const val = o[k];
       if (val && typeof val === 'object') scan(val, prof + 1);
@@ -172,30 +179,35 @@ function dsAbonnes(profil) {
   return trouve;
 }
 
-// Extrait le nombre total de "j'aime" cumulés sur l'ensemble du compte
-// (tous les cœurs reçus, toutes vidéos confondues), même recherche
-// récursive et tolérante que dsAbonnes ci-dessus. "heartCount"/"heart" est
-// le nom standard côté TikTok pour ce total, à ne pas confondre avec
-// digg_count/like_count qui désignent les likes d'UNE seule vidéo
-// (utilisés ailleurs pour les vidéos individuelles, voir normaliserMedias
-// côté serveur) : le motif ci-dessous exclut volontairement ces alias.
-function dsLikesCumules(profil) {
-  const CLES = /^(heartcount|heart_count|heart|totalfavorited|total_favorited)$/i;
-  let trouve = null;
-  const vus = new Set();
-  (function scan(o, prof) {
-    if (trouve != null || !o || typeof o !== 'object' || prof > 6 || vus.has(o)) return;
-    vus.add(o);
-    for (const k of Object.keys(o)) {
-      if (CLES.test(k)) {
-        const n = Number(o[k]);
-        if (Number.isFinite(n) && n > 0) { trouve = n; return; }
-      }
-      const val = o[k];
-      if (val && typeof val === 'object') scan(val, prof + 1);
+// Lit la 1re clé correspondante dans un objet stats déjà localisé (pas de
+// nouvelle recherche récursive : voir dsStatsCompte ci-dessus).
+function dsLireStat(statsObj, cles) {
+  if (!statsObj) return null;
+  for (const k of Object.keys(statsObj)) {
+    if (cles.test(k)) {
+      const n = Number(statsObj[k]);
+      if (Number.isFinite(n) && n > 0) return n;
     }
-  })(profil || {}, 0);
-  return trouve;
+  }
+  return null;
+}
+
+// Extrait le nombre d'abonnés du profil brut (voir dsStatsCompte ci-dessus).
+function dsAbonnes(profil) {
+  return dsLireStat(dsStatsCompte(profil), DS_CLES_ABONNES);
+}
+
+// Extrait le nombre total de "j'aime" cumulés sur l'ensemble du compte
+// (tous les cœurs reçus, toutes vidéos confondues) : LA MÊME clé "stats" du
+// compte que dsAbonnes, jamais une recherche indépendante (voir
+// dsStatsCompte ci-dessus). "heartCount"/"heart" est le nom standard côté
+// TikTok pour ce total ; digg_count/like_count désignent d'ORDINAIRE les
+// likes d'UNE seule vidéo (utilisés ailleurs pour les vidéos individuelles,
+// voir normaliserMedias côté serveur), mais restent acceptés ici en repli
+// UNIQUEMENT s'ils apparaissent dans l'objet stats du compte lui-même (donc
+// jamais ceux d'une vidéo isolée).
+function dsLikesCumules(profil) {
+  return dsLireStat(dsStatsCompte(profil), DS_CLES_LIKES);
 }
 
 // Calcule à partir des vidéos réelles (endpoint /v1/user/medias) les
