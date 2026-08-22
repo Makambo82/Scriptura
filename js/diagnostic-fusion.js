@@ -142,13 +142,13 @@ function afficherFusionResultat(d) {
 
     ${Array.isArray(d.convergences) && d.convergences.length ? `
     <div class="score-card">
-      <div class="audit-section-label">✔ Ce que les deux diagnostics confirment</div>
+      <div class="audit-section-label">${ICO('check')} Ce que les deux diagnostics confirment</div>
       <ul class="ds-niche-analyse">${d.convergences.map(c => `<li>${diagSommaireEsc(c)}</li>`).join('')}</ul>
     </div>` : ''}
 
     ${Array.isArray(d.complements) && d.complements.length ? `
     <div class="score-card">
-      <div class="audit-section-label">🔗 Ce que le croisement révèle en plus</div>
+      <div class="audit-section-label">${ICO('link')} Ce que le croisement révèle en plus</div>
       <ul class="ds-niche-analyse">${d.complements.map(c => `<li>${diagSommaireEsc(c)}</li>`).join('')}</ul>
     </div>` : ''}
 
@@ -161,7 +161,7 @@ function afficherFusionResultat(d) {
       <p class="ds-bio-actuelle">« ${diagSommaireEsc(bio.actuelle)} »</p>
       <p class="audit-diag-constat" style="margin-top:10px">${diagSommaireEsc(bio.critique)}</p>
       ${Array.isArray(bio.suggestions) && bio.suggestions.length ? `
-      <div class="audit-section-label" style="margin-top:18px">💡 Suggestions pour la bio</div>
+      <div class="audit-section-label" style="margin-top:18px">${ICO('bulb')} Suggestions pour la bio</div>
       ${bio.suggestions.map(s => `<p class="ds-suggestion">${diagSommaireEsc(s)}</p>`).join('')}` : ''}
     </div>` : ''}
 

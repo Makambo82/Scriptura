@@ -129,14 +129,14 @@ function renderCaptures() {
 // étape, … pendant l'analyse. (Reconnaissance globale via detecterTypesCaptures.)
 function badgeCapture(c) {
   if (c.type === 'attente') return '<span class="thumb-badge attente">…</span>';
-  if (c.type === 0) return '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">⚠️</span>';
+  if (c.type === 0) return '<span class="thumb-badge alerte" title="Cette image ne correspond à aucune des 5 données attendues">' + ICO('warn') + '</span>';
   if (AUDIT_TYPES[c.type]) {
     const attendu = (c.etape != null) ? AUDIT_ETAPE_TYPE[c.etape] : null;
     if (attendu && c.type !== attendu) {
       const t = 'Cette capture ressemble à : ' + AUDIT_TYPES[c.type] + ', pas à la donnée demandée à cette étape';
-      return '<span class="thumb-badge alerte" title="' + t + '">⚠️</span>';
+      return '<span class="thumb-badge alerte" title="' + t + '">' + ICO('warn') + '</span>';
     }
-    return '<span class="thumb-badge ok" title="' + AUDIT_TYPES[c.type] + ' reconnue">✅</span>';
+    return '<span class="thumb-badge ok" title="' + AUDIT_TYPES[c.type] + ' reconnue">' + ICO('check') + '</span>';
   }
   return '';
 }
@@ -152,7 +152,7 @@ function renderCouverture() {
   // les distinguer visuellement, donc on reste factuel sur ce qui est reconnu.
   const lignes = Object.keys(AUDIT_TYPES).map(k => {
     const vu = typesVus.has(Number(k));
-    return `<div class="couv-ligne ${vu ? 'vue' : 'manque'}">${vu ? '✅' : '○'} ${AUDIT_TYPES[k]}</div>`;
+    return `<div class="couv-ligne ${vu ? 'vue' : 'manque'}">${vu ? ICO('check') : '○'} ${AUDIT_TYPES[k]}</div>`;
   }).join('');
   const nbAlerte = auditCaptures.filter(c => c.type === 0).length;
   const note = nbAlerte
@@ -259,7 +259,7 @@ function majStatutEtape() {
   if (auditCaptures.some(c => c.type === 'attente')) {
     el.innerHTML = '<span class="aw-statut attente">⏳ Scriptura lit ta capture…</span>';
   } else if (auditCaptures.some(c => c.type === attendu)) {
-    el.innerHTML = '<span class="aw-statut ok">✅ Cette donnée est bien reconnue</span>';
+    el.innerHTML = '<span class="aw-statut ok">' + ICO('check') + ' Cette donnée est bien reconnue</span>';
   } else {
     el.innerHTML = '';
   }
@@ -344,7 +344,7 @@ function renderAuditWizard() {
     // Exemples réels (captures TikTok Studio annotées d'une flèche rouge) :
     // montrent l'écran exact à photographier. Chargés en différé (lazy).
     const exHtml = (e.exemples && e.exemples.length)
-      ? '<div class="aw-ex"><div class="aw-ex-titre">📸 L\'écran exact à capturer</div><div class="aw-ex-grid">' +
+      ? '<div class="aw-ex"><div class="aw-ex-titre">' + ICO('camera') + ' L\'écran exact à capturer</div><div class="aw-ex-grid">' +
         e.exemples.map(x =>
           '<figure class="aw-ex-item"><img src="' + x.src + '" loading="lazy" decoding="async" alt="Exemple : ' + auditEsc(e.titre) + '" class="aw-ex-img"><figcaption>' + x.cap + '</figcaption></figure>'
         ).join('') +
@@ -372,7 +372,7 @@ function renderAuditWizard() {
     // Statut de l'étape : avertissement de saut prioritaire, sinon ✅/⏳.
     if (awConfirmSaut) {
       const st = document.getElementById('awStatut');
-      if (st) st.innerHTML = '<span class="aw-statut alerte">⚠️ Tu n\'as pas ajouté « ' + e.titre + ' ». Ajoute-la maintenant, ou continue quand même.</span>';
+      if (st) st.innerHTML = '<span class="aw-statut alerte">' + ICO('warn') + ' Tu n\'as pas ajouté « ' + e.titre + ' ». Ajoute-la maintenant, ou continue quand même.</span>';
     } else {
       majStatutEtape();
     }
@@ -382,7 +382,7 @@ function renderAuditWizard() {
     if (count) count.textContent = 'Dernière étape';
     if (barFill) barFill.style.width = '100%';
     if (card) card.innerHTML =
-      '<div class="aw-title">Presque terminé 🎯</div>' +
+      '<div class="aw-title">Presque terminé ' + ICO('target') + '</div>' +
       '<div class="aw-tip">Renseigne ton profil ci-dessous, vérifie tes captures, puis lance le diagnostic. Il te manque une donnée ? Ajoute-la, ou reviens en arrière.</div>';
     if (nav) nav.innerHTML = '<button onclick="auditStepPrecedent()">← Revoir mes captures</button>';
     if (ctx) ctx.style.display = '';
@@ -698,11 +698,11 @@ async function lancerAudit() {
 let lastAudit = null;
 
 const SCORE_DIMS = [
-  { key: 'engagement',   label: 'Engagement',       max: 20, icone: '📈' },
-  { key: 'retention',    label: 'Rétention',        max: 20, icone: '⏱️' },
-  { key: 'storytelling', label: 'Accroche & rythme',     max: 20, icone: '🎬' },
-  { key: 'sujets',       label: 'Choix des sujets', max: 20, icone: '🎯' },
-  { key: 'regularite',   label: 'Régularité',       max: 20, icone: '📅' }
+  { key: 'engagement',   label: 'Engagement',       max: 20, icone: ICO('trend') },
+  { key: 'retention',    label: 'Rétention',        max: 20, icone: ICO('clock') },
+  { key: 'storytelling', label: 'Accroche & rythme',     max: 20, icone: ICO('film') },
+  { key: 'sujets',       label: 'Choix des sujets', max: 20, icone: ICO('target') },
+  { key: 'regularite',   label: 'Régularité',       max: 20, icone: ICO('calendar') }
 ];
 
 // Conseils génériques par dimension, utilisés UNIQUEMENT en repli quand le
@@ -1372,9 +1372,9 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // ── Pilier : performance globale ──
   if (dispo(P.performance_globale)) {
     const p = P.performance_globale;
-    html += auditBlock('📊 Performance globale', `
+    html += auditBlock(ICO('chart') + ' Performance globale', `
       ${p.constat ? `<div class="audit-diag-constat">${auditEsc(p.constat)}</div>` : ''}
-      ${p.blocage ? `<div class="audit-diag-interp">🚧 ${auditEsc(p.blocage)}</div>` : ''}
+      ${p.blocage ? `<div class="audit-diag-interp">${ICO('warn')} ${auditEsc(p.blocage)}</div>` : ''}
       ${p.action ? `<div class="audit-diag-action">→ ${auditEsc(p.action)}</div>` : ''}
     `);
   }
@@ -1387,29 +1387,29 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   const foll = v => (v != null && v !== '' && !isNaN(v)) ? Number(v) : null;
   const folBest = foll(M.retention_meilleure && M.retention_meilleure.nouveaux_followers);
   const folWorst = foll(M.retention_pire && M.retention_pire.nouveaux_followers);
-  const badgeFoll = n => `<div class="audit-vs-fol">🧲 ${formaterNombre(n)} abonné${n > 1 ? 's' : ''} gagné${n > 1 ? 's' : ''} par cette vidéo</div>`;
+  const badgeFoll = n => `<div class="audit-vs-fol">${ICO('magnet')} ${formaterNombre(n)} abonné${n > 1 ? 's' : ''} gagné${n > 1 ? 's' : ''} par cette vidéo</div>`;
   if (dispo(mv) || dispo(pv) || dispo(comp)) {
     let inner = '';
     if (dispo(mv)) {
       inner += `<div class="audit-vs-col audit-vs-best">
-        <div class="audit-vs-tag">✅ Meilleure vidéo</div>
+        <div class="audit-vs-tag">${ICO('check')} Meilleure vidéo</div>
         ${mv.constat ? `<div class="audit-vs-text">${auditEsc(mv.constat)}</div>` : ''}
-        ${mv.formule ? `<div class="audit-vs-formule">💡 ${auditEsc(mv.formule)}</div>` : ''}
+        ${mv.formule ? `<div class="audit-vs-formule">${ICO('bulb')} ${auditEsc(mv.formule)}</div>` : ''}
         ${folBest != null ? badgeFoll(folBest) : ''}
       </div>`;
     }
     if (dispo(pv)) {
       const sec = pv.seconde_decrochage;
       inner += `<div class="audit-vs-col audit-vs-worst">
-        <div class="audit-vs-tag">⚠️ Vidéo faible${sec != null ? ', décroche à ' + auditEsc(sec) + 's' : ''}</div>
+        <div class="audit-vs-tag">${ICO('warn')} Vidéo faible${sec != null ? ', décroche à ' + auditEsc(sec) + 's' : ''}</div>
         ${pv.constat ? `<div class="audit-vs-text">${auditEsc(pv.constat)}</div>` : ''}
         ${folWorst != null ? badgeFoll(folWorst) : ''}
       </div>`;
     }
-    html += auditBlock('⚡ Comparatif', `<div class="audit-vs">${inner}</div>
+    html += auditBlock(ICO('bolt') + ' Comparatif', `<div class="audit-vs">${inner}</div>
       ${dispo(comp) && comp.conclusion ? `<div class="audit-vs-concl">${auditEsc(comp.conclusion)}</div>` : ''}
-      ${dispo(comp) && comp.conversion ? `<div class="audit-vs-repres">🧲 ${auditEsc(comp.conversion)}</div>` : ''}
-      ${dispo(comp) && comp.representativite ? `<div class="audit-vs-repres">📊 ${auditEsc(comp.representativite)}</div>` : ''}`);
+      ${dispo(comp) && comp.conversion ? `<div class="audit-vs-repres">${ICO('magnet')} ${auditEsc(comp.conversion)}</div>` : ''}
+      ${dispo(comp) && comp.representativite ? `<div class="audit-vs-repres">${ICO('chart')} ${auditEsc(comp.representativite)}</div>` : ''}`);
   }
 
   // ── Éditorial ──
@@ -1424,7 +1424,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
       inner += '</div>';
     }
     if (e.recommandation) inner += `<div class="audit-diag-action">→ ${auditEsc(e.recommandation)}</div>`;
-    html += auditBlock('📝 Analyse éditoriale', inner);
+    html += auditBlock(ICO('pen') + ' Analyse éditoriale', inner);
   }
 
   // ── Niche (clarté du positionnement) ──
@@ -1433,7 +1433,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
     const nicheOk = n.etat === 'claire';
     html += `<div class="audit-block">
       <div class="audit-block-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <span>🎯 Ta niche</span>
+        <span>${ICO('target')} Ta niche</span>
         <span class="ds-tag${nicheOk ? ' ds-tag-ok' : ''}">${nicheOk ? 'Niche claire' : 'Niche encore floue'}</span>
       </div>
       ${n.nom ? `<div class="audit-diag-constat">${auditEsc(n.nom)}</div>` : ''}
@@ -1446,7 +1446,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   if (ad && ad.disponible !== false && (ad.videos_au_dessus_moyenne != null || (Array.isArray(ad.concepts_recurrents) && ad.concepts_recurrents.length))) {
     const concepts = Array.isArray(ad.concepts_recurrents) ? ad.concepts_recurrents : [];
     html += `<div class="audit-block">
-      <div class="audit-block-title">📊 Analyse détaillée</div>
+      <div class="audit-block-title">${ICO('chart')} Analyse détaillée</div>
       <div class="ds-mini-stats" style="grid-template-columns:1fr 1fr">
         <div class="ds-mini-stat"><b>${auditEsc(ad.videos_au_dessus_moyenne ?? '·')}${ad.total_videos_analysees ? ' / ' + auditEsc(ad.total_videos_analysees) : ''}</b><span>Au-dessus de la moyenne</span></div>
         <div class="ds-mini-stat"><b>${concepts.length || '·'}</b><span>Concepts récurrents</span></div>
@@ -1458,7 +1458,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // ── Audience ──
   if (dispo(P.audience)) {
     const au = P.audience;
-    html += auditBlock('👥 Audience', `
+    html += auditBlock(ICO('people') + ' Audience', `
       ${au.constat ? `<div class="audit-diag-constat">${auditEsc(au.constat)}</div>` : ''}
       ${au.alignement ? `<div class="audit-diag-interp">${auditEsc(au.alignement)}</div>` : ''}
     `);
@@ -1478,7 +1478,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
       items += `<li><b>À éviter :</b> ${pa.erreurs_a_eviter.map(auditEsc).join(', ')}</li>`;
     if (items) {
       html += `<div class="audit-block audit-plan">
-        <div class="audit-block-title">🎯 Ton plan des 30 prochains jours</div>
+        <div class="audit-block-title">${ICO('target')} Ton plan des 30 prochains jours</div>
         <ul class="audit-plan-list">${items}</ul>
       </div>`;
     }
@@ -1490,7 +1490,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // s'il manque vraiment quelque chose : un audit complet n'affiche rien.
   const manquantes = Array.isArray(a.donnees_manquantes) ? a.donnees_manquantes.filter(Boolean) : [];
   if (manquantes.length) {
-    html += auditBlock('📋 Pour un audit plus complet',
+    html += auditBlock(ICO('clipboard') + ' Pour un audit plus complet',
       '<ul class="audit-manquantes">' +
       manquantes.map(m => `<li>${auditEsc(m)}</li>`).join('') +
       '</ul>' +
@@ -1509,7 +1509,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
   // "Créer le script" et "Voir d'autres recommandations", ce bouton faisait doublon)
   html += `<div id="auditOpportunites"></div>
     <div id="auditFusionBanner" class="ds-alt" style="display:none;margin-top:20px;cursor:pointer" onclick="ouvrirFusionDiagnostics()">
-      🔗 Tu as fait tes deux diagnostics,<strong>découvre le rapport fusionné, plus complet →</strong>
+      ${ICO('link')} Tu as fait tes deux diagnostics,<strong>découvre le rapport fusionné, plus complet →</strong>
     </div></div>`;
 
   out.innerHTML = html;
