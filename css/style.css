@@ -1477,22 +1477,20 @@ body.hero-focus .hero-focus-rule{display:block}
 .history-actions{display:flex;flex-direction:column;align-items:center;gap:10px;padding-left:6px}
 .history-fav,
 .history-delete{
-  width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;
-  background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.16);border-radius:10px;
-  color:var(--gold-light);cursor:pointer;padding:0;
-  transition:color 0.2s,background 0.2s,border-color 0.2s,transform 0.12s;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:none;border:none;color:var(--gold-light);cursor:pointer;padding:4px;
+  transition:color 0.2s,transform 0.12s;
 }
 .history-fav svg,
 .history-delete svg{display:block}
-.history-fav:hover,
-.history-delete:hover{background:rgba(201,168,76,0.16)}
+.history-fav:hover{color:var(--gold)}
 .history-fav:active,
 .history-delete:active{transform:scale(0.9)}
 /* Favori actif : marque-page rempli en or */
-.history-fav.actif{color:var(--gold);background:rgba(201,168,76,0.16);border-color:rgba(201,168,76,0.4)}
+.history-fav.actif{color:var(--gold)}
 .history-fav.actif svg{fill:currentColor}
 /* Supprimer : vire au rouge au survol (action destructrice) */
-.history-delete:hover{color:#E88;border-color:rgba(238,136,136,0.4);background:rgba(238,136,136,0.1)}
+.history-delete:hover{color:#E88}
 .history-card.favori{border-color:rgba(201,168,76,0.45)}
 
 /* Icône + libellé dans les boutons de la barre d'outils */
