@@ -244,7 +244,7 @@ function afficherResultatTranscription(data) {
   const res = document.getElementById('outilsResults');
   res.innerHTML = `
     <div class="outils-result-card">
-      <h3>📝 Transcription</h3>
+      <h3>${ICO('pen')} Transcription</h3>
       <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
       <div class="sb-actions-fin">
         <button class="icon-btn" title="Copier" id="outilsCopyBtn" onclick="copySection('outilsCopyBtn', _outilsTranscript)">${ICON_COPY}</button>
@@ -263,7 +263,7 @@ function afficherResultatTelechargement(blob) {
   const res = document.getElementById('outilsResults');
   res.innerHTML = `
     <div class="outils-result-card">
-      <h3>⬇️ Téléchargement</h3>
+      <h3>${ICO('download')} Téléchargement</h3>
       <p class="outils-dl-desc">Ta vidéo est prête.</p>
       <button class="btn-generate" id="outilsDlBtn" style="width:100%" onclick="outilsPartagerVideo()">Télécharger la vidéo</button>
       <p class="outils-dl-note">Sur téléphone, ça ouvre la fenêtre de partage pour l'enregistrer directement dans ta galerie. Sur ordinateur, elle se télécharge normalement.</p>
