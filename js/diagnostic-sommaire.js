@@ -748,10 +748,10 @@ function animerScoreDiagSommaire(valeur, circonference) {
 }
 
 const DS_DIM_META = {
-  engagement: { icone: '📈', label: 'Engagement', max: 30 },
-  portee:     { icone: '👁️', label: 'Portée', max: 30 },
-  regularite: { icone: '📅', label: 'Régularité', max: 20 },
-  viralite:   { icone: '⚡', label: 'Viralité', max: 20 }
+  engagement: { icone: ICO('trend'), label: 'Engagement', max: 30 },
+  portee:     { icone: ICO('eye'), label: 'Portée', max: 30 },
+  regularite: { icone: ICO('calendar'), label: 'Régularité', max: 20 },
+  viralite:   { icone: ICO('bolt'), label: 'Viralité', max: 20 }
 };
 
 // Ces 3 dimensions ont structurellement besoin de données par vidéo
@@ -902,7 +902,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
       <p class="ds-bio-actuelle">« ${diagSommaireEsc(bio.actuelle)} »</p>
       <p class="audit-diag-constat" style="margin-top:10px">${diagSommaireEsc(bio.critique)}</p>
       ${Array.isArray(bio.suggestions) && bio.suggestions.length ? `
-      <div class="audit-section-label" style="margin-top:18px">💡 Suggestions pour la bio</div>
+      <div class="audit-section-label" style="margin-top:18px">${ICO('bulb')} Suggestions pour la bio</div>
       ${bio.suggestions.map(s => `<p class="ds-suggestion">${diagSommaireEsc(s)}</p>`).join('')}` : ''}
     </div>` : '';
 
@@ -941,7 +941,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
         </li>`).join('')}
       </ul>
     </div>` : '';
-  const topHtml = carteVideos(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons : la recette à décoder', '🔥 Top', true, d.top_videos);
+  const topHtml = carteVideos(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons : la recette à décoder', ICO('flame') + ' Top', true, d.top_videos);
   const flopHtml = carteVideos(moi ? 'Tes vidéos en retrait' : 'Ses ratés : ce que tu peux éviter', 'À revoir', false, d.flop_videos);
 
   const concepts = Array.isArray(d.concepts_recurrents) ? d.concepts_recurrents.filter(Boolean) : [];
@@ -965,15 +965,15 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   // copier. Verdict d'inspiration : est-ce vraiment un modèle à suivre (honnêteté).
   const faille = (!moi && d.faille_exploiter) ? `
     <div class="score-card">
-      <div class="audit-section-label">🎯 Sa faille, ton opportunité</div>
+      <div class="audit-section-label">${ICO('target')} Sa faille, ton opportunité</div>
       <p class="audit-diag-constat" style="margin-top:8px">${diagSommaireEsc(d.faille_exploiter)}</p>
     </div>` : '';
 
   const verdict = d.verdict_inspiration || {};
   const VERDICT_META = {
-    oui:      { tag: '✓ Vrai modèle',        cls: 'ds-tag-ok' },
+    oui:      { tag: ICO('check') + ' Vrai modèle',        cls: 'ds-tag-ok' },
     partiel:  { tag: '~ À prendre avec pincettes', cls: '' },
-    prudence: { tag: '⚠ Pas un modèle',      cls: 'ds-tag-alert' }
+    prudence: { tag: ICO('warn') + ' Pas un modèle',      cls: 'ds-tag-alert' }
   };
   const vMeta = VERDICT_META[verdict.modele] || VERDICT_META.partiel;
   const verdictHtml = (!moi && verdict.constat) ? `
@@ -1040,7 +1040,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
         ${evo.avant ? `<div class="ds-evo-col"><div class="ds-evo-h">Avant</div><p>${diagSommaireEsc(evo.avant)}</p></div>` : ''}
         ${evo.apres ? `<div class="ds-evo-col"><div class="ds-evo-h">Depuis</div><p>${diagSommaireEsc(evo.apres)}</p></div>` : ''}
       </div>` : ''}
-      ${evo.formule_gagnante ? `<div class="ds-evo-formule"><div class="ds-evo-h">🏆 ${moi ? 'Ta' : 'Sa'} formule gagnante</div><p>${diagSommaireEsc(evo.formule_gagnante)}</p></div>` : ''}
+      ${evo.formule_gagnante ? `<div class="ds-evo-formule"><div class="ds-evo-h">${ICO('trophy')} ${moi ? 'Ta' : 'Sa'} formule gagnante</div><p>${diagSommaireEsc(evo.formule_gagnante)}</p></div>` : ''}
     </div>` : '';
 
   // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
@@ -1088,7 +1088,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
     ${moi ? ctaDetailleHtml : ctaConcurrentHtml}
     <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreCompteDiagSommaire(${moi})">Analyser un autre compte</button>
     ${moi ? `<div id="dsFusionBanner" class="ds-alt" style="display:none;margin-top:20px;cursor:pointer" onclick="ouvrirFusionDiagnostics()">
-      🔗 Tu as fait tes deux diagnostics,<strong>découvre le rapport fusionné, plus complet →</strong>
+      ${ICO('link')} Tu as fait tes deux diagnostics,<strong>découvre le rapport fusionné, plus complet →</strong>
     </div>` : ''}`;
 
   results.style.display = 'block';
@@ -1231,7 +1231,7 @@ function _carteVsHtml(concUser, lignes, syn) {
     </div>
     <div class="ds-vs-wrap">${tableau}</div>
     ${syn && syn.constat ? `<p class="audit-diag-constat" style="margin-top:14px">${diagSommaireEsc(syn.constat)}</p>` : ''}
-    ${syn && syn.levier_titre ? `<div class="ds-evo-formule"><div class="ds-evo-h">🎯 Ton levier n°1 face à lui</div><p><b>${diagSommaireEsc(syn.levier_titre)}</b> — ${diagSommaireEsc(syn.levier_detail || '')}</p></div>` : ''}`;
+    ${syn && syn.levier_titre ? `<div class="ds-evo-formule"><div class="ds-evo-h">${ICO('target')} Ton levier n°1 face à lui</div><p><b>${diagSommaireEsc(syn.levier_titre)}</b> — ${diagSommaireEsc(syn.levier_detail || '')}</p></div>` : ''}`;
 }
 
 // Réaffiche un face-à-face DÉJÀ calculé (stocké dans la génération) en haut du

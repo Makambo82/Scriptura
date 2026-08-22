@@ -1,3 +1,37 @@
+// ── ICÔNES MAISON (trait fin, style du logo) ──
+// Source unique pour toutes les icônes en ligne des écrans de résultats
+// (diagnostic, audit, recommandations…), en remplacement des emojis système
+// qui s'affichaient différemment selon l'appareil. `ICO('nom')` renvoie un
+// SVG inline sizé en 1em (classe .ico, voir css/style.css) qui hérite de la
+// couleur du texte (currentColor), donc respecte l'or, l'émeraude, etc.
+// Chargé avant audit.js / diagnostic-*.js (voir ordre des <script>).
+const _ICO_PATHS = {
+  chart: '<path d="M4 19h16"/><rect x="5.5" y="13" width="3" height="6" rx=".6"/><rect x="10.5" y="9" width="3" height="10" rx=".6"/><rect x="15.5" y="6" width="3" height="13" rx=".6"/>',
+  trend: '<path d="M4 5v14h16"/><path d="M7 15l3.5-4 3 2.5L20 7"/>',
+  clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/>',
+  target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>',
+  calendar: '<rect x="4" y="5.5" width="16" height="15" rx="2"/><path d="M4 9.5h16"/><path d="M8 3.5v4"/><path d="M16 3.5v4"/>',
+  film: '<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M8 6v12"/><path d="M16 6v12"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>',
+  bolt: '<path d="M13 2 5 13h6l-1 9 9-12h-6l1-8Z"/>',
+  bulb: '<path d="M9.5 18.5h5"/><path d="M10.5 21h3"/><path d="M12 3.5c-3.6 0-6 2.7-5.4 6.1.3 1.7 1.4 2.9 2.4 3.9.6.6.9 1.2 1 2h4c.1-.8.4-1.4 1-2 1-1 2.1-2.2 2.4-3.9C18 6.2 15.6 3.5 12 3.5Z"/>',
+  flame: '<path d="M12 3c1 3-2 4.2-2 7a2 2 0 0 0 4 0c0-.6-.2-1.1-.5-1.6 2 1 3.5 2.9 3.5 5.1a5 5 0 0 1-10 0C7 12 9.5 9.3 12 3Z"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7"/>',
+  warn: '<path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10.5v3.5"/><path d="M12 17h.01"/>',
+  camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.2"/>',
+  magnet: '<path d="M7 3H4v8a8 8 0 0 0 16 0V3h-3v8a5 5 0 0 1-10 0V3Z"/><path d="M4 7.5h3"/><path d="M17 7.5h3"/>',
+  pen: '<path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/>',
+  people: '<circle cx="9" cy="9" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.6a3 3 0 0 1 0 5.8"/><path d="M17 14.4a5.5 5.5 0 0 1 3.5 4.6"/>',
+  clipboard: '<rect x="6" y="4.5" width="12" height="16" rx="2"/><path d="M9 4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5v1.2H9V4.5Z"/><path d="M9 11h6"/><path d="M9 14.5h6"/><path d="M9 18h4"/>',
+  link: '<path d="M9 12h6"/><path d="M10 8H7a4 4 0 0 0 0 8h3"/><path d="M14 16h3a4 4 0 0 0 0-8h-3"/>',
+  trophy: '<path d="M7 5h10v3a5 5 0 0 1-10 0V5Z"/><path d="M7 6H4.5v1.5A2.5 2.5 0 0 0 7 10"/><path d="M17 6h2.5v1.5A2.5 2.5 0 0 1 17 10"/><path d="M12 13v3"/><path d="M8.5 20h7"/><path d="M10 20v-1.2a2 2 0 0 1 4 0V20"/>'
+};
+function ICO(nom, cls) {
+  const p = _ICO_PATHS[nom];
+  if (!p) return '';
+  return '<svg class="' + (cls || 'ico') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + '</svg>';
+}
+
 // ── MASQUER/RÉVÉLER LE FORMULAIRE DE SAISIE UNE FOIS LE RÉSULTAT AFFICHÉ ──
 // Une fois une génération réussie, son formulaire (niche, sujet, ton…) n'a
 // plus sa place à l'écran : seul le résultat compte. masquerFormulaireGeneration
