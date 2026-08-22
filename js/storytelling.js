@@ -320,6 +320,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
 
   try {
+    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(1); // phase : écriture du récit
     const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
     let parsed = parseAIResponse(raw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
@@ -389,6 +390,7 @@ TON TRAVAIL :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
 
+          if (typeof avancerEtapeGen === 'function') avancerEtapeGen(2); // phase : critique éditorial
           const critiqueRaw = await callAI(MODEL_QUALITE_RECIT, 2500, critiquePrompt);
           const critique = parseAIResponse(critiqueRaw);
           if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
@@ -455,6 +457,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"Hook","texte":"..."}]}`;
 
           try {
+            if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
             const reviseRaw = await callAI(MODEL_QUALITE_RECIT, 8000, revisePrompt);
             const revised = parseAIResponse(reviseRaw);
             if (revised && Array.isArray(revised.recit) && revised.recit.length) {
@@ -537,6 +540,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
         let correctedStory = null;
         try {
+          if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4); // phase : calibrage de la durée
           const correctRawStory = await callAI(MODEL_CREATIF, 8000, correctionPromptStory);
           correctedStory = parseAIResponse(correctRawStory);
         } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
@@ -549,6 +553,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         }
       }
     }
+
+    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(5); // phase : hook et ouverture
 
     // ══════════════════════════════════════
     //  NORMALISATION FINALE DU HOOK ET DE L'OUVERTURE
@@ -629,6 +635,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         }
       } catch (e) { /* si la correction échoue, on garde le hook/ouverture actuels */ }
     }
+
+    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(6); // phase : anti-plagiat + finition clôture
 
     // ══════════════════════════════════════
     //  NORMALISATION FINALE DE LA CLÔTURE (systématique, plus détection)
