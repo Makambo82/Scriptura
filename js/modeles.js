@@ -290,109 +290,112 @@ const SCRIPTURA_MODELES = [
 // Ce que choisirModeleSemantique() (plus bas) donne à l'IA pour juger un
 // modèle : sa structure en étapes réelles, son rythme, le type de son hook,
 // et surtout les sujets avec lesquels sa mécanique fonctionne OU PAS,
-// l'information qu'un simple thème ne peut jamais donner. Rédigée à la
-// main à partir d'une lecture complète des 15 scripts ci-dessus.
+// l'information qu'un simple thème ne peut jamais donner. Le champ
+// `structure` reprend la STRUCTURE officielle en 8 étapes fournie par le
+// propriétaire pour chacun des 15 scripts (source authentique, pas une
+// reconstruction) ; rythme/typeHook/sujetsCompatibles/sujetsIncompatibles
+// restent une lecture complémentaire des scripts eux-mêmes.
 const SCRIPTURA_MODELES_ADN = {
   fritzl: {
-    structure: 'Hook choc → transition → contexte (ville calme, fausse normalité) → détonateur (disparition) → immersion 2e personne (le voisin) → révélation de l\'horreur cachée → montée en détails glaçants → procès → clôture',
+    structure: 'Hook choc et paradoxal → présentation du décor ordinaire → début de la disparition et mensonges initiaux → plongée dans la mécanique de l\'enfermement → vie quotidienne en surface vs. horreur en sous-sol → déclencheur de la révélation / dénouement judiciaire → questionnement moral et symbolique → triple question finale',
     rythme: 'Lent et glaçant au début, densité maximale sur la révélation de l\'horreur, ralentit sur le procès',
     typeHook: 'Dissonance temporelle ("Ils ont vécu X ans... Et personne n\'a rien vu.")',
     sujetsCompatibles: 'true crime, prédateurs, secrets de famille, horreur cachée derrière une façade normale, banalité du mal',
     sujetsIncompatibles: 'sujets factuels neutres, tutoriels, actualité pure sans noirceur humaine'
   },
   kadhafi: {
-    structure: 'Hook paradoxe destin → transition → contexte/origines → ascension au pouvoir → montée en puissance et excès → basculement (révolte) → chute violente → clôture',
+    structure: 'Hook fataliste (2 phrases) → présentation d\'un homme au sommet → mise en contexte stratégique et idéologique → montée en puissance / provocations / spectacle → accumulation de tension / isolement progressif → effondrement / chute brutale / scène finale → post-mortem / vide laissé / désintégration → clôture miroir, triple question',
     rythme: 'Progressif, accélération nette dans le dernier tiers (la chute)',
     typeHook: 'Paradoxe de destin ("Il voulait X. Il a fini Y.")',
     sujetsCompatibles: 'dictateurs, chefs d\'État flamboyants, figures de pouvoir spectaculaires, arc ascension puis chute',
     sujetsIncompatibles: 'sujets sans arc de pouvoir clair, tutoriels, comparaisons'
   },
   traore: {
-    structure: 'Hook contraste de statut → transition → contexte (pays en crise) → arrivée au pouvoir → immersion 2e personne → portée symbolique/populaire → tensions et menaces → clôture',
+    structure: 'Hook direct et paradoxal → contexte dramatique (pays, guerre, population) → prise de pouvoir inattendue → portrait brut et rupture visuelle → espoir populaire et symbolique du rejet colonial → tensions géopolitiques et ambiguïtés nouvelles → résistance intérieure et menaces invisibles → clôture réflexive : foi, sincérité, silence politique',
     rythme: 'Grave et posé, densité stable, pas d\'accélération finale marquée',
     typeHook: 'Contraste d\'identité/statut ("X n\'était pas Y. C\'était juste Z.")',
     sujetsCompatibles: 'leaders émergents, figures politiques actuelles, espoir populaire, souveraineté, symboles collectifs',
     sujetsIncompatibles: 'sujets sans dimension politique ou collective, tutoriels'
   },
   musulin: {
-    structure: 'Hook ironique → transition → portrait du personnage → jour J minute par minute → immersion → fuite → ironie du système/verdict → clôture',
+    structure: 'Hook paradoxal (2 phrases) → immersion réaliste immédiate → geste de rupture discret → vol méthodique, sans bruit → révélation progressive → dénouement ambigu (justice vs discipline) → morale ironique et critique → question miroir finale',
     rythme: 'Rapide et ludique, ironique de bout en bout, pas de passage lent',
     typeHook: 'Ironie/reformulation ("Il n\'a pas fait X. Il a juste Y.")',
     sujetsCompatibles: 'crimes astucieux sans violence, failles de système exploitées avec sang-froid, ironie sociale',
     sujetsIncompatibles: 'sujets tragiques ou graves (le ton ironique y serait déplacé), tutoriels'
   },
   sean_combs: {
-    structure: 'Hook ambition/chute → transition → ascension (contexte + montée) → apogée (pouvoir, fêtes) → premiers signes sombres → scandale/accusations → chute publique → clôture',
+    structure: 'Hook fataliste (ascension brisée) → présentation d\'un homme au sommet → mise en contexte culturel et stratégique → détonateur : les premières accusations → enquête publique et révélations privées → choc médiatique et soupçons accumulés → chute sociale, inculpation, isolement → clôture cynique sur le pouvoir et la chute',
     rythme: 'Montée longue et progressive, bascule nette aux deux tiers, accélération sur le scandale final',
     typeHook: 'Ambition/chute ("Il voulait X. Il a fini par Y.")',
     sujetsCompatibles: 'célébrités, empires médiatiques/business bâtis puis fissurés, scandales de pouvoir, chute publique',
     sujetsIncompatibles: 'sujets sans montée préalable ni statut à perdre, factuel pur'
   },
   pompei: {
-    structure: 'Hook fatalité → transition → contexte (prospérité, fausse sécurité) → détonateur soudain → plusieurs immersions 2e personne successives → minute par minute de la catastrophe → redécouverte/mémoire → question éthique → clôture',
+    structure: 'Hook poétique et fataliste → mise en contexte historique immersive → quotidien romain contrasté avec le volcan → déclenchement soudain de la catastrophe → immersion sensorielle dans la panique → figures figées dans la mort → redécouverte des corps et question éthique → réflexion finale sur la fragilité des civilisations',
     rythme: 'Lent et contemplatif au début, extrêmement dense sur l\'instant de la catastrophe, ralentit à nouveau pour la réflexion finale',
     typeHook: 'Fatalité, absence de temps pour réagir ("Ils n\'ont pas eu le temps de X. Alors Y.")',
     sujetsCompatibles: 'catastrophes soudaines (naturelles, attentats, accidents de masse, bombardements), événements qui tuent en un instant une population entière, réflexion sur la civilisation/le destin humain',
     sujetsIncompatibles: 'sujets progressifs sans instant de bascule brutal, tutoriels, comparaisons, listes'
   },
   snowden: {
-    structure: 'Hook trahison apparente → transition → contexte (formation, patriote convaincu) → détonateur (découverte du système) → dilemme moral → immersion 2e personne → fuite/révélation → conséquences/exil → clôture (chute non-interrogative)',
+    structure: 'Hook fataliste (ascension brisée) → présentation d\'un homme au sommet → mise en contexte culturel et stratégique → détonateur : la découverte des écoutes → enquête privée et désobéissance → révélation publique et scandale mondial → chute sociale, fuite, isolement → clôture cynique sur le pouvoir et la vérité',
     rythme: 'Posé, dilemme intérieur développé longuement, accélère nettement sur la fuite',
     typeHook: 'Trahison apparente qui cache une loyauté réelle ("Il croyait servir X. Il a fini par Y.")',
     sujetsCompatibles: 'lanceurs d\'alerte, dilemmes moraux face à un système, désobéissance par conviction, vérité contre institution',
     sujetsIncompatibles: 'sujets sans dilemme moral central, factuel pur'
   },
   pape: {
-    structure: 'Annonce factuelle immédiate → contexte du rituel/protocole → présentation des favoris en tension → plusieurs tours de bascule → dénouement surprise → clôture',
+    structure: 'Hook solennel (2 phrases) → introduction du rituel (mise en scène sacrée) → explication des règles (codification du conclave) → tension dramatique entre deux camps → montée progressive de l\'inattendu → climax : fumée blanche, choix de Bergoglio → dénouement symbolique et rupture → question ouverte spirituelle et politique',
     rythme: 'Cérémonial et mystique, tension qui monte à chaque étape du processus, pas de hook choc initial',
     typeHook: 'Annonce factuelle directe, sans paradoxe ni choc (le seul modèle de la bibliothèque dans ce cas)',
     sujetsCompatibles: 'institutions, rituels de pouvoir/succession, élections ou processus formels avec un résultat surprise',
     sujetsIncompatibles: 'sujets sans processus formel ni rituel, factuel pur sans tension de procédure, listes'
   },
   central_park: {
-    structure: 'Hook injustice → transition → contexte (le crime initial) → portraits des accusés → immersion (interrogatoire) → procès/condamnation injuste → révélation de la vérité (des années après) → réparation partielle → clôture',
+    structure: 'Hook brutal (2 phrases) → immersion factuelle et géographique → tension immédiate (crise médiatique) → victimisation symbolique (mineurs face au système) → procédure dévoyée (interrogatoires, fausses confessions) → climax : procès sous influence, médias et politique → révélation tardive, justice réparée trop tard → dénouement critique et question miroir finale',
     rythme: 'Dense, alterne factuel et immersion, indignation qui monte crescendo',
     typeHook: 'Injustice par contraste âge/peine ("Ils avaient entre X et Y ans. Ils ont été Z à tort.")',
     sujetsCompatibles: 'erreurs judiciaires, racisme ou biais systémiques, injustices collectives, réhabilitation tardive',
     sujetsIncompatibles: 'sujets individuels sans dimension systémique/collective, tutoriels'
   },
   bourdin: {
-    structure: 'Hook chiffre choc → transition → contexte (multiples identités volées) → cas central développé → immersion (la famille trompée) → démasquage → psychologie du personnage → clôture',
+    structure: 'Hook paradoxal (identités volées, mais pas d\'argent) → présentation du personnage et de son obsession → immersion dans une imposture hors norme (affaire Barclay) → suspension de la réalité : la croyance plus forte que les faits → exploration émotionnelle des victimes et du manipulateur → démasquage par enquêteurs indépendants → retours récidivants et mécanique de fuite → clôture existentielle sur le besoin d\'exister',
     rythme: 'Étrange et psychologique, alterne factuel froid et introspection sur les motivations',
     typeHook: 'Contraste chiffre/absence de gain matériel ("Il a volé X. Mais aucun Y.")',
     sujetsCompatibles: 'imposture, manipulation psychologique, quête d\'identité ou de reconnaissance, mensonge pathologique',
     sujetsIncompatibles: 'sujets factuels sans ressort psychologique, tutoriels'
   },
   carlos_ghosn: {
-    structure: 'Hook contraste statut/objet dérisoire → transition → contexte (empire, prestige) → chute/arrestation → immersion → plan d\'évasion → fuite spectaculaire → statut actuel/impunité → clôture',
+    structure: 'Hook symbolique (2 phrases) → ascension spectaculaire → élite mondialisée, privilèges et déconnexion → chute brutale et isolement → conditions de détention et métamorphose → fuite spectaculaire et protection géopolitique → impunité vs justice : affrontement des récits → héritage, question miroir finale',
     rythme: 'Contraste fort : lent et cérémonial sur le prestige, très rapide et cinématographique sur l\'évasion',
     typeHook: 'Contraste statut/déchéance via un objet inattendu ("Il était X. Il a fini Y.")',
     sujetsCompatibles: 'chutes de dirigeants, évasions ou fuites spectaculaires, justice internationale, impunité des puissants',
     sujetsIncompatibles: 'sujets sans rebondissement final marquant, sans plan/exécution notable'
   },
   le_pen: {
-    structure: 'Hook ambition/sanction → transition → contexte (ambition politique) → mécanisme du délit expliqué en détail → mise en perspective politique → hypocrisie ambiante → clôture',
+    structure: 'Hook fataliste (ascension brisée) → présentation d\'une figure politique forte → mise en contexte judiciaire et institutionnel → détonateur : la condamnation → détail des faits reprochés (fonds détournés) → enquête, révélations et témoignages → réactions politiques, discours de défense, isolement → clôture cynique sur le système et la responsabilité',
     rythme: 'Analytique et posé, peu d\'accélération, plus explicatif qu\'immersif',
     typeHook: 'Ambition contrastée par une sanction ("Elle rêvait de X. Elle a fini avec Y.")',
     sujetsCompatibles: 'procès politiques, corruption ou détournements, ambitions politiques déchues, hypocrisie du système',
     sujetsIncompatibles: 'sujets sans mécanisme juridique ou politique précis à expliquer'
   },
   ali: {
-    structure: 'Hook contraste statut/symbole → transition → contexte (oppression systémique) → bascule vers la lutte → actions clandestines → traque → mort héroïque → postérité/mythe → clôture',
+    structure: 'Hook symbolique (2 phrases) → contexte colonial brutal → enfance marginalisée et destin carcéral → prise de conscience politique → entrée dans la lutte armée → escalade de la répression et traque → mort héroïque et mythisation → héritage, mémoire populaire, question miroir finale',
     rythme: 'Grave et montant, densité maximale sur la traque finale',
     typeHook: 'Contraste statut social modeste/symbole historique ("X était un [statut modeste]. [Institution] en a fait un symbole.")',
     sujetsCompatibles: 'résistance, luttes de libération ou d\'indépendance, héros populaires nés de l\'injustice, colonisation',
     sujetsIncompatibles: 'sujets sans dimension collective/systémique, sans oppression à combattre'
   },
   femmes_tabac: {
-    structure: 'Hook contraste espoir/illusion → transition → contexte (norme sociale contraignante) → entrée en scène du stratège → plan élaboré → mise en scène publique du plan → révélation de l\'ampleur/chiffres → clôture',
+    structure: 'Hook paradoxal (émancipation transformée en illusion) → mise en contexte social et patriarcal → opportunité commerciale et manipulation industrielle → introduction du manipulateur (Bernays) → mise en scène médiatique orchestrée → symbole féministe détourné → succès commercial et ironie du sort → question miroir sur la liberté manipulée',
     rythme: 'Analytique et stratégique, un pic de mise en scène (l\'événement clé), puis chute vers les chiffres finaux',
     typeHook: 'Contraste espoir/illusion ("Ils cherchaient X. On leur a offert Y.")',
     sujetsCompatibles: 'manipulation de masse, propagande, marketing et psychologie sociale, illusions collectives organisées',
     sujetsIncompatibles: 'sujets sans dimension de manipulation ou d\'influence organisée'
   },
   madoff: {
-    structure: 'Hook ironie → transition → contexte (réputation, confiance installée) → mécanisme de l\'arnaque expliqué → immersion (l\'investisseur piégé) → ampleur croissante/victimes → chute soudaine → clôture (chute non-interrogative)',
+    structure: 'Hook percutant et désabusé → présentation rapide du personnage et de l\'affaire → mise en confiance apparente (réseau, mythe, prestige) → construction progressive de l\'arnaque → immersion dans le système Ponzi (vue client) → effondrement brutal → confession intime et chute finale → questions miroir sur l\'aveuglement collectif',
     rythme: 'Explicatif et posé, tension qui monte via l\'ampleur croissante, chute rapide à la toute fin',
     typeHook: 'Ironie par inversion d\'attente ("Il ne vendait pas X, il vendait Y.")',
     sujetsCompatibles: 'fraudes financières, confiance trahie à grande échelle, aveuglement collectif organisé',
