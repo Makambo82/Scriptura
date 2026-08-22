@@ -929,7 +929,7 @@ RÈGLE FONDAMENTALE, au-dessus de toutes les autres : le script final doit donne
 ${memoireViraleScript}
 
 CONTEXTE :
-- ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles)' : 'Sujet'} : ${sujet}
+- ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, potentiellement un article ou un document entier, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles, puis distille pour tenir dans la durée choisie plus bas, quelle que soit la richesse de cette matière)' : 'Sujet'} : ${sujet}
 - Niche : ${niche}
 - Plateforme : ${state.plateforme}
 - Objectif du créateur : ${state.objectif}
@@ -1002,7 +1002,7 @@ ${selectedTone ? '- Ton : ' + selectedTone : ''}
 
 RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
-1. RESPECT STRICT DE LA DURÉE (RÈGLE N°1 ABSOLUE) : Le script doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au TOTAL (pour ${wt.desc}), répartis en ${wt.blocs} blocs.
+1. RESPECT STRICT DE LA DURÉE (RÈGLE N°1 ABSOLUE, PEU IMPORTE LA LONGUEUR DU TEXTE SOURCE FOURNI PAR LE CRÉATEUR, MÊME UN ARTICLE OU UN DOCUMENT DE PLUSIEURS PAGES) : Le script doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au TOTAL (pour ${wt.desc}), répartis en ${wt.blocs} blocs. Si le créateur a collé une matière longue, ton travail est de la RÉDUIRE à l'essentiel qui tient dans cette durée choisie, jamais de tout caser sous prétexte qu'il y a plus de matière disponible : la durée choisie prime toujours sur la richesse de la source.
    ⚠️ MÉTHODE OBLIGATOIRE : Avant de finaliser, COMPTE mot par mot le total de ton script. S'il fait moins de ${wt.min} mots, tu DOIS ajouter du contenu de valeur pour atteindre la cible. S'il dépasse ${wt.max}, tu DOIS couper. Ne rends JAMAIS un script hors de la fourchette ${wt.min}-${wt.max} mots.
    Un script de ${wt.desc} qui fait moins de ${wt.min} mots est un ÉCHEC TOTAL. Vise le milieu de la fourchette (environ ${Math.round((wt.min + wt.max) / 2)} mots).
 
