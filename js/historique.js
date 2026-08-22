@@ -1,9 +1,11 @@
 // Sauvegarde une génération dans Supabase (silencieux, ne bloque jamais l'app)
 let currentGenId = null; // id de la génération en cours (pour y rattacher le storyboard)
 
-// Icône marque-page (favori), style TikTok « Enregistrer ». La couleur
-// (gris → or quand c'est un favori) est pilotée par la classe .actif en CSS.
-const ICON_FAV = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17.06a.6.6 0 0 1-.94.5L12 17.8l-6.06 3.76A.6.6 0 0 1 5 21.06V4a1 1 0 0 1 1-1z"/></svg>';
+// Icône marque-page (favori), trait fin doré, style du logo. Contour quand ce
+// n'est pas un favori, rempli en or quand ça l'est (classe .actif, voir CSS).
+const ICON_FAV = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17.06a.6.6 0 0 1-.94.5L12 17.8l-6.06 3.76A.6.6 0 0 1 5 21.06V4a1 1 0 0 1 1-1z"/></svg>';
+// Icône corbeille (supprimer), même trait fin doré.
+const ICON_DELETE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"/><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 // Loupe (recherche) et curseurs (filtre par type), style trait, couleur héritée.
 const ICON_SEARCH = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><line x1="15.6" y1="15.6" x2="21" y2="21"/></svg>';
 const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><circle cx="16" cy="6" r="2.6" fill="var(--bg)"/><circle cx="8" cy="12" r="2.6" fill="var(--bg)"/><circle cx="13" cy="18" r="2.6" fill="var(--bg)"/></svg>';
@@ -687,7 +689,7 @@ function _afficherListeFiltree() {
         </div>
         ${!_selectMode ? `<div class="history-actions">
           <button class="history-fav${estFav ? ' actif' : ''}" onclick="event.stopPropagation(); toggleFavori('${sid}')" title="${estFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="Favori">${ICON_FAV}</button>
-          <button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')" aria-label="Supprimer">🗑</button>
+          <button class="history-delete" onclick="event.stopPropagation(); deleteOneSerie('${s.id}')" aria-label="Supprimer">${ICON_DELETE}</button>
         </div>` : ''}
       </div></div>`;
     items.push({ t: new Date(s.cree_le).getTime() || 0, fav: estFav, html: html });
@@ -714,7 +716,7 @@ function _afficherListeFiltree() {
         </div>
         ${!_selectMode ? `<div class="history-actions">
           <button class="history-fav${estFav ? ' actif' : ''}" onclick="event.stopPropagation(); toggleFavori('${g.id}')" title="${estFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}" aria-label="Favori">${ICON_FAV}</button>
-          <button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')" aria-label="Supprimer">🗑</button>
+          <button class="history-delete" onclick="event.stopPropagation(); deleteOne('${g.id}')" aria-label="Supprimer">${ICON_DELETE}</button>
         </div>` : ''}
       </div></div>`;
     items.push({ t: date.getTime() || 0, fav: estFav, html: html });
@@ -745,7 +747,7 @@ function updateHistoryToolbar() {
       <button class="hist-tool-btn" onclick="${toutCoche ? 'toutDeselectionner()' : 'toutSelectionner()'}">${toutCoche ? 'Aucun' : 'Tout'}</button>
       <span class="hist-tool-count">${n}</span>
       <button class="hist-tool-btn fav" onclick="favoriSelected()" ${n === 0 ? 'disabled' : ''} title="Mettre en favori">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>
-      <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''} title="Supprimer">🗑<span class="hist-tool-lbl">Supprimer</span></button>`;
+      <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''} title="Supprimer">${ICON_DELETE}<span class="hist-tool-lbl">Supprimer</span></button>`;
   } else {
     toolbar.innerHTML = `
       <button class="hist-tool-btn" onclick="enterSelectMode()">Sélectionner</button>
