@@ -183,10 +183,10 @@ async function generateStory() {
   try {
     if (typeof choisirModelesSemantique === 'function' || typeof choisirTopModeles === 'function') {
       let candidats = (typeof choisirModelesSemantique === 'function')
-        ? await choisirModelesSemantique(input, 3)
+        ? await choisirModelesSemantique(sujetPourPrompt, 3)
         : [];
       if (!candidats.length && typeof choisirTopModeles === 'function') {
-        candidats = choisirTopModeles(input, 3, false); // secours technique uniquement
+        candidats = choisirTopModeles(sujetPourPrompt, 3, false); // secours technique uniquement
       }
       candidatsModeles = candidats;
       if (candidats.length) {
