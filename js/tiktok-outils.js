@@ -109,15 +109,19 @@ async function lancerOutilTikTok(type) {
   const spinId = type === 'transcription' ? 'outilsTranscriptionSpinner' : 'outilsTelechargementSpinner';
   const txtId = type === 'transcription' ? 'outilsTranscriptionBtnText' : 'outilsTelechargementBtnText';
   const autreBtnId = type === 'transcription' ? 'outilsTelechargementBtn' : 'outilsTranscriptionBtn';
+  const icoId = type === 'transcription' ? 'outilsTranscriptionIco' : 'outilsTelechargementIco';
   const btn = document.getElementById(btnId);
   const spin = document.getElementById(spinId);
   const txt = document.getElementById(txtId);
+  const ico = document.getElementById(icoId);
   const autreBtn = document.getElementById(autreBtnId);
   const label = txt.textContent;
 
   btn.disabled = true;
   btn.classList.add('actif');
   if (autreBtn) autreBtn.disabled = true;
+  // L'icône laisse place au spinner pendant l'action (échange icône ↔ spinner).
+  if (ico) ico.style.display = 'none';
   if (spin) spin.style.display = 'inline-block';
   // Un seul libellé fixe pendant toute l'action (jamais "Recherche…" PUIS
   // "Préparation de la vidéo…") : un texte qui change en cours de route peut
@@ -171,6 +175,7 @@ async function lancerOutilTikTok(type) {
     btn.disabled = false;
     if (autreBtn) autreBtn.disabled = false;
     if (spin) spin.style.display = 'none';
+    if (ico) ico.style.display = '';
     txt.textContent = label;
   }
 }
