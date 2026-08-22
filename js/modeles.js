@@ -339,7 +339,20 @@ function choisirModele(sujet) {
 // crédibles au moteur Storytelling, qui choisit lui-même en interne (dans
 // le même appel IA, sans étape supplémentaire) celui dont la mécanique
 // narrative sert le mieux le récit demandé.
-function choisirTopModeles(sujet, n) {
+//
+// PUREMENT LEXICAL (mots du sujet vs mots des thèmes) : ne capte QUE les
+// sujets qui partagent un mot avec un thème. Un sujet historique inhabituel
+// (ex. "la guerre de Hiroshima") ne partage aucun mot avec "catastrophe,
+// éruption, tragédie, destin" (les thèmes de Pompéi), alors que les DEUX
+// racontent la même mécanique narrative (un événement soudain qui tue une
+// population entière en un instant, un moment de bascule pour l'humanité) :
+// un vrai bon choix, mais invisible à cet algorithme, aucun mot en commun.
+// `strict=true` : ne renvoie QUE les correspondances lexicales fiables (peut
+// renvoyer []), pour laisser la place à choisirModelesSemantique() ci-dessous
+// en repli. `strict=false` (par défaut, comportement historique) : si aucune
+// correspondance fiable, renvoie quand même le meilleur score même faible,
+// pour ne JAMAIS laisser Scriptura sans aucune référence de style.
+function choisirTopModeles(sujet, n, strict) {
   if (!sujet || !SCRIPTURA_MODELES.length) return [];
   const s = sujet.toLowerCase();
   const stopwords = ['dans','pour','avec','sans','plus','tout','tous','cette','celui','celle','leur','leurs','mais','donc','entre','chez','comment','pourquoi','quand','était','sont','fait','faire','être','avoir','vers','sous','aussi','très','bien','celui','contre'];
@@ -371,17 +384,51 @@ function choisirTopModeles(sujet, n) {
     .sort((a, b) => b.score - a.score)
     .slice(0, n || 3)
     .map(x => x.modele);
-  if (pertinents.length) return pertinents;
+  if (pertinents.length || strict) return pertinents;
 
   // Aucun modèle ne dépasse le seuil de pertinence thématique (sujet trop
   // inhabituel) : on choisit quand même le meilleur candidat disponible,
   // même faible, plutôt que de laisser Scriptura sans AUCUNE référence de
-  // style, respecter un modèle est impératif, jamais optionnel.
+  // style, respecter un modèle est impératif, jamais optionnel. N'arrive
+  // qu'en dernier recours (voir strict), quand choisirModelesSemantique()
+  // a aussi échoué (panne réseau/IA).
   const tries = scores.slice().sort((a, b) => b.score - a.score);
   return tries.length ? [tries[0].modele] : [];
+}
+
+// ── Sélection SÉMANTIQUE par IA, en repli quand le filtre lexical échoue ──
+// Le filtre ci-dessus ne voit que des mots, jamais la MÉCANIQUE d'un
+// sujet ; un léger appel IA (juste les 15 titres + thèmes, pas les scripts
+// complets, donc peu coûteux et rapide) comble ce trou : il peut reconnaître
+// que "la guerre de Hiroshima" et "Les figés de Pompéi" (catastrophe,
+// tragédie, destin) racontent la même mécanique, malgré zéro mot commun.
+// Renvoie jusqu'à n modèles, ou [] si l'appel échoue/ne matche rien (le
+// code appelant retombe alors sur le filtre lexical en tout dernier recours).
+async function choisirModelesSemantique(sujet, n) {
+  if (!sujet || !SCRIPTURA_MODELES.length || typeof callAI !== 'function') return [];
+  try {
+    const liste = SCRIPTURA_MODELES.map(m => `- "${m.titre}" (thèmes : ${m.themes.join(', ')})`).join('\n');
+    const prompt = `Voici la bibliothèque de scripts modèles de Scriptura (titre + thèmes de chacun) :
+${liste}
+
+SUJET DU CRÉATEUR : "${sujet}"
+
+Choisis les ${n || 3} modèles dont la MÉCANIQUE NARRATIVE (pas seulement le thème littéral) sert le mieux ce sujet précis. Regarde au-delà des mots : un sujet historique catastrophique peut correspondre à un modèle sur une AUTRE catastrophe historique même si aucun mot du sujet n'apparaît dans ses thèmes (ex : un attentat ou un bombardement peut calquer sur un modèle de catastrophe naturelle soudaine, les deux racontent la même mécanique, un instant qui bascule et tue en masse). Classe du meilleur au moins bon.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec les TITRES EXACTS (copiés tel quel dans la liste ci-dessus) :
+{"titres":["titre du meilleur candidat","titre du 2e",...]}`;
+    const raw = await callAI(MODEL_RAPIDE, 400, prompt);
+    const parsed = parseAIResponse(raw);
+    if (!parsed || !Array.isArray(parsed.titres)) return [];
+    const trouves = parsed.titres
+      .map(t => SCRIPTURA_MODELES.find(m => m.titre === t))
+      .filter(Boolean);
+    return trouves.slice(0, n || 3);
+  } catch (e) { return []; }
 }
 
 // Exposer globalement pour que index.html y accède
 window.SCRIPTURA_MODELES = SCRIPTURA_MODELES;
 window.choisirModele = choisirModele;
 window.choisirTopModeles = choisirTopModeles;
+window.choisirModelesSemantique = choisirModelesSemantique;
