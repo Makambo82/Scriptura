@@ -129,14 +129,21 @@ async function generateStory() {
     ? `LONGUEUR, RÈGLE ABSOLUE, RESPECT STRICT (peu importe la longueur du texte fourni par le créateur, même un article entier) : le récit doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au total, pour ${storyDuree}. Compte tes mots avant de répondre. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact, ne t'étends JAMAIS au-delà sous prétexte que le texte source est riche ou long : ton travail est de le RÉDUIRE à l'essentiel qui tient dans cette durée, pas de tout caser.`
     : `LONGUEUR : Format narratif long. Déploie pleinement ton histoire, sans restriction de durée. Prends le temps de développer l'immersion, la tension et les rebondissements comme dans un vrai récit captivant.`;
 
-  // Un texte collé long (article, notes brutes) est capé avant d'entrer dans
-  // le prompt : sans ça, un texte de plusieurs milliers de mots noie les
-  // consignes de durée/ton/structure et le modèle a tendance à vouloir tout
-  // caser au lieu de respecter la durée choisie. Même principe que le mode
-  // Script (js/generation.js, LONG_SEUIL/sujetCourt).
+  // Un texte collé long (article, notes brutes, plusieurs pages) est capé
+  // avant d'entrer dans le prompt : la borne reste large (~20 000 caractères,
+  // largement au-delà de la fenêtre de contexte du modèle), c'est un
+  // garde-fou contre un collage aberrant, pas une limite pensée pour un
+  // article normal, sans ça on perdrait silencieusement tout ce qui suit les
+  // premiers paragraphes au lieu de laisser le modèle en faire la synthèse
+  // (voir longueurInstruction plus haut : condenser est SON travail, jamais
+  // en amont par une troncature qui jette de la matière). Même principe que
+  // le mode Script (js/generation.js, LONG_SEUIL). Contrairement au mode
+  // Script, il n'y a ici aucune phase de distillation séparée : ce texte est
+  // réinjecté tel quel à chaque passe (écriture, critique, révision), coût
+  // à considérer mais resté modeste au vu du nombre de passes borné à 2.
   const LONG_SEUIL_STORY = 400;
   const estTexteLongStory = input.length > LONG_SEUIL_STORY;
-  const sujetPourPrompt = estTexteLongStory ? tronquerSansCouperEmoji(input, 2000) : input;
+  const sujetPourPrompt = estTexteLongStory ? tronquerSansCouperEmoji(input, 20000) : input;
 
   // Recherche web : uniquement quand le créateur donne un SUJET court (pas de
   // niche à interroger ici, contrairement aux autres modes, voir js/api.js).
