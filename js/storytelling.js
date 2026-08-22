@@ -171,24 +171,22 @@ async function generateStory() {
   // Présélection de plusieurs modèles de référence candidats, voir
   // js/modeles.js. Le choix final entre ces candidats est fait par le
   // moteur Storytelling lui-même, en silence, dans ce même appel (aucun
-  // appel supplémentaire). D'abord la présélection LEXICALE (locale,
-  // gratuite, instantanée) ; si elle ne trouve rien de fiable (sujet
-  // inhabituel ne partageant aucun mot avec les thèmes, ex. "la guerre de
-  // Hiroshima" vs les thèmes de Pompéi), un léger appel IA sémantique en
-  // repli (choisirModelesSemantique) peut reconnaître une mécanique
-  // narrative commune malgré l'absence de mot partagé. Dernier recours si
-  // les deux échouent : le meilleur score lexical même faible, jamais
-  // aucune référence du tout.
+  // appel supplémentaire). Sélection SÉMANTIQUE par IA (choisirModelesSemantique,
+  // fiche ADN de chaque modèle : structure/rythme/type de hook/sujets
+  // compatibles) comme mécanisme PRINCIPAL, décision du propriétaire : un
+  // choix de script sur la seule ressemblance de mots-clés n'est pas
+  // fiable. Le filtre lexical (choisirTopModeles) ne sert plus qu'en tout
+  // dernier recours, si l'appel IA échoue techniquement (panne réseau/API),
+  // pour ne jamais laisser Scriptura sans aucune référence de style.
   let modeleRef = '';
   let candidatsModeles = [];
   try {
-    if (typeof choisirTopModeles === 'function') {
-      let candidats = choisirTopModeles(input, 3, true);
-      if (!candidats.length && typeof choisirModelesSemantique === 'function') {
-        candidats = await choisirModelesSemantique(input, 3);
-      }
-      if (!candidats.length) {
-        candidats = choisirTopModeles(input, 3, false);
+    if (typeof choisirModelesSemantique === 'function' || typeof choisirTopModeles === 'function') {
+      let candidats = (typeof choisirModelesSemantique === 'function')
+        ? await choisirModelesSemantique(input, 3)
+        : [];
+      if (!candidats.length && typeof choisirTopModeles === 'function') {
+        candidats = choisirTopModeles(input, 3, false); // secours technique uniquement
       }
       candidatsModeles = candidats;
       if (candidats.length) {
