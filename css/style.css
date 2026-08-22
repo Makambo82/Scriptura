@@ -1436,20 +1436,6 @@ body.hero-focus .hero-focus-rule{display:block}
 /* ── CARTES HISTORIQUE ── */
 .history-empty{text-align:center;padding:60px 20px;color:rgba(255,255,255,0.7)}
 /* Glissement vers la gauche pour révéler "Supprimer" (le panier reste dispo) */
-.swipe-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:14px}
-.swipe-wrap .history-card{margin-bottom:0;transition:transform 0.25s ease;will-change:transform}
-.swipe-wrap.ouvert .history-card{transform:translateX(-96px)}
-.swipe-action{
-  position:absolute;top:0;right:0;width:96px;height:100%;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(180,60,60,0.9);color:#fff;border:none;cursor:pointer;
-  font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.1em;
-  text-transform:uppercase;
-}
-.swipe-action:active{background:rgba(150,45,45,0.95)}
-@media(prefers-reduced-motion:reduce){
-  .swipe-wrap .history-card{transition:none}
-}
 .history-card{
   background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
   padding:20px;margin-bottom:14px;cursor:pointer;transition:border-color 0.2s;
