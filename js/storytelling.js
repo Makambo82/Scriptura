@@ -168,15 +168,28 @@ async function generateStory() {
     ? `\nVÉRIFICATION FACTUELLE OBLIGATOIRE : avant d'écrire, utilise la recherche web pour vérifier les faits que tu comptes citer. Si le sujet relève de l'actualité, de la politique ou de la géopolitique récente, vérifie que ce que tu racontes est bien à jour aujourd'hui, jamais un statut, un poste ou une situation qui a pu changer depuis tes connaissances d'entraînement, une actualité politique pouvant changer chaque jour : va chercher l'information la plus récente, pas une archive. Si le sujet relève de l'Histoire, vérifie l'exactitude des faits historiques (dates, noms, chiffres, déroulé réel des événements) et recherche la version la plus fiable, pas une version approximative ou déformée.\n`
     : '';
 
-  // Présélection rapide (locale, sans appel IA) de plusieurs modèles de
-  // référence candidats, voir choisirTopModeles() dans js/modeles.js. Le
-  // choix final entre ces candidats est fait par le moteur Storytelling
-  // lui-même, en silence, dans ce même appel (aucun appel supplémentaire).
+  // Présélection de plusieurs modèles de référence candidats, voir
+  // js/modeles.js. Le choix final entre ces candidats est fait par le
+  // moteur Storytelling lui-même, en silence, dans ce même appel (aucun
+  // appel supplémentaire). D'abord la présélection LEXICALE (locale,
+  // gratuite, instantanée) ; si elle ne trouve rien de fiable (sujet
+  // inhabituel ne partageant aucun mot avec les thèmes, ex. "la guerre de
+  // Hiroshima" vs les thèmes de Pompéi), un léger appel IA sémantique en
+  // repli (choisirModelesSemantique) peut reconnaître une mécanique
+  // narrative commune malgré l'absence de mot partagé. Dernier recours si
+  // les deux échouent : le meilleur score lexical même faible, jamais
+  // aucune référence du tout.
   let modeleRef = '';
   let candidatsModeles = [];
   try {
     if (typeof choisirTopModeles === 'function') {
-      const candidats = choisirTopModeles(input, 3);
+      let candidats = choisirTopModeles(input, 3, true);
+      if (!candidats.length && typeof choisirModelesSemantique === 'function') {
+        candidats = await choisirModelesSemantique(input, 3);
+      }
+      if (!candidats.length) {
+        candidats = choisirTopModeles(input, 3, false);
+      }
       candidatsModeles = candidats;
       if (candidats.length) {
         const blocsCandidats = candidats.map((m, i) =>
