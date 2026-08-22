@@ -27,18 +27,10 @@ function setupStoryButtons() {
       });
     });
   }
-  // Durée
-  const durContainer = document.getElementById('storyDureeGrid');
-  if (durContainer) {
-    const durBtns = durContainer.querySelectorAll('.grid-btn');
-    durBtns.forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        durBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        storyDuree = btn.dataset.val;
-      });
-    });
+  // Durée (menu déroulant, 5 choix)
+  const durSelectEl = document.getElementById('storyDureeGrid');
+  if (durSelectEl) {
+    durSelectEl.addEventListener('change', function() { storyDuree = this.value; });
   }
   // Plateforme
   const pfContainer = document.getElementById('storyPlatformGrid');
@@ -53,24 +45,12 @@ function setupStoryButtons() {
       });
     });
   }
-  // Ton, optionnel : un clic sur un ton déjà actif le désélectionne (voir storyPrompt
-  // pour le comportement quand aucun ton n'est choisi).
-  const tonContainer = document.getElementById('storyTonGrid');
-  if (tonContainer) {
-    const tonBtns = tonContainer.querySelectorAll('.grid-btn');
-    tonBtns.forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        const dejaActif = btn.classList.contains('active');
-        tonBtns.forEach(b => b.classList.remove('active'));
-        if (dejaActif) {
-          storyTon = '';
-        } else {
-          btn.classList.add('active');
-          storyTon = btn.dataset.val;
-        }
-      });
-    });
+  // Ton, optionnel : menu déroulant (8 choix), l'option vide ("Aucun ton
+  // particulier…") tient lieu de désélection, voir storyPrompt pour le
+  // comportement quand aucun ton n'est choisi.
+  const tonSelectEl = document.getElementById('storyTonGrid');
+  if (tonSelectEl) {
+    tonSelectEl.addEventListener('change', function() { storyTon = this.value; });
   }
 }
 
@@ -85,7 +65,9 @@ function restartStory() {
   storyDuree = '';
   storyPlatform = '';
   storyTon = '';
-  document.querySelectorAll('#storyFormatGrid .grid-btn, #storyDureeGrid .grid-btn, #storyPlatformGrid .grid-btn, #storyTonGrid .grid-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#storyFormatGrid .grid-btn, #storyPlatformGrid .grid-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('storyDureeGrid').value = '';
+  document.getElementById('storyTonGrid').value = '';
   document.getElementById('storyDureeField').style.display = 'none';
   const errorBox = document.getElementById('storyErrorBox');
   if (errorBox) errorBox.style.display = 'none';

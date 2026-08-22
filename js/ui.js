@@ -152,11 +152,69 @@ function initCustomSelect(select) {
 
 function initCustomSelects() {
   ['niche', 'ideaNiche', 'auditNiche', 'serieNiche', 'audience', 'ideaAudience',
-   'tone', 'ideaTone', 'serieStyle', 'auditFrequence', 'serieGenre']
+   'tone', 'ideaTone', 'serieStyle', 'auditFrequence', 'serieGenre',
+   'dureeGrid', 'storyDureeGrid', 'storyTonGrid', 'ideaPlatformGrid']
     .forEach(function (id) {
       const el = document.getElementById(id);
       if (el) initCustomSelect(el);
     });
+}
+
+// ── BOUTONS CLIQUABLES MAISON (remplace un <select> à 4 choix ou moins) ──
+// Règle produit : 4 choix ou moins → menu direct, cliquable en un tap (tous
+// les choix visibles d'un coup) ; au-delà de 4 → menu déroulant (voir
+// initCustomSelect ci-dessus). Même mécanique de compatibilité : le <select>
+// original reste dans le DOM, masqué, .value/.selectedIndex/addEventListener
+// ('change') déjà branchés ailleurs (js/audit.js, js/serie.js,
+// js/generation.js…) continuent de fonctionner sans y toucher, y compris un
+// .value= posé silencieusement par preRemplirSiVide (js/profil.js).
+function initToggleButtons(select) {
+  if (!select || select.dataset.toggleInit === '1') return;
+  select.dataset.toggleInit = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'toggle-group';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  const row = document.createElement('div');
+  row.className = 'btn-grid';
+  wrap.appendChild(row);
+
+  function construireBoutons() {
+    row.innerHTML = '';
+    Array.prototype.forEach.call(select.options, function (opt) {
+      if (!opt.value) return; // saute le placeholder "Choisir…"
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'grid-btn' + (opt.value === select.value ? ' active' : '');
+      btn.textContent = opt.textContent;
+      btn.addEventListener('click', function () {
+        select.value = opt.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      row.appendChild(btn);
+    });
+  }
+
+  const nativeValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  if (nativeValueDesc && nativeValueDesc.set) {
+    Object.defineProperty(select, 'value', {
+      get: function () { return nativeValueDesc.get.call(select); },
+      set: function (v) { nativeValueDesc.set.call(select, v); construireBoutons(); },
+      configurable: true
+    });
+  }
+  select.addEventListener('change', construireBoutons);
+
+  construireBoutons();
+}
+
+function initToggleButtonsAll() {
+  ['format', 'auditObjectif', 'auditStyle', 'serieFormat'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) initToggleButtons(el);
+  });
 }
 
 // ── MASQUER/RÉVÉLER LE FORMULAIRE DE SAISIE UNE FOIS LE RÉSULTAT AFFICHÉ ──

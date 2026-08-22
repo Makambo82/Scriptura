@@ -286,6 +286,12 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
    ('change') déjà branché ailleurs continuent de fonctionner normalement. */
 .custom-select{position:relative}
 .custom-select select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
+/* Pendant maison des boutons cliquables (≤4 choix, voir initToggleButtons,
+   js/ui.js) : même principe, le <select> original reste dans le DOM pour la
+   compatibilité, seul le rendu visuel change (.btn-grid ci-dessous, déjà
+   utilisé pour les autres petits choix comme l'objectif de l'étape 2). */
+.toggle-group{position:relative}
+.toggle-group select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
 .custom-select-trigger{
   font-family:'Poppins',sans-serif;font-size:1rem;
   background:#3A3A3D;border:1px solid rgba(255,255,255,0.15);border-radius:6px;

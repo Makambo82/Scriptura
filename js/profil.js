@@ -196,7 +196,7 @@ async function appliquerProfilCreateur(mode) {
     preRemplirSiVide('niche', d.niche_principale);
     preRemplirSiVide('format', d.style_contenu);
     preRemplirSiVide('tone', d.ton_prefere);
-    preSelectionnerGrilleSiVide('dureeGrid', d.duree_moyenne);
+    preRemplirSiVide('dureeGrid', d.duree_moyenne);
   } else if (mode === 'ideas') {
     preRemplirSiVide('ideaNiche', d.niche_principale);
     preRemplirSiVide('ideaTone', d.ton_prefere);
