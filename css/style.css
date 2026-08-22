@@ -1122,33 +1122,33 @@ body.hero-focus .hero{justify-content:flex-start;padding-top:100px}
 .hero-focus-title{
   display:none;
   font-family:'Playfair Display',serif;font-weight:400;font-style:italic;
-  font-size:clamp(3rem,8vw,6rem);
-  line-height:1.05;letter-spacing:-0.02em;
-  margin-bottom:14px;max-width:900px;
+  font-size:clamp(1.9rem,6vw,3.2rem);
+  line-height:1.08;letter-spacing:-0.02em;
+  margin-bottom:10px;max-width:900px;
   color:#FFFFFF;
 }
 .hero-focus-title strong{font-style:normal;font-weight:700;color:var(--gold-light);display:block}
 .hero-focus-rule{
   display:none;
-  width:1px;height:56px;background:linear-gradient(to bottom,transparent,var(--gold),transparent);
-  margin:28px auto;opacity:0.5;
+  width:1px;height:30px;background:linear-gradient(to bottom,transparent,var(--gold),transparent);
+  margin:14px auto;opacity:0.5;
 }
 body.hero-focus .hero-focus-title,
 body.hero-focus .hero-focus-rule{display:block}
 
 .hero-modes-hint{
-  font-family:'Poppins',sans-serif;font-size:0.86rem;line-height:1.5;color:var(--text-secondary);
-  text-align:center;max-width:420px;margin:0 auto 18px;
+  font-family:'Poppins',sans-serif;font-size:0.82rem;line-height:1.5;color:var(--text-secondary);
+  text-align:center;max-width:420px;margin:0 auto 12px;
 }
 .hero-modes-hint strong{color:var(--gold-light);font-weight:600}
 .hero-modes{
-  display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px;
+  display:grid;grid-template-columns:1fr;gap:11px;margin-bottom:14px;
   width:100%;max-width:420px;margin-left:auto;margin-right:auto;
 }
 .hero-mode-btn{
   display:flex;flex-direction:row;align-items:center;gap:16px;text-align:left;
   background:rgba(255,255,255,0.02);border:1px solid rgba(201,168,76,0.18);
-  border-radius:14px;padding:20px 22px;cursor:pointer;
+  border-radius:14px;padding:14px 18px;cursor:pointer;
   transition:border-color 0.3s ease,background 0.3s ease,transform 0.3s ease,box-shadow 0.3s ease;
   width:100%;box-sizing:border-box;
 }
@@ -1207,11 +1207,11 @@ body.hero-focus .hero-focus-rule{display:block}
 .hero-mode-btn.primary .mode-label{color:var(--gold-light)}
 .hero-mode-btn.primary .mode-desc{color:rgba(255,255,255,0.6)}
 .hero-mode-btn.primary .mode-icon{filter:none}
-.mode-icon{font-size:1.5rem;margin:0;flex:0 0 auto;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(201,168,76,0.08);border-radius:11px}
+.mode-icon{font-size:1.5rem;margin:0;flex:0 0 auto;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:rgba(201,168,76,0.08);border-radius:10px}
 /* Icônes en trait fin doré (style du logo éclair), remplacent les anciens
    emojis système : rendu identique sur tous les appareils, cohérent avec
    l'univers premium. currentColor = doré clair, ajustable par état. */
-.mode-icon svg{width:24px;height:24px;display:block;color:var(--gold-light)}
+.mode-icon svg{width:22px;height:22px;display:block;color:var(--gold-light)}
 .mode-label{
   font-family:'Playfair Display',serif;font-size:1rem;font-weight:500;
   letter-spacing:0.01em;text-transform:none;color:var(--white);line-height:1.3;
