@@ -6,9 +6,13 @@
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierAccesProOuJeton, MAX_FREE } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par l'app pour ce type d'appel (voir
-// MODEL_CREATIF/MODEL_RAPIDE, js/api.js) : un modèle demandé hors de cette
-// liste retombe sur le défaut, jamais transmis tel quel à Anthropic.
-const MODELES_AUTORISES = new Set(['claude-haiku-4-5-20251001']);
+// MODEL_CREATIF/MODEL_RAPIDE/MODEL_QUALITE_RECIT, js/api.js) : un modèle
+// demandé hors de cette liste retombe sur le défaut, jamais transmis tel
+// quel à Anthropic. claude-sonnet-4-6 : Critique + Réviseur du récit
+// (js/storytelling.js) seulement, jugement créatif fin que Haiku jugeant
+// Haiku ne rendait pas fidèlement ; toujours plafonné par le même quota et
+// le même MAX_TOKENS_PLAFOND que le reste de ce endpoint.
+const MODELES_AUTORISES = new Set(['claude-haiku-4-5-20251001', 'claude-sonnet-4-6']);
 const MODELE_DEFAUT = 'claude-haiku-4-5-20251001';
 // Plafond dur, aligné sur le plus gros appel légitime existant (écriture du
 // script complet, 16000, voir js/generation.js/js/storytelling.js).
