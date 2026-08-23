@@ -61,16 +61,18 @@ function parseScriptNumerote(input) {
   return segments;
 }
 
-// Plateformes proposées par Storyboard seul (mêmes valeurs qu'avant la
-// conversion en menu déroulant maison, voir platformPickerHTML/js/ui.js :
-// "YouTube" et non "YouTube Shorts" comme le mode Script, pour ne rien
-// changer aux storyboards déjà générés/enregistrés avec cette valeur).
-const SB_SEUL_PLATEFORMES = ['TikTok', 'Instagram Reels', 'YouTube', 'Facebook'];
-
-// Callback du menu déroulant plateforme (voir choisirPlateformeGenerique,
-// js/ui.js) : stocke simplement le choix dans la variable d'état du module.
-function sbSeulPlateformeChangee(val) {
-  sbSeulPlatform = val;
+function setupStoryboardSeulButtons() {
+  const pfContainer = document.getElementById('sbSeulPlatformGrid');
+  if (!pfContainer) return;
+  const pfBtns = pfContainer.querySelectorAll('.grid-btn');
+  pfBtns.forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      pfBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      sbSeulPlatform = btn.dataset.val;
+    });
+  });
 }
 
 // Repart d'un formulaire vide pour un nouveau storyboard, appelée à chaque
@@ -80,10 +82,7 @@ function sbSeulPlateformeChangee(val) {
 function restartStoryboardSeul() {
   document.getElementById('sbSeulInput').value = '';
   sbSeulPlatform = '';
-  const pfHost = document.getElementById('sbSeulPlatformPickerHost');
-  if (pfHost && typeof platformPickerHTML === 'function') {
-    pfHost.innerHTML = platformPickerHTML('sbSeulPlatformPicker', '', SB_SEUL_PLATEFORMES, 'sbSeulPlateformeChangee');
-  }
+  document.querySelectorAll('#sbSeulPlatformGrid .grid-btn').forEach(b => b.classList.remove('active'));
   const errorBox = document.getElementById('sbSeulErrorBox');
   if (errorBox) errorBox.style.display = 'none';
   const formCard = document.getElementById('sbSeulFormCard');
