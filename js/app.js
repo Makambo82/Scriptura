@@ -138,8 +138,12 @@ document.addEventListener('DOMContentLoaded', function() {
   setupIdeaButtons();
   setupStoryButtons();
   setupStoryboardSeulButtons();
-  if (typeof initCustomSelects === 'function') initCustomSelects();
+  // Boutons cliquables (≤4 choix) d'abord : ils "réservent" leurs <select>
+  // via toggleInit avant le balayage général ci-dessous, qui convertirait
+  // sinon tout <select> non encore marqué en menu déroulant.
   if (typeof initToggleButtonsAll === 'function') initToggleButtonsAll();
+  if (typeof initCustomSelects === 'function') initCustomSelects();
+  if (typeof initCustomSelectsWatch === 'function') initCustomSelectsWatch();
 
   // Recommandation IA de l'accueil (fonctionnalité Premium) : purement
   // additive, ne touche à rien d'autre. Ne fait rien pour un utilisateur

@@ -501,13 +501,18 @@ async function chargerVoixMontage() {
   } catch (e) {
     montageVoixListe = [];
   }
+  // Le <select> lui-même est déjà invisible en permanence une fois converti
+  // en menu déroulant maison (voir initCustomSelect, js/ui.js) : masquer/
+  // afficher ce choix doit donc agir sur son enveloppe visible (.custom-select),
+  // pas sur le <select> d'origine, sans effet visuel une fois wrappé.
+  const voixEl = select.closest('.custom-select') || select;
   if (montageVoixListe.length) {
     montageVoixId = montageVoixListe[0].id;
     select.innerHTML = montageVoixListe.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
     select.value = montageVoixId;
-    select.style.display = montageVoixListe.length > 1 ? '' : 'none';
+    voixEl.style.display = montageVoixListe.length > 1 ? '' : 'none';
   } else {
-    select.style.display = 'none';
+    voixEl.style.display = 'none';
   }
 }
 

@@ -49,7 +49,9 @@ function ICO(nom, cls) {
 // cache) : certains select se remplissent après coup (ex. #serieNiche,
 // recopié depuis #auditNiche au moment d'ouvrir le mode Série).
 function initCustomSelect(select) {
-  if (!select || select.dataset.customInit === '1') return;
+  // toggleInit : déjà pris en charge par initToggleButtons (≤4 choix, voir
+  // plus bas), jamais les deux mécanismes sur le même <select>.
+  if (!select || select.dataset.customInit === '1' || select.dataset.toggleInit === '1') return;
   select.dataset.customInit = '1';
 
   const wrap = document.createElement('div');
@@ -151,14 +153,37 @@ function initCustomSelect(select) {
   majTrigger();
 }
 
+// Convertit TOUS les <select> d'un conteneur (le document entier par défaut)
+// en menu déroulant maison, plutôt qu'une liste d'ids à maintenir à la main
+// (l'ancienne approche) : un <select> ajouté quelque part sans être recopié
+// dans cette liste restait natif, non stylé, silencieusement, exactement le
+// bug remonté par le propriétaire (Style graphique/Format du storyboard,
+// jamais présents dans la liste). Les <select> à 4 choix ou moins destinés
+// aux boutons cliquables (initToggleButtons ci-dessous) s'excluent d'eux-
+// mêmes via le garde croisé toggleInit/customInit ci-dessus et ci-dessous,
+// quel que soit l'ordre d'appel.
+function initCustomSelectsIn(racine) {
+  (racine || document).querySelectorAll('select').forEach(initCustomSelect);
+}
 function initCustomSelects() {
-  ['niche', 'ideaNiche', 'auditNiche', 'serieNiche', 'audience', 'ideaAudience',
-   'tone', 'ideaTone', 'serieStyle', 'auditFrequence', 'serieGenre',
-   'dureeGrid', 'storyDureeGrid', 'storyTonGrid', 'ideaPlatformGrid']
-    .forEach(function (id) {
-      const el = document.getElementById(id);
-      if (el) initCustomSelect(el);
+  initCustomSelectsIn(document);
+}
+// Observe le DOM en continu pour convertir automatiquement tout nouveau
+// <select> inséré après coup (résultats de script/récit/série/storyboard
+// seul, panneau montage...), sans dépendre d'un appel manuel ajouté à
+// chaque nouvel endroit qui pose un <select> par innerHTML, cause exacte du
+// bug initial. Un seul observateur pour toute la session, jamais réinstallé.
+function initCustomSelectsWatch() {
+  const observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (m) {
+      m.addedNodes.forEach(function (node) {
+        if (node.nodeType !== 1) return;
+        if (node.tagName === 'SELECT') initCustomSelect(node);
+        else if (node.querySelectorAll) initCustomSelectsIn(node);
+      });
     });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // ── BOUTONS CLIQUABLES MAISON (remplace un <select> à 4 choix ou moins) ──
@@ -170,7 +195,7 @@ function initCustomSelects() {
 // js/generation.js…) continuent de fonctionner sans y toucher, y compris un
 // .value= posé silencieusement par preRemplirSiVide (js/profil.js).
 function initToggleButtons(select) {
-  if (!select || select.dataset.toggleInit === '1') return;
+  if (!select || select.dataset.toggleInit === '1' || select.dataset.customInit === '1') return;
   select.dataset.toggleInit = '1';
 
   const wrap = document.createElement('div');
