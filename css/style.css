@@ -2000,10 +2000,10 @@ body.is-unlocked .sidebar-logout{display:block}
 }
 /* Choix Style graphique + Format, placé avant "Générer le storyboard". */
 .sb-options-visuelles{
-  display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;
+  display:flex;flex-direction:column;gap:14px;margin-bottom:14px;
 }
 .sb-opt{
-  display:flex;flex-direction:column;gap:4px;flex:1 1 160px;min-width:150px;
+  display:flex;flex-direction:column;gap:4px;width:100%;
 }
 .sb-opt span{
   font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.1em;
