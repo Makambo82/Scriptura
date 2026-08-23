@@ -1767,11 +1767,20 @@ body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
 .sidebar-item.nav-admin-btn{display:none}
 body.is-admin .sidebar-item.nav-admin-btn{display:flex}
 /* Bouton "Générer la vidéo" (montage) : réservé au fondateur, même
-   mécanisme que le Tableau de bord ci-dessus. Cadre .btn-regenerate normal
-   (le border-color:transparent introduit par erreur lors du refactor CSS
-   masquait son encadrement doré, jamais voulu). */
-.montage-trigger-btn{display:none}
+   mécanisme que le Tableau de bord ci-dessus. Plein doré (même langage que
+   .btn-generate, le bouton principal de génération), pour ressortir dans la
+   ligne Copier/Partager plutôt que de se fondre dans le cadre discret des
+   autres .btn-regenerate. */
+.montage-trigger-btn{
+  display:none;
+  background:var(--gold);color:var(--bg);border:none;
+  box-shadow:0 4px 16px rgba(201,168,76,0.25);
+}
 body.is-admin .montage-trigger-btn{display:inline-flex}
+.montage-trigger-btn:hover{
+  background:var(--gold-light);color:var(--bg);
+  transform:translateY(-1px);box-shadow:0 8px 26px rgba(201,168,76,0.35);
+}
 /* "Nous contacter" masqué uniquement pour le fondateur (remplacé par
    "Se déconnecter" en bas de la barre latérale). */
 body.is-admin .sidebar-item.nav-contact-btn{display:none}
