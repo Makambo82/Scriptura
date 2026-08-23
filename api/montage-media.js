@@ -166,11 +166,12 @@ async function handleTts(req, res, body) {
 
 const CONCURRENCE_MAX = 1;
 const TENTATIVES_MAX = 3;
-// GPT Image 1.5 (via Together) : testé en remplacement de FLUX.1-schnell,
-// qui tombait régulièrement en "Service unavailable" côté Together. Tailles
-// alignées sur celles réellement supportées par ce modèle (carré/portrait/
-// paysage fixes), contrairement aux dimensions libres de FLUX.
-const MODELE = 'openai/gpt-image-1.5';
+// Gemini 3 Pro Image (via Together) : testé à la suite de FLUX.1-schnell
+// (instable côté Together) et GPT Image 1.5, en modèle principal, pour
+// comparer coût et fiabilité réels. Tailles héritées du test GPT Image
+// (carré/portrait/paysage fixes) : à ajuster si Together les refuse pour
+// ce modèle précis, l'erreur remontée par genererUneImage le dira.
+const MODELE = 'google/gemini-3-pro-image';
 const DIMENSIONS_FORMAT = {
   '9:16': { w: 1024, h: 1536 },
   '16:9': { w: 1536, h: 1024 },
