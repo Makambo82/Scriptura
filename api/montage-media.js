@@ -166,11 +166,14 @@ async function handleTts(req, res, body) {
 
 const CONCURRENCE_MAX = 1;
 const TENTATIVES_MAX = 3;
-const MODELE = 'black-forest-labs/FLUX.1-schnell';
-const ETAPES = 6;
+// GPT Image 1.5 (via Together) : testé en remplacement de FLUX.1-schnell,
+// qui tombait régulièrement en "Service unavailable" côté Together. Tailles
+// alignées sur celles réellement supportées par ce modèle (carré/portrait/
+// paysage fixes), contrairement aux dimensions libres de FLUX.
+const MODELE = 'openai/gpt-image-1.5';
 const DIMENSIONS_FORMAT = {
-  '9:16': { w: 768,  h: 1344 },
-  '16:9': { w: 1344, h: 768 },
+  '9:16': { w: 1024, h: 1536 },
+  '16:9': { w: 1536, h: 1024 },
   '1:1':  { w: 1024, h: 1024 },
 };
 
@@ -192,7 +195,7 @@ async function genererUneImage(apiKey, prompt, dims) {
     const rep = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODELE, prompt: promptCourant, width: dims.w, height: dims.h, steps: ETAPES, n: 1, response_format: 'base64' })
+      body: JSON.stringify({ model: MODELE, prompt: promptCourant, width: dims.w, height: dims.h, n: 1, response_format: 'base64' })
     });
     const data = await rep.json();
     if (rep.ok) {
