@@ -196,7 +196,7 @@ async function genererUneImage(apiKey, prompt, dims) {
     const rep = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODELE, prompt: promptCourant, width: dims.w, height: dims.h, n: 1, response_format: 'base64' })
+      body: JSON.stringify({ model: MODELE, prompt: promptCourant, width: dims.w, height: dims.h, response_format: 'base64' })
     });
     const data = await rep.json();
     if (rep.ok) {
