@@ -8,7 +8,7 @@ const ICON_FAV = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" st
 const ICON_DELETE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"/><path d="M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
 // Loupe (recherche) et curseurs (filtre par type), style trait, couleur héritée.
 const ICON_SEARCH = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><line x1="15.6" y1="15.6" x2="21" y2="21"/></svg>';
-const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/><circle cx="16" cy="6" r="2.6" fill="var(--bg)"/><circle cx="8" cy="12" r="2.6" fill="var(--bg)"/><circle cx="13" cy="18" r="2.6" fill="var(--bg)"/></svg>';
+const ICON_FILTER = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.4V19l-3.6 1.8v-8.4L4 5Z"/></svg>';
 
 // Icônes de mode (trait fin doré, mêmes visuels que les cartes d'accueil).
 // Définies ici en dur car historique.js est chargé avant ui.js (où vit ICO()) :
