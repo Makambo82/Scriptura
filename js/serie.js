@@ -762,12 +762,12 @@ CHAMP SUPPLÉMENTAIRE OBLIGATOIRE, "voix_off_propre" : en plus de "script" (le t
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","voix_off_propre":"uniquement le texte parlé, sans étiquette ni minutage","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
 
-    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche), undefined, 'creationSerie');
+    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche), undefined, 'creationSerie', undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
     let ep = serieParseJSON(raw);
     // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
     // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
     if (!ep || !ep.script) {
-      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false, undefined, 'creationSerie');
+      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false, undefined, 'creationSerie', undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
       ep = serieParseJSON(raw);
     }
     // Normalisation : si l'IA retourne script ou directives comme objet, on convertit en texte

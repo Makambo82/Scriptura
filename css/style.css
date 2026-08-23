@@ -746,6 +746,21 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   background:linear-gradient(90deg,var(--gold),var(--gold-light));
   transition:width 0.6s ease;
 }
+/* ── Aperçu en direct (Script/Récit/Série écrits au fur et à mesure) ── */
+.gen-live-preview{
+  display:none;
+  margin-top:28px;max-height:220px;overflow-y:auto;text-align:left;
+  padding:14px 16px;border-radius:10px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);
+}
+.gen-live-line{
+  font-family:'Poppins',sans-serif;font-size:0.82rem;line-height:1.6;
+  color:rgba(255,255,255,0.65);margin-bottom:10px;
+}
+.gen-live-line:last-child{color:var(--white)}
+.gen-live-preview::-webkit-scrollbar{width:5px}
+.gen-live-preview::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px}
+
 /* ── Bouton « Répondre maintenant » (échappement rapide) ── */
 .gen-skip-zone{margin-top:28px;text-align:center}
 .gen-skip-btn{

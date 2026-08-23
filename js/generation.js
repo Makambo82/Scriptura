@@ -814,6 +814,31 @@ function parseAIResponse(raw) {
   }
 }
 
+// Affiche, PENDANT la génération (voir `onApercu` de callAI, js/api.js), le
+// texte déjà écrit dans #genLivePreview : ne montre QUE ce qui est
+// syntaxiquement complet (parseAIResponse ferme proprement le JSON tronqué,
+// un bloc encore en train d'être écrit n'apparaît donc jamais à moitié).
+// `cle` est le champ du JSON à afficher : 'script' (Script, tableau de blocs
+// {texte}), 'recit' (Récit, tableau de {texte}) ou 'script' à nouveau côté
+// Série (js/serie.js), mais cette fois une chaîne unique, pas un tableau,
+// d'où la double branche ci-dessous.
+function afficherApercuEnDirect(buffer, cle) {
+  const parsed = parseAIResponse(buffer);
+  const conteneur = document.getElementById('genLivePreview');
+  if (!parsed || !conteneur) return;
+  const valeur = parsed[cle];
+  let lignes = [];
+  if (Array.isArray(valeur)) {
+    lignes = valeur.map(b => (b && b.texte) ? String(b.texte) : '').filter(Boolean);
+  } else if (typeof valeur === 'string' && valeur.trim()) {
+    lignes = [valeur];
+  }
+  if (!lignes.length) return;
+  conteneur.style.display = 'block';
+  conteneur.innerHTML = lignes.map(l => `<p class="gen-live-line">${auditEsc(l)}</p>`).join('');
+  conteneur.scrollTop = conteneur.scrollHeight;
+}
+
 // ── GÉNÉRATION ──
 async function generate() {
   if (!_regenGratuiteEnCours) resetRegen('script');
@@ -1161,7 +1186,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       return !!p && Array.isArray(p.script) && p.script.length > 0 && Array.isArray(p.hooks) && p.hooks.length > 0;
     }
 
-    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
+    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
     let parsed = parseAIResponse(writeRaw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
@@ -1173,7 +1198,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le script plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
-      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false);
+      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
       const parsedRetry = parseAIResponse(writeRawRetry);
       if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
     }
@@ -1285,7 +1310,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // une révision segment par segment ne suffirait pas, on retente une
           // écriture complète plutôt que de rafistoler.
           try {
-            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb);
+            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
             const parsed2 = parseAIResponse(writeRaw2);
             if (scriptEstComplet(parsed2)) {
               parsed = parsed2;
@@ -1674,6 +1699,12 @@ function startGenAnimation(mode) {
 
   // Adapter le tagline
   if (tagline) tagline.textContent = GEN_TAGLINE[mode] || GEN_TAGLINE.script;
+
+  // Aperçu en direct (voir afficherApercuEnDirect) : vide et masqué tant que
+  // rien n'est encore arrivé, une nouvelle génération ne doit jamais montrer
+  // le texte de la précédente.
+  const apercu = document.getElementById('genLivePreview');
+  if (apercu) { apercu.innerHTML = ''; apercu.style.display = 'none'; }
 
   const steps = stepsContainer.querySelectorAll('.gen-step');
   overlay.classList.add('active');

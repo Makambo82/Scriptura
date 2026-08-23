@@ -310,7 +310,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 
   try {
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(1); // phase : écriture du récit
-    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
+    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'));
     let parsed = parseAIResponse(raw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
@@ -319,7 +319,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le récit plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
-      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false);
+      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'));
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
@@ -410,7 +410,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             // faible : une révision segment par segment ne suffirait pas, on
             // retente une écriture complète plutôt que de rafistoler.
             try {
-              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory);
+              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'));
               const parsed2 = parseAIResponse(raw2);
               if (parsed2 && parsed2.recit) {
                 parsed = parsed2;

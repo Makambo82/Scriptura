@@ -140,7 +140,7 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, fichierJoint) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, fichierJoint, onApercu) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   // `mode` : identifie le quota à vérifier CÔTÉ SERVEUR (voir api/_lib/acces.js) :
   // 'creation' par défaut (idées/script/récit), ou 'creationSerie'
@@ -153,6 +153,13 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
   // les deux nativement via un content block dédié ('image' ou 'document'),
   // api/generate.js relaie `messages` tel quel, aucun changement serveur
   // nécessaire.
+  // `onApercu` (optionnel) : callback appelé à chaque morceau reçu avec le
+  // texte brut accumulé jusque-là (voir api/generate.js, mode stream). Sert
+  // à afficher la génération au fur et à mesure (Script/Récit/Série, voir
+  // afficherApercuEnDirect dans js/generation.js) plutôt que d'attendre la
+  // réponse complète, sans changer la valeur de retour ni la logique de
+  // réessai ci-dessous : un flux interrompu se comporte comme un échec
+  // récupérable ordinaire, la tentative suivante repart de zéro.
   const promptStyle = REGLE_STYLE_TIRET + prompt;
   const contenuMessage = fichierJoint
     ? [
@@ -179,7 +186,8 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
           code_acces: localStorage.getItem('scriptura_code') || null,
           web_search: !!webSearch,
           web_search_max_uses: webSearchMaxUses || undefined,
-          mode: mode || 'creation'
+          mode: mode || 'creation',
+          stream: !!onApercu
         }),
         signal: controller.signal
       });
@@ -207,12 +215,31 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     if (res.status === 529 || res.status === 503 || res.status === 500 || res.status === 429) {
       return { ok: false, recoverable: true, detail: '(' + res.status + ') serveur occupé' };
     }
-    const data = await res.json();
-    if (!res.ok) {
-      const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
-      return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
+    let raw;
+    // Flux texte en direct (voir api/generate.js, mode stream) : le serveur ne
+    // répond en text/plain QUE dans ce cas précis (erreurs = toujours du JSON,
+    // voir ci-dessus), donc le content-type suffit à distinguer les deux sans
+    // dépendre de la présence d'onApercu ici.
+    const estFluxDirect = res.body && (res.headers.get('content-type') || '').includes('text/plain');
+    if (estFluxDirect) {
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        if (onApercu) onApercu(buffer);
+      }
+      raw = buffer;
+    } else {
+      const data = await res.json();
+      if (!res.ok) {
+        const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
+        return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
+      }
+      raw = data.content?.map(b => b.text || '').join('') || '';
     }
-    let raw = data.content?.map(b => b.text || '').join('') || '';
     if (!raw.trim()) return { ok: false, recoverable: true, detail: 'réponse vide' };
     // Filet de sécurité : retire tout tiret cadratin (em dash) résiduel que le
     // modèle aurait laissé malgré la consigne, en le remplaçant par une virgule.

@@ -44,7 +44,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { model, max_tokens, messages, code_acces, web_search, web_search_max_uses, mode } = req.body;
+    const { model, max_tokens, messages, code_acces, web_search, web_search_max_uses, mode, stream } = req.body;
     const modeDemande = typeof mode === 'string' && mode ? mode : 'creation';
 
     // Résout les droits réels (plan/jetons/admin) DIRECTEMENT depuis Supabase
@@ -122,6 +122,53 @@ export default async function handler(req, res) {
     if (web_search) {
       const maxUses = Math.min(Math.max(parseInt(web_search_max_uses, 10) || 1, 1), 3);
       bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }];
+    }
+
+    // Mode flux (Script/Récit/Série, voir onApercu dans js/api.js) : relaie le
+    // texte d'Anthropic au navigateur au fur et à mesure plutôt que d'attendre
+    // la réponse complète. Toute erreur AVANT le début du flux (quota déjà
+    // filtré plus haut, mais aussi 429/529/400 côté Anthropic) reste une
+    // réponse JSON classique, inchangée : seul le succès bascule en texte brut.
+    if (stream === true) {
+      bodyAnthropic.stream = true;
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify(bodyAnthropic)
+      });
+
+      if (!response.ok || !response.body) {
+        let data = null;
+        try { data = await response.json(); } catch (e) {}
+        return res.status(response.status).json(data || { error: { message: 'Erreur en amont' } });
+      }
+
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const trames = buf.split('\n\n');
+        buf = trames.pop(); // reste incomplet, remis en tampon pour la prochaine lecture
+        for (const trame of trames) {
+          const ligneData = trame.split('\n').find(l => l.startsWith('data:'));
+          if (!ligneData) continue;
+          try {
+            const evt = JSON.parse(ligneData.slice(5).trim());
+            if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta') {
+              res.write(evt.delta.text);
+            }
+          } catch (e) { /* trame partielle ou non-JSON (ex: ping), ignorée */ }
+        }
+      }
+      return res.end();
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
