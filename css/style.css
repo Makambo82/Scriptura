@@ -1771,7 +1771,7 @@ body.is-admin .sidebar-item.nav-admin-btn{display:flex}
    (le border-color:transparent introduit par erreur lors du refactor CSS
    masquait son encadrement doré, jamais voulu). */
 .montage-trigger-btn{display:none}
-body.is-admin .montage-trigger-btn{display:inline-flex;align-items:center;gap:6px}
+body.is-admin .montage-trigger-btn{display:inline-flex}
 /* "Nous contacter" masqué uniquement pour le fondateur (remplacé par
    "Se déconnecter" en bas de la barre latérale). */
 body.is-admin .sidebar-item.nav-contact-btn{display:none}

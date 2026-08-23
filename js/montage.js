@@ -52,7 +52,7 @@ function ouvrirMontageParCle(key, boutonEl) {
 }
 function montageBoutonHTML(id, plans) {
   const cle = storeMontageSource(plans);
-  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}', this)">${ICO('film')} Générer la vidéo</button>`;
+  return `<button class="btn-regenerate montage-trigger-btn" id="${id}" type="button" onclick="ouvrirMontageParCle('${cle}', this)">Générer la vidéo</button>`;
 }
 
 // Pas une boîte de dialogue : le panneau (#montageModal, un seul exemplaire
