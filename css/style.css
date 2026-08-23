@@ -2005,7 +2005,11 @@ body.is-unlocked .sidebar-logout{display:block}
 .sb-opt{
   display:flex;flex-direction:column;gap:4px;width:100%;
 }
-.sb-opt span{
+/* Enfant DIRECT seulement (> et non descendant) : ne vise que l'étiquette
+   du champ ("Style graphique"/"Format"), jamais le .cs-label du menu
+   déroulant maison inséré à l'intérieur du même <label> par initCustomSelect
+   (js/ui.js), qui héritait sinon cette police/cette casse au lieu de Poppins. */
+.sb-opt > span{
   font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.1em;
   text-transform:uppercase;color:var(--gold-light);
 }
