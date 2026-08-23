@@ -1776,7 +1776,7 @@ body.is-admin .sidebar-item.nav-admin-btn{display:flex}
   background:var(--gold);color:var(--bg);border:none;
   box-shadow:0 4px 16px rgba(201,168,76,0.25);
 }
-body.is-admin .montage-trigger-btn{display:inline-flex}
+body.is-admin .montage-trigger-btn{display:inline-flex;align-items:center;justify-content:center}
 .montage-trigger-btn:hover{
   background:var(--gold-light);color:var(--bg);
   transform:translateY(-1px);box-shadow:0 8px 26px rgba(201,168,76,0.35);
