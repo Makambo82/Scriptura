@@ -137,7 +137,6 @@ document.addEventListener('DOMContentLoaded', function() {
   renderGenCounter();
   setupIdeaButtons();
   setupStoryButtons();
-  setupStoryboardSeulButtons();
   // Boutons cliquables (≤4 choix) d'abord : ils "réservent" leurs <select>
   // via toggleInit avant le balayage général ci-dessous, qui convertirait
   // sinon tout <select> non encore marqué en menu déroulant.

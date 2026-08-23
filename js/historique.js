@@ -970,11 +970,9 @@ function reopenGeneration(i) {
     const csb = g.contenu || {};
     document.getElementById('sbSeulInput').value = csb.script || '';
     if (typeof sbSeulPlatform !== 'undefined') sbSeulPlatform = csb.plateforme || '';
-    const pfContainer = document.getElementById('sbSeulPlatformGrid');
-    if (pfContainer) {
-      pfContainer.querySelectorAll('.grid-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === csb.plateforme);
-      });
+    const pfHost = document.getElementById('sbSeulPlatformPickerHost');
+    if (pfHost && typeof platformPickerHTML === 'function' && typeof SB_SEUL_PLATEFORMES !== 'undefined') {
+      pfHost.innerHTML = platformPickerHTML('sbSeulPlatformPicker', csb.plateforme || '', SB_SEUL_PLATEFORMES, 'sbSeulPlateformeChangee');
     }
     // Menus Style + Format : remplis une seule fois à l'ouverture fraîche du
     // module (voir openStoryboardSeul), jamais en rouvrant depuis
