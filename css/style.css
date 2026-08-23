@@ -459,6 +459,12 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .out-body .script-block{background:none;border:none;padding:0}
 .out-body .story-segment{border-left:none;padding-left:0}
 .out-card.open .out-body{display:block}
+/* Carte ouverte : overflow visible (pas hidden) pour que le menu déroulant
+   maison (Style graphique/Format du storyboard, position absolute) ne soit
+   pas rogné par le coin arrondi de la carte. Fermée, overflow:hidden reste
+   utile (rogne proprement les coins), mais rien d'interactif n'y dépasse
+   alors puisque le corps est display:none. */
+.out-card.open{overflow:visible}
 
 /* SECTIONS DANS LE CARD */
 .out-section{margin-top:22px}
