@@ -488,10 +488,10 @@ function optionsStoryboardHTML() {
   const fmtOpts = (fmtChoisi ? '' : '<option value="">Choisir ton format…</option>')
     + FORMATS_VISUELS.map(f => `<option value="${f.id}"${fmtChoisi && f.id === fmt ? ' selected' : ''}>${f.label}</option>`).join('');
   return `<div class="sb-options-visuelles">
-    <label class="sb-opt"><span>Style graphique</span>
-      <select class="ctx-input" onchange="changerStyleVisuel(this.value)">${styleOpts}</select></label>
-    <label class="sb-opt"><span>Format</span>
-      <select class="ctx-input" onchange="changerFormatVisuel(this.value)">${fmtOpts}</select></label>
+    <div class="sb-opt"><span>Style graphique</span>
+      <select class="ctx-input" onchange="changerStyleVisuel(this.value)">${styleOpts}</select></div>
+    <div class="sb-opt"><span>Format</span>
+      <select class="ctx-input" onchange="changerFormatVisuel(this.value)">${fmtOpts}</select></div>
   </div>`;
 }
 
