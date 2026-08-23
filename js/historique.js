@@ -976,6 +976,12 @@ function reopenGeneration(i) {
         b.classList.toggle('active', b.dataset.val === csb.plateforme);
       });
     }
+    // Menus Style + Format : remplis une seule fois à l'ouverture fraîche du
+    // module (voir openStoryboardSeul), jamais en rouvrant depuis
+    // l'historique, ce chemin-ci les laissait vides tant que "✎ Modifier"
+    // n'avait encore jamais été cliqué dans CETTE session.
+    const optSb = document.getElementById('sbSeulOptionsVisuelles');
+    if (optSb && typeof optionsStoryboardHTML === 'function') optSb.innerHTML = optionsStoryboardHTML();
     if (csb.storyboard_genere) {
       afficherStoryboardSeulResultat(csb.storyboard_genere.storyboard, csb.storyboard_genere.miniature || null, csb.guide_montage);
     }
