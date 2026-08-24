@@ -652,9 +652,10 @@ async function lancerDiagnosticSommaire() {
       errorBox.style.display = 'block';
       return;
     }
-    // Non-abonné : analyse gratuite déjà utilisée (ou plus de générations
-    // gratuites) → on propose l'abonnement.
-    openPlans('nouveau');
+    // Non-abonné : diagnostic sommaire gratuit déjà utilisé (message dédié,
+    // ne prétend pas que les 5 générations sont épuisées, ce qui peut être
+    // faux) ou plus de générations gratuites du tout (message générique).
+    openPlans(droit.raison === 'sommaire_gratuit' ? 'sommaire_gratuit' : 'nouveau');
     return;
   }
 
