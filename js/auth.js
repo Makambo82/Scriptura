@@ -1,3 +1,8 @@
+// Vrai lorsque la fenêtre de saisie du code a été ouverte via "Changer de
+// code d'accès" (voir changerCodeAcces, js/ui.js) plutôt que "J'ai un code" :
+// verifyCode() recharge alors la page au lieu de continuer en place.
+let _modeChangementCompte = false;
+
 // ── POP-UP RAPPEL ABONNEMENT ──
 function fermerRappel() {
   document.getElementById('rappelOverlay').classList.remove('active');
@@ -22,6 +27,7 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
   document.getElementById('modalError').style.display = 'none';
   document.getElementById('codeInput').value = '';
+  _modeChangementCompte = false; // annulation : pas de rechargement à la prochaine ouverture normale
 }
 
 // Interroge /api/verify-code pour connaître les droits RÉELS d'un code :
@@ -103,10 +109,92 @@ async function verifyCode() {
   if (verdict.expireLe) localStorage.setItem('scriptura_expire', verdict.expireLe);
   else localStorage.removeItem('scriptura_expire');
   localStorage.setItem('scriptura_plan', String(verdict.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
+  // Mémorise ce compte pour la bascule rapide (bouton "Changer de code
+  // d'accès" et flèche à côté de "Bonjour Prénom"), sauf codes admin/VIP :
+  // réservés au fondateur/partenaires, pas des "comptes créateur" à faire
+  // apparaître dans un sélecteur personnel.
+  if (!verdict.isAdmin && !verdict.illimite) memoriserCompteConnu(code, verdict.plan);
+
+  // Un changement de compte explicite (voir changerCodeAcces, js/ui.js)
+  // recharge la page plutôt que de continuer en place : sans ça, le cache
+  // de recommandation, l'historique déjà affiché, etc. resteraient ceux du
+  // compte précédent jusqu'au prochain rechargement naturel.
+  if (_modeChangementCompte) {
+    _modeChangementCompte = false;
+    location.reload();
+    return;
+  }
+
   document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
   closeModal();
   renderGenCounter();
   closePaywall();
+}
+
+// ── COMPTES CONNUS SUR CE NAVIGATEUR (bascule rapide entre codes) ──
+// Purement un confort de navigation local, jamais une source de vérité :
+// chaque bascule revérifie le compte côté serveur (voir
+// basculerVersCompteConnu). Codes admin/VIP jamais mémorisés ici (voir
+// verifyCode ci-dessus).
+const MAX_COMPTES_CONNUS = 6;
+
+function listerComptesConnus() {
+  try {
+    const raw = localStorage.getItem('scriptura_comptes_connus');
+    const liste = raw ? JSON.parse(raw) : [];
+    return Array.isArray(liste) ? liste : [];
+  } catch (e) { return []; }
+}
+
+// Ajoute/déplace ce code en tête de liste (compte le plus récemment utilisé
+// en premier), plafonné à MAX_COMPTES_CONNUS (les plus anciens sortent).
+function memoriserCompteConnu(code, plan) {
+  try {
+    let liste = listerComptesConnus().filter(c => c.code !== code);
+    liste.unshift({ code: code, plan: plan || '' });
+    if (liste.length > MAX_COMPTES_CONNUS) liste = liste.slice(0, MAX_COMPTES_CONNUS);
+    localStorage.setItem('scriptura_comptes_connus', JSON.stringify(liste));
+  } catch (e) { /* silencieux : purement un confort de navigation */ }
+}
+
+function oublierCompteConnu(code) {
+  try {
+    const liste = listerComptesConnus().filter(c => c.code !== code);
+    localStorage.setItem('scriptura_comptes_connus', JSON.stringify(liste));
+  } catch (e) { /* silencieux */ }
+}
+
+// Comptes connus SAUF celui actuellement actif (pour la flèche de bascule,
+// voir salutationAccueil, js/recommandations.js).
+function autresComptesConnus() {
+  const actuel = (localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
+  return listerComptesConnus().filter(c => c.code !== actuel);
+}
+
+// Bascule directement sur un compte déjà connu sur ce navigateur, sans
+// repasser par la saisie manuelle. Revérifie quand même le statut côté
+// serveur (l'abonnement a pu expirer ou être désactivé depuis la dernière
+// connexion) : jamais une bascule silencieuse vers un compte qui ne marche
+// plus, dans ce cas on l'oublie et on rouvre la saisie manuelle, code déjà
+// rempli, pour que le message d'erreur habituel explique pourquoi.
+async function basculerVersCompteConnu(code) {
+  const verdict = await verifierStatutServeur(code);
+  if (!verdict.valid || verdict.jeton) {
+    oublierCompteConnu(code);
+    _modeChangementCompte = true;
+    openModal();
+    const input = document.getElementById('codeInput');
+    if (input) input.value = code;
+    return;
+  }
+  unlocked = true;
+  localStorage.setItem('scriptura_unlocked', 'true');
+  localStorage.setItem('scriptura_code', code);
+  if (verdict.expireLe) localStorage.setItem('scriptura_expire', verdict.expireLe);
+  else localStorage.removeItem('scriptura_expire');
+  localStorage.setItem('scriptura_plan', String(verdict.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
+  if (!verdict.isAdmin && !verdict.illimite) memoriserCompteConnu(code, verdict.plan);
+  location.reload();
 }
 

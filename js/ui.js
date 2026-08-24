@@ -542,6 +542,18 @@ function sidebarGo(action) {
     if (typeof openPlans === 'function') openPlans('abonnement');
   }
 }
+// "Changer de code d'accès" (panneau latéral, visible uniquement pour un
+// abonné) : ouvre la même fenêtre de saisie que "J'ai un code", mais marque
+// qu'il s'agit d'un changement de compte, pas d'une première connexion, pour
+// que verifyCode() (js/auth.js) recharge la page au lieu de continuer en
+// place avec un cache (recommandations, historique déjà affiché) qui
+// appartient encore au compte quitté.
+function changerCodeAcces() {
+  closeSidebar();
+  if (typeof _modeChangementCompte !== 'undefined') _modeChangementCompte = true;
+  openModal();
+}
+
 function seDeconnecter() {
   unlocked = false;
   localStorage.setItem('scriptura_unlocked', 'false');

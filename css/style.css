@@ -1847,6 +1847,34 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 body.is-unlocked .sidebar-item.nav-code-btn{display:none}
 body.is-unlocked .sidebar-item.nav-subscribe-btn{display:none}
+/* "Changer de code d'accès" : miroir de "J'ai un code" ci-dessus, réservé à
+   un abonné déjà connecté (pour basculer vers un autre de ses comptes). */
+.sidebar-item.nav-switch-account-btn{display:none}
+body.is-unlocked .sidebar-item.nav-switch-account-btn{display:flex}
+/* Flèche de bascule entre comptes connus, à côté de "Bonjour Prénom" (voir
+   salutationAccueil, js/recommandations.js). Positionnement relatif pour
+   ancrer le petit menu déroulant juste en dessous. */
+.salutation-swap-wrap{position:relative;display:inline-flex;align-items:center;gap:6px}
+.salutation-swap-btn{
+  background:transparent;border:none;padding:4px;cursor:pointer;
+  color:var(--gold);display:inline-flex;align-items:center;justify-content:center;
+  transition:transform .2s;
+}
+.salutation-swap-btn:hover{color:var(--gold-light)}
+.salutation-swap-btn svg{width:16px;height:16px;display:block}
+.salutation-swap-menu{
+  position:absolute;top:100%;left:0;margin-top:6px;z-index:20;
+  background:var(--bg-mid);border:1px solid var(--border-soft);border-radius:12px;
+  padding:6px;min-width:160px;display:none;flex-direction:column;gap:2px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+}
+.salutation-swap-menu.open{display:flex}
+.salutation-swap-menu button{
+  background:transparent;border:none;text-align:left;padding:8px 10px;border-radius:8px;
+  color:rgba(255,255,255,0.85);font-family:'Poppins',sans-serif;font-size:0.85rem;
+  font-style:normal;cursor:pointer;
+}
+.salutation-swap-menu button:hover{background:rgba(201,168,76,0.12);color:var(--gold-light)}
 /* Tableau de bord : cache pour tout le monde, visible uniquement pour le
    code fondateur (voir CODE_ADMIN, js/api.js, et body.is-admin ajouté par
    js/app.js et js/auth.js). */

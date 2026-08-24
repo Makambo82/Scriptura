@@ -501,8 +501,8 @@ const PRENOM_CODE_EXCEPTIONS = {
 //    tirets, sans avoir à les lister un par un).
 // Renvoie null si rien de tout ça ne correspond : pas de prénom affiché
 // plutôt que d'en deviner un faux.
-function prenomDepuisCode() {
-  const code = (localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
+function prenomDepuisCode(codeParam) {
+  const code = (codeParam || localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
   if (!code) return null;
   if (PRENOM_CODE_EXCEPTIONS[code]) return PRENOM_CODE_EXCEPTIONS[code];
 
@@ -661,7 +661,42 @@ function salutationAccueil() {
   // dans le HTML de la salutation (toutes les utilisations le sont).
   const prenom = prenomDepuisCode();
   const prenomSur = prenom ? escaperReco(prenom) : prenom;
-  return prenomSur ? (base + ' ' + prenomSur + ' 👋') : (base + ' 👋');
+  const texte = prenomSur ? (base + ' ' + prenomSur + ' 👋') : (base + ' 👋');
+
+  // Flèche de bascule entre comptes connus sur ce navigateur (voir
+  // changerCodeAcces/memoriserCompteConnu, js/auth.js) : uniquement pour un
+  // abonné, et seulement s'il existe AU MOINS un autre compte que l'actuel,
+  // sinon la flèche n'aurait rien à proposer.
+  if (typeof unlocked === 'undefined' || !unlocked) return texte;
+  const autres = (typeof autresComptesConnus === 'function') ? autresComptesConnus() : [];
+  if (!autres.length) return texte;
+
+  const items = autres.map(c => {
+    const p = prenomDepuisCode(c.code);
+    const label = p ? escaperReco(p) : c.code;
+    return `<button type="button" onclick="basculerVersCompteConnu('${c.code}')">${label}</button>`;
+  }).join('');
+  return `<span class="salutation-swap-wrap">
+    <span>${texte}</span>
+    <button type="button" class="salutation-swap-btn" onclick="toggleSelecteurComptes(event)" aria-label="Changer de compte">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <span class="salutation-swap-menu" id="salutationSwapMenu">${items}</span>
+  </span>`;
+}
+
+// Ferme le menu de bascule de compte si un clic a lieu ailleurs sur la page.
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('salutationSwapMenu');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (e.target.closest('.salutation-swap-wrap')) return;
+  menu.classList.remove('open');
+});
+
+function toggleSelecteurComptes(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('salutationSwapMenu');
+  if (menu) menu.classList.toggle('open');
 }
 
 // ── Cache journalier de la recommandation d'accueil ──
