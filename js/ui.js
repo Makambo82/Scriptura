@@ -411,8 +411,12 @@ function updateScrollBtn() {
   else if (y < _lastScrollY - 4) _scrollDir = 'up';
   _lastScrollY = y;
 
-  // La flèche suit le sens du scroll
-  btn.textContent = (_scrollDir === 'down') ? '↓' : '↑';
+  // La flèche suit le sens du scroll. Une icône SVG dessinée à la main
+  // (pas un caractère "↓"/"↑") tournée à 180°, contrairement au glyphe
+  // Unicode, son centrage dans le cercle reste identique sur tous les
+  // navigateurs (le rendu de "↓" variait entre Safari iOS et Chrome).
+  const icone = document.getElementById('scrollTopIcon');
+  if (icone) icone.style.transform = (_scrollDir === 'down') ? '' : 'rotate(180deg)';
   btn.setAttribute('title', (_scrollDir === 'down') ? 'Descendre en bas' : 'Remonter en haut');
 }
 window.addEventListener('scroll', updateScrollBtn);

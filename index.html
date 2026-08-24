@@ -1610,7 +1610,12 @@
 </div>
 
 <!-- BOUTON RETOUR EN HAUT -->
-<button id="scrollTopBtn" onclick="scrollSmart()" aria-label="Naviguer haut ou bas" title="Descendre en bas">↓</button>
+<button id="scrollTopBtn" onclick="scrollSmart()" aria-label="Naviguer haut ou bas" title="Descendre en bas">
+  <svg id="scrollTopIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 5v14"/>
+    <path d="M6 13l6 6 6-6"/>
+  </svg>
+</button>
 
 <!-- MODAL GÉNÉRATION D'IMAGE -->
 <div class="genimg-overlay" id="genImageModal">
