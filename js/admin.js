@@ -251,6 +251,16 @@ function filtrerCodesAdmin() {
     const q = _adminSearchQuery.trim().toUpperCase();
     liste = liste.filter(c => (c.code || '').toUpperCase().includes(q));
   }
+  // Épingle le code fondateur en tête, quels que soient le tri/la recherche/
+  // le filtre en cours. Seul le fondateur (body.is-admin, voir
+  // css/style.css) accède à ce tableau de bord : le code utilisé pour se
+  // connecter ICI est donc forcément le sien, pas besoin de le distinguer
+  // autrement.
+  const codeFondateur = (localStorage.getItem('scriptura_code') || '').toUpperCase();
+  if (codeFondateur) {
+    const idx = liste.findIndex(c => (c.code || '').toUpperCase() === codeFondateur);
+    if (idx > 0) liste = [liste[idx], ...liste.slice(0, idx), ...liste.slice(idx + 1)];
+  }
   return liste;
 }
 
