@@ -817,8 +817,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .abonne-badge{
   display:inline-flex;align-items:center;gap:6px;
   background:linear-gradient(120deg,var(--gold),var(--gold-light));
-  color:var(--bg);font-family:'Cinzel',serif;font-size:0.62rem;font-weight:600;
-  letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--bg);font-family:'Poppins',sans-serif;font-size:0.72rem;font-weight:600;
   padding:5px 13px;border-radius:999px;
   box-shadow:0 2px 12px -2px rgba(201,168,76,0.55);
   position:relative;overflow:hidden;
