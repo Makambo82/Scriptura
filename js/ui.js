@@ -543,14 +543,11 @@ function sidebarGo(action) {
   }
 }
 // "Changer de code d'accès" (panneau latéral, visible uniquement pour un
-// abonné) : ouvre la même fenêtre de saisie que "J'ai un code", mais marque
-// qu'il s'agit d'un changement de compte, pas d'une première connexion, pour
-// que verifyCode() (js/auth.js) recharge la page au lieu de continuer en
-// place avec un cache (recommandations, historique déjà affiché) qui
-// appartient encore au compte quitté.
+// abonné) : ouvre la même fenêtre de saisie que "J'ai un code" (verifyCode(),
+// js/auth.js, recharge systématiquement la page à la validation, quel que
+// soit le point d'entrée).
 function changerCodeAcces() {
   closeSidebar();
-  if (typeof _modeChangementCompte !== 'undefined') _modeChangementCompte = true;
   openModal();
 }
 

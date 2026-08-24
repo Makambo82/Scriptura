@@ -1,8 +1,3 @@
-// Vrai lorsque la fenêtre de saisie du code a été ouverte via "Changer de
-// code d'accès" (voir changerCodeAcces, js/ui.js) plutôt que "J'ai un code" :
-// verifyCode() recharge alors la page au lieu de continuer en place.
-let _modeChangementCompte = false;
-
 // ── POP-UP RAPPEL ABONNEMENT ──
 function fermerRappel() {
   document.getElementById('rappelOverlay').classList.remove('active');
@@ -27,7 +22,6 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
   document.getElementById('modalError').style.display = 'none';
   document.getElementById('codeInput').value = '';
-  _modeChangementCompte = false; // annulation : pas de rechargement à la prochaine ouverture normale
 }
 
 // Interroge /api/verify-code pour connaître les droits RÉELS d'un code :
@@ -119,21 +113,16 @@ async function verifyCode() {
   // apparaître dans un sélecteur personnel.
   if (!verdict.isAdmin && !verdict.illimite) memoriserCompteConnu(code, verdict.plan);
 
-  // Un changement de compte explicite (voir changerCodeAcces, js/ui.js)
-  // recharge la page plutôt que de continuer en place : sans ça, le cache
-  // de recommandation, l'historique déjà affiché, etc. resteraient ceux du
-  // compte précédent jusqu'au prochain rechargement naturel.
-  if (_modeChangementCompte) {
-    _modeChangementCompte = false;
-    location.reload();
-    return;
-  }
-
-  document.body.classList.add('is-unlocked');
-  appliquerClasseAdmin();
-  closeModal();
-  renderGenCounter();
-  closePaywall();
+  // Recharge systématiquement la page plutôt que de continuer en place :
+  // sans ça, le cache de recommandation (avec la salutation et sa flèche de
+  // bascule), l'historique déjà affiché, etc. resteraient ceux d'avant cette
+  // connexion jusqu'au prochain rechargement naturel. Ancienne version : ne
+  // rechargeait que pour un changement de compte explicite (drapeau
+  // _modeChangementCompte), mais ce drapeau pouvait être remis à zéro par un
+  // clic accidentel sur le fond de la fenêtre (closeModal), laissant alors
+  // une connexion « réussie » sans aucun rafraîchissement visible, exactement
+  // le symptôme rapporté (bascule de compte sans effet apparent).
+  location.reload();
 }
 
 // ── COMPTES CONNUS SUR CE NAVIGATEUR (bascule rapide entre codes) ──
@@ -209,7 +198,6 @@ async function basculerVersCompteConnu(code) {
   }
   if (!verdict.valid || verdict.jeton) {
     oublierCompteConnu(code);
-    _modeChangementCompte = true;
     openModal();
     const input = document.getElementById('codeInput');
     if (input) input.value = code;
