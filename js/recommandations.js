@@ -713,42 +713,43 @@ function toggleSelecteurComptes(e) {
   if (menu) menu.classList.toggle('open');
 }
 
-// ── Cache journalier de la recommandation d'accueil ──
+// ── Cache persistant de la recommandation d'accueil ──
 // initAccueilPremium() se déclenche à CHAQUE ouverture de la page d'accueil :
-// sans cache, un abonné qui rouvre l'app plusieurs fois par jour relance
-// autant d'appels au modèle pour un contenu qui n'a aucune raison d'avoir
-// changé entre deux visites de la même journée. Stocké côté navigateur
-// (localStorage, par code d'accès) : pas de changement de schéma Supabase,
-// et la recommandation reste correcte même hors-ligne le temps de la journée.
-function cleRecoJour() {
-  const d = new Date();
-  const jour = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  return 'scriptura_reco_' + getUserRef() + '_' + jour;
+// sans cache, un abonné qui rouvre l'app relance autant d'appels au modèle
+// pour un contenu qui n'a aucune raison d'avoir changé. Stocké côté
+// navigateur (localStorage, par code d'accès), sans expiration automatique :
+// la recommandation reste la même tant que le créateur ne clique pas
+// lui-même sur "Actualiser" ou "Générer le script" (voir viderRecoCache
+// ci-dessous), y compris d'un jour à l'autre.
+function cleRecoAbonne() {
+  return 'scriptura_reco_' + getUserRef();
 }
 function lireRecoCache() {
   try {
-    const brut = localStorage.getItem(cleRecoJour());
+    const brut = localStorage.getItem(cleRecoAbonne());
     return brut ? JSON.parse(brut) : null;
   } catch (e) { return null; }
 }
 function ecrireRecoCache(data) {
   try {
-    const cleDuJour = cleRecoJour();
-    localStorage.setItem(cleDuJour, JSON.stringify(data));
-    // Nettoyage léger : les entrées des jours précédents ne servent plus à rien.
-    const prefixe = 'scriptura_reco_' + getUserRef() + '_';
+    const cle = cleRecoAbonne();
+    localStorage.setItem(cle, JSON.stringify(data));
+    // Nettoyage des anciennes entrées journalières (scriptura_reco_<code>_
+    // <date>, avant le passage à un cache sans expiration) : ne servent
+    // plus à rien, autant libérer la place.
+    const prefixeAncien = cle + '_';
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(prefixe) && k !== cleDuJour) localStorage.removeItem(k);
+      if (k && k.startsWith(prefixeAncien)) localStorage.removeItem(k);
     }
   } catch (e) { /* stockage plein ou indisponible : tant pis, pas bloquant */ }
 }
-// Invalide la recommandation du jour : appelée après toute nouvelle
-// génération (voir saveGeneration, js/historique.js), pour qu'un créateur
-// qui vient d'agir sur la reco n'en revoie pas une devenue obsolète le
-// reste de la journée. Sans effet si aucune reco n'était en cache.
+// Invalide la recommandation en cache : appelée après un clic sur
+// "Actualiser" ou "Générer le script" (voir saveGeneration,
+// js/historique.js), les deux seuls déclencheurs d'une nouvelle
+// recommandation désormais. Sans effet si aucune reco n'était en cache.
 function viderRecoCache() {
-  try { localStorage.removeItem(cleRecoJour()); } catch (e) { /* silencieux */ }
+  try { localStorage.removeItem(cleRecoAbonne()); } catch (e) { /* silencieux */ }
 }
 
 // ── Plafond quotidien du bouton "Nouvelle recommandation" ──
@@ -940,8 +941,10 @@ async function initAccueilPremiumInterne(zone) {
   rendreRecommandations('accueilPremium', data, entete, true);
 }
 
-// Force une nouvelle recommandation d'accueil, sans attendre le changement
-// de jour (vide le cache du jour puis relance l'initialisation normale).
+// Force une nouvelle recommandation d'accueil (vide le cache puis relance
+// l'initialisation normale) : avec creerScriptDepuisRecommandation, seul
+// déclencheur d'un changement de recommandation, elle ne change plus
+// jamais d'elle-même.
 async function rafraichirRecommandationAccueil() {
   // Plafond quotidien atteint : le bouton ne répond plus (économie d'API).
   if (recoRefreshRestants() <= 0) return;
