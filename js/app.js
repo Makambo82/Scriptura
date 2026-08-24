@@ -26,10 +26,14 @@ async function syncServerQuota() {
 //  pas comme "en ligne". Échoue silencieusement si la table n'existe pas
 //  encore (comme le reste des fonctionnalités Supabase de l'app).
 // ═══════════════════════════════════════════════════════════
-function envoyerPresence() {
+async function envoyerPresence() {
   if (!supabaseClient || document.visibilityState !== 'visible') return;
   try {
-    supabaseClient.from('presence').upsert(
+    // supabase-js n'exécute la requête qu'au moment où on l'attend (son
+    // constructeur de requête est un "thenable" paresseux) : sans await ici,
+    // l'upsert ne partait jamais réellement, aucune ligne n'était écrite
+    // dans `presence`, pour personne, y compris le fondateur.
+    await supabaseClient.from('presence').upsert(
       { ref: getUserRef(), derniere_activite: new Date().toISOString(), abonne: !!unlocked },
       { onConflict: 'ref' }
     );
