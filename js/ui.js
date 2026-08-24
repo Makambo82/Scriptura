@@ -419,13 +419,30 @@ window.addEventListener('scroll', updateScrollBtn);
 window.addEventListener('resize', updateScrollBtn);
 
 // ── MENU LATÉRAL (SIDEBAR) ──
+// L'icône du bouton reflète l'état : panneau gauche plein quand le menu est
+// fermé, panneau creux (juste le contour) une fois ouvert. Mise à jour ici,
+// dans openSidebar/closeSidebar directement, pour rester juste peu importe
+// le déclencheur (bouton, overlay, ✕ dans le menu, sidebarGo).
+function majMenuToggleIcon(ouvert) {
+  const fill = document.getElementById('menuToggleFill');
+  const btn = document.getElementById('menuToggleBtn');
+  if (fill) fill.style.display = ouvert ? 'none' : '';
+  if (btn) btn.setAttribute('aria-label', ouvert ? 'Fermer le menu' : 'Ouvrir le menu');
+}
 function openSidebar() {
   document.getElementById('sidebar').classList.add('active');
   document.getElementById('sidebarOverlay').classList.add('active');
+  majMenuToggleIcon(true);
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('active');
   document.getElementById('sidebarOverlay').classList.remove('active');
+  majMenuToggleIcon(false);
+}
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar && sidebar.classList.contains('active')) closeSidebar();
+  else openSidebar();
 }
 function sidebarGo(action) {
   closeSidebar();
