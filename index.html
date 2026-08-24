@@ -543,7 +543,7 @@
 
     <div id="viralAnaForm">
       <div class="ds-field">
-        <span class="ds-at">🔗</span>
+        <span class="ds-at"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
         <input class="ds-input" id="viralAnaLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();lancerAnalyseVirale();}"/>
       </div>
       <p class="ds-note" id="viralAnaNote" style="margin-top:10px"><span>🔒</span><span>Colle le lien de partage (TikTok). Pas de lien ? Ouvre le repli et colle le texte de la vidéo.</span></p>
@@ -577,7 +577,7 @@
 
     <div id="outilsForm">
       <div class="ds-field">
-        <span class="ds-at">🔗</span>
+        <span class="ds-at"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
         <input class="ds-input" id="outilsLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();}"/>
       </div>
       <div class="err" id="outilsError" style="display:none;margin-top:14px"></div>
@@ -1252,7 +1252,7 @@
       <div class="ctx-field" id="viralVideoField" style="display:none">
         <label class="ctx-label" id="viralVideoLabel">Texte de la vidéo virale à analyser</label>
         <div class="ds-field" id="viralLienRow" style="margin-bottom:10px">
-          <span class="ds-at">🔗</span>
+          <span class="ds-at"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
           <input class="ds-input" id="viralLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();recupererTranscriptViral();}"/>
           <button class="ds-go" id="viralLienBtn" type="button" aria-label="Récupérer" onclick="recupererTranscriptViral()">
             <span class="sb-gen-spinner" id="viralLienSpinner" style="display:none"></span>
