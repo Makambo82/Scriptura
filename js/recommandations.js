@@ -675,7 +675,13 @@ function salutationAccueil() {
     const p = prenomDepuisCode(c.code);
     const label = p ? escaperReco(p) : c.code;
     return `<button type="button" onclick="basculerVersCompteConnu('${c.code}')">${label}</button>`;
-  }).join('');
+  }).join('')
+    // "Se déconnecter" : même fonction que le bouton du panneau latéral
+    // (seDeconnecter, js/ui.js), juste accessible directement depuis ce
+    // menu plutôt que d'aller le chercher ailleurs. Séparé visuellement des
+    // comptes (voir .swap-logout, css/style.css) pour ne jamais être
+    // confondu avec une bascule de compte.
+    + '<button type="button" class="swap-logout" onclick="seDeconnecter()">Se déconnecter</button>';
   return `<span class="salutation-swap-wrap">
     <span>${texte}</span>
     <button type="button" class="salutation-swap-btn" onclick="toggleSelecteurComptes(event)" aria-label="Changer de compte">
