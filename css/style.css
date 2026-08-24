@@ -1816,6 +1816,10 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   display:inline-flex;align-items:center;justify-content:center;
 }
 .sidebar-icon svg{width:20px;height:20px;display:block;color:var(--gold-light)}
+/* "✦" de "S'abonner" : seul icône du menu qui n'est pas un SVG (donc pas
+   couvert par la règle .sidebar-icon svg ci-dessus), héritait sinon du
+   blanc cassé de .sidebar-item au lieu du doré des autres icônes. */
+.nav-subscribe-btn .sidebar-icon{color:var(--gold-light)}
 /* Icône en ligne dans un texte/badge (hérite de la couleur du texte via
    currentColor, donc respecte l'or, l'émeraude, etc.). Style trait fin,
    même famille que le logo et les icônes de cartes. */
