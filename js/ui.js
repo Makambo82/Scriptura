@@ -296,6 +296,7 @@ async function revelerModes() {
   const hint = document.getElementById('heroModesHint');
   if (cta) cta.style.display = 'none';
   if (modes) modes.style.display = ''; // retombe sur le display:grid du CSS
+  animerHeroModes(modes);
   document.body.classList.add('hero-focus');
   window.scrollTo({ top: 0, behavior: 'auto' });
 
@@ -309,6 +310,28 @@ async function revelerModes() {
   if (hint) hint.style.display = dejaAnalyse ? 'none' : '';
   const badge = document.getElementById('auditModeBadge');
   if (badge) badge.style.display = dejaAnalyse ? 'none' : '';
+}
+
+// Fait entrer les 6 boutons de mode un par un, alternant gauche/droite
+// (audit à gauche, virale à droite, série à gauche...), jamais tous en même
+// temps. Réutilise @keyframes liftInLeft/liftInRight (css/style.css, déjà
+// utilisées par .reveal-left/.reveal-right au défilement) mais posées ici
+// directement en `style.animation` inline, pas via une classe .reveal-*
+// gardée par IntersectionObserver : ces boutons vivent sous #heroModes,
+// display:none par défaut, donc jamais "vus" par l'observateur de scroll
+// tant qu'on ne clique pas sur "Commencer". Rejoué à chaque clic (pas
+// seulement la première fois) : le forçage de reflow (offsetWidth) relance
+// l'animation même si revelerModes() a déjà tourné dans cette session.
+function animerHeroModes(modes) {
+  if (!modes) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const btns = modes.querySelectorAll('.hero-mode-btn');
+  btns.forEach((btn, i) => {
+    const sens = i % 2 === 0 ? 'liftInLeft' : 'liftInRight';
+    btn.style.animation = 'none';
+    void btn.offsetWidth;
+    btn.style.animation = sens + ' .7s cubic-bezier(.2,.7,.2,1) both ' + (i * 0.08).toFixed(2) + 's';
+  });
 }
 
 // Remet l'accueil dans son état complet (bouton Commencer visible, modes cachés).
