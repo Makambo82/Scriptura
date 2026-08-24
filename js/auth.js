@@ -76,7 +76,14 @@ async function verifyCode() {
   if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
 
   if (!verdict.valid) {
-    if (verdict.raison === 'compte désactivé') {
+    if (verdict.indisponible) {
+      // Panne réseau/serveur temporaire (voir verifierStatutServeur) : ne
+      // jamais dire "code invalide" pour ça, le code peut être parfaitement
+      // bon, c'est juste la vérification qui a échoué cette fois. Un message
+      // honnête, sinon l'abonné retape son code en boucle en croyant l'avoir
+      // mal saisi alors que le vrai souci est ailleurs.
+      errorEl.textContent = 'Connexion instable, réessaie dans un instant.';
+    } else if (verdict.raison === 'compte désactivé') {
       errorEl.textContent = 'Ce code a été désactivé. Contacte-nous pour réactiver ton accès.';
     } else if (verdict.raison === 'abonnement expiré') {
       errorEl.textContent = 'Ton abonnement a expiré. Renouvelle pour retrouver l\'accès.';
