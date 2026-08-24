@@ -270,7 +270,7 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
 }
 .ctx-input:focus,.ctx-textarea:focus{border-color:rgba(201,168,76,0.45)}
 .ctx-input::placeholder,.ctx-textarea::placeholder{color:rgba(255,255,255,0.45);font-size:0.82rem}
-/* Un <select> n'a pas de ::placeholder : tant que son option "Choisir..."
+/* Un <select> n'a pas de ::placeholder : tant que son option "Choisis..."
    (value="") reste la sélection courante, le texte doit rester grisé comme
    un placeholder, jamais blanc plein (qui donne l'impression trompeuse d'un
    choix déjà fait). Redevient blanc dès qu'une vraie option est choisie. */

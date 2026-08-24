@@ -383,7 +383,7 @@ function useIdeaForScript(index) {
 
   // 3. Audience : reporter dans le select du mode script
   const audSelect = document.getElementById('audience');
-  if (audSelect && audience && !audience.startsWith('Choisir')) {
+  if (audSelect && audience && !audience.startsWith('Choisis')) {
     for (let opt of audSelect.options) {
       if (opt.value === audience || opt.text === audience) { audSelect.value = opt.value; break; }
     }

@@ -148,7 +148,7 @@ async function mettreAJourProfilCreateur(patch) {
 
 // ── Pré-remplissage : ne touche jamais un champ déjà rempli par l'utilisateur ──
 // Certains <select> (ex: #niche, #ideaNiche) n'ont pas d'attribut value="" sur
-// leur option "Choisir…" : sa valeur par défaut est alors son propre texte,
+// leur option "Choisis…" : sa valeur par défaut est alors son propre texte,
 // donc "vide" doit aussi se vérifier via selectedIndex === 0, pas seulement
 // via el.value (qui serait alors non-vide dès le chargement de la page).
 function estChampEncoreVide(el) {

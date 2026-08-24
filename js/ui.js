@@ -210,7 +210,7 @@ function initToggleButtons(select) {
   function construireBoutons() {
     row.innerHTML = '';
     Array.prototype.forEach.call(select.options, function (opt) {
-      if (!opt.value) return; // saute le placeholder "Choisir…"
+      if (!opt.value) return; // saute le placeholder "Choisis…"
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'grid-btn' + (opt.value === select.value ? ' active' : '');

@@ -441,7 +441,7 @@ function formatVisuelActuel() {
 // JAMAIS fait ce choix lui-même (à ne pas confondre avec le défaut interne
 // utilisé pour générer quand même, voir optionsStoryboardHTML). Sert
 // uniquement à savoir si le <select> doit afficher un vrai choix ou son
-// option "Choisir…".
+// option "Choisis…".
 function styleVisuelChoisi() {
   try { return localStorage.getItem('scriptura_style_visuel'); } catch (e) { return null; }
 }
@@ -475,7 +475,7 @@ function changerFormatVisuel(id) {
 // « Générer le storyboard » (tous les modes). Réglé avant génération pour que
 // chaque prompt reçoive le bon footer (style + ratio). Les <select> reflètent
 // le choix mémorisé (localStorage) au moment où le bloc est construit. Tant
-// qu'aucun choix n'a jamais été fait (nouvel utilisateur), affiche "Choisir…"
+// qu'aucun choix n'a jamais été fait (nouvel utilisateur), affiche "Choisis…"
 // plutôt qu'une vraie option déjà cochée, qui donnerait l'impression fausse
 // d'un choix déjà fait : la génération utilisera quand même un défaut
 // raisonnable (styleVisuelActuel/formatVisuelActuel) si le créateur ignore
@@ -483,9 +483,9 @@ function changerFormatVisuel(id) {
 function optionsStoryboardHTML() {
   const stChoisi = styleVisuelChoisi(), fmtChoisi = formatVisuelChoisi();
   const st = styleVisuelActuel(), fmt = formatVisuelActuel();
-  const styleOpts = (stChoisi ? '' : '<option value="">Choisir ton style…</option>')
+  const styleOpts = (stChoisi ? '' : '<option value="">Choisis ton style…</option>')
     + STYLES_VISUELS.map(s => `<option value="${s.id}"${stChoisi && s.id === st ? ' selected' : ''}>${s.label}</option>`).join('');
-  const fmtOpts = (fmtChoisi ? '' : '<option value="">Choisir ton format…</option>')
+  const fmtOpts = (fmtChoisi ? '' : '<option value="">Choisis ton format…</option>')
     + FORMATS_VISUELS.map(f => `<option value="${f.id}"${fmtChoisi && f.id === fmt ? ' selected' : ''}>${f.label}</option>`).join('');
   return `<div class="sb-options-visuelles">
     <div class="sb-opt"><span>Style graphique</span>
