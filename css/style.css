@@ -2609,6 +2609,7 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-go:hover{transform:scale(1.05)}
 .ds-go:disabled{opacity:0.6;cursor:default;transform:none}
 .ds-note{display:flex;align-items:flex-start;gap:8px;font-family:'Poppins',sans-serif;font-size:0.82rem;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:16px;text-align:left}
+.ds-note-ico{flex:0 0 auto;margin-top:2px}
 .ds-sep{display:flex;align-items:center;gap:14px;margin:34px 0 22px;color:rgba(255,255,255,0.35);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase}
 .ds-sep::before,.ds-sep::after{content:'';flex:1;height:1px;background:var(--border-soft)}
 .ds-alt{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:18px 20px;text-align:left;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.55}
