@@ -135,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
   renderGenCounter();
+  initScrollReveal();
   setupIdeaButtons();
   setupStoryButtons();
   setupStoryboardSeulButtons();

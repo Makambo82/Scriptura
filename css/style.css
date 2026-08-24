@@ -1279,6 +1279,38 @@ body.hero-focus .hero-focus-rule{display:block}
 @keyframes goldSheen{0%{left:-60%}55%,100%{left:150%}}
 @keyframes wmShine{0%{background-position:100% 0}100%{background-position:0% 0}}
 @keyframes liftIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes liftInLeft{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
+@keyframes liftInRight{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+/* Révélation au défilement (page d'accueil) : .reveal/.reveal-left/.reveal-right
+   posés dans le HTML, la classe .visible ajoutée par initScrollReveal()
+   (js/ui.js, IntersectionObserver) dès qu'un bloc entre dans l'écran. Utilise
+   `animation` (jamais `transition`) pour ne jamais entrer en conflit avec les
+   transitions déjà posées sur certains éléments ciblés (.hero-mode-btn,
+   .plan-card...) pour leurs propres effets au survol. Coupé si mouvement
+   réduit : .reveal reste alors sans opacity:0 nulle part, le contenu est
+   visible directement, jamais caché en attendant un JS qui ne l'animerait pas.
+   Si l'observateur n'est pas dispo (très vieux navigateur), initScrollReveal
+   affiche tout immédiatement plutôt que de laisser des blocs invisibles. */
+@media(prefers-reduced-motion:no-preference){
+  .reveal,.reveal-left,.reveal-right{opacity:0}
+  .reveal.visible{animation:liftIn .7s cubic-bezier(.2,.7,.2,1) both}
+  .reveal-left.visible{animation:liftInLeft .7s cubic-bezier(.2,.7,.2,1) both}
+  .reveal-right.visible{animation:liftInRight .7s cubic-bezier(.2,.7,.2,1) both}
+  .reveal-d1.visible{animation-delay:.08s}
+  .reveal-d2.visible{animation-delay:.16s}
+  .reveal-d3.visible{animation-delay:.24s}
+  .reveal-d4.visible{animation-delay:.32s}
+  .reveal-d5.visible{animation-delay:.4s}
+  .reveal-d6.visible{animation-delay:.48s}
+}
+/* Entrée du hero au chargement (mot par mot pour le titre, cascade pour le
+   reste) : purement CSS avec animation-delay en ligne, aucune dépendance au
+   JS, se joue dès l'affichage puisque le hero est visible sans scroll. */
+@media(prefers-reduced-motion:no-preference){
+  .hero-word{display:inline-block;animation:liftIn .6s cubic-bezier(.2,.7,.2,1) both}
+  .hero-shimmer.hero-word{animation:liftIn .6s cubic-bezier(.2,.7,.2,1) both,wmShine 5.5s ease-in-out infinite}
+  .hero-cascade{animation:liftIn .6s cubic-bezier(.2,.7,.2,1) both}
+}
 /* Reflet doré sur les mots-marques (logo en-tête, mot "réinventé") */
 @supports ((-webkit-background-clip:text) or (background-clip:text)){
   .logo .logo-s,.logo em,.hero-shimmer{

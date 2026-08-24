@@ -151,19 +151,19 @@
   <div class="hero-bg"></div>
   <div class="hero-grid"></div>
   <button id="heroRetour" class="hero-retour" onclick="quitterFocus()">← Retour</button>
-  <div class="hero-logo-badge" aria-hidden="true">
+  <div class="hero-logo-badge hero-cascade" style="animation-delay:0s" aria-hidden="true">
     <svg width="24" height="24" viewBox="0 0 24 24">
       <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
     </svg>
   </div>
-  <div class="hero-eyebrow">Propulsé par l'IA</div>
+  <div class="hero-eyebrow hero-cascade" style="animation-delay:.08s">Propulsé par l'IA</div>
 
   <h1>
-    Crée du contenu<br/>
-    <strong class="hero-shimmer">qui décolle vraiment.</strong>
+    <span class="hero-word" style="animation-delay:.2s">Crée</span> <span class="hero-word" style="animation-delay:.3s">du</span> <span class="hero-word" style="animation-delay:.4s">contenu</span><br/>
+    <strong class="hero-shimmer hero-word" style="animation-delay:.52s">qui décolle vraiment.</strong>
   </h1>
-  <div class="hero-rule"></div>
-  <p class="hero-sub">Que tu débutes ou que tu stagnes, Scriptura te donne les idées, les scripts et le diagnostic pour faire grandir ton audience, sans y passer tes nuits.</p>
+  <div class="hero-rule hero-cascade" style="animation-delay:.68s"></div>
+  <p class="hero-sub hero-cascade" style="animation-delay:.78s">Que tu débutes ou que tu stagnes, Scriptura te donne les idées, les scripts et le diagnostic pour faire grandir ton audience, sans y passer tes nuits.</p>
 
   <h2 class="hero-focus-title" id="heroFocusTitle">
     Scriptura<br/>
@@ -171,14 +171,14 @@
   </h2>
   <div class="hero-focus-rule"></div>
 
-  <div class="gen-counter" id="genCounterHome" style="margin-bottom:20px;width:100%;max-width:420px;box-sizing:border-box;padding-left:22px;padding-right:22px">
+  <div class="gen-counter hero-cascade" id="genCounterHome" style="animation-delay:.88s;margin-bottom:20px;width:100%;max-width:420px;box-sizing:border-box;padding-left:22px;padding-right:22px">
     <span>Générations gratuites · <strong id="usedNumHome">0</strong> / 5 utilisées</span>
     <div class="gen-counter-dots" id="genCounterDotsHome"></div>
   </div>
 
   <div id="accueilPremium" style="display:none;width:100%;max-width:640px;margin:0 auto 28px;text-align:left"></div>
 
-  <button class="hero-cta" id="heroCta" onclick="revelerModes()">
+  <button class="hero-cta hero-cascade" id="heroCta" style="animation-delay:.98s" onclick="revelerModes()">
     <span class="hero-cta-label" id="heroCtaLabel">Commence gratuitement</span>
     <span class="hero-cta-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M13 6l6 6-6 6"/></svg></span>
   </button>
@@ -229,7 +229,7 @@
       </span>
     </button>
   </div>
-  <p class="hero-free" id="heroFree">Aucun compte requis</p>
+  <p class="hero-free hero-cascade" id="heroFree" style="animation-delay:1.08s">Aucun compte requis</p>
 </section>
 
 <!-- COMMENT ÇA MARCHE -->
@@ -237,19 +237,19 @@
   <div class="how-eyebrow">Comment ça marche</div>
   <h2 class="how-title">De l'idée au contenu<br/><strong>prêt à publier.</strong></h2>
   <div class="how-grid">
-    <div class="how-step">
+    <div class="how-step reveal">
       <div class="how-num">Étape 1</div>
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><rect x="5.5" y="14" width="3" height="5" rx="0.6"/><rect x="10.5" y="10" width="3" height="9" rx="0.6"/><rect x="15.5" y="6" width="3" height="13" rx="0.6"/></svg></div>
       <div class="how-step-title">Analyse ton compte TikTok</div>
       <div class="how-step-desc">Par @nom d'utilisateur (gratuit, en 10 secondes) ou avec tes captures pour l'analyse complète. Scriptura apprend qui tu es, ta niche, et ce qui bloque ta croissance, il ne travaille jamais à l'aveugle.</div>
     </div>
-    <div class="how-step">
+    <div class="how-step reveal reveal-d1">
       <div class="how-num">Étape 2</div>
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg></div>
       <div class="how-step-title">Reçois des recommandations ciblées</div>
       <div class="how-step-desc">Sur cette base, abonné ou non, Scriptura te propose des idées de contenu précises, pensées pour faire décoller TON compte. Pas des conseils génériques.</div>
     </div>
-    <div class="how-step">
+    <div class="how-step reveal reveal-d2">
       <div class="how-num">Étape 3</div>
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l1.5 5L18 10.5 12.5 12 11 17l-1.5-5L4 10.5 9.5 9z"/><path d="M18 4l.6 1.9 1.9.6-1.9.6L18 9l-.6-1.9L15.5 6.5l1.9-.6z"/></svg></div>
       <div class="how-step-title">Scriptura crée, tu publies</div>
@@ -264,22 +264,22 @@
   <h2 class="how-title">Pas un chatbot<br/><strong>de plus.</strong></h2>
   <p class="why-intro">ChatGPT, Gemini ou Claude sont des assistants généralistes. Scriptura, lui, est bâti pour une seule mission, faire décoller ton contenu, et il le fait avec des choses qu'un chatbot ne peut pas.</p>
   <div class="why-grid">
-    <div class="how-step">
+    <div class="how-step reveal-left">
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5v14h16"/><path d="M7 15l3.5-4 3 2.5L20 7"/><circle cx="7" cy="15" r="0.9" fill="currentColor" stroke="none"/><circle cx="10.5" cy="11" r="0.9" fill="currentColor" stroke="none"/><circle cx="13.5" cy="13.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="20" cy="7" r="0.9" fill="currentColor" stroke="none"/></svg></div>
       <div class="how-step-title">Un diagnostic sur tes vrais chiffres</div>
       <div class="how-step-desc">Donne juste ton @nom d'utilisateur pour un diagnostic sommaire instantané, ou envoie tes captures de statistiques pour un diagnostic complet, plus poussé. Dans les deux cas, Scriptura analyse tes vraies performances, pas des conseils génériques. Un chatbot, lui, ne voit jamais tes chiffres.</div>
     </div>
-    <div class="how-step">
+    <div class="how-step reveal-right reveal-d1">
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"/></svg></div>
       <div class="how-step-title">Une mémoire de ton style</div>
       <div class="how-step-desc">Scriptura garde le fil de ce que tu crées et de ton diagnostic pour te proposer des recommandations faites pour toi. Un chatbot repart de zéro à chaque conversation ; Scriptura, lui, te connaît de mieux en mieux.</div>
     </div>
-    <div class="how-step">
+    <div class="how-step reveal-left reveal-d2">
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/><path d="M4.5 19.5l3-1.2"/></svg></div>
       <div class="how-step-title">Un vrai travail éditorial, pas du texte à la volée</div>
       <div class="how-step-desc">Chaque script passe par plusieurs étapes en coulisses : écriture, critique sévère, puis réécriture ciblée. Là où un chatbot sort une version en un seul jet, Scriptura livre un script déjà retravaillé pour accrocher et retenir.</div>
     </div>
-    <div class="how-step">
+    <div class="how-step reveal-right reveal-d3">
       <div class="how-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M8.5 14l2.2 2.2L15 12"/></svg></div>
       <div class="how-step-title">Des livrables prêts à publier</div>
       <div class="how-step-desc">Hook, script structuré, prompts visuels, storyboard, pensés pour les créateurs francophones et directement utilisables. Pas un mur de texte à réorganiser toi-même.</div>
@@ -293,7 +293,7 @@
   <h2 class="how-title">Choisis l'offre<br/><strong>qui te ressemble.</strong></h2>
   <p class="pricing-note">Commence gratuitement, sans compte. Tu passes à un plan seulement quand tu es prêt.</p>
   <div class="pricing-grid">
-    <div class="plan-card">
+    <div class="plan-card reveal-left">
       <div class="plan-card-head"><span class="plan-name">CREATOR</span></div>
       <div class="plan-price">6.000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
@@ -305,7 +305,7 @@
       </ul>
       <button class="plan-btn plan-btn-creator" onclick="choisirPlan('creator')">Choisir Creator</button>
     </div>
-    <div class="plan-card pro">
+    <div class="plan-card pro reveal-right reveal-d1">
       <div class="plan-card-head"><span class="plan-name">PRO</span><span class="plan-badge">Recommandé</span></div>
       <div class="plan-price">10.000 FCFA <span>/ mois</span></div>
       <ul class="plan-includes">
@@ -326,31 +326,31 @@
   <div class="how-eyebrow">Questions fréquentes</div>
   <h2 class="how-title">On te répond<br/><strong>en toute clarté.</strong></h2>
   <div class="faq-list">
-    <details class="faq-item">
+    <details class="faq-item reveal">
       <summary>Qu'est-ce que Scriptura ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Scriptura est un assistant de création propulsé par l'IA, pensé pour les créateurs francophones. Il trouve des idées, écrit des scripts et des récits prêts à publier, et peut diagnostiquer ton compte TikTok pour t'aider à faire grandir ton audience.</div>
     </details>
-    <details class="faq-item">
+    <details class="faq-item reveal reveal-d1">
       <summary>Est-ce que je peux essayer gratuitement ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Oui. Tu peux générer gratuitement dès maintenant, sans créer de compte. Un code d'accès, abonnement ou jeton, débloque ensuite plus de générations et les fonctions avancées comme le diagnostic et les séries.</div>
     </details>
-    <details class="faq-item">
+    <details class="faq-item reveal reveal-d2">
       <summary>Comment fonctionne l'abonnement ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Deux formules mensuelles : Creator à 6 000 FCFA/mois (les 3 modes de création, 40 générations) et Pro à 10 000 FCFA/mois (tout Creator + le diagnostic TikTok et les séries). On te remet un code d'accès personnel qui synchronise ton historique sur tous tes appareils. Paiement par Mobile Money, via WhatsApp.</div>
     </details>
-    <details class="faq-item">
+    <details class="faq-item reveal reveal-d3">
       <summary>C'est quoi les jetons ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Si tu préfères ne pas t'abonner, tu peux acheter des jetons à l'unité. 1 jeton = 1 diagnostic TikTok complet ou 1 série d'épisodes. Idéal pour un besoin ponctuel, sans engagement mensuel.</div>
     </details>
-    <details class="faq-item">
+    <details class="faq-item reveal reveal-d4">
       <summary>Comment fonctionne le diagnostic TikTok ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Deux analyses complémentaires, qui répondent à deux questions différentes. L'<strong>analyse par @nom d'utilisateur</strong> décode ton <strong>contenu</strong> (ta niche, tes formats qui percent, ce qui plombe ta croissance) à partir de tes vidéos publiques, instantanément, sans aucune capture. L'<strong>analyse détaillée</strong> répond à une autre question : <strong>comment l'algo te pousse (ou pas)</strong>. Tu envoies des captures de tes statistiques privées (un assistant te guide écran par écran) et Scriptura lit ta rétention, tes sources de trafic et ta démographie, des données invisibles au public. La première dit quoi créer, la seconde pourquoi ça circule ou non.</div>
     </details>
-    <details class="faq-item">
+    <details class="faq-item reveal reveal-d5">
       <summary>Sur quelles plateformes puis-je l'utiliser ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Les scripts et récits conviennent à TikTok, Instagram Reels, YouTube Shorts et Facebook. Le diagnostic, lui, est spécialisé pour TikTok.</div>
     </details>
-    <details class="faq-item">
+    <details class="faq-item reveal reveal-d6">
       <summary>Puis-je arrêter mon abonnement quand je veux ?<span class="faq-chev">▾</span></summary>
       <div class="faq-a">Oui. L'abonnement est mensuel et sans engagement : tu es libre d'arrêter quand tu le souhaites. Écris-nous simplement sur WhatsApp.</div>
     </details>
@@ -362,14 +362,14 @@
   <div class="how-eyebrow">Services annexes</div>
   <h2 class="how-title">Des outils en plus<br/><strong>des modes de création.</strong></h2>
   <p class="pricing-note">Storyboard à partir d'un script déjà écrit, transcription ou téléchargement d'une vidéo TikTok, sans passer par un mode de création.</p>
-  <button class="hero-mode-btn" style="max-width:420px;margin:24px auto 0" onclick="openStoryboardSeul()">
+  <button class="hero-mode-btn reveal" style="max-width:420px;margin:24px auto 0" onclick="openStoryboardSeul()">
     <span class="mode-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 12h17"/><path d="M12 5v14"/></svg></span>
     <span class="mode-body">
       <span class="mode-label">Storyboard d'un script</span>
       <span class="mode-desc">Colle ton script, obtiens son storyboard visuel</span>
     </span>
   </button>
-  <button class="hero-mode-btn" style="max-width:420px;margin:12px auto 0" onclick="ouvrirOutilsTikTok()">
+  <button class="hero-mode-btn reveal reveal-d1" style="max-width:420px;margin:12px auto 0" onclick="ouvrirOutilsTikTok()">
     <span class="mode-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M10 9.5l5 2.5-5 2.5Z"/></svg></span>
     <span class="mode-body">
       <span class="mode-label">Transcrire ou télécharger une vidéo</span>

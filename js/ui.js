@@ -377,6 +377,31 @@ function openModal() {
 }
 
 
+// ── RÉVÉLATION AU DÉFILEMENT (page d'accueil) ──
+// Ajoute .visible dès qu'un bloc .reveal/.reveal-left/.reveal-right entre
+// dans l'écran (voir @media prefers-reduced-motion:no-preference,
+// css/style.css, pour l'animation elle-même). Un seul observateur pour
+// toute la page, jamais réinstallé. Si IntersectionObserver n'existe pas
+// (très vieux navigateur), affiche tout immédiatement plutôt que de
+// laisser des blocs invisibles sans jamais les révéler.
+function initScrollReveal() {
+  const els = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
+  if (!els.length) return;
+  if (!('IntersectionObserver' in window)) {
+    els.forEach(el => el.classList.add('visible'));
+    return;
+  }
+  const observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+  els.forEach(el => observer.observe(el));
+}
+
 // ── BOUTON INTELLIGENT HAUT/BAS ──
 // Descend en bas si on est en haut, remonte en haut si on est en bas.
 function scrollSmart() {
