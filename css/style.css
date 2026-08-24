@@ -1868,7 +1868,7 @@ body.is-unlocked .sidebar-item.nav-switch-account-btn{display:flex}
 .salutation-swap-btn:hover{color:var(--gold-light)}
 .salutation-swap-btn svg{width:16px;height:16px;display:block}
 .salutation-swap-menu{
-  position:absolute;top:100%;right:0;margin-top:6px;z-index:20;
+  position:absolute;top:100%;left:0;margin-top:6px;z-index:20;
   background:var(--bg-mid);border:1px solid var(--border-soft);border-radius:12px;
   padding:6px;min-width:160px;display:none;flex-direction:column;gap:2px;
   box-shadow:0 8px 24px rgba(0,0,0,0.4);
