@@ -1854,6 +1854,12 @@ body.is-unlocked .sidebar-item.nav-switch-account-btn{display:flex}
    salutationAccueil, js/recommandations.js). Positionnement relatif pour
    ancrer le petit menu déroulant juste en dessous. */
 .salutation-swap-wrap{position:relative;display:inline-flex;align-items:center;gap:6px}
+/* Ancre le menu déroulant sur la flèche elle-même, jamais sur toute la
+   largeur de la salutation (voir salutationAccueil, js/recommandations.js) :
+   sinon un right:0 posé sur .salutation-swap-wrap étire le menu depuis la
+   fin de tout le texte, le faisant apparaître sous le début de la
+   salutation plutôt que sous la flèche. */
+.salutation-swap-anchor{position:relative;display:inline-flex;align-items:center}
 .salutation-swap-btn{
   background:transparent;border:none;padding:4px;cursor:pointer;
   color:var(--gold);display:inline-flex;align-items:center;justify-content:center;

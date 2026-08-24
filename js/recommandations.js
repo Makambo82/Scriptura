@@ -682,12 +682,20 @@ function salutationAccueil() {
     // comptes (voir .swap-logout, css/style.css) pour ne jamais être
     // confondu avec une bascule de compte.
     + '<button type="button" class="swap-logout" onclick="seDeconnecter()">Se déconnecter</button>';
+  // Le menu est positionné (position:absolute) par rapport à
+  // .salutation-swap-anchor, pas à .salutation-swap-wrap : ce dernier
+  // englobe TOUT le texte de la salutation (variable en largeur selon le
+  // prénom), un right:0 posé sur lui aurait étiré le menu vers la gauche
+  // depuis la fin de tout ce texte, le faisant apparaître sous le début de
+  // la salutation plutôt que juste sous la flèche.
   return `<span class="salutation-swap-wrap">
     <span>${texte}</span>
-    <button type="button" class="salutation-swap-btn" onclick="toggleSelecteurComptes(event)" aria-label="Changer de compte">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-    </button>
-    <span class="salutation-swap-menu" id="salutationSwapMenu">${items}</span>
+    <span class="salutation-swap-anchor">
+      <button type="button" class="salutation-swap-btn" onclick="toggleSelecteurComptes(event)" aria-label="Changer de compte">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <span class="salutation-swap-menu" id="salutationSwapMenu">${items}</span>
+    </span>
   </span>`;
 }
 
