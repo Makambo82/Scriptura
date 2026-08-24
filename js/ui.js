@@ -356,7 +356,7 @@ function majHeroCta() {
     }
     lbl.textContent = _heroCtaPhraseAbonne;
   } else {
-    lbl.textContent = 'Commencer gratuitement';
+    lbl.textContent = 'Commence gratuitement';
   }
 }
 
