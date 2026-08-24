@@ -115,10 +115,10 @@ async function verifyCode() {
   else localStorage.removeItem('scriptura_expire');
   localStorage.setItem('scriptura_plan', String(verdict.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
   // Mémorise ce compte pour la bascule rapide (bouton "Changer de code
-  // d'accès" et flèche à côté de "Bonjour Prénom"), sauf codes admin/VIP :
-  // réservés au fondateur/partenaires, pas des "comptes créateur" à faire
-  // apparaître dans un sélecteur personnel.
-  if (!verdict.isAdmin && !verdict.illimite) memoriserCompteConnu(code, verdict.plan);
+  // d'accès" et flèche à côté de "Bonjour Prénom"), y compris un code
+  // admin/VIP : le propriétaire navigue aussi entre son compte fondateur et
+  // ses comptes Creator/Pro sur ce même navigateur.
+  memoriserCompteConnu(code, verdict.plan);
 
   // Recharge systématiquement la page plutôt que de continuer en place :
   // sans ça, le cache de recommandation (avec la salutation et sa flèche de
@@ -135,8 +135,9 @@ async function verifyCode() {
 // ── COMPTES CONNUS SUR CE NAVIGATEUR (bascule rapide entre codes) ──
 // Purement un confort de navigation local, jamais une source de vérité :
 // chaque bascule revérifie le compte côté serveur (voir
-// basculerVersCompteConnu). Codes admin/VIP jamais mémorisés ici (voir
-// verifyCode ci-dessus).
+// basculerVersCompteConnu). Inclut aussi le compte admin/VIP (voir
+// verifyCode ci-dessus) : le fondateur navigue lui aussi entre son compte
+// et ses comptes Creator/Pro sur ce même navigateur.
 const MAX_COMPTES_CONNUS = 6;
 
 function listerComptesConnus() {
@@ -178,10 +179,9 @@ function autresComptesConnus() {
 // déjà connecté avant l'ajout de ce sélecteur (ou reconnecté via un autre
 // chemin) n'y figurait jamais, la flèche de bascule restait alors invisible
 // même avec un 2e compte réellement connu, faute de savoir que CELUI-CI
-// l'était aussi. Sans effet pour un code admin/VIP (jamais mémorisé ici).
+// l'était aussi.
 function assurerCompteActuelConnu() {
   if (typeof unlocked === 'undefined' || !unlocked) return;
-  if (localStorage.getItem('scriptura_is_admin') === 'true' || localStorage.getItem('scriptura_illimite') === 'true') return;
   const code = (localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
   if (!code) return;
   memoriserCompteConnu(code, localStorage.getItem('scriptura_plan') || '');
@@ -216,7 +216,7 @@ async function basculerVersCompteConnu(code) {
   if (verdict.expireLe) localStorage.setItem('scriptura_expire', verdict.expireLe);
   else localStorage.removeItem('scriptura_expire');
   localStorage.setItem('scriptura_plan', String(verdict.plan || PLAN_PAR_DEFAUT).trim().toLowerCase());
-  if (!verdict.isAdmin && !verdict.illimite) memoriserCompteConnu(code, verdict.plan);
+  memoriserCompteConnu(code, verdict.plan);
   location.reload();
 }
 
