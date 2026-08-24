@@ -45,15 +45,13 @@ async function chargerTableauDeBord() {
   zone.innerHTML = '<div class="ideas-sub">Chargement des statistiques…</div>';
   if (!supabaseClient) { zone.innerHTML = '<div class="ideas-sub">Base de données indisponible.</div>'; return; }
 
-  const [enLigneHTML, actifs24hHTML, abonnesHTML, modesHTML] = await Promise.all([
-    chargerCarteEnLigne(),
-    chargerCarteActifs24h(),
+  const [abonnesHTML, modesHTML] = await Promise.all([
     chargerCarteAbonnes(),
     chargerCarteModes()
   ]);
 
   zone.innerHTML = carteCreerAbonne() + carteExpirationsAdmin() + carteInactifsAdmin()
-    + enLigneHTML + actifs24hHTML + abonnesHTML + carteErreursAdmin() + modesHTML;
+    + abonnesHTML + carteErreursAdmin() + modesHTML;
 }
 
 // ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
@@ -155,36 +153,6 @@ async function creerAbonneAdmin() {
   }
 }
 
-// ── En ligne maintenant (moins de 2 minutes d'inactivité) ──
-async function chargerCarteEnLigne() {
-  try {
-    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    const { count: aAbonnes, error: e1 } = await supabaseClient.from('presence').select('*', { count: 'exact', head: true }).gte('derniere_activite', seuil).eq('abonne', true);
-    if (e1) throw e1;
-    const { count: aNonAbonnes, error: e2 } = await supabaseClient.from('presence').select('*', { count: 'exact', head: true }).gte('derniere_activite', seuil).eq('abonne', false);
-    if (e2) throw e2;
-    const total = (aAbonnes || 0) + (aNonAbonnes || 0);
-    return carteStatAdmin('En ligne maintenant', total, (aAbonnes || 0) + ' abonné(s) · ' + (aNonAbonnes || 0) + ' non-abonné(s)');
-  } catch (e) {
-    return carteErreurAdmin('En ligne maintenant', e);
-  }
-}
-
-// ── Actifs dans les dernières 24h (même table, fenêtre plus large) ──
-async function chargerCarteActifs24h() {
-  try {
-    const seuil = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-    const { count: aAbonnes, error: e1 } = await supabaseClient.from('presence').select('*', { count: 'exact', head: true }).gte('derniere_activite', seuil).eq('abonne', true);
-    if (e1) throw e1;
-    const { count: aNonAbonnes, error: e2 } = await supabaseClient.from('presence').select('*', { count: 'exact', head: true }).gte('derniere_activite', seuil).eq('abonne', false);
-    if (e2) throw e2;
-    const total = (aAbonnes || 0) + (aNonAbonnes || 0);
-    return carteStatAdmin('Actifs dans les dernières 24h', total, (aAbonnes || 0) + ' abonné(s) · ' + (aNonAbonnes || 0) + ' non-abonné(s)');
-  } catch (e) {
-    return carteErreurAdmin('Actifs dans les dernières 24h', e);
-  }
-}
-
 // ── Abonnés actifs, par formule (comptage exact, via /api/data resource=admin-stats) ──
 // La table `abonnes` est verrouillée par RLS (voir supabase/abonnes_rls.sql) :
 // le rôle anon (celui du navigateur) n'y a plus aucun accès direct. Ces
@@ -214,11 +182,12 @@ const ADMIN_PLAN_FILTRE = [
 
 // Statut en ligne/hors ligne par code, à partir de la table `presence`
 // (voir supabase/presence.sql). Contrairement à `abonnes`/`generations`,
-// `presence` reste en lecture ouverte à la clé publique : même mécanique
-// directe que chargerCarteEnLigne ci-dessus, pas besoin de passer par
-// /api/data. `ref` == code d'accès quand l'abonné est connecté (voir
-// getUserRef, js/api.js), donc directement comparable aux codes de la
-// liste. Seuil identique à la carte "En ligne maintenant" (2 minutes).
+// `presence` reste en lecture ouverte à la clé publique : lecture directe
+// via supabaseClient, pas besoin de passer par /api/data. `ref` == code
+// d'accès quand l'abonné est connecté (voir getUserRef, js/api.js), donc
+// directement comparable aux codes de la liste. Seuil : 2 minutes
+// d'inactivité (mêmes anciennes cartes "En ligne maintenant"/"Actifs 24h"
+// retirées du tableau de bord, redondantes avec ce point par code).
 // `_presenceStatutInconnu` distingue "vérifié hors ligne" (point rouge) de
 // "on n'a pas pu vérifier" (échec réseau/RLS) : un échec silencieux
 // affichait un rouge trompeur, indiscernable d'un vrai hors ligne. Voir
