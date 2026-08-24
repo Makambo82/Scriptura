@@ -1967,6 +1967,10 @@ body.is-unlocked .sidebar-logout{display:block}
    chargerPresenceAdmin) : même taille que .social-dot, rouge et fixe (pas
    de pulsation, pour ne pas attirer l'œil sur une absence). */
 .admin-dot-off{width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0}
+/* Statut indisponible (échec de lecture de la table presence, voir
+   _presenceStatutInconnu, admin.js) : gris, jamais confondu avec un vrai
+   hors ligne (rouge), pour ne pas induire l'admin en erreur. */
+.admin-dot-inconnu{width:7px;height:7px;border-radius:50%;background:#6b7280;flex-shrink:0}
 @media(max-width:600px){
   .social-notif{font-size:0.66rem;padding:8px 14px;bottom:18px;left:14px}
 }

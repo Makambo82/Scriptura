@@ -184,9 +184,15 @@ const ADMIN_PLAN_FILTRE = [
 // /api/data. `ref` == code d'accès quand l'abonné est connecté (voir
 // getUserRef, js/api.js), donc directement comparable aux codes de la
 // liste. Seuil identique à la carte "En ligne maintenant" (2 minutes).
+// `_presenceStatutInconnu` distingue "vérifié hors ligne" (point rouge) de
+// "on n'a pas pu vérifier" (échec réseau/RLS) : un échec silencieux
+// affichait un rouge trompeur, indiscernable d'un vrai hors ligne. Voir
+// .admin-dot-inconnu (css/style.css).
 let _presenceParCode = {};
+let _presenceStatutInconnu = false;
 async function chargerPresenceAdmin(codes) {
-  if (!supabaseClient || !codes.length) return;
+  if (!codes.length) return;
+  if (!supabaseClient) { _presenceStatutInconnu = true; return; }
   try {
     const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
     const { data, error } = await supabaseClient.from('presence').select('ref, derniere_activite').in('ref', codes);
@@ -194,7 +200,11 @@ async function chargerPresenceAdmin(codes) {
     const parCode = {};
     (data || []).forEach(row => { parCode[row.ref] = row.derniere_activite >= seuil; });
     _presenceParCode = parCode;
-  } catch (e) { /* silencieux, les points restent gris/hors ligne par défaut */ }
+    _presenceStatutInconnu = false;
+  } catch (e) {
+    console.warn('Statut en ligne des abonnés indisponible (table presence) :', e);
+    _presenceStatutInconnu = true;
+  }
 }
 
 async function chargerCarteAbonnes() {
@@ -296,10 +306,12 @@ function renderAdminListe() {
     ? liste.map((c, i) => {
         const codeJs = c.code.replace(/'/g, "\\'");
         const enLigne = !!_presenceParCode[c.code];
+        const classeDot = _presenceStatutInconnu ? 'admin-dot-inconnu' : (enLigne ? 'social-dot' : 'admin-dot-off');
+        const titreDot = _presenceStatutInconnu ? 'Statut indisponible' : (enLigne ? 'En ligne' : 'Hors ligne');
         return `<div>
         <div class="audit-sujet">
           <span style="display:flex;align-items:center">
-            <span class="${enLigne ? 'social-dot' : 'admin-dot-off'}" style="margin-right:8px" title="${enLigne ? 'En ligne' : 'Hors ligne'}"></span>
+            <span class="${classeDot}" style="margin-right:8px" title="${titreDot}"></span>
             <span class="admin-code-clic" onclick="toggleGenerationsParCode('${codeJs}', ${i})" title="Voir ses générations par mode">${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
           </span>
           <span style="display:flex;align-items:center;gap:10px">
