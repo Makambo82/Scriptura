@@ -52,7 +52,72 @@ async function chargerTableauDeBord() {
     chargerCarteModes()
   ]);
 
-  zone.innerHTML = enLigneHTML + actifs24hHTML + abonnesHTML + modesHTML;
+  zone.innerHTML = carteCreerAbonne() + enLigneHTML + actifs24hHTML + abonnesHTML + modesHTML;
+}
+
+// ── Créer un nouvel abonné Creator/Pro depuis le tableau de bord (voir
+// action=creer-abonne, api/data.js). Carte statique, jamais redessinée par
+// chargerTableauDeBord() une fois affichée : après création, on met à jour
+// _codesAbonnesAdmin/renderAdminListe/majEnteteAbonnesAdmin directement,
+// sans recharger tout le tableau, pour ne pas effacer le code généré avant
+// que l'abonné ait pu le copier.
+let _adminNouveauPlan = 'creator';
+
+function carteCreerAbonne() {
+  return `<div class="score-card">
+    <div class="score-title">Ajouter un abonné</div>
+    <div style="margin-top:12px">
+      <input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20"/>
+    </div>
+    <div class="btn-grid" style="margin-top:10px">
+      <button type="button" class="grid-btn active" id="adminPlanCreator" onclick="choisirPlanNouveauAbonne('creator', this)">Creator</button>
+      <button type="button" class="grid-btn" id="adminPlanPro" onclick="choisirPlanNouveauAbonne('pro', this)">Pro</button>
+    </div>
+    <button type="button" class="btn-generate" style="margin-top:12px;width:100%" onclick="creerAbonneAdmin()" id="adminCreerBtn">Générer le code d'accès</button>
+    <div id="adminNouveauResultat" style="display:none;margin-top:12px;border-top:1px solid var(--border-soft);padding-top:12px"></div>
+  </div>`;
+}
+
+function choisirPlanNouveauAbonne(v, btn) {
+  _adminNouveauPlan = v;
+  const zone = btn.parentElement;
+  zone.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function creerAbonneAdmin() {
+  const champ = document.getElementById('adminNouveauPrenom');
+  const bouton = document.getElementById('adminCreerBtn');
+  const resultat = document.getElementById('adminNouveauResultat');
+  const prenom = (champ?.value || '').trim();
+  if (!prenom) { if (typeof toastRegen === 'function') toastRegen('Indique un prénom avant de générer le code.'); return; }
+  bouton.disabled = true;
+  bouton.textContent = 'Génération…';
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'creer-abonne', code_acces: localStorage.getItem('scriptura_code') || null, prenom, plan: _adminNouveauPlan })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible || !data.ok) throw new Error(data?.error?.message || 'création échouée');
+    const codeJs = data.code.replace(/'/g, "\\'");
+    resultat.style.display = 'block';
+    resultat.innerHTML = `<div class="ideas-sub" style="margin-bottom:8px">Nouveau code ${escAdmin(data.plan)}, expire le ${escAdmin(data.expireLe)}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <b style="font-size:1.05rem;letter-spacing:0.02em">${escAdmin(data.code)}</b>
+        <button type="button" class="grid-btn" onclick="copyText(this, '${codeJs}')">Copier</button>
+      </div>`;
+    _codesAbonnesAdmin.unshift({ code: data.code, plan: data.plan, actif: true });
+    renderAdminListe();
+    majEnteteAbonnesAdmin();
+    if (champ) champ.value = '';
+  } catch (e) {
+    if (typeof toastRegen === 'function') toastRegen('Impossible de créer cet abonné, réessaie.');
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = 'Générer le code d\'accès';
+  }
 }
 
 // ── En ligne maintenant (moins de 2 minutes d'inactivité) ──
