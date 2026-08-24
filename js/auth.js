@@ -172,6 +172,21 @@ function autresComptesConnus() {
   return listerComptesConnus().filter(c => c.code !== actuel);
 }
 
+// S'assure que le compte ACTUELLEMENT connecté figure dans la liste, appelé
+// une fois au chargement (voir js/app.js). memoriserCompteConnu() n'est
+// sinon appelée que dans verifyCode()/basculerVersCompteConnu() : un abonné
+// déjà connecté avant l'ajout de ce sélecteur (ou reconnecté via un autre
+// chemin) n'y figurait jamais, la flèche de bascule restait alors invisible
+// même avec un 2e compte réellement connu, faute de savoir que CELUI-CI
+// l'était aussi. Sans effet pour un code admin/VIP (jamais mémorisé ici).
+function assurerCompteActuelConnu() {
+  if (typeof unlocked === 'undefined' || !unlocked) return;
+  if (localStorage.getItem('scriptura_is_admin') === 'true' || localStorage.getItem('scriptura_illimite') === 'true') return;
+  const code = (localStorage.getItem('scriptura_code') || '').trim().toUpperCase();
+  if (!code) return;
+  memoriserCompteConnu(code, localStorage.getItem('scriptura_plan') || '');
+}
+
 // Bascule directement sur un compte déjà connu sur ce navigateur, sans
 // repasser par la saisie manuelle. Revérifie quand même le statut côté
 // serveur (l'abonnement a pu expirer ou être désactivé depuis la dernière

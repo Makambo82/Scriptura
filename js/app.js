@@ -56,6 +56,11 @@ document.addEventListener('DOMContentLoaded', function() {
       localStorage.setItem('scriptura_illimite', 'false');
     }
   }
+  // Rattrape les comptes déjà connectés avant l'ajout du sélecteur multi-
+  // comptes (voir assurerCompteActuelConnu, js/auth.js) : sans ça, la flèche
+  // de bascule à côté de "Bonjour Prénom" resterait invisible pour ces
+  // sessions même après un changement de code réussi vers un 2e compte.
+  if (typeof assurerCompteActuelConnu === 'function') assurerCompteActuelConnu();
   setTimeout(updateScrollBtn, 500);
   startSocialProof();
   syncServerQuota();
