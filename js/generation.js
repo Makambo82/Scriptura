@@ -1844,12 +1844,16 @@ function renderResults(d, niche, sujet) {
   const sbCont = document.getElementById('storyboardContainer');
   if (sbCont) sbCont.innerHTML = '';
 
-  // Le formulaire de saisie (étape 3) n'a plus sa place une fois le résultat
-  // affiché, seul le bouton "✎ Modifier" (voir modifierCriteresScript) le
-  // fait réapparaître. Purement une classe CSS (voir showStep) : rien à
-  // restaurer explicitement, showStep(3) la rétablit normalement.
-  const step3 = document.getElementById('step3');
-  if (step3) step3.classList.remove('active');
+  // Aucune étape (1, 2 ou 3) n'a sa place une fois le résultat affiché, seul
+  // le bouton "✎ Modifier" (voir modifierCriteresScript) fait réapparaître
+  // l'étape 3. Purement des classes CSS (voir showStep) : rien à restaurer
+  // explicitement, showStep(3) les rétablit normalement. On nettoie les 3,
+  // pas seulement l'étape 3 : reopenGeneration (js/historique.js, réouverture
+  // d'un script depuis l'historique) appelle renderResults() directement sans
+  // jamais passer par showStep(), l'étape 1 gardait alors sa classe "active"
+  // par défaut du HTML si l'utilisateur n'était jamais passé par le flux en
+  // direct dans cette session, laissant ses 4 choix visibles au-dessus du résultat.
+  document.querySelectorAll('#flow .step').forEach(s => s.classList.remove('active'));
 
   list.innerHTML = '';
 
