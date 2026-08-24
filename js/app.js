@@ -57,7 +57,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   setTimeout(updateScrollBtn, 500);
-  startSocialProof();
   syncServerQuota();
   envoyerPresence();
   setInterval(envoyerPresence, 60000);
