@@ -171,7 +171,7 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
 .hero-btn:hover{background:var(--gold-light);transform:translateY(-2px);box-shadow:0 16px 48px rgba(201,168,76,0.2)}
 .hero-free{margin-top:16px;font-size:0.7rem;color:rgba(255,255,255,0.7);letter-spacing:0.1em}
 
-/* TICKER, un mot à la fois, entre en glissant d'un côté, tient 3s, ressort
+/* TICKER, un mot à la fois, entre en glissant d'un côté, tient 2s, ressort
    de l'autre, alterne gauche/droite à chaque mot (voir initTicker, js/ui.js).
    Distance de glissement (36px) alignée sur .reveal-left/.reveal-right, même
    langage visuel que le reste de la page d'accueil. */
@@ -179,19 +179,19 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
 .ticker-carousel{display:flex;align-items:center;justify-content:center;min-height:1.2em}
 .ticker-word{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.7);white-space:nowrap}
 @media(prefers-reduced-motion:no-preference){
-  .ticker-word.tk-ltr{animation:tickerSweepLTR 4.2s cubic-bezier(.2,.7,.2,1) both}
-  .ticker-word.tk-rtl{animation:tickerSweepRTL 4.2s cubic-bezier(.2,.7,.2,1) both}
+  .ticker-word.tk-ltr{animation:tickerSweepLTR 3.2s cubic-bezier(.2,.7,.2,1) both}
+  .ticker-word.tk-rtl{animation:tickerSweepRTL 3.2s cubic-bezier(.2,.7,.2,1) both}
 }
 @keyframes tickerSweepLTR{
   0%{opacity:0;transform:translateX(-36px)}
-  14%{opacity:1;transform:translateX(0)}
-  86%{opacity:1;transform:translateX(0)}
+  19%{opacity:1;transform:translateX(0)}
+  81%{opacity:1;transform:translateX(0)}
   100%{opacity:0;transform:translateX(36px)}
 }
 @keyframes tickerSweepRTL{
   0%{opacity:0;transform:translateX(36px)}
-  14%{opacity:1;transform:translateX(0)}
-  86%{opacity:1;transform:translateX(0)}
+  19%{opacity:1;transform:translateX(0)}
+  81%{opacity:1;transform:translateX(0)}
   100%{opacity:0;transform:translateX(-36px)}
 }
 

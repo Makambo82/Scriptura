@@ -404,7 +404,7 @@ function initScrollReveal() {
 
 // ── TICKER D'ACCUEIL, un mot à la fois ──
 // Remplace l'ancienne bande défilante continue : un mot glisse d'un côté,
-// tient 3s, ressort de l'autre (voir @keyframes tickerSweepLTR/RTL,
+// tient 2s, ressort de l'autre (voir @keyframes tickerSweepLTR/RTL,
 // css/style.css), la direction alterne à chaque mot. En mouvement réduit,
 // l'animation CSS est coupée par le média query, donc `animationend` ne se
 // déclenche jamais, ce qui figerait le mot sur le premier pour toujours,
@@ -429,7 +429,7 @@ function initTicker() {
   }
   if (reduit) {
     motSuivant();
-    setInterval(motSuivant, 3000);
+    setInterval(motSuivant, 2000);
   } else {
     el.addEventListener('animationend', motSuivant);
     motSuivant();
