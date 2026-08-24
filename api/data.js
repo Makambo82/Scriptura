@@ -270,6 +270,24 @@ async function handleAdminStats(req, res, cfg, body) {
     return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
   }
 
+  // Bascule actif/inactif d'un code depuis le tableau de bord (interrupteur
+  // par ligne, voir toggleActifAbonneAdmin, js/admin.js). Jamais pour le
+  // fondateur/VIP : ces codes ne vivent pas dans cette table.
+  if (body?.action === 'toggle-actif') {
+    const cible = String(body?.code || '').trim().toUpperCase();
+    if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
+    try {
+      const r = await fetch(
+        cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(cible),
+        { method: 'PATCH', headers: { ...entetes(cfg.key), Prefer: 'return=minimal' }, body: JSON.stringify({ actif: !!body?.actif }) }
+      );
+      if (!r.ok) throw new Error('maj échouée (' + r.status + ')');
+      return res.status(200).json({ ok: true, code: cible, actif: !!body?.actif });
+    } catch (e) {
+      return res.status(200).json({ indisponible: true });
+    }
+  }
+
   try {
     const entetesCompte = { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, Prefer: 'count=exact' };
     const compter = async (filtre) => {

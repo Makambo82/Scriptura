@@ -121,15 +121,13 @@ async function chargerCarteAbonnes() {
     });
     const data = await r.json();
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
-    const sousTexte = (data.total || 0) + ' au total (actifs + désactivés) · '
-      + (data.creator || 0) + ' Creator · ' + (data.pro || 0) + ' Pro';
     _codesAbonnesAdmin = Array.isArray(data.codes) ? data.codes : [];
     _adminSearchOpen = false; _adminSearchQuery = ''; _adminFilterOpen = false; _adminPlanFilter = null;
     return `<div class="score-card">
       <div onclick="toggleListeAbonnesAdmin()" style="cursor:pointer">
         <div class="score-title">Abonnés actifs</div>
-        <div class="score-global" style="margin-top:10px"><span class="score-global-num">${escAdmin(data.actifs || 0)}</span></div>
-        <div class="ideas-sub" style="margin-top:8px">${escAdmin(sousTexte)}</div>
+        <div class="score-global" style="margin-top:10px"><span class="score-global-num" id="adminAbonnesCount">${escAdmin(_codesAbonnesAdmin.filter(c => c.actif !== false).length)}</span></div>
+        <div class="ideas-sub" style="margin-top:8px" id="adminAbonnesSousTexte">${escAdmin(sousTexteAbonnesAdmin())}</div>
         <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeAbonnesAdminHint">Touche pour voir le détail des codes ↓</div>
       </div>
       <div id="listeAbonnesAdmin" style="display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px">
@@ -192,8 +190,60 @@ function renderAdminListe() {
   if (!zone) return;
   const liste = filtrerCodesAdmin();
   zone.innerHTML = liste.length
-    ? liste.map(c => `<div class="audit-sujet"><span>${escAdmin(c.code)}</span><b>${escAdmin(c.plan || '·')}${c.actif === false ? ' · désactivé' : ''}</b></div>`).join('')
+    ? liste.map(c => `<div class="audit-sujet">
+        <span>${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
+        <span style="display:flex;align-items:center;gap:10px">
+          <b>${escAdmin(c.plan || '·')}</b>
+          <label class="admin-switch" title="${c.actif === false ? 'Réactiver' : 'Désactiver'}">
+            <input type="checkbox" ${c.actif === false ? '' : 'checked'} onchange="toggleActifAbonneAdmin('${c.code.replace(/'/g, "\\'")}', this.checked)"/>
+            <span class="admin-switch-track"></span>
+          </label>
+        </span>
+      </div>`).join('')
     : '<div class="ideas-sub">Aucun code ne correspond.</div>';
+}
+
+// Résumé sous le compteur "Abonnés actifs", recalculé depuis
+// _codesAbonnesAdmin (jamais depuis les compteurs serveur d'origine) pour
+// rester juste après une bascule actif/inactif locale.
+function sousTexteAbonnesAdmin() {
+  const total = _codesAbonnesAdmin.length;
+  const actifs = _codesAbonnesAdmin.filter(c => c.actif !== false);
+  const creator = actifs.filter(c => c.plan === 'creator').length;
+  const pro = actifs.filter(c => c.plan === 'pro').length;
+  return total + ' au total (actifs + désactivés) · ' + creator + ' Creator · ' + pro + ' Pro';
+}
+
+function majEnteteAbonnesAdmin() {
+  const num = document.getElementById('adminAbonnesCount');
+  const sous = document.getElementById('adminAbonnesSousTexte');
+  if (num) num.textContent = _codesAbonnesAdmin.filter(c => c.actif !== false).length;
+  if (sous) sous.textContent = sousTexteAbonnesAdmin();
+}
+
+// Interrupteur actif/inactif d'un code (voir handleAdminStats,
+// action=toggle-actif, api/data.js). Effet immédiat, pas de confirmation :
+// en cas d'échec, l'interrupteur revient à son état réel plutôt que de
+// rester sur un état qui n'a jamais été réellement appliqué côté serveur.
+async function toggleActifAbonneAdmin(code, actif) {
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'toggle-actif', code_acces: localStorage.getItem('scriptura_code') || null, code, actif })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible || !data.ok) throw new Error('échec de la mise à jour');
+    const ligne = _codesAbonnesAdmin.find(c => c.code === code);
+    if (ligne) ligne.actif = actif;
+  } catch (e) {
+    if (typeof toastRegen === 'function') toastRegen('Impossible de mettre à jour ce code, réessaie.');
+  } finally {
+    // Redessine toujours : reflète soit le nouvel état (succès), soit l'état
+    // réel inchangé (échec), jamais l'état optimiste coché par l'utilisateur.
+    renderAdminListe();
+    majEnteteAbonnesAdmin();
+  }
 }
 
 function toggleAdminSearch() {

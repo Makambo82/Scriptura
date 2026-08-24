@@ -2604,6 +2604,15 @@ body.is-unlocked .sidebar-logout{display:block}
 .audit-sujets{display:grid;gap:10px;margin-bottom:14px}
 .audit-sujet{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;color:var(--text-secondary);padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
 .audit-sujet b{color:var(--gold-light)}
+/* Interrupteur actif/inactif (tableau de bord, liste des abonnés) : rond
+   qui glisse, doré une fois actif. */
+.admin-switch{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}
+.admin-switch input{opacity:0;width:0;height:0;position:absolute}
+.admin-switch-track{position:absolute;inset:0;background:rgba(255,255,255,0.15);border-radius:999px;cursor:pointer;transition:background .2s}
+.admin-switch-track::before{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;background:#F5F3EE;border-radius:50%;transition:transform .2s}
+.admin-switch input:checked + .admin-switch-track{background:var(--gold)}
+.admin-switch input:checked + .admin-switch-track::before{transform:translateX(16px)}
+.admin-switch input:disabled + .admin-switch-track{opacity:0.5;cursor:default}
 /* Plan d'action */
 .audit-plan{background:linear-gradient(135deg,var(--gold-pale),rgba(201,168,76,0.03));border-color:var(--border)}
 .audit-plan-list{margin:0;padding-left:18px;display:grid;gap:11px}
