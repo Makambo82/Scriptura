@@ -277,8 +277,18 @@ async function handleAdminStats(req, res, cfg, body) {
       const c = r.headers.get('content-range');
       return c ? parseInt(c.split('/')[1], 10) || 0 : 0;
     };
-    const [total, actifs, creator, pro] = await Promise.all([
-      compter(''), compter('&actif=eq.true'), compter('&actif=eq.true&plan=eq.creator'), compter('&actif=eq.true&plan=eq.pro')
+    // Liste détaillée des codes (pour le détail dépliable de la carte
+    // "Abonnés actifs", voir chargerCarteAbonnes/toggleListeAbonnesAdmin,
+    // js/admin.js) : ne contient jamais le fondateur/VIP, ces codes vivent
+    // en variables d'environnement (CODE_ADMIN/CODES_ILLIMITES/
+    // CODES_SECOURS, voir api/verify-code.js), jamais dans cette table.
+    const listeCodes = fetch(
+      cfg.url + '/rest/v1/abonnes?select=code,plan,actif&order=code.asc',
+      { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+    ).then(r => r.json()).catch(() => []);
+
+    const [total, actifs, creator, pro, codes] = await Promise.all([
+      compter(''), compter('&actif=eq.true'), compter('&actif=eq.true&plan=eq.creator'), compter('&actif=eq.true&plan=eq.pro'), listeCodes
     ]);
 
     let parMode = {};
@@ -292,7 +302,7 @@ async function handleAdminStats(req, res, cfg, body) {
       (Array.isArray(rows) ? rows : []).forEach(r => { const m = r.mode || 'autre'; parMode[m] = (parMode[m] || 0) + 1; });
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
-    return res.status(200).json({ total, actifs, creator, pro, parMode });
+    return res.status(200).json({ total, actifs, creator, pro, parMode, codes: Array.isArray(codes) ? codes : [] });
   } catch (e) {
     return res.status(200).json({ indisponible: true });
   }

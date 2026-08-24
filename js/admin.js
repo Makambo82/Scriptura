@@ -90,6 +90,11 @@ async function chargerCarteActifs24h() {
 // le rôle anon (celui du navigateur) n'y a plus aucun accès direct. Ces
 // comptes passent donc par une route serveur qui revérifie l'admin
 // elle-même (jamais un simple flag localStorage, voir api/admin-stats.js).
+// Détail dépliable de la carte "Abonnés actifs" : la liste des codes vient
+// de la même réponse /api/data (resource=admin-stats), voir api/data.js.
+// Ne contient jamais le fondateur/VIP, ces codes vivent en variables
+// d'environnement, jamais dans la table `abonnes`.
+let _codesAbonnesAdmin = [];
 async function chargerCarteAbonnes() {
   try {
     const r = await fetch('/api/data', {
@@ -101,10 +106,29 @@ async function chargerCarteAbonnes() {
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
     const sousTexte = (data.total || 0) + ' au total (actifs + désactivés) · '
       + (data.creator || 0) + ' Creator · ' + (data.pro || 0) + ' Pro';
-    return carteStatAdmin('Abonnés actifs', data.actifs || 0, sousTexte);
+    _codesAbonnesAdmin = Array.isArray(data.codes) ? data.codes : [];
+    const liste = _codesAbonnesAdmin.length
+      ? _codesAbonnesAdmin.map(c => `<div class="audit-sujet"><span>${escAdmin(c.code)}</span><b>${escAdmin(c.plan || '·')}${c.actif === false ? ' · désactivé' : ''}</b></div>`).join('')
+      : '<div class="ideas-sub">Aucun code trouvé.</div>';
+    return `<div class="score-card" onclick="toggleListeAbonnesAdmin()" style="cursor:pointer">
+      <div class="score-title">Abonnés actifs</div>
+      <div class="score-global" style="margin-top:10px"><span class="score-global-num">${escAdmin(data.actifs || 0)}</span></div>
+      <div class="ideas-sub" style="margin-top:8px">${escAdmin(sousTexte)}</div>
+      <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeAbonnesAdminHint">Touche pour voir le détail des codes ↓</div>
+      <div id="listeAbonnesAdmin" style="display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px">${liste}</div>
+    </div>`;
   } catch (e) {
     return carteErreurAdmin('Abonnés actifs', e);
   }
+}
+
+function toggleListeAbonnesAdmin() {
+  const el = document.getElementById('listeAbonnesAdmin');
+  const hint = document.getElementById('listeAbonnesAdminHint');
+  if (!el) return;
+  const ouvert = el.style.display !== 'none';
+  el.style.display = ouvert ? 'none' : 'block';
+  if (hint) hint.textContent = ouvert ? 'Touche pour voir le détail des codes ↓' : 'Touche pour masquer ↑';
 }
 
 // ── Répartition des générations par mode sur 30 jours, via /api/data resource=admin-stats ──
