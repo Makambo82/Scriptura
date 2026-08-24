@@ -71,7 +71,10 @@ async function ouvrirInfosAbonne() {
     html += `<div class="infos-ligne"><span class="infos-label">Ton offre</span><span class="infos-val">Accès complet</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">Illimitée</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">Illimitées</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Diagnostic sommaire</span><span class="infos-val">Illimité</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Analyse vidéo</span><span class="infos-val">Illimitée</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Diagnostics TikTok</span><span class="infos-val">Illimités</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Série</span><span class="infos-val">Illimitée</span></div>`;
     corps.innerHTML = html;
     return;
   }
@@ -106,18 +109,44 @@ async function ouvrirInfosAbonne() {
     html += `<div class="infos-ligne"><span class="infos-label">Validité</span><span class="infos-val">${dateFmt}</span></div>`;
   }
 
-  // Générations de création du mois
+  // Toutes les générations du mois, comptées en parallèle (une requête par
+  // compteur dédié, voir droitAnalyseSommaire/droitAnalyseVirale,
+  // js/historique.js, pour les noms de mode exacts). Série n'a pas de
+  // compteur à elle : une génération de série compte comme une génération
+  // normale côté serveur (voir api/generate.js, mode=creationSerie mappé
+  // sur le quota 'creation'), elle est déjà incluse dans "Générations".
   const limites = limitesDuPalier();
-  const faitesCrea = await countMonthGenerations('creation');
+  const [faitesCrea, faitsSomm, faitsViral, faitsAudit] = await Promise.all([
+    countMonthGenerations('creation'),
+    limites.sommaire > 0 ? countMonthGenerations('diagnosticSommaire') : Promise.resolve(0),
+    limites.viral > 0 ? countMonthGenerations('analyseVirale') : Promise.resolve(0),
+    limites.audit > 0 ? countMonthGenerations('audit') : Promise.resolve(0)
+  ]);
+
   const resteCrea = Math.max(0, limites.creation - faitesCrea);
   html += `<div class="infos-ligne"><span class="infos-label">Générations</span><span class="infos-val">${formaterNombre(faitesCrea)} / ${formaterNombre(limites.creation)} · ${formaterNombre(resteCrea)} restantes</span></div>`;
 
-  // Analyses incluses (Pro) : expirent avec l'abonnement
+  // Diagnostic sommaire (@nom d'utilisateur) : compteur mensuel dédié
+  if (limites.sommaire > 0) {
+    const resteSomm = Math.max(0, limites.sommaire - faitsSomm);
+    html += `<div class="infos-ligne"><span class="infos-label">Diagnostic sommaire</span><span class="infos-val">${formaterNombre(faitsSomm)} / ${formaterNombre(limites.sommaire)} · ${formaterNombre(resteSomm)} restants</span></div>`;
+  }
+
+  // Analyse vidéo (lien TikTok) : compteur mensuel dédié
+  if (limites.viral > 0) {
+    const resteViral = Math.max(0, limites.viral - faitsViral);
+    html += `<div class="infos-ligne"><span class="infos-label">Analyse vidéo</span><span class="infos-val">${formaterNombre(faitsViral)} / ${formaterNombre(limites.viral)} · ${formaterNombre(resteViral)} restants</span></div>`;
+  }
+
+  // Diagnostic complet par captures (Pro uniquement) : inclus avec l'abonnement
   if (limites.audit > 0) {
-    const faitsAudit = await countMonthGenerations('audit');
     const resteAudit = Math.max(0, limites.audit - faitsAudit);
     html += `<div class="infos-ligne"><span class="infos-label">Diagnostics TikTok</span><span class="infos-val">${formaterNombre(faitsAudit)} / ${formaterNombre(limites.audit)} · ${formaterNombre(resteAudit)} restants</span></div>`;
   }
+
+  // Série : incluse (comptée dans les générations) en Pro, débloquée à
+  // l'unité par jeton en Creator (voir aAccesMode('serie'), js/historique.js)
+  html += `<div class="infos-ligne"><span class="infos-label">Série</span><span class="infos-val">${plan === 'pro' ? 'Incluse (comptée dans tes générations)' : '1 jeton par série'}</span></div>`;
 
   // Jetons achetés à l'unité : séparés, sans plafond, ne périment pas
   html += `<div class="infos-ligne"><span class="infos-label">Jetons</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;

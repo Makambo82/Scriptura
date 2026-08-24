@@ -177,6 +177,26 @@ const ADMIN_PLAN_FILTRE = [
   { v: 'desactive', label: 'Désactivés' }
 ];
 
+// Statut en ligne/hors ligne par code, à partir de la table `presence`
+// (voir supabase/presence.sql). Contrairement à `abonnes`/`generations`,
+// `presence` reste en lecture ouverte à la clé publique : même mécanique
+// directe que chargerCarteEnLigne ci-dessus, pas besoin de passer par
+// /api/data. `ref` == code d'accès quand l'abonné est connecté (voir
+// getUserRef, js/api.js), donc directement comparable aux codes de la
+// liste. Seuil identique à la carte "En ligne maintenant" (2 minutes).
+let _presenceParCode = {};
+async function chargerPresenceAdmin(codes) {
+  if (!supabaseClient || !codes.length) return;
+  try {
+    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseClient.from('presence').select('ref, derniere_activite').in('ref', codes);
+    if (error) throw error;
+    const parCode = {};
+    (data || []).forEach(row => { parCode[row.ref] = row.derniere_activite >= seuil; });
+    _presenceParCode = parCode;
+  } catch (e) { /* silencieux, les points restent gris/hors ligne par défaut */ }
+}
+
 async function chargerCarteAbonnes() {
   try {
     const r = await fetch('/api/data', {
@@ -205,13 +225,21 @@ async function chargerCarteAbonnes() {
   }
 }
 
-function toggleListeAbonnesAdmin() {
+async function toggleListeAbonnesAdmin() {
   const el = document.getElementById('listeAbonnesAdmin');
   const hint = document.getElementById('listeAbonnesAdminHint');
   if (!el) return;
   const ouvert = el.style.display !== 'none';
   el.style.display = ouvert ? 'none' : 'block';
-  if (!ouvert) { renderAdminControles(); renderAdminListe(); }
+  if (!ouvert) {
+    renderAdminControles();
+    renderAdminListe();
+    // Statut en ligne chargé après le premier affichage (ne bloque pas
+    // l'ouverture du panneau), puis la liste est redessinée avec les points.
+    const codesUniques = Array.from(new Set(_codesAbonnesAdmin.map(c => c.code)));
+    await chargerPresenceAdmin(codesUniques);
+    renderAdminListe();
+  }
   if (hint) hint.textContent = ouvert ? 'Touche pour voir le détail des codes ↓' : 'Touche pour masquer ↑';
 }
 
@@ -257,9 +285,13 @@ function renderAdminListe() {
   zone.innerHTML = liste.length
     ? liste.map((c, i) => {
         const codeJs = c.code.replace(/'/g, "\\'");
+        const enLigne = !!_presenceParCode[c.code];
         return `<div>
         <div class="audit-sujet">
-          <span class="admin-code-clic" onclick="toggleGenerationsParCode('${codeJs}', ${i})" title="Voir ses générations par mode">${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
+          <span style="display:flex;align-items:center">
+            <span class="${enLigne ? 'social-dot' : 'admin-dot-off'}" style="margin-right:8px" title="${enLigne ? 'En ligne' : 'Hors ligne'}"></span>
+            <span class="admin-code-clic" onclick="toggleGenerationsParCode('${codeJs}', ${i})" title="Voir ses générations par mode">${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
+          </span>
           <span style="display:flex;align-items:center;gap:10px">
             <b>${escAdmin(c.plan || '·')}</b>
             <label class="admin-switch" title="${c.actif === false ? 'Réactiver' : 'Désactiver'}">
