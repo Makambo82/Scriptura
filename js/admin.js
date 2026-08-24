@@ -298,16 +298,33 @@ function renderAdminControles() {
   zone.innerHTML = html;
 }
 
+// Icône cadenas (même dessin que .ds-note-ico, index.html) : remplace
+// l'interrupteur actif/désactivé sur la ligne du code fondateur (voir
+// renderAdminListe), pour qu'il ne puisse pas être désactivé par erreur.
+const ICON_CADENAS_FONDATEUR = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg>';
+
 function renderAdminListe() {
   const zone = document.getElementById('listeAbonnesAdminList');
   if (!zone) return;
   const liste = filtrerCodesAdmin();
+  const codeFondateur = (localStorage.getItem('scriptura_code') || '').toUpperCase();
   zone.innerHTML = liste.length
     ? liste.map((c, i) => {
         const codeJs = c.code.replace(/'/g, "\\'");
         const enLigne = !!_presenceParCode[c.code];
         const classeDot = _presenceStatutInconnu ? 'admin-dot-inconnu' : (enLigne ? 'social-dot' : 'admin-dot-off');
         const titreDot = _presenceStatutInconnu ? 'Statut indisponible' : (enLigne ? 'En ligne' : 'Hors ligne');
+        const estFondateur = codeFondateur && c.code.toUpperCase() === codeFondateur;
+        // Le code fondateur n'a pas d'interrupteur : le désactiver par erreur
+        // n'a aucun effet réel sur son accès (l'admin passe par CODE_ADMIN,
+        // jamais par cette ligne Supabase), mais c'est trompeur et risqué à
+        // laisser cliquable.
+        const controleActif = estFondateur
+          ? `<span style="display:flex;align-items:center;gap:5px;color:var(--gold);opacity:0.85" title="Le code fondateur ne se désactive pas ici">${ICON_CADENAS_FONDATEUR}</span>`
+          : `<label class="admin-switch" title="${c.actif === false ? 'Réactiver' : 'Désactiver'}">
+              <input type="checkbox" ${c.actif === false ? '' : 'checked'} onchange="toggleActifAbonneAdmin('${codeJs}', this.checked)"/>
+              <span class="admin-switch-track"></span>
+            </label>`;
         return `<div>
         <div class="audit-sujet">
           <span style="display:flex;align-items:center">
@@ -316,10 +333,7 @@ function renderAdminListe() {
           </span>
           <span style="display:flex;align-items:center;gap:10px">
             <b>${escAdmin(c.plan || '·')}</b>
-            <label class="admin-switch" title="${c.actif === false ? 'Réactiver' : 'Désactiver'}">
-              <input type="checkbox" ${c.actif === false ? '' : 'checked'} onchange="toggleActifAbonneAdmin('${codeJs}', this.checked)"/>
-              <span class="admin-switch-track"></span>
-            </label>
+            ${controleActif}
           </span>
         </div>
         <div id="genParCode-${i}" class="admin-gen-detail" style="display:none"></div>
