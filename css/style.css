@@ -175,7 +175,7 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
    de l'autre, alterne gauche/droite à chaque mot (voir initTicker, js/ui.js).
    Distance de glissement (36px) alignée sur .reveal-left/.reveal-right, même
    langage visuel que le reste de la page d'accueil. */
-.ticker-wrap{overflow:hidden;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);background:var(--bg-mid);padding:14px 0;margin-top:72px}
+.ticker-wrap{overflow:hidden;padding:14px 0;margin-top:72px}
 .ticker-carousel{display:flex;align-items:center;justify-content:center;min-height:1.2em}
 .ticker-word{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.7);white-space:nowrap}
 @media(prefers-reduced-motion:no-preference){
