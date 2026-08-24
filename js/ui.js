@@ -402,6 +402,37 @@ function initScrollReveal() {
   els.forEach(el => observer.observe(el));
 }
 
+// ── TICKER D'ACCUEIL, un mot à la fois ──
+// Remplace l'ancienne bande défilante continue : un mot glisse d'un côté,
+// tient 3s, ressort de l'autre (voir @keyframes tickerSweepLTR/RTL,
+// css/style.css), la direction alterne à chaque mot. En mouvement réduit,
+// l'animation CSS est coupée par le média query, donc `animationend` ne se
+// déclenche jamais, ce qui figerait le mot sur le premier pour toujours,
+// on bascule alors sur une simple alternance par minuterie, sans glissement.
+const TICKER_MOTS = ['TikTok', 'Instagram Reels', 'YouTube Shorts', 'Facebook', 'Scripts viraux', 'Hooks irrésistibles', 'Contenu faceless', 'Finance', 'Bien-être', 'Business', 'Histoire', 'Géopolitique', 'Développement personnel'];
+function initTicker() {
+  const el = document.getElementById('tickerWord');
+  if (!el) return;
+  const reduit = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let i = 0;
+  function motSuivant() {
+    el.textContent = TICKER_MOTS[i % TICKER_MOTS.length];
+    if (!reduit) {
+      el.classList.remove('tk-ltr', 'tk-rtl');
+      void el.offsetWidth; // force le navigateur à relire le style avant de rajouter la classe, sinon l'animation ne se relance pas au 2e mot
+      el.classList.add(i % 2 === 0 ? 'tk-ltr' : 'tk-rtl');
+    }
+    i++;
+  }
+  if (reduit) {
+    motSuivant();
+    setInterval(motSuivant, 3000);
+  } else {
+    el.addEventListener('animationend', motSuivant);
+    motSuivant();
+  }
+}
+
 // ── BOUTON INTELLIGENT HAUT/BAS ──
 // Descend en bas si on est en haut, remonte en haut si on est en bas.
 function scrollSmart() {
