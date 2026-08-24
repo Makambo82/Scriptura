@@ -51,7 +51,11 @@ async function verifierStatutServeur(code) {
   } catch (e) {
     localStorage.setItem('scriptura_is_admin', 'false');
     localStorage.setItem('scriptura_illimite', 'false');
-    return { valid: false, isAdmin: false, illimite: false };
+    // Panne réseau, jamais confondue avec un code réellement invalide (voir
+    // `indisponible` déjà renvoyé par le serveur pour une panne Supabase,
+    // api/verify-code.js) : basculerVersCompteConnu() ne doit surtout pas
+    // oublier un compte valide juste parce que la requête a échoué une fois.
+    return { valid: false, isAdmin: false, illimite: false, indisponible: true };
   }
 }
 
@@ -195,6 +199,14 @@ function assurerCompteActuelConnu() {
 // rempli, pour que le message d'erreur habituel explique pourquoi.
 async function basculerVersCompteConnu(code) {
   const verdict = await verifierStatutServeur(code);
+  // Panne réseau/serveur temporaire (voir verifierStatutServeur) : JAMAIS
+  // oublier le compte pour ça, sinon une simple coupure de connexion suffit
+  // à effacer un compte parfaitement valide et à faire disparaître la
+  // flèche de bascule pour de bon. On laisse tout tel quel et on prévient.
+  if (verdict.indisponible) {
+    if (typeof toastRegen === 'function') toastRegen('Connexion instable, réessaie dans un instant.');
+    return;
+  }
   if (!verdict.valid || verdict.jeton) {
     oublierCompteConnu(code);
     _modeChangementCompte = true;
