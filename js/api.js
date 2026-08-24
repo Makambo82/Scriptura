@@ -474,18 +474,21 @@ function changerFormatVisuel(id) {
 // Bloc de choix "Style graphique + Format", inséré AVANT chaque bouton
 // « Générer le storyboard » (tous les modes). Réglé avant génération pour que
 // chaque prompt reçoive le bon footer (style + ratio). Les <select> reflètent
-// le choix mémorisé (localStorage) au moment où le bloc est construit. Tant
-// qu'aucun choix n'a jamais été fait (nouvel utilisateur), affiche "Choisis…"
-// plutôt qu'une vraie option déjà cochée, qui donnerait l'impression fausse
-// d'un choix déjà fait : la génération utilisera quand même un défaut
+// le choix mémorisé (localStorage) au moment où le bloc est construit.
+// L'option "Choisis…" reste TOUJOURS présente dans la liste, même quand un
+// choix a déjà été mémorisé : sans elle, ouvrir le menu pour en changer ne
+// proposait plus de revenir à "aucun choix précis" une fois un premier choix
+// fait. Tant qu'aucun choix n'a jamais été fait (nouvel utilisateur), c'est
+// elle qui reste sélectionnée par défaut (aucune autre option ne porte
+// "selected" dans ce cas) ; la génération utilise quand même un défaut
 // raisonnable (styleVisuelActuel/formatVisuelActuel) si le créateur ignore
 // ces menus et lance directement.
 function optionsStoryboardHTML() {
   const stChoisi = styleVisuelChoisi(), fmtChoisi = formatVisuelChoisi();
   const st = styleVisuelActuel(), fmt = formatVisuelActuel();
-  const styleOpts = (stChoisi ? '' : '<option value="">Choisis ton style…</option>')
+  const styleOpts = '<option value="">Choisis ton style…</option>'
     + STYLES_VISUELS.map(s => `<option value="${s.id}"${stChoisi && s.id === st ? ' selected' : ''}>${s.label}</option>`).join('');
-  const fmtOpts = (fmtChoisi ? '' : '<option value="">Choisis ton format…</option>')
+  const fmtOpts = '<option value="">Choisis ton format…</option>'
     + FORMATS_VISUELS.map(f => `<option value="${f.id}"${fmtChoisi && f.id === fmt ? ' selected' : ''}>${f.label}</option>`).join('');
   return `<div class="sb-options-visuelles">
     <div class="sb-opt"><span>Style graphique</span>
