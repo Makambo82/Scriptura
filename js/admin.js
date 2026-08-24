@@ -52,7 +52,41 @@ async function chargerTableauDeBord() {
     chargerCarteModes()
   ]);
 
-  zone.innerHTML = carteCreerAbonne() + enLigneHTML + actifs24hHTML + abonnesHTML + modesHTML;
+  zone.innerHTML = carteCreerAbonne() + carteExpirationsAdmin() + enLigneHTML + actifs24hHTML + abonnesHTML + modesHTML;
+}
+
+// ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
+// encore actifs) : dérivée de _codesAbonnesAdmin, déjà remplie par
+// chargerCarteAbonnes() au moment où cette fonction est appelée (voir
+// chargerTableauDeBord ci-dessus, appel synchrone après le Promise.all).
+// Pas de fetch séparé : `expire_le` est déjà inclus dans la même réponse
+// /api/data (resource=admin-stats), voir handleAdminStats, api/data.js.
+// Carte volontairement absente (return '') quand rien n'est à signaler,
+// plutôt qu'un état vide permanent qui prendrait de la place pour rien.
+function carteExpirationsAdmin() {
+  const auj = new Date(); auj.setHours(0, 0, 0, 0);
+  const seuil = new Date(auj.getTime() + 7 * 24 * 3600 * 1000);
+  const bientot = _codesAbonnesAdmin
+    .filter(c => c.actif !== false && c.expire_le)
+    .map(c => Object.assign({}, c, { dateExpire: parseDateFlexible(c.expire_le) }))
+    .filter(c => c.dateExpire && c.dateExpire <= seuil)
+    .sort((a, b) => a.dateExpire - b.dateExpire);
+
+  if (!bientot.length) return '';
+
+  const lignes = bientot.map(c => {
+    const joursRestants = Math.round((c.dateExpire - auj) / (24 * 3600 * 1000));
+    const texte = joursRestants < 0
+      ? `Expiré depuis ${Math.abs(joursRestants)} j`
+      : (joursRestants === 0 ? 'Expire aujourd\'hui' : `Expire dans ${joursRestants} j`);
+    const couleur = joursRestants < 0 ? '#f87171' : 'var(--gold)';
+    return `<div class="audit-sujet"><span>${escAdmin(c.code)} · ${escAdmin(c.plan || '·')}</span><b style="color:${couleur}">${texte}</b></div>`;
+  }).join('');
+
+  return `<div class="score-card">
+    <div class="score-title">Expirent bientôt</div>
+    <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
+  </div>`;
 }
 
 // ── Créer un nouvel abonné Creator/Pro depuis le tableau de bord (voir

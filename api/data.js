@@ -357,7 +357,7 @@ async function handleAdminStats(req, res, cfg, body) {
     // en variables d'environnement (CODE_ADMIN/CODES_ILLIMITES/
     // CODES_SECOURS, voir api/verify-code.js), jamais dans cette table.
     const listeCodes = fetch(
-      cfg.url + '/rest/v1/abonnes?select=code,plan,actif&order=code.asc',
+      cfg.url + '/rest/v1/abonnes?select=code,plan,actif,expire_le&order=code.asc',
       { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
     ).then(r => r.json()).catch(() => []);
 
