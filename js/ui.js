@@ -412,7 +412,7 @@ function initScrollReveal() {
 // Fonctionnalités reprises mot pour mot des boutons du héro/pied de page
 // (voir .mode-label et footer-link-btn, index.html) pour rester cohérent
 // avec le wording déjà utilisé ailleurs sur la page.
-const TICKER_MOTS = ['TikTok', 'Instagram Reels', 'YouTube Shorts', 'Facebook', 'Écris-moi un script', 'Trouve-moi des idées', 'Raconte-moi une histoire', 'Storyboard d\'un script', 'Crée-moi une série', 'Analyse mon compte TikTok', 'Analyse-moi une vidéo TikTok', 'Scripts viraux', 'Hooks irrésistibles', 'Contenu faceless', 'Finance', 'Bien-être', 'Business', 'Histoire', 'Géopolitique', 'Développement personnel'];
+const TICKER_MOTS = ['TikTok', 'Instagram Reels', 'YouTube Shorts', 'Facebook', 'Écris-moi un script', 'Trouve-moi des idées', 'Raconte-moi une histoire', 'Storyboard d\'un script', 'Crée-moi une série', 'Analyse mon compte TikTok', 'Analyse-moi une vidéo TikTok', 'Transcrire une vidéo TikTok', 'Télécharger une vidéo TikTok', 'Scripts viraux', 'Hooks irrésistibles', 'Contenu faceless', 'Finance', 'Bien-être', 'Business', 'Histoire', 'Géopolitique', 'Développement personnel'];
 function initTicker() {
   const el = document.getElementById('tickerWord');
   if (!el) return;
