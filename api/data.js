@@ -387,15 +387,31 @@ async function handleAdminStats(req, res, cfg, body) {
       compter(''), compter('&actif=eq.true'), compter('&actif=eq.true&plan=eq.creator'), compter('&actif=eq.true&plan=eq.pro'), listeCodes
     ]);
 
+    // parModePlan : mêmes générations, scindées par plan (Creator/Pro) pour
+    // repérer ce qui pousse réellement à l'upgrade (voir carteModesAdmin,
+    // js/admin.js). `code_acces` recroisé avec la liste `codes` déjà
+    // chargée ci-dessus (même Promise.all), pas de requête supplémentaire
+    // pour ça. Jeton/admin/non-abonné ne rentrent dans aucun des deux
+    // compteurs, hors du périmètre de cette comparaison Creator/Pro.
     let parMode = {};
+    let parModePlan = { creator: {}, pro: {} };
     try {
       const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
       const rModes = await fetch(
-        cfg.url + '/rest/v1/generations?select=mode&cree_le=gte.' + encodeURIComponent(depuis30),
+        cfg.url + '/rest/v1/generations?select=mode,code_acces&cree_le=gte.' + encodeURIComponent(depuis30),
         { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
       );
       const rows = await rModes.json().catch(() => []);
-      (Array.isArray(rows) ? rows : []).forEach(r => { const m = r.mode || 'autre'; parMode[m] = (parMode[m] || 0) + 1; });
+      const planParCode = {};
+      (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[c.code] = c.plan; });
+      (Array.isArray(rows) ? rows : []).forEach(r => {
+        const m = r.mode || 'autre';
+        parMode[m] = (parMode[m] || 0) + 1;
+        const plan = planParCode[r.code_acces];
+        if (plan === 'creator' || plan === 'pro') {
+          parModePlan[plan][m] = (parModePlan[plan][m] || 0) + 1;
+        }
+      });
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
     // Codes ayant généré quelque chose dans les 14 derniers jours (voir
@@ -432,7 +448,7 @@ async function handleAdminStats(req, res, cfg, body) {
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
     return res.status(200).json({
-      total, actifs, creator, pro, parMode, codes: Array.isArray(codes) ? codes : [],
+      total, actifs, creator, pro, parMode, parModePlan, codes: Array.isArray(codes) ? codes : [],
       codesActifsRecents, erreursParMode, erreursTotal
     });
   } catch (e) {

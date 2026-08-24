@@ -479,10 +479,16 @@ async function chargerCarteModes() {
     _codesActifsRecents = new Set(Array.isArray(data.codesActifsRecents) ? data.codesActifsRecents : []);
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
-    const parMode = data.parMode || {};
-    const lignes = Object.entries(parMode)
-      .sort((a, b) => b[1] - a[1])
-      .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
+    // Scindé par plan (Creator vs Pro, voir parModePlan, api/data.js) pour
+    // voir ce qui pousse réellement à l'upgrade, plutôt qu'un simple total
+    // tous plans confondus. Jeton/admin/non-abonné hors de cette
+    // comparaison (voir le commentaire serveur).
+    const parModePlan = data.parModePlan || { creator: {}, pro: {} };
+    const modes = Array.from(new Set([...Object.keys(parModePlan.creator || {}), ...Object.keys(parModePlan.pro || {})]));
+    const lignes = modes
+      .map(m => ({ m, creator: (parModePlan.creator || {})[m] || 0, pro: (parModePlan.pro || {})[m] || 0 }))
+      .sort((a, b) => (b.creator + b.pro) - (a.creator + a.pro))
+      .map(r => `<div class="audit-sujet"><span>${escAdmin(r.m)}</span><span style="display:flex;gap:16px"><span>Creator <b>${r.creator}</b></span><span>Pro <b>${r.pro}</b></span></span></div>`)
       .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
     return `<div class="score-card">
       <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
