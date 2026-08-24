@@ -358,6 +358,12 @@ function majHeroCta() {
   } else {
     lbl.textContent = 'Commence gratuitement';
   }
+  const free = document.getElementById('heroFree');
+  if (free) {
+    const dejaAbonne = typeof unlocked !== 'undefined' && unlocked;
+    const maxGratuit = typeof MAX_FREE !== 'undefined' ? MAX_FREE : 5;
+    free.textContent = dejaAbonne ? 'Aucun compte requis' : `Aucun compte requis • ${maxGratuit} générations offertes`;
+  }
 }
 
 function openModal() {
