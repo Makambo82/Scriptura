@@ -1874,7 +1874,7 @@ body.is-unlocked .sidebar-item.nav-switch-account-btn{display:flex}
   font-style:normal;cursor:pointer;
 }
 .salutation-swap-menu button:hover{background:rgba(201,168,76,0.12);color:var(--gold-light)}
-.salutation-swap-menu .swap-logout{margin-top:4px;padding-top:10px;border-top:1px solid var(--border-soft);color:rgba(255,255,255,0.5)}
+.salutation-swap-menu .swap-logout{margin-top:4px;padding-top:10px;border-top:1px solid var(--border-soft);color:#f87171}
 .salutation-swap-menu .swap-logout:hover{background:rgba(248,113,113,0.12);color:#f87171}
 /* Tableau de bord : cache pour tout le monde, visible uniquement pour le
    code fondateur (voir CODE_ADMIN, js/api.js, et body.is-admin ajouté par
