@@ -1335,6 +1335,15 @@ body.hero-focus .hero-focus-rule{display:block}
 .how-icon{font-size:1.5rem;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(201,168,76,0.08);border-radius:12px;margin-bottom:16px}
 /* Icônes maison (trait fin doré), même style que .mode-icon et le logo. */
 .how-icon svg{width:26px;height:26px;display:block;color:var(--gold-light)}
+/* Pulsation douce sur l'icône SEULE (jamais le cadre .how-icon autour) : les
+   7 icônes des sections "Comment ça marche" + "Pourquoi Scriptura". */
+@keyframes howIconPulse{
+  0%,100%{transform:scale(1);opacity:1}
+  50%{transform:scale(1.14);opacity:0.72}
+}
+@media(prefers-reduced-motion:no-preference){
+  .how-icon svg{animation:howIconPulse 2.4s ease-in-out infinite}
+}
 .how-step-title{font-family:'Cinzel',serif;font-size:0.88rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#fff;line-height:1.35;margin-bottom:10px}
 .how-step-desc{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6}
 
