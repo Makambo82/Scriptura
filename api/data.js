@@ -312,11 +312,11 @@ async function handleAdminStats(req, res, cfg, body) {
 
   // Création d'un nouvel abonné depuis le tableau de bord (voir
   // creerAbonneAdmin, js/admin.js). Format du code identique à celui créé
-  // à la main aujourd'hui : PRÉNOM + 4 caractères, dont au moins un chiffre
-  // (voir prenomDepuisCode, js/recommandations.js, qui s'appuie sur cette
-  // convention pour retrouver le prénom à l'affichage). Expire dans 30
-  // jours par défaut (abonnement mensuel), modifiable ensuite dans
-  // Supabase si besoin.
+  // à la main aujourd'hui : PRÉNOM + 4 caractères (lettre, chiffre, lettre,
+  // chiffre, ex. A3M8, voir prenomDepuisCode, js/recommandations.js, qui
+  // s'appuie sur cette convention pour retrouver le prénom à l'affichage).
+  // Expire dans 30 jours par défaut (abonnement mensuel), modifiable
+  // ensuite dans Supabase si besoin.
   if (body?.action === 'creer-abonne') {
     const plan = String(body?.plan || '').trim().toLowerCase();
     if (plan !== 'creator' && plan !== 'pro') return res.status(400).json({ error: { message: 'Plan invalide' } });
@@ -324,13 +324,11 @@ async function handleAdminStats(req, res, cfg, body) {
     // lettres accentuées comprises, tout le reste filtré.
     const prenom = String(body?.prenom || '').trim().toUpperCase().replace(/[^A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/g, '');
     if (!prenom) return res.status(400).json({ error: { message: 'Prénom invalide' } });
-    const ALPHABET_SUFFIXE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let suffixe = '';
-    for (let i = 0; i < 4; i++) suffixe += ALPHABET_SUFFIXE[Math.floor(Math.random() * ALPHABET_SUFFIXE.length)];
-    if (!/[0-9]/.test(suffixe)) {
-      const pos = Math.floor(Math.random() * 4);
-      suffixe = suffixe.slice(0, pos) + String(Math.floor(Math.random() * 10)) + suffixe.slice(pos + 1);
-    }
+    const LETTRES_SUFFIXE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const CHIFFRES_SUFFIXE = '0123456789';
+    const lettreAlea = () => LETTRES_SUFFIXE[Math.floor(Math.random() * LETTRES_SUFFIXE.length)];
+    const chiffreAlea = () => CHIFFRES_SUFFIXE[Math.floor(Math.random() * CHIFFRES_SUFFIXE.length)];
+    const suffixe = lettreAlea() + chiffreAlea() + lettreAlea() + chiffreAlea();
     const code = prenom + suffixe;
     const expireLe = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
     try {
