@@ -1345,6 +1345,12 @@ body.hero-focus .hero-focus-rule{display:block}
    emojis système : rendu identique sur tous les appareils, cohérent avec
    l'univers premium. currentColor = doré clair, ajustable par état. */
 .mode-icon svg{width:22px;height:22px;display:block;color:var(--gold-light)}
+/* Pulsation sur l'icône SEULE (jamais le cadre .mode-icon autour), scopée
+   aux 6 boutons du hero (#heroModes) uniquement, pas à leurs jumeaux visuels
+   des Services annexes plus bas, qui restent fixes. */
+@media(prefers-reduced-motion:no-preference){
+  #heroModes .mode-icon svg{animation:howIconPulse 2.4s ease-in-out infinite}
+}
 .mode-label{
   font-family:'Playfair Display',serif;font-size:1rem;font-weight:500;
   letter-spacing:0.01em;text-transform:none;color:var(--white);line-height:1.3;
