@@ -401,7 +401,7 @@
       <input class="ds-input" id="diagSommaireInput" placeholder="nom.utilisateur" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();lancerDiagnosticSommaire();}"/>
       <button class="ds-go" id="diagSommaireGoBtn" aria-label="Analyser" onclick="lancerDiagnosticSommaire()">
         <span class="sb-gen-spinner" id="diagSommaireSpinner"></span>
-        <span id="diagSommaireGoArrow">→</span>
+        <span id="diagSommaireGoArrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M4 12h16"/><path d="M13 6l6 6-6 6"/></svg></span>
       </button>
     </div>
     <div class="err" id="diagSommaireErrorBox" style="display:none"></div>
@@ -1281,7 +1281,7 @@
           <input class="ds-input" id="viralLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();recupererTranscriptViral();}"/>
           <button class="ds-go" id="viralLienBtn" type="button" aria-label="Récupérer" onclick="recupererTranscriptViral()">
             <span class="sb-gen-spinner" id="viralLienSpinner" style="display:none"></span>
-            <span id="viralLienArrow">→</span>
+            <span id="viralLienArrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M4 12h16"/><path d="M13 6l6 6-6 6"/></svg></span>
           </button>
         </div>
         <div id="viralLienNote" style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin:0 0 12px;line-height:1.5">Colle le lien de partage (TikTok), on récupère les sous-titres tout seuls. Sinon, colle le texte à la main ci-dessous.</div>
