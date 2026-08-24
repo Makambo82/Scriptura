@@ -190,17 +190,55 @@ function renderAdminListe() {
   if (!zone) return;
   const liste = filtrerCodesAdmin();
   zone.innerHTML = liste.length
-    ? liste.map(c => `<div class="audit-sujet">
-        <span>${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
-        <span style="display:flex;align-items:center;gap:10px">
-          <b>${escAdmin(c.plan || '·')}</b>
-          <label class="admin-switch" title="${c.actif === false ? 'Réactiver' : 'Désactiver'}">
-            <input type="checkbox" ${c.actif === false ? '' : 'checked'} onchange="toggleActifAbonneAdmin('${c.code.replace(/'/g, "\\'")}', this.checked)"/>
-            <span class="admin-switch-track"></span>
-          </label>
-        </span>
-      </div>`).join('')
+    ? liste.map((c, i) => {
+        const codeJs = c.code.replace(/'/g, "\\'");
+        return `<div>
+        <div class="audit-sujet">
+          <span class="admin-code-clic" onclick="toggleGenerationsParCode('${codeJs}', ${i})" title="Voir ses générations par mode">${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
+          <span style="display:flex;align-items:center;gap:10px">
+            <b>${escAdmin(c.plan || '·')}</b>
+            <label class="admin-switch" title="${c.actif === false ? 'Réactiver' : 'Désactiver'}">
+              <input type="checkbox" ${c.actif === false ? '' : 'checked'} onchange="toggleActifAbonneAdmin('${codeJs}', this.checked)"/>
+              <span class="admin-switch-track"></span>
+            </label>
+          </span>
+        </div>
+        <div id="genParCode-${i}" class="admin-gen-detail" style="display:none"></div>
+      </div>`;
+      }).join('')
     : '<div class="ideas-sub">Aucun code ne correspond.</div>';
+}
+
+// Détail des générations par mode d'un code précis, affiché/masqué au clic
+// sur son texte (voir handleAdminStats, action=generations-par-code,
+// api/data.js). `i` (position dans la liste actuellement affichée, pas le
+// code lui-même) sert d'identifiant DOM : deux codes identiques peuvent
+// exister dans la table (ex. un abonnement Creator et un jeton sur le même
+// code, déjà vu en usage réel), un id basé sur le code collisionnerait.
+async function toggleGenerationsParCode(code, i) {
+  const el = document.getElementById('genParCode-' + i);
+  if (!el) return;
+  const ouvert = el.style.display !== 'none';
+  if (ouvert) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div class="ideas-sub">Chargement…</div>';
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'generations-par-code', code_acces: localStorage.getItem('scriptura_code') || null, code })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible) throw new Error('donnée indisponible');
+    const parMode = data.parMode || {};
+    const lignes = Object.entries(parMode)
+      .sort((a, b) => b[1] - a[1])
+      .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
+      .join('') || '<div class="ideas-sub">Aucune génération pour ce code.</div>';
+    el.innerHTML = '<div class="ideas-sub" style="margin-bottom:4px;opacity:0.7">Générations par mode (tous les temps)</div>' + lignes;
+  } catch (e) {
+    el.innerHTML = '<div class="ideas-sub">Donnée indisponible.</div>';
+  }
 }
 
 // Résumé sous le compteur "Abonnés actifs", recalculé depuis

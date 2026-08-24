@@ -288,6 +288,28 @@ async function handleAdminStats(req, res, cfg, body) {
     }
   }
 
+  // Détail des générations par mode POUR UN CODE PRÉCIS (clic sur un code
+  // dans la liste, voir toggleGenerationsParCode, js/admin.js). Toutes
+  // périodes confondues (contrairement à la carte globale "Générations par
+  // mode", limitée à 30 jours) : pour un seul abonné, le total depuis
+  // toujours est plus parlant qu'une fenêtre glissante.
+  if (body?.action === 'generations-par-code') {
+    const cible = String(body?.code || '').trim().toUpperCase();
+    if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
+    try {
+      const r = await fetch(
+        cfg.url + '/rest/v1/generations?select=mode&code_acces=eq.' + encodeURIComponent(cible),
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rows = await r.json().catch(() => []);
+      const parMode = {};
+      (Array.isArray(rows) ? rows : []).forEach(row => { const m = row.mode || 'autre'; parMode[m] = (parMode[m] || 0) + 1; });
+      return res.status(200).json({ parMode });
+    } catch (e) {
+      return res.status(200).json({ indisponible: true });
+    }
+  }
+
   try {
     const entetesCompte = { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, Prefer: 'count=exact' };
     const compter = async (filtre) => {
