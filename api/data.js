@@ -260,6 +260,28 @@ async function handleProfil(req, res, cfg, body) {
   return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
 }
 
+// ═══ ERREURS DE GÉNÉRATION (journal, voir callAI, js/api.js) ═══
+// Écrit un échec définitif (toutes les tentatives épuisées côté client)
+// dans erreurs_generation (voir supabase/erreurs_generation.sql). Appel
+// fire-and-forget côté client : la réponse n'est jamais attendue par
+// l'utilisateur, donc on dégrade toujours en 200 plutôt que de renvoyer
+// une erreur qui n'intéresse personne.
+async function handleErreur(req, res, cfg, body) {
+  try {
+    const mode = typeof body?.mode === 'string' && body.mode ? body.mode.slice(0, 60) : 'inconnu';
+    const code = typeof body?.code === 'string' && body.code ? body.code.slice(0, 60) : null;
+    const detail = typeof body?.detail === 'string' ? body.detail.slice(0, 300) : '';
+    await fetch(cfg.url + '/rest/v1/erreurs_generation', {
+      method: 'POST',
+      headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+      body: JSON.stringify({ mode, code_acces: code, detail })
+    });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    return res.status(200).json({ ok: false });
+  }
+}
+
 // ═══ ADMIN STATS (voir l'ancien api/admin-stats.js) ═══
 
 async function handleAdminStats(req, res, cfg, body) {
@@ -376,7 +398,43 @@ async function handleAdminStats(req, res, cfg, body) {
       (Array.isArray(rows) ? rows : []).forEach(r => { const m = r.mode || 'autre'; parMode[m] = (parMode[m] || 0) + 1; });
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
-    return res.status(200).json({ total, actifs, creator, pro, parMode, codes: Array.isArray(codes) ? codes : [] });
+    // Codes ayant généré quelque chose dans les 14 derniers jours (voir
+    // carteInactifsAdmin, js/admin.js) : sert à repérer les abonnés qui ont
+    // arrêté d'utiliser l'app sans se désabonner.
+    let codesActifsRecents = [];
+    try {
+      const depuis14 = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+      const rActifs = await fetch(
+        cfg.url + '/rest/v1/generations?select=code_acces&cree_le=gte.' + encodeURIComponent(depuis14),
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rowsActifs = await rActifs.json().catch(() => []);
+      const set = new Set();
+      (Array.isArray(rowsActifs) ? rowsActifs : []).forEach(r => { if (r.code_acces) set.add(r.code_acces); });
+      codesActifsRecents = Array.from(set);
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
+    // Échecs de génération des 7 derniers jours (voir carteErreursAdmin,
+    // js/admin.js, et le journal côté client dans callAI, js/api.js).
+    // Table optionnelle (supabase/erreurs_generation.sql, à exécuter par le
+    // propriétaire) : reste à 0 tant qu'elle n'existe pas, dégradation
+    // silencieuse comme le reste de cette route.
+    let erreursParMode = {};
+    let erreursTotal = 0;
+    try {
+      const depuis7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const rErr = await fetch(
+        cfg.url + '/rest/v1/erreurs_generation?select=mode&cree_le=gte.' + encodeURIComponent(depuis7),
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rowsErr = await rErr.json().catch(() => []);
+      (Array.isArray(rowsErr) ? rowsErr : []).forEach(r => { const m = r.mode || 'autre'; erreursParMode[m] = (erreursParMode[m] || 0) + 1; erreursTotal++; });
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
+    return res.status(200).json({
+      total, actifs, creator, pro, parMode, codes: Array.isArray(codes) ? codes : [],
+      codesActifsRecents, erreursParMode, erreursTotal
+    });
   } catch (e) {
     return res.status(200).json({ indisponible: true });
   }
@@ -411,6 +469,7 @@ export default async function handler(req, res) {
     if (resource === 'generations') return await handleGenerations(req, res, cfg, body);
     if (resource === 'series') return await handleSeries(req, res, cfg, body);
     if (resource === 'profil') return await handleProfil(req, res, cfg, body);
+    if (resource === 'erreur') return await handleErreur(req, res, cfg, body);
     return res.status(400).json({ ok: false, error: 'resource inconnue' });
   } catch (e) {
     return res.status(200).json({ ok: false, error: e.message || 'erreur' });

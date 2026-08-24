@@ -279,6 +279,29 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     } catch(e) { lastDetail = e.message; }
   }
 
+  // Échec définitif après épuisement de toutes les tentatives (surcharge,
+  // réponse vide, timeout...) : journalisé pour la carte "Échecs de
+  // génération" du Tableau de bord (voir carteErreursAdmin, js/admin.js).
+  // Fire-and-forget, jamais attendu : cet appel ne doit jamais retarder ni
+  // faire échouer l'affichage du message d'erreur à l'utilisateur.
+  // Exclut les refus non techniques (quota atteint, abonnement expiré/
+  // désactivé, voir tryOnce ci-dessus) : ce ne sont pas des pannes, les
+  // compter comme des "échecs" polluerait le signal sans rien indiquer sur
+  // la santé réelle du service. Ces refus continuent malheureusement à
+  // retenter (recoverable:false n'interrompt la boucle que si un modèle de
+  // secours existe, sinon le throw plus haut est ravalé par le catch
+  // englobant), d'où le filtre ici plutôt qu'une sortie plus précoce.
+  const detailsNonTechniques = ['quota atteint', 'accès refusé'];
+  if (!detailsNonTechniques.includes(lastDetail)) {
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: mode || 'creation', code: localStorage.getItem('scriptura_code') || null, detail: lastDetail })
+      }).catch(() => {});
+    } catch (e) { /* silencieux */ }
+  }
+
   throw new Error(lastDetail || 'Service momentanément indisponible, réessaie');
 }
 

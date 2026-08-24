@@ -52,7 +52,8 @@ async function chargerTableauDeBord() {
     chargerCarteModes()
   ]);
 
-  zone.innerHTML = carteCreerAbonne() + carteExpirationsAdmin() + enLigneHTML + actifs24hHTML + abonnesHTML + modesHTML;
+  zone.innerHTML = carteCreerAbonne() + carteExpirationsAdmin() + carteInactifsAdmin()
+    + enLigneHTML + actifs24hHTML + abonnesHTML + carteErreursAdmin() + modesHTML;
 }
 
 // ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
@@ -489,6 +490,14 @@ function setAdminPlanFilter(v) {
 // La table `generations` est verrouillée par RLS (voir
 // supabase/generations_series_rls.sql) : passe désormais par la même route
 // serveur (revérifie l'admin elle-même) que chargerCarteAbonnes.
+// Alimentés par chargerCarteModes() ci-dessous (même réponse /api/data que
+// parMode) : lus ensuite par carteInactifsAdmin()/carteErreursAdmin(),
+// appelées de façon synchrone une fois le Promise.all de
+// chargerTableauDeBord() résolu (voir plus haut dans ce fichier).
+let _codesActifsRecents = new Set();
+let _erreursParMode = {};
+let _erreursTotal = 0;
+
 async function chargerCarteModes() {
   try {
     const r = await fetch('/api/data', {
@@ -498,6 +507,9 @@ async function chargerCarteModes() {
     });
     const data = await r.json();
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
+    _codesActifsRecents = new Set(Array.isArray(data.codesActifsRecents) ? data.codesActifsRecents : []);
+    _erreursParMode = data.erreursParMode || {};
+    _erreursTotal = data.erreursTotal || 0;
     const parMode = data.parMode || {};
     const lignes = Object.entries(parMode)
       .sort((a, b) => b[1] - a[1])
@@ -508,6 +520,42 @@ async function chargerCarteModes() {
       <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
     </div>`;
   } catch (e) {
+    _codesActifsRecents = new Set();
+    _erreursParMode = {};
+    _erreursTotal = 0;
     return carteErreurAdmin('Générations par mode · 30 jours', e);
   }
+}
+
+// ── Abonnés inactifs : actifs mais sans génération dans les 14 derniers
+// jours (voir codesActifsRecents ci-dessus). Signal de désabonnement à
+// venir, à recontacter avant qu'ils partent. Absente si rien à signaler.
+function carteInactifsAdmin() {
+  const inactifs = _codesAbonnesAdmin.filter(c => c.actif !== false && !_codesActifsRecents.has(c.code));
+  if (!inactifs.length) return '';
+  const lignes = inactifs
+    .map(c => `<div class="audit-sujet"><span>${escAdmin(c.code)} · ${escAdmin(c.plan || '·')}</span><b style="color:var(--text-secondary);font-weight:400">Inactif depuis 14 j</b></div>`)
+    .join('');
+  return `<div class="score-card">
+    <div class="score-title">Abonnés inactifs</div>
+    <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
+  </div>`;
+}
+
+// ── Échecs de génération, 7 derniers jours (voir le journal côté client
+// dans callAI, js/api.js, et supabase/erreurs_generation.sql, à exécuter
+// par le propriétaire). Absente tant qu'aucun échec n'est enregistré (soit
+// tout va bien, soit la table n'existe pas encore, indiscernable ici et
+// sans conséquence : rien à signaler dans les deux cas).
+function carteErreursAdmin() {
+  if (!_erreursTotal) return '';
+  const lignes = Object.entries(_erreursParMode)
+    .sort((a, b) => b[1] - a[1])
+    .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
+    .join('');
+  return `<div class="score-card">
+    <div class="score-title">Échecs de génération · 7 jours</div>
+    <div class="score-global" style="margin-top:10px"><span class="score-global-num" style="color:#f87171">${escAdmin(_erreursTotal)}</span></div>
+    <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
+  </div>`;
 }
