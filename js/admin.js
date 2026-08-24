@@ -93,8 +93,25 @@ async function chargerCarteActifs24h() {
 // Détail dépliable de la carte "Abonnés actifs" : la liste des codes vient
 // de la même réponse /api/data (resource=admin-stats), voir api/data.js.
 // Ne contient jamais le fondateur/VIP, ces codes vivent en variables
-// d'environnement, jamais dans la table `abonnes`.
+// d'environnement, jamais dans la table `abonnes`. Recherche + filtre par
+// statut/plan, même mécanique que l'historique (ICON_SEARCH/ICON_FILTER,
+// .hist-tool-icon/.hist-search/.hist-chips, voir js/historique.js) : deux
+// zones séparées (contrôles vs liste) pour que la saisie dans le champ de
+// recherche ne réécrive jamais l'input lui-même à chaque frappe (le focus
+// serait perdu sinon), seule la liste filtrée se redessine.
 let _codesAbonnesAdmin = [];
+let _adminSearchOpen = false;
+let _adminSearchQuery = '';
+let _adminFilterOpen = false;
+let _adminPlanFilter = null; // null = tous, sinon 'creator'|'pro'|'jeton'|'desactive'
+const ADMIN_PLAN_FILTRE = [
+  { v: null, label: 'Tous' },
+  { v: 'creator', label: 'Creator' },
+  { v: 'pro', label: 'Pro' },
+  { v: 'jeton', label: 'Jeton' },
+  { v: 'desactive', label: 'Désactivés' }
+];
+
 async function chargerCarteAbonnes() {
   try {
     const r = await fetch('/api/data', {
@@ -107,15 +124,18 @@ async function chargerCarteAbonnes() {
     const sousTexte = (data.total || 0) + ' au total (actifs + désactivés) · '
       + (data.creator || 0) + ' Creator · ' + (data.pro || 0) + ' Pro';
     _codesAbonnesAdmin = Array.isArray(data.codes) ? data.codes : [];
-    const liste = _codesAbonnesAdmin.length
-      ? _codesAbonnesAdmin.map(c => `<div class="audit-sujet"><span>${escAdmin(c.code)}</span><b>${escAdmin(c.plan || '·')}${c.actif === false ? ' · désactivé' : ''}</b></div>`).join('')
-      : '<div class="ideas-sub">Aucun code trouvé.</div>';
-    return `<div class="score-card" onclick="toggleListeAbonnesAdmin()" style="cursor:pointer">
-      <div class="score-title">Abonnés actifs</div>
-      <div class="score-global" style="margin-top:10px"><span class="score-global-num">${escAdmin(data.actifs || 0)}</span></div>
-      <div class="ideas-sub" style="margin-top:8px">${escAdmin(sousTexte)}</div>
-      <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeAbonnesAdminHint">Touche pour voir le détail des codes ↓</div>
-      <div id="listeAbonnesAdmin" style="display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px">${liste}</div>
+    _adminSearchOpen = false; _adminSearchQuery = ''; _adminFilterOpen = false; _adminPlanFilter = null;
+    return `<div class="score-card">
+      <div onclick="toggleListeAbonnesAdmin()" style="cursor:pointer">
+        <div class="score-title">Abonnés actifs</div>
+        <div class="score-global" style="margin-top:10px"><span class="score-global-num">${escAdmin(data.actifs || 0)}</span></div>
+        <div class="ideas-sub" style="margin-top:8px">${escAdmin(sousTexte)}</div>
+        <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeAbonnesAdminHint">Touche pour voir le détail des codes ↓</div>
+      </div>
+      <div id="listeAbonnesAdmin" style="display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px">
+        <div id="listeAbonnesAdminControles"></div>
+        <div id="listeAbonnesAdminList" style="border-top:1px solid var(--border-soft);padding-top:10px"></div>
+      </div>
     </div>`;
   } catch (e) {
     return carteErreurAdmin('Abonnés actifs', e);
@@ -128,7 +148,86 @@ function toggleListeAbonnesAdmin() {
   if (!el) return;
   const ouvert = el.style.display !== 'none';
   el.style.display = ouvert ? 'none' : 'block';
+  if (!ouvert) { renderAdminControles(); renderAdminListe(); }
   if (hint) hint.textContent = ouvert ? 'Touche pour voir le détail des codes ↓' : 'Touche pour masquer ↑';
+}
+
+function filtrerCodesAdmin() {
+  let liste = _codesAbonnesAdmin;
+  if (_adminPlanFilter === 'desactive') liste = liste.filter(c => c.actif === false);
+  else if (_adminPlanFilter) liste = liste.filter(c => (c.plan || '') === _adminPlanFilter);
+  if (_adminSearchQuery.trim()) {
+    const q = _adminSearchQuery.trim().toUpperCase();
+    liste = liste.filter(c => (c.code || '').toUpperCase().includes(q));
+  }
+  return liste;
+}
+
+// Icônes + champ de recherche/puces de filtre : redessinés uniquement à
+// l'ouverture ou quand on bascule recherche/filtre, jamais à chaque frappe.
+function renderAdminControles() {
+  const zone = document.getElementById('listeAbonnesAdminControles');
+  if (!zone) return;
+  let html = `<div style="display:flex;gap:8px;margin-bottom:10px">
+    <button class="hist-tool-icon${(_adminSearchOpen || _adminSearchQuery) ? ' actif' : ''}" onclick="toggleAdminSearch()" title="Rechercher un code" aria-label="Rechercher un code">${ICON_SEARCH}</button>
+    <button class="hist-tool-icon${(_adminPlanFilter || _adminFilterOpen) ? ' actif' : ''}" onclick="toggleAdminFilterMenu()" title="Filtrer" aria-label="Filtrer">${ICON_FILTER}</button>
+  </div>`;
+  if (_adminSearchOpen) {
+    html += `<div class="hist-search" style="margin-bottom:10px"><span class="hist-search-ico">${ICON_SEARCH}</span>
+      <input type="text" id="adminSearchInput" class="hist-search-input" placeholder="Rechercher un code…" value="${escAdmin(_adminSearchQuery)}" oninput="onAdminSearch(this.value)"/>
+      ${_adminSearchQuery ? '<button class="hist-search-clear" onclick="clearAdminSearch()" aria-label="Effacer">✕</button>' : ''}
+    </div>`;
+  }
+  if (_adminFilterOpen) {
+    html += '<div class="hist-chips" style="margin-bottom:10px">' + ADMIN_PLAN_FILTRE.map(m => {
+      const arg = m.v ? ("'" + m.v + "'") : 'null';
+      return '<button class="hist-chip' + (_adminPlanFilter === m.v ? ' actif' : '') + '" onclick="setAdminPlanFilter(' + arg + ')">' + m.label + '</button>';
+    }).join('') + '</div>';
+  }
+  zone.innerHTML = html;
+}
+
+function renderAdminListe() {
+  const zone = document.getElementById('listeAbonnesAdminList');
+  if (!zone) return;
+  const liste = filtrerCodesAdmin();
+  zone.innerHTML = liste.length
+    ? liste.map(c => `<div class="audit-sujet"><span>${escAdmin(c.code)}</span><b>${escAdmin(c.plan || '·')}${c.actif === false ? ' · désactivé' : ''}</b></div>`).join('')
+    : '<div class="ideas-sub">Aucun code ne correspond.</div>';
+}
+
+function toggleAdminSearch() {
+  _adminSearchOpen = !_adminSearchOpen;
+  if (_adminSearchOpen) _adminFilterOpen = false; else _adminSearchQuery = '';
+  renderAdminControles();
+  renderAdminListe();
+  if (_adminSearchOpen) { const inp = document.getElementById('adminSearchInput'); if (inp) inp.focus(); }
+}
+
+function onAdminSearch(val) {
+  _adminSearchQuery = val;
+  renderAdminListe();
+}
+
+function clearAdminSearch() {
+  _adminSearchQuery = '';
+  renderAdminControles();
+  renderAdminListe();
+  const inp = document.getElementById('adminSearchInput');
+  if (inp) inp.focus();
+}
+
+function toggleAdminFilterMenu() {
+  _adminFilterOpen = !_adminFilterOpen;
+  if (_adminFilterOpen) _adminSearchOpen = false;
+  renderAdminControles();
+  renderAdminListe();
+}
+
+function setAdminPlanFilter(v) {
+  _adminPlanFilter = (_adminPlanFilter === v) ? null : v;
+  renderAdminControles();
+  renderAdminListe();
 }
 
 // ── Répartition des générations par mode sur 30 jours, via /api/data resource=admin-stats ──
