@@ -28,6 +28,7 @@ let montageImagesEnCours = false;
 let montageVoixListe = [];  // [{ id, label }], voix ElevenLabs configurées (voir api/montage-voices.js)
 let montageVoixId = '';     // id de la voix actuellement choisie
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
+let montageVideoFichierPromise = null; // File préchargé de la vidéo rendue, voir partagerVideoMontage
 let montageImagesSelection = new Set(); // indices des images cochées pour le téléchargement en lot
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
@@ -110,24 +111,39 @@ function telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Récupère la vidéo rendue (proxy same-origin, évite tout souci CORS) et la
+// prépare en File, prêt pour navigator.share(). Appelée dès que le rendu est
+// prêt (voir lancerMontage), PAS au clic : Safari iOS retire l'autorisation
+// de partage natif si un aller-retour réseau a lieu entre le clic et l'appel
+// à navigator.share (constaté en usage réel : bascule silencieuse sur le
+// repli window.open, donc double popup, "autoriser la pop-up" PUIS
+// "enregistrer la vidéo", au lieu de la feuille de partage native directe).
+function prechargerVideoMontage(url) {
+  return fetch('/api/montage-media?action=download&url=' + encodeURIComponent(url))
+    .then(rep => { if (!rep.ok) throw new Error('récupération impossible'); return rep.blob(); })
+    .then(blob => new File([blob], 'scriptura-montage.mp4', { type: 'video/mp4' }))
+    .catch(() => null);
+}
+
 // « Télécharger la vidéo » : ouvre la feuille de partage native (iOS/Android)
-// via l'API Web Share en partageant le FICHIER vidéo, c'est ce qui donne
-// « Enregistrer la vidéo », AirDrop, Messages, etc. On récupère d'abord la
-// vidéo via notre proxy same-origin (/api/montage-media?action=download) pour éviter tout
-// souci CORS de lecture. Repli : téléchargement direct classique si l'API
-// n'est pas disponible (ordinateur de bureau, vieux navigateur).
+// via l'API Web Share en partageant le FICHIER vidéo déjà préchargé (voir
+// prechargerVideoMontage), c'est ce qui donne directement « Enregistrer la
+// vidéo », AirDrop, Messages, etc., sans détour. Repli : téléchargement
+// direct classique si l'API n'est pas disponible (ordinateur de bureau,
+// vieux navigateur) ou si le préchargement a échoué.
 async function partagerVideoMontage(btn, url) {
   const libelle = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
   try {
-    const rep = await fetch('/api/montage-media?action=download&url=' + encodeURIComponent(url));
-    if (!rep.ok) throw new Error('récupération impossible');
-    const blob = await rep.blob();
-    const fichier = new File([blob], 'scriptura-montage.mp4', { type: 'video/mp4' });
+    const fichier = (await (montageVideoFichierPromise || prechargerVideoMontage(url))) || await (async () => {
+      const rep = await fetch('/api/montage-media?action=download&url=' + encodeURIComponent(url));
+      if (!rep.ok) throw new Error('récupération impossible');
+      return new File([await rep.blob()], 'scriptura-montage.mp4', { type: 'video/mp4' });
+    })();
     if (navigator.canShare && navigator.canShare({ files: [fichier] })) {
       await navigator.share({ files: [fichier], title: 'Montage Scriptura' });
     } else {
-      telechargerBlob(blob, 'scriptura-montage.mp4');
+      telechargerBlob(fichier, 'scriptura-montage.mp4');
     }
   } catch (e) {
     // Annulation du partage par l'utilisateur : on ne fait rien.
@@ -682,6 +698,7 @@ async function lancerMontage() {
   }
 
   montageEnCours = true;
+  montageVideoFichierPromise = null;
   renderMontageEtat();
   if (resultat) resultat.innerHTML = '';
   if (statut) { statut.style.display = 'block'; statut.innerHTML = montageStatutHTML('Envoi des fichiers…'); }
@@ -743,6 +760,10 @@ async function lancerMontage() {
     } catch (e) { throw new Error('Rendu de la vidéo : ' + e.message); }
 
     if (statut) statut.style.display = 'none';
+    // Précharge la vidéo dès qu'elle existe, pas au clic sur "Télécharger"
+    // (voir prechargerVideoMontage) : le temps que l'utilisateur regarde
+    // l'aperçu avant de cliquer suffit largement à finir le téléchargement.
+    montageVideoFichierPromise = prechargerVideoMontage(dataRender.url);
     const nbRemplaces = construireImagesEffectives.nbRemplaces || 0;
     const note = nbRemplaces > 0
       ? `<div class="montage-statut" style="margin:0 0 10px">${nbRemplaces} plan(s) sans image (bloqué·s) remplacé·s par l'image voisine. Régénère ces images puis relance le montage pour un rendu complet.</div>`
