@@ -816,13 +816,19 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     // La consigne de durée dans le prompt ne suffisait pas : contrairement aux
     // autres modes, aucune vérification programmatique n'existait pour les
     // épisodes de série. On compte les mots réels et on corrige si hors cible.
+    // IMPORTANT : on compte sur voix_off_propre, jamais sur script. En format
+    // faceless, script contient AUSSI les étiquettes VOIX OFF/TEXTE À L'ÉCRAN
+    // et le texte à l'écran (jamais lu à voix haute), ce qui gonflait le
+    // compte de mots sans rapport avec la durée réelle de la voix off (seule
+    // chose qui dicte la durée de la vidéo rendue). En format face caméra,
+    // voix_off_propre == script (voir prompt d'écriture), donc identique.
     function countWordsSerie(texte) {
       return (typeof texte === 'string' ? texte : '').split(/\s+/).filter(Boolean).length;
     }
     // Écriture terminée pour de vrai : jalon réel avant le contrôle de durée.
     if (genProgressCtl) genProgressCtl.etapeTerminee(0);
     const wtSerie = WORD_TARGETS_SERIE[b.duree_episode] || WORD_TARGETS_SERIE['45 à 60 secondes'];
-    let wordCountSerie = countWordsSerie(ep.script);
+    let wordCountSerie = countWordsSerie(ep.voix_off_propre);
     let correctionAttemptsSerie = 0;
     const hardMinSerie = Math.round(wtSerie.min * 0.9);
     const hardMaxSerie = Math.round(wtSerie.max * 1.1);
@@ -832,16 +838,20 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
       const tropCourtSerie = wordCountSerie < hardMinSerie;
       const correctionPromptSerie = `Tu es le Rédacteur en Chef de Scriptura. L'épisode suivant ne respecte PAS la durée demandée et doit être corrigé.
 
-ÉPISODE ACTUEL (${wordCountSerie} mots) :
+ÉPISODE ACTUEL, SCRIPT COMPLET :
 ${ep.script}
 
-PROBLÈME : Cet épisode fait ${wordCountSerie} mots. La cible pour "${b.duree_episode || '45 à 60 secondes'}" est ${wtSerie.min} à ${wtSerie.max} mots.
-${tropCourtSerie ? 'L\'épisode est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wtSerie.min + '-' + wtSerie.max + ' mots. Développe l\'immersion et la tension, ajoute des détails concrets, SANS remplissage inutile. Garde le même sujet, le même ton, la même structure.' : 'L\'épisode est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wtSerie.min + '-' + wtSerie.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
+TEXTE RÉELLEMENT PARLÉ PAR LA VOIX OFF (${wordCountSerie} mots, c'est LUI qui détermine la durée de la vidéo) :
+${ep.voix_off_propre}
+
+PROBLÈME : le texte parlé fait ${wordCountSerie} mots. La cible pour "${b.duree_episode || '45 à 60 secondes'}" est ${wtSerie.min} à ${wtSerie.max} mots DE TEXTE PARLÉ (le texte à l'écran, s'il y en a, ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
+${tropCourtSerie ? 'Le texte parlé est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wtSerie.min + '-' + wtSerie.max + ' mots parlés. Développe l\'immersion et la tension, ajoute des détails concrets, SANS remplissage inutile. Garde le même sujet, le même ton, la même structure.' : 'Le texte parlé est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wtSerie.min + '-' + wtSerie.max + ' mots parlés. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
 
 RÈGLES :
-- Le nouvel épisode DOIT faire entre ${wtSerie.min} et ${wtSerie.max} mots au total. Compte tes mots avant de répondre.
+- "voix_off_propre" DOIT faire entre ${wtSerie.min} et ${wtSerie.max} mots au total. Compte tes mots avant de répondre. C'est la seule mesure qui compte, pas la longueur du texte à l'écran.
 - Garde le ton "${serie.style}" strictement, du début à la fin.
 - Garde le même titre, la même tension finale, le même format (${formatSerie}).
+- Renvoie le "script" complet mis à jour, cohérent avec ce nouveau texte parlé (mêmes règles de mise en forme que la génération initiale : ${estFaceless ? 'VOIX OFF / TEXTE À L\'ÉCRAN séparés' : 'texte parlé uniquement, pas d\'étiquette'}).
 - Renvoie aussi "voix_off_propre" mis à jour : UNIQUEMENT le texte parlé du nouvel épisode, sans les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" ni aucun minutage entre crochets, même règle que pour la génération initiale.
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
@@ -858,7 +868,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
         ep.voix_off_propre = (typeof correctedEp.voix_off_propre === 'string' && correctedEp.voix_off_propre.trim())
           ? correctedEp.voix_off_propre
           : ep.script;
-        wordCountSerie = countWordsSerie(ep.script);
+        wordCountSerie = countWordsSerie(ep.voix_off_propre);
       } else {
         break; // parsing échoué, on garde la version actuelle
       }
