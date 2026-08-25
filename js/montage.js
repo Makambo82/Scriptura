@@ -567,6 +567,16 @@ async function genererVoixOffMontage() {
 
   montageVoixEnCours = true;
   renderMontageEtat();
+  // % estimé (même moteur que js/montage-manuel.js, omVoixProgBar) : aucun
+  // signal réel disponible ici, un seul appel ElevenLabs non flux.
+  const texteVoixOffMontage = montagePlans.map(p => p.text).join('');
+  const progVoixMontage = createProgress((p) => {
+    const fill = document.getElementById('montageVoixProgFill');
+    const pct = document.getElementById('montageVoixProgPct');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  }, Math.max(8000, texteVoixOffMontage.length * 60));
+  progVoixMontage.start();
   try {
     const rep = await fetch('/api/montage-media?action=tts', {
       method: 'POST',
@@ -591,7 +601,9 @@ async function genererVoixOffMontage() {
       url: URL.createObjectURL(blob),
       durations
     };
+    progVoixMontage.finish();
   } catch (e) {
+    progVoixMontage.stop();
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
     // Voir js/montage-manuel.js pour la même journalisation : ce flux
     // appelle directement /api/montage-media, jamais callAI, donc restait
@@ -638,11 +650,20 @@ function renderMontageEtat() {
     btnGenImg.disabled = montageImagesEnCours;
     btnGenImg.textContent = montageImagesEnCours ? 'Génération des images…' : (nbPretes ? '↻ Régénérer les images' : 'Générer les images');
   }
-  // Bande rayée dorée pendant la génération des images (même animation que les
-  // autres générations). Les vignettes continuent d'apparaître progressivement
-  // en dessous.
+  // % RÉEL pendant la génération des images (une par une, séquentiellement,
+  // voir genererImagesMontage) : montageImageIndexEnCours/montagePlans.length
+  // sont déjà connus avec certitude à chaque appel, un calcul direct suffit,
+  // pas besoin d'estimation de temps. Les vignettes continuent d'apparaître
+  // progressivement en dessous.
   const loaderImg = document.getElementById('montageImagesLoader');
   if (loaderImg) loaderImg.style.display = montageImagesEnCours ? 'flex' : 'none';
+  if (montageImagesEnCours && montagePlans.length) {
+    const pctImg = Math.round((Math.max(0, montageImageIndexEnCours) / montagePlans.length) * 100);
+    const fillImg = document.getElementById('montageImagesLoaderFill');
+    const pctElImg = document.getElementById('montageImagesLoaderPct');
+    if (fillImg) fillImg.style.width = pctImg + '%';
+    if (pctElImg) pctElImg.textContent = pctImg + '%';
+  }
   const btnSelectAll = document.getElementById('montageSelectAllBtn');
   if (btnSelectAll) {
     const indicesDisponibles = montageImages.map((im, i) => im ? i : null).filter(i => i !== null);
@@ -662,8 +683,12 @@ function renderMontageEtat() {
   const zoneVoix = document.getElementById('montageVoixZone');
   if (zoneVoix) {
     if (montageVoixEnCours) {
-      // Même bande rayée dorée que les autres générations (sans texte ni %).
-      zoneVoix.innerHTML = `<div class="sb-progress-bar" style="max-width:none;margin:0"><div class="sb-progress-bar-track"><div class="sb-progress-bar-fill"></div></div></div>`;
+      // % estimé (comme js/montage-manuel.js, omVoixProgBar) : aucun signal
+      // réel disponible pour un appel ElevenLabs unique, non flux.
+      zoneVoix.innerHTML = `<div class="sb-progress-bar" id="montageVoixProgBar" style="max-width:none;margin:0">
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageVoixProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="montageVoixProgPct">0%</div>
+      </div>`;
     } else if (montageVoixOff) {
       zoneVoix.innerHTML = `
         <audio class="montage-audio-preview" src="${montageVoixOff.url}" controls></audio>
@@ -713,15 +738,6 @@ function construireImagesEffectives() {
   return eff;
 }
 
-// Statut de l'assemblage final = bande rayée dorée (même animation que les
-// autres générations) + un court message informatif conservé ici, car le rendu
-// peut durer plusieurs minutes (contrairement aux images/voix off).
-function montageStatutHTML(message) {
-  return '<div class="sb-progress-bar" style="max-width:none;margin:0 0 12px">'
-    + '<div class="sb-progress-bar-track"><div class="sb-progress-bar-fill"></div></div></div>'
-    + '<div>' + message + '</div>';
-}
-
 async function lancerMontage() {
   const err = document.getElementById('montageErreur');
   const statut = document.getElementById('montageStatut');
@@ -738,7 +754,21 @@ async function lancerMontage() {
   montageVideoFichierPromise = null;
   renderMontageEtat();
   if (resultat) resultat.innerHTML = '';
-  if (statut) { statut.style.display = 'block'; statut.innerHTML = montageStatutHTML('Envoi des fichiers…'); }
+  // Simple texte ici (pas montageStatutHTML, qui embarque sa propre bande
+  // rayée décorative) : la vraie barre de progression avec pourcentage
+  // (#montageProgBar, juste en dessous) existe pour cette étape, même
+  // correctif que js/montage-manuel.js (omLancerMontage).
+  if (statut) { statut.style.display = 'block'; statut.textContent = 'Envoi des fichiers…'; }
+  const progBarMontage = document.getElementById('montageProgBar');
+  const dureeEstimeeMontage = Math.max(15000, imagesEff.length * 2500);
+  const progMontage = createProgress((p) => {
+    const fill = document.getElementById('montageProgFill');
+    const pct = document.getElementById('montageProgPct');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  }, dureeEstimeeMontage);
+  if (progBarMontage) progBarMontage.style.display = 'flex';
+  progMontage.start();
 
   try {
     const dossier = 'montage-' + Date.now();
@@ -776,7 +806,7 @@ async function lancerMontage() {
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
     // sondage de statut (contrairement à JSON2Video, remplacé faute de
     // crédits, voir historique de ce fichier).
-    if (statut) statut.innerHTML = montageStatutHTML('Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…');
+    if (statut) statut.textContent = 'Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…';
     let dataRender;
     try {
       // Toujours /api/montage-render (voir en-tête de fichier) : c'est lui
@@ -796,7 +826,9 @@ async function lancerMontage() {
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || 'Le montage n\'a pas pu être généré.');
     } catch (e) { throw new Error('Rendu de la vidéo : ' + e.message); }
 
+    progMontage.finish();
     if (statut) statut.style.display = 'none';
+    if (progBarMontage) progBarMontage.style.display = 'none';
     // Précharge la vidéo dès qu'elle existe, pas au clic sur "Télécharger"
     // (voir prechargerVideoMontage) : le temps que l'utilisateur regarde
     // l'aperçu avant de cliquer suffit largement à finir le téléchargement.
@@ -809,7 +841,9 @@ async function lancerMontage() {
       <video class="montage-video" src="${auditEsc(dataRender.url)}" controls playsinline></video>
       <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${auditEsc(dataRender.url)}')" type="button">Télécharger la vidéo</button>`;
   } catch (e) {
+    progMontage.stop();
     if (statut) statut.style.display = 'none';
+    if (progBarMontage) progBarMontage.style.display = 'none';
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
     try {
       fetch('/api/data', {

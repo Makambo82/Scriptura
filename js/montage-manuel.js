@@ -12,8 +12,8 @@
 //  Réutilise volontairement le pipeline déjà en place : /api/montage-render
 //  (proxy Railway ou repli FFmpeg local, selon MONTAGE_RENDER_URL),
 //  /api/montage-media (voix ElevenLabs), et les fonctions de partage/
-//  téléchargement de js/montage.js (partagerVideoMontage, prechargerVideoMontage,
-//  montageStatutHTML), plutôt que de dupliquer cette logique.
+//  téléchargement de js/montage.js (partagerVideoMontage, prechargerVideoMontage),
+//  plutôt que de dupliquer cette logique.
 //
 //  Synchro image/voix (retour direct : sans ça, chaque image affiche une
 //  part ÉGALE de la voix off, sans lien avec ce qui est réellement dit à
@@ -434,9 +434,9 @@ async function omLancerMontage() {
   omEnCours = true;
   omMajBoutonLancer();
   if (resultat) resultat.innerHTML = '';
-  // Simple texte ici (pas montageStatutHTML, qui embarque sa propre bande
-  // rayée décorative) : la vraie barre de progression avec pourcentage
-  // (#omMontageProgBar, juste en dessous) existe déjà pour cette étape,
+  // Simple texte ici (pas de bande rayée décorative en plus) : la vraie
+  // barre de progression avec pourcentage (#omMontageProgBar, juste en
+  // dessous) existe déjà pour cette étape,
   // les deux ensemble donnaient deux barres empilées pour une seule attente
   // (retour direct après capture d'écran).
   if (statut) { statut.style.display = 'block'; statut.textContent = 'Envoi des fichiers…'; }
