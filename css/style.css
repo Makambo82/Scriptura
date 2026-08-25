@@ -2302,7 +2302,8 @@ body.is-unlocked .sidebar-logout{display:block}
   background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;
   padding:16px;margin-bottom:10px;
 }
-.serie-episode-num{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;color:var(--gold);margin-bottom:8px}
+.serie-episode-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.serie-episode-num{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;color:var(--gold)}
 .serie-episode-titre{font-size:0.96rem;font-weight:700;color:#fff;margin-bottom:8px;line-height:1.4}
 .serie-episode-txt{font-size:0.89rem;color:var(--text-secondary);line-height:1.6;white-space:pre-wrap}
 .serie-directives{margin-top:14px;padding:14px;background:rgba(201,168,76,0.06);border:1px solid var(--border-soft);border-radius:12px}

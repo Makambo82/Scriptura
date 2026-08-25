@@ -383,7 +383,10 @@ async function ouvrirSerie(id) {
           Object.values(ep.directives).filter(Boolean).join('\n\n') : (ep.directives || ''));
       const scriptCopie = storeCopyText((ep.titre ? ep.titre + '\n\n' : '') + scriptStr + (directivesStr ? '\n\n' + directivesStr : ''));
       html += `<div class="serie-episode">
-        <div class="serie-episode-num">Épisode ${ep.num} sur ${total}</div>
+        <div class="serie-episode-head">
+          <div class="serie-episode-num">Épisode ${ep.num} sur ${total}</div>
+          <button class="btn-regenerate sb-regen mini" id="serieEpRegenBtn${ep.num}" onclick="genererEpisode(${ep.num})">↻ Régénérer</button>
+        </div>
         <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
         <div class="serie-episode-txt">${serieEsc(scriptStr)}</div>`;
       // Directives de tournage (adaptées au style)
@@ -685,18 +688,38 @@ function retourListeSeries() {
   openHistory();
 }
 
-// Génère l'épisode suivant, en tenant compte des précédents
-async function genererEpisode() {
+// Génère l'épisode suivant, en tenant compte des précédents. Passer numEp
+// régénère à sa place un épisode déjà écrit (bouton "↻ Régénérer" en haut de
+// chaque épisode, retour direct du propriétaire) : le nouveau texte remplace
+// l'ancien, sans changer sa position, son numéro ni le compteur de la série.
+async function genererEpisode(numEp) {
   if (!serieCouranteId) return;
+  const isRegen = typeof numEp === 'number';
   const err = document.getElementById('serieDetailError');
-  const btn = document.getElementById('serieEpBtn');
-  const spin = document.getElementById('serieEpSpinner');
-  const txt = document.getElementById('serieEpTxt');
+  const btn = isRegen ? document.getElementById('serieEpRegenBtn' + numEp) : document.getElementById('serieEpBtn');
+  const spin = isRegen ? null : document.getElementById('serieEpSpinner');
+  const txt = isRegen ? null : document.getElementById('serieEpTxt');
 
-  // L'épisode consomme une génération du quota mensuel
+  // L'épisode consomme une génération du quota mensuel, régénération comprise
+  // (même règle que pour Script/Récit : voir generate()/generateStory(), qui
+  // vérifient aussi le quota à chaque régénération, pas seulement au premier jet).
   if (!(await peutGenerer('serieDetailError'))) return;
 
-  if (btn) btn.disabled = true;
+  // Les REGEN_GRATUITES premières régénérations d'un épisode donné sont
+  // gratuites (même mécanique que le storyboard d'épisode juste en dessous).
+  if (!isRegen) resetRegen('serieEpisode');
+  if (isRegen) {
+    const gratuite = regenEstGratuite('serieEpisode');
+    _regenGratuiteEnCours = gratuite;
+    const restantes = REGEN_GRATUITES - regenCount.serieEpisode;
+    if (gratuite) {
+      toastRegen('Régénération gratuite · ' + restantes + ' restante' + (restantes > 1 ? 's' : ''));
+    } else {
+      toastRegen('Cette régénération compte dans ton quota');
+    }
+  }
+
+  if (btn) { btn.disabled = true; if (isRegen) btn.textContent = '↻ Régénération…'; }
   if (spin) spin.style.display = 'inline-block';
   if (txt) txt.textContent = 'Écriture en cours…';
   if (err) err.style.display = 'none';
@@ -705,11 +728,15 @@ async function genererEpisode() {
   try {
     const serie = await _serieGet(serieCouranteId);
     const eps = Array.isArray(serie.episodes) ? serie.episodes : [];
-    const num = eps.length + 1;
+    const num = isRegen ? numEp : eps.length + 1;
     const total = serie.nb_episodes || 5;
 
-    const precedents = eps.length
-      ? eps.map(e => `Épisode ${e.num} : ${e.titre}`).join('\n')
+    // Les épisodes déjà publiés AVANT celui-ci (en régénération, exclut
+    // l'épisode lui-même et tout épisode suivant, pour ne jamais citer
+    // l'épisode qu'on est en train de réécrire comme "déjà publié").
+    const avant = eps.filter(e => e.num < num);
+    const precedents = avant.length
+      ? avant.map(e => `Épisode ${e.num} : ${e.titre}`).join('\n')
       : '(aucun pour l\'instant, c\'est le premier)';
 
     const b = serie.bible || {};
@@ -875,13 +902,25 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     }
     if (genProgressCtl) genProgressCtl.etapeTerminee(1);
 
-    const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script }]);
-    const termine = nouveaux.length >= total;
-    await _serieUpdate(serieCouranteId, {
-      episodes: nouveaux,
-      episode_courant: nouveaux.length,
-      statut: termine ? 'terminee' : 'en_cours'
-    });
+    const episodeFinal = { num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script };
+    let nouveaux, patch;
+    if (isRegen) {
+      // Remplace l'épisode à sa place : ni le compteur d'épisodes ni le
+      // statut de la série ne changent, régénérer un texte n'ajoute rien.
+      // Le storyboard/la miniature/le guide de montage déjà générés pour
+      // l'ANCIEN texte sont invalidés : ils ne correspondraient plus au
+      // nouveau texte (même principe que l'invalidation du montage manuel
+      // après un changement d'image, plus tôt cette session).
+      nouveaux = eps.map(e => e.num === num
+        ? Object.assign({}, e, episodeFinal, { storyboard: null, miniature: null, guideMontage: null })
+        : e);
+      patch = { episodes: nouveaux };
+    } else {
+      nouveaux = eps.concat([episodeFinal]);
+      const termine = nouveaux.length >= total;
+      patch = { episodes: nouveaux, episode_courant: nouveaux.length, statut: termine ? 'terminee' : 'en_cours' };
+    }
+    await _serieUpdate(serieCouranteId, patch);
 
     // Enregistre aussi dans l'historique (et compte dans le quota du mois).
     // serie_id est ajouté uniquement pour cet enregistrement (ep lui-même
@@ -898,8 +937,14 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     stopGenAnimation();
     if (err) { err.textContent = 'Génération impossible : ' + (e.message || 'réessaie'); err.style.display = 'block'; }
     if (btn) btn.disabled = false;
-    if (spin) spin.style.display = 'none';
-    if (txt) txt.textContent = 'Réessayer';
+    if (isRegen) {
+      if (btn) btn.textContent = '↻ Régénérer';
+    } else {
+      if (spin) spin.style.display = 'none';
+      if (txt) txt.textContent = 'Réessayer';
+    }
+  } finally {
+    _regenGratuiteEnCours = false;
   }
 }
 
