@@ -86,7 +86,7 @@ async function chargerSeries() {
         <div class="serie-card-titre">${serieEsc(s.titre || 'Série sans titre')}</div>
         <div class="serie-card-concept">${serieEsc(s.concept || '')}</div>
         <div class="serie-card-bas">
-          <span class="serie-progress-txt">${formaterNombre(fait)} / ${formaterNombre(total)} épisodes</span>
+          <span class="serie-progress-txt">${formaterNombre(fait)} / ${formaterNombre(total)} épisodes (${pct}%)</span>
           <span class="serie-progress-bar"><span class="serie-progress-fill" style="width:${pct}%"></span></span>
           ${fini ? '<span class="serie-badge-fini">Terminée</span>' : ''}
         </div>
@@ -283,12 +283,16 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 }
 L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
 
-    let rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche), undefined, 'creationSerie', undefined, undefined, 'serie');
+    // Flux activé UNIQUEMENT pour calibrer le % (voir GEN_POIDS.serie_creation,
+    // js/generation.js) : un seul appel, aucun aperçu texte affiché (sortie
+    // JSON, pas de la prose à lire en direct).
+    const onApercuBible = (buf) => { if (genProgressCtl) genProgressCtl.etapeFluxProgres(0, fractionFlux(buf.length, 2500)); };
+    let rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, nicheNecessiteRecherche(niche), undefined, 'creationSerie', undefined, onApercuBible, 'serie');
     let bible = serieParseJSON(rawBible);
     // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
     // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
     if (!bible || !bible.premisse) {
-      rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, false, undefined, 'creationSerie', undefined, undefined, 'serie');
+      rawBible = await callAI(MODEL_CREATIF, 2500, promptBible, undefined, false, undefined, 'creationSerie', undefined, onApercuBible, 'serie');
       bible = serieParseJSON(rawBible);
     }
     if (!bible || !bible.premisse) throw new Error('construction impossible');
@@ -364,7 +368,7 @@ async function ouvrirSerie(id) {
       <div class="serie-card" style="cursor:default">
         <div class="serie-card-concept">${serieEsc(data.concept)}</div>
         <div class="serie-card-bas">
-          <span class="serie-progress-txt">${formaterNombre(fait)} / ${formaterNombre(total)} épisodes</span>
+          <span class="serie-progress-txt">${formaterNombre(fait)} / ${formaterNombre(total)} épisodes (${pct}%)</span>
           <span class="serie-progress-bar"><span class="serie-progress-fill" style="width:${pct}%"></span></span>
         </div>
       </div>`;
@@ -772,12 +776,19 @@ CHAMP SUPPLÉMENTAIRE OBLIGATOIRE, "voix_off_propre" : en plus de "script" (le t
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","voix_off_propre":"uniquement le texte parlé, sans étiquette ni minutage","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
 
-    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche), undefined, 'creationSerie', undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'serie');
+    // Étape en FLUX (voir onApercu, callAI) : le % avance en continu,
+    // réellement proportionnel aux caractères déjà reçus (voir
+    // GEN_POIDS.serie_episode, js/generation.js).
+    const onApercuEpisode = (buf) => {
+      afficherApercuEnDirect(buf, 'script');
+      if (genProgressCtl) genProgressCtl.etapeFluxProgres(0, fractionFlux(buf.length, 3000));
+    };
+    let raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, nicheNecessiteRecherche(serie.niche), undefined, 'creationSerie', undefined, onApercuEpisode, 'serie');
     let ep = serieParseJSON(raw);
     // Tentative de secours SANS recherche web : priorité à finir plutôt qu'à
     // revérifier des faits, si le 1er essai a été tronqué par le temps limite.
     if (!ep || !ep.script) {
-      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false, undefined, 'creationSerie', undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'serie');
+      raw = await callAI(MODEL_CREATIF, 3000, prompt, undefined, false, undefined, 'creationSerie', undefined, onApercuEpisode, 'serie');
       ep = serieParseJSON(raw);
     }
     // Normalisation : si l'IA retourne script ou directives comme objet, on convertit en texte
@@ -808,6 +819,8 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     function countWordsSerie(texte) {
       return (typeof texte === 'string' ? texte : '').split(/\s+/).filter(Boolean).length;
     }
+    // Écriture terminée pour de vrai : jalon réel avant le contrôle de durée.
+    if (genProgressCtl) genProgressCtl.etapeTerminee(0);
     const wtSerie = WORD_TARGETS_SERIE[b.duree_episode] || WORD_TARGETS_SERIE['45 à 60 secondes'];
     let wordCountSerie = countWordsSerie(ep.script);
     let correctionAttemptsSerie = 0;
@@ -850,6 +863,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
         break; // parsing échoué, on garde la version actuelle
       }
     }
+    if (genProgressCtl) genProgressCtl.etapeTerminee(1);
 
     const nouveaux = eps.concat([{ num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script }]);
     const termine = nouveaux.length >= total;

@@ -1609,6 +1609,12 @@ const GEN_POIDS = {
   // l'écran (contrairement à Script/Récit, cette réponse n'est pas un texte
   // à lire directement).
   ideas: [6000],
+  // Bible/concept de série (js/serie.js, creerSerie) : un seul appel, même
+  // principe que ideas ci-dessus.
+  serie_creation: [2500],
+  // Épisode de série (js/serie.js, genererEpisode) : écriture EN FLUX(3000)
+  // + contrôle de durée, jusqu'à 2 tentatives(2500).
+  serie_episode: [3000, 2500],
   // Indices alignés EXACTEMENT sur GEN_STEPS.script (7 étapes, ci-dessous) :
   // 0-1=brief, un seul appel(2000, réparti sur les 2 premières étapes
   // textuelles faute de signal séparé), 2=écriture[FLUX RÉEL](16000),

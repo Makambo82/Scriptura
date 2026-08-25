@@ -15,7 +15,7 @@ function reponseDataParDefaut(method) {
 // optionnels : s'ils renvoient `undefined`, la réponse par défaut est
 // utilisée. Sinon leur valeur de retour est envoyée telle quelle en JSON.
 async function poserMocksReseau(page, gestionnaires = {}) {
-  await page.route('**/api/data', async (route) => {
+  const gererApiData = async (route) => {
     const method = route.request().method();
     let body = {};
     try { body = JSON.parse(route.request().postData() || '{}'); } catch (e) {}
@@ -25,7 +25,18 @@ async function poserMocksReseau(page, gestionnaires = {}) {
       contentType: 'application/json',
       body: JSON.stringify(reponse !== undefined ? reponse : reponseDataParDefaut(method))
     });
-  });
+  };
+  // Deux motifs nécessaires : le glob Playwright '**/api/data' ne matche PAS
+  // une URL avec une chaîne de requête derrière (ex. /api/data?resource=...,
+  // utilisé par toutes les lectures GET : profil créateur, générations,
+  // séries, quotas...), seulement l'URL exacte sans "?". Sans le second
+  // motif, ces lectures échappaient à ce mock et retombaient vraiment sur le
+  // serveur de fichiers statique de test (404 "Introuvable"), un bug resté
+  // invisible partout ailleurs seulement parce que ces lectures sont déjà
+  // non bloquantes (échec silencieux, try/catch), jusqu'à un test qui, lui,
+  // dépend vraiment d'une de ces lectures GET pour réussir.
+  await page.route('**/api/data', gererApiData);
+  await page.route('**/api/data?**', gererApiData);
 
   await page.route('**/api/generate', async (route) => {
     let body = {};
