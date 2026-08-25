@@ -672,6 +672,16 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg,transparent,var(--gold),transparent);
 }
+/* Carte d'alerte (échecs de génération) : rompt volontairement la palette
+   dorée habituelle pour un vrai signal d'alerte, impossible à confondre
+   avec une carte de statistique neutre (voir carteErreursAdmin, js/admin.js).
+   Toujours en tête du tableau de bord quand elle apparaît. */
+.score-card-alerte{
+  background:linear-gradient(135deg, rgba(248,113,113,0.14), rgba(255,255,255,0.03));
+  border-color:rgba(248,113,113,0.4);
+}
+.score-card-alerte::before{background:linear-gradient(90deg,transparent,#f87171,transparent)}
+.score-card-alerte .score-title{color:#f87171}
 .score-header{
   display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;
 }
@@ -1836,6 +1846,17 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
    couvert par la règle .sidebar-icon svg ci-dessus), héritait sinon du
    blanc cassé de .sidebar-item au lieu du doré des autres icônes. */
 .nav-subscribe-btn .sidebar-icon{color:var(--gold-light)}
+/* Badge d'échecs de génération sur "Tableau de bord" (sidebar + pied de
+   page) : visible sans avoir besoin d'ouvrir le tableau de bord, voir
+   verifierBadgeErreursAdmin (js/admin.js). */
+.nav-admin-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;height:18px;padding:0 5px;margin-left:auto;
+  background:#f87171;color:#1a1310;border-radius:999px;
+  font-size:0.7rem;font-weight:700;font-family:'Poppins',sans-serif;line-height:1;
+  flex:none;
+}
+.footer-link-btn .nav-admin-badge{margin-left:6px}
 /* Icône en ligne dans un texte/badge (hérite de la couleur du texte via
    currentColor, donc respecte l'or, l'émeraude, etc.). Style trait fin,
    même famille que le logo et les icônes de cartes. */

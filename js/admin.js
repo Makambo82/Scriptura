@@ -50,8 +50,12 @@ async function chargerTableauDeBord() {
     chargerCarteModes()
   ]);
 
-  zone.innerHTML = carteCreerAbonne() + carteExpirationsAdmin() + carteInactifsAdmin()
-    + abonnesHTML + carteErreursAdmin() + modesHTML;
+  // Les échecs de génération passent en premier, avant même "Ajouter un
+  // abonné" : un problème qui affecte tous les utilisateurs est plus
+  // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
+  // absente tant qu'il n'y a rien à signaler).
+  zone.innerHTML = carteErreursAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
+    + carteInactifsAdmin() + abonnesHTML + modesHTML;
 }
 
 // ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
@@ -550,16 +554,55 @@ function carteInactifsAdmin() {
 // dans callAI, js/api.js, et supabase/erreurs_generation.sql, à exécuter
 // par le propriétaire). Absente tant qu'aucun échec n'est enregistré (soit
 // tout va bien, soit la table n'existe pas encore, indiscernable ici et
-// sans conséquence : rien à signaler dans les deux cas).
+// sans conséquence : rien à signaler dans les deux cas). Placée en tête du
+// tableau de bord (voir chargerTableauDeBord) et stylée en alerte
+// (.score-card-alerte, css/style.css), pour ne jamais se fondre parmi les
+// cartes de statistique neutres : voir aussi verifierBadgeErreursAdmin,
+// qui signale la même chose avant même d'ouvrir ce tableau.
 function carteErreursAdmin() {
   if (!_erreursTotal) return '';
   const lignes = Object.entries(_erreursParMode)
     .sort((a, b) => b[1] - a[1])
     .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
     .join('');
-  return `<div class="score-card">
-    <div class="score-title">Échecs de génération · 7 jours</div>
+  return `<div class="score-card score-card-alerte">
+    <div class="score-title">⚠ Échecs de génération · 7 jours</div>
     <div class="score-global" style="margin-top:10px"><span class="score-global-num" style="color:#f87171">${escAdmin(_erreursTotal)}</span></div>
     <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
   </div>`;
+}
+
+// ── Badge d'échecs de génération sur "Tableau de bord" (sidebar + pied de
+// page, voir .nav-admin-btn, index.html), visible depuis N'IMPORTE QUEL
+// écran, sans avoir besoin d'ouvrir le tableau de bord pour le savoir
+// (demande explicite : pas de canal de notification séparé, juste rendre
+// ça impossible à manquer). Appelé une seule fois au chargement (voir
+// js/app.js), seulement pour le fondateur (body.is-admin) : le serveur
+// revérifie de toute façon les droits (voir handleAdminStats, api/data.js),
+// ce gate côté client évite juste un appel inutile pour tout le monde
+// d'autre. Échoue silencieusement : ce badge est un signal EN PLUS, la
+// carte d'alerte du tableau de bord (carteErreursAdmin ci-dessus) reste la
+// seule source de vérité si ce badge ne s'affiche pas pour une raison ou
+// une autre.
+async function verifierBadgeErreursAdmin() {
+  if (!document.body.classList.contains('is-admin')) return;
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible) return;
+    const total = data.erreursTotal || 0;
+    if (!total) return;
+    document.querySelectorAll('.nav-admin-btn').forEach(btn => {
+      if (btn.querySelector('.nav-admin-badge')) return;
+      const badge = document.createElement('span');
+      badge.className = 'nav-admin-badge';
+      badge.textContent = total > 99 ? '99+' : String(total);
+      badge.title = total + ' échec' + (total > 1 ? 's' : '') + ' de génération sur les 7 derniers jours';
+      btn.appendChild(badge);
+    });
+  } catch (e) { /* silencieux, voir commentaire ci-dessus */ }
 }

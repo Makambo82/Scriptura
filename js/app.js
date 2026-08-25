@@ -43,6 +43,7 @@ async function envoyerPresence() {
 document.addEventListener('DOMContentLoaded', function() {
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
+  if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
   // Migration : les sessions ouvertes avant la sécurisation des codes
   // admin/illimité (voir api/verify-code.js) sont "unlocked" mais n'ont
   // jamais eu scriptura_illimite/scriptura_is_admin renseignés. On les
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
       verifierStatutServeur(monCode).then(() => {
         appliquerClasseAdmin();
         if (typeof renderGenCounter === 'function') renderGenCounter();
+        if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
       });
     } else {
       localStorage.setItem('scriptura_is_admin', 'false');
