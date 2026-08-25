@@ -751,6 +751,21 @@ async function lancerDiagnosticSommaire() {
   } catch (e) {
     errorBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
     errorBox.style.display = 'block';
+    // Journalise les pannes techniques (LamaTok/TikHub, réseau, service
+    // indisponible...) pour le Tableau de bord (voir carteErreursAdmin,
+    // js/admin.js), même mécanisme que callAI (js/api.js) pour les
+    // générations IA : ces dépendances externes n'ont, sans ça, aucune
+    // visibilité si elles se dégradent ou tombent. "Profil introuvable"
+    // exclu : résultat métier normal (mauvais pseudo), pas une panne.
+    if (e.message !== "Profil introuvable ou privé. Vérifie l'orthographe du nom d'utilisateur.") {
+      try {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resource: 'erreur', mode: 'diagnosticSommaire', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+        }).catch(() => {});
+      } catch (e2) { /* silencieux */ }
+    }
     // Ré-affiche le champ de saisie uniquement en cas d'échec, pour permettre
     // de réessayer, en cas de succès, il reste masqué : le résultat prend
     // sa place (voir analyserAutreCompteDiagSommaire pour le faire réapparaître).

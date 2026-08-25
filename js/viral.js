@@ -163,7 +163,16 @@ async function lancerAnalyseVirale() {
         if (data.ok && data.transcript) { texte = data.transcript; description = data.description || ''; }
         else if (data.description && !texte) { texte = data.description; }
       } catch (e) {
-        if (!texte) throw new Error("Impossible de lire cette vidéo. Colle son texte à la main (repli ci-dessous).");
+        if (!texte) {
+          // Message affiché volontairement générique et actionnable (un
+          // repli existe, coller le texte à la main) : la vraie cause
+          // technique (TikHub, ElevenLabs, réseau...) est conservée à part
+          // pour la journalisation (voir plus bas), sinon le Tableau de
+          // bord ne saurait jamais QUOI a réellement échoué.
+          const erreurConviviale = new Error("Impossible de lire cette vidéo. Colle son texte à la main (repli ci-dessous).");
+          erreurConviviale.detailTechnique = e.message;
+          throw erreurConviviale;
+        }
       }
     }
     if (!texte || texte.length < 15) {
@@ -280,6 +289,20 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     err.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
     err.style.display = 'block';
     if (note) note.textContent = "Colle le lien de partage (TikTok). Pas de lien ? Ouvre le repli et colle le texte de la vidéo.";
+    // Journalise les pannes techniques (TikHub, ElevenLabs, réseau...) pour
+    // le Tableau de bord (voir carteErreursAdmin, js/admin.js), même
+    // mécanisme que callAI (js/api.js) : ces dépendances externes n'ont,
+    // sans ça, aucune visibilité si elles se dégradent ou tombent.
+    const detailsNonTechniques = ['quota atteint', 'accès refusé'];
+    if (!detailsNonTechniques.includes(e.message)) {
+      try {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resource: 'erreur', mode: 'analyseVirale', code: localStorage.getItem('scriptura_code') || null, detail: (e.detailTechnique || e.message || 'erreur inconnue').slice(0, 200) })
+        }).catch(() => {});
+      } catch (e2) { /* silencieux */ }
+    }
   } finally {
     if (typeof stopGenAnimation === 'function') stopGenAnimation();
     btn.disabled = false;
