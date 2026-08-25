@@ -504,6 +504,7 @@ function setAdminPlanFilter(v) {
 let _codesActifsRecents = new Set();
 let _erreursParMode = {};
 let _erreursTotal = 0;
+let _erreursRecentes = [];
 
 async function chargerCarteModes() {
   try {
@@ -517,6 +518,7 @@ async function chargerCarteModes() {
     _codesActifsRecents = new Set(Array.isArray(data.codesActifsRecents) ? data.codesActifsRecents : []);
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
+    _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
     // Scindé par plan (Creator vs Pro, voir parModePlan, api/data.js) pour
     // voir ce qui pousse réellement à l'upgrade, plutôt qu'un simple total
     // tous plans confondus. Jeton/admin/non-abonné hors de cette
@@ -536,6 +538,7 @@ async function chargerCarteModes() {
     _codesActifsRecents = new Set();
     _erreursParMode = {};
     _erreursTotal = 0;
+    _erreursRecentes = [];
     return carteErreurAdmin('Générations par mode · 30 jours', e);
   }
 }
@@ -564,16 +567,68 @@ function carteInactifsAdmin() {
 // (.score-card-alerte, css/style.css), pour ne jamais se fondre parmi les
 // cartes de statistique neutres : voir aussi verifierBadgeErreursAdmin,
 // qui signale la même chose avant même d'ouvrir ce tableau.
+// Libellés lisibles pour les modes journalisés (voir `contexte`, callAI,
+// js/api.js) : les valeurs brutes ('ideas', 'story'...) sont des
+// identifiants techniques, pas ce qu'on montre au fondateur. 'creation'
+// reste géré ici (jamais retiré) : c'est le libellé générique partagé
+// qu'utilisaient TOUS les échecs Idées/Script/Récit avant le correctif de
+// journalisation par mode réel, il peut encore apparaître pour d'anciennes
+// lignes tant qu'elles n'ont pas expiré de la fenêtre de 7 jours.
+const LABEL_MODE_ERREUR = {
+  ideas: 'Idées', script: 'Script', story: 'Récit', serie: 'Série',
+  storyboard: 'Storyboard', storyboardSeul: 'Storyboard seul',
+  recommandation: 'Recommandations', montageGuide: 'Guide de montage',
+  diagnosticSommaire: 'Diagnostic sommaire', diagnosticFusion: 'Diagnostic (fusion)',
+  analyseVirale: 'Analyse virale', audit: 'Diagnostic détaillé',
+  creation: 'Ancien échec (avant précision par mode)', creationSerie: 'Série', autre: 'Autre'
+};
+function labelModeErreur(m) { return LABEL_MODE_ERREUR[m] || m; }
+
+// Format court "il y a X min/h/j", pour le détail d'un échec (voir
+// toggleDetailErreursMode ci-dessous). Volontairement simple (pas de
+// libellé au-delà du jour), le contexte est "7 derniers jours".
+function tempsRelatifCourt(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const diffMin = Math.max(0, Math.round((Date.now() - d.getTime()) / 60000));
+  if (diffMin < 1) return 'à l\'instant';
+  if (diffMin < 60) return 'il y a ' + diffMin + ' min';
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return 'il y a ' + diffH + ' h';
+  return 'il y a ' + Math.round(diffH / 24) + ' j';
+}
+
+// Ouvre/ferme le détail des échecs d'UN mode (voir _erreursRecentes,
+// chargerCarteModes) : le fondateur voit alors ce qui s'est réellement
+// passé (message d'erreur technique, quand, sur quel code), pas seulement
+// un compte. Chaque mode se déplie indépendamment des autres.
+function toggleDetailErreursMode(mode) {
+  const el = document.getElementById('detailErreurs_' + mode);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 function carteErreursAdmin() {
   if (!_erreursTotal) return '';
   const lignes = Object.entries(_erreursParMode)
     .sort((a, b) => b[1] - a[1])
-    .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
+    .map(([m, n]) => {
+      const modeJs = m.replace(/'/g, "\\'");
+      const detailHtml = _erreursRecentes
+        .filter(e => (e.mode || 'autre') === m)
+        .map(e => `<div class="erreur-detail-item"><span class="erreur-detail-quand">${escAdmin(tempsRelatifCourt(e.cree_le))}${e.code_acces ? ' · ' + escAdmin(e.code_acces) : ''}</span><span class="erreur-detail-texte">${escAdmin(e.detail || 'Détail indisponible.')}</span></div>`)
+        .join('') || '<div class="ideas-sub">Détail indisponible pour ces échecs.</div>';
+      return `<div class="audit-sujet erreur-mode-ligne" onclick="toggleDetailErreursMode('${modeJs}')">
+          <span>${escAdmin(labelModeErreur(m))}</span><b>${n}</b>
+        </div>
+        <div class="erreur-detail-liste" id="detailErreurs_${modeJs}" style="display:none">${detailHtml}</div>`;
+    })
     .join('');
   return `<div class="score-card score-card-alerte">
     <div class="score-title">⚠ Échecs de génération · 7 jours</div>
     <div class="score-global" style="margin-top:10px"><span class="score-global-num" style="color:#f87171">${escAdmin(_erreursTotal)}</span></div>
     <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
+    <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Touche un mode pour voir le détail ↓</div>
   </div>`;
 }
 

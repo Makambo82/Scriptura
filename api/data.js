@@ -447,9 +447,26 @@ async function handleAdminStats(req, res, cfg, body) {
       (Array.isArray(rowsErr) ? rowsErr : []).forEach(r => { const m = r.mode || 'autre'; erreursParMode[m] = (erreursParMode[m] || 0) + 1; erreursTotal++; });
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
+    // Détail brut de chaque échec (voir toggleDetailErreursMode,
+    // js/admin.js) : le fondateur peut cliquer un mode dans la carte pour
+    // voir ce qui s'est réellement passé, pas seulement un compte. Requête
+    // SÉPARÉE de celle ci-dessus (qui doit rester exhaustive pour un total
+    // exact) : celle-ci est limitée aux 50 plus récents, uniquement pour
+    // l'affichage du détail, jamais pour le comptage.
+    let erreursRecentes = [];
+    try {
+      const depuis7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      const rErrDetail = await fetch(
+        cfg.url + '/rest/v1/erreurs_generation?select=mode,detail,code_acces,cree_le&cree_le=gte.' + encodeURIComponent(depuis7) + '&order=cree_le.desc&limit=50',
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rowsErrDetail = await rErrDetail.json().catch(() => []);
+      erreursRecentes = Array.isArray(rowsErrDetail) ? rowsErrDetail : [];
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
     return res.status(200).json({
       total, actifs, creator, pro, parMode, parModePlan, codes: Array.isArray(codes) ? codes : [],
-      codesActifsRecents, erreursParMode, erreursTotal
+      codesActifsRecents, erreursParMode, erreursTotal, erreursRecentes
     });
   } catch (e) {
     return res.status(200).json({ indisponible: true });

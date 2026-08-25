@@ -2640,6 +2640,16 @@ body.is-unlocked .sidebar-logout{display:block}
 /* Éditorial : notes par sujet */
 .audit-sujets{display:grid;gap:10px;margin-bottom:14px}
 .audit-sujet{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem;color:var(--text-secondary);padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+/* Ligne de mode cliquable dans la carte "Échecs de génération" (voir
+   toggleDetailErreursMode, js/admin.js) : voir ce qui s'est réellement
+   passé, pas seulement un compte. */
+.erreur-mode-ligne{cursor:pointer}
+.erreur-mode-ligne:hover{color:var(--white)}
+.erreur-detail-liste{padding:2px 0 10px 4px;margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.05)}
+.erreur-detail-item{display:flex;flex-direction:column;gap:2px;padding:8px 0 8px 10px;border-left:2px solid rgba(248,113,113,0.35);font-size:0.82rem}
+.erreur-detail-item+.erreur-detail-item{margin-top:2px}
+.erreur-detail-quand{color:rgba(255,255,255,0.4);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em}
+.erreur-detail-texte{color:var(--text-secondary)}
 .audit-sujet b{color:var(--gold-light)}
 /* Interrupteur actif/inactif (tableau de bord, liste des abonnés) : rond
    qui glisse, doré une fois actif. */
