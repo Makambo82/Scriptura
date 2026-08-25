@@ -269,7 +269,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnemen
 Génère exactement 10 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdeesActive, rechercheWebIdees ? 2 : 1);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdeesActive, rechercheWebIdees ? 2 : 1, undefined, undefined, undefined, 'ideas');
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 
@@ -1096,7 +1096,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase : pourquoi c'est le PLUS PUISSANT des 3, pas juste pourquoi il convient","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant, déjà validée contre le test de prévisibilité, avec le levier psychologique choisi nommé explicitement","strategie_retention":"où placer les relances pour tenir jusqu'au bout, avec le(s) levier(s) psychologique(s) exploité(s) nommé(s)","strategie_cta":"l'action précise à demander en fin de script"}`;
 
-    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt, undefined, rechercheTendancesScriptActive, undefined, undefined, venteFichierPourBrief);
+    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt, undefined, rechercheTendancesScriptActive, undefined, undefined, venteFichierPourBrief, undefined, 'script');
     const brief = parseAIResponse(briefRaw) || {};
     // Si l'utilisateur a collé un texte long, on ne le répète pas dans les
     // étapes suivantes : on utilise l'angle dégagé par le directeur éditorial.
@@ -1193,7 +1193,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       return !!p && Array.isArray(p.script) && p.script.length > 0 && Array.isArray(p.hooks) && p.hooks.length > 0;
     }
 
-    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
+    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'script');
     let parsed = parseAIResponse(writeRaw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
@@ -1205,7 +1205,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le script plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
-      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
+      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'script');
       const parsedRetry = parseAIResponse(writeRawRetry);
       if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
     }
@@ -1301,7 +1301,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
         let nouvelleCritique = null;
         try {
-          const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt);
+          const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
           nouvelleCritique = parseAIResponse(critiqueRaw);
         } catch(e) { /* si le critique échoue (même après réessais), on garde la meilleure version obtenue */ }
 
@@ -1317,7 +1317,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // une révision segment par segment ne suffirait pas, on retente une
           // écriture complète plutôt que de rafistoler.
           try {
-            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'));
+            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'script');
             const parsed2 = parseAIResponse(writeRaw2);
             if (scriptEstComplet(parsed2)) {
               parsed = parsed2;
@@ -1363,7 +1363,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème de hook, sinon garde les meilleurs) et le script complet, segment par segment, dans le même ordre.`;
 
         try {
-          const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt);
+          const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
           const revised = parseAIResponse(reviseRaw);
           if (revised && revised.script) {
             parsed.script = revised.script;
@@ -1398,7 +1398,7 @@ ${hooksExistantsTxt}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${nbManquants} nouveau(x) hook(s) :
 {"hooks":[{"style":"Type de hook","texte":"le hook complet"}]}`;
-        const completHooksRaw = await callAI(MODEL_RAPIDE, 1200, completHooksPrompt);
+        const completHooksRaw = await callAI(MODEL_RAPIDE, 1200, completHooksPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
         const completHooks = parseAIResponse(completHooksRaw);
         if (completHooks && Array.isArray(completHooks.hooks) && completHooks.hooks.length) {
           parsed.hooks = parsed.hooks.concat(completHooks.hooks.slice(0, nbManquants));
@@ -1444,7 +1444,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
       let correctedScript = null;
       try {
-        const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt);
+        const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
         correctedScript = parseAIResponse(correctRaw);
       } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
 

@@ -140,13 +140,23 @@ function tronquerSansCouperEmoji(str, n) {
   return s;
 }
 
-async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, fichierJoint, onApercu) {
+async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearchMaxUses, mode, fichierJoint, onApercu, contexte) {
   // Fait UN appel au modèle donné. Retourne le texte, ou null si échec récupérable.
   // `mode` : identifie le quota à vérifier CÔTÉ SERVEUR (voir api/_lib/acces.js) :
   // 'creation' par défaut (idées/script/récit), ou 'creationSerie'
   // (Pro/jeton pour entrer, voir js/serie.js). diagnosticSommaire/analyseVirale/
   // audit passent par leurs propres routes (username-scan/video-stt/audit),
-  // pas par callAI.
+  // pas par callAI. Idées/Script/Récit partagent volontairement le même
+  // quota "creation" (un seul quota mensuel pour les trois), donc `mode`
+  // seul ne permet JAMAIS de distinguer lequel a échoué.
+  // `contexte` (optionnel) : identifiant du MODE RÉEL pour la carte "Échecs
+  // de génération" du Tableau de bord (voir carteErreursAdmin, js/admin.js),
+  // indépendant de `mode` ci-dessus (qui reste dédié au quota serveur,
+  // jamais changé pour ne pas casser la vérification de quota). Mêmes
+  // valeurs que saveGeneration (js/historique.js) : 'ideas', 'script',
+  // 'story', 'serie', 'storyboardSeul'. Retombe sur `mode` si absent
+  // (comportement d'avant ce correctif, pour les appels non encore mis à
+  // jour).
   // `fichierJoint` (optionnel) : { base64, mediaType }, une image (JPEG) ou
   // un PDF joint au message pour analyse (ex. photo produit ou ebook pour
   // l'objectif "générer des ventes", voir js/generation.js). Anthropic lit
@@ -297,7 +307,7 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resource: 'erreur', mode: mode || 'creation', code: localStorage.getItem('scriptura_code') || null, detail: lastDetail })
+        body: JSON.stringify({ resource: 'erreur', mode: contexte || mode || 'creation', code: localStorage.getItem('scriptura_code') || null, detail: lastDetail })
       }).catch(() => {});
     } catch (e) { /* silencieux */ }
   }

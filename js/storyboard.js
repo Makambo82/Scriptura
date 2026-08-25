@@ -273,7 +273,7 @@ ${STRUCTURE_PROMPT_VISUEL}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après : {"miniature":"le prompt de miniature se terminant par 9:16"}`;
   try {
-    const raw = await callAI(MODEL_RAPIDE, 1200, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 1200, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'storyboard');
     const parsed = parseAIResponse(raw);
     const m = (parsed && parsed.miniature) ? parsed.miniature : '';
     return m ? assainirPromptVisuel(m, 'Miniature') : '';
@@ -307,7 +307,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     let visuels = [];
     for (let tentative = 0; tentative < 2 && visuels.length < lot.length; tentative++) {
       try {
-        const raw = await callAI(MODEL_RAPIDE, Math.max(2000, lot.length * 350), prompt);
+        const raw = await callAI(MODEL_RAPIDE, Math.max(2000, lot.length * 350), prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'storyboard');
         const parsed = parseAIResponse(raw);
         if (parsed && Array.isArray(parsed.visuels)) visuels = parsed.visuels;
       } catch (e) { /* nouvelle tentative si le budget le permet encore */ }

@@ -310,7 +310,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 
   try {
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(1); // phase : écriture du récit
-    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'));
+    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'), 'story');
     let parsed = parseAIResponse(raw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
@@ -319,7 +319,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le récit plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
-      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'));
+      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'), 'story');
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
@@ -380,7 +380,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
 
           if (typeof avancerEtapeGen === 'function') avancerEtapeGen(2); // phase : critique éditorial
-          const critiqueRaw = await callAI(MODEL_QUALITE_RECIT, 2500, critiquePrompt);
+          const critiqueRaw = await callAI(MODEL_QUALITE_RECIT, 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
           const critique = parseAIResponse(critiqueRaw);
           if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
 
@@ -410,7 +410,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             // faible : une révision segment par segment ne suffirait pas, on
             // retente une écriture complète plutôt que de rafistoler.
             try {
-              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'));
+              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'), 'story');
               const parsed2 = parseAIResponse(raw2);
               if (parsed2 && parsed2.recit) {
                 parsed = parsed2;
@@ -447,7 +447,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
           try {
             if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
-            const reviseRaw = await callAI(MODEL_QUALITE_RECIT, 8000, revisePrompt);
+            const reviseRaw = await callAI(MODEL_QUALITE_RECIT, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
             const revised = parseAIResponse(reviseRaw);
             if (revised && Array.isArray(revised.recit) && revised.recit.length) {
               parsed.recit = revised.recit;
@@ -483,7 +483,7 @@ ${hooksExistantsTxt}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${nbManquants} nouveau(x) hook(s) :
 {"hooks":[{"style":"Type de hook","texte":"le hook complet"}]}`;
-        const completHooksRaw = await callAI(MODEL_RAPIDE, 1200, completHooksPrompt);
+        const completHooksRaw = await callAI(MODEL_RAPIDE, 1200, completHooksPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
         const completHooks = parseAIResponse(completHooksRaw);
         if (completHooks && Array.isArray(completHooks.hooks) && completHooks.hooks.length) {
           parsed.hooks = parsed.hooks.concat(completHooks.hooks.slice(0, nbManquants));
@@ -530,7 +530,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         let correctedStory = null;
         try {
           if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4); // phase : calibrage de la durée
-          const correctRawStory = await callAI(MODEL_CREATIF, 8000, correctionPromptStory);
+          const correctRawStory = await callAI(MODEL_CREATIF, 8000, correctionPromptStory, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
           correctedStory = parseAIResponse(correctRawStory);
         } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
 
@@ -615,7 +615,7 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hook":"...","ouverture":"..."}`;
 
-        const correctionOuvertureRaw = await callAI(MODEL_CREATIF, 1200, correctionOuverturePrompt);
+        const correctionOuvertureRaw = await callAI(MODEL_CREATIF, 1200, correctionOuverturePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
         const correctionOuverture = parseAIResponse(correctionOuvertureRaw);
         if (correctionOuverture && typeof correctionOuverture.hook === 'string' && correctionOuverture.hook.trim()
             && typeof correctionOuverture.ouverture === 'string' && correctionOuverture.ouverture.trim()) {
@@ -692,7 +692,7 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"cloture":"la nouvelle clôture complète corrigée"}`;
 
-          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt);
+          const correctionClotureRaw = await callAI(MODEL_CREATIF, 2000, correctionClotureFormPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
           const correctionCloture = parseAIResponse(correctionClotureRaw);
           if (correctionCloture && typeof correctionCloture.cloture === 'string' && correctionCloture.cloture.trim()) {
             dernierSegment.texte = correctionCloture.cloture.trim();

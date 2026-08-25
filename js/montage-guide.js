@@ -128,7 +128,7 @@ RÈGLES : nombres écrits normalement, jamais de tiret cadratin, wording naturel
 }`;
 
   const modele = (typeof MODEL_RAPIDE !== 'undefined') ? MODEL_RAPIDE : 'claude-haiku-4-5-20251001';
-  const raw = await callAI(modele, 2600, prompt);
+  const raw = await callAI(modele, 2600, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'montageGuide');
   return parseAIResponse(raw);
 }
 

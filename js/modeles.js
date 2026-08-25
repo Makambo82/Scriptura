@@ -543,7 +543,7 @@ Identifie d'abord la mécanique narrative du sujet du créateur (nature de l'év
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec les TITRES EXACTS (copiés tel quel dans la liste ci-dessus) :
 {"titres":["titre du meilleur candidat","titre du 2e",...]}`;
-    const raw = await callAI(MODEL_RAPIDE, 400, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
     const parsed = parseAIResponse(raw);
     if (!parsed || !Array.isArray(parsed.titres)) return [];
     const trouves = parsed.titres

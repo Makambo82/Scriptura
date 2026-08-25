@@ -217,7 +217,7 @@ Pour CHAQUE recommandation, fournis :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"niveau_confiance":"faible|moyenne|élevée","recommandations":[{"titre":"...","angle":"...","justifications":["...","..."],"potentiel":"Élevé","ton_conseille":"Storytelling","hook":"...","source":"mixte"}]}`;
 
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebActive, rechercheWebReco ? 2 : 1);
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebActive, rechercheWebReco ? 2 : 1, undefined, undefined, undefined, 'recommandation');
     const parsed = parseAIResponse(raw);
     if (!parsed || !Array.isArray(parsed.recommandations) || !parsed.recommandations.length) return null;
     // Vérification systématique avant affichage : passe best-effort, ne bloque
@@ -267,7 +267,7 @@ Réponds UNIQUEMENT avec le JSON corrigé, sans texte avant ni après, structure
     // Recherche web systématique pour cette passe, quelle que soit la niche :
     // c'est elle qui doit attraper les erreurs de noms/pays/faits, y compris
     // sur des niches où la génération initiale n'utilisait pas la recherche.
-    const rawVerif = await callAI(MODEL_RAPIDE, 6000, verifPrompt, undefined, true);
+    const rawVerif = await callAI(MODEL_RAPIDE, 6000, verifPrompt, undefined, true, undefined, undefined, undefined, undefined, 'recommandation');
     const verifie = parseAIResponse(rawVerif);
 
     // Filet de sécurité : la vérification doit renvoyer le même nombre de
@@ -634,7 +634,7 @@ ${bio ? '- Bio TikTok actuelle : ' + bio : ''}
 Propose UN SEUL sujet de vidéo concret et précis qu'il pourrait explorer, dans le même esprit que ces exemples : "les empires africains", "la psychologie de l'argent", "les femmes qui ont marqué l'histoire". Un sujet court (5 à 10 mots) : jamais une analyse, jamais une phrase qui parle DE lui ou de sa bio, un vrai sujet de contenu, prêt à explorer tel quel.
 
 Réponds UNIQUEMENT avec ce sujet, sans guillemets, sans ponctuation finale, rien d'autre.`;
-    const raw = await callAI(MODEL_RAPIDE, 60, prompt);
+    const raw = await callAI(MODEL_RAPIDE, 60, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'recommandation');
     const sujet = (raw || '').trim().replace(/^["«»]+|["«»]+$/g, '').replace(/\.$/, '');
     return (sujet.length > 2 && sujet.length < 150) ? sujet : '';
   } catch (e) { return ''; }
