@@ -243,12 +243,16 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
   const btnText = document.getElementById('sbSeulBtnText');
   const progBar = document.getElementById('sbProgBar3');
   if (progBar) progBar.style.display = 'flex';
-  const prog = createProgress((p) => {
+  const setPctSb3 = (p) => {
     const fill = document.getElementById('sbProgFill3');
     const pct = document.getElementById('sbProgPct3');
     if (fill) fill.style.width = p + '%';
     if (pct) pct.textContent = p + '%';
-  });
+  };
+  // Jalon RÉEL par lot (voir js/storyboard.js, même correctif) : le %
+  // avance à chaque lot VRAIMENT reçu, pas sur un minuteur.
+  const nbLots3 = Math.max(1, Math.ceil(plans.length / TAILLE_LOT_VISUELS));
+  const prog = creerProgressionReelle(setPctSb3, Array(nbLots3).fill(1));
   prog.start();
 
   // Empile l'écran nu (formulaire encore visible ici) AVANT de passer au
@@ -295,6 +299,7 @@ async function rendreStoryboardSeulProgressif(plans, plat, texteSource) {
     grid.insertAdjacentHTML('beforeend', html);
     const fait = Math.min(indexDepart + lot.length, plans.length);
     if (btnText) btnText.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+    prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
   });
   await promesseMiniature;
 

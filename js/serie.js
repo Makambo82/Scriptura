@@ -462,13 +462,16 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   if (spinner) spinner.style.display = 'block';
   if (btnText) btnText.textContent = 'Scriptura crée le storyboard…';
   if (progBar) progBar.style.display = 'flex';
-  const prog = createProgress((p) => {
+  const setPctSerieSb = (p) => {
     const fill = document.getElementById('serieSbProgFill' + numEp);
     const pct = document.getElementById('serieSbProgPct' + numEp);
     if (fill) fill.style.width = p + '%';
     if (pct) pct.textContent = p + '%';
-  });
-  prog.start();
+  };
+  // Créé une fois le nombre de lots connu (voir plus bas, plans.length) :
+  // null tant que ce n'est pas le cas (ex. erreur avant ce point), gardé
+  // hors du bloc try pour rester visible du finally ci-dessous.
+  let prog = null;
 
   // Rendu progressif, mêmes gabarit et cadre (.out-card) que les modes
   // Script/Récit/Storyboard seul (voir js/storyboard.js) : les plans
@@ -525,6 +528,12 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     const plans = segmentNarrativeStoryboard(scriptText);
     if (!plans.length) throw new Error('Script vide');
 
+    // Jalon RÉEL par lot (voir js/storyboard.js, même correctif) : le %
+    // avance à chaque lot VRAIMENT reçu, pas sur un minuteur.
+    const nbLotsSerieSb = Math.max(1, Math.ceil(plans.length / TAILLE_LOT_VISUELS));
+    prog = creerProgressionReelle(setPctSerieSb, Array(nbLotsSerieSb).fill(1));
+    prog.start();
+
     let miniature = '';
     const promesseMiniature = genererMiniatureVisuelle(scriptText, plat).then(m => {
       miniature = m;
@@ -535,6 +544,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
       if (grid) grid.insertAdjacentHTML('beforeend', lot.map((p, k) => cartePlan(indexDepart + k, p)).join(''));
       const fait = Math.min(indexDepart + lot.length, plans.length);
       if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+      prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
     });
     await promesseMiniature;
     if (statut) statut.remove();
@@ -570,7 +580,7 @@ async function genererStoryboardEpisode(numEp, isRegen) {
     if (grid) grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="genererStoryboardEpisode(${numEp})" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
     if (err) { err.textContent = 'Storyboard impossible : ' + (e.message || 'reessaie'); err.style.display = 'block'; }
   } finally {
-    prog.stop();
+    if (prog) prog.stop();
     const pb = document.getElementById('serieSbProgBar' + numEp);
     if (pb) setTimeout(() => { pb.style.display = 'none'; }, 600);
     if (btn) btn.disabled = false;

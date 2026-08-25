@@ -269,7 +269,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après (aucun raisonnemen
 Génère exactement 10 idées, toutes différentes, classées de la meilleure opportunité à la moins forte pour ce créateur précis.`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdeesActive, rechercheWebIdees ? 2 : 1, undefined, undefined, undefined, 'ideas');
+    // Flux activé UNIQUEMENT pour calibrer le % (voir GEN_POIDS.ideas) :
+    // un seul appel ici, aucun aperçu texte affiché (sortie JSON, pas de la
+    // prose à lire en direct comme pour Script/Récit).
+    const onApercuIdees = (buf) => { if (genProgressCtl) genProgressCtl.etapeFluxProgres(0, fractionFlux(buf.length, 6000)); };
+    const raw = await callAI(MODEL_RAPIDE, 6000, prompt, undefined, rechercheWebIdeesActive, rechercheWebIdees ? 2 : 1, undefined, undefined, onApercuIdees, 'ideas');
     const parsed = parseAIResponse(raw);
     if (!parsed || !parsed.idees) throw new Error('Réponse invalide, réessaie');
 
@@ -1600,6 +1604,11 @@ const GEN_DUREE = {
 // temps classique, comportement inchangé) : conversion volontairement
 // progressive, mode par mode, plutôt qu'un grand changement d'un coup.
 const GEN_POIDS = {
+  // Un seul appel, sans sous-phase réelle : le flux (voir onApercu ci-dessous)
+  // est activé UNIQUEMENT pour calibrer le %, sans afficher le JSON brut à
+  // l'écran (contrairement à Script/Récit, cette réponse n'est pas un texte
+  // à lire directement).
+  ideas: [6000],
   // Indices alignés EXACTEMENT sur GEN_STEPS.script (7 étapes, ci-dessous) :
   // 0-1=brief, un seul appel(2000, réparti sur les 2 premières étapes
   // textuelles faute de signal séparé), 2=écriture[FLUX RÉEL](16000),
@@ -2109,13 +2118,12 @@ async function generateStoryboard() {
   if (genText) genText.textContent = 'Scriptura crée le storyboard…';
   const progBar1 = document.getElementById('sbProgBar1');
   if (progBar1) progBar1.style.display = 'flex';
-  const prog = createProgress((p) => {
+  const setPctSb1 = (p) => {
     const fill = document.getElementById('sbProgFill1');
     const pct = document.getElementById('sbProgPct1');
     if (fill) fill.style.width = p + '%';
     if (pct) pct.textContent = p + '%';
-  });
-  prog.start();
+  };
 
   const ctx = lastGenContext;
   // UNIQUEMENT le texte parlé (jamais le minutage) : préfixer "[0-3 sec]" ici
@@ -2171,6 +2179,12 @@ async function generateStoryboard() {
     const plans = segmentNarrativeStoryboard(scriptText);
     if (!plans.length) throw new Error('Script vide');
 
+    // Jalon RÉEL par lot (voir js/storyboard.js, generateStoryStoryboard,
+    // même correctif) : le % avance à chaque lot VRAIMENT reçu.
+    const nbLots1 = Math.max(1, Math.ceil(plans.length / TAILLE_LOT_VISUELS));
+    const prog = creerProgressionReelle(setPctSb1, Array(nbLots1).fill(1));
+    prog.start();
+
     let miniature = '';
     const promesseMiniature = genererMiniatureVisuelle(`${ctx.sujet}\n\n${scriptText}`, plat).then(m => {
       miniature = m;
@@ -2182,6 +2196,7 @@ async function generateStoryboard() {
       grid.insertAdjacentHTML('beforeend', html);
       const fait = Math.min(indexDepart + lot.length, plans.length);
       if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
+      prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
     });
     await promesseMiniature;
     if (statut) statut.remove();
@@ -2216,7 +2231,7 @@ async function generateStoryboard() {
     if (statut) statut.remove();
     grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="generateStoryboard()" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
   } finally {
-    prog.stop();
+    if (typeof prog !== 'undefined') prog.stop();
     const pb1 = document.getElementById('sbProgBar1');
     if (pb1) setTimeout(() => { pb1.style.display = 'none'; }, 600);
     if (btn) btn.disabled = false;

@@ -335,13 +335,12 @@ async function generateStoryStoryboard() {
   document.getElementById('storyStoryboardText').textContent = 'Création du storyboard…';
   const progBar2 = document.getElementById('sbProgBar2');
   if (progBar2) progBar2.style.display = 'flex';
-  const prog = createProgress((p) => {
+  const setPctSb2 = (p) => {
     const fill = document.getElementById('sbProgFill2');
     const pct = document.getElementById('sbProgPct2');
     if (fill) fill.style.width = p + '%';
     if (pct) pct.textContent = p + '%';
-  });
-  prog.start();
+  };
 
   const plat = storyPlatform || 'TikTok';
 
@@ -374,6 +373,13 @@ async function generateStoryStoryboard() {
     const plans = segmentNarrativeStoryboard(currentStoryText);
     if (!plans.length) throw new Error('Récit vide');
 
+    // Un jalon RÉEL par lot (le nombre de lots dépend du nombre de plans,
+    // connu seulement maintenant) : le % avance à chaque lot VRAIMENT reçu,
+    // pas sur un minuteur (voir creerProgressionReelle, plus haut).
+    const nbLots = Math.max(1, Math.ceil(plans.length / TAILLE_LOT_VISUELS));
+    const prog = creerProgressionReelle(setPctSb2, Array(nbLots).fill(1));
+    prog.start();
+
     out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">${ICO('bulb')} Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
     const grid = document.getElementById('storyStoryboardGrid');
 
@@ -390,6 +396,7 @@ async function generateStoryStoryboard() {
       grid.insertAdjacentHTML('beforeend', html);
       const fait = Math.min(indexDepart + lot.length, plans.length);
       document.getElementById('storyStoryboardText').textContent = `Création du storyboard… ${fait}/${plans.length} plans`;
+      prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
     });
     await promesseMiniature;
 
