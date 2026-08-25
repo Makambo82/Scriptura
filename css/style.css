@@ -1888,8 +1888,11 @@ body.is-unlocked .sidebar-item.nav-switch-account-btn{display:flex}
 }
 .salutation-swap-btn:hover{color:var(--gold-light)}
 .salutation-swap-btn svg{width:16px;height:16px;display:block}
+/* Centré sur la flèche (donc juste sous l'emoji main, immédiatement à sa
+   gauche) plutôt que collé à son bord gauche : un left:0 laissait le menu
+   filer entièrement vers la droite au lieu de rester sous la salutation. */
 .salutation-swap-menu{
-  position:absolute;top:100%;left:0;margin-top:6px;z-index:20;
+  position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;z-index:20;
   background:var(--bg-mid);border:1px solid var(--border-soft);border-radius:12px;
   padding:6px;min-width:160px;display:none;flex-direction:column;gap:2px;
   box-shadow:0 8px 24px rgba(0,0,0,0.4);
