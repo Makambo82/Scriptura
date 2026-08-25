@@ -106,6 +106,11 @@ test('Montage manuel : un échec de voix off ou de rendu est journalisé pour le
 
     const barreVisible = await page.evaluate(() => getComputedStyle(document.getElementById('omMontageProgBar')).display !== 'none');
     assert.equal(barreVisible, true, 'la vraie barre de progression doit rester visible pendant le rendu');
+    // Le % lui-même, pas seulement le conteneur de la barre : un vrai bug
+    // caché a longtemps masqué ce chiffre par CSS (voir css/style.css),
+    // invisible à un test qui ne vérifie que le texte ou le conteneur.
+    const pctVisible = await page.evaluate(() => getComputedStyle(document.getElementById('omMontageProgPct')).display !== 'none');
+    assert.equal(pctVisible, true, 'le % du rendu doit être visible à l\'écran, pas masqué par CSS');
 
     await clicMontage;
     await page.waitForTimeout(100);

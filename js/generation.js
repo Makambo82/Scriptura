@@ -1779,17 +1779,15 @@ function startGenAnimation(mode) {
   steps[0].classList.add('active');
 
   // Barre de progression : saute à 100% pile quand le résultat est prêt
-  // (voir stopGenAnimation). Retour direct du propriétaire : le %
-  // s'affiche désormais pour TOUS les modes (choix précédent : bande rayée
-  // indéterminée partout SAUF l'audit, annulé explicitement). Pour les
-  // modes présents dans GEN_POIDS (voir plus haut), ce % reflète le VRAI
-  // travail (jalons réels + flux de caractères reçus, creerProgressionReelle,
-  // js/storyboard.js) ; les autres modes gardent l'estimation de temps
-  // classique (createProgress) le temps d'être convertis à leur tour.
+  // (voir stopGenAnimation). Le % s'affiche pour TOUS les modes (voir
+  // css/style.css, .sb-progress-bar affiche fill/pct par défaut désormais).
+  // Pour les modes présents dans GEN_POIDS (voir plus haut), ce % reflète
+  // le VRAI travail (jalons réels + flux de caractères reçus,
+  // creerProgressionReelle, js/storyboard.js) ; les autres modes gardent
+  // l'estimation de temps classique (createProgress) le temps d'être
+  // convertis à leur tour.
   const fill = document.getElementById('genProgressFill');
   const pctEl = document.getElementById('genProgressPct');
-  const genBar = fill ? fill.closest('.sb-progress-bar') : null;
-  if (genBar) genBar.classList.add('determinee');
   if (genProgressCtl) genProgressCtl.stop();
   genModeActuel = mode;
   const setPct = (p) => { if (fill) fill.style.width = p + '%'; if (pctEl) pctEl.textContent = p + '%'; };

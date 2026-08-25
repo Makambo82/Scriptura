@@ -102,6 +102,7 @@ function omApresChangementImages() {
     omAudio = null;
   }
   omDureesManuelles = [];
+  omInvaliderResultat();
   omRenderImages();
   omRenderVoixZone();
   omMajBoutonLancer();
@@ -162,6 +163,7 @@ function omRenderDureesManuelles() {
 function omDureeChangee(i, valeur) {
   omDureesManuelles[i] = Math.max(0, parseFloat(valeur) || 0);
   omMajTotalDurees();
+  omInvaliderResultat();
   omMajBoutonLancer();
 }
 
@@ -199,8 +201,10 @@ function omChoisirModeVoix(mode) {
   const btnIa = document.getElementById('omModeIaBtn');
   if (btnUpload) btnUpload.classList.toggle('actif', mode === 'upload');
   if (btnIa) btnIa.classList.toggle('actif', mode === 'ia');
+  omInvaliderResultat();
   omRenderVoixZone();
   omRenderDureesManuelles();
+  omMajBoutonLancer();
 }
 
 // Voix choisie dans le menu déroulant : ne redessine PAS toute la zone (le
@@ -213,6 +217,7 @@ function omChangerVoix(id) {
   if (omAudio && omAudio.source === 'ia') {
     if (omAudio.url) URL.revokeObjectURL(omAudio.url);
     omAudio = null;
+    omInvaliderResultat();
     omMajBoutonLancer();
     const audioEl = document.querySelector('#omVoixZone .montage-audio-preview');
     if (audioEl) audioEl.remove();
@@ -322,6 +327,7 @@ async function omGenererVoixOff() {
     if (err) { err.textContent = "Choisis d'abord une voix."; err.style.display = 'block'; }
     return;
   }
+  omInvaliderResultat();
 
   omVoixEnCours = true;
   omRenderVoixZone();
@@ -392,6 +398,37 @@ function omMajBoutonLancer() {
       : (omDureesManuelles.length === omImages.length && omDureesManuelles.every(d => d > 0));
   }
   btn.disabled = omEnCours || !omImages.length || !voixPrete;
+  // Une vidéo déjà rendue (#omResultat non vide) : le bouton propose d'en
+  // recommencer une nouvelle plutôt que de rester sur "Démarrer le montage"
+  // (retour direct, capture d'écran : le bouton restait figé après succès).
+  // omInvaliderResultat() vide #omResultat dès que l'utilisateur change quoi
+  // que ce soit depuis (images, voix), donc ce simple test reste toujours
+  // juste : jamais "vidéo prête" pour des réglages qui ont changé depuis.
+  const resultat = document.getElementById('omResultat');
+  const dejaRendu = !!(resultat && resultat.innerHTML.trim());
+  btn.textContent = dejaRendu ? 'Monter une autre vidéo' : 'Démarrer le montage';
+  btn.onclick = dejaRendu ? omNouveauMontage : omLancerMontage;
+}
+
+// Vide le résultat déjà rendu (vidéo + bouton téléchargement) dès que
+// l'utilisateur change quoi que ce soit après un montage réussi (images,
+// voix off) : sans ça, une ancienne vidéo restait affichée à côté de
+// réglages qui ne lui correspondent plus, et le bouton "Monter une autre
+// vidéo" (voir omMajBoutonLancer) serait trompeur, laissant croire à une
+// vidéo à jour qui ne l'est plus.
+function omInvaliderResultat() {
+  const resultat = document.getElementById('omResultat');
+  if (resultat) resultat.innerHTML = '';
+}
+
+// Appelé par le bouton "Monter une autre vidéo" (voir omMajBoutonLancer) :
+// repart d'un montage vide sur ce même écran, sans revenir à l'accueil.
+function omNouveauMontage() {
+  omResetState();
+  omRenderImages();
+  omRenderVoixZone();
+  omMajBoutonLancer();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // Devine le format de sortie (9:16 / 16:9 / 1:1) depuis les proportions de

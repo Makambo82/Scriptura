@@ -89,12 +89,13 @@ test('Série : le % de la barre de génération d\'épisode progresse réellemen
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
-    const estDeterminee = await page.evaluate(() => {
-      const fill = document.getElementById('genProgressFill');
-      const bar = fill && fill.closest('.sb-progress-bar');
-      return !!bar && bar.classList.contains('determinee');
+    // Visible pour de vrai (voir progression-reelle-script.test.js pour le
+    // pourquoi de ce contrôle CSS plutôt qu'une simple classe).
+    const pctVisible = await page.evaluate(() => {
+      const el = document.getElementById('genProgressPct');
+      return !!el && getComputedStyle(el).display !== 'none';
     });
-    assert.equal(estDeterminee, true, 'la barre principale doit afficher un % pour le mode Série');
+    assert.equal(pctVisible, true, 'le % doit être visible à l\'écran pour le mode Série');
 
     assert.ok(suiviPct.length >= 2, 'plusieurs valeurs de % doivent avoir été relevées : ' + JSON.stringify(suiviPct));
     for (let i = 1; i < suiviPct.length; i++) {

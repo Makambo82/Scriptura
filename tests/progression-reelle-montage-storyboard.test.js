@@ -60,13 +60,17 @@ test('Montage (storyboard IA) : % réel sur la génération d\'images, % estimé
     // 1) Génération des images : % RÉEL, doit avancer avec l'index réel.
     const genImgPromise = page.evaluate(() => genererImagesMontage());
     await page.waitForTimeout(200);
-    const pctImgMilieu = await page.evaluate(() => {
+    const etatImg = await page.evaluate(() => {
       const el = document.getElementById('montageImagesLoaderPct');
-      return el ? parseInt(el.textContent, 10) : null;
+      return el ? { pct: parseInt(el.textContent, 10), visible: getComputedStyle(el).display !== 'none' } : { pct: null, visible: false };
     });
     await genImgPromise;
     if (erreursJs.length) throw new Error('Exceptions JS (images) : ' + erreursJs.join(' | '));
-    assert.ok(pctImgMilieu !== null && pctImgMilieu > 0, '% réel doit avoir avancé pendant la génération des images (index/total déjà connu) : ' + pctImgMilieu);
+    // Visible pour de vrai, pas seulement présent dans le DOM (voir
+    // css/style.css : un vrai bug caché a longtemps masqué ce chiffre par
+    // CSS, invisible à un test qui ne vérifie que le texte).
+    assert.equal(etatImg.visible, true, 'le % des images doit être visible à l\'écran, pas masqué par CSS');
+    assert.ok(etatImg.pct !== null && etatImg.pct > 0, '% réel doit avoir avancé pendant la génération des images (index/total déjà connu) : ' + etatImg.pct);
     const pctImgFinal = await page.evaluate(() => document.getElementById('montageImagesLoader').style.display);
     assert.equal(pctImgFinal, 'none', 'la barre d\'images doit disparaître une fois toutes les images obtenues');
 
@@ -76,11 +80,16 @@ test('Montage (storyboard IA) : % réel sur la génération d\'images, % estimé
     const etatVoix = await page.evaluate(() => {
       const bar = document.getElementById('montageVoixProgBar');
       const pct = document.getElementById('montageVoixProgPct');
-      return bar ? { visible: true, pct: pct ? pct.textContent : null } : { visible: false, pct: null };
+      return {
+        visible: !!bar,
+        pctVisible: !!pct && getComputedStyle(pct).display !== 'none',
+        pct: pct ? pct.textContent : null
+      };
     });
     await genVoixPromise;
     if (erreursJs.length) throw new Error('Exceptions JS (voix off) : ' + erreursJs.join(' | '));
     assert.equal(etatVoix.visible, true, 'la barre de progression de la voix off doit être visible pendant l\'attente');
+    assert.equal(etatVoix.pctVisible, true, 'le % de la voix off doit être visible à l\'écran, pas masqué par CSS');
     assert.ok(etatVoix.pct && etatVoix.pct !== '0%', 'le % de la voix off doit avoir commencé à progresser : ' + etatVoix.pct);
     const voixPrete = await page.evaluate(() => !!montageVoixOff);
     assert.equal(voixPrete, true, 'la voix off doit être prête après un appel réussi');
@@ -96,12 +105,18 @@ test('Montage (storyboard IA) : % réel sur la génération d\'images, % estimé
     await page.waitForTimeout(150);
     const etatRendu = await page.evaluate(() => {
       const bar = document.getElementById('montageProgBar');
+      const pct = document.getElementById('montageProgPct');
       const statutHtml = document.getElementById('montageStatut').innerHTML;
-      return { visible: bar ? getComputedStyle(bar).display !== 'none' : false, statutHtml };
+      return {
+        visible: bar ? getComputedStyle(bar).display !== 'none' : false,
+        pctVisible: !!pct && getComputedStyle(pct).display !== 'none',
+        statutHtml
+      };
     });
     await lancerPromise;
     if (erreursJs.length) throw new Error('Exceptions JS (rendu) : ' + erreursJs.join(' | '));
     assert.equal(etatRendu.visible, true, 'la barre de progression du rendu doit être visible pendant l\'attente');
+    assert.equal(etatRendu.pctVisible, true, 'le % du rendu doit être visible à l\'écran, pas masqué par CSS');
     assert.ok(!etatRendu.statutHtml.includes('sb-progress-bar'), 'le texte de statut ne doit plus imbriquer de barre décorative en double : ' + etatRendu.statutHtml);
 
     const videoAffichee = await page.evaluate(() => !!document.querySelector('#montageResultat video'));

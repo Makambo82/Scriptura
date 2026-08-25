@@ -74,6 +74,15 @@ test('Storyboard seul : le % progresse par lots RÉELS (genererVisuelsParLots), 
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
+    // Visible pour de vrai, pas seulement présent dans le DOM (voir
+    // css/style.css : un vrai bug caché a longtemps masqué ce chiffre par
+    // CSS, invisible à un test qui ne vérifie que le texte).
+    const pctVisible = await page.evaluate(() => {
+      const el = document.getElementById('sbProgPct3');
+      return !!el && getComputedStyle(el).display !== 'none';
+    });
+    assert.equal(pctVisible, true, 'le % du storyboard seul doit être visible à l\'écran, pas masqué par CSS');
+
     assert.ok(suiviPct.length >= 2, 'plusieurs valeurs de % doivent avoir été relevées : ' + JSON.stringify(suiviPct));
     for (let i = 1; i < suiviPct.length; i++) {
       assert.ok(suiviPct[i] >= suiviPct[i - 1], 'le % ne doit jamais reculer : ' + JSON.stringify(suiviPct));

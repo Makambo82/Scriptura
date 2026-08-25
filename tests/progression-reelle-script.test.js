@@ -94,14 +94,17 @@ test('Script : le % de la barre principale est visible et progresse réellement 
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
-    // La barre doit être en mode "déterminée" (% visible) pour Script,
-    // pas seulement pour l'Audit (choix précédent explicitement annulé).
-    const estDeterminee = await page.evaluate(() => {
-      const fill = document.getElementById('genProgressFill');
-      const bar = fill && fill.closest('.sb-progress-bar');
-      return !!bar && bar.classList.contains('determinee');
+    // Le % doit être RÉELLEMENT visible à l'écran pour Script (pas
+    // seulement présent dans le DOM) : un vrai bug caché a existé ici, le
+    // texte était injecté correctement mais restait masqué par CSS faute
+    // de la classe .determinee, invisible à un test qui ne vérifie que le
+    // texte (voir css/style.css, cette classe n'existe plus, fill/pct sont
+    // visibles par défaut désormais).
+    const pctVisible = await page.evaluate(() => {
+      const el = document.getElementById('genProgressPct');
+      return !!el && getComputedStyle(el).display !== 'none';
     });
-    assert.equal(estDeterminee, true, 'la barre principale doit afficher un % pour le mode Script, comme demandé pour "partout"');
+    assert.equal(pctVisible, true, 'le % doit être visible à l\'écran pour le mode Script, comme demandé pour "partout"');
 
     assert.ok(suiviPct.length >= 2, 'plusieurs valeurs de % doivent avoir été relevées pendant la génération : ' + JSON.stringify(suiviPct));
     // Monotone (jamais en arrière).
