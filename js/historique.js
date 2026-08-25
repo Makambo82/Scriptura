@@ -247,6 +247,23 @@ function parseDateFlexible(val) {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
+// Jours restants avant expiration, seule source de vérité pour ce calcul
+// (utilisée à la fois par la notification "ton abonnement expire dans...",
+// js/abonnement.js, et par la carte "Expirent bientôt" du tableau de bord
+// fondateur, js/admin.js) : l'accès reste valide jusqu'à la FIN du jour
+// d'expiration, donc on compte depuis l'instant présent (heure comprise)
+// jusqu'à 23:59:59 ce jour-là, jamais un simple écart de dates civiles
+// minuit à minuit, qui ignore l'heure actuelle et sous-compte le temps
+// réellement restant. Avant ce correctif, les deux écrans utilisaient deux
+// calculs différents et pouvaient afficher un nombre de jours différent
+// pour le même abonné au même moment.
+function joursRestantsAvantExpiration(expireStr) {
+  const expire = parseDateFlexible(expireStr);
+  if (!expire) return null;
+  expire.setHours(23, 59, 59, 999);
+  return Math.ceil((expire - new Date()) / 86400000);
+}
+
 // Vérifie EN DIRECT si l'abonnement courant est expiré (ou désactivé), en
 // relisant le statut réel côté serveur (voir /api/verify-code, clé
 // service_role) : la RLS verrouillée sur `abonnes` (voir

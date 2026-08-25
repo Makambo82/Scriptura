@@ -203,16 +203,12 @@ async function verifierNotifCompte() {
 
   // Abonnement bientôt expiré
   const expireStr = localStorage.getItem('scriptura_expire');
-  if (expireStr && typeof parseDateFlexible === 'function') {
-    const expire = parseDateFlexible(expireStr);
-    if (expire) {
-      expire.setHours(23, 59, 59, 999);
-      const joursRestants = Math.ceil((expire - new Date()) / 86400000);
-      if (joursRestants >= 0 && joursRestants <= NOTIF_COMPTE_SEUIL_JOURS) {
-        messages.push(joursRestants === 0
-          ? 'ton abonnement expire aujourd\'hui'
-          : 'ton abonnement expire dans ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : ''));
-      }
+  if (expireStr && typeof joursRestantsAvantExpiration === 'function') {
+    const joursRestants = joursRestantsAvantExpiration(expireStr);
+    if (joursRestants !== null && joursRestants >= 0 && joursRestants <= NOTIF_COMPTE_SEUIL_JOURS) {
+      messages.push(joursRestants === 0
+        ? 'ton abonnement expire aujourd\'hui'
+        : 'ton abonnement expire dans ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : ''));
     }
   }
 

@@ -74,7 +74,7 @@ function carteExpirationsAdmin() {
   if (!bientot.length) return '';
 
   const lignes = bientot.map(c => {
-    const joursRestants = Math.round((c.dateExpire - auj) / (24 * 3600 * 1000));
+    const joursRestants = joursRestantsAvantExpiration(c.expire_le);
     const texte = joursRestants < 0
       ? `Expiré depuis ${Math.abs(joursRestants)} j`
       : (joursRestants === 0 ? 'Expire aujourd\'hui' : `Expire dans ${joursRestants} j`);
