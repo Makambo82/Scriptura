@@ -14,7 +14,15 @@
 -- sur le compteur local de l'appareil, sans erreur ni blocage). Rien
 -- d'autre n'en dépend.
 
+-- CORRECTIF (vérifié en prod) : le nom ci-dessus était supposé, comme pour
+-- abonnes_rls.sql au départ, et ne correspondait à rien en réalité. RLS
+-- s'était donc bien activée mais les vraies politiques ouvertes
+-- ("quotas_insert", "quotas_select", "quotas_update") étaient restées
+-- actives, sans effet réel. Corrigé ci-dessous avec les vrais noms.
 drop policy if exists "quotas anon read/write" on quotas;
+drop policy if exists "quotas_insert" on quotas;
+drop policy if exists "quotas_select" on quotas;
+drop policy if exists "quotas_update" on quotas;
 
 alter table quotas enable row level security;
 
