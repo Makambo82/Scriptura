@@ -940,6 +940,13 @@ async function generate() {
   // autres niches (ni coût, ni lenteur supplémentaires).
   const rechercheWeb = nicheNecessiteRecherche(niche);
 
+  // Recherche des tendances TikTok (voir js/api.js) : comme en mode Idées,
+  // le Directeur Éditorial choisit un angle parmi 3 pour CE sujet, donc
+  // autant qu'il s'appuie sur ce qui marche EN CE MOMENT dans la niche,
+  // pas seulement sur ses connaissances d'entraînement. Active pour toutes
+  // les niches, indépendamment de rechercheWeb (vérification factuelle).
+  const rechercheTendancesScriptActive = true;
+
   // Point de départ (étape 2, "Avec quoi commences-tu ?") : les 4 choix
   // doivent chacun changer concrètement le résultat, pas seulement les 2 qui
   // impliquent un texte à coller. "Idée vague" et "sujet précis" produisaient
@@ -1052,7 +1059,7 @@ async function generate() {
     const briefPrompt = `Tu es le Directeur Éditorial de Scriptura, le meilleur stratège de contenu viral francophone. Tu ne rédiges PAS encore. Tu réfléchis comme un directeur créatif de haut niveau avant toute écriture.
 
 RÈGLE FONDAMENTALE, au-dessus de toutes les autres : le script final doit donner l'impression d'avoir été écrit par un excellent storyteller spécialisé TikTok, jamais par une IA généraliste. Chaque choix que tu fais ci-dessous doit servir cette règle.
-${memoireViraleScript}
+${instructionRechercheTendancesTikTok(niche, 'de définir l\'angle et la stratégie')}${memoireViraleScript}
 
 CONTEXTE :
 - ${estTexteLong ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR (texte de référence, potentiellement un article ou un document entier, à NE PAS recopier tel quel : extrais-en le sujet réel, l\'angle et les faits utiles, puis distille pour tenir dans la durée choisie plus bas, quelle que soit la richesse de cette matière)' : 'Sujet'} : ${sujet}
@@ -1089,7 +1096,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase : pourquoi c'est le PLUS PUISSANT des 3, pas juste pourquoi il convient","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant, déjà validée contre le test de prévisibilité, avec le levier psychologique choisi nommé explicitement","strategie_retention":"où placer les relances pour tenir jusqu'au bout, avec le(s) levier(s) psychologique(s) exploité(s) nommé(s)","strategie_cta":"l'action précise à demander en fin de script"}`;
 
-    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt, undefined, false, undefined, undefined, venteFichierPourBrief);
+    const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt, undefined, rechercheTendancesScriptActive, undefined, undefined, venteFichierPourBrief);
     const brief = parseAIResponse(briefRaw) || {};
     // Si l'utilisateur a collé un texte long, on ne le répète pas dans les
     // étapes suivantes : on utilise l'angle dégagé par le directeur éditorial.
