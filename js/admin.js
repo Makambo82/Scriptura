@@ -56,6 +56,11 @@ async function chargerTableauDeBord() {
   // absente tant qu'il n'y a rien à signaler).
   zone.innerHTML = carteErreursAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
+
+  // Le fondateur vient de voir le détail des échecs (la carte ci-dessus,
+  // en tête) : le badge n'a plus lieu d'être tant qu'aucun NOUVEL échec
+  // n'est venu s'ajouter depuis. Voir marquerErreursVues, ci-dessous.
+  marquerErreursVues(_erreursTotal);
 }
 
 // ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
@@ -584,6 +589,24 @@ function carteErreursAdmin() {
 // carte d'alerte du tableau de bord (carteErreursAdmin ci-dessus) reste la
 // seule source de vérité si ce badge ne s'affiche pas pour une raison ou
 // une autre.
+//
+// "Vu" : le badge ne doit pas rester affiché indéfiniment une fois que le
+// fondateur a déjà ouvert le tableau de bord et vu le détail des échecs
+// (sinon un badge qui ne s'efface jamais perd tout son sens de signal).
+// Suivi par un simple compteur en localStorage (pas de comparaison par
+// identifiant précis d'échec, volontairement simple) : marquerErreursVues
+// l'enregistre à l'ouverture du tableau de bord, verifierBadgeErreursAdmin
+// ne réaffiche le badge que si le total a AUGMENTÉ depuis. Limite connue :
+// si un ancien échec sort de la fenêtre de 7 jours pile au moment où un
+// nouveau apparaît, le total peut rester identique et le badge ne pas se
+// redéclencher, cas rare vu le faible volume attendu.
+function cleErreursVues() {
+  return 'scriptura_erreurs_vues_total';
+}
+function marquerErreursVues(total) {
+  try { localStorage.setItem(cleErreursVues(), String(total || 0)); } catch (e) { /* silencieux */ }
+  document.querySelectorAll('.nav-admin-badge').forEach(b => b.remove());
+}
 async function verifierBadgeErreursAdmin() {
   if (!document.body.classList.contains('is-admin')) return;
   try {
@@ -596,6 +619,9 @@ async function verifierBadgeErreursAdmin() {
     if (!r.ok || data.indisponible) return;
     const total = data.erreursTotal || 0;
     if (!total) return;
+    let vu = 0;
+    try { vu = parseInt(localStorage.getItem(cleErreursVues()), 10) || 0; } catch (e) { /* silencieux */ }
+    if (total <= vu) return; // déjà vu la dernière fois, rien de nouveau depuis
     document.querySelectorAll('.nav-admin-btn').forEach(btn => {
       if (btn.querySelector('.nav-admin-badge')) return;
       const badge = document.createElement('span');
