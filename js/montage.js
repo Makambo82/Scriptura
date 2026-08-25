@@ -10,13 +10,14 @@
 //  durée EXACTE de chaque plan.
 // ═══════════════════════════════════════════════════════════
 
-// Rendu vidéo final : par défaut l'ancien endpoint Vercel (/api/montage-render,
-// bridé par le plan gratuit). Dès que le service de rendu externe est déployé
-// (voir render-service/README.md), colle son URL ici pour un rendu 1080p, une
-// synchro image/voix exacte et des transitions variées. Tant que c'est vide,
-// rien ne change, aucune coupure pendant la migration.
-const MONTAGE_RENDER_URL = 'https://scriptura-production-a540.up.railway.app'; // service de rendu Railway
-const MONTAGE_RENDER_TOKEN = ''; // seulement si MONTAGE_TOKEN est défini côté service
+// Le rendu passe TOUJOURS par /api/montage-render (dans ce dépôt), jamais
+// par un appel direct du navigateur au service de rendu externe : l'URL et
+// le jeton de ce service ne doivent JAMAIS vivre dans du JS servi au
+// client (ce serait publié en clair pour n'importe qui, exactement comme
+// une clé secrète collée dans le HTML). C'est /api/montage-render qui
+// proxie vers le service externe si configuré (voir MONTAGE_RENDER_URL/
+// MONTAGE_RENDER_TOKEN, variables d'environnement Vercel, et
+// render-service/README.md pour le déploiement du service lui-même).
 
 let montagePlans = [];      // [{ text, visuel }], un par plan du storyboard
 let montageImages = [];     // [{ blob, apercu } | null], même ordre/longueur que montagePlans
@@ -724,19 +725,17 @@ async function lancerMontage() {
     if (statut) statut.innerHTML = montageStatutHTML('Montage en cours (peut prendre plusieurs minutes selon le nombre de plans)…');
     let dataRender;
     try {
-      // Service de rendu externe si configuré (rendu 1080p, synchro exacte,
-      // transitions variées), sinon l'ancien endpoint Vercel par défaut.
-      const urlRendu = MONTAGE_RENDER_URL ? MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render' : '/api/montage-render';
-      const entetes = { 'Content-Type': 'application/json' };
-      if (MONTAGE_RENDER_URL && MONTAGE_RENDER_TOKEN) entetes['x-montage-token'] = MONTAGE_RENDER_TOKEN;
-      // Le code d'accès n'est envoyé qu'au repli Vercel (/api/montage-render,
-      // dans ce dépôt, désormais protégé côté serveur) : jamais au service
-      // Railway externe, hors de notre contrôle.
-      const corpsRendu = { images, audioUrl: dataAudio.publicUrl, format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || '') };
-      if (!MONTAGE_RENDER_URL) corpsRendu.code_acces = localStorage.getItem('scriptura_code') || null;
-      const rRender = await fetch(urlRendu, {
+      // Toujours /api/montage-render (voir en-tête de fichier) : c'est lui
+      // qui décide, côté serveur, d'assembler la vidéo lui-même ou de
+      // proxier vers le service de rendu externe.
+      const corpsRendu = {
+        images, audioUrl: dataAudio.publicUrl,
+        format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || ''),
+        code_acces: localStorage.getItem('scriptura_code') || null
+      };
+      const rRender = await fetch('/api/montage-render', {
         method: 'POST',
-        headers: entetes,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(corpsRendu)
       });
       dataRender = await rRender.json();

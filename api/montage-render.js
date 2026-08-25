@@ -1,9 +1,15 @@
 // ═══════════════════════════════════════════════════════════
-//  /api/montage-render, Assemble la vidéo finale avec FFmpeg (auto-hébergé),
-//  à partir des images + de la voix off déjà uploadées dans Supabase Storage
-//  par js/montage.js (bucket "montages"). Remplace JSON2Video (crédits
-//  épuisés en cours de route) : rendu synchrone, dans la même requête,
-//  binaire FFmpeg fourni par ffmpeg-static (aucun service externe).
+//  /api/montage-render, POINT D'ENTRÉE UNIQUE du rendu vidéo côté client
+//  (voir js/montage.js, qui n'appelle plus jamais un service externe
+//  directement). Si MONTAGE_RENDER_URL est réglée (variable d'environnement
+//  Vercel), PROXIE la requête vers le service de rendu externe
+//  (render-service/, Railway/Render/Fly), avec le jeton MONTAGE_RENDER_TOKEN
+//  ajouté ici, côté serveur uniquement (voir plus bas). Sinon, assemble la
+//  vidéo finale ICI MÊME avec FFmpeg (auto-hébergé), à partir des images +
+//  de la voix off déjà uploadées dans Supabase Storage par js/montage.js
+//  (bucket "montages"). Remplace JSON2Video (crédits épuisés en cours de
+//  route) : rendu synchrone, dans la même requête, binaire FFmpeg fourni
+//  par ffmpeg-static.
 //
 //  Effet Ken Burns (zoompan) sur chaque image, alternant zoom avant / zoom
 //  arrière, et un seul type de transition (fondu croisé, xfade) entre les
@@ -198,6 +204,36 @@ export default async function handler(req, res) {
   const audioUrl = typeof body?.audioUrl === 'string' ? body.audioUrl : '';
   if (!images.length || !audioUrl) {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
+  }
+
+  // Service de rendu externe (Railway/Render/Fly, voir render-service/),
+  // proxié depuis ICI (serveur), jamais appelé directement par le
+  // navigateur (voir js/montage.js) : sans ça, l'URL du service ET son
+  // jeton auraient dû vivre dans le JS servi au client, donc publics, ce
+  // qui aurait annulé toute protection (même faille que si on avait mis
+  // une clé secrète dans le HTML). MONTAGE_RENDER_URL/MONTAGE_RENDER_TOKEN
+  // sont des variables d'environnement VERCEL (jamais exposées au
+  // navigateur), à régler séparément des variables du service externe
+  // lui-même (voir render-service/README.md). Sans MONTAGE_RENDER_URL :
+  // repli sur le rendu FFmpeg local ci-dessous (comportement d'origine).
+  if (process.env.MONTAGE_RENDER_URL) {
+    try {
+      const entetesProxy = { 'Content-Type': 'application/json' };
+      if (process.env.MONTAGE_RENDER_TOKEN) entetesProxy['x-montage-token'] = process.env.MONTAGE_RENDER_TOKEN;
+      const format = typeof body?.format === 'string' ? body.format : undefined;
+      const rProxy = await fetch(process.env.MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render', {
+        method: 'POST',
+        headers: entetesProxy,
+        body: JSON.stringify({ images, audioUrl, format })
+      });
+      const dataProxy = await rProxy.json().catch(() => ({}));
+      if (!rProxy.ok || !dataProxy.url) {
+        return res.status(502).json({ error: { message: (dataProxy.error && dataProxy.error.message) || 'Le service de rendu externe a échoué.' } });
+      }
+      return res.status(200).json({ url: dataProxy.url });
+    } catch (e) {
+      return res.status(502).json({ error: { message: 'Service de rendu externe injoignable : ' + (e.message || 'inconnue') } });
+    }
   }
   const durees = images.map(img => Math.max(1, Number(img.duration) || 2));
 

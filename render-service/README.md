@@ -28,8 +28,12 @@ RAM pour les gros montages 1080p.
    - `SUPABASE_ANON_KEY` — même valeur que sur Vercel.
    - `ALLOWED_ORIGIN` — l'URL du site, ex. `https://scriptura-v1.vercel.app`
      (ou `*` pour tout autoriser).
-   - `MONTAGE_TOKEN` — *(optionnel)* un mot de passe simple ; s'il est défini,
-     il doit être renseigné aussi côté site (voir plus bas).
+   - `MONTAGE_TOKEN` — **fortement recommandé** : un mot de passe simple
+     (ex. généré avec `openssl rand -hex 32`). Sans lui, ce service accepte
+     n'importe quelle requête `POST /render` venue de n'importe où, sans
+     vérification (le rendu FFmpeg coûte du temps de calcul facturé par
+     l'hébergeur). S'il est défini ici, il doit être renseigné avec la
+     MÊME valeur côté Vercel (voir plus bas).
    - *(optionnel)* `MONTAGE_WIDTH` / `MONTAGE_HEIGHT` / `MONTAGE_FPS` /
      `MONTAGE_TRANSITION` pour ajuster résolution, cadence et durée de fondu.
    - *(optionnel)* `MONTAGE_BATCH` — nombre de plans rendus ensemble (défaut 6).
@@ -54,20 +58,21 @@ RAM pour les gros montages 1080p.
 
 ## Brancher le site sur le service
 
-Dans `js/montage.js`, renseigne la constante en haut du fichier :
+Le navigateur n'appelle JAMAIS ce service directement (l'URL et le jeton ne
+doivent jamais vivre dans du code servi au client, ce serait publié en clair
+pour n'importe qui). C'est `/api/montage-render` (dans le dépôt principal)
+qui proxie vers ce service, côté serveur uniquement.
 
-```js
-const MONTAGE_RENDER_URL = 'https://scriptura-render.onrender.com'; // ton URL Render
-```
+Sur **Vercel**, projet du site principal → *Settings* → *Environment
+Variables*, ajoute :
 
-Si `MONTAGE_TOKEN` est défini côté service, renseigne le même :
+- `MONTAGE_RENDER_URL` — l'URL de ce service (ex. `https://scriptura-render.onrender.com`).
+- `MONTAGE_RENDER_TOKEN` — **la même valeur** que `MONTAGE_TOKEN` réglé ci-dessus.
 
-```js
-const MONTAGE_RENDER_TOKEN = 'le-meme-jeton';
-```
-
-Tant que `MONTAGE_RENDER_URL` est vide, le site continue d'utiliser l'ancien
-rendu Vercel (`/api/montage-render`) — aucune coupure pendant la migration.
+Puis redéploie (un nouveau push suffit, ou "Redeploy" sur le dernier
+déploiement). Tant que `MONTAGE_RENDER_URL` n'est pas réglée sur Vercel, le
+site continue d'utiliser le rendu Vercel local (`/api/montage-render`,
+FFmpeg auto-hébergé, plus limité) — aucune coupure pendant la migration.
 
 ## Test rapide
 
