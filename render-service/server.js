@@ -51,8 +51,10 @@ const ZMAX = 1.20;
 // ensuite par le démuxeur concat (copie de flux, quasi gratuite). Fondu croisé
 // varié À L'INTÉRIEUR d'un lot ; une coupure nette (rare) entre deux lots.
 // Réglable via MONTAGE_BATCH selon la RAM de l'hébergeur (plus haut = moins de
-// coupures, mais plus de mémoire).
-const TAILLE_LOT = parseInt(process.env.MONTAGE_BATCH || '4', 10);
+// coupures, mais plus de mémoire). Baissé de 4 à 3 après un vrai OOM kill en
+// production (montage à 53 plans, lot-0 déjà tué "code null") : même le tout
+// premier lot de 4 dépassait la RAM disponible sur le conteneur actuel.
+const TAILLE_LOT = parseInt(process.env.MONTAGE_BATCH || '3', 10);
 // Jeton optionnel : si défini, chaque requête doit envoyer le même dans
 // l'en-tête "x-montage-token". Gate légère (l'outil est réservé au fondateur).
 const MONTAGE_TOKEN = process.env.MONTAGE_TOKEN || '';
@@ -145,8 +147,21 @@ function executerFFmpeg(args) {
     let stderr = '';
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
     proc.on('error', reject);
-    proc.on('close', (code) => {
+    proc.on('close', (code, signal) => {
       if (code === 0) resolve();
+      // "code null" veut dire que le processus n'est pas parti de lui-même :
+      // il a été TUÉ par un signal (Node ne remonte alors jamais de code de
+      // sortie). SIGKILL depuis l'hébergeur (pas depuis FFmpeg lui-même) est
+      // la signature d'un OOM kill : le conteneur a manqué de mémoire pendant
+      // l'encodage, voir TAILLE_LOT plus haut pour le réglage qui borne ça.
+      // Le signal était jusqu'ici perdu (juste "code null", sans piste), ce
+      // qui rendait le diagnostic impossible sans accès aux logs Railway.
+      else if (code === null && signal) {
+        const pisteOom = signal === 'SIGKILL'
+          ? ' — probablement un manque de mémoire sur le conteneur (OOM kill) : baisse MONTAGE_BATCH côté hébergeur.'
+          : '';
+        reject(new Error('FFmpeg a été interrompu par le système (signal ' + signal + ')' + pisteOom + ' : ' + stderr.slice(-2000)));
+      }
       else reject(new Error('FFmpeg a échoué (code ' + code + ') : ' + stderr.slice(-2000)));
     });
   });

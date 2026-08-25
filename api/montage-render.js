@@ -155,8 +155,16 @@ function executerFFmpeg(args) {
     let stderr = '';
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
     proc.on('error', reject);
-    proc.on('close', (code) => {
+    proc.on('close', (code, signal) => {
       if (code === 0) resolve();
+      // Voir render-service/server.js pour le même correctif : "code null"
+      // sans signal capturé rendait un OOM kill indiscernable d'un vrai bug.
+      else if (code === null && signal) {
+        const pisteOom = signal === 'SIGKILL'
+          ? ' — probablement un manque de mémoire (fonction Vercel limitée à 1 Go) : réduis TAILLE_LOT ou le nombre de plans.'
+          : '';
+        reject(new Error('FFmpeg a été interrompu par le système (signal ' + signal + ')' + pisteOom + ' : ' + stderr.slice(-2000)));
+      }
       else reject(new Error('FFmpeg a échoué (code ' + code + ') : ' + stderr.slice(-2000)));
     });
   });
