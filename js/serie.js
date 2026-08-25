@@ -409,17 +409,40 @@ async function ouvrirSerie(id) {
       // façon progressive dans les deux cas, sans jamais dépendre d'un
       // rechargement complet de l'écran pour afficher le résultat.
       if (estFaceless) {
-        html += `<div class="serie-storyboard">
-          ${ep.storyboard ? '' : optionsStoryboardHTML()}
-          <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})" style="${ep.storyboard ? 'display:none' : ''}">
-            <span class="sb-gen-spinner" id="serieSbSpinner${ep.num}"></span>
-            <span id="serieSbBtnText${ep.num}">Générer le storyboard de cet épisode</span>
-          </button>
-          <div class="sb-progress-bar" id="serieSbProgBar${ep.num}" style="display:none">
-            <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="serieSbProgFill${ep.num}"></div></div>
-            <div class="sb-progress-bar-pct" id="serieSbProgPct${ep.num}">0%</div>
+        // Carte repliable (même mécanisme que le storyboard des modes Script
+        // et Récit, voir js/generation.js/js/storytelling.js : .out-card +
+        // toggleCard), au lieu du bloc toujours déplié qui alourdissait
+        // chaque épisode. Ouverte par défaut UNIQUEMENT si un storyboard
+        // existe déjà (résultat déjà là, jamais caché derrière un clic en
+        // plus) ; repliée par défaut avant toute génération.
+        // UNE SEULE carte, jamais imbriquée : le bouton "↻ Régénérer" vit
+        // dans CET en-tête (masqué tant qu'aucun storyboard n'existe), et
+        // genererStoryboardEpisode() ne remplace que l'intérieur (le
+        // formulaire "avant" ou le contenu "après"), jamais la carte
+        // elle-même — voir genererStoryboardEpisode/renderSerieStoryboardContenu.
+        html += `<div class="out-card sb-appear${ep.storyboard ? ' open' : ''}" style="margin-top:14px">
+          <div class="out-header" onclick="toggleCard(this.parentElement)">
+            <div class="out-title">Storyboard visuel</div>
+            <button class="btn-regenerate sb-regen mini" id="serieSbRegenBtn${ep.num}" onclick="event.stopPropagation(); genererStoryboardEpisode(${ep.num}, true)" style="${ep.storyboard ? '' : 'display:none'}">↻ Régénérer</button>
+            <div class="out-toggle">+</div>
           </div>
-          <div id="serieSbZone${ep.num}">${ep.storyboard ? renderSerieStoryboard(ep.storyboard, ep.miniature, ep.num, ep.guideMontage) : ''}</div>
+          <div class="out-body">
+            <div class="serie-storyboard">
+              <div id="serieSbForm${ep.num}" style="${ep.storyboard ? 'display:none' : ''}">
+                <p style="color:rgba(255,255,255,0.7);font-size:0.92rem;line-height:1.6;margin-bottom:16px">Génère le découpage visuel plan par plan de cet épisode, avec un prompt d'image pour chaque segment.</p>
+                ${optionsStoryboardHTML()}
+                <button class="btn-storyboard serie-sb-btn" id="serieSbBtn${ep.num}" onclick="genererStoryboardEpisode(${ep.num})">
+                  <span class="sb-gen-spinner" id="serieSbSpinner${ep.num}"></span>
+                  <span id="serieSbBtnText${ep.num}">Générer le storyboard de cet épisode</span>
+                </button>
+              </div>
+              <div class="sb-progress-bar" id="serieSbProgBar${ep.num}" style="display:none">
+                <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="serieSbProgFill${ep.num}"></div></div>
+                <div class="sb-progress-bar-pct" id="serieSbProgPct${ep.num}">0%</div>
+              </div>
+              <div id="serieSbZone${ep.num}">${ep.storyboard ? renderSerieStoryboardContenu(ep.storyboard, ep.miniature, ep.num, ep.guideMontage) : ''}</div>
+            </div>
+          </div>
         </div>`;
       }
       html += `</div>`;
@@ -463,6 +486,8 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   const btn = document.getElementById('serieSbBtn' + numEp);
   const spinner = document.getElementById('serieSbSpinner' + numEp);
   const btnText = document.getElementById('serieSbBtnText' + numEp);
+  const form = document.getElementById('serieSbForm' + numEp);
+  const regenBtn = document.getElementById('serieSbRegenBtn' + numEp);
   const zone = document.getElementById('serieSbZone' + numEp);
   const progBar = document.getElementById('serieSbProgBar' + numEp);
   if (btn) btn.disabled = true;
@@ -480,21 +505,13 @@ async function genererStoryboardEpisode(numEp, isRegen) {
   // hors du bloc try pour rester visible du finally ci-dessous.
   let prog = null;
 
-  // Rendu progressif, mêmes gabarit et cadre (.out-card) que les modes
-  // Script/Récit/Storyboard seul (voir js/storyboard.js) : les plans
-  // apparaissent lot par lot au fur et à mesure, jamais tous d'un coup.
-  if (zone) zone.innerHTML = `<div class="out-card sb-appear open">
-    <div class="out-header" onclick="toggleCard(this.parentElement)">
-      <div class="out-title">Storyboard visuel</div>
-      <button class="btn-regenerate sb-regen mini" onclick="event.stopPropagation(); genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
-      <div class="out-toggle">+</div>
-    </div>
-    <div class="out-body">
+  // Rendu progressif (SANS carte englobante, déjà fournie par ouvrirSerie,
+  // voir renderSerieStoryboardContenu) : les plans apparaissent lot par lot
+  // au fur et à mesure, jamais tous d'un coup.
+  if (zone) zone.innerHTML = `
       <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div>
       <div class="sb-statut" id="serieSbStatut${numEp}">Scriptura crée le storyboard…</div>
-      <div class="storyboard-list" id="serieSbGrid${numEp}"></div>
-    </div>
-  </div>`;
+      <div class="storyboard-list" id="serieSbGrid${numEp}"></div>`;
   const grid = document.getElementById('serieSbGrid' + numEp);
   const statut = document.getElementById('serieSbStatut' + numEp);
 
@@ -572,7 +589,13 @@ async function genererStoryboardEpisode(numEp, isRegen) {
         <div class="guide-montage-zone" id="guideZoneSerie${numEp}"></div>
       </div>`);
 
-    // Masquer le bouton (le storyboard affiché + son bouton "Régénérer" prennent le relais)
+    // Le formulaire (bouton + choix de style/format) laisse place au résultat ;
+    // le bouton "↻ Régénérer" de l'en-tête (UNE SEULE carte pour les deux
+    // états, voir ouvrirSerie) prend le relais. Seulement en cas de succès :
+    // sur échec, le formulaire reste visible pour relancer directement, sans
+    // devoir chercher un petit lien "Réessayer" perdu dans le résultat.
+    if (form) form.style.display = 'none';
+    if (regenBtn) regenBtn.style.display = '';
     if (btn) btn.style.display = 'none';
 
     // On rattache le storyboard complet (miniature + segments) a l'episode,
@@ -609,8 +632,11 @@ async function serieSauverGuideMontage(numEp, guide) {
   } catch (e) { /* non bloquant */ }
 }
 
-// Affiche un storyboard de serie (miniature + segments, avec boutons image et copie)
-function renderSerieStoryboard(sb, miniature, numEp, guideMontage) {
+// Contenu (SANS la carte englobante ni son en-tête : les deux sont déjà
+// fournis par ouvrirSerie, une seule fois par épisode, régénération comprise
+// — voir genererStoryboardEpisode) d'un storyboard de série déjà généré :
+// miniature + segments, avec boutons image et copie.
+function renderSerieStoryboardContenu(sb, miniature, numEp, guideMontage) {
   if (!Array.isArray(sb) || !sb.length) return '';
   const miniHtml = miniature ? `
     <div class="sb-segment sb-miniature">
@@ -621,34 +647,25 @@ function renderSerieStoryboard(sb, miniature, numEp, guideMontage) {
     </div>` : '';
   const tous = (miniature ? 'MINIATURE : ' + miniature + '\n\n' : '')
     + sb.map((seg, i) => 'Plan ' + (i+1) + ' : ' + (seg.prompt_visuel || '')).join('\n\n');
-  return `<div class="out-card sb-appear open">
-    <div class="out-header" onclick="toggleCard(this.parentElement)">
-      <div class="out-title">Storyboard visuel</div>
-      <button class="btn-regenerate sb-regen mini" onclick="event.stopPropagation(); genererStoryboardEpisode(${numEp}, true)">↻ Régénérer</button>
-      <div class="out-toggle">+</div>
-    </div>
-    <div class="out-body">
-      <div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié et l'app s'ouvre.</div>
-      <div class="storyboard-list">${miniHtml}${sb.map((seg, i) => `
-        <div class="sb-segment">
-          <div class="sb-head"><span class="sb-time">${serieEsc(seg.segment || '')}</span><span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span></div>
-          <div class="sb-dit">"${serieEsc(seg.texte_dit || '')}"</div>
-          <div class="sb-visual-label">🎬 Prompt visuel</div>
-          <div class="sb-visual">${serieEsc(seg.prompt_visuel || '')}</div>
-          ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
-        </div>`).join('')}
-        <div class="sb-actions-fin">
-          <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
-          <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
-          ${montageBoutonHTML('montageBtnSerie' + numEp, sb)}
-        </div>
-        <div class="guide-montage-wrap">
-          ${guideMontage ? '' : guideMontageBoutonHTML('guideBtnSerie' + numEp, 'guideZoneSerie' + numEp, sb, '', g => serieSauverGuideMontage(numEp, g))}
-          <div class="guide-montage-zone" id="guideZoneSerie${numEp}">${guideMontage ? renderGuideMontage(guideMontage) : ''}</div>
-        </div>
+  return `<div class="sb-aide">💡 Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié et l'app s'ouvre.</div>
+    <div class="storyboard-list">${miniHtml}${sb.map((seg, i) => `
+      <div class="sb-segment">
+        <div class="sb-head"><span class="sb-time">${serieEsc(seg.segment || '')}</span><span class="sb-index">Plan ${String(i+1).padStart(2,'0')}</span></div>
+        <div class="sb-dit">"${serieEsc(seg.texte_dit || '')}"</div>
+        <div class="sb-visual-label">🎬 Prompt visuel</div>
+        <div class="sb-visual">${serieEsc(seg.prompt_visuel || '')}</div>
+        ${blocGenImage(storeCopyText(seg.prompt_visuel || ''))}
+      </div>`).join('')}
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier tous les prompts" onclick="copyText(this, '${storeCopyText(tous)}')">${ICON_COPY}</button>
+        <button class="icon-btn" title="Partager" onclick="shareText(this, '${storeCopyText(tous)}')">${ICON_SHARE}</button>
+        ${montageBoutonHTML('montageBtnSerie' + numEp, sb)}
       </div>
-    </div>
-  </div>`;
+      <div class="guide-montage-wrap">
+        ${guideMontage ? '' : guideMontageBoutonHTML('guideBtnSerie' + numEp, 'guideZoneSerie' + numEp, sb, '', g => serieSauverGuideMontage(numEp, g))}
+        <div class="guide-montage-zone" id="guideZoneSerie${numEp}">${guideMontage ? renderGuideMontage(guideMontage) : ''}</div>
+      </div>
+    </div>`;
 }
 
 // Revient à la liste des séries depuis le détail
