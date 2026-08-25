@@ -37,6 +37,16 @@ de moi-même, comme un pro qui possède le produit.
 - **Déploiement** : développer sur la branche de feature, vérifier, puis
   **merge fast-forward vers `main`** (prod Vercel). Rien n'est en ligne tant que
   ce n'est pas sur `main`. Committer/pousser seulement quand la vérif est verte.
+  Le rituel ne repose plus sur ma seule vigilance manuelle à chaque fois : une
+  CI GitHub Actions (`.github/workflows/tests.yml`) tourne sur chaque push et
+  rejoue toute la suite `tests/`. Avant de proposer "Merge" au propriétaire, je
+  vérifie que le run CI du dernier commit de la branche de feature est vert
+  (`mcp__github__actions_list`/`actions_get`), pas seulement mes tests locaux.
+  Après le merge vers `main`, je vérifie aussi le run CI déclenché sur `main`
+  (un problème propre à l'environnement de prod, ex. une variable
+  d'environnement absente, peut différer du feature branch). Un run rouge à
+  l'une ou l'autre étape n'est jamais ignoré : je diagnostique et corrige
+  avant de considérer la tâche terminée.
 - **Style de commit** : messages clairs en français, expliquant le pourquoi.
 
 ## Rappel
