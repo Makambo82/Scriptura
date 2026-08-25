@@ -362,6 +362,19 @@ async function omGenererVoixOff() {
   } catch (e) {
     prog.stop();
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+    // Journalisé pour la carte "Échecs de génération" du Tableau de bord
+    // (même mécanisme que callAI, js/api.js, et le diagnostic sommaire/
+    // l'analyse virale) : ce flux appelle directement /api/montage-media,
+    // jamais callAI, donc un échec ici restait invisible côté fondateur
+    // (question directe après un vrai crash FFmpeg jamais vu au tableau
+    // de bord). Fire-and-forget, ne doit jamais retarder l'affichage.
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: 'montageVoixOff', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+      }).catch(() => {});
+    } catch (e2) { /* silencieux */ }
   } finally {
     omVoixEnCours = false;
     omRenderVoixZone();
@@ -421,7 +434,12 @@ async function omLancerMontage() {
   omEnCours = true;
   omMajBoutonLancer();
   if (resultat) resultat.innerHTML = '';
-  if (statut) { statut.style.display = 'block'; statut.innerHTML = montageStatutHTML('Envoi des fichiers…'); }
+  // Simple texte ici (pas montageStatutHTML, qui embarque sa propre bande
+  // rayée décorative) : la vraie barre de progression avec pourcentage
+  // (#omMontageProgBar, juste en dessous) existe déjà pour cette étape,
+  // les deux ensemble donnaient deux barres empilées pour une seule attente
+  // (retour direct après capture d'écran).
+  if (statut) { statut.style.display = 'block'; statut.textContent = 'Envoi des fichiers…'; }
   // Durée estimée proportionnelle au nombre d'images (upload + rendu FFmpeg,
   // plus long sur un montage à 50 images que sur un montage à 3) : une durée
   // fixe donnerait une barre trompeuse pour les gros montages comme les petits.
@@ -459,7 +477,7 @@ async function omLancerMontage() {
       audioUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data.publicUrl;
     } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
 
-    if (statut) statut.innerHTML = montageStatutHTML("Montage en cours (peut prendre plusieurs minutes selon le nombre d'images)…");
+    if (statut) statut.textContent = "Montage en cours (peut prendre plusieurs minutes selon le nombre d'images)…";
     const format = await omDetecterFormat();
     let dataRender;
     try {
@@ -487,6 +505,13 @@ async function omLancerMontage() {
     if (statut) statut.style.display = 'none';
     if (progBar) progBar.style.display = 'none';
     if (err) { err.textContent = e.message; err.style.display = 'block'; }
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: 'montageRendu', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+      }).catch(() => {});
+    } catch (e2) { /* silencieux */ }
   } finally {
     omEnCours = false;
     omMajBoutonLancer();

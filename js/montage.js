@@ -593,6 +593,16 @@ async function genererVoixOffMontage() {
     };
   } catch (e) {
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+    // Voir js/montage-manuel.js pour la même journalisation : ce flux
+    // appelle directement /api/montage-media, jamais callAI, donc restait
+    // invisible pour la carte "Échecs de génération" du Tableau de bord.
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: 'montageVoixOff', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+      }).catch(() => {});
+    } catch (e2) { /* silencieux */ }
   } finally {
     montageVoixEnCours = false;
     renderMontageEtat();
@@ -801,6 +811,13 @@ async function lancerMontage() {
   } catch (e) {
     if (statut) statut.style.display = 'none';
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: 'montageRendu', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+      }).catch(() => {});
+    } catch (e2) { /* silencieux */ }
   } finally {
     montageEnCours = false;
     renderMontageEtat();
