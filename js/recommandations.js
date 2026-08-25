@@ -113,7 +113,14 @@ async function blocDiagnosticsPourReco() {
 // nicheFraiche/objectifFrais : idem, transmis explicitement quand l'audit
 // vient tout juste de se terminer et que le Profil Créateur n'a pas encore
 // fini de les enregistrer en tâche de fond (voir renderAudit).
-async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrais) {
+// `texteExtra` (optionnel) : texte déjà prêt à injecter à la place de
+// texteDiagnosticOpportunites(auditFrais, ts), pour un appelant dont les
+// données n'ont pas la forme de l'audit détaillé (voir
+// afficherOpportuniteDiagSommaire ci-dessous, qui construit le sien via
+// texteDiagnosticSommaireOpportunites, js/diagnostic-sommaire.js). Les
+// appelants existants (afficherEtMaintenant, initAccueilPremiumInterne) ne
+// le passent jamais : comportement inchangé pour eux.
+async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrais, texteExtra) {
   const profilCharge = await chargerProfilCreateur();
   // Copie superficielle : on ne modifie jamais le profil mis en cache lui-même
   // ici, seulement le texte envoyé à ce prompt (l'enregistrement définitif se
@@ -127,7 +134,7 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
     lecons: profilCharge.lecons
   };
   const texteProfil = texteProfilPourRecommandation(profil);
-  const texteAuditFrais = auditFrais ? texteDiagnosticOpportunites(auditFrais, ts || {}) : '';
+  const texteAuditFrais = texteExtra || (auditFrais ? texteDiagnosticOpportunites(auditFrais, ts || {}) : '');
   // Croisement mon compte / concurrents (analyses sommaires @nom d'utilisateur).
   const diag = await blocDiagnosticsPourReco();
 
@@ -165,7 +172,7 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
 ${rechercheWebReco ? instructionRechercheWeb(profil.declare.niche_principale, 'de recommander') : ''}${instructionRechercheTendancesTikTok(profil.declare.niche_principale, 'de recommander')}
 CE QUE TU SAIS DE CE CRÉATEUR :
 ${texteProfil || 'Peu d\'historique pour l\'instant.'}
-${texteAuditFrais ? '\nDIAGNOSTIC DE SON DERNIER AUDIT (tout juste terminé) :\n' + texteAuditFrais : ''}
+${texteAuditFrais ? '\nDIAGNOSTIC TOUT JUSTE TERMINÉ :\n' + texteAuditFrais : ''}
 ${diag.texte || ''}
 
 RÈGLE DE CONFIANCE, TRÈS IMPORTANTE : base-toi UNIQUEMENT sur les informations ci-dessus. N'invente JAMAIS une statistique, un fait ou une certitude que tu n'as pas. Si les informations connues sont limitées, dis-le honnêtement (niveau_confiance "faible") et propose des recommandations plus générales mais toujours utiles, plutôt que de prétendre connaître ce créateur mieux que tu ne le connais. Si tu disposes d'assez d'éléments concrets (niche connue, historique, leçons d'audit), sois précis et spécifique (niveau_confiance "élevée").
@@ -986,28 +993,44 @@ async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
   rendreRecommandations('auditOpportunites', data, '<div class="audit-section-label">Et maintenant ?</div>');
 }
 
-// Équivalent de afficherEtMaintenant(), pour le diagnostic sommaire (@username)
-// et réservé aux non-abonnés : si Scriptura a déjà assez de mémoire locale sur
-// ce visiteur (script, récit, autre diagnostic déjà fait sur ce navigateur),
-// on lui montre une idée condensée en plus de son diagnostic.
-async function afficherOpportuniteDiagSommaire() {
+// Équivalent de afficherEtMaintenant(), pour le diagnostic sommaire
+// (@username) : abonné ou non, désormais. Génère la recommandation à partir
+// du diagnostic tout juste calculé (top/flop vidéos, niche, concepts
+// récurrents, voir texteDiagnosticSommaireOpportunites, js/diagnostic-
+// sommaire.js), le même principe que afficherEtMaintenant pour l'audit
+// détaillé, plutôt que de piocher dans le cache générique de l'accueil (qui
+// ne change plus que sur "Actualiser"/"Générer le script", voir
+// cleRecoAbonne plus haut : cette recommandation-ci a sa propre occasion de
+// changer, la fin d'un diagnostic, elle ne doit ni lire ni écrire ce cache).
+async function afficherOpportuniteDiagSommaire(d, moi, username, recommandationSauvegardee) {
   const zone = document.getElementById('diagSommaireOpportunites');
   if (!zone) return;
 
-  let data = lireRecoCache();
-  // Même règle que initAccueilPremiumInterne : un "onboarding" en cache
-  // (même écrit avant ce correctif) est traité comme une absence de cache.
-  if (data && data.onboarding) data = null;
-  if (!data) {
-    data = await genererRecommandations(null, null);
-    // Un résultat "onboarding" ne se met jamais en cache, cet état pouvant
-    // changer dans la journée.
-    if (data && !data.onboarding) ecrireRecoCache(data);
+  const entete = '<div class="audit-section-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> En plus de ce diagnostic</div>';
+  // Abonné : mêmes 6 recommandations détaillées que partout ailleurs dans
+  // l'app (accueil, "Et maintenant ?"). Non-abonné : la version teaser à 1
+  // idée + bandeau d'abonnement (rendreRecommandationSommaire), inchangée.
+  const rendre = (data) => unlocked
+    ? rendreRecommandations('diagSommaireOpportunites', data, entete)
+    : rendreRecommandationSommaire('diagSommaireOpportunites', data, entete);
+
+  // Diagnostic rouvert depuis "Mes générations" : la recommandation a déjà
+  // été générée et sauvegardée la première fois, on la réaffiche telle
+  // quelle plutôt que d'en produire une nouvelle à chaque réouverture.
+  if (recommandationSauvegardee) {
+    rendre(recommandationSauvegardee);
+    return;
   }
+
+  const texteExtra = (d && typeof texteDiagnosticSommaireOpportunites === 'function')
+    ? texteDiagnosticSommaireOpportunites(d, moi, username)
+    : '';
+  const data = await genererRecommandations(null, null, d && d.niche && d.niche.nom, null, texteExtra);
   if (!data || data.onboarding || !Array.isArray(data.recommandations) || !data.recommandations.length) {
     zone.innerHTML = '';
     return;
   }
+  if (typeof sauvegarderRecommandationAudit === 'function') sauvegarderRecommandationAudit(data);
 
-  rendreRecommandationSommaire('diagSommaireOpportunites', data, '<div class="audit-section-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> En plus de ce diagnostic</div>');
+  rendre(data);
 }

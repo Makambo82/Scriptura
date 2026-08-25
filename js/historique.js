@@ -952,7 +952,7 @@ function reopenGeneration(i) {
     if (typeof toggleDiagSommaireEntree === 'function') toggleDiagSommaireEntree(false);
     const cds = g.contenu || {};
     if (typeof afficherDiagnosticSommaireResultat === 'function') {
-      afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '', cds.estMonCompte);
+      afficherDiagnosticSommaireResultat(cds.diagnostic || {}, cds.username || '', cds.estMonCompte, cds.recommandation_ia);
       // Réaffiche le face-à-face « Toi face à @concurrent » s'il avait été calculé.
       if (cds.comparaisonConcurrent && typeof renderComparaisonSauvegardee === 'function') {
         renderComparaisonSauvegardee(cds.comparaisonConcurrent);

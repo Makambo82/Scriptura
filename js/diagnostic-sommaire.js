@@ -721,10 +721,18 @@ async function lancerDiagnosticSommaire() {
     // api/_lib/acces.js verifierQuota, mode 'diagnosticSommaire'), plus
     // besoin de le refaire ici : ce serait un double décompte.
 
+    // Attendu AVANT afficherDiagnosticSommaireResultat() : cette fonction
+    // déclenche en tâche de fond la recommandation "En plus de ce diagnostic"
+    // (voir afficherOpportuniteDiagSommaire, js/recommandations.js), qui a
+    // besoin de currentGenId déjà positionné sur CE diagnostic pour pouvoir
+    // y rattacher sa recommandation une fois prête (même principe que
+    // l'audit détaillé, voir js/audit.js).
     const titre = 'Diagnostic sommaire · @' + username;
-    saveGeneration('diagnosticSommaire', titre, {
-      username: username, diagnostic: parsed, estMonCompte: _sommaireEstMonCompte
-    });
+    try {
+      await saveGeneration('diagnosticSommaire', titre, {
+        username: username, diagnostic: parsed, estMonCompte: _sommaireEstMonCompte
+      });
+    } catch (e) { /* silencieux */ }
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 
     afficherDiagnosticSommaireResultat(parsed, username, _sommaireEstMonCompte);
@@ -875,7 +883,7 @@ async function afficherEvolutionAbonnesDiagSommaire(username, abonnesActuels, es
 // Affiche le résultat (nouvelle génération OU réouverture depuis l'historique).
 // estMonCompte : true = mon compte (posture coach), false = un concurrent
 // (posture décodage). Le moteur/score est identique ; seule l'écriture change.
-function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
+function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, recommandationSauvegardee) {
   const results = document.getElementById('diagSommaireResults');
   if (!results || !d) return;
   const moi = estMonCompte !== false;
@@ -1094,9 +1102,11 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
       ${evo.formule_gagnante ? `<div class="ds-evo-formule"><div class="ds-evo-h">${ICO('trophy')} ${moi ? 'Ta' : 'Sa'} formule gagnante</div><p>${diagSommaireEsc(evo.formule_gagnante)}</p></div>` : ''}
     </div>` : '';
 
-  // Placeholder pour la recommandation sommaire (non-abonnés avec assez de
-  // mémoire locale, voir afficherOpportuniteDiagSommaire dans recommandations.js).
-  const opportuniteHtml = (!unlocked) ? `<div id="diagSommaireOpportunites"></div>` : '';
+  // Placeholder pour la recommandation de fin de diagnostic (abonnés ET
+  // non-abonnés désormais, voir afficherOpportuniteDiagSommaire dans
+  // recommandations.js) : reste vide si la génération échoue ou si vraiment
+  // rien n'est exploitable, jamais retiré du DOM pour autant.
+  const opportuniteHtml = `<div id="diagSommaireOpportunites"></div>`;
 
   results.innerHTML = `
     <div class="score-card audit-score-card ds-score-card">
@@ -1146,12 +1156,13 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   results.style.display = 'block';
   setTimeout(() => animerScoreDiagSommaire(score, RING_C), 50);
 
-  // Recommandation sommaire pour les non-abonnés qui ont déjà assez de
-  // mémoire locale (script, récit, autre diagnostic déjà fait sur ce
-  // navigateur), en tâche de fond, ne retarde jamais l'affichage du
-  // diagnostic lui-même. Voir js/recommandations.js.
-  if (!unlocked && typeof afficherOpportuniteDiagSommaire === 'function') {
-    afficherOpportuniteDiagSommaire();
+  // Recommandation de fin de diagnostic, à partir de CE diagnostic tout
+  // juste calculé (top/flop vidéos, niche, concepts récurrents, voir
+  // texteDiagnosticSommaireOpportunites ci-dessous) : abonné ou non, en
+  // tâche de fond, ne retarde jamais l'affichage du diagnostic lui-même.
+  // Voir js/recommandations.js.
+  if (typeof afficherOpportuniteDiagSommaire === 'function') {
+    afficherOpportuniteDiagSommaire(d, moi, username, recommandationSauvegardee);
   }
   // Propose le rapport fusionné dès que ce diagnostic (le sien) complète la
   // paire avec un diagnostic complet déjà fait, directement ici, pas
@@ -1161,6 +1172,37 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true) {
   // compte OU un concurrent suivi dans le temps), en tâche de fond.
   afficherEvolutionAbonnesDiagSommaire(username, d.abonnes, moi);
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Reformule le diagnostic sommaire tout juste calculé en texte compact pour
+// le prompt de recommandation (voir afficherOpportuniteDiagSommaire,
+// js/recommandations.js), même principe que texteDiagnosticOpportunites
+// (js/audit.js) pour l'audit détaillé, mais sur la forme des données du
+// diagnostic sommaire (top/flop vidéos, niche, concepts récurrents),
+// différente de celle de l'audit. Ne réutilise que des champs déjà lus
+// ailleurs dans ce fichier, sans toucher aux règles d'analyse.
+function texteDiagnosticSommaireOpportunites(d, moi, username) {
+  const lignes = [];
+  const qui = moi ? 'Diagnostic de son propre compte TikTok (@' : 'Diagnostic d\'un compte concurrent qu\'il/elle a analysé, inspirant dans sa niche (@';
+  lignes.push(qui + (username || '') + ')');
+  if (Array.isArray(d.top_videos) && d.top_videos.length) {
+    lignes.push((moi ? 'Ses vidéos qui cartonnent' : 'Les vidéos du concurrent qui cartonnent') + ' : '
+      + d.top_videos.slice(0, 3).map(v => v.sujet + (v.constat ? ' (' + v.constat + ')' : '')).join(' ; '));
+  }
+  if (Array.isArray(d.flop_videos) && d.flop_videos.length) {
+    lignes.push((moi ? 'Ses vidéos en retrait' : 'Les vidéos en retrait du concurrent') + ' : '
+      + d.flop_videos.slice(0, 2).map(v => v.sujet + (v.constat ? ' (' + v.constat + ')' : '')).join(' ; '));
+  }
+  if (d.niche && d.niche.nom) lignes.push('Niche : ' + d.niche.nom);
+  if (Array.isArray(d.concepts_recurrents) && d.concepts_recurrents.length) {
+    lignes.push('Concepts récurrents dans le top contenus : ' + d.concepts_recurrents.filter(Boolean).join(', '));
+  }
+  if (Array.isArray(d.leviers_prioritaires) && d.leviers_prioritaires.length) {
+    lignes.push('Leviers prioritaires identifiés : ' + d.leviers_prioritaires.map(l => l.titre).filter(Boolean).join(', '));
+  }
+  if (d.evolution && d.evolution.formule_gagnante) lignes.push('Formule gagnante repérée : ' + d.evolution.formule_gagnante);
+  if (!moi && d.faille_exploiter) lignes.push('Faille du concurrent à exploiter : ' + d.faille_exploiter);
+  return lignes.filter(Boolean).join('\n');
 }
 
 // Score global d'un diagnostic (mêmes règles que l'anneau) : somme des SEULES
