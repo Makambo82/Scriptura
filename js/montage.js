@@ -507,7 +507,12 @@ async function regenererImageMontage(i) {
 
 // Charge les voix ElevenLabs configurées côté serveur (voir
 // api/montage-media.js action=voices) et remplit le sélecteur. Le menu
-// reste caché s'il n'y a qu'une seule voix disponible, rien à choisir dans ce cas.
+// reste caché s'il n'y a qu'une seule voix disponible, rien à choisir dans ce cas
+// (montageVoixId prend directement cette voix, comme avant). S'il y en a
+// plusieurs, aucune n'est présélectionnée : un texte indicatif ("Choisis une
+// voix…") s'affiche, même convention que les autres menus déroulants de
+// l'app (niche, ton, format…), au lieu d'imposer un choix par défaut
+// arbitraire que l'utilisateur pourrait ne pas remarquer.
 async function chargerVoixMontage() {
   const select = document.getElementById('montageVoixSelect');
   if (!select) return;
@@ -523,11 +528,17 @@ async function chargerVoixMontage() {
   // afficher ce choix doit donc agir sur son enveloppe visible (.custom-select),
   // pas sur le <select> d'origine, sans effet visuel une fois wrappé.
   const voixEl = select.closest('.custom-select') || select;
-  if (montageVoixListe.length) {
+  if (montageVoixListe.length > 1) {
+    montageVoixId = '';
+    select.innerHTML = '<option value="">Choisis une voix…</option>'
+      + montageVoixListe.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+    select.value = '';
+    voixEl.style.display = '';
+  } else if (montageVoixListe.length === 1) {
     montageVoixId = montageVoixListe[0].id;
-    select.innerHTML = montageVoixListe.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+    select.innerHTML = `<option value="${montageVoixId}">${montageVoixListe[0].label}</option>`;
     select.value = montageVoixId;
-    voixEl.style.display = montageVoixListe.length > 1 ? '' : 'none';
+    voixEl.style.display = 'none';
   } else {
     voixEl.style.display = 'none';
   }
@@ -546,6 +557,13 @@ async function genererVoixOffMontage() {
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
   if (!montagePlans.length || montageVoixEnCours) return;
+  // Plusieurs voix disponibles mais aucune choisie (le menu affiche encore
+  // son texte indicatif, voir chargerVoixMontage) : on ne part jamais sur un
+  // choix par défaut silencieux, on demande explicitement de choisir.
+  if (montageVoixListe.length > 1 && !montageVoixId) {
+    if (err) { err.textContent = 'Choisis d\'abord une voix.'; err.style.display = 'block'; }
+    return;
+  }
 
   montageVoixEnCours = true;
   renderMontageEtat();
