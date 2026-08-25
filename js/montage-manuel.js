@@ -253,11 +253,21 @@ function omRenderVoixZone() {
   const indication = nbImages
     ? `Une ligne de narration par image, dans l'ordre du montage (${nbImages} image${nbImages > 1 ? 's' : ''} → ${nbImages} ligne${nbImages > 1 ? 's' : ''}).`
     : "Ajoute d'abord tes images (une ligne de narration par image sera demandée).";
+  // Barre de progression estimée pendant l'appel ElevenLabs (peut prendre
+  // plusieurs dizaines de secondes sur un long texte, voir omGenererVoixOff) :
+  // seulement visible pendant la génération, jamais affichée sinon.
+  const progBar = omVoixEnCours
+    ? `<div class="sb-progress-bar" id="omVoixProgBar" style="margin-top:10px">
+         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omVoixProgFill"></div></div>
+         <div class="sb-progress-bar-pct" id="omVoixProgPct">0%</div>
+       </div>`
+    : '';
   zone.innerHTML = `
     <div class="montage-statut" style="margin-bottom:6px">${indication}</div>
-    <textarea class="ctx-input" id="omTexteNarration" rows="4" placeholder="Ligne 1 pour l'image 1…&#10;Ligne 2 pour l'image 2…" oninput="omTexteNarration=this.value">${outilsEsc(omTexteNarration)}</textarea>
+    <textarea class="ctx-input" id="omTexteNarration" rows="4" placeholder="Ligne 1 pour l'image 1…&#10;Ligne 2 pour l'image 2…" oninput="omTexteNarration=this.value" ${omVoixEnCours ? 'disabled' : ''}>${outilsEsc(omTexteNarration)}</textarea>
     ${selectHtml}
     <button class="btn-regenerate" type="button" style="margin-top:10px" ${omVoixEnCours ? 'disabled' : ''} onclick="omGenererVoixOff()">${omVoixEnCours ? 'Génération…' : (omAudio && omAudio.source === 'ia' ? '↻ Régénérer la voix off' : 'Générer la voix off')}</button>
+    ${progBar}
     ${preview}`;
 }
 
@@ -315,6 +325,17 @@ async function omGenererVoixOff() {
 
   omVoixEnCours = true;
   omRenderVoixZone();
+  // Durée estimée proportionnelle au texte (lecture ElevenLabs + traitement) :
+  // un texte de 53 lignes prend nettement plus longtemps qu'une seule ligne,
+  // une durée fixe donnerait une barre trompeuse dans un sens ou l'autre.
+  const dureeEstimee = Math.max(8000, texteBrut.length * 60);
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('omVoixProgFill');
+    const pct = document.getElementById('omVoixProgPct');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  }, dureeEstimee);
+  prog.start();
   try {
     const rep = await fetch('/api/montage-media?action=tts', {
       method: 'POST',
@@ -323,12 +344,23 @@ async function omGenererVoixOff() {
     });
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || "La voix off n'a pas pu être générée.");
+    const durations = Array.isArray(data.durations) ? data.durations : [];
+    // Défense en profondeur (retour direct du propriétaire : bouton "Démarrer
+    // le montage" resté grisé sans explication) : le serveur est censé refuser
+    // avant de répondre si le nombre de segments ne correspond pas (voir
+    // api/montage-media.js), mais si jamais cette égalité n'est pas
+    // respectée pour une autre raison, mieux vaut un message clair ici
+    // qu'une voix off en apparence prête mais un montage bloqué en silence.
+    if (durations.length !== lignes.length) {
+      throw new Error(`Réponse incohérente du serveur : ${durations.length} durée(s) reçue(s) pour ${lignes.length} ligne(s).`);
+    }
     if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
     const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
-    const durations = Array.isArray(data.durations) ? data.durations : [];
     const duree = durations.reduce((s, d) => s + d, 0);
+    prog.finish();
     omAudio = { blob, url: URL.createObjectURL(blob), duree, durations, source: 'ia' };
   } catch (e) {
+    prog.stop();
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
   } finally {
     omVoixEnCours = false;
@@ -390,6 +422,19 @@ async function omLancerMontage() {
   omMajBoutonLancer();
   if (resultat) resultat.innerHTML = '';
   if (statut) { statut.style.display = 'block'; statut.innerHTML = montageStatutHTML('Envoi des fichiers…'); }
+  // Durée estimée proportionnelle au nombre d'images (upload + rendu FFmpeg,
+  // plus long sur un montage à 50 images que sur un montage à 3) : une durée
+  // fixe donnerait une barre trompeuse pour les gros montages comme les petits.
+  const progBar = document.getElementById('omMontageProgBar');
+  const dureeEstimeeMontage = Math.max(15000, omImages.length * 2500);
+  const prog = createProgress((p) => {
+    const fill = document.getElementById('omMontageProgFill');
+    const pct = document.getElementById('omMontageProgPct');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  }, dureeEstimeeMontage);
+  if (progBar) progBar.style.display = 'flex';
+  prog.start();
 
   try {
     const dossier = 'montage-manuel-' + Date.now();
@@ -427,7 +472,9 @@ async function omLancerMontage() {
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || "Le montage n'a pas pu être généré.");
     } catch (e) { throw new Error('Rendu de la vidéo : ' + e.message); }
 
+    prog.finish();
     if (statut) statut.style.display = 'none';
+    if (progBar) progBar.style.display = 'none';
     // Précharge la vidéo dès qu'elle existe pour que le partage natif iOS
     // (partagerVideoMontage, js/montage.js) fonctionne sans aller-retour
     // réseau au clic, même mécanisme que le montage depuis le storyboard.
@@ -436,7 +483,9 @@ async function omLancerMontage() {
       <video class="montage-video" src="${outilsEsc(dataRender.url)}" controls playsinline></video>
       <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${outilsEsc(dataRender.url)}')" type="button">Télécharger la vidéo</button>`;
   } catch (e) {
+    prog.stop();
     if (statut) statut.style.display = 'none';
+    if (progBar) progBar.style.display = 'none';
     if (err) { err.textContent = e.message; err.style.display = 'block'; }
   } finally {
     omEnCours = false;

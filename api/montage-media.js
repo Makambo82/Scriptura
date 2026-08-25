@@ -91,8 +91,19 @@ async function handleTts(req, res, body) {
     return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
   }
 
-  const MAX_SEGMENTS = 40;
-  const segments = Array.isArray(body?.segments) ? body.segments.slice(0, MAX_SEGMENTS).map(s => retirerMinuterie(String(s || '').trim())) : [];
+  // Un plafond trop bas ici causait un vrai bug silencieux : le montage
+  // manuel (js/montage-manuel.js) peut avoir bien plus de 40 images/lignes
+  // (retour direct : 53 images, bouton "Démarrer le montage" resté grisé
+  // sans aucune explication). L'ancien code TRONQUAIT silencieusement les
+  // segments au-delà de MAX_SEGMENTS, renvoyant donc moins de durées que
+  // d'images attendues côté client, qui ne validait jamais cette égalité.
+  // Refuser clairement AVANT de tronquer, plutôt que de corrompre l'état.
+  const MAX_SEGMENTS = 200;
+  const segmentsBruts = Array.isArray(body?.segments) ? body.segments : [];
+  if (segmentsBruts.length > MAX_SEGMENTS) {
+    return res.status(400).json({ error: { message: `Trop de plans pour une seule voix off (${segmentsBruts.length}, max ${MAX_SEGMENTS}).` } });
+  }
+  const segments = segmentsBruts.map(s => retirerMinuterie(String(s || '').trim()));
   if (!segments.length || segments.every(s => !s)) {
     return res.status(400).json({ error: { message: 'Aucun texte à narrer' } });
   }

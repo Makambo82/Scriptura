@@ -576,11 +576,20 @@ async function genererVoixOffMontage() {
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La voix off n\'a pas pu être générée.');
 
+    const durations = Array.isArray(data.durations) ? data.durations : [];
+    // Défense en profondeur (même bug déjà corrigé sur le montage manuel,
+    // js/montage-manuel.js : un plafond de segments trop bas côté serveur
+    // tronquait silencieusement les durées, laissant le montage bloqué sans
+    // explication) : jamais une voix off "prête" avec moins de durées que
+    // de plans, même si le serveur est censé refuser ce cas en amont.
+    if (durations.length !== montagePlans.length) {
+      throw new Error(`Réponse incohérente du serveur : ${durations.length} durée(s) reçue(s) pour ${montagePlans.length} plan(s).`);
+    }
     const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
     montageVoixOff = {
       blob,
       url: URL.createObjectURL(blob),
-      durations: Array.isArray(data.durations) ? data.durations : []
+      durations
     };
   } catch (e) {
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
