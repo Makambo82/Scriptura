@@ -354,6 +354,15 @@
       <span class="mode-desc">Colle un lien TikTok, choisis ce qu'il te faut</span>
     </span>
   </button>
+  <!-- Réservé au fondateur (voir body.is-admin, css/style.css) : rendu vidéo
+       coûteux, même restriction que le montage depuis le storyboard. -->
+  <button class="hero-mode-btn outils-montage-home-btn reveal reveal-d2" id="outilsMontageHomeBtn" style="max-width:420px;margin:12px auto 0" onclick="ouvrirMontageManuelAccueil()">
+    <span class="mode-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M8 6v12"/><path d="M16 6v12"/></svg></span>
+    <span class="mode-body">
+      <span class="mode-label">Monter une vidéo</span>
+      <span class="mode-desc">Charge tes images et ta voix off, l'app assemble</span>
+    </span>
+  </button>
 </section>
 </div>
 
@@ -596,12 +605,6 @@
             <span class="sb-gen-spinner" id="outilsTelechargementSpinner" style="display:none"></span>
             <svg class="ico" id="outilsTelechargementIco" style="margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
             <span id="outilsTelechargementBtnText">Télécharger</span>
-          </button>
-          <!-- Réservé au fondateur (voir body.is-admin, css/style.css) : rendu vidéo
-               coûteux, même restriction que le montage depuis le storyboard. -->
-          <button type="button" class="ds-scope-btn outils-montage-btn" id="outilsMontageOuvrirBtn" onclick="ouvrirOutilsMontage()">
-            <svg class="ico" style="margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M8 6v12"/><path d="M16 6v12"/></svg>
-            <span>Monter une vidéo</span>
           </button>
         </div>
 

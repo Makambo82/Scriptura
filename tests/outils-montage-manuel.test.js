@@ -1,8 +1,9 @@
-// « Monter une vidéo » (Outils TikTok) : variante du montage vidéo qui ne
-// part pas d'un storyboard généré par l'IA, l'utilisateur uploade ses
-// propres images + sa voix off (fichier existant ou texte à transformer via
-// ElevenLabs). Réservé au fondateur (voir js/montage-manuel.js, css/style.css
-// .outils-montage-btn).
+// « Monter une vidéo » (carte sur l'accueil, section "Services annexes",
+// à côté de "Storyboard d'un script" et "Transcrire ou télécharger une
+// vidéo") : variante du montage vidéo qui ne part pas d'un storyboard
+// généré par l'IA, l'utilisateur uploade ses propres images + sa voix off
+// (fichier existant ou texte à transformer via ElevenLabs). Réservé au
+// fondateur (voir js/montage-manuel.js, css/style.css .outils-montage-home-btn).
 //
 // Point central testé ici : la SYNCHRO image/voix (retour direct du
 // propriétaire : « il y aura un problème de synchronisation voix/image »).
@@ -31,14 +32,14 @@ test('Outils TikTok : "Monter une vidéo" est réservé au fondateur, visible se
     await page.waitForTimeout(150);
 
     const visiblePourAbonne = await page.evaluate(() => {
-      const btn = document.getElementById('outilsMontageOuvrirBtn');
+      const btn = document.getElementById('outilsMontageHomeBtn');
       return btn && getComputedStyle(btn).display !== 'none';
     });
     assert.equal(visiblePourAbonne, false, 'un abonné non-fondateur ne doit jamais voir ce bouton');
 
     await page.evaluate(() => document.body.classList.add('is-admin'));
     const visiblePourAdmin = await page.evaluate(() => {
-      const btn = document.getElementById('outilsMontageOuvrirBtn');
+      const btn = document.getElementById('outilsMontageHomeBtn');
       return btn && getComputedStyle(btn).display !== 'none';
     });
     assert.equal(visiblePourAdmin, true, 'le fondateur doit voir le bouton "Monter une vidéo"');
@@ -105,7 +106,8 @@ test('Outils TikTok : voix IA calée par image (une ligne = un segment = une vra
     // clic réel sur le bouton "Monter une vidéo") : sans cet appel, les
     // champs restent en display:none hérité, invisibles pour Playwright
     // bien qu'ils existent dans le DOM.
-    await page.evaluate(() => { ouvrirOutilsTikTok(); ouvrirOutilsMontage(); });
+    // Même point d'entrée que la carte "Monter une vidéo" de l'accueil.
+    await page.evaluate(() => ouvrirMontageManuelAccueil());
     await page.waitForTimeout(100);
 
     const cheminImg1 = path.join(dossierTmp, 'img1.png');
@@ -205,7 +207,8 @@ test('Outils TikTok : voix uploadée, durée de chaque image réglable à la mai
     // clic réel sur le bouton "Monter une vidéo") : sans cet appel, les
     // champs restent en display:none hérité, invisibles pour Playwright
     // bien qu'ils existent dans le DOM.
-    await page.evaluate(() => { ouvrirOutilsTikTok(); ouvrirOutilsMontage(); });
+    // Même point d'entrée que la carte "Monter une vidéo" de l'accueil.
+    await page.evaluate(() => ouvrirMontageManuelAccueil());
     await page.waitForTimeout(100);
 
     const cheminImg1 = path.join(dossierTmp, 'img1.png');
@@ -296,7 +299,8 @@ test('Outils TikTok : détection de format (ratio image) + garde-fou sur une dur
 
     // Fichier audio invalide (pas un vrai codec) : la durée lue doit être 0,
     // donc le montage ne doit jamais pouvoir démarrer avec des données nulles.
-    await page.evaluate(() => { ouvrirOutilsTikTok(); ouvrirOutilsMontage(); });
+    // Même point d'entrée que la carte "Monter une vidéo" de l'accueil.
+    await page.evaluate(() => ouvrirMontageManuelAccueil());
     await page.waitForTimeout(100);
     const fauxAudio = path.join(dossierTmp, 'faux-audio.mp3');
     fs.writeFileSync(fauxAudio, Buffer.from('ceci-nest-pas-un-vrai-mp3'));

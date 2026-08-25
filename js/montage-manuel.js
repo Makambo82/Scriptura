@@ -79,6 +79,17 @@ function fermerOutilsMontage() {
   if (lienBloc) lienBloc.style.display = '';
 }
 
+// Point d'entrée depuis la carte "Monter une vidéo" de l'accueil (section
+// "Services annexes", voir index.html) : le formulaire de montage manuel vit
+// dans l'écran #tiktokOutilsFlow (partagé avec Transcrire/Télécharger), donc
+// il faut d'abord l'ouvrir (ouvrirOutilsTikTok, affiche l'écran et empile la
+// navigation) avant de basculer directement sur le sous-formulaire montage,
+// sans passer par l'étape "colle un lien TikTok" entre les deux.
+function ouvrirMontageManuelAccueil() {
+  ouvrirOutilsTikTok();
+  ouvrirOutilsMontage();
+}
+
 // ── IMAGES ──
 function omAjouterImages(fileList) {
   const fichiers = Array.prototype.filter.call(fileList || [], f => f.type && f.type.startsWith('image/'));

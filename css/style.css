@@ -2724,14 +2724,12 @@ body.is-unlocked .sidebar-logout{display:block}
    contour clair sur fond doré. Ici les boutons restent sombres tant qu'ils ne
    sont pas .actif, un spinner sombre y serait invisible. */
 .outils-btn-row.ds-scope .sb-gen-spinner{border-color:rgba(255,255,255,0.25);border-top-color:var(--gold-light)}
-/* "Monter une vidéo" : réservé au fondateur (rendu FFmpeg coûteux, même
+/* "Monter une vidéo" (carte sur l'accueil, section "Services annexes",
+   voir index.html) : réservé au fondateur (rendu FFmpeg coûteux, même
    restriction que le montage depuis le storyboard, voir .montage-trigger-btn
-   plus haut et resoudreDroits/isAdmin côté serveur qui la revérifie). Une
-   spécificité au moins égale à la règle .ds-scope-btn générique ci-dessus
-   est nécessaire pour bien masquer par défaut malgré elle. */
-.outils-btn-row.ds-scope .ds-scope-btn.outils-montage-btn{display:none}
-body.is-admin .outils-btn-row.ds-scope .ds-scope-btn.outils-montage-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:0}
-.outils-montage-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+   plus haut et resoudreDroits/isAdmin côté serveur qui la revérifie). */
+.outils-montage-home-btn{display:none}
+body.is-admin .outils-montage-home-btn{display:flex}
 .outils-result-card{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:22px 20px;margin-top:24px;text-align:left}
 .outils-result-card h3{font-family:'Cinzel',serif;font-weight:500;font-size:0.9rem;color:var(--gold-light);margin:0 0 14px;letter-spacing:0.02em}
 .outils-transcript{white-space:pre-wrap;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.6;max-height:340px;overflow-y:auto;margin-bottom:16px;padding-right:4px}
