@@ -310,7 +310,14 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
 
   try {
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(1); // phase : écriture du récit
-    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'), 'story');
+    // Étape en FLUX (voir onApercu, callAI) : le % avance en continu,
+    // réellement proportionnel aux caractères déjà reçus, jamais à un
+    // minuteur (voir GEN_POIDS.story, js/generation.js).
+    const onApercuEcriture = (buf) => {
+      afficherApercuEnDirect(buf, 'recit');
+      if (typeof genProgressCtl !== 'undefined' && genProgressCtl) genProgressCtl.etapeFluxProgres(1, fractionFlux(buf.length, 16000));
+    };
+    const raw = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
     let parsed = parseAIResponse(raw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
@@ -319,7 +326,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le récit plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
-      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'), 'story');
+      const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false, undefined, undefined, undefined, onApercuEcriture, 'story');
       parsed = parseAIResponse(rawRetry);
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
@@ -410,7 +417,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             // faible : une révision segment par segment ne suffirait pas, on
             // retente une écriture complète plutôt que de rafistoler.
             try {
-              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'recit'), 'story');
+              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
               const parsed2 = parseAIResponse(raw2);
               if (parsed2 && parsed2.recit) {
                 parsed = parsed2;

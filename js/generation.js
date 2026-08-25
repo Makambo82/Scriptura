@@ -1193,7 +1193,16 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       return !!p && Array.isArray(p.script) && p.script.length > 0 && Array.isArray(p.hooks) && p.hooks.length > 0;
     }
 
-    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'script');
+    // Le brief (Directeur éditorial) vient de se terminer pour de vrai :
+    // jalon réel pour le %, pas une estimation (voir GEN_POIDS/avancerEtapeGen).
+    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(2);
+    // Étape en FLUX (voir onApercu, callAI) : le % avance en continu, réellement
+    // proportionnel aux caractères déjà reçus du modèle, jamais à un minuteur.
+    const onApercuEcriture = (buf) => {
+      afficherApercuEnDirect(buf, 'script');
+      if (genProgressCtl) genProgressCtl.etapeFluxProgres(2, fractionFlux(buf.length, 16000));
+    };
+    const writeRaw = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
     let parsed = parseAIResponse(writeRaw);
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
@@ -1205,7 +1214,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le script plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
-      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'script');
+      const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false, undefined, undefined, undefined, onApercuEcriture, 'script');
       const parsedRetry = parseAIResponse(writeRawRetry);
       if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
     }
@@ -1299,6 +1308,7 @@ ${objectifCritiqueScript ? `\n1bis. CONTRÔLE SPÉCIFIQUE À L'OBJECTIF "${state
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise avec le numéro de segment concerné"],"points_forts":["ce qui marche"],"segments_faibles":[{"index":2,"probleme":"description précise et actionnable du problème de ce segment"}],"raisons_de_scroll":["raison concrète 1","raison concrète 2"],"ia_generique":true,"justification_ia_generique":"pourquoi, en une phrase (chaîne vide si non générique)","viralite":{"hook":15,"curiosite":14,"rythme":16,"progression":15,"transitions":14,"revelation":13,"memorisation":15},"instructions_revision":"instructions précises et actionnables pour le réviseur, segment par segment"}`;
 
+        if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3);
         let nouvelleCritique = null;
         try {
           const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
@@ -1317,7 +1327,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // une révision segment par segment ne suffirait pas, on retente une
           // écriture complète plutôt que de rafistoler.
           try {
-            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, (buf) => afficherApercuEnDirect(buf, 'script'), 'script');
+            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
             const parsed2 = parseAIResponse(writeRaw2);
             if (scriptEstComplet(parsed2)) {
               parsed = parsed2;
@@ -1362,6 +1372,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème de hook, sinon garde les meilleurs) et le script complet, segment par segment, dans le même ordre.`;
 
+        if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4);
         try {
           const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
           const revised = parseAIResponse(reviseRaw);
@@ -1405,6 +1416,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
         }
       } catch (e) { /* on garde les hooks déjà obtenus si la complétion échoue */ }
     }
+
+    // Qualité (critique/révision) ET complétion des hooks terminées pour de
+    // vrai, quel que soit le nombre de passes réellement effectuées : jalon
+    // réel avant le dernier contrôle (voir GEN_POIDS/avancerEtapeGen).
+    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(5);
 
     // ══════════════════════════════════════
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
@@ -1561,7 +1577,12 @@ async function regenererContenu(type) {
 
 let genInterval = null;
 let genProgressCtl = null;
-// Durée estimée (ms) de chaque type de génération, pour calibrer la montée de la barre vers 90%.
+// Mode actuellement affiché par l'overlay (voir startGenAnimation), retenu
+// pour qu'avancerEtapeGen sache quel barème de poids appliquer.
+let genModeActuel = null;
+// Durée estimée (ms) de chaque type de génération, pour calibrer la montée
+// de la barre vers 90% : repli utilisé UNIQUEMENT pour les modes absents de
+// GEN_POIDS ci-dessous (pas encore convertis à la progression réelle).
 const GEN_DUREE = {
   script: 78000,
   story: 66000,
@@ -1571,6 +1592,26 @@ const GEN_DUREE = {
   serie_episode: 30000,
   viral: 42000,
   montageGuide: 20000
+};
+// Poids RÉELS de chaque étape d'un mode (voir creerProgressionReelle,
+// js/storyboard.js) : le max_tokens de l'appel qui compose l'étape (le
+// meilleur repère disponible de son coût réel), pas une durée devinée à la
+// main. Un mode absent de cette table retombe sur GEN_DUREE (estimation de
+// temps classique, comportement inchangé) : conversion volontairement
+// progressive, mode par mode, plutôt qu'un grand changement d'un coup.
+const GEN_POIDS = {
+  // Indices alignés EXACTEMENT sur GEN_STEPS.script (7 étapes, ci-dessous) :
+  // 0-1=brief, un seul appel(2000, réparti sur les 2 premières étapes
+  // textuelles faute de signal séparé), 2=écriture[FLUX RÉEL](16000),
+  // 3=critique(2500), 4=révision ciblée(8000), 5=hooks manquants + contrôle
+  // de durée, jusqu'à 2 tentatives(8000), 6=finalisation(pas d'appel).
+  script: [1, 1, 16, 2.5, 8, 8, 1],
+  // Indices alignés sur GEN_STEPS.story et avancerEtapeGen (voir
+  // js/storytelling.js) : 0=choix du modèle(pas d'appel), 1=écriture
+  // [FLUX RÉEL](16000), 2=critique(2500), 3=révision ciblée(8000),
+  // 4=calibrage de durée(8000), 5=hook et ouverture(1200), 6=anti-plagiat
+  // et clôture(2000).
+  story: [0.5, 16, 2.5, 8, 8, 1.2, 2]
 };
 
 // ── « RÉPONDRE MAINTENANT » : interruption coopérative ──
@@ -1722,22 +1763,24 @@ function startGenAnimation(mode) {
   const total = steps.length;
   steps[0].classList.add('active');
 
-  // Barre de progression IDENTIQUE au storyboard : monte jusqu'à 90% puis
-  // saute à 100% pile quand le résultat est prêt (voir stopGenAnimation).
+  // Barre de progression : saute à 100% pile quand le résultat est prêt
+  // (voir stopGenAnimation). Retour direct du propriétaire : le %
+  // s'affiche désormais pour TOUS les modes (choix précédent : bande rayée
+  // indéterminée partout SAUF l'audit, annulé explicitement). Pour les
+  // modes présents dans GEN_POIDS (voir plus haut), ce % reflète le VRAI
+  // travail (jalons réels + flux de caractères reçus, creerProgressionReelle,
+  // js/storyboard.js) ; les autres modes gardent l'estimation de temps
+  // classique (createProgress) le temps d'être convertis à leur tour.
   const fill = document.getElementById('genProgressFill');
   const pctEl = document.getElementById('genProgressPct');
-  // Bande rayée dorée (indéterminée, sans %) pour toutes les générations,
-  // SAUF l'audit, qui conserve sa barre de progression chiffrée classique via
-  // la classe .determinee (voir css/style.css). Le remplissage/% continuent
-  // d'être calculés ci-dessous, mais restent masqués tant que .determinee est
-  // absente : rien d'autre à changer selon le mode.
   const genBar = fill ? fill.closest('.sb-progress-bar') : null;
-  if (genBar) genBar.classList.toggle('determinee', mode === 'audit');
+  if (genBar) genBar.classList.add('determinee');
   if (genProgressCtl) genProgressCtl.stop();
-  genProgressCtl = createProgress((p) => {
-    if (fill) fill.style.width = p + '%';
-    if (pctEl) pctEl.textContent = p + '%';
-  }, GEN_DUREE[mode] || 45000);
+  genModeActuel = mode;
+  const setPct = (p) => { if (fill) fill.style.width = p + '%'; if (pctEl) pctEl.textContent = p + '%'; };
+  genProgressCtl = GEN_POIDS[mode]
+    ? creerProgressionReelle(setPct, GEN_POIDS[mode])
+    : createProgress(setPct, GEN_DUREE[mode] || 45000);
   genProgressCtl.start();
 
   // « Répondre maintenant » : nouveau départ = drapeau baissé. Le bouton
@@ -1795,6 +1838,10 @@ function avancerEtapeGen(cible) {
   }
   steps[cibleClamp].classList.remove('done');
   steps[cibleClamp].classList.add('active');
+  // Même signal réel pour le %, pas seulement le texte des étapes : voir
+  // GEN_POIDS/creerProgressionReelle plus haut. Un mode absent de GEN_POIDS
+  // utilise createProgress, dont etapeTerminee est un no-op, sans effet.
+  if (genProgressCtl) genProgressCtl.etapeTerminee(cibleClamp - 1);
 }
 
 function stopGenAnimation() {

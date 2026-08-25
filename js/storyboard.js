@@ -667,8 +667,81 @@ function createProgress(setLabel, dureeEstimee) {
       pct = 100;
       setLabel(100);
     },
-    stop() { if (timer) clearTimeout(timer); }
+    stop() { if (timer) clearTimeout(timer); },
+    // No-op : cette barre est une pure estimation de temps, sans notion de
+    // jalon ou de flux. Présents uniquement pour que TOUT appelant puisse
+    // appeler ces deux méthodes sans jamais avoir à savoir laquelle des deux
+    // barres (estimée ou réelle, voir creerProgressionReelle) est active.
+    etapeTerminee() {},
+    etapeFluxProgres() {}
   };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BARRE DE PROGRESSION RÉELLE (phases à jalons + flux continu)
+// ═══════════════════════════════════════════════════════════
+// Contrairement à createProgress ci-dessus (estimation de temps pure, qui
+// monte tout seul même si le serveur est bloqué), celle-ci reflète le VRAI
+// travail en cours (retour direct du propriétaire : "que le pourcentage
+// progresse réellement au rythme réel du travail de génération") :
+// - chaque étape ATOMIQUE (pas de flux, ex. le brief ou la critique) fait
+//   sauter le % à sa borne haute dès qu'elle se termine VRAIMENT
+//   (etapeTerminee), jamais avant ;
+// - l'étape qui fait le vrai gros du travail (l'écriture, en flux via
+//   onApercu/api/generate.js, voir js/api.js callAI) avance en CONTINU,
+//   proportionnellement aux caractères RÉELLEMENT reçus du modèle jusqu'ici
+//   (etapeFluxProgres) : si le réseau ou le modèle cale, le % cale aussi,
+//   jamais une fausse impression de mouvement.
+// `poidsEtapes` : poids relatif de chaque étape du pipeline. On utilise le
+// max_tokens de l'appel qui la compose comme proxy (le meilleur repère
+// disponible du temps réel qu'elle prendra), pas une durée devinée à la main.
+function creerProgressionReelle(setPct, poidsEtapes) {
+  const total = poidsEtapes.reduce((s, w) => s + w, 0) || 1;
+  const cumul = [0];
+  poidsEtapes.forEach(w => cumul.push(cumul[cumul.length - 1] + w));
+
+  let etapeCourante = 0;
+  let dernierPct = 0;
+  function appliquer(p) {
+    // Jamais en arrière, jamais 100% avant finish() (réservé à la vraie fin
+    // du pipeline, voir plus bas) : un jalon intermédiaire ne doit jamais
+    // laisser croire que c'est terminé.
+    dernierPct = Math.max(dernierPct, Math.min(99, Math.round(p)));
+    setPct(dernierPct);
+  }
+  return {
+    // Marque l'étape `i` (0-based) comme réellement terminée : le % saute
+    // au moins à sa borne haute. Monotone (jamais en arrière), sans effet
+    // si `i` a déjà été dépassée.
+    etapeTerminee(i) {
+      etapeCourante = Math.max(etapeCourante, i + 1);
+      appliquer((cumul[etapeCourante] / total) * 100);
+    },
+    // Progression CONTINUE à l'intérieur de l'étape `i`, celle qui reçoit
+    // un flux : `fraction` (0..1) = travail réellement reçu jusqu'ici pour
+    // cette étape (voir fractionFlux ci-dessous).
+    etapeFluxProgres(i, fraction) {
+      const bas = cumul[i] / total, haut = cumul[i + 1] / total;
+      appliquer((bas + Math.min(1, Math.max(0, fraction)) * (haut - bas)) * 100);
+    },
+    start() { dernierPct = 0; etapeCourante = 0; setPct(0); },
+    // Termine : saute à 100% (à appeler quand le résultat est réellement affiché).
+    finish() { dernierPct = 100; setPct(100); },
+    stop() {} // rien à nettoyer (pas de minuteur ici, contrairement à createProgress)
+  };
+}
+
+// Estimation grossière de la longueur de texte à attendre pour UN appel IA
+// donné, à partir de son max_tokens (le seul repère disponible avant coup) :
+// sert UNIQUEMENT à calibrer la vitesse d'avancement du %, jamais à couper
+// la génération réelle. ~3.3 caractères par token en français (mesuré sur
+// les générations Scriptura). La fraction est de toute façon plafonnée à 1
+// si le texte réellement reçu dépasse cette estimation (le modèle a écrit
+// plus long que prévu, ça arrive), le % ne dépasse simplement jamais la
+// borne haute de l'étape avant qu'elle soit vraiment marquée terminée.
+function fractionFlux(bufferLength, maxTokens) {
+  const caracteresCibles = Math.max(200, maxTokens * 3.3);
+  return Math.min(1, bufferLength / caracteresCibles);
 }
 
 function copyStory(btn) {
