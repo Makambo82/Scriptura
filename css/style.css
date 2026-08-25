@@ -1419,6 +1419,14 @@ body.hero-focus .hero-focus-rule{display:block}
   .why-grid > *:nth-child(3n+2) .how-icon svg{animation-delay:.18s}
   .how-grid > *:nth-child(3n) .how-icon svg,
   .why-grid > *:nth-child(3n) .how-icon svg{animation-delay:.36s}
+  /* Les 3 cartes "Services annexes" (Storyboard d'un script, Transcrire/
+     télécharger, Monter une vidéo) : mêmes icônes maison que .how-icon
+     (voir commentaire plus haut), mais jusqu'ici sans la pulsation des 7
+     autres icônes de la page (Comment ça marche + Pourquoi Scriptura),
+     incohérence signalée directement. Même animation, même cascade. */
+  .how .hero-mode-btn .mode-icon svg{animation:howIconPulse 1.7s ease-in-out infinite}
+  .how .hero-mode-btn:nth-of-type(2) .mode-icon svg{animation-delay:.18s}
+  .how .hero-mode-btn:nth-of-type(3) .mode-icon svg{animation-delay:.36s}
 }
 .how-step-title{font-family:'Cinzel',serif;font-size:0.88rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#fff;line-height:1.35;margin-bottom:10px}
 .how-step-desc{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6}
