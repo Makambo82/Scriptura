@@ -253,8 +253,37 @@ async function toggleListeAbonnesAdmin() {
     const codesUniques = Array.from(new Set(_codesAbonnesAdmin.map(c => c.code)));
     await chargerPresenceAdmin(codesUniques);
     renderAdminListe();
+    demarrerPollPresenceAdmin();
+  } else {
+    arreterPollPresenceAdmin();
   }
   if (hint) hint.textContent = ouvert ? 'Touche pour voir le détail des codes ↓' : 'Touche pour masquer ↑';
+}
+
+// Rafraîchit le statut en ligne toutes les 20s tant que le panneau est
+// ouvert, pour voir un abonné se connecter sans recharger la page (les
+// clients signalent leur présence toutes les 60s au plus, voir
+// envoyerPresence dans js/app.js : 20s suffit largement à le voir passer
+// au vert). S'arrête tout seul dès que le panneau ou l'écran admin
+// disparaît (retour arrière, changement d'écran), pas besoin d'un
+// crochet séparé sur la navigation.
+let _presencePollInterval = null;
+function arreterPollPresenceAdmin() {
+  if (_presencePollInterval) { clearInterval(_presencePollInterval); _presencePollInterval = null; }
+}
+function demarrerPollPresenceAdmin() {
+  arreterPollPresenceAdmin();
+  _presencePollInterval = setInterval(async () => {
+    const panneau = document.getElementById('listeAbonnesAdmin');
+    const ecranAdmin = document.getElementById('adminFlow');
+    if (!panneau || panneau.style.display === 'none' || !ecranAdmin || ecranAdmin.style.display === 'none') {
+      arreterPollPresenceAdmin();
+      return;
+    }
+    const codesUniques = Array.from(new Set(_codesAbonnesAdmin.map(c => c.code)));
+    await chargerPresenceAdmin(codesUniques);
+    renderAdminListe();
+  }, 20000);
 }
 
 function filtrerCodesAdmin() {
