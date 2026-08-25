@@ -13,7 +13,7 @@ let navStack = [];
 // masquerTousLesEcrans() sont désormais la SEULE source de vérité : toute
 // fonction qui ouvre un écran doit appeler masquerTousLesEcrans() plutôt que
 // de refaire sa propre liste.
-const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow'];
+const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'montageManuelFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow'];
 function masquerTousLesEcrans() {
   TOUS_LES_ECRANS.forEach(id => {
     const el = document.getElementById(id);
@@ -81,7 +81,7 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow']) {
+  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'montageManuelFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow']) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }

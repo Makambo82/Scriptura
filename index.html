@@ -588,70 +588,71 @@
     </div>
 
     <div id="outilsForm">
-      <div id="outilsLienBloc">
-        <div class="ds-field">
-          <span class="ds-at"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
-          <input class="ds-input" id="outilsLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();}"/>
-        </div>
-        <div class="err" id="outilsError" style="display:none;margin-top:14px"></div>
+      <div class="ds-field">
+        <span class="ds-at"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
+        <input class="ds-input" id="outilsLien" placeholder="Colle le lien TikTok de la vidéo…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();}"/>
+      </div>
+      <div class="err" id="outilsError" style="display:none;margin-top:14px"></div>
 
-        <div class="outils-btn-row ds-scope">
-          <button type="button" class="ds-scope-btn" id="outilsTranscriptionBtn" onclick="lancerOutilTikTok('transcription')">
-            <span class="sb-gen-spinner" id="outilsTranscriptionSpinner" style="display:none"></span>
-            <svg class="ico" id="outilsTranscriptionIco" style="margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/></svg>
-            <span id="outilsTranscriptionBtnText">Transcrire</span>
-          </button>
-          <button type="button" class="ds-scope-btn" id="outilsTelechargementBtn" onclick="lancerOutilTikTok('telechargement')">
-            <span class="sb-gen-spinner" id="outilsTelechargementSpinner" style="display:none"></span>
-            <svg class="ico" id="outilsTelechargementIco" style="margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
-            <span id="outilsTelechargementBtnText">Télécharger</span>
-          </button>
-        </div>
-
-        <div class="sb-progress-bar" id="outilsProgBar" style="display:none">
-          <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="outilsProgFill"></div></div>
-          <div class="sb-progress-bar-pct" id="outilsProgPct">0%</div>
-        </div>
+      <div class="outils-btn-row ds-scope">
+        <button type="button" class="ds-scope-btn" id="outilsTranscriptionBtn" onclick="lancerOutilTikTok('transcription')">
+          <span class="sb-gen-spinner" id="outilsTranscriptionSpinner" style="display:none"></span>
+          <svg class="ico" id="outilsTranscriptionIco" style="margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/></svg>
+          <span id="outilsTranscriptionBtnText">Transcrire</span>
+        </button>
+        <button type="button" class="ds-scope-btn" id="outilsTelechargementBtn" onclick="lancerOutilTikTok('telechargement')">
+          <span class="sb-gen-spinner" id="outilsTelechargementSpinner" style="display:none"></span>
+          <svg class="ico" id="outilsTelechargementIco" style="margin-right:5px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
+          <span id="outilsTelechargementBtnText">Télécharger</span>
+        </button>
       </div>
 
-      <!-- Monter une vidéo à partir d'images + voix off uploadées (pas de lien
-           TikTok ici) : voir js/montage-manuel.js. Réutilise le pipeline de rendu
-           de js/montage.js (/api/montage-render, partage natif) sans dépendre
-           d'un storyboard généré par l'IA. -->
-      <div id="outilsMontageForm" style="display:none">
-        <button class="btn-back" type="button" onclick="fermerOutilsMontage()">← Autres outils</button>
-        <div class="ideas-header" style="margin-top:14px">
-          <div class="ideas-eyebrow">Monter une vidéo</div>
-          <h2 class="ideas-title">Tes images<br/><strong>+ ta voix off.</strong></h2>
-          <p class="ideas-sub">Ajoute tes images dans l'ordre du montage, choisis ta voix off, puis démarre.</p>
-        </div>
-
-        <div class="montage-section">
-          <div class="montage-section-label">Images (<span id="omImagesCompte">0</span>)</div>
-          <input type="file" id="omImagesInput" accept="image/*" multiple style="display:none" onchange="omAjouterImages(this.files)"/>
-          <button class="btn-regenerate" type="button" onclick="document.getElementById('omImagesInput').click()">Ajouter des images</button>
-          <div class="audit-thumbs" id="omImagesThumbs" style="margin-top:14px"></div>
-          <div id="omDureesZone"></div>
-        </div>
-
-        <div class="montage-section">
-          <div class="montage-section-label">Voix off</div>
-          <div class="ds-scope" id="omVoixModeRow" style="margin-top:0">
-            <button type="button" class="ds-scope-btn actif" id="omModeUploadBtn" onclick="omChoisirModeVoix('upload')">Importer un fichier</button>
-            <button type="button" class="ds-scope-btn" id="omModeIaBtn" onclick="omChoisirModeVoix('ia')">Générer avec l'IA</button>
-          </div>
-          <div id="omVoixZone" style="margin-top:10px"></div>
-        </div>
-
-        <div class="error-box" id="omErreur" style="display:none"></div>
-        <div class="montage-statut" id="omStatut" style="display:none">Envoi des fichiers…</div>
-        <div id="omResultat"></div>
-
-        <button class="btn-regenerate" id="omLancerBtn" onclick="omLancerMontage()" disabled style="margin-top:16px">Démarrer le montage</button>
+      <div class="sb-progress-bar" id="outilsProgBar" style="display:none">
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="outilsProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="outilsProgPct">0%</div>
       </div>
     </div>
 
     <div id="outilsResults" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ══ MODULE MONTAGE MANUEL (outil à part entière, pas un sous-écran
+     d'Outils TikTok : images + voix off uploadées, sans storyboard IA) ══
+     Voir js/montage-manuel.js. Réutilise le pipeline de rendu de
+     js/montage.js (/api/montage-render, partage natif) sans dépendre d'un
+     storyboard généré par l'IA. -->
+<section id="montageManuelFlow" style="display:none">
+  <div class="ds-wrap">
+    <button class="btn-back" onclick="navBack()">← Retour</button>
+    <div class="ideas-header">
+      <div class="ideas-eyebrow">Monter une vidéo</div>
+      <h2 class="ideas-title">Tes images<br/><strong>+ ta voix off.</strong></h2>
+      <p class="ideas-sub">Ajoute tes images dans l'ordre du montage, choisis ta voix off, puis démarre.</p>
+    </div>
+
+    <div class="montage-section">
+      <div class="montage-section-label">Images (<span id="omImagesCompte">0</span>)</div>
+      <input type="file" id="omImagesInput" accept="image/*" multiple style="display:none" onchange="omAjouterImages(this.files)"/>
+      <button class="btn-regenerate" type="button" onclick="document.getElementById('omImagesInput').click()">Ajouter des images</button>
+      <div class="audit-thumbs" id="omImagesThumbs" style="margin-top:14px"></div>
+      <div id="omDureesZone"></div>
+    </div>
+
+    <div class="montage-section">
+      <div class="montage-section-label">Voix off</div>
+      <div class="ds-scope" id="omVoixModeRow" style="margin-top:0">
+        <button type="button" class="ds-scope-btn actif" id="omModeUploadBtn" onclick="omChoisirModeVoix('upload')">Importer un fichier</button>
+        <button type="button" class="ds-scope-btn" id="omModeIaBtn" onclick="omChoisirModeVoix('ia')">Générer avec l'IA</button>
+      </div>
+      <div id="omVoixZone" style="margin-top:10px"></div>
+    </div>
+
+    <div class="error-box" id="omErreur" style="display:none"></div>
+    <div class="montage-statut" id="omStatut" style="display:none">Envoi des fichiers…</div>
+    <div id="omResultat"></div>
+
+    <button class="btn-regenerate" id="omLancerBtn" onclick="omLancerMontage()" disabled style="margin-top:16px">Démarrer le montage</button>
   </div>
 </section>
 

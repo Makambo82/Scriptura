@@ -1,13 +1,14 @@
 // ═══════════════════════════════════════════════════════════
-//  MONTAGE MANUEL (Outils TikTok → « Monter une vidéo »)
-//  Variante du montage vidéo (voir js/montage.js) qui ne part PAS d'un
-//  storyboard généré par l'IA : le fondateur uploade directement ses
-//  propres images et sa propre voix off (fichier existant OU texte à
-//  transformer via ElevenLabs, au choix). Réservé au fondateur (voir
-//  .outils-montage-btn, css/style.css, body.is-admin) : le rendu FFmpeg
-//  reste coûteux, même restriction que le montage depuis le storyboard,
-//  re-vérifiée côté serveur par /api/montage-render (resoudreDroits/
-//  isAdmin), jamais fiée au seul CSS.
+//  MONTAGE MANUEL (carte "Monter une vidéo", accueil → Services annexes)
+//  Outil à part entière (écran #montageManuelFlow dédié, retour direct :
+//  jamais imbriqué dans l'écran Outils TikTok, même s'il en réutilise le
+//  pipeline de rendu) qui ne part PAS d'un storyboard généré par l'IA : le
+//  fondateur uploade directement ses propres images et sa propre voix off
+//  (fichier existant OU texte à transformer via ElevenLabs, au choix).
+//  Réservé au fondateur (voir .outils-montage-home-btn, css/style.css,
+//  body.is-admin) : le rendu FFmpeg reste coûteux, même restriction que le
+//  montage depuis le storyboard, re-vérifiée côté serveur par
+//  /api/montage-render (resoudreDroits/isAdmin), jamais fiée au seul CSS.
 //  Réutilise volontairement le pipeline déjà en place : /api/montage-render
 //  (proxy Railway ou repli FFmpeg local, selon MONTAGE_RENDER_URL),
 //  /api/montage-media (voix ElevenLabs), et les fonctions de partage/
@@ -59,35 +60,21 @@ function omResetState() {
   if (btnIa) btnIa.classList.remove('actif');
 }
 
-function ouvrirOutilsMontage() {
+// Point d'entrée unique, depuis la carte "Monter une vidéo" de l'accueil
+// (section "Services annexes", voir index.html) : même mécanique que les
+// autres écrans de premier niveau (pushNav + masquerTousLesEcrans, voir
+// js/navigation.js), pas de sous-écran partagé avec un autre outil.
+function ouvrirMontageManuelAccueil() {
+  if (typeof pushNav === 'function') pushNav();
+  if (typeof masquerTousLesEcrans === 'function') masquerTousLesEcrans();
   omResetState();
-  const lienBloc = document.getElementById('outilsLienBloc');
-  const form = document.getElementById('outilsMontageForm');
-  if (lienBloc) lienBloc.style.display = 'none';
-  if (form) form.style.display = 'block';
+  const ecran = document.getElementById('montageManuelFlow');
+  if (ecran) ecran.style.display = 'block';
   omChargerVoix();
   omRenderImages();
   omRenderVoixZone();
   omMajBoutonLancer();
   window.scrollTo({ top: 0, behavior: 'auto' });
-}
-
-function fermerOutilsMontage() {
-  const form = document.getElementById('outilsMontageForm');
-  const lienBloc = document.getElementById('outilsLienBloc');
-  if (form) form.style.display = 'none';
-  if (lienBloc) lienBloc.style.display = '';
-}
-
-// Point d'entrée depuis la carte "Monter une vidéo" de l'accueil (section
-// "Services annexes", voir index.html) : le formulaire de montage manuel vit
-// dans l'écran #tiktokOutilsFlow (partagé avec Transcrire/Télécharger), donc
-// il faut d'abord l'ouvrir (ouvrirOutilsTikTok, affiche l'écran et empile la
-// navigation) avant de basculer directement sur le sous-formulaire montage,
-// sans passer par l'étape "colle un lien TikTok" entre les deux.
-function ouvrirMontageManuelAccueil() {
-  ouvrirOutilsTikTok();
-  ouvrirOutilsMontage();
 }
 
 // ── IMAGES ──

@@ -100,12 +100,6 @@ test('Outils TikTok : voix IA calée par image (une ligne = un segment = une vra
       };
     });
 
-    // ouvrirOutilsTikTok() affiche d'abord l'écran #tiktokOutilsFlow qui
-    // contient tout ce qui suit (ouvrirOutilsMontage() ne fait que basculer
-    // entre ses deux sous-blocs, il suppose l'écran déjà visible, comme au
-    // clic réel sur le bouton "Monter une vidéo") : sans cet appel, les
-    // champs restent en display:none hérité, invisibles pour Playwright
-    // bien qu'ils existent dans le DOM.
     // Même point d'entrée que la carte "Monter une vidéo" de l'accueil.
     await page.evaluate(() => ouvrirMontageManuelAccueil());
     await page.waitForTimeout(100);
@@ -201,12 +195,6 @@ test('Outils TikTok : voix uploadée, durée de chaque image réglable à la mai
       };
     });
 
-    // ouvrirOutilsTikTok() affiche d'abord l'écran #tiktokOutilsFlow qui
-    // contient tout ce qui suit (ouvrirOutilsMontage() ne fait que basculer
-    // entre ses deux sous-blocs, il suppose l'écran déjà visible, comme au
-    // clic réel sur le bouton "Monter une vidéo") : sans cet appel, les
-    // champs restent en display:none hérité, invisibles pour Playwright
-    // bien qu'ils existent dans le DOM.
     // Même point d'entrée que la carte "Monter une vidéo" de l'accueil.
     await page.evaluate(() => ouvrirMontageManuelAccueil());
     await page.waitForTimeout(100);
