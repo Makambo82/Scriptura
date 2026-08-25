@@ -841,7 +841,7 @@ async function initAccueilPremiumInterne(zone) {
       // vide et silencieuse pendant tout l'appel IA (voir même principe
       // plus bas pour le cas abonné).
       zone.innerHTML = `<div class="results-heading">${salutationAccueil()}</div>
-        <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce que je peux te proposer…</div>`;
+        <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce qui marche en ce moment sur TikTok dans ta niche, pour te proposer une première idée…</div>`;
       zone.style.display = 'block';
       dataAnon = await genererRecommandations(null, null);
       // Ne JAMAIS mettre en cache un résultat "onboarding" (pas encore assez
@@ -891,7 +891,7 @@ async function initAccueilPremiumInterne(zone) {
     zone.innerHTML = `${entete}
       <div class="score-card">
         <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
-        <div class="audit-diag-interp">Je prépare ta recommandation du jour, ça arrive dans un instant…</div>
+        <div class="audit-diag-interp">Je regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ton profil et de tes générations, pour préparer ta recommandation du jour…</div>
       </div>`;
     zone.style.display = 'block';
     data = await genererRecommandations(null, null);
@@ -983,7 +983,7 @@ async function afficherEtMaintenant(auditFrais, ts, niche, objectif) {
     return;
   }
 
-  zone.innerHTML = '<div class="audit-section-label">Et maintenant ?</div><div class="audit-diag-interp">Scriptura cherche la meilleure recommandation pour ton compte…</div>';
+  zone.innerHTML = '<div class="audit-section-label">Et maintenant ?</div><div class="audit-diag-interp">Scriptura regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ce diagnostic, pour te proposer la suite…</div>';
 
   const data = await genererRecommandations(auditFrais, ts, niche, objectif);
   // rienDeConnu ne devrait jamais arriver ici (l'audit tout juste terminé
@@ -1021,6 +1021,11 @@ async function afficherOpportuniteDiagSommaire(d, moi, username, recommandationS
     rendre(recommandationSauvegardee);
     return;
   }
+
+  // Message d'attente pendant l'appel IA (peut prendre quelques secondes,
+  // recherche web comprise) : jamais de zone vide et silencieuse, même
+  // principe que initAccueilPremiumInterne/afficherEtMaintenant.
+  zone.innerHTML = entete + '<div class="audit-diag-interp">Scriptura regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ce diagnostic, pour te proposer une idée en plus…</div>';
 
   const texteExtra = (d && typeof texteDiagnosticSommaireOpportunites === 'function')
     ? texteDiagnosticSommaireOpportunites(d, moi, username)
