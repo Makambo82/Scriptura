@@ -113,6 +113,27 @@ async function blocDiagnosticsPourReco() {
 // nicheFraiche/objectifFrais : idem, transmis explicitement quand l'audit
 // vient tout juste de se terminer et que le Profil Créateur n'a pas encore
 // fini de les enregistrer en tâche de fond (voir renderAudit).
+// Vérifie si Scriptura a VRAIMENT de quoi baser une recommandation (niche
+// connue, thèmes déjà traités, leçons d'audit, diagnostic/génération tout
+// juste fournis, ou signal fort croisé compte/concurrents), AVANT même
+// d'afficher un message d'attente ou de lancer un appel IA. Sert à ne
+// jamais promettre à l'utilisateur que Scriptura "regarde ce qui marche
+// dans ta niche" alors que sa niche n'est pas encore connue : ce serait
+// malhonnête, pas premium. Même logique que le calcul interne à
+// genererRecommandations ci-dessous (rienDeConnu) : si l'un change, pense
+// à répercuter sur l'autre.
+async function aAssezDeMemoirePourReco(auditFrais, texteExtra, nicheFraiche) {
+  const profilCharge = await chargerProfilCreateur();
+  const diag = await blocDiagnosticsPourReco();
+  return !!(
+    nicheFraiche || profilCharge.declare.niche_principale
+    || (profilCharge.observe.themes_traites && profilCharge.observe.themes_traites.length)
+    || (profilCharge.lecons.recommandations_permanentes && profilCharge.lecons.recommandations_permanentes.length)
+    || auditFrais || texteExtra
+    || diag.aSignalFort
+  );
+}
+
 // `texteExtra` (optionnel) : texte déjà prêt à injecter à la place de
 // texteDiagnosticOpportunites(auditFrais, ts), pour un appelant dont les
 // données n'ont pas la forme de l'audit détaillé (voir
@@ -141,7 +162,10 @@ async function genererRecommandations(auditFrais, ts, nicheFraiche, objectifFrai
   // Mémoire trop mince pour recommander quoi que ce soit d'honnête : on
   // n'invente rien. Signalé distinctement d'un échec technique (voir plus
   // bas) pour que l'accueil puisse afficher un message honnête plutôt que
-  // de disparaître sans explication.
+  // de disparaître sans explication. Même condition que
+  // aAssezDeMemoirePourReco ci-dessus (utilisée en amont par l'UI, avant
+  // même d'afficher un message d'attente) : si l'un change, répercuter sur
+  // l'autre.
   const rienDeConnu = !profil.declare.niche_principale
     && !(profil.observe.themes_traites && profil.observe.themes_traites.length)
     && !(profil.lecons.recommandations_permanentes && profil.lecons.recommandations_permanentes.length)
@@ -836,21 +860,31 @@ async function initAccueilPremiumInterne(zone) {
     // jamais, même s'il traîne encore dans le localStorage de quelqu'un.
     if (dataAnon && dataAnon.onboarding) dataAnon = null;
     if (!dataAnon) {
-      // La salutation ne dépend d'aucun appel réseau : elle s'affiche tout
-      // de suite, avec un message d'attente, plutôt que de laisser la zone
-      // vide et silencieuse pendant tout l'appel IA (voir même principe
-      // plus bas pour le cas abonné).
-      zone.innerHTML = `<div class="results-heading">${salutationAccueil()}</div>
-        <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce qui marche en ce moment sur TikTok dans ta niche, pour te proposer une première idée…</div>`;
-      zone.style.display = 'block';
-      dataAnon = await genererRecommandations(null, null);
-      // Ne JAMAIS mettre en cache un résultat "onboarding" (pas encore assez
-      // d'infos) : contrairement à un échec technique, cet état change dès
-      // que le visiteur suit le conseil (fait une génération), le mettre en
-      // cache pour la journée entière l'empêcherait de voir sa vraie
-      // recommandation juste après avoir fait exactement ce qu'on lui a
-      // demandé.
-      if (dataAnon && !dataAnon.onboarding) ecrireRecoCache(dataAnon);
+      // Vérifié AVANT d'afficher quoi que ce soit : promettre "je regarde ce
+      // qui marche dans ta niche" à un visiteur dont on ne connaît encore
+      // rien serait malhonnête. S'il n'y a vraiment rien à exploiter, on
+      // saute directement au message "Bienvenue" plus bas, sans message
+      // d'attente ni appel IA inutile (le résultat serait "onboarding" de
+      // toute façon).
+      if (!(await aAssezDeMemoirePourReco())) {
+        dataAnon = { onboarding: true };
+      } else {
+        // La salutation ne dépend d'aucun appel réseau : elle s'affiche tout
+        // de suite, avec un message d'attente, plutôt que de laisser la zone
+        // vide et silencieuse pendant tout l'appel IA (voir même principe
+        // plus bas pour le cas abonné).
+        zone.innerHTML = `<div class="results-heading">${salutationAccueil()}</div>
+          <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce qui marche en ce moment sur TikTok dans ta niche, pour te proposer une première idée…</div>`;
+        zone.style.display = 'block';
+        dataAnon = await genererRecommandations(null, null);
+        // Ne JAMAIS mettre en cache un résultat "onboarding" (pas encore assez
+        // d'infos) : contrairement à un échec technique, cet état change dès
+        // que le visiteur suit le conseil (fait une génération), le mettre en
+        // cache pour la journée entière l'empêcherait de voir sa vraie
+        // recommandation juste après avoir fait exactement ce qu'on lui a
+        // demandé.
+        if (dataAnon && !dataAnon.onboarding) ecrireRecoCache(dataAnon);
+      }
     }
     if (dataAnon && !dataAnon.onboarding && Array.isArray(dataAnon.recommandations) && dataAnon.recommandations.length) {
       const enteteAnon = `<div class="results-heading">${salutationAccueil()}</div>
@@ -884,25 +918,34 @@ async function initAccueilPremiumInterne(zone) {
   // jamais, même s'il traîne encore dans le localStorage de quelqu'un.
   if (data && data.onboarding) data = null;
   if (!data) {
-    // La salutation n'a aucune raison d'attendre la recommandation elle-même
-    // (appel IA, potentiellement long) : on l'affiche tout de suite, avec un
-    // message clair pour que l'abonné comprenne que sa recommandation arrive
-    // plutôt que de voir un accueil vide et silencieux pendant ce temps.
-    zone.innerHTML = `${entete}
-      <div class="score-card">
-        <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
-        <div class="audit-diag-interp">Je regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ton profil et de tes générations, pour préparer ta recommandation du jour…</div>
-      </div>`;
-    zone.style.display = 'block';
-    data = await genererRecommandations(null, null);
-    // On ne met en cache qu'une vraie recommandation exploitable, jamais un
-    // échec technique (null), pour qu'un simple problème réseau ne bloque
-    // pas toute la journée, ET jamais un résultat "onboarding" (pas encore
-    // assez d'infos) : cet état change dès que l'abonné suit le conseil
-    // (fait une génération), le mettre en cache l'empêcherait de voir sa
-    // vraie recommandation juste après avoir fait exactement ce qu'on lui a
-    // demandé.
-    if (data && !data.onboarding) ecrireRecoCache(data);
+    // Vérifié AVANT d'afficher le message d'attente : promettre "je regarde
+    // ce qui marche dans ta niche" à un abonné dont on ne connaît encore
+    // rien serait malhonnête. S'il n'y a vraiment rien à exploiter, on saute
+    // directement au message "Scriptura apprend encore tes habitudes" plus
+    // bas, sans message d'attente ni appel IA inutile.
+    if (!(await aAssezDeMemoirePourReco())) {
+      data = { onboarding: true };
+    } else {
+      // La salutation n'a aucune raison d'attendre la recommandation elle-même
+      // (appel IA, potentiellement long) : on l'affiche tout de suite, avec un
+      // message clair pour que l'abonné comprenne que sa recommandation arrive
+      // plutôt que de voir un accueil vide et silencieux pendant ce temps.
+      zone.innerHTML = `${entete}
+        <div class="score-card">
+          <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
+          <div class="audit-diag-interp">Je regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ton profil et de tes générations, pour préparer ta recommandation du jour…</div>
+        </div>`;
+      zone.style.display = 'block';
+      data = await genererRecommandations(null, null);
+      // On ne met en cache qu'une vraie recommandation exploitable, jamais un
+      // échec technique (null), pour qu'un simple problème réseau ne bloque
+      // pas toute la journée, ET jamais un résultat "onboarding" (pas encore
+      // assez d'infos) : cet état change dès que l'abonné suit le conseil
+      // (fait une génération), le mettre en cache l'empêcherait de voir sa
+      // vraie recommandation juste après avoir fait exactement ce qu'on lui a
+      // demandé.
+      if (data && !data.onboarding) ecrireRecoCache(data);
+    }
   }
 
   if (data && data.onboarding) {
@@ -924,7 +967,7 @@ async function initAccueilPremiumInterne(zone) {
       <div class="score-card">
         <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
         <div class="audit-diag-constat">Scriptura apprend encore tes habitudes.</div>
-        <div class="audit-diag-interp">Analyse ton compte TikTok : tes recommandations personnalisées apparaîtront ici dès la prochaine visite.</div>
+        <div class="audit-diag-interp">Analyse ton compte TikTok : ta recommandation personnalisée arrivera juste après, à la fin de ton diagnostic.</div>
         <button class="btn-generate" style="margin-top:14px" onclick="chooseMode('audit')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><rect x="5.5" y="13" width="3" height="6" rx="0.6"/><rect x="10.5" y="9" width="3" height="10" rx="0.6"/><rect x="15.5" y="6" width="3" height="13" rx="0.6"/></svg> Analyser mon compte</button>
       </div>`;
     zone.style.display = 'block';
