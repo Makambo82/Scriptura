@@ -55,6 +55,30 @@ const WORD_TARGETS_SERIE = {
   'environ 2 minutes': { min: 270, max: 330 }
 };
 
+// Filet de sécurité déterministe (pas seulement une consigne de prompt, que
+// l'IA peut ignorer) : retire toute étiquette/minutage qui se serait quand
+// même glissée dans un script d'épisode (VOIX OFF, TEXTE À L'ÉCRAN, ÉCRAN
+// NOIR, PLAN, horodatages entre crochets). Le script d'un épisode doit
+// toujours se lire comme une voix off continue, jamais un script annoté.
+function nettoyerEtiquettesEpisodeSerie(texte) {
+  if (typeof texte !== 'string' || !texte) return texte;
+  const estEtiquette = (s) => /^(voix off|texte (à|a) l'?[ée]cran|[ée]cran noir|texte blanc|plan\s*\d*)\s*:?\s*$/i.test(String(s).trim());
+  return texte
+    .replace(/[\[\(]\s*\d{1,3}\s*-\s*\d{1,3}\s*s\s*[\]\)]\s*/gi, '')
+    .split('\n')
+    .map(ligne => {
+      // Étiquette seule, toute la ligne entre crochets/parenthèses : "[ÉCRAN NOIR]", "(VOIX OFF)"
+      const enveloppee = ligne.trim().match(/^[\[\(](.+)[\]\)]$/);
+      if (enveloppee && estEtiquette(enveloppee[1])) return '';
+      // Étiquette en préfixe de ligne, avec ou sans les deux-points : "VOIX OFF : texte"
+      return ligne.replace(/^\s*(voix off|texte (à|a) l'?[ée]cran|[ée]cran noir|texte blanc|plan\s*\d*)\s*:?\s*/i, '');
+    })
+    .filter(ligne => !estEtiquette(ligne))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Recopie la liste des niches depuis le mode audit (mêmes options partout)
 function initSerieSelects() {
   const paires = [['auditNiche','serieNiche']];
@@ -800,13 +824,11 @@ ${instructionRechercheWeb(serie.niche, 'd\'écrire cet épisode')}
 FORMAT, RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
 ${estFaceless ? `>> FORMAT FACELESS (le créateur n'apparaît pas) :
-Le script et le texte à l'écran portent 100 % du récit.
-- Écris en DEUX temps clairement séparés : la VOIX OFF (ce qu'on entend) et le TEXTE À L'ÉCRAN (mots-clés forts et courts, ce qu'on lit).
-- Accroche dans les 5 PREMIERS MOTS. Phrases courtes, UNE idée par ligne, jamais un paragraphe.
+Le champ "script" est UNIQUEMENT la voix off, prête à être lue à voix haute d'un bout à l'autre : une prose continue, comme n'importe quel script Scriptura. AUCUNE étiquette ni minutage dans le texte : jamais "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", "PLAN", ni timestamp entre crochets ou parenthèses (ex: "[0-3s]"). Ce ne sont pas des nuances de style, c'est une règle absolue de format.
+- Accroche dans les 5 PREMIERS MOTS. Phrases courtes, UNE idée par ligne, jamais un paragraphe interminable.
 - Fais VOIR par des images concrètes et sensorielles ; bannis les adjectifs vagues ("intense", "incroyable").
-- Pense en plans courts : une nouvelle idée visuelle toutes les 2-3 secondes ; une relance d'attention toutes les ~20 secondes.
-- AUCUNE adresse directe du type "regarde-moi", "je vais te montrer face caméra".
-- Le champ "directives" explique quelles images/séquences filmer ou trouver (archives, plans d'illustration, texte animé).` : `>> FORMAT FACE CAMÉRA (le créateur se filme et parle) :
+- AUCUNE adresse directe du type "regarde-moi", "je vais te montrer face caméra" (le créateur n'apparaît pas à l'écran).
+- Le champ "directives" porte TOUT ce qui accompagne la voix off à l'écran : le texte à l'écran à afficher (mots-clés courts, à quel moment de la voix off), les images/séquences à filmer ou trouver (archives, plans d'illustration, texte animé).` : `>> FORMAT FACE CAMÉRA (le créateur se filme et parle) :
 Le créateur est à l'écran et s'adresse directement à sa caméra, avec un vrai point de vue humain.
 - Texte PARLÉ, à la première personne, fluide et naturel, comme quelqu'un qui raconte. Phrases courtes (chaque saut de ligne = une respiration).
 - Accroche forte dès la première phrase ; personnalité et énergie assumées.
@@ -815,7 +837,7 @@ Le créateur est à l'écran et s'adresse directement à sa caméra, avec un vra
 
 TON, RÈGLE ABSOLUE, RESPECT STRICT ET EXCLUSIF : le créateur a choisi précisément ce ton pour toute la série : "${serie.style}". Écris l'INTÉGRALITÉ de cet épisode dans CE ton, sans jamais dévier vers un autre registre, même partiellement. C'est une consigne explicite du créateur, pas une suggestion : la trahir est un échec, quelle que soit la qualité par ailleurs. Un ton satirique ne devient jamais sérieux ou émotionnel en cours de route ; un ton émotionnel ne bascule jamais dans l'ironie ou la moquerie ; un ton analytique ne devient jamais lyrique.
 
-CHAMP SUPPLÉMENTAIRE OBLIGATOIRE, "voix_off_propre" : en plus de "script" (le texte complet mis en forme, prêt à tourner), renvoie aussi "voix_off_propre" qui contient UNIQUEMENT ce qui doit être entendu à voix haute par une voix off automatique, en phrases normales mises bout à bout, JAMAIS les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", ni aucun minutage entre crochets ou parenthèses (ex: "[0-3s]"), ni le contenu du texte à l'écran lui-même. ${estFaceless ? 'Ce format sépare voix off et texte à l\'écran dans "script" : "voix_off_propre" ne garde QUE la partie parlée, débarrassée de toute étiquette et de tout minutage.' : 'Ce format n\'a pas de séparation voix off / texte à l\'écran : "voix_off_propre" est alors identique à "script".'}
+CHAMP SUPPLÉMENTAIRE OBLIGATOIRE, "voix_off_propre" : en plus de "script", renvoie aussi "voix_off_propre", qui doit être STRICTEMENT IDENTIQUE à "script" (les deux formats écrivent désormais uniquement la voix off dans "script", sans étiquette ni minutage : "voix_off_propre" existe pour que le calcul de durée et la voix off automatique aient toujours un champ dédié, même si son contenu ne diffère plus de "script").
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"titre":"titre court de l'épisode","script":"le script complet prêt à tourner","voix_off_propre":"uniquement le texte parlé, sans étiquette ni minutage","directives":"les directives de tournage adaptées au format (voir ci-dessus)"}`;
@@ -839,11 +861,12 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     if (ep && ep.script !== null && typeof ep.script === 'object') {
       const v = ep.script.voix_off || ep.script.voix || '';
       const t = ep.script.texte_ecran || ep.script.texte || ep.script.text || '';
-      // Le champ objet sépare déjà voix off et texte à l'écran : profite-en
-      // pour remplir voix_off_propre proprement, avant de fusionner le tout
-      // en une seule chaîne "script" pour l'affichage/la copie.
+      // Le champ objet sépare voix off et texte à l'écran (forme non conforme
+      // à la consigne) : on ne garde QUE la voix off pour "script" (jamais
+      // d'étiquette réintroduite ici), le texte à l'écran éventuel est perdu
+      // plutôt que ré-affiché avec un label interdit.
       if (!ep.voix_off_propre) ep.voix_off_propre = v || t;
-      ep.script = [v ? 'VOIX OFF\n' + v : '', t ? 'TEXTE À L\'ÉCRAN\n' + t : ''].filter(Boolean).join('\n\n') || JSON.stringify(ep.script);
+      ep.script = v || t || JSON.stringify(ep.script);
     }
     if (ep && ep.directives !== null && typeof ep.directives === 'object') {
       ep.directives = Object.values(ep.directives).filter(Boolean).join('\n\n');
@@ -855,17 +878,21 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     if (!ep.voix_off_propre || typeof ep.voix_off_propre !== 'string' || !ep.voix_off_propre.trim()) {
       ep.voix_off_propre = ep.script;
     }
+    // Retire toute étiquette qui se serait quand même glissée malgré la
+    // consigne (voir nettoyerEtiquettesEpisodeSerie) : jamais dépendant
+    // uniquement du bon vouloir du prompt.
+    ep.script = nettoyerEtiquettesEpisodeSerie(ep.script);
+    ep.voix_off_propre = nettoyerEtiquettesEpisodeSerie(ep.voix_off_propre);
 
     // ── CONTRÔLE QUALITÉ STRICT DE LA DURÉE (comme les modes Script et Storytelling) ──
     // La consigne de durée dans le prompt ne suffisait pas : contrairement aux
     // autres modes, aucune vérification programmatique n'existait pour les
     // épisodes de série. On compte les mots réels et on corrige si hors cible.
-    // IMPORTANT : on compte sur voix_off_propre, jamais sur script. En format
-    // faceless, script contient AUSSI les étiquettes VOIX OFF/TEXTE À L'ÉCRAN
-    // et le texte à l'écran (jamais lu à voix haute), ce qui gonflait le
-    // compte de mots sans rapport avec la durée réelle de la voix off (seule
-    // chose qui dicte la durée de la vidéo rendue). En format face caméra,
-    // voix_off_propre == script (voir prompt d'écriture), donc identique.
+    // On compte sur voix_off_propre : depuis ce correctif, les deux formats
+    // écrivent "script" comme une voix off continue, sans étiquette ni texte
+    // à l'écran mélangé dedans (celui-ci vit dans "directives"), donc
+    // voix_off_propre == script dans les deux cas — mais on garde ce filet
+    // de sécurité au cas où l'IA dévierait malgré la consigne.
     function countWordsSerie(texte) {
       return (typeof texte === 'string' ? texte : '').split(/\s+/).filter(Boolean).length;
     }
@@ -895,8 +922,8 @@ RÈGLES :
 - "voix_off_propre" DOIT faire entre ${wtSerie.min} et ${wtSerie.max} mots au total. Compte tes mots avant de répondre. C'est la seule mesure qui compte, pas la longueur du texte à l'écran.
 - Garde le ton "${serie.style}" strictement, du début à la fin.
 - Garde le même titre, la même tension finale, le même format (${formatSerie}).
-- Renvoie le "script" complet mis à jour, cohérent avec ce nouveau texte parlé (mêmes règles de mise en forme que la génération initiale : ${estFaceless ? 'VOIX OFF / TEXTE À L\'ÉCRAN séparés' : 'texte parlé uniquement, pas d\'étiquette'}).
-- Renvoie aussi "voix_off_propre" mis à jour : UNIQUEMENT le texte parlé du nouvel épisode, sans les mots "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR" ni aucun minutage entre crochets, même règle que pour la génération initiale.
+- Renvoie le "script" complet mis à jour, en voix off continue, sans AUCUNE étiquette ni minutage (jamais "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", "PLAN", ni timestamp entre crochets), même règle que pour la génération initiale, quel que soit le format (${formatSerie}).
+- Renvoie aussi "voix_off_propre" mis à jour : STRICTEMENT IDENTIQUE à ce nouveau "script".
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
 {"script":"le script complet corrigé","voix_off_propre":"uniquement le texte parlé du nouvel épisode, sans étiquette ni minutage"}`;
@@ -908,10 +935,12 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
       } catch(e) { break; /* en cas d'erreur, on garde la version actuelle */ }
 
       if (correctedEp && typeof correctedEp.script === 'string' && correctedEp.script.trim()) {
-        ep.script = correctedEp.script;
-        ep.voix_off_propre = (typeof correctedEp.voix_off_propre === 'string' && correctedEp.voix_off_propre.trim())
-          ? correctedEp.voix_off_propre
-          : ep.script;
+        ep.script = nettoyerEtiquettesEpisodeSerie(correctedEp.script);
+        ep.voix_off_propre = nettoyerEtiquettesEpisodeSerie(
+          (typeof correctedEp.voix_off_propre === 'string' && correctedEp.voix_off_propre.trim())
+            ? correctedEp.voix_off_propre
+            : ep.script
+        );
         wordCountSerie = countWordsSerie(ep.voix_off_propre);
       } else {
         break; // parsing échoué, on garde la version actuelle
