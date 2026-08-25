@@ -13,12 +13,24 @@
 //  /api/montage-media (voix ElevenLabs), et les fonctions de partage/
 //  téléchargement de js/montage.js (partagerVideoMontage, prechargerVideoMontage,
 //  montageStatutHTML), plutôt que de dupliquer cette logique.
+//
+//  Synchro image/voix (retour direct : sans ça, chaque image affiche une
+//  part ÉGALE de la voix off, sans lien avec ce qui est réellement dit à
+//  ce moment) :
+//  - Voix IA (ElevenLabs) : le texte doit compter UNE LIGNE PAR IMAGE,
+//    chacune envoyée comme un segment séparé (mêmes horodatages caractère
+//    par caractère qu'utilise déjà le montage depuis le storyboard, voir
+//    api/montage-media.js), donc une vraie durée par image, pas une moyenne.
+//  - Voix uploadée : aucun découpage n'est possible à deviner depuis un
+//    simple fichier audio, donc la durée de chaque image reste réglable à
+//    la main (omDureesManuelles), pré-remplie à parts égales.
 // ═══════════════════════════════════════════════════════════
 
-let omImages = [];         // [{ file, url }], dans l'ordre d'ajout = ordre du montage
-let omAudio = null;        // { blob, url, duree, source: 'upload'|'ia', nom? }
-let omModeVoix = 'upload'; // 'upload' | 'ia'
-let omVoixListe = [];      // [{ id, label }], voix ElevenLabs configurées côté serveur
+let omImages = [];           // [{ file, url }], dans l'ordre d'ajout = ordre du montage
+let omAudio = null;          // { blob, url, duree, source: 'upload'|'ia', nom?, durations? }
+let omDureesManuelles = [];  // [nombre, ...] durée (s) par image, mode 'upload' uniquement
+let omModeVoix = 'upload';   // 'upload' | 'ia'
+let omVoixListe = [];        // [{ id, label }], voix ElevenLabs configurées côté serveur
 let omVoixId = '';
 let omTexteNarration = '';
 let omVoixEnCours = false;
@@ -29,6 +41,7 @@ function omResetState() {
   omImages = [];
   if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
   omAudio = null;
+  omDureesManuelles = [];
   omModeVoix = 'upload';
   omVoixId = '';
   omTexteNarration = '';
@@ -72,14 +85,27 @@ function omAjouterImages(fileList) {
   fichiers.forEach(f => omImages.push({ file: f, url: URL.createObjectURL(f) }));
   const input = document.getElementById('omImagesInput');
   if (input) input.value = ''; // permet de resélectionner le même fichier après un retrait
-  omRenderImages();
-  omMajBoutonLancer();
+  omApresChangementImages();
 }
 
 function omRetirerImage(i) {
   const [retire] = omImages.splice(i, 1);
   if (retire) URL.revokeObjectURL(retire.url);
+  omApresChangementImages();
+}
+
+// Le nombre d'images conditionne la synchro (une ligne par image en mode
+// IA, une durée par image en mode upload) : toute voix off déjà prête
+// devient incohérente dès que la liste change, on l'invalide plutôt que de
+// laisser un montage mal calé partir silencieusement.
+function omApresChangementImages() {
+  if (omAudio && omAudio.source === 'ia') {
+    if (omAudio.url) URL.revokeObjectURL(omAudio.url);
+    omAudio = null;
+  }
+  omDureesManuelles = [];
   omRenderImages();
+  omRenderVoixZone();
   omMajBoutonLancer();
 }
 
@@ -87,12 +113,14 @@ function omRenderImages() {
   const zone = document.getElementById('omImagesThumbs');
   const compte = document.getElementById('omImagesCompte');
   if (compte) compte.textContent = String(omImages.length);
-  if (!zone) return;
-  zone.innerHTML = omImages.map((im, i) => `
-    <div class="audit-thumb">
-      <img src="${im.url}" alt="image ${i + 1}"/>
-      <button class="audit-thumb-del" onclick="omRetirerImage(${i})" title="Retirer">✕</button>
-    </div>`).join('');
+  if (zone) {
+    zone.innerHTML = omImages.map((im, i) => `
+      <div class="audit-thumb">
+        <img src="${im.url}" alt="image ${i + 1}"/>
+        <button class="audit-thumb-del" onclick="omRetirerImage(${i})" title="Retirer">✕</button>
+      </div>`).join('');
+  }
+  omRenderDureesManuelles();
 }
 
 // Déduit l'extension réelle du fichier (nom, sinon type MIME) : cosmétique
@@ -106,6 +134,49 @@ function omExtensionDeFichier(f) {
   if (type.includes('png')) return 'png';
   if (type.includes('webp')) return 'webp';
   return 'jpg';
+}
+
+// ── DURÉES MANUELLES (voix off uploadée uniquement) ──
+function omInitDureesManuelles() {
+  const part = omImages.length ? (omAudio.duree / omImages.length) : 0;
+  omDureesManuelles = omImages.map(() => Math.round(part * 10) / 10);
+}
+
+function omRenderDureesManuelles() {
+  const zone = document.getElementById('omDureesZone');
+  if (!zone) return;
+  if (omModeVoix !== 'upload' || !(omAudio && omAudio.source === 'upload') || !omImages.length) {
+    zone.innerHTML = '';
+    return;
+  }
+  if (omDureesManuelles.length !== omImages.length) omInitDureesManuelles();
+  zone.innerHTML = `
+    <div class="montage-statut" style="margin:14px 0 8px">Durée de chaque image (en secondes), à ajuster sur le rythme réel de la voix off :</div>
+    ${omImages.map((im, i) => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="width:28px;flex:0 0 auto;color:var(--text-secondary);font-size:0.82rem">#${i + 1}</span>
+        <input type="number" min="0.1" step="0.1" class="ctx-input" style="width:90px;flex:0 0 auto" value="${omDureesManuelles[i]}" oninput="omDureeChangee(${i}, this.value)"/>
+      </div>`).join('')}
+    <div class="montage-statut" id="omDureesTotal"></div>`;
+  omMajTotalDurees();
+}
+
+function omDureeChangee(i, valeur) {
+  omDureesManuelles[i] = Math.max(0, parseFloat(valeur) || 0);
+  omMajTotalDurees();
+  omMajBoutonLancer();
+}
+
+function omMajTotalDurees() {
+  const el = document.getElementById('omDureesTotal');
+  if (!el || !omAudio) return;
+  const total = omDureesManuelles.reduce((s, d) => s + d, 0);
+  const ecart = Math.abs(total - omAudio.duree);
+  el.textContent = `Total : ${total.toFixed(1)}s (voix off : ${omAudio.duree.toFixed(1)}s)`;
+  // Simple indication visuelle, pas bloquante : un petit écart est recollé
+  // par le service de rendu (dernière image étirée si besoin), un gros
+  // écart signale probablement un oubli.
+  el.style.color = ecart > 1 ? '#f0b429' : '';
 }
 
 // ── VOIX OFF ──
@@ -131,13 +202,13 @@ function omChoisirModeVoix(mode) {
   if (btnUpload) btnUpload.classList.toggle('actif', mode === 'upload');
   if (btnIa) btnIa.classList.toggle('actif', mode === 'ia');
   omRenderVoixZone();
+  omRenderDureesManuelles();
 }
 
 // Voix choisie dans le menu déroulant : ne redessine PAS toute la zone (le
 // select serait reconstruit et perdrait visuellement la sélection qu'on
-// vient de faire, initCustomSelect ne relit que le HTML au moment du
-// rendu) — juste le nécessaire si une voix off IA existante ne correspond
-// plus à la voix choisie.
+// vient de faire) — juste le nécessaire si une voix off IA existante ne
+// correspond plus à la voix choisie.
 function omChangerVoix(id) {
   if (id === omVoixId) return;
   omVoixId = id;
@@ -180,8 +251,13 @@ function omRenderVoixZone() {
   const preview = (omAudio && omAudio.source === 'ia')
     ? `<audio class="montage-audio-preview" src="${omAudio.url}" controls style="margin-top:10px"></audio>`
     : '';
+  const nbImages = omImages.length;
+  const indication = nbImages
+    ? `Une ligne de narration par image, dans l'ordre du montage (${nbImages} image${nbImages > 1 ? 's' : ''} → ${nbImages} ligne${nbImages > 1 ? 's' : ''}).`
+    : "Ajoute d'abord tes images (une ligne de narration par image sera demandée).";
   zone.innerHTML = `
-    <textarea class="ctx-input" id="omTexteNarration" rows="4" placeholder="Écris ou colle le texte de la narration…" oninput="omTexteNarration=this.value">${outilsEsc(omTexteNarration)}</textarea>
+    <div class="montage-statut" style="margin-bottom:6px">${indication}</div>
+    <textarea class="ctx-input" id="omTexteNarration" rows="4" placeholder="Ligne 1 pour l'image 1…&#10;Ligne 2 pour l'image 2…" oninput="omTexteNarration=this.value">${outilsEsc(omTexteNarration)}</textarea>
     ${selectHtml}
     <button class="btn-regenerate" type="button" style="margin-top:10px" ${omVoixEnCours ? 'disabled' : ''} onclick="omGenererVoixOff()">${omVoixEnCours ? 'Génération…' : (omAudio && omAudio.source === 'ia' ? '↻ Régénérer la voix off' : 'Générer la voix off')}</button>
     ${preview}`;
@@ -206,7 +282,9 @@ async function omAudioFichierChoisi(fichier) {
   if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
   const { url, duree } = await omLireDureeAudio(fichier);
   omAudio = { blob: fichier, url, duree, nom: fichier.name, source: 'upload' };
+  omDureesManuelles = []; // recalculées (parts égales) au prochain rendu, voir omInitDureesManuelles
   omRenderVoixZone();
+  omRenderDureesManuelles();
   omMajBoutonLancer();
 }
 
@@ -214,11 +292,22 @@ async function omGenererVoixOff() {
   const err = document.getElementById('omErreur');
   if (err) err.style.display = 'none';
   if (omVoixEnCours) return;
+  if (!omImages.length) {
+    if (err) { err.textContent = 'Ajoute d\'abord tes images.'; err.style.display = 'block'; }
+    return;
+  }
   const texteEl = document.getElementById('omTexteNarration');
-  const texte = ((texteEl ? texteEl.value : omTexteNarration) || '').trim();
-  omTexteNarration = texte;
-  if (!texte) {
-    if (err) { err.textContent = "Écris ou colle le texte de la narration."; err.style.display = 'block'; }
+  const texteBrut = (texteEl ? texteEl.value : omTexteNarration) || '';
+  omTexteNarration = texteBrut;
+  // Une ligne par image, dans l'ordre : chaque ligne devient un segment
+  // ElevenLabs séparé, avec sa VRAIE durée (horodatage caractère par
+  // caractère), pas une moyenne (voir en-tête de fichier).
+  const lignes = texteBrut.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lignes.length !== omImages.length) {
+    if (err) {
+      err.textContent = `Écris exactement une ligne de narration par image (${omImages.length} image${omImages.length > 1 ? 's' : ''}, ${lignes.length} ligne${lignes.length > 1 ? 's' : ''} détectée${lignes.length > 1 ? 's' : ''}).`;
+      err.style.display = 'block';
+    }
     return;
   }
   if (omVoixListe.length > 1 && !omVoixId) {
@@ -232,14 +321,15 @@ async function omGenererVoixOff() {
     const rep = await fetch('/api/montage-media?action=tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments: [texte], voiceId: omVoixId, code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify({ segments: lignes, voiceId: omVoixId, code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || "La voix off n'a pas pu être générée.");
     if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
     const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
-    const duree = (Array.isArray(data.durations) && data.durations[0]) || 0;
-    omAudio = { blob, url: URL.createObjectURL(blob), duree, source: 'ia' };
+    const durations = Array.isArray(data.durations) ? data.durations : [];
+    const duree = durations.reduce((s, d) => s + d, 0);
+    omAudio = { blob, url: URL.createObjectURL(blob), duree, durations, source: 'ia' };
   } catch (e) {
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
   } finally {
@@ -252,7 +342,13 @@ async function omGenererVoixOff() {
 function omMajBoutonLancer() {
   const btn = document.getElementById('omLancerBtn');
   if (!btn) return;
-  btn.disabled = omEnCours || !omImages.length || !omAudio || !(omAudio.duree > 0);
+  let voixPrete = false;
+  if (omAudio && omAudio.duree > 0) {
+    voixPrete = omAudio.source === 'ia'
+      ? (Array.isArray(omAudio.durations) && omAudio.durations.length === omImages.length)
+      : (omDureesManuelles.length === omImages.length && omDureesManuelles.every(d => d > 0));
+  }
+  btn.disabled = omEnCours || !omImages.length || !voixPrete;
 }
 
 // Devine le format de sortie (9:16 / 16:9 / 1:1) depuis les proportions de
@@ -285,6 +381,8 @@ async function omLancerMontage() {
   const resultat = document.getElementById('omResultat');
   if (err) err.style.display = 'none';
   if (omEnCours || !omImages.length || !omAudio || !(omAudio.duree > 0)) return;
+  const durees = omAudio.source === 'ia' ? omAudio.durations : omDureesManuelles;
+  if (!Array.isArray(durees) || durees.length !== omImages.length || durees.some(d => !(d > 0))) return;
   if (!supabaseClient) {
     if (err) { err.textContent = 'Connexion au stockage indisponible.'; err.style.display = 'block'; }
     return;
@@ -297,11 +395,6 @@ async function omLancerMontage() {
 
   try {
     const dossier = 'montage-manuel-' + Date.now();
-    // Pas de découpage narratif par plan ici (contrairement au montage
-    // depuis un storyboard) : chaque image reçoit une part égale de la
-    // durée réelle de la voix off, seule information de durée disponible
-    // pour un montage assemblé à la main.
-    const dureeParImage = omAudio.duree / omImages.length;
 
     const images = [];
     try {
@@ -310,7 +403,7 @@ async function omLancerMontage() {
         const { error } = await supabaseClient.storage.from('montages').upload(chemin, omImages[i].file, { contentType: omImages[i].file.type || 'image/jpeg' });
         if (error) throw new Error(error.message);
         const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
-        images.push({ url: data.publicUrl, duration: dureeParImage });
+        images.push({ url: data.publicUrl, duration: durees[i] });
       }
     } catch (e) { throw new Error('Upload des images : ' + e.message); }
 
