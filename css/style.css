@@ -1745,8 +1745,19 @@ body.hero-focus .hero-focus-rule{display:block}
      pilule, plutôt qu'un débordement qui casse visuellement son contour
      arrondi (signalé sur capture, bouton Supprimer coupé). */
   overflow-x:auto;scrollbar-width:none;
+  /* Un appui long fait glisser la barre (voir _initGlisserBarreOutils,
+     js/historique.js) : évite que le geste soit d'abord capté comme un
+     défilement tactile natif avant que notre logique de glisser ne prenne
+     la main. */
+  touch-action:none;
 }
 .history-toolbar.flottant::-webkit-scrollbar{display:none}
+/* Retour visuel pendant le déplacement (appui long) : contour doré marqué,
+   pas de transition pour suivre le doigt sans latence perçue. */
+.history-toolbar.flottant.glisser{
+  cursor:grabbing;transition:none;
+  box-shadow:0 20px 50px -8px rgba(0,0,0,0.85),0 0 0 2px rgba(201,168,76,0.55);
+}
 body.hist-select #historyList{padding-bottom:96px}
 /* La barre flottante occupe le bas : on masque le bouton "haut/bas" pour éviter le chevauchement */
 body.hist-select #scrollTopBtn{display:none !important}

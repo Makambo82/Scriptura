@@ -693,9 +693,111 @@ function _afficherListeFiltree() {
       + (_histChargementPlus ? 'Chargement…' : 'Charger l\'historique plus ancien') + '</button>' : '');
 }
 
+// ── DÉPLACEMENT DE LA BARRE FLOTTANTE (appui long) ──
+// Retour propriétaire : la notification "preuve sociale" (fixe en bas à
+// gauche, voir js/preuve-sociale.js) peut recouvrir la barre de sélection
+// sur petit écran, toutes deux ancrées près du même coin bas de l'écran.
+// Un appui long (sans bouger, pour ne jamais interférer avec un tapotement
+// normal sur un bouton) passe la barre en mode déplaçable ; sa position est
+// mémorisée par appareil pour rester où on l'a mise aux prochaines sélections.
+const SEUIL_APPUI_LONG_MS = 450;
+const SEUIL_MOUVEMENT_ANNULE_PX = 10;
+const CLE_POSITION_BARRE = 'scriptura_hist_toolbar_pos';
+let _glisserBarre = { minuteur: null, actif: false, dx: 0, dy: 0, startX: 0, startY: 0 };
+
+function _positionBarreSauvegardee() {
+  try {
+    const brut = localStorage.getItem(CLE_POSITION_BARRE);
+    const pos = brut ? JSON.parse(brut) : null;
+    return (pos && typeof pos.left === 'number' && typeof pos.top === 'number') ? pos : null;
+  } catch(e) { return null; }
+}
+
+// Applique une position en la bornant toujours à l'intérieur de l'écran
+// visible (marge de sécurité), pour ne jamais laisser la barre partir
+// hors champ (redimensionnement, rotation, position sauvegardée obsolète).
+function _appliquerPositionBarre(bar, pos) {
+  if (!pos) return;
+  const marge = 8;
+  const r = bar.getBoundingClientRect();
+  const largeur = r.width || 300, hauteur = r.height || 50;
+  const left = Math.min(Math.max(pos.left, marge), window.innerWidth - largeur - marge);
+  const top = Math.min(Math.max(pos.top, marge), window.innerHeight - hauteur - marge);
+  bar.style.left = left + 'px';
+  bar.style.top = top + 'px';
+  bar.style.bottom = 'auto';
+  bar.style.transform = 'none';
+}
+
+// Revient à la position par défaut pilotée par le CSS (centrée en bas),
+// utilisé quand on quitte le mode sélection.
+function _reinitialiserPositionBarre(bar) {
+  bar.style.left = '';
+  bar.style.top = '';
+  bar.style.bottom = '';
+  bar.style.transform = '';
+}
+
+function _initGlisserBarreOutils() {
+  const bar = document.getElementById('historyToolbar');
+  if (!bar || bar._glisserInit) return;
+  bar._glisserInit = true;
+
+  bar.addEventListener('pointerdown', (e) => {
+    if (!bar.classList.contains('flottant')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    _glisserBarre.startX = e.clientX;
+    _glisserBarre.startY = e.clientY;
+    _glisserBarre.actif = false;
+    clearTimeout(_glisserBarre.minuteur);
+    _glisserBarre.minuteur = setTimeout(() => {
+      const r = bar.getBoundingClientRect();
+      _glisserBarre.dx = e.clientX - r.left;
+      _glisserBarre.dy = e.clientY - r.top;
+      _glisserBarre.actif = true;
+      bar.classList.add('glisser');
+      try { bar.setPointerCapture(e.pointerId); } catch(err) {}
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, SEUIL_APPUI_LONG_MS);
+  });
+
+  bar.addEventListener('pointermove', (e) => {
+    if (!_glisserBarre.actif) {
+      const dx = e.clientX - _glisserBarre.startX, dy = e.clientY - _glisserBarre.startY;
+      if (Math.abs(dx) > SEUIL_MOUVEMENT_ANNULE_PX || Math.abs(dy) > SEUIL_MOUVEMENT_ANNULE_PX) clearTimeout(_glisserBarre.minuteur);
+      return;
+    }
+    e.preventDefault();
+    _appliquerPositionBarre(bar, { left: e.clientX - _glisserBarre.dx, top: e.clientY - _glisserBarre.dy });
+  });
+
+  const finirGlisser = (e) => {
+    clearTimeout(_glisserBarre.minuteur);
+    if (_glisserBarre.actif) {
+      _glisserBarre.actif = false;
+      bar.classList.remove('glisser');
+      try { bar.releasePointerCapture(e.pointerId); } catch(err) {}
+      const r = bar.getBoundingClientRect();
+      try { localStorage.setItem(CLE_POSITION_BARRE, JSON.stringify({ left: r.left, top: r.top })); } catch(err) {}
+    }
+  };
+  bar.addEventListener('pointerup', finirGlisser);
+  bar.addEventListener('pointercancel', finirGlisser);
+
+  // Rotation / redimensionnement : reborne la position déjà déplacée pour
+  // qu'elle ne se retrouve jamais hors champ.
+  window.addEventListener('resize', () => {
+    if (bar.classList.contains('flottant') && bar.style.left) {
+      const r = bar.getBoundingClientRect();
+      _appliquerPositionBarre(bar, { left: r.left, top: r.top });
+    }
+  });
+}
+
 function updateHistoryToolbar() {
   const toolbar = document.getElementById('historyToolbar');
   if (!toolbar) return;
+  _initGlisserBarreOutils();
   // En mode sélection, la barre flotte en bas de l'écran (toujours accessible
   // pendant le défilement) ; sinon elle reste en ligne en haut de la liste.
   toolbar.classList.toggle('flottant', _selectMode);
@@ -710,7 +812,9 @@ function updateHistoryToolbar() {
       <span class="hist-tool-count">${n}</span>
       <button class="hist-tool-btn fav" onclick="favoriSelected()" ${n === 0 ? 'disabled' : ''} title="Mettre en favori">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>
       <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''} title="Supprimer">${ICON_DELETE}${n === 0 ? '<span class="hist-tool-lbl">Supprimer</span>' : ''}</button>`;
+    _appliquerPositionBarre(toolbar, _positionBarreSauvegardee());
   } else {
+    _reinitialiserPositionBarre(toolbar);
     toolbar.innerHTML = `
       <button class="hist-tool-btn" onclick="enterSelectMode()">Sélectionner</button>
       <button class="hist-tool-btn fav${_favFilter ? ' actif' : ''}" onclick="toggleFavFilter()" title="N'afficher que les favoris">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>
