@@ -476,6 +476,7 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .out-body .hook-item{background:none;border:none;border-bottom:1px solid var(--border-soft);border-radius:0}
 .out-body .prompt-item{background:none;border:none}
 .out-body .script-block{background:none;border:none;padding:0}
+.serie-episode .script-block{background:none;border:none;padding:0;margin-bottom:8px}
 .out-body .story-segment{border-left:none;padding-left:0}
 .out-card.open .out-body{display:block}
 /* Carte ouverte : overflow visible (pas hidden) pour que le menu déroulant

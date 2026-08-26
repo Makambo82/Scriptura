@@ -369,6 +369,21 @@ L'arc doit contenir exactement ${serieNbEpisodes} entrées.`;
   }
 }
 
+// Affiche le script d'un épisode en blocs séparés (une scène/idée par bloc,
+// saut de ligne entre chacun), au lieu d'un seul paragraphe compact. Réutilise
+// exactement le gabarit du mode Script (.script-block/.script-row/.script-text,
+// css/style.css) pour un rendu identique, comme demandé par le propriétaire.
+// Le prompt d'écriture (genererEpisode) insère une ligne vide entre chaque
+// scène/idée ; une réponse plus ancienne ou sans coupure se replie simplement
+// sur un seul bloc, jamais cassé.
+function renderSerieScriptBlocs(texte) {
+  const paragraphes = String(texte || '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+  if (!paragraphes.length) return '<div class="script-block"></div>';
+  return `<div class="script-block">${paragraphes.map(p => `
+    <div class="script-row"><div class="script-text">${serieEsc(p)}</div></div>`).join('')}
+  </div>`;
+}
+
 // Affiche le détail d'une série : épisodes déjà écrits + bouton suivant
 async function ouvrirSerie(id) {
   serieCouranteId = id;
@@ -418,7 +433,7 @@ async function ouvrirSerie(id) {
           <button class="btn-regenerate sb-regen mini" id="serieEpRegenBtn${ep.num}" onclick="genererEpisode(${ep.num})">↻ Régénérer</button>
         </div>
         <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
-        <div class="serie-episode-txt">${serieEsc(scriptStr)}</div>`;
+        ${renderSerieScriptBlocs(scriptStr)}`;
       // Directives de tournage (adaptées au style)
       if (directivesStr) {
         html += `<div class="serie-directives">
@@ -825,6 +840,7 @@ RÈGLES D'ÉCRITURE :
 - ${instructionGenreSerie(serie.genre)}
 - L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
 - DURÉE CIBLE, RÈGLE ABSOLUE : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde). Compte tes mots avant de répondre.
+- STRUCTURE DE "script", RÈGLE ABSOLUE : découpe le texte en plusieurs paragraphes courts (2 à 5 phrases), un par scène/moment/idée, séparés par UNE LIGNE VIDE entre chaque paragraphe (un vrai saut de ligne double, jamais un simple retour à la ligne). JAMAIS un seul bloc de texte compact du début à la fin : chaque paragraphe doit se lire comme un moment distinct de l'épisode, exactement comme les scènes découpées du mode Script de Scriptura.
 - Accroche forte dès les 3 premières secondes.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
@@ -931,6 +947,7 @@ RÈGLES :
 - Garde le ton "${serie.style}" strictement, du début à la fin.
 - Garde le même titre, la même tension finale, le même format (${formatSerie}).
 - Renvoie le "script" complet mis à jour, en voix off continue, sans AUCUNE étiquette ni minutage (jamais "VOIX OFF", "TEXTE À L'ÉCRAN", "ÉCRAN NOIR", "PLAN", ni timestamp entre crochets), même règle que pour la génération initiale, quel que soit le format (${formatSerie}).
+- Garde la même structure en paragraphes courts (2 à 5 phrases), un par scène/moment/idée, séparés par UNE LIGNE VIDE entre chaque paragraphe : jamais un seul bloc de texte compact.
 - Renvoie aussi "voix_off_propre" mis à jour : STRICTEMENT IDENTIQUE à ce nouveau "script".
 
 Réponds UNIQUEMENT en JSON, sans texte autour :
