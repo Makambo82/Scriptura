@@ -8,7 +8,10 @@ const MAX_FREE = 5;
 // Au-delà, la régénération compte comme une génération normale (soustraite du quota).
 const REGEN_GRATUITES = 2;
 // Compteur par type de contenu (réinitialisé à chaque NOUVELLE génération de ce type)
-let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0, storyboardSerie: 0, storyboardSeul: 0, serieEpisode: 0 };
+// Note : les épisodes de série (js/serie.js, genererEpisode) utilisent des
+// clés dynamiques "serieEpisode" + numéro (une par épisode), pas une entrée
+// fixe ici : regenEstGratuite/resetRegen acceptent n'importe quelle clé.
+let regenCount = { script: 0, story: 0, storyboardIdee: 0, storyboardStory: 0, storyboardSerie: 0, storyboardSeul: 0 };
 // Flag : la génération en cours est-elle une régénération gratuite ? (ne compte pas au quota)
 let _regenGratuiteEnCours = false;
 

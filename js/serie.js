@@ -62,18 +62,24 @@ const WORD_TARGETS_SERIE = {
 // toujours se lire comme une voix off continue, jamais un script annoté.
 function nettoyerEtiquettesEpisodeSerie(texte) {
   if (typeof texte !== 'string' || !texte) return texte;
-  const estEtiquette = (s) => /^(voix off|texte (à|a) l'?[ée]cran|[ée]cran noir|texte blanc|plan\s*\d*)\s*:?\s*$/i.test(String(s).trim());
+  // "plan" exige un numéro ("PLAN 3") : contrairement aux autres étiquettes,
+  // c'est un mot français ordinaire (ex. "Plan risqué, mais nécessaire."
+  // dans un épisode sur un braquage) — sans ce garde-fou, le filet mangerait
+  // de la prose légitime, pas juste des étiquettes de tournage.
+  const MOTIFS = "voix off|texte (à|a) l'?[ée]cran|[ée]cran noir|texte blanc|plan\\s+\\d+";
+  const reLigneEntiere = new RegExp('^(' + MOTIFS + ')\\s*:?\\s*$', 'i');
+  const rePrefixe = new RegExp('^\\s*(' + MOTIFS + ')\\s*:?\\s*', 'i');
   return texte
     .replace(/[\[\(]\s*\d{1,3}\s*-\s*\d{1,3}\s*s\s*[\]\)]\s*/gi, '')
     .split('\n')
     .map(ligne => {
       // Étiquette seule, toute la ligne entre crochets/parenthèses : "[ÉCRAN NOIR]", "(VOIX OFF)"
       const enveloppee = ligne.trim().match(/^[\[\(](.+)[\]\)]$/);
-      if (enveloppee && estEtiquette(enveloppee[1])) return '';
+      if (enveloppee && reLigneEntiere.test(enveloppee[1].trim())) return '';
       // Étiquette en préfixe de ligne, avec ou sans les deux-points : "VOIX OFF : texte"
-      return ligne.replace(/^\s*(voix off|texte (à|a) l'?[ée]cran|[ée]cran noir|texte blanc|plan\s*\d*)\s*:?\s*/i, '');
+      return ligne.replace(rePrefixe, '');
     })
-    .filter(ligne => !estEtiquette(ligne))
+    .filter(ligne => !reLigneEntiere.test(ligne.trim()))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -746,13 +752,15 @@ async function genererEpisode(numEp) {
   // vérifient aussi le quota à chaque régénération, pas seulement au premier jet).
   if (!(await peutGenerer('serieDetailError'))) return;
 
-  // Les REGEN_GRATUITES premières régénérations d'un épisode donné sont
-  // gratuites (même mécanique que le storyboard d'épisode juste en dessous).
-  if (!isRegen) resetRegen('serieEpisode');
+  // Les REGEN_GRATUITES premières régénérations D'UN MÊME épisode sont
+  // gratuites, décomptées épisode par épisode (une clé par numéro, pas un
+  // compteur partagé entre tous les épisodes de la série : régénérer
+  // l'épisode 2 ne doit jamais entamer le quota gratuit de l'épisode 1).
   if (isRegen) {
-    const gratuite = regenEstGratuite('serieEpisode');
+    const cleRegenEp = 'serieEpisode' + numEp;
+    const gratuite = regenEstGratuite(cleRegenEp);
     _regenGratuiteEnCours = gratuite;
-    const restantes = REGEN_GRATUITES - regenCount.serieEpisode;
+    const restantes = REGEN_GRATUITES - regenCount[cleRegenEp];
     if (gratuite) {
       toastRegen('Régénération gratuite · ' + restantes + ' restante' + (restantes > 1 ? 's' : ''));
     } else {
@@ -948,7 +956,30 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     }
     if (genProgressCtl) genProgressCtl.etapeTerminee(1);
 
-    const episodeFinal = { num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script };
+    // Enregistre dans l'historique (et compte dans le quota du mois) AVANT
+    // de persister l'épisode, pour connaître l'id de la ligne d'historique
+    // et le rattacher à CET épisode précis (historyId). saveGeneration
+    // s'appuie sur currentGenId, une variable GLOBALE et partagée par toute
+    // l'app (un seul "élément courant" pour Script/Récit/etc.) : en Série,
+    // plusieurs épisodes coexistent, donc currentGenId seul ne suffit plus.
+    // Sans ce réalignement, régénérer un ancien épisode pendant que
+    // currentGenId pointe encore vers le DERNIER épisode généré aurait
+    // écrasé la ligne d'historique de cet autre épisode (retour du filet de
+    // sécurité automatique de cette session).
+    const ancienEp = isRegen ? eps.find(e => e.num === num) : null;
+    currentGenId = (ancienEp && ancienEp.historyId) || null;
+    // serie_id est ajouté uniquement pour cet enregistrement (ep lui-même
+    // reste inchangé) : il permet à reopenGeneration (js/historique.js) de
+    // rouvrir directement la vraie vue série, avec le storyboard généré
+    // depuis, s'il y en a un, plutôt qu'un aperçu figé du script seul.
+    if (typeof saveGeneration === 'function') {
+      try { await saveGeneration('serie', serie.titre + ', épisode ' + num, Object.assign({}, ep, { serie_id: serieCouranteId })); } catch(e) {}
+    }
+
+    const episodeFinal = {
+      num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script,
+      historyId: currentGenId || (ancienEp && ancienEp.historyId) || null
+    };
     let nouveaux, patch;
     if (isRegen) {
       // Remplace l'épisode à sa place : ni le compteur d'épisodes ni le
@@ -967,15 +998,6 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
       patch = { episodes: nouveaux, episode_courant: nouveaux.length, statut: termine ? 'terminee' : 'en_cours' };
     }
     await _serieUpdate(serieCouranteId, patch);
-
-    // Enregistre aussi dans l'historique (et compte dans le quota du mois).
-    // serie_id est ajouté uniquement pour cet enregistrement (ep lui-même
-    // reste inchangé) : il permet à reopenGeneration (js/historique.js) de
-    // rouvrir directement la vraie vue série, avec le storyboard généré
-    // depuis, s'il y en a un, plutôt qu'un aperçu figé du script seul.
-    if (typeof saveGeneration === 'function') {
-      try { saveGeneration('serie', serie.titre + ', épisode ' + num, Object.assign({}, ep, { serie_id: serieCouranteId })); } catch(e) {}
-    }
 
     stopGenAnimation();
     ouvrirSerie(serieCouranteId);
