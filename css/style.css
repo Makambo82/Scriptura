@@ -1688,8 +1688,13 @@ body.hero-focus .hero-focus-rule{display:block}
 .history-delete:hover{color:#E88}
 .history-card.favori{border-color:rgba(201,168,76,0.45)}
 
-/* Icône + libellé dans les boutons de la barre d'outils */
-.hist-tool-btn.fav svg{width:13px;height:13px;fill:currentColor;vertical-align:-2px;margin-right:4px}
+/* Icône + libellé dans les boutons de la barre d'outils. Même gabarit pour
+   les deux (taille, alignement vertical, marge) : le bouton Supprimer n'avait
+   jamais eu cette règle, laissant son icône à sa taille native (20px) et mal
+   alignée avec le libellé, contrairement au bouton Favoris juste au-dessus. */
+.hist-tool-btn.fav svg,
+.hist-tool-btn.danger svg{width:13px;height:13px;vertical-align:-2px;margin-right:4px}
+.hist-tool-btn.fav svg{fill:currentColor}
 .hist-tool-btn.actif{border-color:var(--gold);background:rgba(201,168,76,0.16);color:var(--gold-light)}
 
 /* Boutons-icônes (recherche, filtre) dans la barre d'outils de l'historique */
@@ -1729,11 +1734,23 @@ body.hero-focus .hero-focus-rule{display:block}
   border:1px solid var(--border-soft);border-radius:999px;
   padding:8px 12px;box-shadow:0 16px 40px -10px rgba(0,0,0,0.7);
   max-width:calc(100% - 24px);
+  /* Filet de sécurité : 5 boutons (Annuler/Tout/compteur/Favoris/Supprimer)
+     ne tiennent pas toujours sur la largeur d'un téléphone, même libellés
+     masqués (voir media query plus bas). Un défilement horizontal DANS la
+     pilule, plutôt qu'un débordement qui casse visuellement son contour
+     arrondi (signalé sur capture, bouton Supprimer coupé). */
+  overflow-x:auto;scrollbar-width:none;
 }
+.history-toolbar.flottant::-webkit-scrollbar{display:none}
 body.hist-select #historyList{padding-bottom:96px}
 /* La barre flottante occupe le bas : on masque le bouton "haut/bas" pour éviter le chevauchement */
 body.hist-select #scrollTopBtn{display:none !important}
-@media(max-width:400px){.history-toolbar.flottant .hist-tool-lbl{display:none}}
+/* 400px était trop bas : de nombreux téléphones (390-430px de large) ne
+   passaient jamais sous ce seuil, gardaient les libellés, et débordaient
+   (voir overflow-x ci-dessus). Relevé à 600px pour couvrir tous les
+   téléphones en portrait, icônes seules ; les libellés ne reviennent que
+   sur tablette/desktop, où la place ne manque pas. */
+@media(max-width:600px){.history-toolbar.flottant .hist-tool-lbl{display:none}}
 
 /* Bouton "Plus tard" du pop-up rappel */
 .modal-btn-ghost{
