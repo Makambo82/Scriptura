@@ -1761,18 +1761,12 @@ body.hero-focus .hero-focus-rule{display:block}
 body.hist-select #historyList{padding-bottom:96px}
 /* La barre flottante occupe le bas : on masque le bouton "haut/bas" pour éviter le chevauchement */
 body.hist-select #scrollTopBtn{display:none !important}
-/* 400px était trop bas : de nombreux téléphones (390-430px de large) ne
-   passaient jamais sous ce seuil, gardaient les libellés, et débordaient
-   (voir overflow-x ci-dessus). Relevé à 600px pour couvrir tous les
-   téléphones en portrait, icônes seules ; les libellés ne reviennent que
-   sur tablette/desktop, où la place ne manque pas.
-   Seul Favoris reste concerné par ce seuil de largeur : le libellé de
-   Supprimer est déjà piloté par l'état de sélection en JS (présent dans le
-   DOM seulement à n=0, absent sinon, voir updateHistoryToolbar) — cette
-   règle ne doit pas l'écraser en permanence sur téléphone, sinon le
-   libellé "Supprimer" ne réapparaît plus jamais juste après avoir cliqué
-   "Sélectionner", même à n=0, sur mobile. */
-@media(max-width:600px){.history-toolbar.flottant .hist-tool-btn.fav .hist-tool-lbl{display:none}}
+/* Les libellés Favoris et Supprimer de la barre flottante (mode sélection)
+   sont désormais tous deux pilotés par l'état de sélection en JS, pas par
+   la largeur d'écran (présents dans le DOM seulement à n=0, absents dès
+   qu'on commence à sélectionner, voir updateHistoryToolbar) : plus aucune
+   règle de largeur ici, elle écraserait en permanence ce comportement sur
+   téléphone comme cela s'est déjà produit pour Supprimer. */
 
 /* Bouton "Plus tard" du pop-up rappel */
 .modal-btn-ghost{

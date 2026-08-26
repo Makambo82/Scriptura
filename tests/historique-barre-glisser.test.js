@@ -163,7 +163,12 @@ test('Historique : la position glissée est mémorisée par appareil, bornée à
   try {
     const { page, erreursJs } = await ouvrirPage(navigateur);
     await poserMocksReseau(page);
-    await page.setViewportSize({ width: 390, height: 850 });
+    // Cette partie teste la logique de mémorisation/bornage elle-même, pas
+    // le fait qu'un téléphone étroit tienne tout le contenu (déjà couvert
+    // ailleurs) : largeur généreuse pour que la position sauvegardée
+    // (left:40) ne soit jamais elle-même bornée par la largeur de la barre
+    // à n=0 (Favoris + Supprimer tous deux libellés, ~381px de contenu).
+    await page.setViewportSize({ width: 600, height: 850 });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await connecterAbonne(page, { code: 'HISTGLISSER4', plan: 'pro' });
     await page.waitForTimeout(200);
@@ -195,7 +200,7 @@ test('Historique : la position glissée est mémorisée par appareil, bornée à
     assert.deepEqual(stylesHorsSelection, { left: '', top: '', bottom: '', transform: '' }, 'en sortant du mode sélection, la barre doit revenir à la position par défaut pilotée par le CSS');
     assert.equal(rect2.left, 40, 'la position mémorisée doit revenir à la ré-entrée en mode sélection');
     assert.equal(rect2.top, 120, 'la position mémorisée doit revenir à la ré-entrée en mode sélection');
-    assert.ok(rect3.left >= 0 && rect3.right <= 390 && rect3.top >= 0 && rect3.bottom <= 850, 'une position sauvegardée hors-écran doit être bornée à l\'intérieur de la fenêtre : ' + JSON.stringify(rect3));
+    assert.ok(rect3.left >= 0 && rect3.right <= 600 && rect3.top >= 0 && rect3.bottom <= 850, 'une position sauvegardée hors-écran doit être bornée à l\'intérieur de la fenêtre : ' + JSON.stringify(rect3));
   } finally {
     await navigateur.close();
     await arreter();

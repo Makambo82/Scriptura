@@ -810,7 +810,7 @@ function updateHistoryToolbar() {
       <button class="hist-tool-btn" onclick="exitSelectMode()">Annuler</button>
       <button class="hist-tool-btn" onclick="${toutCoche ? 'toutDeselectionner()' : 'toutSelectionner()'}">${toutCoche ? 'Aucun' : 'Tout'}</button>
       <span class="hist-tool-count">${n}</span>
-      <button class="hist-tool-btn fav" onclick="favoriSelected()" ${n === 0 ? 'disabled' : ''} title="Mettre en favori">${ICON_FAV}<span class="hist-tool-lbl">Favoris</span></button>
+      <button class="hist-tool-btn fav" onclick="favoriSelected()" ${n === 0 ? 'disabled' : ''} title="Mettre en favori">${ICON_FAV}${n === 0 ? '<span class="hist-tool-lbl">Favoris</span>' : ''}</button>
       <button class="hist-tool-btn danger" onclick="deleteSelected()" ${n === 0 ? 'disabled' : ''} title="Supprimer">${ICON_DELETE}${n === 0 ? '<span class="hist-tool-lbl">Supprimer</span>' : ''}</button>`;
     _appliquerPositionBarre(toolbar, _positionBarreSauvegardee());
   } else {

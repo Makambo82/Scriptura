@@ -25,6 +25,17 @@
 // visuel demandé. Corrigé : la règle de largeur ne concerne plus que
 // Favoris ; Supprimer reste entièrement piloté par n, sur toutes les
 // largeurs d'écran.
+//
+// 4e retour (2 captures comparées) : Favoris doit suivre exactement le
+// même comportement que Supprimer — libellé visible à n=0, icône seule dès
+// n>0 — au lieu d'afficher son libellé en permanence sur grand écran (et
+// jamais sur téléphone, seuil de largeur retiré ici aussi). Conséquence
+// assumée : à n=0 sur les téléphones les plus étroits (390px), les DEUX
+// libellés affichés ensemble peuvent dépasser légèrement la largeur
+// visible de la pilule — c'est exactement le rôle du défilement horizontal
+// défensif (overflow-x:auto, voir 1er retour) : la pilule elle-même ne
+// touche jamais les bords de l'écran, seul son contenu interne devient
+// scrollable si besoin, jamais visuellement cassé.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -49,20 +60,28 @@ function lireEtatToolbar(page) {
   return page.evaluate(() => {
     const bar = document.getElementById('historyToolbar');
     const barRect = bar.getBoundingClientRect();
-    const debordeVisible = Array.from(bar.querySelectorAll('button, span.hist-tool-count')).some(el => {
-      const r = el.getBoundingClientRect();
-      return r.right > barRect.right + 1 || r.left < barRect.left - 1;
-    });
+    // Le seul invariant qui compte réellement (voir bug d'origine, 1er
+    // retour) : la PILULE elle-même ne doit jamais toucher/dépasser les
+    // bords de l'écran. Que son CONTENU interne dépasse sa propre largeur
+    // visible est acceptable et géré proprement par overflow-x:auto (voir
+    // 4e retour) — ce n'est pas un débordement visuel cassé, juste un
+    // défilement interne à la pilule.
+    const pilulDansEcran = barRect.left >= -1 && barRect.right <= window.innerWidth + 1;
     const supprimerBtn = bar.querySelector('.hist-tool-btn.danger');
     const libelleSupprimer = supprimerBtn ? supprimerBtn.querySelector('.hist-tool-lbl') : null;
+    const favBtn = bar.querySelector('.hist-tool-btn.fav');
+    const libelleFav = favBtn ? favBtn.querySelector('.hist-tool-lbl') : null;
     return {
-      debordeVisible,
+      pilulDansEcran,
       contenuScrollable: bar.scrollWidth,
       largeurVisible: bar.clientWidth,
       overflowXSecurise: getComputedStyle(bar).overflowX === 'auto',
       supprimerVisible: supprimerBtn ? getComputedStyle(supprimerBtn).display !== 'none' : false,
       libelleSupprimerPresent: !!libelleSupprimer,
-      libelleSupprimerVisible: libelleSupprimer ? getComputedStyle(libelleSupprimer).display !== 'none' : false
+      libelleSupprimerVisible: libelleSupprimer ? getComputedStyle(libelleSupprimer).display !== 'none' : false,
+      favoriVisible: favBtn ? getComputedStyle(favBtn).display !== 'none' : false,
+      libelleFavoriPresent: !!libelleFav,
+      libelleFavoriVisible: libelleFav ? getComputedStyle(libelleFav).display !== 'none' : false
     };
   });
 }
@@ -91,8 +110,8 @@ test('Historique : la barre de sélection ne déborde jamais de son contour, ava
 
     for (const [nom, etat] of [['avant sélection', avant], ['après sélection', apres]]) {
       assert.equal(etat.overflowXSecurise, true, nom + ' : la barre doit avoir un défilement horizontal défensif');
-      assert.equal(etat.debordeVisible, false, nom + ' : aucun bouton ne doit visuellement dépasser le contour de la barre');
-      assert.ok(etat.contenuScrollable <= etat.largeurVisible + 1, nom + ' : le contenu doit tenir entièrement dans la largeur visible');
+      assert.equal(etat.pilulDansEcran, true, nom + ' : la pilule elle-même ne doit jamais toucher/dépasser les bords de l\'écran');
+      assert.ok(etat.contenuScrollable <= etat.largeurVisible + 1, nom + ' : sur cette largeur (430px), le contenu doit tenir entièrement sans défilement interne : ' + JSON.stringify(etat));
       assert.equal(etat.supprimerVisible, true, nom + ' : le bouton Supprimer doit rester accessible');
     }
   } finally {
@@ -101,7 +120,7 @@ test('Historique : la barre de sélection ne déborde jamais de son contour, ava
   }
 });
 
-test('Historique : le libellé "Supprimer" apparaît juste après "Sélectionner" (rien choisi), puis disparaît dès la première sélection', async () => {
+test('Historique : les libellés "Supprimer" et "Favoris" apparaissent juste après "Sélectionner" (rien choisi), puis disparaissent tous les deux dès la première sélection', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -131,6 +150,9 @@ test('Historique : le libellé "Supprimer" apparaît juste après "Sélectionner
     assert.equal(avant.libelleSupprimerPresent, true, 'avant toute sélection, le libellé "Supprimer" doit être présent');
     assert.equal(avant.libelleSupprimerVisible, true, 'avant toute sélection, le libellé "Supprimer" doit être visible');
     assert.equal(apres.libelleSupprimerPresent, false, 'dès la première sélection, le libellé "Supprimer" ne doit plus être rendu du tout (icône seule)');
+    assert.equal(avant.libelleFavoriPresent, true, 'avant toute sélection, le libellé "Favoris" doit être présent');
+    assert.equal(avant.libelleFavoriVisible, true, 'avant toute sélection, le libellé "Favoris" doit être visible');
+    assert.equal(apres.libelleFavoriPresent, false, 'dès la première sélection, le libellé "Favoris" ne doit plus être rendu du tout (icône seule)');
   } finally {
     await navigateur.close();
     await arreter();
@@ -177,7 +199,7 @@ test('Historique : sur un écran large, l\'icône Supprimer (avant sélection, a
   }
 });
 
-test('Historique : sur téléphone, le libellé "Supprimer" est bien visible à n=0 (pas seulement présent dans le DOM), et disparaît sans déborder dès n>0', async () => {
+test('Historique : sur téléphone, les libellés "Supprimer" et "Favoris" sont bien visibles à n=0 (pas seulement présents dans le DOM), et disparaissent tous les deux dès n>0, sans jamais faire dépasser la pilule des bords de l\'écran', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -203,11 +225,20 @@ test('Historique : sur téléphone, le libellé "Supprimer" est bien visible à 
 
     assert.equal(avant.libelleSupprimerPresent, true, 'sur téléphone, à n=0, le libellé "Supprimer" doit être présent dans le DOM');
     assert.equal(avant.libelleSupprimerVisible, true, 'sur téléphone, à n=0, le libellé "Supprimer" doit être visible (pas juste présent puis masqué par CSS)');
-    assert.equal(avant.debordeVisible, false, 'à n=0 sur téléphone, malgré le libellé Supprimer affiché, rien ne doit déborder de la barre');
-    assert.ok(avant.contenuScrollable <= avant.largeurVisible + 1, 'à n=0 sur téléphone, le contenu (avec le libellé Supprimer) doit tenir dans la largeur visible');
+    assert.equal(avant.libelleFavoriPresent, true, 'sur téléphone, à n=0, le libellé "Favoris" doit être présent dans le DOM');
+    assert.equal(avant.libelleFavoriVisible, true, 'sur téléphone, à n=0, le libellé "Favoris" doit être visible (pas juste présent puis masqué par CSS)');
+    // À n=0, les DEUX libellés ensemble peuvent dépasser légèrement la
+    // largeur visible sur les téléphones les plus étroits (390px) : c'est
+    // acceptable, absorbé par le défilement interne défensif. Ce qui ne
+    // doit JAMAIS arriver, c'est que la pilule elle-même touche/dépasse les
+    // bords physiques de l'écran (le bug d'origine, cadre vert).
+    assert.equal(avant.pilulDansEcran, true, 'à n=0 sur téléphone, la pilule elle-même ne doit jamais toucher/dépasser les bords de l\'écran, même avec les deux libellés affichés');
+    assert.equal(avant.overflowXSecurise, true, 'à n=0 sur téléphone, le défilement horizontal défensif doit être actif si le contenu ne tient pas');
 
     assert.equal(apres.libelleSupprimerPresent, false, 'sur téléphone, dès n>0, le libellé "Supprimer" ne doit plus être rendu du tout');
-    assert.equal(apres.debordeVisible, false, 'à n>0 sur téléphone, rien ne doit déborder de la barre');
+    assert.equal(apres.libelleFavoriPresent, false, 'sur téléphone, dès n>0, le libellé "Favoris" ne doit plus être rendu du tout');
+    assert.equal(apres.pilulDansEcran, true, 'à n>0 sur téléphone, la pilule ne doit jamais toucher/dépasser les bords de l\'écran');
+    assert.ok(apres.contenuScrollable <= apres.largeurVisible + 1, 'à n>0 (icônes seules), le contenu doit tenir entièrement sans défilement interne : ' + JSON.stringify(apres));
   } finally {
     await navigateur.close();
     await arreter();
