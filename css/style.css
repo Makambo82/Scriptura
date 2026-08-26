@@ -1689,12 +1689,17 @@ body.hero-focus .hero-focus-rule{display:block}
 .history-card.favori{border-color:rgba(201,168,76,0.45)}
 
 /* Icône + libellé dans les boutons de la barre d'outils. Même gabarit pour
-   les deux (taille, alignement vertical, marge) : le bouton Supprimer n'avait
+   les deux (taille, alignement vertical) : le bouton Supprimer n'avait
    jamais eu cette règle, laissant son icône à sa taille native (20px) et mal
-   alignée avec le libellé, contrairement au bouton Favoris juste au-dessus. */
+   alignée avec le libellé, contrairement au bouton Favoris juste au-dessus.
+   La marge vit sur le LIBELLÉ (pas sur l'icône) : Supprimer n'affiche son
+   libellé qu'avant toute sélection (n=0, voir updateHistoryToolbar) ; sans
+   cette marge côté libellé, l'icône resterait décentrée dans le bouton une
+   fois le libellé retiré (n>0, icône seule). */
 .hist-tool-btn.fav svg,
-.hist-tool-btn.danger svg{width:13px;height:13px;vertical-align:-2px;margin-right:4px}
+.hist-tool-btn.danger svg{width:13px;height:13px;vertical-align:-2px}
 .hist-tool-btn.fav svg{fill:currentColor}
+.hist-tool-btn .hist-tool-lbl{margin-left:4px}
 .hist-tool-btn.actif{border-color:var(--gold);background:rgba(201,168,76,0.16);color:var(--gold-light)}
 
 /* Boutons-icônes (recherche, filtre) dans la barre d'outils de l'historique */
