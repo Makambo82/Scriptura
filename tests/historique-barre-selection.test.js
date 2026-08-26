@@ -14,6 +14,17 @@
 // disparaître (icône seule) dès qu'on COMMENCE à sélectionner des
 // générations (n>0) — quelle que soit la largeur d'écran, pas seulement en
 // dessous de 600px.
+//
+// 3e retour (captures d'un vrai téléphone, scriptura-v1.vercel.app) : le
+// réglage précédent ne se voyait jamais en pratique sur mobile. La règle
+// CSS @media(max-width:600px) qui masque .hist-tool-lbl s'appliquait à
+// TOUS les libellés de la barre flottante, y compris Supprimer — elle
+// écrasait donc en permanence, sur téléphone, le rendu conditionnel piloté
+// par l'état de sélection (n) ajouté au 2e retour. Résultat réel constaté :
+// libellé "Supprimer" invisible à n=0 sur téléphone, contrairement au
+// visuel demandé. Corrigé : la règle de largeur ne concerne plus que
+// Favoris ; Supprimer reste entièrement piloté par n, sur toutes les
+// largeurs d'écran.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -160,6 +171,43 @@ test('Historique : sur un écran large, l\'icône Supprimer (avant sélection, a
     assert.equal(etat.favVisible, true, 'sur grand écran, le libellé Favoris doit être visible');
     assert.equal(etat.supprimerVisible, true, 'avant toute sélection, le libellé Supprimer doit être visible');
     assert.deepEqual(etat.supprimer, etat.fav, 'l\'icône Supprimer doit avoir la même taille et le même alignement vertical que l\'icône Favoris : ' + JSON.stringify(etat));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('Historique : sur téléphone, le libellé "Supprimer" est bien visible à n=0 (pas seulement présent dans le DOM), et disparaît sans déborder dès n>0', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+
+    // Largeur logique d'un iPhone courant, sous le seuil de 600px : c'est
+    // précisément la largeur où la règle CSS de masquage des libellés
+    // écrasait, avant ce correctif, le rendu piloté par l'état (n).
+    await page.setViewportSize({ width: 390, height: 850 });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'HISTBARRE4', plan: 'pro' });
+    await page.waitForTimeout(200);
+
+    await ouvrirBarreSelection(page, { n: 0, total: 39 });
+    const avant = await lireEtatToolbar(page);
+    await ouvrirBarreSelection(page, { n: 3, total: 39 });
+    const apres = await lireEtatToolbar(page);
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+
+    assert.equal(avant.libelleSupprimerPresent, true, 'sur téléphone, à n=0, le libellé "Supprimer" doit être présent dans le DOM');
+    assert.equal(avant.libelleSupprimerVisible, true, 'sur téléphone, à n=0, le libellé "Supprimer" doit être visible (pas juste présent puis masqué par CSS)');
+    assert.equal(avant.debordeVisible, false, 'à n=0 sur téléphone, malgré le libellé Supprimer affiché, rien ne doit déborder de la barre');
+    assert.ok(avant.contenuScrollable <= avant.largeurVisible + 1, 'à n=0 sur téléphone, le contenu (avec le libellé Supprimer) doit tenir dans la largeur visible');
+
+    assert.equal(apres.libelleSupprimerPresent, false, 'sur téléphone, dès n>0, le libellé "Supprimer" ne doit plus être rendu du tout');
+    assert.equal(apres.debordeVisible, false, 'à n>0 sur téléphone, rien ne doit déborder de la barre');
   } finally {
     await navigateur.close();
     await arreter();

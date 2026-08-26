@@ -1754,8 +1754,14 @@ body.hist-select #scrollTopBtn{display:none !important}
    passaient jamais sous ce seuil, gardaient les libellés, et débordaient
    (voir overflow-x ci-dessus). Relevé à 600px pour couvrir tous les
    téléphones en portrait, icônes seules ; les libellés ne reviennent que
-   sur tablette/desktop, où la place ne manque pas. */
-@media(max-width:600px){.history-toolbar.flottant .hist-tool-lbl{display:none}}
+   sur tablette/desktop, où la place ne manque pas.
+   Seul Favoris reste concerné par ce seuil de largeur : le libellé de
+   Supprimer est déjà piloté par l'état de sélection en JS (présent dans le
+   DOM seulement à n=0, absent sinon, voir updateHistoryToolbar) — cette
+   règle ne doit pas l'écraser en permanence sur téléphone, sinon le
+   libellé "Supprimer" ne réapparaît plus jamais juste après avoir cliqué
+   "Sélectionner", même à n=0, sur mobile. */
+@media(max-width:600px){.history-toolbar.flottant .hist-tool-btn.fav .hist-tool-lbl{display:none}}
 
 /* Bouton "Plus tard" du pop-up rappel */
 .modal-btn-ghost{
