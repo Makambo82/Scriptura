@@ -85,6 +85,16 @@ FauxJsPDF.prototype.save = function(nom){ window.__pdfAppels.push(['save', nom])
 window.jspdf = { jsPDF: FauxJsPDF };
 `;
 
+// Bloque le VRAI jsPDF (CDN jsdelivr, voir index.html) : injoignable dans le
+// sandbox local (échoue vite, la fausse implémentation ci-dessus est alors
+// la seule présente), mais bel et bien joignable en CI (GitHub Actions, vrai
+// accès internet) — sans ce blocage, le vrai script y écrase la fausse
+// implémentation avant que le test ne s'exécute, et les assertions sur
+// window.__pdfAppels échouent alors qu'aucun bug réel n'est en cause.
+async function bloquerCdnJsPDF(page) {
+  await page.route('**jspdf**', route => route.abort());
+}
+
 test('Diagnostic sommaire : les boutons Copier, Partager et Télécharger apparaissent en bas du résultat', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
@@ -93,6 +103,7 @@ test('Diagnostic sommaire : les boutons Copier, Partager et Télécharger appara
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
     await poserMocksReseau(page);
+    await bloquerCdnJsPDF(page);
     await page.addInitScript(FAUX_JSPDF_INIT);
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await connecterAbonne(page, { code: 'DSACTIONS1', plan: 'pro' });
@@ -132,6 +143,7 @@ test('Diagnostic sommaire : le bouton Copier copie un texte fidèle au diagnosti
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
     await poserMocksReseau(page);
+    await bloquerCdnJsPDF(page);
     await page.addInitScript(FAUX_JSPDF_INIT);
     // Presse-papier simulé (l'API réelle exige une permission/contexte
     // sécurisé peu fiable en headless) : on capture juste ce qui y est écrit.
@@ -181,6 +193,7 @@ test('Diagnostic sommaire : le bouton Télécharger exporte tout le diagnostic e
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
     await poserMocksReseau(page);
+    await bloquerCdnJsPDF(page);
     await page.addInitScript(FAUX_JSPDF_INIT);
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await connecterAbonne(page, { code: 'DSACTIONS3', plan: 'pro' });
@@ -215,6 +228,7 @@ test('Diagnostic sommaire : sur un concurrent, le texte copié et le PDF disting
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
     await poserMocksReseau(page);
+    await bloquerCdnJsPDF(page);
     await page.addInitScript(FAUX_JSPDF_INIT);
     await page.addInitScript(() => {
       window.__presseAppels = [];
