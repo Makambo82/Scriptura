@@ -514,7 +514,7 @@ SON ÉVOLUTION : examine ses DATES [mois/année] ET SUJETS chronologiquement. A-
    • Si NON : "pivot": false, "constat" court sur sa constance, autres champs vides.
    Ne prétends jamais un pivot inexistant.
 
-CE QUE TU PEUX REPRENDRE ET ADAPTER (leviers) : exactement 3 actions concrètes, TRANSPOSABLES à TON propre compte, tirées de ce qui marche chez lui. Formule à la 2e personne (« reprends… », « adapte… »). Cite une de ses vidéos et ses vues quand c'est pertinent (ex. « sa vidéo sur X a fait Y vues : le ressort, c'est Z, applique-le à ta niche »). Reste concret et réaliste.
+CE QUE TU PEUX REPRENDRE ET ADAPTER (leviers) : 5 à 8 choses intéressantes et concrètes repérées dans CE compte, TRANSPOSABLES à TON propre compte (pas une liste de scripts à créer, des enseignements précis à en tirer : une mécanique de bio, un rythme de publication, un format récurrent, une structure de hook, un choix d'angle, une manière de clore une vidéo…). Formule à la 2e personne (« reprends… », « adapte… »). Cite une de ses vidéos et ses vues quand c'est pertinent (ex. « sa vidéo sur X a fait Y vues : le ressort, c'est Z, applique-le à ta niche »). Reste concret et réaliste, jamais générique ; s'il y a vraiment moins de matière observable, va au minimum jusqu'à 5.
 
 TA FAILLE À EXPLOITER : en 1 à 2 phrases, l'angle que CE concurrent néglige ou fait mal, et que TU peux occuper pour te différencier au lieu d'être une pâle copie. Fonde-toi sur ce que ses vidéos NE couvrent pas.
 
@@ -1121,7 +1121,12 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
   // non-abonnés désormais, voir afficherOpportuniteDiagSommaire dans
   // recommandations.js) : reste vide si la génération échoue ou si vraiment
   // rien n'est exploitable, jamais retiré du DOM pour autant.
-  const opportuniteHtml = `<div id="diagSommaireOpportunites"></div>`;
+  // Retour propriétaire : sur un CONCURRENT, cette section n'a pas sa place
+  // (« il ne doit pas y avoir de recommandation ») — "Tes leviers
+  // prioritaires" et "Sa faille, ton opportunité", déjà affichés plus haut
+  // et directement issus du diagnostic (pas d'un second appel IA), jouent
+  // déjà ce rôle de « choses intéressantes à implémenter » sur SON compte.
+  const opportuniteHtml = moi ? `<div id="diagSommaireOpportunites"></div>` : '';
 
   // ── Copier / Partager / Télécharger ── (même trio que l'analyse détaillée,
   // voir js/audit.js) : placés juste avant la recommandation de fin, pour
@@ -1186,8 +1191,10 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
   // juste calculé (top/flop vidéos, niche, concepts récurrents, voir
   // texteDiagnosticSommaireOpportunites ci-dessous) : abonné ou non, en
   // tâche de fond, ne retarde jamais l'affichage du diagnostic lui-même.
-  // Voir js/recommandations.js.
-  if (typeof afficherOpportuniteDiagSommaire === 'function') {
+  // Voir js/recommandations.js. Seulement sur SON PROPRE compte : sur un
+  // concurrent, aucune section de recommandation (voir opportuniteHtml
+  // ci-dessus) ; nul besoin d'appeler l'IA une seconde fois pour ça.
+  if (moi && typeof afficherOpportuniteDiagSommaire === 'function') {
     afficherOpportuniteDiagSommaire(d, moi, username, recommandationSauvegardee);
   }
   // Propose le rapport fusionné dès que ce diagnostic (le sien) complète la
