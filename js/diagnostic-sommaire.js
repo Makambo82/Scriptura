@@ -1123,6 +1123,16 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
   // rien n'est exploitable, jamais retiré du DOM pour autant.
   const opportuniteHtml = `<div id="diagSommaireOpportunites"></div>`;
 
+  // ── Copier / Partager / Télécharger ── (même trio que l'analyse détaillée,
+  // voir js/audit.js) : placés juste avant la recommandation de fin, pour
+  // rester au même endroit relatif dans les deux diagnostics.
+  const txtDiagSommaire = diagSommaireTexteBrut(d, moi, username);
+  const actionsFinHtml = `<div class="sb-actions-fin">
+    <button class="icon-btn" title="Copier le diagnostic" onclick="copyText(this, '${storeCopyText(txtDiagSommaire)}')">${ICON_COPY}</button>
+    <button class="icon-btn" title="Partager le diagnostic" onclick="shareText(this, '${storeCopyText(txtDiagSommaire)}')">${ICON_SHARE}</button>
+    <button class="icon-btn" title="Télécharger en PDF" onclick="telechargerDiagSommairePDF()">${ICON_PDF}</button>
+  </div>`;
+
   results.innerHTML = `
     <div class="score-card audit-score-card ds-score-card">
       <div class="audit-score-label">${moi ? 'DIAGNOSTIC SOMMAIRE' : 'ANALYSE CONCURRENT'} · @${diagSommaireEsc(username)}</div>
@@ -1160,6 +1170,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
     ${conceptsHtml}
     ${leviersHtml}
     ${faille}
+    ${actionsFinHtml}
     ${opportuniteHtml}
 
     ${moi ? ctaDetailleHtml : ctaConcurrentHtml}
@@ -1231,6 +1242,284 @@ function scoreGlobalDepuisDiag(d) {
     }
   });
   return max > 0 ? Math.round(obt / max * 100) : null;
+}
+
+// Version texte complète du diagnostic sommaire, pour les boutons Copier et
+// Partager (même principe que auditTexteBrut, js/audit.js, mais sur la
+// structure du diagnostic sommaire : dimensions, santé, évolution, bio,
+// niche, top/flop vidéos, concepts récurrents, leviers, et les deux blocs
+// propres au mode concurrent, verdict et faille à exploiter).
+function diagSommaireTexteBrut(d, moi, username) {
+  const L = [];
+  L.push((moi ? 'DIAGNOSTIC SOMMAIRE' : 'ANALYSE CONCURRENT') + ' · SCRIPTURA');
+  L.push('@' + (username || ''));
+  L.push('');
+
+  const score = scoreGlobalDepuisDiag(d);
+  if (score != null) L.push('Score : ' + score + '/100');
+  Object.keys(DS_DIM_META).forEach(cle => {
+    const meta = DS_DIM_META[cle];
+    const dim = d[cle];
+    const disponible = dim && dim.disponible !== false && typeof dim.score === 'number' && !Number.isNaN(dim.score);
+    L.push('  ' + meta.label + ' : ' + (disponible ? (dim.score + '/' + meta.max) : 'non mesuré'));
+  });
+  const sante = santeCompteDepuisScore(score);
+  if (sante) L.push('Santé du compte : ' + sante.label);
+  if (d.abonnes) L.push('Abonnés : ' + formaterNombre(d.abonnes));
+  if (d.likesCumules) L.push("J'aime cumulés : " + formaterNombre(d.likesCumules));
+
+  const bloc = (titre, lignes) => {
+    const utiles = (lignes || []).filter(Boolean);
+    if (!utiles.length) return;
+    L.push('', titre.toUpperCase());
+    utiles.forEach(x => L.push(x));
+  };
+
+  const evo = d.evolution || {};
+  if (evo.constat) {
+    bloc('Évolution du compte', [
+      evo.constat,
+      evo.avant ? 'Avant : ' + evo.avant : null,
+      evo.apres ? 'Depuis : ' + evo.apres : null,
+      evo.formule_gagnante ? 'Formule gagnante : ' + evo.formule_gagnante : null
+    ]);
+  }
+
+  const verdict = d.verdict_inspiration || {};
+  if (!moi && verdict.constat) bloc("Faut-il vraiment s'en inspirer ?", [verdict.constat]);
+
+  const bio = d.bio || {};
+  if (bio.actuelle) {
+    bloc(moi ? 'Ton profil' : 'Son positionnement', [
+      'Bio actuelle : « ' + bio.actuelle + ' »',
+      bio.critique
+    ].concat(Array.isArray(bio.suggestions) ? bio.suggestions.map(s => 'Suggestion : ' + s) : []));
+  }
+
+  const niche = d.niche || {};
+  if (niche.disponible !== false && niche.nom) {
+    bloc(moi ? 'Ta niche' : 'Sa niche', [niche.nom].concat(Array.isArray(niche.analyse) ? niche.analyse : []));
+  }
+
+  const fmtVideo = (v) => (v.sujet || '') + (v.constat ? ' — ' + v.constat : '');
+  if (Array.isArray(d.top_videos) && d.top_videos.length) {
+    bloc(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons', d.top_videos.map(fmtVideo));
+  }
+  if (Array.isArray(d.flop_videos) && d.flop_videos.length) {
+    bloc(moi ? 'Tes vidéos en retrait' : 'Ses ratés', d.flop_videos.map(fmtVideo));
+  }
+
+  if (Array.isArray(d.concepts_recurrents) && d.concepts_recurrents.length) {
+    bloc(moi ? 'Concepts récurrents' : 'Ses concepts récurrents', [d.concepts_recurrents.filter(Boolean).join(', ')]);
+  }
+
+  if (Array.isArray(d.leviers_prioritaires) && d.leviers_prioritaires.length) {
+    bloc(moi ? 'Tes leviers prioritaires' : 'Ce que tu peux reprendre et adapter',
+      d.leviers_prioritaires.map(l => (l.titre || '') + ' : ' + (l.detail || '')));
+  }
+
+  if (!moi && d.faille_exploiter) bloc('Sa faille, ton opportunité', [d.faille_exploiter]);
+
+  return L.join('\n');
+}
+
+// ══════════════════════════════════════
+//  EXPORT PDF DU DIAGNOSTIC SOMMAIRE
+//  Même mise en page que l'audit détaillé (telechargerAuditPDF, js/audit.js),
+//  adaptée au contenu du diagnostic sommaire. S'appuie sur _dernierSommaireAffiche
+//  (mémorisé au moment de l'affichage, voir afficherDiagnosticSommaireResultat).
+// ══════════════════════════════════════
+function telechargerDiagSommairePDF() {
+  const lib = window.jspdf || window.jsPDF;
+  if (!lib) {
+    alert("Le module PDF n'a pas pu être chargé. Vérifie ta connexion et réessaie.");
+    return;
+  }
+  const { jsPDF } = lib;
+  const etat = _dernierSommaireAffiche;
+  if (!etat || !etat.diagnostic) return;
+  const d = etat.diagnostic, username = etat.username, moi = etat.estMonCompte !== false;
+  const score = scoreGlobalDepuisDiag(d);
+  const sante = santeCompteDepuisScore(score);
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const LARGEUR = 210, HAUTEUR = 297;
+  const MARGE = 18;
+  const UTILE = LARGEUR - MARGE * 2;
+  let y = 0;
+
+  const OR = [201, 168, 76];
+  const OR_CLAIR = [226, 200, 122];
+  const FOND = [28, 28, 30];
+  const BLANC = [255, 255, 255];
+  const GRIS = [175, 175, 178];
+
+  function fondPage() {
+    doc.setFillColor(FOND[0], FOND[1], FOND[2]);
+    doc.rect(0, 0, LARGEUR, HAUTEUR, 'F');
+  }
+  function place(h) {
+    if (y + h > HAUTEUR - MARGE) {
+      doc.addPage();
+      fondPage();
+      y = MARGE;
+    }
+  }
+  function titreSection(txt) {
+    place(14);
+    y += 4;
+    doc.setTextColor(OR[0], OR[1], OR[2]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(String(txt).toUpperCase(), MARGE, y);
+    y += 2;
+    doc.setDrawColor(OR[0], OR[1], OR[2]);
+    doc.setLineWidth(0.3);
+    doc.line(MARGE, y, MARGE + UTILE, y);
+    y += 6;
+  }
+  function paragraphe(txt, couleur, taille, gras) {
+    if (!txt) return;
+    doc.setFont('helvetica', gras ? 'bold' : 'normal');
+    doc.setFontSize(taille || 10);
+    const c = couleur || BLANC;
+    doc.setTextColor(c[0], c[1], c[2]);
+    const lignes = doc.splitTextToSize(String(txt), UTILE);
+    lignes.forEach(l => {
+      place(6);
+      doc.text(l, MARGE, y);
+      y += 5;
+    });
+    y += 1.5;
+  }
+
+  // ── Page 1 : en-tête ──
+  fondPage();
+  y = MARGE + 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
+  doc.text('SCRIPT', MARGE, y);
+  const largeurScript = doc.getTextWidth('SCRIPT');
+  doc.setTextColor(OR[0], OR[1], OR[2]);
+  doc.text('URA', MARGE + largeurScript, y);
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
+  doc.text((moi ? 'Diagnostic sommaire' : 'Analyse concurrent') + ' · @' + (username || ''), MARGE, y);
+  const dateStr = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  doc.text(dateStr, MARGE + UTILE, y, { align: 'right' });
+  y += 8;
+
+  // ── Le score ──
+  if (score != null) {
+    place(30);
+    doc.setFillColor(38, 38, 41);
+    doc.roundedRect(MARGE, y, UTILE, 24, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
+    doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
+    doc.text(String(score) + '/100', MARGE + 8, y + 15);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);
+    doc.text(sante ? ('Santé du compte : ' + sante.label) : 'Score global', MARGE + 8, y + 21);
+    y += 30;
+  }
+
+  // ── Les dimensions ──
+  titreSection('Détail par dimension');
+  Object.keys(DS_DIM_META).forEach(cle => {
+    const meta = DS_DIM_META[cle];
+    const dim = d[cle];
+    const disponible = dim && dim.disponible !== false && typeof dim.score === 'number' && !Number.isNaN(dim.score);
+    place(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
+    doc.text(meta.label, MARGE, y);
+    doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
+    doc.text(disponible ? (dim.score + ' / ' + meta.max) : 'non mesuré', MARGE + UTILE, y, { align: 'right' });
+    y += 6.5;
+  });
+
+  if (d.abonnes || d.likesCumules) {
+    y += 2;
+    const stats = [];
+    if (d.abonnes) stats.push(formaterNombre(d.abonnes) + ' abonnés');
+    if (d.likesCumules) stats.push(formaterNombre(d.likesCumules) + " j'aime cumulés");
+    paragraphe(stats.join(' · '), OR_CLAIR, 10, true);
+  }
+
+  const ajouteBloc = (titre, lignes) => {
+    const utiles = (lignes || []).filter(Boolean);
+    if (!utiles.length) return;
+    titreSection(titre);
+    utiles.forEach(x => paragraphe(x, BLANC, 10));
+  };
+
+  const evo = d.evolution || {};
+  if (evo.constat) {
+    ajouteBloc('Évolution du compte', [
+      evo.constat,
+      evo.avant ? 'Avant : ' + evo.avant : null,
+      evo.apres ? 'Depuis : ' + evo.apres : null,
+      evo.formule_gagnante ? 'Formule gagnante : ' + evo.formule_gagnante : null
+    ]);
+  }
+
+  const verdict = d.verdict_inspiration || {};
+  if (!moi && verdict.constat) ajouteBloc("Faut-il vraiment s'en inspirer ?", [verdict.constat]);
+
+  const bio = d.bio || {};
+  if (bio.actuelle) {
+    ajouteBloc(moi ? 'Ton profil' : 'Son positionnement', ['« ' + bio.actuelle + ' »', bio.critique]);
+    if (Array.isArray(bio.suggestions) && bio.suggestions.length) {
+      bio.suggestions.forEach(s => paragraphe('• ' + s, OR_CLAIR, 10));
+    }
+  }
+
+  const niche = d.niche || {};
+  if (niche.disponible !== false && niche.nom) {
+    ajouteBloc(moi ? 'Ta niche' : 'Sa niche', [niche.nom].concat(Array.isArray(niche.analyse) ? niche.analyse : []));
+  }
+
+  const fmtVideo = (v) => (v.sujet || '') + (v.constat ? ' — ' + v.constat : '');
+  if (Array.isArray(d.top_videos) && d.top_videos.length) {
+    ajouteBloc(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons', d.top_videos.map(fmtVideo));
+  }
+  if (Array.isArray(d.flop_videos) && d.flop_videos.length) {
+    ajouteBloc(moi ? 'Tes vidéos en retrait' : 'Ses ratés', d.flop_videos.map(fmtVideo));
+  }
+
+  if (Array.isArray(d.concepts_recurrents) && d.concepts_recurrents.length) {
+    ajouteBloc(moi ? 'Concepts récurrents' : 'Ses concepts récurrents', [d.concepts_recurrents.filter(Boolean).join(', ')]);
+  }
+
+  if (Array.isArray(d.leviers_prioritaires) && d.leviers_prioritaires.length) {
+    titreSection(moi ? 'Tes leviers prioritaires' : 'Ce que tu peux reprendre et adapter');
+    d.leviers_prioritaires.forEach(l => {
+      paragraphe(l.titre, OR_CLAIR, 10, true);
+      paragraphe(l.detail, BLANC, 10);
+    });
+  }
+
+  if (!moi && d.faille_exploiter) ajouteBloc('Sa faille, ton opportunité', [d.faille_exploiter]);
+
+  // ── Pied de page sur chaque page ──
+  const total = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 124);
+    doc.text('Scriptura, Diagnostic TikTok', MARGE, HAUTEUR - 10);
+    doc.text(p + ' / ' + total, MARGE + UTILE, HAUTEUR - 10, { align: 'right' });
+  }
+
+  const nom = 'Diagnostic-Sommaire-Scriptura-' + new Date().toISOString().slice(0, 10) + '.pdf';
+  doc.save(nom);
 }
 
 // FACE-À-FACE « Toi face à @concurrent » : ajouté EN HAUT de mon résultat quand
