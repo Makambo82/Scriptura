@@ -39,8 +39,13 @@ nav{
   backdrop-filter:blur(20px);
   border-bottom:1px solid var(--border-soft);
 }
-.logo{font-family:'Cinzel',serif;font-weight:500;font-size:1.15rem;letter-spacing:0.18em;color:var(--white)}
+.logo{font-family:'Cinzel',serif;font-weight:500;font-size:1.15rem;letter-spacing:0.18em;color:var(--white);opacity:1;transition:opacity 0.3s ease}
 .logo em{color:var(--gold);font-style:normal}
+/* Retour propriétaire : logo discret pendant le travail (scrollé dans le
+   contenu), pleinement présent en haut de page ou au survol. Toggle posé
+   par updateScrollBtn (js/ui.js), même mécanisme que le bouton remonter. */
+body.nav-scrolled .logo{opacity:0.45}
+body .logo:hover{opacity:1}
 .nav-tag{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;color:var(--gold);opacity:0.6;text-transform:uppercase}
 
 /* ── BANNIÈRE COMPTE (abonnement bientôt expiré / générations bientôt
@@ -2096,6 +2101,28 @@ body.is-unlocked .sidebar-logout{display:block}
 .sb-progress-bar{
   display:flex;align-items:center;gap:12px;
   max-width:340px;margin:16px auto 20px;
+}
+/* Petit badge doré tournant (retour propriétaire, logo dans les temps
+   morts) : donne une présence de marque aux barres de progression qui
+   n'avaient jusque-là qu'un simple fil doré, sans rien qui rappelle
+   Scriptura. Même langage visuel que .ds-loading-icon/.ds-loading-bolt
+   (diagnostic sommaire) et .hero-logo-badge (accueil), gabarit réduit pour
+   s'insérer en tête d'une barre fine plutôt que dans une grande carte.
+   Placé en premier enfant DANS .sb-progress-bar : apparaît/disparaît avec
+   la barre elle-même, sans toggle JS séparé à maintenir. */
+.wait-badge{
+  position:relative;width:32px;height:32px;flex:0 0 auto;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle,rgba(201,168,76,0.16),transparent 70%);
+}
+.wait-badge::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  border:2px solid transparent;border-top-color:var(--gold);border-right-color:var(--gold-light);
+}
+.wait-badge svg{position:relative;width:14px;height:14px;filter:drop-shadow(0 0 5px rgba(201,168,76,0.5))}
+@media(prefers-reduced-motion:no-preference){
+  .wait-badge::before{animation:dsLoadingSpin 1.4s linear infinite}
+  .wait-badge svg{animation:dsLoadingPulse 1.6s ease-in-out infinite}
 }
 .sb-progress-bar-track{
   flex:1;height:8px;border-radius:999px;

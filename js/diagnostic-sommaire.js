@@ -1401,16 +1401,24 @@ function telechargerDiagSommairePDF() {
   }
 
   // ── Page 1 : en-tête ──
+  // Retour propriétaire : la marque doit être la plus nette sur ce qui sort
+  // de l'app (PDF téléchargé, donc partagé), c'est ce qui fait qu'on en
+  // parle. Taille relevée (22→27) + filet doré sous la marque, même
+  // traitement que telechargerAuditPDF (js/audit.js).
   fondPage();
-  y = MARGE + 6;
+  y = MARGE + 8;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
+  doc.setFontSize(27);
   doc.setTextColor(BLANC[0], BLANC[1], BLANC[2]);
   doc.text('SCRIPT', MARGE, y);
   const largeurScript = doc.getTextWidth('SCRIPT');
   doc.setTextColor(OR[0], OR[1], OR[2]);
   doc.text('URA', MARGE + largeurScript, y);
-  y += 8;
+  y += 3;
+  doc.setDrawColor(OR[0], OR[1], OR[2]);
+  doc.setLineWidth(0.6);
+  doc.line(MARGE, y, MARGE + doc.getTextWidth('SCRIPTURA') + 1, y);
+  y += 7;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(GRIS[0], GRIS[1], GRIS[2]);

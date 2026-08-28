@@ -478,7 +478,15 @@ function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
 let _lastScrollY = 0;
 let _scrollDir = 'down'; // sens courant du scroll
+// Logo discret pendant le travail (retour propriétaire) : dès qu'on quitte le
+// haut de page, le logo de la nav s'atténue (voir .logo, css/style.css), pour
+// ne pas « pousser » la marque en continu pendant la lecture/écriture. Il
+// reprend sa pleine présence au survol (CSS seul) ou en remontant en haut.
+function majLogoNav() {
+  document.body.classList.toggle('nav-scrolled', window.scrollY > 80);
+}
 function updateScrollBtn() {
+  majLogoNav();
   const btn = document.getElementById('scrollTopBtn');
   if (!btn) return;
   // La page est-elle assez longue pour scroller ?

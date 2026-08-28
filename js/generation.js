@@ -2030,6 +2030,7 @@ function renderResults(d, niche, sujet) {
           <span id="sbGenText">Générer le storyboard visuel</span>
         </button>
         <div class="sb-progress-bar" id="sbProgBar1" style="display:none">
+          <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
           <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill1"></div></div>
           <div class="sb-progress-bar-pct" id="sbProgPct1">0%</div>
         </div>
