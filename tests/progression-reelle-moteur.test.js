@@ -17,7 +17,11 @@ const vm = require('vm');
 
 function chargerModule() {
   const code = fs.readFileSync(require.resolve('../js/storyboard.js'), 'utf8');
-  const sandbox = {};
+  // setTimeout/clearTimeout : creerProgressionReelle en a besoin pour son
+  // fluage entre deux jalons (voir js/storyboard.js), une dépendance de
+  // timer JS standard, pas du DOM, donc sans contradiction avec l'isolation
+  // recherchée ici.
+  const sandbox = { setTimeout, clearTimeout };
   vm.createContext(sandbox);
   // Le fichier référence plein d'autres globales absentes ici (DOM, autres
   // fonctions de l'app) : sans effet, seules creerProgressionReelle et

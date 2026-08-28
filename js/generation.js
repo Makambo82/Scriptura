@@ -1792,7 +1792,7 @@ function startGenAnimation(mode) {
   genModeActuel = mode;
   const setPct = (p) => { if (fill) fill.style.width = p + '%'; if (pctEl) pctEl.textContent = p + '%'; };
   genProgressCtl = GEN_POIDS[mode]
-    ? creerProgressionReelle(setPct, GEN_POIDS[mode])
+    ? creerProgressionReelle(setPct, GEN_POIDS[mode], GEN_DUREE[mode])
     : createProgress(setPct, GEN_DUREE[mode] || 45000);
   genProgressCtl.start();
 

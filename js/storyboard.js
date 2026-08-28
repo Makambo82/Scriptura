@@ -702,13 +702,32 @@ function createProgress(setLabel, dureeEstimee) {
 // `poidsEtapes` : poids relatif de chaque étape du pipeline. On utilise le
 // max_tokens de l'appel qui la compose comme proxy (le meilleur repère
 // disponible du temps réel qu'elle prendra), pas une durée devinée à la main.
-function creerProgressionReelle(setPct, poidsEtapes) {
+// `dureeEstimeeTotale` (optionnel, ms) : calibre le FLUAGE ci-dessous ; à
+// défaut, ~8s par étape (repère raisonnable pour un appel IA courant).
+//
+// Retour direct du propriétaire : sur une étape ATOMIQUE un peu longue (le
+// brief, la critique, la révision…), le % restait figé du début à la fin de
+// l'appel puis sautait d'un coup, donnant l'impression que "ça ne bouge
+// qu'à la fin" alors que l'IA travaille depuis le début de l'étape. Un
+// FLUAGE comble maintenant cette attente : pendant qu'une étape est en
+// cours SANS jalon ni flux reçu, le % avance tout seul vers la borne haute
+// de CETTE étape (jamais au-delà, jamais 100%), sur une courbe qui ralentit
+// en approchant la borne (même principe que createProgress ci-dessus, mais
+// bornée à la bande de l'étape courante au lieu de toute la barre). Dès
+// qu'un jalon réel (etapeTerminee) ou un flux réel (etapeFluxProgres)
+// arrive, il prend le dessus (appliquer() est monotone, le plus grand des
+// deux gagne) : le fluage ne fait jamais mentir un jalon réel, il comble
+// seulement le silence entre deux jalons.
+function creerProgressionReelle(setPct, poidsEtapes, dureeEstimeeTotale) {
   const total = poidsEtapes.reduce((s, w) => s + w, 0) || 1;
   const cumul = [0];
   poidsEtapes.forEach(w => cumul.push(cumul[cumul.length - 1] + w));
+  const dureeTotale = dureeEstimeeTotale || poidsEtapes.length * 8000;
 
   let etapeCourante = 0;
   let dernierPct = 0;
+  let debutEtape = Date.now();
+  let timerFluage = null;
   function appliquer(p) {
     // Jamais en arrière, jamais 100% avant finish() (réservé à la vraie fin
     // du pipeline, voir plus bas) : un jalon intermédiaire ne doit jamais
@@ -716,12 +735,25 @@ function creerProgressionReelle(setPct, poidsEtapes) {
     dernierPct = Math.max(dernierPct, Math.min(99, Math.round(p)));
     setPct(dernierPct);
   }
+  function tickFluage() {
+    const basIdx = Math.min(etapeCourante, cumul.length - 1);
+    const hautIdx = Math.min(etapeCourante + 1, cumul.length - 1);
+    const bas = cumul[basIdx] / total, haut = cumul[hautIdx] / total;
+    const dureeEtape = Math.max(1000, ((poidsEtapes[basIdx] || 1) / total) * dureeTotale);
+    const ratio = (Date.now() - debutEtape) / dureeEtape;
+    // Va jusqu'à 92% de la bande de l'étape en cours, jamais plus : seul un
+    // jalon réel peut franchir cette borne (etapeTerminee/etapeFluxProgres).
+    const cibleBande = bas + Math.min(0.92, 1 - Math.exp(-ratio * 1.5)) * (haut - bas);
+    appliquer(cibleBande * 100);
+    timerFluage = setTimeout(tickFluage, 200);
+  }
   return {
     // Marque l'étape `i` (0-based) comme réellement terminée : le % saute
     // au moins à sa borne haute. Monotone (jamais en arrière), sans effet
     // si `i` a déjà été dépassée.
     etapeTerminee(i) {
       etapeCourante = Math.max(etapeCourante, i + 1);
+      debutEtape = Date.now();
       appliquer((cumul[etapeCourante] / total) * 100);
     },
     // Progression CONTINUE à l'intérieur de l'étape `i`, celle qui reçoit
@@ -731,10 +763,17 @@ function creerProgressionReelle(setPct, poidsEtapes) {
       const bas = cumul[i] / total, haut = cumul[i + 1] / total;
       appliquer((bas + Math.min(1, Math.max(0, fraction)) * (haut - bas)) * 100);
     },
-    start() { dernierPct = 0; etapeCourante = 0; setPct(0); },
+    start() {
+      dernierPct = 0; etapeCourante = 0; debutEtape = Date.now(); setPct(0);
+      if (timerFluage) clearTimeout(timerFluage);
+      tickFluage();
+    },
     // Termine : saute à 100% (à appeler quand le résultat est réellement affiché).
-    finish() { dernierPct = 100; setPct(100); },
-    stop() {} // rien à nettoyer (pas de minuteur ici, contrairement à createProgress)
+    finish() {
+      if (timerFluage) clearTimeout(timerFluage);
+      dernierPct = 100; setPct(100);
+    },
+    stop() { if (timerFluage) clearTimeout(timerFluage); }
   };
 }
 
