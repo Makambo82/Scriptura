@@ -263,6 +263,7 @@ function omRenderVoixZone() {
   // seulement visible pendant la génération, jamais affichée sinon.
   const progBar = omVoixEnCours
     ? `<div class="sb-progress-bar" id="omVoixProgBar" style="margin-top:10px">
+         <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
          <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omVoixProgFill"></div></div>
          <div class="sb-progress-bar-pct" id="omVoixProgPct">0%</div>
        </div>`

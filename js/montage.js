@@ -686,6 +686,7 @@ function renderMontageEtat() {
       // % estimé (comme js/montage-manuel.js, omVoixProgBar) : aucun signal
       // réel disponible pour un appel ElevenLabs unique, non flux.
       zoneVoix.innerHTML = `<div class="sb-progress-bar" id="montageVoixProgBar" style="max-width:none;margin:0">
+        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageVoixProgFill"></div></div>
         <div class="sb-progress-bar-pct" id="montageVoixProgPct">0%</div>
       </div>`;
