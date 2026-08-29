@@ -310,6 +310,33 @@ async function handleAdminStats(req, res, cfg, body) {
     }
   }
 
+  // Suppression DÉFINITIVE d'un code désactivé (retour propriétaire : "je
+  // dois le faire moi-même dans Supabase ?", voir supprimerAbonneAdmin,
+  // js/admin.js). Garde-fou volontaire : la clause &actif=eq.false dans la
+  // requête elle-même fait qu'un code encore actif ne peut JAMAIS être
+  // supprimé par cette route, même appelée directement sans passer par le
+  // bouton (qui ne l'affiche que pour les codes déjà désactivés) ; 0 ligne
+  // supprimée dans ce cas, jamais une erreur qui laisserait croire à une
+  // suppression partielle.
+  if (body?.action === 'supprimer-abonne') {
+    const cible = String(body?.code || '').trim().toUpperCase();
+    if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
+    try {
+      const r = await fetch(
+        cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(cible) + '&actif=eq.false',
+        { method: 'DELETE', headers: { ...entetes(cfg.key), Prefer: 'return=representation' } }
+      );
+      if (!r.ok) throw new Error('suppression échouée (' + r.status + ')');
+      const supprimees = await r.json().catch(() => []);
+      if (!Array.isArray(supprimees) || !supprimees.length) {
+        return res.status(200).json({ ok: false, erreur: 'rien_a_supprimer' });
+      }
+      return res.status(200).json({ ok: true, code: cible });
+    } catch (e) {
+      return res.status(200).json({ indisponible: true });
+    }
+  }
+
   // Détail des générations par mode POUR UN CODE PRÉCIS (clic sur un code
   // dans la liste, voir toggleGenerationsParCode, js/admin.js). Toutes
   // périodes confondues (contrairement à la carte globale "Générations par

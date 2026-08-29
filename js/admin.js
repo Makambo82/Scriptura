@@ -469,6 +469,13 @@ function renderAdminListe() {
               <input type="checkbox" ${c.actif === false ? '' : 'checked'} onchange="toggleActifAbonneAdmin('${codeJs}', this.checked)"/>
               <span class="admin-switch-track"></span>
             </label>`;
+        // Supprimer : uniquement pour un code déjà désactivé (jamais le
+        // fondateur, jamais un abonné encore actif) — le serveur refuse de
+        // toute façon (voir action=supprimer-abonne, api/data.js), ce
+        // bouton reste un filet visuel, pas la seule protection.
+        const boutonSupprimer = (!estFondateur && c.actif === false)
+          ? `<button type="button" class="history-delete" onclick="supprimerAbonneAdmin('${codeJs}')" title="Supprimer définitivement" aria-label="Supprimer définitivement">${ICON_DELETE}</button>`
+          : '';
         return `<div>
         <div class="audit-sujet">
           <span style="display:flex;align-items:center">
@@ -478,6 +485,7 @@ function renderAdminListe() {
           <span style="display:flex;align-items:center;gap:10px">
             <b>${escAdmin(estFondateur ? 'Fondateur' : capitaliserPlanAdmin(c.plan))}</b>
             ${controleActif}
+            ${boutonSupprimer}
           </span>
         </div>
         <div id="genParCode-${i}" class="admin-gen-detail" style="display:none"></div>
@@ -558,6 +566,34 @@ async function toggleActifAbonneAdmin(code, actif) {
     // réel inchangé (échec), jamais l'état optimiste coché par l'utilisateur.
     renderAdminListe();
     majEnteteAbonnesAdmin();
+  }
+}
+
+// Suppression DÉFINITIVE d'un code désactivé (retour propriétaire : "je
+// dois le faire moi-même dans Supabase ?" → non, un bouton dans l'app).
+// Confirmation obligatoire (même formule que js/historique.js, deleteOne) :
+// irréversible, contrairement à la désactivation qui se rebascule d'un
+// clic. Le serveur refuse de toute façon un code encore actif (voir
+// action=supprimer-abonne, api/data.js), ce bouton n'est de toute façon
+// affiché QUE pour les codes déjà désactivés (voir renderAdminListe).
+async function supprimerAbonneAdmin(code) {
+  if (!confirm('Supprimer définitivement le code « ' + code + ' » ?\n\nCette action est définitive, contrairement à la désactivation.')) return;
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'supprimer-abonne', code_acces: localStorage.getItem('scriptura_code') || null, code })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible || !data.ok) {
+      if (typeof toastRegen === 'function') toastRegen(data && data.erreur === 'rien_a_supprimer' ? 'Ce code est introuvable ou encore actif.' : 'Impossible de supprimer ce code, réessaie.');
+      return;
+    }
+    _codesAbonnesAdmin = _codesAbonnesAdmin.filter(c => c.code !== code);
+    renderAdminListe();
+    majEnteteAbonnesAdmin();
+  } catch (e) {
+    if (typeof toastRegen === 'function') toastRegen('Impossible de supprimer ce code, réessaie.');
   }
 }
 
