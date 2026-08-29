@@ -58,8 +58,13 @@ test('Montage (storyboard IA) : % réel sur la génération d\'images, % estimé
     });
 
     // 1) Génération des images : % RÉEL, doit avancer avec l'index réel.
+    // (montageImageIndexEnCours passe à 0 AVANT même le 1er appel réseau,
+    // donc le % reste à 0 tant que la 1ère image n'est pas terminée : marge
+    // large ici, 400ms pour un mock de 150ms/image, pour rester fiable même
+    // sous charge CI où plusieurs suites tournent en parallèle, constaté en
+    // usage réel avec 200ms, marge alors trop juste.)
     const genImgPromise = page.evaluate(() => genererImagesMontage());
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(400);
     const etatImg = await page.evaluate(() => {
       const el = document.getElementById('montageImagesLoaderPct');
       return el ? { pct: parseInt(el.textContent, 10), visible: getComputedStyle(el).display !== 'none' } : { pct: null, visible: false };
