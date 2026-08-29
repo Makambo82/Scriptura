@@ -657,20 +657,34 @@ async function chargerCarteModes() {
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
-    // Scindé par plan (Creator vs Pro, voir parModePlan, api/data.js) pour
-    // voir ce qui pousse réellement à l'upgrade, plutôt qu'un simple total
-    // tous plans confondus. Jeton/admin/non-abonné hors de cette
-    // comparaison (voir le commentaire serveur).
-    const parModePlan = data.parModePlan || { creator: {}, pro: {} };
-    const modes = Array.from(new Set([...Object.keys(parModePlan.creator || {}), ...Object.keys(parModePlan.pro || {})]));
+    // Scindé par plan (Fondateur/Pro/Creator, voir parModePlan,
+    // api/data.js) pour voir ce qui pousse réellement à l'upgrade, plutôt
+    // qu'un simple total tous plans confondus. Jeton/VIP/non-abonné hors
+    // de cette comparaison (voir le commentaire serveur). Colonnes
+    // alignées (grille), pas une ligne de texte par plan : plus lisible
+    // pour comparer un mode à l'autre d'un coup d'œil.
+    const parModePlan = data.parModePlan || { fondateur: {}, pro: {}, creator: {} };
+    const modes = Array.from(new Set([
+      ...Object.keys(parModePlan.fondateur || {}),
+      ...Object.keys(parModePlan.pro || {}),
+      ...Object.keys(parModePlan.creator || {})
+    ]));
     const lignes = modes
-      .map(m => ({ m, creator: (parModePlan.creator || {})[m] || 0, pro: (parModePlan.pro || {})[m] || 0 }))
-      .sort((a, b) => (b.creator + b.pro) - (a.creator + a.pro))
-      .map(r => `<div class="audit-sujet"><span>${escAdmin(r.m)}</span><span style="display:flex;gap:16px"><span>Creator <b>${r.creator}</b></span><span>Pro <b>${r.pro}</b></span></span></div>`)
+      .map(m => ({
+        m,
+        fondateur: (parModePlan.fondateur || {})[m] || 0,
+        pro: (parModePlan.pro || {})[m] || 0,
+        creator: (parModePlan.creator || {})[m] || 0
+      }))
+      .sort((a, b) => (b.fondateur + b.pro + b.creator) - (a.fondateur + a.pro + a.creator))
+      .map(r => `<div class="admin-modes-row"><span>${escAdmin(r.m)}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span></div>`)
       .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
     return `<div class="score-card">
       <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
-      <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
+      <div class="admin-modes-table" style="margin-top:14px">
+        <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span></div>
+        ${lignes}
+      </div>
     </div>`;
   } catch (e) {
     _codesActifsRecents = new Set();

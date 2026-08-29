@@ -495,14 +495,16 @@ async function handleAdminStats(req, res, cfg, body) {
       compter(''), compter('&actif=eq.true'), compter('&actif=eq.true&plan=eq.creator'), compter('&actif=eq.true&plan=eq.pro'), listeCodes
     ]);
 
-    // parModePlan : mêmes générations, scindées par plan (Creator/Pro) pour
-    // repérer ce qui pousse réellement à l'upgrade (voir carteModesAdmin,
-    // js/admin.js). `code_acces` recroisé avec la liste `codes` déjà
-    // chargée ci-dessus (même Promise.all), pas de requête supplémentaire
-    // pour ça. Jeton/admin/non-abonné ne rentrent dans aucun des deux
-    // compteurs, hors du périmètre de cette comparaison Creator/Pro.
+    // parModePlan : mêmes générations, scindées par plan (Fondateur/Pro/
+    // Creator) pour repérer ce qui pousse réellement à l'upgrade (voir
+    // carteModesAdmin, js/admin.js). `code_acces` recroisé avec la liste
+    // `codes` déjà chargée ci-dessus (même Promise.all), pas de requête
+    // supplémentaire pour ça. Fondateur identifié via CODE_ADMIN (jamais
+    // dans la table `abonnes`, voir verify-code.js). Jeton/VIP/non-abonné
+    // ne rentrent dans aucun des trois compteurs, hors du périmètre de
+    // cette comparaison.
     let parMode = {};
-    let parModePlan = { creator: {}, pro: {} };
+    let parModePlan = { fondateur: {}, pro: {}, creator: {} };
     try {
       const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
       const rModes = await fetch(
@@ -512,9 +514,14 @@ async function handleAdminStats(req, res, cfg, body) {
       const rows = await rModes.json().catch(() => []);
       const planParCode = {};
       (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[c.code] = c.plan; });
+      const codeFondateur = (process.env.CODE_ADMIN || '').trim().toUpperCase();
       (Array.isArray(rows) ? rows : []).forEach(r => {
         const m = r.mode || 'autre';
         parMode[m] = (parMode[m] || 0) + 1;
+        if (codeFondateur && String(r.code_acces || '').toUpperCase() === codeFondateur) {
+          parModePlan.fondateur[m] = (parModePlan.fondateur[m] || 0) + 1;
+          return;
+        }
         const plan = planParCode[r.code_acces];
         if (plan === 'creator' || plan === 'pro') {
           parModePlan[plan][m] = (parModePlan[plan][m] || 0) + 1;
