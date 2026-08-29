@@ -589,6 +589,32 @@ function dessinerHistorique() {
   _afficherListeFiltree();
 }
 
+// Nombre de résultats pour un mode donné (mêmes filtres favoris/recherche
+// que _afficherListeFiltree), pour afficher le compteur sur la puce
+// actuellement sélectionnée (voir renderHistoryFilters). Recalculé à part
+// plutôt que réutilisé depuis window._historyData/_historySeries : ceux-ci
+// ne sont mis à jour qu'après le rendu de la barre d'outils (voir
+// dessinerHistorique/setModeFilter), donc seraient toujours en retard d'un
+// cran au moment où cette puce se dessine.
+function _compterHistoriquePourMode(modeV) {
+  let gens = (window._historyDataAll || []).slice();
+  let series = (window._historySeriesAll || []).slice();
+  if (modeV) {
+    if (modeV === 'serie') gens = [];
+    else { gens = gens.filter(g => g.mode === modeV); series = []; }
+  }
+  if (_favFilter) {
+    gens = gens.filter(g => g.favori);
+    series = series.filter(s => s.favori);
+  }
+  const q = (_searchQuery && _searchQuery.trim()) ? _normaliserRecherche(_searchQuery.trim()) : '';
+  if (q) {
+    gens = gens.filter(g => _normaliserRecherche(histTitreCourt(g.titre)).includes(q));
+    series = series.filter(s => _normaliserRecherche(s.titre || '').includes(q));
+  }
+  return gens.length + series.length;
+}
+
 // Applique les filtres actifs (mode, favoris, recherche) et remplit la liste.
 // Séparé du reste pour pouvoir rafraîchir la liste pendant la frappe dans la
 // recherche sans reconstruire la barre (donc sans perdre le focus du champ).
@@ -839,7 +865,12 @@ function renderHistoryFilters() {
   if (_filterOpen) {
     html += '<div class="hist-chips">' + HIST_MODES_FILTRE.map(function (m) {
       const arg = m.v ? ("'" + m.v + "'") : 'null';
-      return '<button class="hist-chip' + (_modeFilter === m.v ? ' actif' : '') + '" onclick="setModeFilter(' + arg + ')">' + m.label + '</button>';
+      const actif = _modeFilter === m.v;
+      // Compteur affiché UNIQUEMENT sur la puce sélectionnée (pas sur
+      // toutes) : demande explicite du propriétaire, et ça évite de
+      // recalculer 8 compteurs à chaque frappe dans la recherche.
+      const compte = actif ? ' (' + _compterHistoriquePourMode(m.v) + ')' : '';
+      return '<button class="hist-chip' + (actif ? ' actif' : '') + '" onclick="setModeFilter(' + arg + ')">' + m.label + compte + '</button>';
     }).join('') + '</div>';
   }
   box.innerHTML = html;
