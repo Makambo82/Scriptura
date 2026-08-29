@@ -296,11 +296,17 @@ async function handleAdminStats(req, res, cfg, body) {
   // par ligne, voir toggleActifAbonneAdmin, js/admin.js). Jamais pour le
   // fondateur/VIP : ces codes ne vivent pas dans cette table.
   if (body?.action === 'toggle-actif') {
-    const cible = String(body?.code || '').trim().toUpperCase();
+    // ilike (et non eq) : certains codes en base ne sont pas stockés en
+    // majuscules (ex. codes créés à la main dans Supabase avant l'ajout du
+    // générateur automatique, comme "Tiktok-F18"). Un eq.MAJUSCULE sur un
+    // code réellement mixte-casse ne matche aucune ligne, échoue en
+    // silence (Prefer: return=minimal renvoie 200 même sur 0 ligne
+    // affectée) et laisse l'UI mentir sur l'état réel de l'abonné.
+    const cible = String(body?.code || '').trim();
     if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
     try {
       const r = await fetch(
-        cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(cible),
+        cfg.url + '/rest/v1/abonnes?code=ilike.' + encodeURIComponent(cible),
         { method: 'PATCH', headers: { ...entetes(cfg.key), Prefer: 'return=minimal' }, body: JSON.stringify({ actif: !!body?.actif }) }
       );
       if (!r.ok) throw new Error('maj échouée (' + r.status + ')');
@@ -319,11 +325,14 @@ async function handleAdminStats(req, res, cfg, body) {
   // supprimée dans ce cas, jamais une erreur qui laisserait croire à une
   // suppression partielle.
   if (body?.action === 'supprimer-abonne') {
-    const cible = String(body?.code || '').trim().toUpperCase();
+    // ilike, même raison que toggle-actif ci-dessus : un code stocké en
+    // casse mixte (ex. "Tiktok-F18") ne matche jamais un eq.MAJUSCULE, donc
+    // la suppression échoue toujours avec "rien_a_supprimer" pour ces codes.
+    const cible = String(body?.code || '').trim();
     if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
     try {
       const r = await fetch(
-        cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(cible) + '&actif=eq.false',
+        cfg.url + '/rest/v1/abonnes?code=ilike.' + encodeURIComponent(cible) + '&actif=eq.false',
         { method: 'DELETE', headers: { ...entetes(cfg.key), Prefer: 'return=representation' } }
       );
       if (!r.ok) throw new Error('suppression échouée (' + r.status + ')');
@@ -343,11 +352,14 @@ async function handleAdminStats(req, res, cfg, body) {
   // mode", limitée à 30 jours) : pour un seul abonné, le total depuis
   // toujours est plus parlant qu'une fenêtre glissante.
   if (body?.action === 'generations-par-code') {
-    const cible = String(body?.code || '').trim().toUpperCase();
+    // ilike, même raison que toggle-actif/supprimer-abonne : un code en
+    // casse mixte ne doit pas se voir afficher "0 génération" juste parce
+    // que le filtre force une casse différente de celle stockée.
+    const cible = String(body?.code || '').trim();
     if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
     try {
       const r = await fetch(
-        cfg.url + '/rest/v1/generations?select=mode&code_acces=eq.' + encodeURIComponent(cible),
+        cfg.url + '/rest/v1/generations?select=mode&code_acces=ilike.' + encodeURIComponent(cible),
         { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
       );
       const rows = await r.json().catch(() => []);
@@ -400,14 +412,17 @@ async function handleAdminStats(req, res, cfg, body) {
         // à 0) sortait en premier, le jeton acheté ne serait jamais vu. Une
         // seule ligne par code élimine ce risque à la racine.
         try {
+          // ilike : le fondateur tape ce code à la main, casse au clavier
+          // non garantie, et un code stocké en casse mixte (ex.
+          // "Tiktok-F18") ne doit pas ressortir "code_introuvable" pour ça.
           const rLire = await fetch(
-            cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(codeExistant) + '&select=jetons_audit',
+            cfg.url + '/rest/v1/abonnes?code=ilike.' + encodeURIComponent(codeExistant) + '&select=jetons_audit',
             { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
           );
           const rows = await rLire.json().catch(() => []);
           if (!Array.isArray(rows) || !rows.length) return res.status(200).json({ ok: false, erreur: 'code_introuvable' });
           const total = (parseInt(rows[0].jetons_audit, 10) || 0) + qte;
-          const rMaj = await fetch(cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(codeExistant), {
+          const rMaj = await fetch(cfg.url + '/rest/v1/abonnes?code=ilike.' + encodeURIComponent(codeExistant), {
             method: 'PATCH',
             headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
             body: JSON.stringify({ jetons_audit: total })
