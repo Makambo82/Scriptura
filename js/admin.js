@@ -97,27 +97,57 @@ function carteExpirationsAdmin() {
   </div>`;
 }
 
-// ── Créer un nouvel abonné Creator/Pro depuis le tableau de bord (voir
-// action=creer-abonne, api/data.js). Carte statique, jamais redessinée par
-// chargerTableauDeBord() une fois affichée : après création, on met à jour
+// ── Créer un nouvel abonné Creator/Pro, OU vendre des jetons à l'unité
+// (nouveau code pour un non-abonné, ou ajout sur le code d'un abonné déjà
+// Creator/Pro), depuis le tableau de bord (voir action=creer-abonne,
+// api/data.js). Carte statique, jamais redessinée par chargerTableauDeBord()
+// une fois affichée : après création, on met à jour
 // _codesAbonnesAdmin/renderAdminListe/majEnteteAbonnesAdmin directement,
 // sans recharger tout le tableau, pour ne pas effacer le code généré avant
 // que l'abonné ait pu le copier.
 let _adminNouveauPlan = 'creator';
+// Jeton uniquement : 'nouveau' (visiteur non-abonné, un nouveau code est
+// généré) ou 'existant' (abonné déjà Creator/Pro qui achète des jetons en
+// plus, additionnés sur SON code, voir api/data.js pour pourquoi jamais une
+// ligne séparée).
+let _adminJetonMode = 'nouveau';
 
 function carteCreerAbonne() {
   return `<div class="score-card">
     <div class="score-title">Ajouter un abonné</div>
-    <div style="margin-top:12px">
-      <input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20"/>
-    </div>
-    <div class="btn-grid" style="margin-top:10px">
+    <div class="btn-grid" style="margin-top:12px">
       <button type="button" class="grid-btn active" id="adminPlanCreator" onclick="choisirPlanNouveauAbonne('creator', this)">Creator</button>
       <button type="button" class="grid-btn" id="adminPlanPro" onclick="choisirPlanNouveauAbonne('pro', this)">Pro</button>
+      <button type="button" class="grid-btn" id="adminPlanJeton" onclick="choisirPlanNouveauAbonne('jeton', this)">Jeton</button>
     </div>
-    <button type="button" class="btn-generate" style="margin-top:12px;width:100%" onclick="creerAbonneAdmin()" id="adminCreerBtn">Générer le code d'accès</button>
+    <div id="adminNouveauChamps" style="margin-top:12px">${champsNouveauAbonneHTML()}</div>
+    <button type="button" class="btn-generate" style="margin-top:12px;width:100%" onclick="creerAbonneAdmin()" id="adminCreerBtn">${libelleBoutonNouveauAbonne()}</button>
     <div id="adminNouveauResultat" style="display:none;margin-top:12px;border-top:1px solid var(--border-soft);padding-top:12px"></div>
   </div>`;
+}
+
+// Champs saisis, différents selon le plan choisi (voir carteCreerAbonne) :
+// Creator/Pro → prénom seul. Jeton → bascule nouveau code / code existant
+// (ce dernier ajoute au solde plutôt que d'en créer un), plus la quantité.
+function champsNouveauAbonneHTML() {
+  if (_adminNouveauPlan !== 'jeton') {
+    return `<input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20"/>`;
+  }
+  const modeNouveau = _adminJetonMode === 'nouveau';
+  return `
+    <div class="btn-grid" style="margin-bottom:10px">
+      <button type="button" class="grid-btn${modeNouveau ? ' active' : ''}" onclick="choisirJetonMode('nouveau')">Nouveau code</button>
+      <button type="button" class="grid-btn${modeNouveau ? '' : ' active'}" onclick="choisirJetonMode('existant')">Code existant</button>
+    </div>
+    ${modeNouveau
+      ? `<input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20"/>`
+      : `<input type="text" class="ctx-input" id="adminCodeExistant" placeholder="Code existant, ex : FIFA" maxlength="30" style="text-transform:uppercase"/>`
+    }
+    <input type="number" class="ctx-input" id="adminJetonQte" min="1" max="50" step="1" value="1" placeholder="Nombre de jetons" style="margin-top:8px"/>`;
+}
+
+function libelleBoutonNouveauAbonne() {
+  return (_adminNouveauPlan === 'jeton' && _adminJetonMode === 'existant') ? 'Ajouter les jetons' : 'Générer le code d\'accès';
 }
 
 function choisirPlanNouveauAbonne(v, btn) {
@@ -125,40 +155,88 @@ function choisirPlanNouveauAbonne(v, btn) {
   const zone = btn.parentElement;
   zone.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const champs = document.getElementById('adminNouveauChamps');
+  if (champs) champs.innerHTML = champsNouveauAbonneHTML();
+  const bouton = document.getElementById('adminCreerBtn');
+  if (bouton) bouton.textContent = libelleBoutonNouveauAbonne();
+}
+
+function choisirJetonMode(v) {
+  _adminJetonMode = v;
+  const champs = document.getElementById('adminNouveauChamps');
+  if (champs) champs.innerHTML = champsNouveauAbonneHTML();
+  const bouton = document.getElementById('adminCreerBtn');
+  if (bouton) bouton.textContent = libelleBoutonNouveauAbonne();
 }
 
 async function creerAbonneAdmin() {
-  const champ = document.getElementById('adminNouveauPrenom');
   const bouton = document.getElementById('adminCreerBtn');
   const resultat = document.getElementById('adminNouveauResultat');
-  const prenom = (champ?.value || '').trim();
-  if (!prenom) { if (typeof toastRegen === 'function') toastRegen('Indique un prénom avant de générer le code.'); return; }
+  const corps = { resource: 'admin-stats', action: 'creer-abonne', code_acces: localStorage.getItem('scriptura_code') || null, plan: _adminNouveauPlan };
+
+  if (_adminNouveauPlan === 'jeton') {
+    corps.qte = parseInt(document.getElementById('adminJetonQte')?.value, 10) || 1;
+    if (_adminJetonMode === 'existant') {
+      const code = (document.getElementById('adminCodeExistant')?.value || '').trim();
+      if (!code) { if (typeof toastRegen === 'function') toastRegen('Indique le code existant.'); return; }
+      corps.codeExistant = code;
+    } else {
+      const prenom = (document.getElementById('adminNouveauPrenom')?.value || '').trim();
+      if (!prenom) { if (typeof toastRegen === 'function') toastRegen('Indique un prénom avant de générer le code.'); return; }
+      corps.prenom = prenom;
+    }
+  } else {
+    const prenom = (document.getElementById('adminNouveauPrenom')?.value || '').trim();
+    if (!prenom) { if (typeof toastRegen === 'function') toastRegen('Indique un prénom avant de générer le code.'); return; }
+    corps.prenom = prenom;
+  }
+
   bouton.disabled = true;
-  bouton.textContent = 'Génération…';
+  bouton.textContent = corps.codeExistant ? 'Ajout…' : 'Génération…';
   try {
     const r = await fetch('/api/data', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resource: 'admin-stats', action: 'creer-abonne', code_acces: localStorage.getItem('scriptura_code') || null, prenom, plan: _adminNouveauPlan })
+      body: JSON.stringify(corps)
     });
     const data = await r.json();
-    if (!r.ok || data.indisponible || !data.ok) throw new Error(data?.error?.message || 'création échouée');
+    if (data && data.erreur === 'code_introuvable') {
+      if (typeof toastRegen === 'function') toastRegen('Ce code n\'existe pas dans la liste des abonnés.');
+      return;
+    }
+    if (!r.ok || data.indisponible || !data.ok) throw new Error(data?.error?.message || 'opération échouée');
     const codeJs = data.code.replace(/'/g, "\\'");
     resultat.style.display = 'block';
-    resultat.innerHTML = `<div class="ideas-sub" style="margin-bottom:8px">Nouveau code ${escAdmin(data.plan)}, expire le ${escAdmin(data.expireLe)}</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <b style="font-size:1.05rem;letter-spacing:0.02em">${escAdmin(data.code)}</b>
-        <button type="button" class="grid-btn" onclick="copyText(this, '${codeJs}')">Copier</button>
-      </div>`;
-    _codesAbonnesAdmin.unshift({ code: data.code, plan: data.plan, actif: true });
-    renderAdminListe();
-    majEnteteAbonnesAdmin();
-    if (champ) champ.value = '';
+    if (data.existant) {
+      // Ajout sur un code déjà présent dans la liste : on met à jour son
+      // solde localement plutôt que d'insérer une nouvelle ligne (voir
+      // renderAdminListe, aucun doublon de code ne doit apparaître).
+      resultat.innerHTML = `<div class="ideas-sub" style="margin-bottom:8px">${escAdmin(data.jetons)} jeton${data.jetons > 1 ? 's' : ''} au total sur ce code</div>
+        <div style="display:flex;align-items:center;gap:10px"><b style="font-size:1.05rem;letter-spacing:0.02em">${escAdmin(data.code)}</b></div>`;
+      const idx = _codesAbonnesAdmin.findIndex(c => c.code.toUpperCase() === data.code.toUpperCase());
+      if (idx !== -1) _codesAbonnesAdmin[idx] = Object.assign({}, _codesAbonnesAdmin[idx], { jetons_audit: data.jetons });
+      const champCode = document.getElementById('adminCodeExistant');
+      if (champCode) champCode.value = '';
+    } else {
+      const sousTexte = _adminNouveauPlan === 'jeton'
+        ? `Nouveau code Jeton (${escAdmin(data.jetons)} jeton${data.jetons > 1 ? 's' : ''}), sans expiration`
+        : `Nouveau code ${escAdmin(data.plan)}, expire le ${escAdmin(data.expireLe)}`;
+      resultat.innerHTML = `<div class="ideas-sub" style="margin-bottom:8px">${sousTexte}</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <b style="font-size:1.05rem;letter-spacing:0.02em">${escAdmin(data.code)}</b>
+          <button type="button" class="grid-btn" onclick="copyText(this, '${codeJs}')">Copier</button>
+        </div>`;
+      _codesAbonnesAdmin.unshift({ code: data.code, plan: data.plan, actif: true, jetons_audit: data.jetons || 0 });
+      renderAdminListe();
+      majEnteteAbonnesAdmin();
+      const champPrenom = document.getElementById('adminNouveauPrenom');
+      if (champPrenom) champPrenom.value = '';
+    }
   } catch (e) {
-    if (typeof toastRegen === 'function') toastRegen('Impossible de créer cet abonné, réessaie.');
+    if (typeof toastRegen === 'function') toastRegen('Impossible de terminer cette opération, réessaie.');
   } finally {
     bouton.disabled = false;
-    bouton.textContent = 'Générer le code d\'accès';
+    bouton.textContent = libelleBoutonNouveauAbonne();
   }
 }
 

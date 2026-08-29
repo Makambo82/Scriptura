@@ -332,26 +332,92 @@ async function handleAdminStats(req, res, cfg, body) {
     }
   }
 
-  // Création d'un nouvel abonné depuis le tableau de bord (voir
-  // creerAbonneAdmin, js/admin.js). Format du code identique à celui créé
-  // à la main aujourd'hui : PRÉNOM + 4 caractères (lettre, chiffre, lettre,
-  // chiffre, ex. A3M8, voir prenomDepuisCode, js/recommandations.js, qui
-  // s'appuie sur cette convention pour retrouver le prénom à l'affichage).
-  // Expire dans 30 jours par défaut (abonnement mensuel), modifiable
+  // Création d'un nouvel abonné Creator/Pro, OU vente de jetons à l'unité
+  // (nouveau code ou ajout sur un code existant), depuis le tableau de bord
+  // (voir creerAbonneAdmin, js/admin.js). Format du code identique à celui
+  // créé à la main aujourd'hui : PRÉNOM + 4 caractères (lettre, chiffre,
+  // lettre, chiffre, ex. A3M8, voir prenomDepuisCode, js/recommandations.js,
+  // qui s'appuie sur cette convention pour retrouver le prénom à l'affichage).
+  // Creator/Pro expire dans 30 jours par défaut (abonnement mensuel), modifiable
   // ensuite dans Supabase si besoin.
   if (body?.action === 'creer-abonne') {
     const plan = String(body?.plan || '').trim().toLowerCase();
-    if (plan !== 'creator' && plan !== 'pro') return res.status(400).json({ error: { message: 'Plan invalide' } });
+    if (plan !== 'creator' && plan !== 'pro' && plan !== 'jeton') return res.status(400).json({ error: { message: 'Plan invalide' } });
     // Même alphabet que LETTRES dans prenomDepuisCode (js/recommandations.js) :
     // lettres accentuées comprises, tout le reste filtré.
-    const prenom = String(body?.prenom || '').trim().toUpperCase().replace(/[^A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/g, '');
-    if (!prenom) return res.status(400).json({ error: { message: 'Prénom invalide' } });
-    const LETTRES_SUFFIXE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const CHIFFRES_SUFFIXE = '0123456789';
-    const lettreAlea = () => LETTRES_SUFFIXE[Math.floor(Math.random() * LETTRES_SUFFIXE.length)];
-    const chiffreAlea = () => CHIFFRES_SUFFIXE[Math.floor(Math.random() * CHIFFRES_SUFFIXE.length)];
-    const suffixe = lettreAlea() + chiffreAlea() + lettreAlea() + chiffreAlea();
-    const code = prenom + suffixe;
+    const genererCode = (prenomBrut) => {
+      const prenom = String(prenomBrut || '').trim().toUpperCase().replace(/[^A-ZÀÂÄÉÈÊËÏÎÔÖÙÛÜŸÇ]/g, '');
+      if (!prenom) return null;
+      const LETTRES_SUFFIXE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const CHIFFRES_SUFFIXE = '0123456789';
+      const lettreAlea = () => LETTRES_SUFFIXE[Math.floor(Math.random() * LETTRES_SUFFIXE.length)];
+      const chiffreAlea = () => CHIFFRES_SUFFIXE[Math.floor(Math.random() * CHIFFRES_SUFFIXE.length)];
+      return prenom + lettreAlea() + chiffreAlea() + lettreAlea() + chiffreAlea();
+    };
+
+    if (plan === 'jeton') {
+      // Achat de jetons à l'unité (voir PACKS_AUDIT, js/abonnement.js : 1/2/3
+      // jetons, réglé manuellement par le fondateur après paiement WhatsApp).
+      // Plafonné large (50) : simple garde-fou contre une saisie erronée,
+      // pas une vraie limite métier.
+      const qte = Math.min(50, Math.max(1, parseInt(body?.qte, 10) || 1));
+      const codeExistant = String(body?.codeExistant || '').trim().toUpperCase();
+
+      if (codeExistant) {
+        // Abonné Creator/Pro (ou déjà jeton) qui achète des jetons en plus :
+        // ADDITIONNÉS sur SA MÊME ligne, jamais une seconde ligne "jeton"
+        // séparée pour ce code. Une deuxième ligne rendrait le solde
+        // silencieusement invisible : resoudreDroits/verify-code.js lisent
+        // `abonnes?code=eq....` SANS tri explicite et ne gardent que la
+        // première ligne renvoyée (rows[0]) ; si la ligne Creator/Pro (jetons
+        // à 0) sortait en premier, le jeton acheté ne serait jamais vu. Une
+        // seule ligne par code élimine ce risque à la racine.
+        try {
+          const rLire = await fetch(
+            cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(codeExistant) + '&select=jetons_audit',
+            { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+          );
+          const rows = await rLire.json().catch(() => []);
+          if (!Array.isArray(rows) || !rows.length) return res.status(200).json({ ok: false, erreur: 'code_introuvable' });
+          const total = (parseInt(rows[0].jetons_audit, 10) || 0) + qte;
+          const rMaj = await fetch(cfg.url + '/rest/v1/abonnes?code=eq.' + encodeURIComponent(codeExistant), {
+            method: 'PATCH',
+            headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+            body: JSON.stringify({ jetons_audit: total })
+          });
+          if (!rMaj.ok) throw new Error('mise à jour échouée (' + rMaj.status + ')');
+          return res.status(200).json({ ok: true, code: codeExistant, plan: 'jeton', jetons: total, existant: true });
+        } catch (e) {
+          return res.status(200).json({ indisponible: true });
+        }
+      }
+
+      // Nouveau code jeton (visiteur non-abonné) : SANS expire_le, un jeton
+      // se consomme à l'usage, il n'expire jamais par la date (voir
+      // verify-code.js/resoudreDroits, qui refuseraient sinon l'accès à un
+      // jeton payé mais pas encore utilisé après 30 jours).
+      const code = genererCode(body?.prenom);
+      if (!code) return res.status(400).json({ error: { message: 'Prénom invalide' } });
+      try {
+        const r = await fetch(cfg.url + '/rest/v1/abonnes', {
+          method: 'POST',
+          headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+          body: JSON.stringify({ code, plan: 'jeton', actif: true, expire_le: null, jetons_audit: qte })
+        });
+        if (!r.ok) throw new Error('création échouée (' + r.status + ')');
+        return res.status(200).json({ ok: true, code, plan: 'jeton', jetons: qte });
+      } catch (e) {
+        return res.status(200).json({ indisponible: true });
+      }
+    }
+
+    // plan === 'creator' | 'pro' (comportement inchangé) : expire dans 30
+    // jours par défaut (abonnement mensuel), modifiable ensuite dans
+    // Supabase si besoin. Format du code : PRÉNOM + 4 caractères (lettre,
+    // chiffre, lettre, chiffre, ex. A3M8, voir prenomDepuisCode,
+    // js/recommandations.js, qui s'appuie sur cette convention).
+    const code = genererCode(body?.prenom);
+    if (!code) return res.status(400).json({ error: { message: 'Prénom invalide' } });
     const expireLe = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0];
     try {
       const r = await fetch(cfg.url + '/rest/v1/abonnes', {
