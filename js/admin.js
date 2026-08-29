@@ -136,7 +136,7 @@ function carteCreerAbonne() {
 // (ce dernier ajoute au solde plutôt que d'en créer un), plus la quantité.
 function champsNouveauAbonneHTML() {
   if (_adminNouveauPlan !== 'jeton') {
-    return `<input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20"/>`;
+    return `<input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20" style="text-transform:uppercase"/>`;
   }
   const modeNouveau = _adminJetonMode === 'nouveau';
   return `
@@ -145,7 +145,7 @@ function champsNouveauAbonneHTML() {
       <button type="button" class="grid-btn${modeNouveau ? '' : ' active'}" onclick="choisirJetonMode('existant')">Code existant</button>
     </div>
     ${modeNouveau
-      ? `<input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20"/>`
+      ? `<input type="text" class="ctx-input" id="adminNouveauPrenom" placeholder="Prénom de l'abonné" maxlength="20" style="text-transform:uppercase"/>`
       : `<input type="text" class="ctx-input" id="adminCodeExistant" placeholder="Code existant, ex : FIFA" maxlength="30" style="text-transform:uppercase"/>`
     }
     <input type="number" class="ctx-input" id="adminJetonQte" min="1" max="50" step="1" value="1" placeholder="Nombre de jetons" style="margin-top:8px"/>`;
