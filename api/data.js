@@ -475,9 +475,21 @@ async function handleAdminStats(req, res, cfg, body) {
   }
 
   try {
+    // Le fondateur ne devrait normalement jamais avoir de ligne dans
+    // `abonnes` (voir commentaire plus bas), mais un compte fondateur créé
+    // avant la mise en place de CODE_ADMIN peut très bien en avoir gardé
+    // une, ce que l'UI sait déjà afficher à part (ligne "Fondateur"
+    // verrouillée, voir estFondateur, js/admin.js). Cette ligne reste dans
+    // `listeCodes`/`codes` pour cet affichage, mais est exclue des
+    // COMPTAGES ci-dessous (ilike, insensible à la casse, même raison que
+    // toggle-actif/supprimer-abonne plus haut) : sinon "Abonnés actifs" et
+    // la répartition par plan comptent le fondateur comme un abonné, même
+    // quand il n'y a encore aucun vrai abonné.
+    const codeFondateur = (process.env.CODE_ADMIN || '').trim().toUpperCase();
+    const filtreSansFondateur = codeFondateur ? '&code=not.ilike.' + encodeURIComponent(codeFondateur) : '';
     const entetesCompte = { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key, Prefer: 'count=exact' };
     const compter = async (filtre) => {
-      const r = await fetch(cfg.url + '/rest/v1/abonnes?select=code' + filtre, { method: 'HEAD', headers: entetesCompte });
+      const r = await fetch(cfg.url + '/rest/v1/abonnes?select=code' + filtre + filtreSansFondateur, { method: 'HEAD', headers: entetesCompte });
       const c = r.headers.get('content-range');
       return c ? parseInt(c.split('/')[1], 10) || 0 : 0;
     };
@@ -486,6 +498,9 @@ async function handleAdminStats(req, res, cfg, body) {
     // js/admin.js) : ne contient jamais le fondateur/VIP, ces codes vivent
     // en variables d'environnement (CODE_ADMIN/CODES_ILLIMITES/
     // CODES_SECOURS, voir api/verify-code.js), jamais dans cette table.
+    // PAS filtrée sur le fondateur (contrairement aux comptages ci-dessus) :
+    // si une ligne fondateur existe quand même, l'UI a besoin de la voir
+    // pour l'afficher à part (estFondateur), jamais pour la compter.
     const listeCodes = fetch(
       cfg.url + '/rest/v1/abonnes?select=code,plan,actif,expire_le&order=code.asc',
       { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
@@ -514,7 +529,6 @@ async function handleAdminStats(req, res, cfg, body) {
       const rows = await rModes.json().catch(() => []);
       const planParCode = {};
       (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[c.code] = c.plan; });
-      const codeFondateur = (process.env.CODE_ADMIN || '').trim().toUpperCase();
       (Array.isArray(rows) ? rows : []).forEach(r => {
         const m = r.mode || 'autre';
         parMode[m] = (parMode[m] || 0) + 1;
