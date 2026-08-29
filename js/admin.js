@@ -61,6 +61,11 @@ async function chargerTableauDeBord() {
   // en tête) : le badge n'a plus lieu d'être tant qu'aucun NOUVEL échec
   // n'est venu s'ajouter depuis. Voir marquerErreursVues, ci-dessous.
   marquerErreursVues(_erreursTotal);
+  // Marque aussi l'horodatage de cette visite (voir carteErreursAdmin,
+  // dernierePriseConnaissanceErreurs) : APRÈS le rendu ci-dessus, jamais
+  // avant, sinon les erreurs qu'on vient tout juste de découvrir
+  // apparaîtraient déjà dorées au lieu de rouges sur cette même visite.
+  marquerErreursVuesLe();
 }
 
 // ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
@@ -705,25 +710,53 @@ function toggleDetailErreursMode(mode) {
   el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
+// Nouveau vs déjà consulté (retour propriétaire : "que le nombre soit en
+// rouge seulement s'il y a du nouveau, sinon en doré, et qu'une fois
+// consultées les erreurs redeviennent anciennes") : comparé à la date de
+// la DERNIÈRE visite de ce tableau (avant celle-ci, voir
+// dernierePriseConnaissanceErreurs/marquerErreursVuesLe plus bas), pas au
+// total (qui peut rester identique si une vieille erreur sort de la
+// fenêtre de 7 jours pile au moment où une nouvelle apparaît).
+function estErreurNouvelle(dateStr, seuilIso) {
+  if (!seuilIso) return true; // jamais consulté encore : tout est nouveau
+  if (!dateStr) return false; // pas de date connue : ne pas alarmer à tort
+  const d = new Date(dateStr).getTime(), s = new Date(seuilIso).getTime();
+  return !isNaN(d) && !isNaN(s) && d > s;
+}
+
 function carteErreursAdmin() {
   if (!_erreursTotal) return '';
+  const seuil = dernierePriseConnaissanceErreurs();
+  // _erreursRecentes vide alors que _erreursTotal > 0 : la sous-requête de
+  // détail a pu échouer indépendamment du comptage (deux requêtes séparées
+  // côté serveur, voir handleAdminStats/api/data.js) ; impossible de juger
+  // la fraîcheur dans ce cas, on affiche prudemment en rouge plutôt que de
+  // supposer à tort que tout est déjà connu.
+  const nouvelleDansListe = (liste) => liste.length ? liste.some(e => estErreurNouvelle(e.cree_le, seuil)) : true;
+  const totalNouveau = nouvelleDansListe(_erreursRecentes);
   const lignes = Object.entries(_erreursParMode)
     .sort((a, b) => b[1] - a[1])
     .map(([m, n]) => {
       const modeJs = m.replace(/'/g, "\\'");
-      const detailHtml = _erreursRecentes
-        .filter(e => (e.mode || 'autre') === m)
-        .map(e => `<div class="erreur-detail-item"><span class="erreur-detail-quand">${escAdmin(tempsRelatifCourt(e.cree_le))}${e.code_acces ? ' · ' + escAdmin(e.code_acces) : ''}</span><span class="erreur-detail-texte">${escAdmin(e.detail || 'Détail indisponible.')}</span></div>`)
+      const erreursDuMode = _erreursRecentes.filter(e => (e.mode || 'autre') === m);
+      const modeNouveau = erreursDuMode.length ? nouvelleDansListe(erreursDuMode) : totalNouveau;
+      const couleurMode = modeNouveau ? '#f87171' : 'var(--gold)';
+      const detailHtml = erreursDuMode
+        .map(e => {
+          const nouvelle = estErreurNouvelle(e.cree_le, seuil);
+          return `<div class="erreur-detail-item" style="border-left-color:${nouvelle ? 'rgba(248,113,113,0.55)' : 'rgba(201,168,76,0.4)'}"><span class="erreur-detail-quand">${escAdmin(tempsRelatifCourt(e.cree_le))}${e.code_acces ? ' · ' + escAdmin(e.code_acces) : ''}</span><span class="erreur-detail-texte">${escAdmin(e.detail || 'Détail indisponible.')}</span></div>`;
+        })
         .join('') || '<div class="ideas-sub">Détail indisponible pour ces échecs.</div>';
       return `<div class="audit-sujet erreur-mode-ligne" onclick="toggleDetailErreursMode('${modeJs}')">
-          <span>${escAdmin(labelModeErreur(m))}</span><b>${n}</b>
+          <span>${escAdmin(labelModeErreur(m))}</span><b style="color:${couleurMode}">${n}</b>
         </div>
         <div class="erreur-detail-liste" id="detailErreurs_${modeJs}" style="display:none">${detailHtml}</div>`;
     })
     .join('');
-  return `<div class="score-card score-card-alerte">
-    <div class="score-title">⚠ Échecs de génération · 7 jours</div>
-    <div class="score-global" style="margin-top:10px"><span class="score-global-num" style="color:#f87171">${escAdmin(_erreursTotal)}</span></div>
+  const couleurTotal = totalNouveau ? '#f87171' : 'var(--gold)';
+  return `<div class="score-card${totalNouveau ? ' score-card-alerte' : ''}">
+    <div class="score-title"${totalNouveau ? '' : ' style="color:var(--gold)"'}>⚠ Échecs de génération · 7 jours</div>
+    <div class="score-global" style="margin-top:10px"><span class="score-global-num" style="color:${couleurTotal}">${escAdmin(_erreursTotal)}</span></div>
     <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
     <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Touche un mode pour voir le détail ↓</div>
   </div>`;
@@ -758,6 +791,22 @@ function cleErreursVues() {
 function marquerErreursVues(total) {
   try { localStorage.setItem(cleErreursVues(), String(total || 0)); } catch (e) { /* silencieux */ }
   document.querySelectorAll('.nav-admin-badge').forEach(b => b.remove());
+}
+
+// ── Rouge (nouveau) vs doré (déjà consulté), voir carteErreursAdmin :
+// horodatage de la dernière visite de ce tableau, indépendant du compteur
+// "total" ci-dessus (qui sert uniquement le badge de la nav). Lu AVANT
+// d'être mis à jour (voir chargerTableauDeBord, marquerErreursVuesLe
+// appelée seulement APRÈS le rendu) : la carte affiche donc toujours "ce
+// qui est arrivé depuis la visite PRÉCÉDENTE", jamais celle en cours.
+function cleErreursVuesLe() {
+  return 'scriptura_erreurs_vues_le';
+}
+function dernierePriseConnaissanceErreurs() {
+  try { return localStorage.getItem(cleErreursVuesLe()); } catch (e) { return null; }
+}
+function marquerErreursVuesLe() {
+  try { localStorage.setItem(cleErreursVuesLe(), new Date().toISOString()); } catch (e) { /* silencieux */ }
 }
 async function verifierBadgeErreursAdmin() {
   if (!document.body.classList.contains('is-admin')) return;
