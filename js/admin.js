@@ -753,10 +753,24 @@ function carteErreursAdmin() {
         <div class="erreur-detail-liste" id="detailErreurs_${modeJs}" style="display:none">${detailHtml}</div>`;
     })
     .join('');
-  const couleurTotal = totalNouveau ? '#f87171' : 'var(--gold)';
+  // Deux nombres plutôt qu'un seul total (retour propriétaire) : combien
+  // sont VRAIMENT nouvelles depuis la dernière visite (rouge, ce qui mérite
+  // un coup d'œil) et combien sont déjà connues (doré). nombreNouvelles
+  // vient de _erreursRecentes (voir filet de sécurité ci-dessus) ; le reste
+  // du total, forcément plus ancien puisque _erreursRecentes est trié du
+  // plus récent au plus ancien, complète en "anciennes" sans avoir besoin
+  // de connaître le détail de CHAQUE ligne au-delà des 50 dernières.
+  const nombreNouvelles = _erreursRecentes.length
+    ? _erreursRecentes.filter(e => estErreurNouvelle(e.cree_le, seuil)).length
+    : _erreursTotal;
+  const nombreAnciennes = Math.max(0, _erreursTotal - nombreNouvelles);
   return `<div class="score-card${totalNouveau ? ' score-card-alerte' : ''}">
     <div class="score-title"${totalNouveau ? '' : ' style="color:var(--gold)"'}>⚠ Échecs de génération · 7 jours</div>
-    <div class="score-global" style="margin-top:10px"><span class="score-global-num" style="color:${couleurTotal}">${escAdmin(_erreursTotal)}</span></div>
+    <div class="score-global" style="margin-top:10px;display:flex;align-items:baseline;gap:24px">
+      <span class="score-global-num" style="color:#f87171">${escAdmin(nombreNouvelles)}</span>
+      <span class="score-global-num" style="color:var(--gold)">${escAdmin(nombreAnciennes)}</span>
+    </div>
+    <div class="ideas-sub" style="margin-top:4px;opacity:0.6">Rouge = nouveau depuis ta dernière visite · doré = déjà consulté</div>
     <div class="audit-sujets" style="margin-top:14px">${lignes}</div>
     <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Touche un mode pour voir le détail ↓</div>
   </div>`;
@@ -823,12 +837,20 @@ async function verifierBadgeErreursAdmin() {
     let vu = 0;
     try { vu = parseInt(localStorage.getItem(cleErreursVues()), 10) || 0; } catch (e) { /* silencieux */ }
     if (total <= vu) return; // déjà vu la dernière fois, rien de nouveau depuis
+    // Le nombre affiché doit être celui des échecs VRAIMENT nouveaux depuis
+    // la dernière visite (retour propriétaire), pas le total des 7 jours :
+    // même horodatage/logique que carteErreursAdmin (estErreurNouvelle/
+    // dernierePriseConnaissanceErreurs), avec le même filet de sécurité si
+    // le détail par erreur n'est pas disponible.
+    const recentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
+    const seuil = dernierePriseConnaissanceErreurs();
+    const nouvelles = recentes.length ? recentes.filter(e => estErreurNouvelle(e.cree_le, seuil)).length : total;
     document.querySelectorAll('.nav-admin-btn').forEach(btn => {
       if (btn.querySelector('.nav-admin-badge')) return;
       const badge = document.createElement('span');
       badge.className = 'nav-admin-badge';
-      badge.textContent = total > 99 ? '99+' : String(total);
-      badge.title = total + ' échec' + (total > 1 ? 's' : '') + ' de génération sur les 7 derniers jours';
+      badge.textContent = nouvelles > 99 ? '99+' : String(nouvelles);
+      badge.title = nouvelles + (nouvelles > 1 ? ' nouveaux échecs' : ' nouvel échec') + ' de génération depuis ta dernière visite';
       btn.appendChild(badge);
     });
   } catch (e) { /* silencieux, voir commentaire ci-dessus */ }
