@@ -109,13 +109,21 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
   color:var(--gold);opacity:0.75;margin-bottom:32px;
 }
 /* Badge logo au-dessus du texte "Propulsé par l'IA" : éclair dans un cadre
-   arrondi avec un filet doré qui tourne en continu, même mécanique que
+   avec un filet doré qui tourne en continu, même mécanique que
    .hero-mode-btn.audit (voir plus bas), pour lier visuellement le logo au
-   mode diagnostic, le plus "haut de gamme" des modes de Scriptura. */
+   mode diagnostic, le plus "haut de gamme" des modes de Scriptura.
+   Deux tailles/formes selon l'état de la page (retour direct du
+   propriétaire) : arrondi carré et plus grand (80px) sur la page
+   d'accueil (état initial, avant que les modes soient révélés) ; rond,
+   un peu plus petit (72px, mais toujours plus grand qu'avant) une fois
+   les modes révélés (body.hero-focus, voir revelerModes/js/ui.js), pour
+   que la différence de taille entre les deux états soit visible. */
 .hero-logo-badge{
-  position:relative;width:52px;height:52px;border-radius:50%;overflow:hidden;
+  position:relative;width:80px;height:80px;border-radius:22px;overflow:hidden;
   isolation:isolate;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;
+  transition:width 0.3s ease,height 0.3s ease,border-radius 0.3s ease;
 }
+body.hero-focus .hero-logo-badge{width:72px;height:72px;border-radius:50%}
 .hero-logo-badge::before{
   content:'';position:absolute;top:50%;left:50%;width:150%;aspect-ratio:1;
   background:conic-gradient(from 0deg,
@@ -128,10 +136,13 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
   animation:heroLogoSpin 3.5s linear infinite;z-index:0;
 }
 .hero-logo-badge::after{
-  content:'';position:absolute;inset:1px;border-radius:50%;
+  content:'';position:absolute;inset:1px;border-radius:21px;
   background:linear-gradient(rgba(201,168,76,0.08),rgba(201,168,76,0.08)),var(--bg);z-index:1;
+  transition:border-radius 0.3s ease;
 }
-.hero-logo-badge svg{position:relative;z-index:2;animation:heroBoltPulse 1.7s ease-in-out infinite}
+body.hero-focus .hero-logo-badge::after{border-radius:50%}
+.hero-logo-badge svg{position:relative;z-index:2;width:34px;height:34px;animation:heroBoltPulse 1.7s ease-in-out infinite;transition:width 0.3s ease,height 0.3s ease}
+body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
 @keyframes heroLogoSpin{
   from{transform:translate(-50%,-50%) rotate(0deg)}
   to{transform:translate(-50%,-50%) rotate(360deg)}
