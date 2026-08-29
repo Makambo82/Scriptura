@@ -907,6 +907,93 @@ function calculerScores(mesures) {
   return s;
 }
 
+// ═══════════════════════════════════════════════════════════
+//  CONSTATS PAR DIMENSION
+//  Retour propriétaire : le diagnostic sommaire explique chaque dimension
+//  (un paragraphe sous le score), l'audit détaillé se contentait d'un
+//  badge nu ("14/20") sans un mot d'explication, alors qu'il est censé
+//  être LE rapport détaillé. Contrairement au diagnostic sommaire, ces
+//  constats ne sont PAS écrits par l'IA : les mêmes mesures brutes qui
+//  servent au calcul du score (voir scoreEngagement etc. ci-dessus)
+//  suffisent à rédiger la phrase, donc elle ne peut jamais contredire la
+//  note affichée à côté, et ça ne coûte ni appel IA ni latence en plus.
+function constatEngagement(m) {
+  const e = (m && m.engagement) || {};
+  const vues = sNum(e.vues);
+  if (!vues || vues <= 0) return '';
+  const likes = sNum(e.likes), coms = sNum(e.commentaires), parts = sNum(e.partages);
+  const dispo = [likes, coms, parts].filter(x => x !== null);
+  if (!dispo.length) return '';
+  const taux = Math.round(((dispo.reduce((a, b) => a + b, 0) / vues) * 100) * 10) / 10;
+  const zone = taux >= 5 ? 'une bonne zone de réaction' : taux >= 3.85 ? 'une zone correcte' : taux >= 2.5 ? 'une zone modérée' : 'une zone faible';
+  return `Taux d'engagement mesuré à ${formaterNombre(taux)} % (moyenne du secteur autour de 3,85 %), ce qui place ce compte dans ${zone}.`;
+}
+
+function constatRetention(m) {
+  const src = [(m && m.retention_meilleure) || {}, (m && m.retention_pire) || {}];
+  const moyenne = cle => {
+    const v = src.map(o => sNum(o[cle])).filter(x => x !== null);
+    return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+  };
+  const tauxMoyen = moyenne('taux_moyen_pct');
+  const completion = moyenne('completion_pct');
+  if (tauxMoyen === null && completion === null) return '';
+  const bouts = [];
+  if (tauxMoyen !== null) bouts.push(`un taux de visionnage moyen de ${formaterNombre(Math.round(tauxMoyen * 10) / 10)} %`);
+  if (completion !== null) bouts.push(`${formaterNombre(Math.round(completion * 10) / 10)} % de complétion`);
+  return `Sur les vidéos analysées, ${bouts.join(' et ')} ; le repère du secteur pour rester poussé durablement par l'algorithme se situe entre 40 et 60 %.`;
+}
+
+function constatStorytelling(m) {
+  const s = (m && m.storytelling) || {};
+  const crit = [
+    { v: s.hook_present,       label: 'une accroche présente dès les premières secondes' },
+    { v: s.faible_chute_debut, label: 'peu de décrochage au tout début' },
+    { v: s.retention_stable,   label: "un rythme qui garde l'attention en cours de vidéo" },
+    { v: s.bonne_fin,          label: "une fin qui retient jusqu'au bout" }
+  ].filter(c => c.v !== null && c.v !== undefined);
+  if (!crit.length) return '';
+  const forts = crit.filter(c => String(c.v).trim().toUpperCase() === 'OUI').map(c => c.label);
+  const faibles = crit.filter(c => String(c.v).trim().toUpperCase() === 'NON').map(c => c.label);
+  const bouts = [];
+  if (forts.length) bouts.push('Points forts constatés : ' + forts.join(', ') + '.');
+  if (faibles.length) bouts.push('À travailler : ' + faibles.join(', ') + '.');
+  return bouts.join(' ') || "Résultats partagés sur l'accroche et le rythme, sans point clairement fort ni clairement faible.";
+}
+
+function constatSujets(m) {
+  const s = (m && m.sujets) || {};
+  const crit = [
+    { v: s.themes_repetes,         label: "des thèmes qui reviennent d'une vidéo à l'autre" },
+    { v: s.coherence_editoriale,   label: 'une ligne éditoriale cohérente' },
+    { v: s.adequation_objectif,    label: "des sujets alignés avec l'objectif du compte" },
+    { v: s.performances_homogenes, label: "des performances homogènes d'un sujet à l'autre" }
+  ].filter(c => c.v !== null && c.v !== undefined);
+  if (!crit.length) return '';
+  const forts = crit.filter(c => String(c.v).trim().toUpperCase() === 'OUI').map(c => c.label);
+  const faibles = crit.filter(c => String(c.v).trim().toUpperCase() === 'NON').map(c => c.label);
+  const bouts = [];
+  if (forts.length) bouts.push('Constaté : ' + forts.join(', ') + '.');
+  if (faibles.length) bouts.push('Manque : ' + faibles.join(', ') + '.');
+  return bouts.join(' ') || 'Résultats partagés sur le choix des sujets.';
+}
+
+function constatRegularite(m) {
+  const r = (m && m.regularite) || {};
+  const nb = sNum(r.nb_videos_periode), jours = sNum(r.periode_jours), trou = sNum(r.plus_long_trou_jours);
+  if (nb === null || jours === null || jours <= 0) return '';
+  const parSemaine = Math.round(((nb / jours) * 7) * 10) / 10;
+  let phrase = `Environ ${formaterNombre(parSemaine)} vidéo${parSemaine >= 2 ? 's' : ''} par semaine en moyenne sur la période couverte`;
+  if (trou !== null) phrase += `, avec une plus longue pause de ${Math.round(trou)} jour${trou >= 2 ? 's' : ''} sans publication`;
+  return phrase + '.';
+}
+
+function constatDimension(cle, mesures) {
+  const fns = { engagement: constatEngagement, retention: constatRetention, storytelling: constatStorytelling, sujets: constatSujets, regularite: constatRegularite };
+  const fn = fns[cle];
+  return fn ? (fn(mesures) || '') : '';
+}
+
 function auditNum(v) {
   return Number.isFinite(v) ? v : (parseInt(v) || 0);
 }
@@ -1037,6 +1124,8 @@ function telechargerAuditPDF() {
       doc.setTextColor(OR_CLAIR[0], OR_CLAIR[1], OR_CLAIR[2]);
       doc.text(String(v), MARGE + UTILE, y, { align: 'right' });
       y += 6.5;
+      const constat = a.mesures ? constatDimension(d.key, a.mesures) : '';
+      if (constat) paragraphe(constat, GRIS, 9);
     });
     if (ts && ts.levier_dim) {
       y += 2;
@@ -1114,6 +1203,8 @@ function auditTexteBrut(a, ts) {
   SCORE_DIMS.forEach(d => {
     const v = (ts && ts[d.key] != null) ? (ts[d.key] + '/' + d.max) : 'non mesuré';
     L.push('  ' + d.label + ' : ' + v);
+    const constat = a.mesures ? constatDimension(d.key, a.mesures) : '';
+    if (constat) L.push('    ' + constat);
   });
   if (ts && ts.levier_dim) L.push('Levier principal : ' + ts.levier_dim);
 
@@ -1320,7 +1411,8 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
 
   // Dimensions du score, petites cartes avec badge coloré selon le niveau
   // (rouge/orange/émeraude), même langage visuel que le score global et que
-  // les cartes du diagnostic sommaire (.ds-dim-card, réutilisées ici).
+  // les cartes du diagnostic sommaire (.ds-dim-card, réutilisées ici) —
+  // constat sous chaque badge inclus, voir constatDimension ci-dessus.
   const hasDims = dimsMesurees.length > 0;
   if (hasDims) {
     html += '<div class="ds-dims-grid">';
@@ -1337,6 +1429,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
         </div>`;
         return;
       }
+      const constat = a.mesures ? constatDimension(d.key, a.mesures) : '';
       html += `
         <div class="ds-dim-card">
           <div class="ds-dim-head">
@@ -1344,6 +1437,7 @@ function renderAudit(a, nicheCtx, objectifCtx, styleCtx) {
             <span class="ds-dim-name">${d.label}</span>
             <span class="score-badge ${niveauScoreSur(v, d.max)}">${v}/${d.max}</span>
           </div>
+          ${constat ? `<p class="ds-dim-text">${auditEsc(constat)}</p>` : ''}
         </div>`;
     });
     html += '</div>';
