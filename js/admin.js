@@ -303,6 +303,16 @@ function filtrerCodesAdmin() {
     const q = _adminSearchQuery.trim().toUpperCase();
     liste = liste.filter(c => (c.code || '').toUpperCase().includes(q));
   }
+  // Pro en tête, puis Creator, puis le reste (jeton...) : retour propriétaire,
+  // tri stable (ne touche pas à l'ordre relatif à l'intérieur d'un même plan).
+  const rangPlanAdmin = { pro: 0, creator: 1 };
+  liste = liste
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => {
+      const ra = rangPlanAdmin[a.c.plan] ?? 2, rb = rangPlanAdmin[b.c.plan] ?? 2;
+      return ra !== rb ? ra - rb : a.i - b.i;
+    })
+    .map(x => x.c);
   // Épingle le code fondateur en tête, quels que soient le tri/la recherche/
   // le filtre en cours. Seul le fondateur (body.is-admin, voir
   // css/style.css) accède à ce tableau de bord : le code utilisé pour se
@@ -340,6 +350,15 @@ function renderAdminControles() {
   zone.innerHTML = html;
 }
 
+// Libellé du plan affiché sur chaque ligne (voir renderAdminListe) :
+// "creator"/"pro"/"jeton" (valeurs brutes stockées) → première lettre en
+// majuscule. Le code fondateur ne passe jamais par ici, il affiche
+// "Fondateur" directement (voir renderAdminListe).
+function capitaliserPlanAdmin(plan) {
+  if (!plan) return '·';
+  return plan.charAt(0).toUpperCase() + plan.slice(1);
+}
+
 // Icône cadenas (même dessin que .ds-note-ico, index.html) : remplace
 // l'interrupteur actif/désactivé sur la ligne du code fondateur (voir
 // renderAdminListe), pour qu'il ne puisse pas être désactivé par erreur.
@@ -374,7 +393,7 @@ function renderAdminListe() {
             <span class="admin-code-clic" onclick="toggleGenerationsParCode('${codeJs}', ${i})" title="Voir ses générations par mode">${escAdmin(c.code)}${c.actif === false ? ' · désactivé' : ''}</span>
           </span>
           <span style="display:flex;align-items:center;gap:10px">
-            <b>${escAdmin(c.plan || '·')}</b>
+            <b>${escAdmin(estFondateur ? 'Fondateur' : capitaliserPlanAdmin(c.plan))}</b>
             ${controleActif}
           </span>
         </div>
