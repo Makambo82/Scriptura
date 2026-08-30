@@ -162,7 +162,9 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
   // l'objectif "générer des ventes", voir js/generation.js). Anthropic lit
   // les deux nativement via un content block dédié ('image' ou 'document'),
   // api/generate.js relaie `messages` tel quel, aucun changement serveur
-  // nécessaire.
+  // nécessaire. Accepte aussi un TABLEAU de { base64, mediaType } (ex.
+  // plusieurs frames d'une même vidéo, voir js/viral.js) : un content block
+  // image par élément, Claude les lit toutes dans l'ordre fourni.
   // `onApercu` (optionnel) : callback appelé à chaque morceau reçu avec le
   // texte brut accumulé jusque-là (voir api/generate.js, mode stream). Sert
   // à afficher la génération au fur et à mesure (Script/Récit/Série, voir
@@ -171,9 +173,12 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
   // réessai ci-dessous : un flux interrompu se comporte comme un échec
   // récupérable ordinaire, la tentative suivante repart de zéro.
   const promptStyle = REGLE_STYLE_TIRET + prompt;
+  function blocFichier(f) {
+    return { type: f.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: f.mediaType, data: f.base64 } };
+  }
   const contenuMessage = fichierJoint
     ? [
-        { type: fichierJoint.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: fichierJoint.mediaType, data: fichierJoint.base64 } },
+        ...(Array.isArray(fichierJoint) ? fichierJoint.map(blocFichier) : [blocFichier(fichierJoint)]),
         { type: 'text', text: promptStyle }
       ]
     : promptStyle;

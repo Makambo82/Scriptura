@@ -49,7 +49,7 @@ for (const [nom, stats] of [
       await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(RAPPORT) }] }) });
       await page.route('**/api/tiktok-video**', route => route.fulfill({
         status: 200, contentType: 'application/json',
-        body: JSON.stringify({ ok: true, transcript: 'Transcript de test assez long pour passer le seuil minimal requis.', description: '', stats, langue: 'fr', frame_hook: null })
+        body: JSON.stringify({ ok: true, transcript: 'Transcript de test assez long pour passer le seuil minimal requis.', description: '', stats, langue: 'fr', frames: null })
       }));
 
       await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
@@ -101,7 +101,7 @@ test('analyse virale : le score de recette est calculé exactement selon les nou
     await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(RAPPORT) }] }) });
     await page.route('**/api/tiktok-video**', route => route.fulfill({
       status: 200, contentType: 'application/json',
-      body: JSON.stringify({ ok: true, transcript: 'Transcript de test assez long pour passer le seuil minimal requis.', description: '', stats: null, langue: 'fr', frame_hook: null })
+      body: JSON.stringify({ ok: true, transcript: 'Transcript de test assez long pour passer le seuil minimal requis.', description: '', stats: null, langue: 'fr', frames: null })
     }));
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await connecterAbonne(page, { code: 'REFONTEVERVOXSCORE', plan: 'creator' });

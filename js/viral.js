@@ -152,19 +152,19 @@ async function lancerAnalyseVirale() {
     let description = '';
     let statsVideo = null; // vraies stats de la vidéo (vues/likes…), pour le score
     let langueVideo = null; // langue détectée par la transcription (pour la mémoire)
-    let frameHook = null; // 1re frame de la vidéo (base64 JPEG), pour juger le hook VISUEL
+    let framesVideo = []; // frames réparties sur la vidéo (base64 JPEG), pour juger le hook VISUEL et l'EXÉCUTION VISUELLE globale
     if (lien) {
       if (note) note.textContent = 'On écoute la vidéo et on la transcrit ☕…';
       try {
         const data = await _transcriptDepuisLien(lien);
         statsVideo = data.stats || null;
         langueVideo = data.langue || null;
-        // extraireFrameHook (api/tiktok-video.js) renvoie une simple chaîne
-        // base64, jamais un objet : callAI/js/api.js attend { base64,
-        // mediaType } pour construire le content block image envoyé à
-        // Claude. Sans cet objet, l'appel échouait à chaque fois avec une
-        // erreur API (media_type manquant), l'image ne partait jamais.
-        frameHook = data.frame_hook ? { base64: data.frame_hook, mediaType: 'image/jpeg' } : null;
+        // extraireFramesVisuelles (api/tiktok-video.js) renvoie un tableau de
+        // simples chaînes base64, jamais des objets : callAI/js/api.js
+        // attend { base64, mediaType } par image pour construire les
+        // content blocks envoyés à Claude. Sans cet objet, l'appel échouait
+        // à chaque fois avec une erreur API (media_type manquant).
+        framesVideo = Array.isArray(data.frames) ? data.frames.map(f => ({ base64: f, mediaType: 'image/jpeg' })) : [];
         if (data.ok && data.transcript) { texte = data.transcript; description = data.description || ''; }
         else if (data.description && !texte) { texte = data.description; }
       } catch (e) {
@@ -201,7 +201,7 @@ async function lancerAnalyseVirale() {
     // conditionnée par un jugement de portée maison. Analyse resserrée (pas
     // de redites) + SIGNAUX booléens qui servent à noter EN CODE + un
     // MODÈLE APPLICABLE (gabarit vierge réutilisable).
-    const prompt = `Tu es Scriptura, expert TikTok. On te donne le CONTENU d'une vidéo (transcript de sa VOIX, et éventuellement sa description)${frameHook ? ', ainsi que la toute PREMIÈRE IMAGE de la vidéo (jointe)' : ''}. Base-toi UNIQUEMENT sur le contenu fourni, n'invente aucune statistique ni aucun élément absent. Sois PERCUTANT et CONCIS : pas de redites d'une section à l'autre.
+    const prompt = `Tu es Scriptura, expert TikTok. On te donne le CONTENU d'une vidéo (transcript de sa VOIX, et éventuellement sa description)${framesVideo.length ? `, ainsi que ${framesVideo.length} IMAGES de la vidéo (jointes, dans l'ordre chronologique : début, milieu, fin)` : ''}. Base-toi UNIQUEMENT sur le contenu fourni, n'invente aucune statistique ni aucun élément absent. Sois PERCUTANT et CONCIS : pas de redites d'une section à l'autre.
 
 Décode objectivement la mécanique de cette vidéo à partir de son SEUL contenu (hook, structure, sujet), comme un monteur/scénariste pro qui juge la recette elle-même, jamais son résultat en vues. Sois rigoureux et honnête : identifie AUSSI BIEN ce qui fonctionne vraiment que ce qui reste faible, sans complaisance ni sévérité gratuite.
 
@@ -227,8 +227,9 @@ Analyse comme un monteur/scénariste pro :
   • appel_action : la vidéo demande EXPLICITEMENT une action au spectateur (s'abonner, commenter, partager, regarder jusqu'au bout, suivre pour la suite…), pas juste un sous-entendu ou une implication vague.
   • angle_original : l'angle choisi pour ce sujet apporte une perspective ou un twist qui se démarque du traitement habituel/attendu de ce sujet, pas la manière la plus évidente de l'aborder.
   • sujet_precis : le sujet est ciblé et net (un angle précis, délimité), pas vague ou trop large au point de pouvoir s'appliquer à n'importe quel contenu.
-  • authenticite : le ton sonne vécu, personnel, avec une vraie voix d'auteur, jamais un texte générique, robotique ou interchangeable qui pourrait sortir de n'importe quelle bouche.${frameHook ? `
-  • hook_visuel : L'IMAGE JOINTE (1re frame de la vidéo) est en elle-même accrocheuse, pas juste le texte, plan cadré et composé pour arrêter le scroll (visage/expression forte, texte à l'écran percutant, scène visuellement intrigante), pas une image plate, floue ou anodine.` : ''}
+  • authenticite : le ton sonne vécu, personnel, avec une vraie voix d'auteur, jamais un texte générique, robotique ou interchangeable qui pourrait sortir de n'importe quelle bouche.${framesVideo.length ? `
+  • hook_visuel : LA PREMIÈRE IMAGE jointe (tout début de la vidéo) est en elle-même accrocheuse, pas juste le texte, plan cadré et composé pour arrêter le scroll (visage/expression forte, texte à l'écran percutant, scène visuellement intrigante), pas une image plate, floue ou anodine.
+  • execution_visuelle : à partir de TOUTES les images jointes (début/milieu/fin), le cadrage est soigné et cohérent d'une image à l'autre, la qualité visuelle reste bonne, rien qui semble amateur, flou, mal éclairé ou visuellement décousu entre les moments de la vidéo.` : ''}
 
 RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin. Les consignes du modèle sont à l'impératif 2e personne CORRECT (« Ouvre », « Accumule », « Conclus », jamais « Conclues »).
 
@@ -241,10 +242,10 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
   "modele": [ { "temps": "<ex: 0-5s>", "gabarit": "<consigne de remplissage avec des [crochets], transposable>" } ],
   "pourquoi_viral": [ "<point majeur 1>", "<point majeur 2>", "<point majeur 3>" ],
   "a_reprendre": [ { "titre": "<max 8 mots>", "detail": "<recette transposable à TES sujets, 1-2 phrases>" } ],
-  "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false>, "appel_action": <true/false>, "angle_original": <true/false>, "sujet_precis": <true/false>, "authenticite": <true/false>${frameHook ? ', "hook_visuel": <true/false>' : ''} }
+  "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false>, "appel_action": <true/false>, "angle_original": <true/false>, "sujet_precis": <true/false>, "authenticite": <true/false>${framesVideo.length ? ', "hook_visuel": <true/false>, "execution_visuelle": <true/false>' : ''} }
 }`;
 
-    const raw = await callAI(MODEL_CREATIF, 3200, prompt, undefined, false, undefined, 'analyseVirale', frameHook || undefined);
+    const raw = await callAI(MODEL_CREATIF, 3200, prompt, undefined, false, undefined, 'analyseVirale', framesVideo.length ? framesVideo : undefined);
     const rapport = parseAIResponse(raw);
     if (!rapport || (!rapport.hook && !rapport.recette)) {
       throw new Error("Analyse illisible, réessaie dans un instant.");
@@ -253,9 +254,10 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     rapport.langue = langueVideo;
     rapport.transcript = texte; // ce que Scriptura a vraiment entendu/lu (repli affiché)
     // Mémorisé pour que le score (recalculé à chaque affichage, voir
-    // scoreViraliteRecette) sache si "hook_visuel" était mesurable ici, y
-    // compris en rouvrant ce rapport plus tard depuis l'historique.
-    rapport.frameDisponible = !!frameHook;
+    // scoreViraliteRecette) sache si "hook_visuel"/"execution_visuelle"
+    // étaient mesurables ici, y compris en rouvrant ce rapport plus tard
+    // depuis l'historique.
+    rapport.frameDisponible = framesVideo.length > 0;
     _viralRapport = rapport;
 
     // 3) Décompte quota + sauvegarde.
@@ -322,7 +324,11 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
 // Scriptura, pas une traduction de leurs intitulés. Chaque dimension =
 // (leviers présents ÷ leviers de la dimension) × son poids ; le global =
 // somme des sous-scores.
-const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes', 'appel_action', 'angle_original', 'sujet_precis', 'authenticite', 'hook_visuel'];
+const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes', 'appel_action', 'angle_original', 'sujet_precis', 'authenticite', 'hook_visuel', 'execution_visuelle'];
+// Signaux qui dépendent des IMAGES de la vidéo (voir framesVideo) : non
+// mesurables sur un texte collé à la main ou un échec d'extraction de
+// frames, jamais absents pour autant (voir scoreViraliteRecette).
+const SIGNAUX_VISUELS = ['hook_visuel', 'execution_visuelle'];
 const DIMENSIONS_VIRAL = [
   { cle: 'accroche',    label: 'Accroche',      poids: 25, signaux: ['hook_fort', 'question_rhetorique', 'hook_visuel'] },
   { cle: 'sujet_angle', label: 'Sujet & angle', poids: 20, signaux: ['angle_original', 'sujet_precis'] },
@@ -330,24 +336,22 @@ const DIMENSIONS_VIRAL = [
   // ouverte, cliffhanger, montée en tension) et les figures qui la portent
   // (archétypes reconnaissables).
   { cle: 'structure',   label: 'Structure & rythme', poids: 20, signaux: ['boucle_ouverte', 'cliffhanger', 'escalade', 'archetypes'] },
-  // Sincérité : est-ce que ça sonne vécu et concret, ou générique/robotique ?
-  // Les détails précis et vérifiables (dates, chiffres, noms) ET le ton
-  // authentique servent ensemble ce même critère.
-  { cle: 'sincerite',   label: 'Sincérité',      poids: 20, signaux: ['details_concrets', 'authenticite'] },
+  // Sincérité : est-ce que ça sonne vécu et concret (texte), et est-ce que
+  // l'exécution est soignée d'un bout à l'autre (images début/milieu/fin) ?
+  // Texte et image servent ensemble ce même critère d'authenticité globale.
+  { cle: 'sincerite',   label: 'Sincérité',      poids: 20, signaux: ['details_concrets', 'authenticite', 'execution_visuelle'] },
   { cle: 'connexion',   label: 'Connexion & CTA', poids: 15, signaux: ['deuxieme_personne', 'appel_action'] }
 ];
 // `frameDisponible` : si aucune frame n'a pu être extraite de la vidéo (échec
-// FFmpeg, texte collé à la main sans lien...), « hook_visuel » est NON
-// MESURABLE, pas absent : il est retiré du calcul (dénominateur de la
-// dimension Accroche réduit à 2), pour qu'un échec technique d'extraction ne
-// fasse jamais baisser artificiellement la note d'un bon hook texte.
+// FFmpeg, texte collé à la main sans lien...), les signaux VISUELS sont NON
+// MESURABLES, pas absents : ils sont retirés du calcul (dénominateur réduit
+// d'autant dans leur dimension), pour qu'un échec technique d'extraction ne
+// fasse jamais baisser artificiellement la note d'une bonne recette texte.
 function scoreViraliteRecette(signaux, frameDisponible) {
   if (!signaux || typeof signaux !== 'object') return null;
   let global = 0;
   const dimensions = DIMENSIONS_VIRAL.map(d => {
-    const signauxDim = (d.cle === 'accroche' && !frameDisponible)
-      ? d.signaux.filter(s => s !== 'hook_visuel')
-      : d.signaux;
+    const signauxDim = frameDisponible ? d.signaux : d.signaux.filter(s => !SIGNAUX_VISUELS.includes(s));
     const presents = signauxDim.filter(k => signaux[k] === true).length;
     const sousScore = Math.round((presents / signauxDim.length) * d.poids);
     global += sousScore;
@@ -383,7 +387,7 @@ const LEVIERS_LABEL = {
   deuxieme_personne: 'adresse à la 2e personne', details_concrets: 'détails concrets',
   escalade: 'escalade', question_rhetorique: 'question rhétorique', archetypes: 'archétypes',
   appel_action: 'appel à l\'action', angle_original: 'angle original', sujet_precis: 'sujet précis',
-  authenticite: 'authenticité', hook_visuel: 'hook visuel'
+  authenticite: 'authenticité', hook_visuel: 'hook visuel', execution_visuelle: 'exécution visuelle'
 };
 // Best-effort, anonymisé : on n'envoie QUE du distillé (technique de hook,
 // leviers, principes transposables, squelette sans verbatim), jamais le

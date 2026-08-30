@@ -26,25 +26,56 @@ const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const MAX_TRANSCRIPT = 8000;
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte jusqu'à 3 API payées par appel
 
-// Extrait UNE frame de la vidéo (pour juger le "hook visuel", voir js/viral.js),
-// à 0,3s plutôt qu'à 0s : la toute première image est souvent noire ou un
-// reliquat de transition sur TikTok. Best-effort, ne bloque JAMAIS la
-// transcription (le score se dégrade proprement sans ce signal si ça échoue).
-async function extraireFrameHook(buf) {
-  const dossier = await fsp.mkdtemp(path.join(os.tmpdir(), 'frame-'));
+// Extrait PLUSIEURS frames réparties sur toute la durée de la vidéo (pas
+// seulement le tout début) : sert à juger le hook visuel (1re frame,
+// ancien comportement) MAIS AUSSI l'exécution visuelle globale (cadrage,
+// cohérence, qualité) sur l'ensemble de la vidéo, voir js/viral.js.
+// Toujours via ffmpeg-static, déjà utilisé ici, aucune API supplémentaire :
+// Scriptura n'a pas accès aux sous-titres natifs de la vidéo (beaucoup de
+// créateurs n'en incrustent pas), on reste sur ce qu'on peut vraiment
+// extraire nous-mêmes. Best-effort, ne bloque JAMAIS la transcription (le
+// score se dégrade proprement sans ces signaux si ça échoue).
+const FRACTIONS_FRAMES = [0.08, 0.45, 0.85]; // début / milieu / fin
+async function _dureeVideo(cheminVideo) {
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ['-i', cheminVideo]);
+    let stderr = '';
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    proc.on('close', () => {
+      const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve(m ? (parseInt(m[1], 10) * 3600 + parseInt(m[2], 10) * 60 + parseFloat(m[3])) : null);
+    });
+    proc.on('error', () => resolve(null));
+  });
+}
+async function extraireFramesVisuelles(buf) {
+  const dossier = await fsp.mkdtemp(path.join(os.tmpdir(), 'frames-'));
   const cheminVideo = path.join(dossier, 'v.mp4');
-  const cheminImage = path.join(dossier, 'f.jpg');
   try {
     await fsp.writeFile(cheminVideo, buf);
-    await new Promise((resolve, reject) => {
-      const proc = spawn(ffmpegPath, ['-y', '-ss', '0.3', '-i', cheminVideo, '-frames:v', '1', '-q:v', '3', cheminImage]);
-      let stderr = '';
-      proc.stderr.on('data', (d) => { stderr += d.toString(); });
-      proc.on('error', reject);
-      proc.on('close', (code) => code === 0 ? resolve() : reject(new Error('ffmpeg (code ' + code + ') : ' + stderr.slice(-500))));
-    });
-    const img = await fsp.readFile(cheminImage);
-    return img.toString('base64');
+    const duree = await _dureeVideo(cheminVideo);
+    // Sans durée connue (rare), repli sur des instants fixes proches du
+    // début : mieux qu'aucune frame, la plupart des vidéos TikTok durent au
+    // moins quelques secondes.
+    const instants = duree
+      ? FRACTIONS_FRAMES.map(f => Math.max(0.2, Math.min(duree - 0.1, duree * f)))
+      : [0.3, 1.5, 3];
+    const frames = [];
+    for (let i = 0; i < instants.length; i++) {
+      const cheminImage = path.join(dossier, 'f' + i + '.jpg');
+      try {
+        await new Promise((resolve, reject) => {
+          const proc = spawn(ffmpegPath, ['-y', '-ss', String(instants[i]), '-i', cheminVideo, '-frames:v', '1', '-q:v', '3', cheminImage]);
+          let stderr = '';
+          proc.stderr.on('data', (d) => { stderr += d.toString(); });
+          proc.on('error', reject);
+          proc.on('close', (code) => code === 0 ? resolve() : reject(new Error('ffmpeg (code ' + code + ') : ' + stderr.slice(-500))));
+        });
+        const img = await fsp.readFile(cheminImage);
+        frames.push(img.toString('base64'));
+      } catch (e) { /* une frame ratée ne doit jamais faire échouer les autres */ }
+    }
+    return frames;
   } finally {
     await fsp.rm(dossier, { recursive: true, force: true }).catch(() => {});
   }
@@ -126,11 +157,11 @@ async function handleTranscription(req, res) {
       }
     }
 
-    // Frame + transcription en parallèle (indépendantes, même buffer vidéo) :
-    // la frame ne doit jamais retarder ni faire échouer la transcription.
-    const [stt, frameHook] = await Promise.all([
+    // Frames + transcription en parallèle (indépendantes, même buffer vidéo) :
+    // les frames ne doivent jamais retarder ni faire échouer la transcription.
+    const [stt, frames] = await Promise.all([
       transcrireEleven(media.buf, media.contentType, elevenKey),
-      extraireFrameHook(media.buf).catch(() => null)
+      extraireFramesVisuelles(media.buf).catch(() => [])
     ]);
     if (!stt.ok) {
       return res.status(200).json({ ok: false, description, stats, raison: 'stt_echec' });
@@ -142,7 +173,10 @@ async function handleTranscription(req, res) {
       description,
       stats,
       langue: stt.lang || null,
-      frame_hook: frameHook || null,
+      // Toutes les frames extraites (voir extraireFramesVisuelles) : la
+      // première sert au hook visuel (ancien frame_hook), l'ensemble sert à
+      // juger l'exécution visuelle globale (voir js/viral.js).
+      frames: (frames && frames.length) ? frames : null,
       raison: transcript.length > 10 ? null : 'sans_parole'
     });
 
