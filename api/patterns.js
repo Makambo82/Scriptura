@@ -2,14 +2,15 @@
 //  /api/patterns, MÉMOIRE PARTAGÉE DES RECETTES VIRALES
 //
 //  Cerveau commun de Scriptura. Alimenté par le mode « Analyser une vidéo
-//  virale » : quand une vidéo passe le GARDE-FOU (recette >= 90 ET performance
-//  réelle forte), sa recette DISTILLÉE et ANONYMISÉE est déposée ici, puis
-//  réutilisée pour inspirer les générations (script/récit/idées) de tous les
-//  utilisateurs, la niche demandée servie en priorité.
+//  virale » : quand une vidéo passe le GARDE-FOU (recette >= 90, sur son seul
+//  contenu, plus aucun croisement avec les vraies stats de la vidéo), sa
+//  recette DISTILLÉE et ANONYMISÉE est déposée ici, puis réutilisée pour
+//  inspirer les générations (script/récit/idées) de tous les utilisateurs, la
+//  niche demandée servie en priorité.
 //
-//  POST { niche, hook_technique, leviers, principes, squelette, score, portee,
-//         engagement, langue }  -> écrit SI le garde-fou passe (re-vérifié ici,
-//         jamais faire confiance au client). Non bloquant.
+//  POST { niche, hook_technique, leviers, principes, squelette, score, langue }
+//        -> écrit SI le garde-fou passe (re-vérifié ici, jamais faire
+//        confiance au client). Non bloquant.
 //  GET  ?niche=...&limit=8      -> { ok, patterns:[...] }, niche d'abord.
 //
 //  Stockage Supabase (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) : la table
@@ -33,15 +34,12 @@ function entetes(key) {
   return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
 }
 
-// Le garde-fou : recette forte (>= seuil) ET performance réelle. La perf est
-// réelle si la portée dépasse largement l'audience (>= 5x) ou, à défaut de
-// connaître les abonnés, si l'engagement est exceptionnel (>= 10%).
-function passeGardeFou(score, portee, engagement) {
-  if (!(Number(score) >= SEUIL_MEMOIRE)) return false;
-  const p = Number(portee), e = Number(engagement);
-  const porteeForte = Number.isFinite(p) && p >= 5;
-  const engagementFort = Number.isFinite(e) && e >= 10;
-  return porteeForte || engagementFort;
+// Le garde-fou : recette forte (>= seuil), sur son seul contenu. Le
+// croisement avec les vraies stats de la vidéo (portée, engagement) a été
+// retiré de l'analyse (refonte demandée par le propriétaire, alignée sur la
+// méthode Vervox/BeViral : le score juge le contenu, jamais son résultat).
+function passeGardeFou(score) {
+  return Number(score) >= SEUIL_MEMOIRE;
 }
 
 // Nettoie/borne un tableau d'objets distillés avant stockage (défense contre un
@@ -54,9 +52,7 @@ function texteCourt(v, n) { return typeof v === 'string' ? v.trim().slice(0, n) 
 
 async function ecrire(cfg, body) {
   const score = Number(body.score);
-  const portee = body.portee == null ? null : Number(body.portee);
-  const engagement = body.engagement == null ? null : Number(body.engagement);
-  if (!passeGardeFou(score, portee, engagement)) return { ok: false, raison: 'sous_seuil' };
+  if (!passeGardeFou(score)) return { ok: false, raison: 'sous_seuil' };
 
   // On ne garde QUE du distillé : pas de transcript, pas de pseudo, pas de
   // verbatim de hook (seulement la technique).
@@ -73,8 +69,6 @@ async function ecrire(cfg, body) {
       return temps || titre ? { temps, titre } : null;
     }),
     score: Math.round(score),
-    portee: Number.isFinite(portee) ? Math.round(portee * 10) / 10 : null,
-    engagement: Number.isFinite(engagement) ? Math.round(engagement * 10) / 10 : null,
     langue: texteCourt(body.langue, 12) || null
   };
 

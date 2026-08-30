@@ -1,11 +1,11 @@
 -- Mémoire partagée des recettes virales (cerveau commun de Scriptura).
 -- Chaque vidéo analysée dans le mode « Analyser une vidéo virale » qui passe
--- le GARDE-FOU (score de recette >= 90 ET performance réelle forte, c.-à-d.
--- portée au-delà de l'audience, pas un coup de chance) dépose ici une version
--- DISTILLÉE et ANONYMISÉE de sa recette : jamais le transcript, jamais le
--- pseudo de l'auteur. Uniquement des leviers transposables. Ces patterns
--- nourrissent ensuite les générations (script, récit, idées) de TOUS les
--- utilisateurs, la niche de la génération en cours étant servie en priorité.
+-- le GARDE-FOU (score de recette >= 90, sur son seul contenu) dépose ici une
+-- version DISTILLÉE et ANONYMISÉE de sa recette : jamais le transcript,
+-- jamais le pseudo de l'auteur. Uniquement des leviers transposables. Ces
+-- patterns nourrissent ensuite les générations (script, récit, idées) de
+-- TOUS les utilisateurs, la niche de la génération en cours étant servie en
+-- priorité.
 --
 -- À exécuter une fois dans l'éditeur SQL de Supabase. Tant que la table
 -- n'existe pas, l'app continue de fonctionner normalement, sans mémoire
@@ -20,8 +20,8 @@ create table if not exists patterns_viraux (
   principes     jsonb default '[]'::jsonb, -- [{titre, detail}] transposables
   squelette     jsonb default '[]'::jsonb, -- [{temps, titre}] déroulé sans verbatim
   score         int,                     -- score de recette (>= 90 pour entrer)
-  portee        numeric,                 -- vues / abonnés de l'auteur
-  engagement    numeric,                 -- % d'engagement réel
+  portee        numeric,                 -- plus renseigné (retiré de l'analyse), conservé pour compat
+  engagement    numeric,                 -- plus renseigné (retiré de l'analyse), conservé pour compat
   langue        text
 );
 

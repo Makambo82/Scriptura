@@ -193,35 +193,29 @@ async function lancerAnalyseVirale() {
     if (btnText) btnText.textContent = 'Scriptura décode la recette…';
     if (note) note.textContent = 'Scriptura décode la recette virale ☕…';
 
-    // 2) Décodage par l'IA. La POSTURE (virale / flop / neutre), déduite EN CODE
-    // des vraies stats, change l'analyse : décoder une recette gagnante, ou
-    // diagnostiquer un échec et prescrire la correction. Analyse resserrée
-    // (pas de redites) + SIGNAUX booléens qui servent à noter EN CODE + un
+    // 2) Décodage par l'IA, à partir du CONTENU seul (jamais des vraies stats
+    // de la vidéo, qui ne pilotent plus l'angle de l'analyse) : refonte
+    // demandée par le propriétaire pour s'aligner sur la méthode réelle de
+    // Vervox/BeViral, une critique de la RECETTE (hook, structure, sujet),
+    // toujours les DEUX faces (points forts ET leviers à renforcer), jamais
+    // conditionnée par un jugement de portée maison. Analyse resserrée (pas
+    // de redites) + SIGNAUX booléens qui servent à noter EN CODE + un
     // MODÈLE APPLICABLE (gabarit vierge réutilisable).
-    const posture = posturePerf(statsVideo);
-    const directivePosture = posture === 'flop'
-      ? `POSTURE, DIAGNOSTIC D'ÉCHEC : d'après ses vraies statistiques, cette vidéo a SOUS-PERFORMÉ (elle n'a même pas atteint l'audience de son compte). Ton rôle n'est PAS de la vanter. Diagnostique honnêtement POURQUOI elle n'a pas marché (hook faible ou lent, promesse floue, structure molle, rythme plat, absence de tension, leviers manquants), puis prescris les CORRECTIONS concrètes pour la transformer en vidéo virale. Sois direct mais utile, jamais complaisant.`
-      : posture === 'virale'
-        ? `POSTURE, RECETTE GAGNANTE : d'après ses vraies statistiques, cette vidéo a RÉELLEMENT percé (elle a dépassé l'audience de son compte). Décode la recette qui explique ce succès et ce qui la rend REPRODUCTIBLE sur d'autres sujets.`
-        : `POSTURE, DÉCODAGE : décode objectivement la mécanique de cette vidéo, ce qui fonctionne et ce qui pourrait être renforcé.`;
-    const lbl = _labelsPosture(posture);
     const prompt = `Tu es Scriptura, expert TikTok. On te donne le CONTENU d'une vidéo (transcript de sa VOIX, et éventuellement sa description)${frameHook ? ', ainsi que la toute PREMIÈRE IMAGE de la vidéo (jointe)' : ''}. Base-toi UNIQUEMENT sur le contenu fourni, n'invente aucune statistique ni aucun élément absent. Sois PERCUTANT et CONCIS : pas de redites d'une section à l'autre.
 
-${directivePosture}
+Décode objectivement la mécanique de cette vidéo à partir de son SEUL contenu (hook, structure, sujet), comme un monteur/scénariste pro qui juge la recette elle-même, jamais son résultat en vues. Sois rigoureux et honnête : identifie AUSSI BIEN ce qui fonctionne vraiment que ce qui reste faible, sans complaisance ni sévérité gratuite.
 
 ${description ? 'DESCRIPTION : ' + description + '\n\n' : ''}TRANSCRIPT DE LA VIDÉO :
 ${tronquerSansCouperEmoji(texte, 6000)}
 
 Analyse comme un monteur/scénariste pro :
 - LA NICHE : en 1 à 3 mots, le thème/domaine de la vidéo (ex. « finance perso », « cuisine rapide », « histoire », « développement perso », « tech »). Sert à ranger la recette dans la bonne famille.
-- LE HOOK : la ou les toutes premières phrases réelles, la technique employée, et ${posture === 'flop' ? 'pourquoi il ne suffit pas à arrêter le scroll' : 'pourquoi il arrête le scroll'}.
+- LE HOOK : la ou les toutes premières phrases réelles, la technique employée, et pourquoi il arrête (ou n'arrête pas) le scroll.
 - LA RECETTE, TEMPS PAR TEMPS : reconstitue le déroulé chronologique réel en 4 à 6 TEMPS maximum (chaque temps = un procédé + le ressort d'attention qu'il crée, ou son absence). Ancre chaque temps dans le contenu réel.
-- LE MODÈLE APPLICABLE : transforme cette structure${posture === 'flop' ? ' CORRIGÉE' : ''} en un GABARIT VIERGE réutilisable sur N'IMPORTE QUEL sujet. Chaque étape = un temps + une consigne de remplissage avec des [crochets]${posture === 'flop'
-      ? `, et ce modèle DOIT intégrer les CORRECTIONS que tu donnes juste au-dessus dans ${lbl.leviers.toUpperCase()}, jamais reproduire le défaut d'origine (ex. si tu recommandes d'ouvrir sur un fait daté plutôt qu'un paradoxe abstrait, la 1re étape du modèle doit être « ouvre par un fait daté et précis : [élément], [date/chiffre], [ce qui a changé] », PAS « ouvre par une équation binaire/un paradoxe »). Relis ton propre modèle avant de répondre : s'il reproduit encore le problème que tu viens de diagnostiquer, corrige-le`
-      : ' (ex. « ouvre par une équation binaire : [ton sujet] voulait X, [autre force] lui a donné Y »)'}. 4 à 6 étapes, concrètes et transposables, jamais liées au sujet précis de la vidéo.
-- ${lbl.pourquoi.toUpperCase()} : 3 à 4 points MAJEURS et déterminants seulement (les plus forts, pas une liste exhaustive).
-- ${lbl.leviers.toUpperCase()} : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
-- SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo EN CODE (score déterministe), sois rigoureux et tranché, jamais approximatif (une vidéo qui a raté a peu de signaux à true) :
+- LE MODÈLE APPLICABLE : transforme cette structure en un GABARIT VIERGE réutilisable sur N'IMPORTE QUEL sujet. Chaque étape = un temps + une consigne de remplissage avec des [crochets] (ex. « ouvre par une équation binaire : [ton sujet] voulait X, [autre force] lui a donné Y »). 4 à 6 étapes, concrètes et transposables, jamais liées au sujet précis de la vidéo. Si la recette a de vraies faiblesses, ce gabarit doit déjà intégrer la version corrigée, jamais reproduire le défaut identifié plus haut.
+- POURQUOI ÇA FONCTIONNE : 3 à 4 points MAJEURS et déterminants (les plus forts, pas une liste exhaustive).
+- COMMENT L'AMÉLIORER : 3 à 4 leviers TRANSPOSABLES, formulés comme des RECETTES réutilisables sur N'IMPORTE QUEL sujet (ex. « ouvre par une équation binaire X/Y », pas « parle de Sarkozy »).
+- SIGNAUX : pour chaque levier viral, dis honnêtement si CETTE vidéo l'emploie vraiment (true) ou pas (false). Ils servent à noter la vidéo EN CODE (score déterministe), sois rigoureux et tranché, jamais approximatif :
   • hook_fort : la toute première phrase crée une tension ou une promesse assez forte pour empêcher physiquement de scroller, pas une simple phrase d'intro banale.
   • boucle_ouverte : une question ou une promesse posée tôt reste délibérément SANS réponse immédiate, pour forcer à rester jusqu'à la résolution.
   • cliffhanger : un moment de suspense EXPLICITE est ménagé (souvent avant une révélation), où l'issue reste incertaine jusqu'au dernier instant. Absent si le récit se contente d'avancer sans ce suspense marqué.
@@ -232,7 +226,8 @@ Analyse comme un monteur/scénariste pro :
   • archetypes : la vidéo mobilise une figure archétypale reconnaissable (le héros, la victime, le manipulateur…), pas un personnage neutre.
   • appel_action : la vidéo demande EXPLICITEMENT une action au spectateur (s'abonner, commenter, partager, regarder jusqu'au bout, suivre pour la suite…), pas juste un sous-entendu ou une implication vague.
   • angle_original : l'angle choisi pour ce sujet apporte une perspective ou un twist qui se démarque du traitement habituel/attendu de ce sujet, pas la manière la plus évidente de l'aborder.
-  • sujet_precis : le sujet est ciblé et net (un angle précis, délimité), pas vague ou trop large au point de pouvoir s'appliquer à n'importe quel contenu.${frameHook ? `
+  • sujet_precis : le sujet est ciblé et net (un angle précis, délimité), pas vague ou trop large au point de pouvoir s'appliquer à n'importe quel contenu.
+  • authenticite : le ton sonne vécu, personnel, avec une vraie voix d'auteur, jamais un texte générique, robotique ou interchangeable qui pourrait sortir de n'importe quelle bouche.${frameHook ? `
   • hook_visuel : L'IMAGE JOINTE (1re frame de la vidéo) est en elle-même accrocheuse, pas juste le texte, plan cadré et composé pour arrêter le scroll (visage/expression forte, texte à l'écran percutant, scène visuellement intrigante), pas une image plate, floue ou anodine.` : ''}
 
 RÈGLE DE FORMAT DES NOMBRES : écris les nombres normalement, jamais de séparateur anglo-saxon. N'emploie jamais de tiret cadratin. Les consignes du modèle sont à l'impératif 2e personne CORRECT (« Ouvre », « Accumule », « Conclus », jamais « Conclues »).
@@ -241,12 +236,12 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
 {
   "niche": "<thème/domaine en 1 à 3 mots>",
   "sujet": "<le sujet réel de la vidéo + l'angle, 1 phrase>",
-  "hook": { "technique": "<nom court de la technique d'accroche>", "verbatim": "<la ou les toutes premières phrases réelles du transcript>", "pourquoi": "<${posture === 'flop' ? 'pourquoi ce hook ne suffit pas' : 'pourquoi ça arrête le scroll'}, 1-2 phrases>" },
+  "hook": { "technique": "<nom court de la technique d'accroche>", "verbatim": "<la ou les toutes premières phrases réelles du transcript>", "pourquoi": "<pourquoi ça arrête (ou n'arrête pas) le scroll, 1-2 phrases>" },
   "recette": [ { "temps": "<ex: 0-5s / 5-15s / avant la fin>", "titre": "<nom court du procédé>", "detail": "<ce qui se passe + le ressort d'attention, 1-2 phrases, ancré dans la vidéo>" } ],
   "modele": [ { "temps": "<ex: 0-5s>", "gabarit": "<consigne de remplissage avec des [crochets], transposable>" } ],
   "pourquoi_viral": [ "<point majeur 1>", "<point majeur 2>", "<point majeur 3>" ],
-  "a_reprendre": [ { "titre": "<max 8 mots>", "detail": "<${posture === 'flop' ? 'correction concrète à appliquer' : 'recette transposable à TES sujets'}, 1-2 phrases>" } ],
-  "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false>, "appel_action": <true/false>, "angle_original": <true/false>, "sujet_precis": <true/false>${frameHook ? ', "hook_visuel": <true/false>' : ''} }
+  "a_reprendre": [ { "titre": "<max 8 mots>", "detail": "<recette transposable à TES sujets, 1-2 phrases>" } ],
+  "signaux": { "hook_fort": <true/false>, "boucle_ouverte": <true/false>, "cliffhanger": <true/false>, "deuxieme_personne": <true/false>, "details_concrets": <true/false>, "escalade": <true/false>, "question_rhetorique": <true/false>, "archetypes": <true/false>, "appel_action": <true/false>, "angle_original": <true/false>, "sujet_precis": <true/false>, "authenticite": <true/false>${frameHook ? ', "hook_visuel": <true/false>' : ''} }
 }`;
 
     const raw = await callAI(MODEL_CREATIF, 3200, prompt, undefined, false, undefined, 'analyseVirale', frameHook || undefined);
@@ -254,9 +249,8 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
     if (!rapport || (!rapport.hook && !rapport.recette)) {
       throw new Error("Analyse illisible, réessaie dans un instant.");
     }
-    rapport.stats = statsVideo; // vraies stats (pour le score + le contexte)
+    rapport.stats = statsVideo; // vraies stats (affichées en contexte, jamais un jugement)
     rapport.langue = langueVideo;
-    rapport.posture = posture;  // virale / flop / neutre (déjà calculée avant l'IA)
     rapport.transcript = texte; // ce que Scriptura a vraiment entendu/lu (repli affiché)
     // Mémorisé pour que le score (recalculé à chaque affichage, voir
     // scoreViraliteRecette) sache si "hook_visuel" était mesurable ici, y
@@ -321,31 +315,25 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
 // (signaux booléens fournis par l'IA), jamais une note libre de l'IA. Mêmes
 // signaux ⇒ même score, c'est un pilier de crédibilité.
 //
-// Le score global est découpé en 4 DIMENSIONS PONDÉRÉES (poids = 100 au total),
-// pour montrer OÙ la vidéo est forte ou faible, pas juste un nombre opaque.
-// Chaque dimension = (leviers présents ÷ leviers de la dimension) × son poids ;
-// le global = somme des sous-scores.
-const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes', 'appel_action', 'angle_original', 'sujet_precis', 'hook_visuel'];
-// Poids rééquilibrés à l'ajout de « Sujet & angle » (inspiré de Vervox, qui le
-// pondère à 20/100) pour garder un total de 100 : Accroche et Rétention
-// cèdent chacune 5 points, Ancrage 5 points, au profit de la nouvelle
-// dimension. Connexion & CTA reste à 15, aligné sur le « CTA & engagement »
-// de Vervox. « hook_visuel » (1re frame de la vidéo) rejoint Accroche, dans
-// le même esprit que le « Hook & attention » unique de Vervox (verbal +
-// visuel + audio, un seul critère), poids INCHANGÉ (voir scoreViraliteRecette
-// pour la gestion du cas où aucune frame n'a pu être extraite).
+// Refonte totale (demande du propriétaire) : le score se limite désormais au
+// SEUL contenu de la vidéo, plus aucun croisement avec ses vraies stats
+// (vues, portée, flop/viral). Répartition calquée sur celle de Vervox
+// (25/20/20/15/20 sur 5 dimensions), mais avec le vocabulaire propre à
+// Scriptura, pas une traduction de leurs intitulés. Chaque dimension =
+// (leviers présents ÷ leviers de la dimension) × son poids ; le global =
+// somme des sous-scores.
+const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes', 'appel_action', 'angle_original', 'sujet_precis', 'authenticite', 'hook_visuel'];
 const DIMENSIONS_VIRAL = [
   { cle: 'accroche',    label: 'Accroche',      poids: 25, signaux: ['hook_fort', 'question_rhetorique', 'hook_visuel'] },
-  // Sujet & angle : jusqu'ici seulement décrit (d.sujet), jamais noté. Un
-  // sujet traité de façon générique/attendue n'aide pas la vidéo à se
-  // démarquer, même avec un bon hook et une bonne structure.
-  { cle: 'sujet_angle', label: 'Sujet & angle', poids: 15, signaux: ['angle_original', 'sujet_precis'] },
-  { cle: 'retention',   label: 'Rétention',     poids: 25, signaux: ['boucle_ouverte', 'cliffhanger', 'escalade'] },
-  { cle: 'ancrage',     label: 'Ancrage',       poids: 20, signaux: ['details_concrets', 'archetypes'] },
-  // Connexion & CTA : le levier « appel à l'action » est ajouté ici plutôt que
-  // dans une dimension à part, il mesure la même chose que « deuxieme_personne »
-  // (l'engagement direct du spectateur), comme le fait Vervox avec son critère
-  // unique « CTA & engagement » (15/100).
+  { cle: 'sujet_angle', label: 'Sujet & angle', poids: 20, signaux: ['angle_original', 'sujet_precis'] },
+  // Structure & rythme : la mécanique narrative qui tient le spectateur (boucle
+  // ouverte, cliffhanger, montée en tension) et les figures qui la portent
+  // (archétypes reconnaissables).
+  { cle: 'structure',   label: 'Structure & rythme', poids: 20, signaux: ['boucle_ouverte', 'cliffhanger', 'escalade', 'archetypes'] },
+  // Sincérité : est-ce que ça sonne vécu et concret, ou générique/robotique ?
+  // Les détails précis et vérifiables (dates, chiffres, noms) ET le ton
+  // authentique servent ensemble ce même critère.
+  { cle: 'sincerite',   label: 'Sincérité',      poids: 20, signaux: ['details_concrets', 'authenticite'] },
   { cle: 'connexion',   label: 'Connexion & CTA', poids: 15, signaux: ['deuxieme_personne', 'appel_action'] }
 ];
 // `frameDisponible` : si aucune frame n'a pu être extraite de la vidéo (échec
@@ -383,148 +371,10 @@ function _fmtVuesViral(n) {
   return String(v);
 }
 
-// ── Portée : le vrai signal de viralité ──
-// vues ÷ abonnés de l'auteur. Une vidéo est virale quand l'algo la pousse
-// BIEN AU-DELÀ de l'audience du compte, pas juste quand le compteur est gros.
-function porteeViral(stats) {
-  if (!stats || !stats.vues || !stats.abonnesAuteur || stats.abonnesAuteur <= 0) return null;
-  const ratio = stats.vues / stats.abonnesAuteur;
-  let niveau, label;
-  if (ratio >= 10) { niveau = 4; label = 'Explosion'; }
-  else if (ratio >= 5) { niveau = 3; label = 'Forte portée'; }
-  else if (ratio >= 2) { niveau = 2; label = 'Bonne portée'; }
-  else { niveau = 1; label = 'Dans son audience'; }
-  // Ratio lisible : « ×12 » ou « ×3,4 ». Sous 0,1, l'arrondi normal donnerait
-  // « ×0 », qui ressemble à une erreur d'affichage plutôt qu'à une vraie mesure
-  // (le calcul est juste, un ratio proche de zéro reste une donnée réelle) :
-  // on affiche alors « < ×0,1 » pour rester lisible sans jamais dire « zéro ».
-  const affiche = ratio >= 10
-    ? '×' + Math.round(ratio)
-    : ratio < 0.1
-      ? '< ×0,1'
-      : '×' + (Math.round(ratio * 10) / 10).toString().replace('.', ',');
-  return { ratio, niveau, label, affiche };
-}
-// Niveau d'engagement (interactions ÷ vues) : moyenne TikTok ~5-6%.
-function niveauEngagementViral(taux) {
-  if (taux == null) return null;
-  if (taux >= 10) return { niveau: 4, label: 'Engagement exceptionnel' };
-  if (taux >= 6) return { niveau: 3, label: 'Engagement fort' };
-  if (taux >= 3) return { niveau: 2, label: 'Engagement normal' };
-  return { niveau: 1, label: 'Engagement faible' };
-}
-
-// ── Score de PERFORMANCE RÉELLE (0-100), déterministe, SÉPARÉ du score de
-// recette ── Ne mesure jamais l'écriture, seulement ce que la vidéo a
-// vraiment obtenu. Volontairement un second nombre plutôt qu'un mélange dans
-// le score de recette : la recette sert de seuil pour la mémoire partagée
-// (SEUIL_MEMOIRE) qui nourrit les générations de TOUS les abonnés, un script
-// moyen boosté par l'algo ne doit jamais franchir ce seuil à la place d'une
-// vraie bonne structure. La portée pèse plus que l'engagement, c'est le vrai
-// signal de viralité (voir porteeViral). Même règle de crédibilité que
-// verdictCroiseViral : jamais de verdict de portée sans connaître les
-// abonnés, sauf engagement assez tranché (très haut ou très bas) pour parler
-// de lui-même ; sinon on retourne null plutôt qu'un chiffre inventé.
-const POIDS_PERF_PORTEE = 70, POIDS_PERF_ENGAGEMENT = 30;
-function scorePerformanceReelle(stats) {
-  if (!stats || !stats.vues) return null;
-  const portee = porteeViral(stats);
-  const niveauEng = niveauEngagementViral(_tauxEngagementViral(stats));
-  if (!portee) {
-    // Sans les abonnés, seul un engagement très tranché permet de juger :
-    // tout le poids bascule alors dessus, jamais un mélange avec une portée
-    // qu'on ne peut pas honnêtement affirmer.
-    if (!niveauEng || (niveauEng.niveau !== 4 && niveauEng.niveau !== 1)) return null;
-    return Math.round((niveauEng.niveau / 4) * 100);
-  }
-  const scorePortee = Math.round((portee.niveau / 4) * POIDS_PERF_PORTEE);
-  const scoreEngagement = niveauEng ? Math.round((niveauEng.niveau / 4) * POIDS_PERF_ENGAGEMENT) : 0;
-  return scorePortee + scoreEngagement;
-}
-
-// ── Double lecture : Recette × Performance ──
-// La recette (structure) peut être forte alors que les vues sont un coup de
-// chance, et inversement. On croise les deux axes pour un verdict honnête.
-// Seuils sur le score PONDÉRÉ (0-100, la somme des 4 dimensions), pas sur un
-// simple compte de leviers (11 signaux au total, tous n'ont pas le même poids).
+// Seuils sur le score PONDÉRÉ (0-100, la somme des dimensions), pas sur un
+// simple compte de leviers (13 signaux au total, tous n'ont pas le même poids).
 const SEUIL_RECETTE_FORTE = 72;  // recette solide
 const SEUIL_MEMOIRE = 85;        // entrée mémoire partagée : recette d'élite
-// La performance est « réelle » quand la portée est forte (l'algo a poussé au
-// delà de l'audience) ou, à défaut de connaître les abonnés, quand
-// l'engagement est exceptionnel.
-function performanceForte(stats) {
-  const p = porteeViral(stats);
-  if (p) return p.niveau >= 3;
-  const taux = _tauxEngagementViral(stats);
-  return taux != null && taux >= 10;
-}
-// Le verdict croisé, avec un titre + une explication.
-// RÈGLE DE CRÉDIBILITÉ : on n'affirme JAMAIS un jugement de PORTÉE (« bridée »,
-// « coup de chance ») sans connaître les abonnés de l'auteur. La portée = vues
-// ÷ abonnés ; sans les abonnés, on ne peut pas dire si la vidéo a percé ou non,
-// donc on s'en tient à la recette et on ne prétend rien sur l'algo.
-function verdictCroiseViral(score, stats) {
-  const recetteForte = score != null && score >= SEUIL_RECETTE_FORTE;
-  const perfConnue = !!(stats && stats.vues);
-  if (!perfConnue) {
-    return recetteForte
-      ? { ton: 'ok', titre: 'Recette solide', texte: 'La structure est forte. Les stats réelles manquaient, mais la recette est réutilisable telle quelle.' }
-      : { ton: 'neutre', titre: 'Recette moyenne', texte: 'La structure reste perfectible. À reprendre en renforçant les leviers manquants.' };
-  }
-  const porteeConnue = !!(stats && stats.abonnesAuteur);
-  const taux = _tauxEngagementViral(stats);
-  const engagementExceptionnel = taux != null && taux >= 10;
-  const engagementFaible = taux != null && taux < 3;
-  // On ne peut trancher sur la performance QUE si on connaît la portée, ou si
-  // l'engagement est si tranché (très haut / très bas) qu'il parle de lui-même.
-  const perfJugeable = porteeConnue || engagementExceptionnel || engagementFaible;
-
-  if (!perfJugeable) {
-    // Vues connues mais portée non mesurable (pas d'abonnés, engagement moyen) :
-    // aucune affirmation sur l'algo, verdict centré sur la recette.
-    return recetteForte
-      ? { ton: 'ok', titre: 'Recette très solide', texte: 'La structure est excellente et réutilisable. Sans le nombre d\'abonnés de l\'auteur, on ne peut pas mesurer la portée réelle, mais la recette, elle, tient.' }
-      : { ton: 'neutre', titre: 'Recette perfectible', texte: 'La structure gagnerait à être renforcée. Portée réelle non mesurable ici (abonnés de l\'auteur inconnus).' };
-  }
-
-  const perfForte = porteeConnue ? (porteeViral(stats).niveau >= 3) : engagementExceptionnel;
-  if (recetteForte && perfForte) return { ton: 'ok', titre: 'Formule reproductible', texte: 'La structure explique le succès. Tu peux la copier, elle marche par construction, pas par chance.' };
-  if (recetteForte && !perfForte) return { ton: 'neutre', titre: 'Bonne structure, portée bridée', texte: 'La recette est solide mais le sujet, le timing ou la niche ont limité la portée. Réutilisable sur un meilleur angle.' };
-  if (!recetteForte && perfForte) return { ton: 'alerte', titre: 'Probable coup de chance', texte: 'Grosses vues, mais la structure ne les explique pas vraiment (tendance, sujet d\'actu, coup de bol). Reproduis avec prudence.' };
-  return { ton: 'neutre', titre: 'Peu à reprendre', texte: 'Ni recette solide ni performance marquante. Il y a mieux à décoder ailleurs.' };
-}
-
-// Volume de vues brut au-delà duquel une vidéo ne peut plus, honnêtement,
-// être qualifiée de « flop » : signalé par le propriétaire (capture d'écran)
-// sur une vidéo à plus d'1 million de vues affichée avec la section
-// "Pourquoi ça n'a pas marché", un contresens qui casse la crédibilité pour
-// QUICONQUE lit le rapport, même si la portée relative à un très gros compte
-// (ou un engagement bas, mécaniquement plus faible sur un trafic aussi large)
-// reste techniquement modeste. Le mot « flop » doit rester crédible en soi,
-// pas seulement défendable en interne pour le compte concerné.
-const SEUIL_VUES_JAMAIS_FLOP = 500000;
-
-// ── Posture d'analyse : virale, flop ou neutre ──
-// Déterminée par la PERFORMANCE RÉELLE (pas par la recette) : la vidéo a-t-elle
-// marché pour son compte ? virale = elle a dépassé son audience ; flop = elle
-// n'a même pas atteint son audience ; neutre = entre les deux, ou stats
-// inconnues (texte collé à la main). C'est ce qui fait basculer l'analyse entre
-// « décode la recette gagnante » et « diagnostique l'échec + corrige ».
-function posturePerf(stats) {
-  if (!stats || !stats.vues) return 'neutre';
-  if (performanceForte(stats)) return 'virale';
-  if (stats.vues >= SEUIL_VUES_JAMAIS_FLOP) return 'neutre';
-  const p = porteeViral(stats);
-  const taux = _tauxEngagementViral(stats);
-  const faible = p ? p.ratio < 1.5 : (taux != null && taux < 3);
-  return faible ? 'flop' : 'neutre';
-}
-// Libellés des sections selon la posture (résultat + texte copié).
-function _labelsPosture(posture) {
-  if (posture === 'flop') return { pourquoi: "Pourquoi ça n'a pas marché", leviers: 'Comment la transformer en virale', cta: 'Créer la version virale corrigée →' };
-  if (posture === 'virale') return { pourquoi: 'Pourquoi ça a percé', leviers: 'Ce que tu peux reprendre', cta: 'Créer un script à partir de ça →' };
-  return { pourquoi: 'Ce qui fait la différence', leviers: 'Ce que tu peux reprendre', cta: 'Créer un script à partir de ça →' };
-}
 
 // ── Mémoire partagée : dépôt d'une recette distillée ──
 // Étiquettes lisibles des leviers (pour l'injection dans les autres modes).
@@ -533,19 +383,19 @@ const LEVIERS_LABEL = {
   deuxieme_personne: 'adresse à la 2e personne', details_concrets: 'détails concrets',
   escalade: 'escalade', question_rhetorique: 'question rhétorique', archetypes: 'archétypes',
   appel_action: 'appel à l\'action', angle_original: 'angle original', sujet_precis: 'sujet précis',
-  hook_visuel: 'hook visuel'
+  authenticite: 'authenticité', hook_visuel: 'hook visuel'
 };
 // Best-effort, anonymisé : on n'envoie QUE du distillé (technique de hook,
 // leviers, principes transposables, squelette sans verbatim), jamais le
-// transcript ni le pseudo. Le serveur re-vérifie le garde-fou (score >= 90 +
-// perf réelle) avant d'écrire. Ne bloque jamais l'utilisateur.
+// transcript ni le pseudo. Le serveur re-vérifie le garde-fou (score >= 90)
+// avant d'écrire. Ne bloque jamais l'utilisateur. Le garde-fou ne dépend plus
+// que de la qualité de la recette elle-même (plus de vraie performance
+// exigée en plus, ce signal a été retiré de l'analyse vidéo).
 function _deposerPatternViral(d) {
   try {
     if (!d) return;
     const note = scoreViraliteRecette(d.signaux, d.frameDisponible);
     if (!note || note.score < SEUIL_MEMOIRE) return;       // garde-fou côté client
-    if (!performanceForte(d.stats)) return;                // perf réelle exigée
-    const portee = porteeViral(d.stats);
     const leviers = SIGNAUX_VIRAL.filter(k => d.signaux && d.signaux[k] === true).map(k => LEVIERS_LABEL[k] || k);
     const principes = (Array.isArray(d.a_reprendre) ? d.a_reprendre : [])
       .map(p => ({ titre: (p && p.titre) || '', detail: (p && p.detail) || '' }));
@@ -554,8 +404,6 @@ function _deposerPatternViral(d) {
     const corps = {
       niche: d.niche || '', hook_technique: (d.hook && d.hook.technique) || '',
       leviers, principes, squelette, score: note.score,
-      portee: portee ? portee.ratio : null,
-      engagement: _tauxEngagementViral(d.stats),
       langue: d.langue || null
     };
     fetch('/api/patterns', {
@@ -564,8 +412,6 @@ function _deposerPatternViral(d) {
   } catch (e) { /* jamais bloquant */ }
 }
 // Anime l'anneau du score (même mécanique que l'audit / le sommaire).
-// ids optionnels : réutilisée telle quelle pour le second anneau (score de
-// performance réelle), qui a ses propres éléments DOM.
 function animerScoreViral(valeur, circonference, numId, ringId) {
   const numEl = document.getElementById(numId || 'viralScoreNum');
   const ringEl = document.getElementById(ringId || 'viralRingFill');
@@ -597,35 +443,22 @@ function afficherRapportViral(d) {
   const facteurs = Array.isArray(d.pourquoi_viral) ? d.pourquoi_viral.filter(Boolean) : [];
   const reprendre = Array.isArray(d.a_reprendre) ? d.a_reprendre : [];
   const modele = Array.isArray(d.modele) ? d.modele.filter(m => m && (m.temps || m.gabarit)) : [];
-  // Posture (virale / flop / neutre) : stockée sur le rapport, ou recalculée
-  // depuis les stats (réouverture d'un ancien rapport sans posture).
-  const posture = d.posture || posturePerf(d.stats);
-  const lbl = _labelsPosture(posture);
 
-  // Score de viralité + vraies stats.
+  // Score de la recette : SEUL score de l'analyse (méthode Vervox/BeViral,
+  // voir DIMENSIONS_VIRAL) — jamais croisé avec les vraies stats.
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
   const note = scoreViraliteRecette(d.signaux, d.frameDisponible);
   const score = note ? note.score : null;
   const pal = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(score) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
   const taux = _tauxEngagementViral(d.stats);
-  const portee = porteeViral(d.stats);
-  const scorePerf = scorePerformanceReelle(d.stats);
-  const palPerf = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(scorePerf) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
-  // Ligne 1 : vues + engagement. Ligne 2 : portée (le vrai signal), si connue.
-  // Le nombre d'abonnés est affiché entre parenthèses à côté de la portée :
-  // sans lui, le ratio ("×0,2 son audience") n'est pas vérifiable par le
-  // lecteur, qui ne voit que les vues et peut trouver le verdict arbitraire.
+  // Vues, engagement, abonnés : affichés comme un simple CONTEXTE informatif,
+  // jamais transformés en jugement de portée ni en étiquette flop/viral.
   const statsLigne = (d.stats && d.stats.vues)
-    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${portee ? ` · portée ${portee.affiche} son audience (${_fmtVuesViral(d.stats.abonnesAuteur)} abonnés)` : ''}</div>` : '';
-  // Seuils alignés sur SEUIL_RECETTE_FORTE/SEUIL_MEMOIRE (score pondéré), pas
-  // sur le simple compte de leviers : un compte brut de signaux ignore leur
-  // pondération par dimension et pouvait afficher « Recette solide » (vert)
-  // alors que le verdict croisé juste en dessous disait l'inverse pour le
-  // même score (ex. 5 leviers/8 mais 65/100, sous le seuil de 72).
+    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${d.stats.abonnesAuteur ? ` · ${_fmtVuesViral(d.stats.abonnesAuteur)} abonnés` : ''}</div>` : '';
   const recetteForteBadge = score != null && score >= SEUIL_RECETTE_FORTE;
   const niveauTxt = note ? `${score >= SEUIL_MEMOIRE ? 'Recette très solide' : recetteForteBadge ? 'Recette solide' : 'Recette perfectible'} · ${note.leviers} leviers viraux` : '';
   const niveauTagClasse = recetteForteBadge ? 'ds-tag-ok' : 'ds-tag';
-  // Détail du score : les 4 dimensions pondérées (calculées en code).
+  // Détail du score : les 5 dimensions pondérées (calculées en code).
   const dims = note && Array.isArray(note.dimensions) ? note.dimensions : [];
   const dimsHtml = dims.length ? `
     <div class="viral-dims">
@@ -635,18 +468,9 @@ function afficherRapportViral(d) {
           <div class="viral-dim-bar"><div class="viral-dim-fill" style="width:${Math.round((dm.sousScore / dm.poids) * 100)}%"></div></div>
         </div>`).join('')}
     </div>` : '';
-  // Libellé TOUJOURS « recette » désormais (jamais « viralité ») : depuis
-  // l'ajout du score de performance réelle juste en dessous, laisser ce
-  // premier anneau s'appeler « SCORE DE VIRALITÉ » entrerait en collision
-  // avec le second score, qui lui mesure vraiment ce qui s'est passé. Le
-  // rappel pointe explicitement vers lui quand il existe.
-  const scoreLabel = 'SCORE DE LA RECETTE';
-  const scoreRappel = scorePerf != null
-    ? '<div class="viral-score-rappel">Mesure la structure, pas le résultat : le score de performance réelle est juste en dessous.</div>'
-    : (posture === 'flop' ? '<div class="viral-score-rappel">Mesure la structure, pas le résultat : cette vidéo a floppé (diagnostic ci-dessous).</div>' : '');
   const scoreCardHtml = score != null ? `
     <div class="score-card audit-score-card ds-score-card viral-score-card">
-      <div class="audit-score-label">${scoreLabel}</div>
+      <div class="audit-score-label">SCORE DE LA RECETTE</div>
       <div class="audit-ring-wrap">
         <svg class="audit-ring" viewBox="0 0 170 170">
           <defs><linearGradient id="viralRingGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${pal.ringA}"/><stop offset="100%" stop-color="${pal.ringB}"/></linearGradient></defs>
@@ -655,50 +479,10 @@ function afficherRapportViral(d) {
         </svg>
         <div class="audit-ring-center"><div class="audit-score-num" style="color:${pal.texte}"><span id="viralScoreNum">0</span><span class="audit-score-suffix">/100</span></div></div>
       </div>
-      ${scoreRappel}
+      ${statsLigne}
       ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ${niveauTagClasse}">${niveauTxt}</span></div>` : ''}
       ${dimsHtml}
     </div>` : '';
-
-  // Second anneau, SÉPARÉ, pour le score de performance réelle (vues) :
-  // jamais mélangé au score de recette ci-dessus (voir scorePerformanceReelle
-  // pour le pourquoi). L'anneau chiffré n'apparaît QUE quand un jugement
-  // honnête est possible (même règle que verdictCroiseViral) ; mais les
-  // chiffres bruts (vues, engagement), eux, restent affichés dès qu'ils sont
-  // connus, même sans anneau : on ne cache jamais une donnée réelle juste
-  // parce qu'elle ne suffit pas à calculer un verdict chiffré.
-  const perfTagLabel = portee ? portee.label : (niveauEngagementViral(taux) ? niveauEngagementViral(taux).label : '');
-  const perfTagClasse = scorePerf >= 70 ? 'ds-tag-ok' : (scorePerf != null && scorePerf < 30 ? 'ds-tag-alert' : 'ds-tag');
-  const scorePerfCardHtml = (d.stats && d.stats.vues) ? `
-    <div class="score-card audit-score-card ds-score-card viral-score-card viral-perf-score-card">
-      <div class="audit-score-label">SCORE DE PERFORMANCE RÉELLE</div>
-      ${scorePerf != null ? `
-      <div class="audit-ring-wrap">
-        <svg class="audit-ring" viewBox="0 0 170 170">
-          <defs><linearGradient id="viralPerfRingGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${palPerf.ringA}"/><stop offset="100%" stop-color="${palPerf.ringB}"/></linearGradient></defs>
-          <circle class="audit-ring-track" cx="85" cy="85" r="${RING_R}"/>
-          <circle class="audit-ring-fill" id="viralPerfRingFill" cx="85" cy="85" r="${RING_R}" stroke="url(#viralPerfRingGrad)" stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
-        </svg>
-        <div class="audit-ring-center"><div class="audit-score-num" style="color:${palPerf.texte}"><span id="viralPerfScoreNum">0</span><span class="audit-score-suffix">/100</span></div></div>
-      </div>
-      <div class="viral-score-rappel">Mesure ce que la vidéo a vraiment obtenu, jamais la qualité du script.</div>` : `
-      <div class="viral-score-rappel">Portée non mesurable ici (abonnés de l'auteur ou engagement pas assez tranché), mais voici les chiffres réels.</div>`}
-      ${statsLigne}
-      ${perfTagLabel ? `<div class="ds-sante-row"><span class="ds-tag ${perfTagClasse}">${viralEsc(perfTagLabel)}</span></div>` : ''}
-    </div>` : '';
-
-  // Verdict croisé Recette × Performance : recette reproductible, coup de
-  // chance, ou structure bridée. Répond à « est-ce une vraie recette ou du bol ».
-  const verdict = verdictCroiseViral(score, d.stats);
-  const tagClasse = verdict.ton === 'ok' ? 'ds-tag-ok' : verdict.ton === 'alerte' ? 'ds-tag-alert' : 'ds-tag';
-  const verdictHtml = `
-    <div class="score-card viral-verdict viral-verdict-${verdict.ton}">
-      <div class="ds-section-row">
-        <div class="audit-section-label" style="margin-bottom:0">Recette ou coup de chance ?</div>
-        <span class="ds-tag ${tagClasse}">${viralEsc(verdict.titre)}</span>
-      </div>
-      <p class="audit-diag-constat" style="margin-top:10px">${viralEsc(verdict.texte)}</p>
-    </div>`;
 
   const sujetHtml = d.sujet ? `
     <div class="score-card">
@@ -749,13 +533,13 @@ function afficherRapportViral(d) {
 
   const facteursHtml = facteurs.length ? `
     <div class="score-card ds-evolution pivot">
-      <div class="audit-section-label">${viralEsc(lbl.pourquoi)}</div>
+      <div class="audit-section-label">Pourquoi ça fonctionne</div>
       <ul class="ds-niche-analyse">${facteurs.map(f => `<li>${viralEsc(f)}</li>`).join('')}</ul>
     </div>` : '';
 
   const reprendreHtml = reprendre.length ? `
     <div class="score-card">
-      <div class="audit-section-label">${viralEsc(lbl.leviers)}</div>
+      <div class="audit-section-label">Comment l'améliorer</div>
       <ol class="ds-leviers-list">
         ${reprendre.map(l => `<li><b>${viralEsc(l.titre || '')}</b><p>${viralEsc(l.detail || '')}</p></li>`).join('')}
       </ol>
@@ -772,16 +556,10 @@ function afficherRapportViral(d) {
       </details>
     </div>` : '';
 
-  // Le pont vers le script s'adapte à la posture : refaire un carton, ou livrer
-  // la version corrigée d'un flop.
-  const ctaTexte = posture === 'flop'
-    ? 'Tu as le diagnostic. Passe à l\'action : Scriptura peut <strong>réécrire la version virale</strong> de cette vidéo, adaptée à ton compte.'
-    : 'Tu as la recette. Passe à l\'action : Scriptura peut <strong>t\'écrire un script</strong> qui réutilise cette structure sur TON sujet.';
+  const ctaTexte = 'Tu as la recette. Passe à l\'action : Scriptura peut <strong>t\'écrire un script</strong> qui réutilise cette structure sur TON sujet.';
 
   res.innerHTML = `
     ${scoreCardHtml}
-    ${scorePerfCardHtml}
-    ${verdictHtml}
     ${sujetHtml}
     ${hookHtml}
     ${recetteHtml}
@@ -797,13 +575,12 @@ function afficherRapportViral(d) {
 
     <div class="ds-alt" style="margin-top:8px">
       <p style="margin:0 0 14px">${ctaTexte}</p>
-      <button class="btn-generate" onclick="creerScriptDepuisViral()">${viralEsc(lbl.cta)}</button>
+      <button class="btn-generate" onclick="creerScriptDepuisViral()">Créer un script à partir de ça →</button>
     </div>
     <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:12px" onclick="analyserAutreVideoVirale()">Analyser une autre vidéo</button>`;
 
   res.style.display = 'block';
   if (score != null) setTimeout(() => animerScoreViral(score, RING_C), 50);
-  if (scorePerf != null) setTimeout(() => animerScoreViral(scorePerf, RING_C, 'viralPerfScoreNum', 'viralPerfRingFill'), 50);
   res.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -812,7 +589,6 @@ function afficherRapportViral(d) {
 function _texteRapportViral(d) {
   d = d || {};
   const lignes = [];
-  const lbl = _labelsPosture(d.posture || posturePerf(d.stats));
   const note = scoreViraliteRecette(d.signaux, d.frameDisponible);
   if (note) {
     let entete = 'SCORE DE LA RECETTE : ' + note.score + '/100 (' + note.leviers + ' leviers viraux)';
@@ -822,15 +598,10 @@ function _texteRapportViral(d) {
     }
     if (d.stats && d.stats.vues) {
       const taux = _tauxEngagementViral(d.stats);
-      const portee = porteeViral(d.stats);
-      const scorePerf = scorePerformanceReelle(d.stats);
-      let ligneStats = '\nSCORE DE PERFORMANCE RÉELLE : ' + (scorePerf != null ? scorePerf + '/100' : 'non mesurable') +
-        '\n' + _fmtVuesViral(d.stats.vues) + ' vues' + (taux != null ? ' · ' + String(taux).replace('.', ',') + "% d'engagement" : '');
-      if (portee) ligneStats += ' · portée ' + portee.affiche + ' son audience (' + _fmtVuesViral(d.stats.abonnesAuteur) + ' abonnés)';
+      let ligneStats = '\n' + _fmtVuesViral(d.stats.vues) + ' vues' + (taux != null ? ' · ' + String(taux).replace('.', ',') + "% d'engagement" : '');
+      if (d.stats.abonnesAuteur) ligneStats += ' · ' + _fmtVuesViral(d.stats.abonnesAuteur) + ' abonnés';
       lignes.push(ligneStats);
     }
-    const verdict = verdictCroiseViral(note.score, d.stats);
-    lignes.push('\nVERDICT : ' + verdict.titre + '. ' + verdict.texte);
   }
   if (d.sujet) lignes.push('\nSUJET : ' + d.sujet);
   if (d.hook) lignes.push('\nHOOK (' + (d.hook.technique || '') + ') : ' + (d.hook.verbatim || '') + '\n' + (d.hook.pourquoi || ''));
@@ -845,11 +616,11 @@ function _texteRapportViral(d) {
     d.modele.forEach(m => lignes.push('- [' + (m.temps || '') + '] ' + (m.gabarit || '')));
   }
   if (Array.isArray(d.pourquoi_viral) && d.pourquoi_viral.length) {
-    lignes.push('\n' + lbl.pourquoi.toUpperCase() + ' :');
+    lignes.push('\nPOURQUOI ÇA FONCTIONNE :');
     d.pourquoi_viral.forEach(f => lignes.push('- ' + f));
   }
   if (Array.isArray(d.a_reprendre) && d.a_reprendre.length) {
-    lignes.push('\n' + lbl.leviers.toUpperCase() + ' :');
+    lignes.push('\nCOMMENT L\'AMÉLIORER :');
     d.a_reprendre.forEach(l => lignes.push('- ' + (l.titre || '') + ' : ' + (l.detail || '')));
   }
   return lignes.join('\n');
@@ -865,19 +636,15 @@ function _modeleEnTexte(d) {
 
 // Handoff vers le flux Script. Deux entrées :
 //  - source 'modele'  : on passe le GABARIT vierge (structure à appliquer).
-//  - source par défaut : on passe le transcript complet (recréer la recette),
-//    ou, pour un flop, la matière à corriger.
+//  - source par défaut : on passe le transcript complet (recréer la recette).
 // Dans tous les cas on dépose l'utilisateur sur le formulaire (étape 3) où il
 // n'a plus qu'à indiquer SON sujet.
 function creerScriptDepuisViral(source) {
   if (typeof chooseMode !== 'function') return;
   const d = _viralRapport || {};
-  const posture = d.posture || posturePerf(d.stats);
   chooseMode('script'); // ouvre le flux Script (empile l'écran actuel)
   if (typeof state === 'object' && state) {
-    state.depart = posture === 'flop'
-      ? 'reprendre une vidéo qui a raté et la transformer en version virale'
-      : 'analyser une vidéo virale et recréer sa recette';
+    state.depart = 'analyser une vidéo virale et recréer sa recette';
     if (!state.objectif) state.objectif = 'Faire plus de vues et maximiser la portée';
     if (!state.plateforme) state.plateforme = 'TikTok';
   }
