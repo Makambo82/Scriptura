@@ -49,6 +49,7 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
         aHook: !!ex.querySelector('.hooks-list .hook-item'),
         aScript: !!ex.querySelector('.script-block .script-row'),
         note: ex.querySelector('.example-note')?.textContent || '',
+        formule: ex.querySelector('.example-formule p')?.textContent || '',
         dims
       };
     });
@@ -60,6 +61,7 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       assert.ok(d.badge && d.badge.length > 0, 'chaque dimension du diagnostic doit avoir un score visible');
       assert.ok(d.texte && d.texte.length > 10, 'chaque dimension du diagnostic doit avoir un constat explicatif : ' + JSON.stringify(d));
     });
+    assert.ok(contenu.formule && contenu.formule.length > 10, 'le bloc "formule gagnante" doit être présent avec du contenu : ' + contenu.formule);
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.
     await page.click('.example-cta');

@@ -1460,6 +1460,7 @@ body.hero-focus .hero-focus-rule{display:block}
 }
 .example-preview{max-width:480px;margin:0 auto 32px;text-align:left;display:flex;flex-direction:column;gap:16px}
 .example-diag{max-width:480px;margin:0 auto}
+.example-formule{max-width:480px;margin:16px auto 0;text-align:left}
 .example-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin-top:26px}
 .example-note strong{color:var(--gold-light)}
 .example-cta{
