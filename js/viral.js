@@ -414,6 +414,34 @@ function niveauEngagementViral(taux) {
   return { niveau: 1, label: 'Engagement faible' };
 }
 
+// ── Score de PERFORMANCE RÉELLE (0-100), déterministe, SÉPARÉ du score de
+// recette ── Ne mesure jamais l'écriture, seulement ce que la vidéo a
+// vraiment obtenu. Volontairement un second nombre plutôt qu'un mélange dans
+// le score de recette : la recette sert de seuil pour la mémoire partagée
+// (SEUIL_MEMOIRE) qui nourrit les générations de TOUS les abonnés, un script
+// moyen boosté par l'algo ne doit jamais franchir ce seuil à la place d'une
+// vraie bonne structure. La portée pèse plus que l'engagement, c'est le vrai
+// signal de viralité (voir porteeViral). Même règle de crédibilité que
+// verdictCroiseViral : jamais de verdict de portée sans connaître les
+// abonnés, sauf engagement assez tranché (très haut ou très bas) pour parler
+// de lui-même ; sinon on retourne null plutôt qu'un chiffre inventé.
+const POIDS_PERF_PORTEE = 70, POIDS_PERF_ENGAGEMENT = 30;
+function scorePerformanceReelle(stats) {
+  if (!stats || !stats.vues) return null;
+  const portee = porteeViral(stats);
+  const niveauEng = niveauEngagementViral(_tauxEngagementViral(stats));
+  if (!portee) {
+    // Sans les abonnés, seul un engagement très tranché permet de juger :
+    // tout le poids bascule alors dessus, jamais un mélange avec une portée
+    // qu'on ne peut pas honnêtement affirmer.
+    if (!niveauEng || (niveauEng.niveau !== 4 && niveauEng.niveau !== 1)) return null;
+    return Math.round((niveauEng.niveau / 4) * 100);
+  }
+  const scorePortee = Math.round((portee.niveau / 4) * POIDS_PERF_PORTEE);
+  const scoreEngagement = niveauEng ? Math.round((niveauEng.niveau / 4) * POIDS_PERF_ENGAGEMENT) : 0;
+  return scorePortee + scoreEngagement;
+}
+
 // ── Double lecture : Recette × Performance ──
 // La recette (structure) peut être forte alors que les vues sont un coup de
 // chance, et inversement. On croise les deux axes pour un verdict honnête.
@@ -525,9 +553,11 @@ function _deposerPatternViral(d) {
   } catch (e) { /* jamais bloquant */ }
 }
 // Anime l'anneau du score (même mécanique que l'audit / le sommaire).
-function animerScoreViral(valeur, circonference) {
-  const numEl = document.getElementById('viralScoreNum');
-  const ringEl = document.getElementById('viralRingFill');
+// ids optionnels : réutilisée telle quelle pour le second anneau (score de
+// performance réelle), qui a ses propres éléments DOM.
+function animerScoreViral(valeur, circonference, numId, ringId) {
+  const numEl = document.getElementById(numId || 'viralScoreNum');
+  const ringEl = document.getElementById(ringId || 'viralRingFill');
   if (valeur == null || Number.isNaN(valeur)) { if (numEl) numEl.textContent = '·'; return; }
   const cible = Math.max(0, Math.min(100, valeur));
   const offsetFinal = circonference * (1 - cible / 100);
@@ -568,6 +598,8 @@ function afficherRapportViral(d) {
   const pal = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(score) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
   const taux = _tauxEngagementViral(d.stats);
   const portee = porteeViral(d.stats);
+  const scorePerf = scorePerformanceReelle(d.stats);
+  const palPerf = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(scorePerf) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
   // Ligne 1 : vues + engagement. Ligne 2 : portée (le vrai signal), si connue.
   // Le nombre d'abonnés est affiché entre parenthèses à côté de la portée :
   // sans lui, le ratio ("×0,2 son audience") n'est pas vérifiable par le
@@ -592,13 +624,15 @@ function afficherRapportViral(d) {
           <div class="viral-dim-bar"><div class="viral-dim-fill" style="width:${Math.round((dm.sousScore / dm.poids) * 100)}%"></div></div>
         </div>`).join('')}
     </div>` : '';
-  // Sur un flop, un gros score vert « SCORE DE VIRALITÉ » en haut, avant toute
-  // explication, laisse croire à tort que la vidéo a cartonné : ce score
-  // mesure la SOLIDITÉ DE LA RECETTE (structure), jamais le résultat réel.
-  // Libellé honnête + rappel explicite selon la posture.
-  const scoreLabel = posture === 'flop' ? 'SCORE DE LA RECETTE' : 'SCORE DE VIRALITÉ';
-  const scoreRappel = posture === 'flop'
-    ? '<div class="viral-score-rappel">Mesure la structure, pas le résultat : cette vidéo a floppé (diagnostic ci-dessous).</div>' : '';
+  // Libellé TOUJOURS « recette » désormais (jamais « viralité ») : depuis
+  // l'ajout du score de performance réelle juste en dessous, laisser ce
+  // premier anneau s'appeler « SCORE DE VIRALITÉ » entrerait en collision
+  // avec le second score, qui lui mesure vraiment ce qui s'est passé. Le
+  // rappel pointe explicitement vers lui quand il existe.
+  const scoreLabel = 'SCORE DE LA RECETTE';
+  const scoreRappel = scorePerf != null
+    ? '<div class="viral-score-rappel">Mesure la structure, pas le résultat : le score de performance réelle est juste en dessous.</div>'
+    : (posture === 'flop' ? '<div class="viral-score-rappel">Mesure la structure, pas le résultat : cette vidéo a floppé (diagnostic ci-dessous).</div>' : '');
   const scoreCardHtml = score != null ? `
     <div class="score-card audit-score-card ds-score-card viral-score-card">
       <div class="audit-score-label">${scoreLabel}</div>
@@ -611,9 +645,35 @@ function afficherRapportViral(d) {
         <div class="audit-ring-center"><div class="audit-score-num" style="color:${pal.texte}"><span id="viralScoreNum">0</span><span class="audit-score-suffix">/100</span></div></div>
       </div>
       ${scoreRappel}
-      ${statsLigne}
       ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ${niveauTagClasse}">${niveauTxt}</span></div>` : ''}
       ${dimsHtml}
+    </div>` : '';
+
+  // Second anneau, SÉPARÉ, pour le score de performance réelle (vues) :
+  // jamais mélangé au score de recette ci-dessus (voir scorePerformanceReelle
+  // pour le pourquoi). L'anneau chiffré n'apparaît QUE quand un jugement
+  // honnête est possible (même règle que verdictCroiseViral) ; mais les
+  // chiffres bruts (vues, engagement), eux, restent affichés dès qu'ils sont
+  // connus, même sans anneau : on ne cache jamais une donnée réelle juste
+  // parce qu'elle ne suffit pas à calculer un verdict chiffré.
+  const perfTagLabel = portee ? portee.label : (niveauEngagementViral(taux) ? niveauEngagementViral(taux).label : '');
+  const perfTagClasse = scorePerf >= 70 ? 'ds-tag-ok' : (scorePerf != null && scorePerf < 30 ? 'ds-tag-alert' : 'ds-tag');
+  const scorePerfCardHtml = (d.stats && d.stats.vues) ? `
+    <div class="score-card audit-score-card ds-score-card viral-score-card">
+      <div class="audit-score-label">SCORE DE PERFORMANCE RÉELLE</div>
+      ${scorePerf != null ? `
+      <div class="audit-ring-wrap">
+        <svg class="audit-ring" viewBox="0 0 170 170">
+          <defs><linearGradient id="viralPerfRingGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="${palPerf.ringA}"/><stop offset="100%" stop-color="${palPerf.ringB}"/></linearGradient></defs>
+          <circle class="audit-ring-track" cx="85" cy="85" r="${RING_R}"/>
+          <circle class="audit-ring-fill" id="viralPerfRingFill" cx="85" cy="85" r="${RING_R}" stroke="url(#viralPerfRingGrad)" stroke-dasharray="${RING_C.toFixed(1)}" stroke-dashoffset="${RING_C.toFixed(1)}"/>
+        </svg>
+        <div class="audit-ring-center"><div class="audit-score-num" style="color:${palPerf.texte}"><span id="viralPerfScoreNum">0</span><span class="audit-score-suffix">/100</span></div></div>
+      </div>
+      <div class="viral-score-rappel">Mesure ce que la vidéo a vraiment obtenu, jamais la qualité du script.</div>` : `
+      <div class="viral-score-rappel">Portée non mesurable ici (abonnés de l'auteur ou engagement pas assez tranché), mais voici les chiffres réels.</div>`}
+      ${statsLigne}
+      ${perfTagLabel ? `<div class="ds-sante-row"><span class="ds-tag ${perfTagClasse}">${viralEsc(perfTagLabel)}</span></div>` : ''}
     </div>` : '';
 
   // Verdict croisé Recette × Performance : recette reproductible, coup de
@@ -709,6 +769,7 @@ function afficherRapportViral(d) {
 
   res.innerHTML = `
     ${scoreCardHtml}
+    ${scorePerfCardHtml}
     ${verdictHtml}
     ${sujetHtml}
     ${hookHtml}
@@ -731,6 +792,7 @@ function afficherRapportViral(d) {
 
   res.style.display = 'block';
   if (score != null) setTimeout(() => animerScoreViral(score, RING_C), 50);
+  if (scorePerf != null) setTimeout(() => animerScoreViral(scorePerf, RING_C, 'viralPerfScoreNum', 'viralPerfRingFill'), 50);
   res.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -742,16 +804,19 @@ function _texteRapportViral(d) {
   const lbl = _labelsPosture(d.posture || posturePerf(d.stats));
   const note = scoreViraliteRecette(d.signaux, d.frameDisponible);
   if (note) {
-    let entete = 'SCORE DE VIRALITÉ : ' + note.score + '/100 (' + note.leviers + ' leviers viraux)';
-    if (d.stats && d.stats.vues) {
-      const taux = _tauxEngagementViral(d.stats);
-      const portee = porteeViral(d.stats);
-      entete += '\n' + _fmtVuesViral(d.stats.vues) + ' vues' + (taux != null ? ' · ' + String(taux).replace('.', ',') + "% d'engagement" : '');
-      if (portee) entete += ' · portée ' + portee.affiche + ' son audience (' + _fmtVuesViral(d.stats.abonnesAuteur) + ' abonnés)';
-    }
+    let entete = 'SCORE DE LA RECETTE : ' + note.score + '/100 (' + note.leviers + ' leviers viraux)';
     lignes.push(entete);
     if (Array.isArray(note.dimensions) && note.dimensions.length) {
       lignes.push('Détail : ' + note.dimensions.map(dm => dm.label + ' ' + dm.sousScore + '/' + dm.poids).join(' · '));
+    }
+    if (d.stats && d.stats.vues) {
+      const taux = _tauxEngagementViral(d.stats);
+      const portee = porteeViral(d.stats);
+      const scorePerf = scorePerformanceReelle(d.stats);
+      let ligneStats = '\nSCORE DE PERFORMANCE RÉELLE : ' + (scorePerf != null ? scorePerf + '/100' : 'non mesurable') +
+        '\n' + _fmtVuesViral(d.stats.vues) + ' vues' + (taux != null ? ' · ' + String(taux).replace('.', ',') + "% d'engagement" : '');
+      if (portee) ligneStats += ' · portée ' + portee.affiche + ' son audience (' + _fmtVuesViral(d.stats.abonnesAuteur) + ' abonnés)';
+      lignes.push(ligneStats);
     }
     const verdict = verdictCroiseViral(note.score, d.stats);
     lignes.push('\nVERDICT : ' + verdict.titre + '. ' + verdict.texte);
