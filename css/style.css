@@ -1348,6 +1348,7 @@ body.hero-focus .hero-focus-rule{display:block}
   .reveal-d4.visible{animation-delay:.32s}
   .reveal-d5.visible{animation-delay:.4s}
   .reveal-d6.visible{animation-delay:.48s}
+  .reveal-d7.visible{animation-delay:.56s}
 }
 /* Entrée du hero au chargement (mot par mot pour le titre, cascade pour le
    reste) : purement CSS avec animation-delay en ligne, aucune dépendance au
