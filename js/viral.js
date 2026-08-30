@@ -494,6 +494,16 @@ function verdictCroiseViral(score, stats) {
   return { ton: 'neutre', titre: 'Peu à reprendre', texte: 'Ni recette solide ni performance marquante. Il y a mieux à décoder ailleurs.' };
 }
 
+// Volume de vues brut au-delà duquel une vidéo ne peut plus, honnêtement,
+// être qualifiée de « flop » : signalé par le propriétaire (capture d'écran)
+// sur une vidéo à plus d'1 million de vues affichée avec la section
+// "Pourquoi ça n'a pas marché", un contresens qui casse la crédibilité pour
+// QUICONQUE lit le rapport, même si la portée relative à un très gros compte
+// (ou un engagement bas, mécaniquement plus faible sur un trafic aussi large)
+// reste techniquement modeste. Le mot « flop » doit rester crédible en soi,
+// pas seulement défendable en interne pour le compte concerné.
+const SEUIL_VUES_JAMAIS_FLOP = 500000;
+
 // ── Posture d'analyse : virale, flop ou neutre ──
 // Déterminée par la PERFORMANCE RÉELLE (pas par la recette) : la vidéo a-t-elle
 // marché pour son compte ? virale = elle a dépassé son audience ; flop = elle
@@ -503,6 +513,7 @@ function verdictCroiseViral(score, stats) {
 function posturePerf(stats) {
   if (!stats || !stats.vues) return 'neutre';
   if (performanceForte(stats)) return 'virale';
+  if (stats.vues >= SEUIL_VUES_JAMAIS_FLOP) return 'neutre';
   const p = porteeViral(stats);
   const taux = _tauxEngagementViral(stats);
   const faible = p ? p.ratio < 1.5 : (taux != null && taux < 3);
