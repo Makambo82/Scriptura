@@ -1482,7 +1482,7 @@ body.hero-focus .hero-focus-rule{display:block}
    de témoignages, encore aucun vrai abonné à ce jour, par une histoire
    fondatrice réelle plutôt qu'une preuve sociale fabriquée). Réutilise
    .how-eyebrow/.how-title/.why-intro, pas de nouvelle typographie. ── */
-.about{max-width:760px;margin:0 auto;padding:8px 12px 48px;text-align:center}
+.about{max-width:760px;margin:0 auto;padding:40px 12px 48px;text-align:center}
 
 /* ── FAQ (accueil), accordéon natif <details>, aucun JS ── */
 .faq{max-width:760px;margin:0 auto;padding:48px 12px 32px;text-align:center}
