@@ -1448,6 +1448,22 @@ body.hero-focus .hero-focus-rule{display:block}
 .how-step-title{font-family:'Cinzel',serif;font-size:0.88rem;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#fff;line-height:1.35;margin-bottom:10px}
 .how-step-desc{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6}
 
+/* ── EXEMPLE CONCRET (retour propriétaire : montrer un vrai résultat et le
+   prix avant l'argumentaire "Pourquoi Scriptura", pas seulement après).
+   .hooks-list/.hook-item/.script-block/.script-row/.script-text : mêmes
+   classes que le VRAI rendu d'une génération (voir js/generation.js), pas
+   une maquette à part, pour que l'exemple soit crédible au pixel près. ── */
+.example{max-width:960px;margin:0 auto;padding:48px 12px 24px;text-align:center}
+.example-preview{max-width:480px;margin:0 auto;text-align:left;display:flex;flex-direction:column;gap:16px}
+.example-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin-top:26px}
+.example-note strong{color:var(--gold-light)}
+.example-cta{
+  background:none;border:none;color:var(--gold);font-family:'Poppins',sans-serif;
+  font-size:0.9rem;font-weight:600;cursor:pointer;padding:0;margin-left:4px;
+  text-decoration:underline;text-underline-offset:3px;
+}
+.example-cta:hover{color:var(--gold-light)}
+
 /* ── POURQUOI SCRIPTURA (différenciateurs, réutilise les cartes .how-step) ── */
 .why{max-width:960px;margin:0 auto;padding:48px 12px 24px;text-align:center}
 .why-intro{font-size:0.95rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.65;max-width:600px;margin:-24px auto 34px}
