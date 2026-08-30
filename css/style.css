@@ -912,6 +912,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   letter-spacing:0.14em;text-transform:uppercase;transition:all 0.25s;
 }
 .paywall-wa:hover{background:var(--gold-light)}
+.wa-delai{font-size:0.76rem;color:rgba(255,255,255,0.45);margin-top:14px}
 .paywall-unlock{
   display:block;margin-top:16px;font-size:0.78rem;
   color:rgba(255,255,255,0.6);cursor:pointer;
