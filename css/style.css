@@ -1454,7 +1454,12 @@ body.hero-focus .hero-focus-rule{display:block}
    classes que le VRAI rendu d'une génération (voir js/generation.js), pas
    une maquette à part, pour que l'exemple soit crédible au pixel près. ── */
 .example{max-width:960px;margin:0 auto;padding:48px 12px 24px;text-align:center}
-.example-preview{max-width:480px;margin:0 auto;text-align:left;display:flex;flex-direction:column;gap:16px}
+.example-sub{
+  font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--gold);opacity:0.75;max-width:480px;margin:0 auto 12px;text-align:left;
+}
+.example-preview{max-width:480px;margin:0 auto 32px;text-align:left;display:flex;flex-direction:column;gap:16px}
+.example-diag{max-width:480px;margin:0 auto}
 .example-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin-top:26px}
 .example-note strong{color:var(--gold-light)}
 .example-cta{

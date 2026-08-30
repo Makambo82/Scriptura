@@ -61,7 +61,10 @@ test('audit détaillé : chaque dimension du score affiche un constat, comme le 
 
     await ouvrirAudit(page, AUDIT_AVEC_MESURES);
 
-    const cartes = await page.evaluate(() => Array.from(document.querySelectorAll('.ds-dim-card')).map(c => ({
+    // Ciblé sur #auditOutput : la page d'accueil affiche aussi ses propres
+    // .ds-dim-card d'exemple (voir index.html, section "Exemple concret"),
+    // un querySelectorAll global sur tout le document compterait les deux.
+    const cartes = await page.evaluate(() => Array.from(document.querySelectorAll('#auditOutput .ds-dim-card')).map(c => ({
       nom: c.querySelector('.ds-dim-name')?.textContent || '',
       texte: c.querySelector('.ds-dim-text')?.textContent || ''
     })));
@@ -97,7 +100,9 @@ test('audit détaillé sans mesures brutes (ancien format) : pas de constat, pas
 
     await ouvrirAudit(page, AUDIT_SANS_MESURES);
 
-    const cartes = await page.evaluate(() => Array.from(document.querySelectorAll('.ds-dim-card')).map(c => ({
+    // Ciblé sur #auditOutput, même raison que le test précédent : la page
+    // d'accueil a aussi ses propres .ds-dim-card d'exemple.
+    const cartes = await page.evaluate(() => Array.from(document.querySelectorAll('#auditOutput .ds-dim-card')).map(c => ({
       nom: c.querySelector('.ds-dim-name')?.textContent || '',
       texte: c.querySelector('.ds-dim-text')
     })));
