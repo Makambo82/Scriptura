@@ -659,7 +659,7 @@ function afficherRapportViral(d) {
   const perfTagLabel = portee ? portee.label : (niveauEngagementViral(taux) ? niveauEngagementViral(taux).label : '');
   const perfTagClasse = scorePerf >= 70 ? 'ds-tag-ok' : (scorePerf != null && scorePerf < 30 ? 'ds-tag-alert' : 'ds-tag');
   const scorePerfCardHtml = (d.stats && d.stats.vues) ? `
-    <div class="score-card audit-score-card ds-score-card viral-score-card">
+    <div class="score-card audit-score-card ds-score-card viral-score-card viral-perf-score-card">
       <div class="audit-score-label">SCORE DE PERFORMANCE RÉELLE</div>
       ${scorePerf != null ? `
       <div class="audit-ring-wrap">

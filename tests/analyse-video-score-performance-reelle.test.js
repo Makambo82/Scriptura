@@ -76,6 +76,19 @@ test('analyse virale : le score de performance réelle (vues) est séparé du sc
     const scorePerfNum = await page.evaluate(() => parseInt(document.getElementById('viralPerfScoreNum')?.textContent || 'NaN', 10));
     assert.equal(scorePerfNum, 48, 'score de performance attendu : portée niveau 1/4 (18 pts/70) + engagement niveau 4/4 (30 pts/30) = 48');
 
+    // Régression réelle repérée par le propriétaire (capture d'écran) : les
+    // deux anneaux partagent la classe .viral-score-card, et la règle CSS
+    // .viral-score-card .audit-ring-fill{stroke:url(#viralRingGrad)} (écrite
+    // pour le PREMIER anneau) s'appliquait aussi au second, écrasant son
+    // propre dégradé inline #viralPerfRingGrad : l'anneau de performance
+    // s'affichait dans la couleur du score de recette (vert), jamais la
+    // sienne (rouge pour 48/100), malgré un chiffre correct au centre.
+    const strokePerf = await page.evaluate(() => {
+      const el = document.getElementById('viralPerfRingFill');
+      return el ? getComputedStyle(el).stroke : null;
+    });
+    assert.equal(strokePerf, 'url("#viralPerfRingGrad")', 'l\'anneau de performance doit utiliser SON PROPRE dégradé, pas celui du score de recette : ' + strokePerf);
+
     // Les chiffres réels doivent être visibles (vues, engagement, portée),
     // pas juste un score abstrait.
     assert.ok(/296/.test(texte) && /12,5/.test(texte), 'les vraies stats (296 vues, 12,5% d\'engagement) doivent être affichées : ' + texte.slice(0, 400));

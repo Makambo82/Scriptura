@@ -3004,6 +3004,14 @@ body.is-admin .outils-montage-home-btn{display:flex}
    spécifique et plus tardive dans la feuille, réaligne l'anneau sur son
    propre dégradé #viralRingGrad (voir js/viral.js). */
 .viral-score-card .audit-ring-fill{stroke:url(#viralRingGrad)}
+/* Second anneau, score de performance réelle (js/viral.js) : la règle
+   ci-dessus s'applique aussi à lui, il porte la même classe .viral-score-card
+   pour l'habillage général de la carte, donc sans cette règle ENCORE plus
+   spécifique (2 classes, ajoutée après dans la feuille, elle gagne à
+   spécificité égale), l'anneau de performance affichait la couleur DU SCORE
+   DE RECETTE (son propre dégradé #viralPerfRingGrad était bien défini en
+   HTML mais jamais appliqué, écrasé par la règle générique ci-dessus). */
+.viral-perf-score-card .audit-ring-fill{stroke:url(#viralPerfRingGrad)}
 .viral-score-rappel{margin:10px 2px 0;font-size:0.78rem;color:var(--muted,#8a8a8a);line-height:1.4}
 .viral-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
 .viral-list li{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
