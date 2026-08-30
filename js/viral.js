@@ -159,7 +159,12 @@ async function lancerAnalyseVirale() {
         const data = await _transcriptDepuisLien(lien);
         statsVideo = data.stats || null;
         langueVideo = data.langue || null;
-        frameHook = data.frame_hook || null;
+        // extraireFrameHook (api/tiktok-video.js) renvoie une simple chaîne
+        // base64, jamais un objet : callAI/js/api.js attend { base64,
+        // mediaType } pour construire le content block image envoyé à
+        // Claude. Sans cet objet, l'appel échouait à chaque fois avec une
+        // erreur API (media_type manquant), l'image ne partait jamais.
+        frameHook = data.frame_hook ? { base64: data.frame_hook, mediaType: 'image/jpeg' } : null;
         if (data.ok && data.transcript) { texte = data.transcript; description = data.description || ''; }
         else if (data.description && !texte) { texte = data.description; }
       } catch (e) {
