@@ -23,16 +23,35 @@ import { resoudreDroits } from './_lib/acces.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
 
-// Candidats plausibles (convention /api/v1/tiktok/web/... déjà utilisée par
-// fetch_user_profile et fetch_user_post ailleurs dans Scriptura), à confirmer
-// avec la vraie clé : aucun n'a pu être vérifié depuis cet environnement de
-// développement (réseau bloqué vers tikhub.io).
+// 1er tour de sonde (confirmé en prod) : fetch_general_search répond 200
+// avec {keyword, count} ; fetch_search_video existe (400, mauvais paramètres,
+// non facturé) ; fetch_challenge_video et fetch_hashtag_detail n'existent pas
+// (404), retirés. Ce 2e tour se concentre sur les deux candidats valides et
+// résume la STRUCTURE réelle de la réponse (clés, tailles de tableaux, clés
+// du 1er élément) plutôt qu'un extrait texte brut, pour voir où sont les
+// vraies vidéos sans dépendre de la position dans une chaîne tronquée.
 const CANDIDATS_RECHERCHE = [
-  { nom: 'fetch_search_video', chemin: '/api/v1/tiktok/web/fetch_search_video', params: (mot) => ({ keyword: mot, count: 5 }) },
-  { nom: 'fetch_general_search', chemin: '/api/v1/tiktok/web/fetch_general_search', params: (mot) => ({ keyword: mot, count: 5 }) },
-  { nom: 'fetch_challenge_video', chemin: '/api/v1/tiktok/web/fetch_challenge_video', params: (mot) => ({ challengeName: mot, count: 5 }) },
-  { nom: 'fetch_hashtag_detail', chemin: '/api/v1/tiktok/web/fetch_hashtag_detail', params: (mot) => ({ challengeName: mot }) }
+  { nom: 'fetch_general_search', chemin: '/api/v1/tiktok/web/fetch_general_search', params: (mot) => ({ keyword: mot, count: 10 }) },
+  { nom: 'fetch_search_video', chemin: '/api/v1/tiktok/web/fetch_search_video', params: (mot) => ({ keyword: mot, cursor: 0, count: 10, sort_type: 0, publish_time: 0 }) }
 ];
+
+// Résume récursivement la FORME des données (clés, type, longueur des
+// tableaux, clés du 1er élément si tableau d'objets) sans jamais renvoyer le
+// contenu complet : assez pour comprendre où sont les vidéos et leurs champs,
+// sans gonfler la réponse ni exposer des données brutes inutilement.
+function formeDonnees(v, profondeur) {
+  if (profondeur > 4 || v == null) return v === null ? null : typeof v;
+  if (Array.isArray(v)) {
+    return { type: 'array', longueur: v.length, premierElement: v.length ? formeDonnees(v[0], profondeur + 1) : null };
+  }
+  if (typeof v === 'object') {
+    const out = {};
+    for (const k of Object.keys(v)) out[k] = formeDonnees(v[k], profondeur + 1);
+    return out;
+  }
+  if (typeof v === 'string') return v.length > 80 ? v.slice(0, 80) + '…' : v;
+  return v;
+}
 
 async function testerCandidat(candidat, mot, tikhubKey) {
   const url = TIKHUB_BASE + candidat.chemin + '?' + new URLSearchParams(candidat.params(mot)).toString();
@@ -42,7 +61,7 @@ async function testerCandidat(candidat, mot, tikhubKey) {
     out.statut = r.status;
     let data = null;
     try { data = await r.json(); } catch (e) { out.nonJson = true; }
-    if (data) out.extrait = JSON.stringify(data).slice(0, 600);
+    if (data) out.forme = formeDonnees(data, 0);
   } catch (e) { out.erreur = e.message; }
   return out;
 }
