@@ -30,7 +30,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota } from './_lib/acces.js';
-import { urlsVideo, telechargerMedia, detailTikHub } from './_lib/tiktok-media.js';
+import { urlsVideo, telechargerMedia, detailTikHub, extraireAuteurUsername } from './_lib/tiktok-media.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
@@ -173,6 +173,18 @@ async function transcrireVideo(v, tikhubKey, elevenKey) {
     const detail = await detailTikHub(v.id, tikhubKey);
     const fraiches = detail ? urlsVideo(detail).slice(0, 3) : [];
     if (fraiches.length) urls = fraiches;
+    // L'item de RECHERCHE (fetch_general_search) ne porte pas toujours le
+    // uniqueId de l'auteur, surtout pour les niches aux correspondances plus
+    // rares (retour du propriétaire : aucun lien "voir cette vidéo" sur des
+    // niches comme "finance" ou "géopolitique") : sans lui, impossible de
+    // construire le lien TikTok vers la vidéo (voir meilleureVideo,
+    // synthetiser()). Le détail complet du post, déjà appelé ci-dessus pour
+    // l'URL fraîche, le contient presque toujours, sans appel TikHub
+    // supplémentaire.
+    if (detail && (!v.auteur || !v.auteur.uniqueId)) {
+      const uniqueId = extraireAuteurUsername(detail);
+      if (uniqueId) v.auteur = { ...(v.auteur || {}), uniqueId };
+    }
   }
   for (const u of urls) {
     const media = await telechargerMedia(u);

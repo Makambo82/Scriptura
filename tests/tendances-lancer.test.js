@@ -380,6 +380,64 @@ test('avancer : la synthèse finale donne à chaque créateur un lien vers SA vi
   } finally { restaurer(); }
 });
 
+test('avancer : complète le uniqueId manquant de l\'auteur via le détail du post, pour que le lien vidéo existe quand même', async () => {
+  // Retour du propriétaire : sur des niches aux correspondances plus rares
+  // ("finance", "actualité"), les cartes créateurs n'avaient AUCUN lien
+  // "voir cette vidéo". Cause probable : fetch_general_search ne renvoie
+  // pas toujours le uniqueId de l'auteur dans l'item de recherche (surtout
+  // pour des résultats moins pertinents). Le détail complet du post
+  // (fetch_post_detail), déjà appelé pour rafraîchir l'URL de téléchargement,
+  // le contient : on le réutilise pour compléter v.auteur.uniqueId avant la
+  // synthèse finale, sans appel TikHub supplémentaire.
+  const restaurer = poserEnv({ ELEVENLABS_API_KEY: 'cle-eleven-test' });
+  const maintenant = Math.floor(Date.now() / 1000);
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-uniqueid-manquant',
+      statut: 'en_cours',
+      niche: 'finance',
+      index_suivant: 0,
+      videos: [{
+        id: 'v-sans-uniqueid', desc: 'Une astuce pour épargner.', createTime: maintenant,
+        auteur: { id: 'auteur-numerique-123', uniqueId: null, nickname: 'Conseils Finance' },
+        stats: { vues: 300000, likes: 20000, commentaires: 500, partages: 400 },
+        hashtags: [], urlsCandidates: [], transcript: null, transcriptEchec: false
+      }]
+    },
+    custom: async (u, opts) => {
+      if (u.includes('fetch_post_detail')) {
+        return {
+          ok: true, json: async () => ({
+            item: {
+              video: { playAddr: 'https://cdn-fraiche.example/frais.mp4' },
+              author: { uniqueId: 'conseils.finance.reel', nickname: 'Conseils Finance' }
+            }
+          })
+        };
+      }
+      if (u.includes('cdn-fraiche.example')) {
+        return { ok: true, status: 200, headers: { get: (h) => (h === 'content-type' ? 'video/mp4' : '') }, arrayBuffer: async () => Buffer.alloc(60000).buffer };
+      }
+      if (u.includes('elevenlabs.io')) {
+        return { ok: true, text: async () => JSON.stringify({ text: 'Voici comment épargner efficacement chaque mois.' }) };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-uniqueid-manquant', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine');
+    const createur = (res.corpsRecu.resultat.topCreateurs || [])[0];
+    assert.ok(createur, 'le créateur doit apparaître dans le classement même sans uniqueId au départ');
+    assert.equal(createur.meilleureVideo.lien, 'https://www.tiktok.com/@conseils.finance.reel/video/v-sans-uniqueid', 'le uniqueId complété via fetch_post_detail doit servir à construire le lien');
+  } finally { restaurer(); }
+});
+
 test('GET debug avec code admin => 200, sonde TikHub appelée', async () => {
   const restaurer = poserEnv();
   poserFetchMock({

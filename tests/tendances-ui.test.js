@@ -229,13 +229,26 @@ test('Tendances : la niche peut se saisir librement OU se choisir dans une liste
     assert.equal(etatListe.saisieVisible, false);
     assert.equal(etatListe.listeVisible, true);
 
-    // Choisit une niche dans la liste et lance : le lien envoyé au serveur
-    // doit être celui choisi dans le <select>, pas un champ de saisie vide.
-    await page.selectOption('#tendancesSelect', 'Cuisine & Food');
+    // Choisit une niche dans la liste et lance : le mot-clé envoyé au serveur
+    // doit être la VALEUR TikHub-friendly de l'option (voir index.html,
+    // #tendancesSelect), pas le libellé affiché "Cuisine & Food" tel quel :
+    // un "&" littéral dans le mot-clé de recherche TikHub abîme la
+    // pertinence des résultats (retour du propriétaire : trop peu de
+    // vidéos, chiffres trop bas, pour "Finance & Argent"/"Géopolitique &
+    // Actualité" choisies dans la liste).
+    await page.selectOption('#tendancesSelect', { label: 'Cuisine & Food' });
     await page.click('#tendancesGoBtnListe');
     await page.waitForTimeout(300);
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
-    assert.equal(nicheEnvoyee, 'Cuisine & Food', 'la niche choisie dans la liste doit être celle envoyée au serveur');
+    assert.equal(nicheEnvoyee, 'cuisine', 'le mot-clé envoyé au serveur doit être la valeur propre de l\'option, pas le libellé avec "&"');
+
+    // Aucune option de la liste ne doit envoyer un "&" littéral au serveur
+    // (couvre toutes les niches d'un coup, pas seulement "Cuisine & Food").
+    const valeursAvecEsperluette = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('#tendancesSelect option'))
+        .filter(o => o.value.includes('&'))
+        .map(o => o.value));
+    assert.deepEqual(valeursAvecEsperluette, [], 'aucune valeur d\'option ne doit contenir un "&" littéral (mauvais mot-clé de recherche TikHub)');
   } finally { await navigateur.close(); await arreter(); }
 });
