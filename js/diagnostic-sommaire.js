@@ -558,7 +558,7 @@ TOP & FLOP VIDÉOS : UNIQUEMENT si les sujets sont présents. La médiane des vu
    • TOP = uniquement les vidéos NETTEMENT AU-DESSUS de la médiane (de vraies percées). Maximum 3, ne complète JAMAIS avec des vidéos moyennes.
    • FLOP = les vidéos LES MOINS VUES fournies, nettement EN-DESSOUS de la médiane. Maximum 3.
    • Une vidéo proche de la médiane ne va NI dans le top NI dans le flop (liste vide autorisée).
-   Pour chacune : résume le SUJET en quelques mots, donne les vues, explique en une phrase la raison. Le constat doit coller à la position réelle vs la médiane.
+   Pour chacune : résume le SUJET en quelques mots, donne les vues. Le CONSTAT (2-3 phrases, jamais une seule) doit : 1) pointer la statistique précise qui ressort (le chiffre marquant, pas un vague "beaucoup de vues") 2) expliquer la MÉCANIQUE structurelle derrière ce résultat (le hook, l'angle, le format, le rythme, le sujet) 3) donner une instruction concrète et actionnable : quoi RÉUTILISER sur tes prochaines vidéos (pour le top) ou quoi CORRIGER (pour le flop). Le constat doit coller à la position réelle vs la médiane.
 
 CONCEPTS RÉCURRENTS : 3 à 7 thèmes/angles qui reviennent dans les vidéos, formulés court comme des étiquettes. Sinon liste vide.
 
@@ -578,7 +578,7 @@ SES CARTONS & SES RATÉS (top/flop) : UNIQUEMENT si les sujets sont présents. L
    • CARTONS (top) = uniquement ses vidéos NETTEMENT AU-DESSUS de la médiane (ses vraies percées, la recette à décoder). Maximum 3, jamais de remplissage.
    • RATÉS (flop) = ses vidéos LES MOINS VUES, nettement EN-DESSOUS de la médiane (ce que tu peux éviter). Maximum 3.
    • Une vidéo proche de la médiane ne va NI dans les cartons NI dans les ratés.
-   Pour chacune : résume le SUJET en quelques mots, donne les vues, explique en une phrase POURQUOI ça a marché (ou raté) et ce que ça t'apprend. Le constat doit coller à la position réelle vs la médiane.
+   Pour chacune : résume le SUJET en quelques mots, donne les vues. Le CONSTAT (2-3 phrases, jamais une seule) doit : 1) pointer la statistique précise qui ressort chez lui (le chiffre marquant, ex. un ratio partages/vues élevé, pas un vague "beaucoup de vues") 2) expliquer la MÉCANIQUE structurelle derrière ce résultat (le hook, l'angle, le format, le rythme, le sujet) 3) donner une instruction de TRANSPOSITION explicite et actionnable pour TOI (« à reproduire sur… », « à éviter sur… »). Le constat doit coller à la position réelle vs la médiane.
 
 SES CONCEPTS RÉCURRENTS : 3 à 7 angles/formats qui reviennent chez lui, formulés court comme des étiquettes (sa mécanique répétée). Sinon liste vide.
 
@@ -610,8 +610,8 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
   "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
   "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
-  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
-  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<2-3 phrases : stat qui ressort + mécanique structurelle + quoi réutiliser>" } ],
+  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<2-3 phrases : stat qui ressort + mécanique structurelle + quoi corriger>" } ],
   "concepts_recurrents": ["<concept 1>", "<concept 2>"],
   "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : la bascule et son effet, ou la constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<la formule qui marche le mieux + comment la réutiliser, ou null>" },
   "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<1-2 phrases>" } ]
@@ -628,8 +628,8 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
   "faille_exploiter": "<1-2 phrases : l'angle qu'il néglige et que tu peux occuper, ou null>",
   "bio": { "actuelle": "<sa bio telle quelle, ou null>", "etat": "<claire|floue>", "critique": "<ce que révèle son positionnement, 1-2 phrases>" },
   "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
-  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase : pourquoi ça a marché + ce que ça t'apprend>" } ],
-  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<1 phrase>" } ],
+  "top_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<2-3 phrases : stat qui ressort chez lui + mécanique structurelle + instruction de transposition explicite pour toi>" } ],
+  "flop_videos": [ { "sujet": "<résumé court>", "vues": <nombre>, "constat": "<2-3 phrases : stat qui ressort + mécanique structurelle + ce que ça t'apprend à éviter>" } ],
   "concepts_recurrents": ["<concept 1>", "<concept 2>"],
   "evolution": { "pivot": <true/false>, "constat": "<1-2 phrases : sa bascule et son effet, ou sa constance>", "avant": "<contenu + perf avant, ou null>", "apres": "<contenu + perf après, ou null>", "formule_gagnante": "<sa formule qui marche le mieux, ou null>" },
   "leviers_prioritaires": [ { "titre": "<max 8 mots>", "detail": "<action transposable à TON compte, 2e personne>" } ]
@@ -671,8 +671,10 @@ ${schemaJson}`;
 
   // Plafond de tokens large : la réponse (surtout en mode concurrent, avec le
   // verdict et la faille en plus) est longue ; un plafond trop bas coupait les
-  // derniers champs. Ce plafond n'est pas facturé s'il n'est pas atteint.
-  const raw = await callAI(MODEL_RAPIDE, 4500, prompt, undefined, false, undefined, 'diagnosticSommaire');
+  // derniers champs. Relevé de 4500 à 5500 depuis l'enrichissement des constats
+  // top/flop vidéos (2-3 phrases au lieu d'1, jusqu'à 6 vidéos). Ce plafond
+  // n'est pas facturé s'il n'est pas atteint.
+  const raw = await callAI(MODEL_RAPIDE, 5500, prompt, undefined, false, undefined, 'diagnosticSommaire');
   const parsed = parseAIResponse(raw);
 
   // NOTES DÉTERMINISTES : on remplace les notes de l'IA (tirées au hasard dans
