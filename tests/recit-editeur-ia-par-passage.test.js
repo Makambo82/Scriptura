@@ -133,10 +133,23 @@ test('Récit, éditeur IA par passage : le plafond anti-abus est respecté', asy
 
     // 21 clics sur "Reformuler" du segment 0 : le plafond (20, partagé avec
     // le mode Script) doit stopper les appels IA au 21e.
+    // Attend que le bouton soit RÉELLEMENT prêt (plus désactivé, voir
+    // microEditerSegmentRecit qui le désactive pendant l'appel IA) avant
+    // chaque clic, plutôt qu'un délai fixe : sous charge (CI, plusieurs
+    // fichiers de test en parallèle), un clic pouvait arriver alors que le
+    // bouton était encore désactivé par l'édition précédente, et un clic
+    // sur un bouton désactivé est silencieusement ignoré par le
+    // navigateur, faussant le compte réel d'appels IA déclenchés.
     for (let i = 0; i < 21; i++) {
+      await page.waitForFunction(() => {
+        const b = document.querySelectorAll('#storySegToolbar0 .script-edit-btn')[0];
+        return b && !b.disabled;
+      }, null, { timeout: 5000 });
       await page.evaluate(() => document.querySelectorAll('#storySegToolbar0 .script-edit-btn')[0].click());
-      await page.waitForTimeout(120);
     }
+    // Laisse le temps au tout dernier clic de se traiter (accepté ou refusé
+    // par le plafond) avant de lire le résultat.
+    await page.waitForTimeout(300);
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
