@@ -10,6 +10,12 @@ let storyPlatform = '';
 let storyTon = '';
 let currentStory = null;
 let currentStoryText = '';
+// Éditeur IA par passage (Reformuler/Raccourcir/Allonger/Simplifier), même
+// fonctionnalité que le mode Script (MICRO_EDIT_CONSIGNES/
+// MICRO_EDIT_MAX_PAR_SCRIPT, js/generation.js, réutilisés tels quels ici :
+// même consignes, même plafond, pas de raison de les dupliquer). Compteur
+// séparé de celui du Script : chacun plafonne SON propre résultat affiché.
+let _microEditsUtiliseesRecit = 0;
 
 function setupStoryButtons() {
   // Format
@@ -746,6 +752,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 function renderStory(d) {
   const out = document.getElementById('storyOutput');
   const fullText = (d.recit || []).map(s => s.texte).join('\n\n');
+  // Éditeur IA par passage (voir microEditerSegmentRecit plus bas), remis à
+  // zéro à chaque nouveau récit affiché, même mécanique que le mode Script
+  // (renderResults, js/generation.js).
+  _microEditsUtiliseesRecit = 0;
 
   // Stocker pour storyboard et copie
   currentStory = d;
@@ -824,7 +834,14 @@ function renderStory(d) {
         <div class="story-block" id="storyRecitBlock">${(d.recit || []).map((s, i) => `
           <div class="story-segment" data-idx="${i}">
             <div class="story-segment-text" id="storySegText${i}">${auditEsc(s.texte || '').replace(/\n/g, '<br/>')}</div>
+            <div class="script-edit-toolbar" id="storySegToolbar${i}">
+              <button type="button" class="script-edit-btn" onclick="microEditerSegmentRecit(${i},'reformuler',this)">Reformuler</button>
+              <button type="button" class="script-edit-btn" onclick="microEditerSegmentRecit(${i},'raccourcir',this)">Raccourcir</button>
+              <button type="button" class="script-edit-btn" onclick="microEditerSegmentRecit(${i},'allonger',this)">Allonger</button>
+              <button type="button" class="script-edit-btn" onclick="microEditerSegmentRecit(${i},'simplifier',this)">Simplifier</button>
+            </div>
           </div>`).join('')}</div>
+        <div class="error-box" id="storyEditError" style="display:none;margin-top:10px"></div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyStory(this)">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareStory(this)">${ICON_SHARE}</button></div>
       </div>`
   });
@@ -914,5 +931,64 @@ function renderStory(d) {
 // que copier/partager reflète toujours la dernière version.
 function texteHooksStory() {
   return ((currentStory && currentStory.hooks) || []).map(h => h.texte || '').join('\n\n');
+}
+
+// ── Éditeur IA par passage, porté du mode Script (voir microEditerBlocScript,
+// js/generation.js) : même logique, adaptée aux segments du récit
+// (currentStory.recit au lieu de currentScript). ──
+async function microEditerSegmentRecit(idx, action, btn) {
+  const consigne = MICRO_EDIT_CONSIGNES[action];
+  const texteEl = document.getElementById('storySegText' + idx);
+  const errBox = document.getElementById('storyEditError');
+  if (!consigne || !texteEl || !currentStory || !currentStory.recit || !currentStory.recit[idx]) return;
+  if (errBox) errBox.style.display = 'none';
+
+  if (_microEditsUtiliseesRecit >= MICRO_EDIT_MAX_PAR_SCRIPT) {
+    if (errBox) {
+      errBox.textContent = "Tu as atteint la limite de retouches pour ce récit (" + MICRO_EDIT_MAX_PAR_SCRIPT + "). Régénère un nouveau récit pour continuer à en retoucher.";
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  const toolbar = btn ? btn.closest('.script-edit-toolbar') : null;
+  const boutons = toolbar ? Array.from(toolbar.querySelectorAll('.script-edit-btn')) : [];
+  boutons.forEach(b => b.disabled = true);
+  const labelOriginal = btn ? btn.textContent : '';
+  if (btn) btn.textContent = '…';
+
+  try {
+    const texteActuel = currentStory.recit[idx].texte || '';
+    const prompt = `Tu es un rédacteur TikTok francophone. Voici UN PASSAGE d'un récit déjà écrit (ton : ${currentStory.ton || 'non précisé'}, plateforme : ${state.plateforme || 'TikTok'}).
+
+PASSAGE À MODIFIER :
+"${texteActuel}"
+
+CONSIGNE : ${consigne}
+
+Réponds UNIQUEMENT avec le nouveau texte de ce passage, rien avant, rien après : pas de guillemets, pas de JSON, pas de commentaire.`;
+
+    const raw = await callAI(MODEL_RAPIDE, 300, prompt, undefined, false, undefined, 'microEditRecit');
+    const nouveauTexte = String(raw || '').trim().replace(/^["«]+|["»]+$/g, '').trim();
+    if (!nouveauTexte) throw new Error('Réponse vide');
+
+    currentStory.recit[idx].texte = nouveauTexte;
+    texteEl.innerHTML = auditEsc(nouveauTexte).replace(/\n/g, '<br/>');
+    // Reconstruit le texte complet (copier/partager, voir copyStory/
+    // shareStory, + point de départ du storyboard) : sinon ils renverraient
+    // l'ancien texte après une retouche.
+    currentStoryText = currentStory.recit.map(s => s.texte || '').join('\n\n');
+    const out = document.getElementById('storyOutput');
+    if (out) out.dataset.fulltext = currentStoryText;
+    _microEditsUtiliseesRecit++;
+  } catch (e) {
+    if (errBox) {
+      errBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
+      errBox.style.display = 'block';
+    }
+  } finally {
+    boutons.forEach(b => b.disabled = false);
+    if (btn) btn.textContent = labelOriginal;
+  }
 }
 
