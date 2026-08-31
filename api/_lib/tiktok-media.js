@@ -147,12 +147,37 @@ function extraireAuteurUsername(obj) {
   return u;
 }
 
-// Identité affichable de l'auteur (@handle + pseudo), pour présenter la
-// source d'une transcription/analyse (voir afficherResultatTranscription,
-// js/tiktok-outils.js) : jamais son avatar, les URLs d'image TikHub sont
-// signées à durée de vie courte (voir api/tendances.js, même souci déjà
-// rencontré et corrigé pour les vidéos) et casseraient l'affichage la
-// plupart du temps si on les hotlinkait directement.
+// Photo de profil de l'auteur (retour du propriétaire : mieux qu'un badge à
+// initiale). Contrairement aux URLs de VIDÉO (playAddr/downloadAddr, signées
+// à durée de vie courte, voir urlsVideo), les URLs d'avatar TikTok sont des
+// images CDN publiques prévues pour être hotlinkées telles quelles (mêmes
+// avatarLarger/avatarMedium/avatarThumb que l'app TikTok elle-même affiche
+// partout). Reste tolérant si un lien expire quand même : le badge à
+// initiale sert de repli visuel côté client (voir outils-source-avatar-img,
+// onerror), jamais un plantage ou un cadre vide.
+function extraireAuteurAvatar(obj) {
+  let url = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (url || !o || typeof o !== 'object' || prof > 8 || vus.has(o)) return;
+    vus.add(o);
+    for (const k of Object.keys(o)) {
+      if (/^avatar(larger|medium|thumb)?$/i.test(k)) {
+        const v = o[k];
+        if (typeof v === 'string' && /^https?:\/\//.test(v)) { url = v; return; }
+        if (v && typeof v === 'object') {
+          const liste = v.urlList || v.url_list;
+          if (Array.isArray(liste) && typeof liste[0] === 'string') { url = liste[0]; return; }
+        }
+      }
+    }
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(obj || {}, 0);
+  return url;
+}
+
+// Identité affichable de l'auteur (@handle + pseudo + photo), pour présenter
+// la source d'une transcription/analyse (voir afficherResultatTranscription,
+// js/tiktok-outils.js).
 function extraireAuteurInfo(obj) {
   let info = null; const vus = new Set();
   (function scan(o, prof) {
@@ -160,7 +185,7 @@ function extraireAuteurInfo(obj) {
     vus.add(o);
     const uniqueId = typeof o.uniqueId === 'string' ? o.uniqueId.trim() : null;
     const nickname = typeof o.nickname === 'string' ? o.nickname.trim() : null;
-    if (uniqueId || nickname) { info = { uniqueId, nickname }; return; }
+    if (uniqueId || nickname) { info = { uniqueId, nickname, avatarUrl: extraireAuteurAvatar(o) }; return; }
     for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
   })(obj || {}, 0);
   return info;
@@ -288,6 +313,7 @@ export {
   extraireDesc,
   extraireAbonnesAuteur,
   extraireAuteurUsername,
+  extraireAuteurAvatar,
   extraireAuteurInfo,
   extraireCreateTime,
   abonnesViaProfil,

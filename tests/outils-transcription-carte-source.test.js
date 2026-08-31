@@ -11,12 +11,16 @@ const { demarrerServeur } = require('./helpers/serveur');
 const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
+// 1x1 PNG transparent, pour simuler une vraie photo de profil sans dépendre
+// du réseau (bac à sable sans accès Internet, voir CLAUDE.md).
+const PNG_1X1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+
 const REPONSE_COMPLETE = {
   ok: true,
   transcript: 'Ceci est une phrase de test. En voici une deuxième. Et une troisième pour faire bonne mesure.',
   description: 'Une description de vidéo TikTok pour le test.',
   stats: { vues: 736200, likes: 31200, commentaires: 129, partages: 2379 },
-  auteur: { uniqueId: 'yamo.la.cuisine', nickname: 'Yamo La Cuisine' },
+  auteur: { uniqueId: 'yamo.la.cuisine', nickname: 'Yamo La Cuisine', avatarUrl: 'https://cdn-test.example/avatar-yamo.jpg' },
   createTime: 1785650330,
   langue: 'fr'
 };
@@ -41,6 +45,10 @@ test('Transcription TikTok : la carte source affiche auteur, date, description e
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
     await poserMocksReseau(page, {});
+    // Retour du propriétaire : vraie photo de profil plutôt qu'une initiale
+    // seule (bac à sable sans accès réseau réel, on simule le CDN).
+    await page.route('https://cdn-test.example/avatar-yamo.jpg', (route) =>
+      route.fulfill({ status: 200, contentType: 'image/png', body: PNG_1X1 }));
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await connecterAbonne(page, { code: 'PRO-TEST', plan: 'pro' });
     await ouvrirEtTranscrire(page, REPONSE_COMPLETE);
@@ -59,6 +67,15 @@ test('Transcription TikTok : la carte source affiche auteur, date, description e
 
     // La date (1785650330 -> 1 avril 2026) doit être formatée, pas le nombre brut.
     assert.doesNotMatch(texte, /1785650330/);
+
+    await page.waitForSelector('#outilsResults .outils-source-avatar-img', { timeout: 5000 });
+    const avatar = await page.evaluate(() => {
+      const img = document.querySelector('#outilsResults .outils-source-avatar-img');
+      return img ? { src: img.getAttribute('src'), charge: img.complete && img.naturalWidth > 0 } : null;
+    });
+    assert.ok(avatar, 'la vraie photo de profil doit apparaître dans la carte source');
+    assert.equal(avatar.src, 'https://cdn-test.example/avatar-yamo.jpg');
+    assert.equal(avatar.charge, true, 'la photo doit se charger correctement (pas une image cassée)');
 
     assert.deepEqual(erreursJs, []);
   } finally { await navigateur.close(); await arreter(); }

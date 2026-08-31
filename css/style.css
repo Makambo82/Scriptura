@@ -2879,12 +2879,14 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .outils-dl-note{font-size:0.78rem;color:rgba(255,255,255,0.5);margin-top:14px;line-height:1.5}
 
 /* Carte "source" de la vidéo transcrite (auteur, date, description, stats) :
-   pas d'avatar image (URL TikHub signée à durée de vie courte, casserait
-   l'affichage la plupart du temps, voir extraireAuteurInfo,
-   api/_lib/tiktok-media.js), un badge à initiale à la place. */
+   vraie photo de profil quand elle est disponible (extraireAuteurInfo,
+   api/_lib/tiktok-media.js), un badge à initiale reste dessous en repli
+   (voir .outils-source-avatar-img, onerror="this.remove()") si le lien
+   CDN a expiré. */
 .outils-source-card{background:linear-gradient(135deg,rgba(201,168,76,0.06),rgba(255,255,255,0.02));border:1px solid var(--border-soft);border-radius:14px;padding:20px;margin-top:24px;text-align:left}
 .outils-source-head{display:flex;align-items:center;gap:12px}
-.outils-source-avatar{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));color:var(--bg);font-family:'Playfair Display',serif;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.outils-source-avatar{position:relative;overflow:hidden;flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));color:var(--bg);font-family:'Playfair Display',serif;font-weight:700;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.outils-source-avatar-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .outils-source-id{flex:1;min-width:0}
 .outils-source-nom{font-size:0.92rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .outils-source-handle{font-size:0.78rem;color:var(--text-secondary)}

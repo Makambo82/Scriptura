@@ -30,7 +30,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota } from './_lib/acces.js';
-import { urlsVideo, telechargerMedia, detailTikHub, extraireAuteurUsername } from './_lib/tiktok-media.js';
+import { urlsVideo, telechargerMedia, detailTikHub, extraireAuteurUsername, extraireAuteurAvatar } from './_lib/tiktok-media.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
@@ -119,7 +119,8 @@ function allegerItem(item) {
       id: author.id || null,
       uniqueId: author.uniqueId || null,
       nickname: author.nickname || null,
-      followerCount: typeof authorStats.followerCount === 'number' ? authorStats.followerCount : null
+      followerCount: typeof authorStats.followerCount === 'number' ? authorStats.followerCount : null,
+      avatarUrl: extraireAuteurAvatar(author)
     },
     stats: {
       vues: Number(stats.playCount) || 0,
@@ -185,6 +186,13 @@ async function transcrireVideo(v, tikhubKey, elevenKey) {
       const uniqueId = extraireAuteurUsername(detail);
       if (uniqueId) v.auteur = { ...(v.auteur || {}), uniqueId };
     }
+    // Même repli pour la photo de profil (retour du propriétaire : une
+    // vraie photo plutôt qu'une initiale) : l'item de recherche ne la porte
+    // pas toujours non plus.
+    if (detail && (!v.auteur || !v.auteur.avatarUrl)) {
+      const avatarUrl = extraireAuteurAvatar(detail);
+      if (avatarUrl) v.auteur = { ...(v.auteur || {}), avatarUrl };
+    }
   }
   for (const u of urls) {
     const media = await telechargerMedia(u);
@@ -245,26 +253,41 @@ async function synthetiser(niche, videos) {
 
   // Classement des créateurs par vues cumulées SUR CET ÉCHANTILLON (pas leur
   // compte entier, honnête sur ce qui est réellement mesuré ici). Chaque
-  // créateur porte aussi sa MEILLEURE vidéo de l'échantillon (id/desc/lien) :
-  // retour du propriétaire, le rapport donnait le nom d'un créateur sans
-  // jamais dire QUELLE vidéo regarder. On parcourt les vidéos déjà classées
-  // par performance (classerParPerformance, vues ET engagement) : la
-  // première vidéo rencontrée pour un créateur est donc sa plus performante,
-  // pas juste la première de la liste brute.
+  // créateur porte aussi sa photo de profil (avatarUrl) et sa MEILLEURE
+  // vidéo de l'échantillon (id/desc/lien/stats détaillées) : retour du
+  // propriétaire, le rapport donnait le nom d'un créateur sans jamais dire
+  // QUELLE vidéo regarder. On parcourt les vidéos déjà classées par
+  // performance (classerParPerformance, vues ET engagement) : la première
+  // vidéo rencontrée pour un créateur est donc sa plus performante, pas
+  // juste la première de la liste brute.
+  //
+  // Le lien doit TOUJOURS exister, même sans uniqueId (constaté en prod sur
+  // des niches comme "finance"/"actualité" : ni l'item de recherche ni le
+  // détail du post ne le fournissent pour une partie des auteurs, malgré la
+  // résolution déjà tentée dans transcrireVideo). TikTok route une page
+  // /@handle/video/{id} sur l'ID de la vidéo, pas sur le handle (confirmé
+  // par les nombreux outils tiers qui génèrent ce type de lien à partir du
+  // seul ID) : un handle générique en repli donne donc quand même un lien
+  // fonctionnel, jamais un lien mort faute de handle exact.
   const parAuteur = new Map();
+  let videosAvecHandle = 0, videosSansHandle = 0;
   classerParPerformance(avecStats).forEach(v => {
     const a = v.auteur || {};
     const cle = a.uniqueId || a.id;
     if (!cle) return;
+    if (a.uniqueId) videosAvecHandle++; else videosSansHandle++;
     if (!parAuteur.has(cle)) {
       parAuteur.set(cle, {
-        uniqueId: a.uniqueId, nickname: a.nickname, followerCount: a.followerCount,
+        uniqueId: a.uniqueId, nickname: a.nickname, followerCount: a.followerCount, avatarUrl: a.avatarUrl || null,
         vuesCumulees: 0, nbVideos: 0,
         meilleureVideo: {
           id: v.id,
           desc: v.desc || '',
           vues: v.stats.vues,
-          lien: a.uniqueId ? `https://www.tiktok.com/@${a.uniqueId}/video/${v.id}` : null
+          likes: v.stats.likes,
+          commentaires: v.stats.commentaires,
+          partages: v.stats.partages,
+          lien: `https://www.tiktok.com/@${a.uniqueId || 'video'}/video/${v.id}`
         }
       });
     }
@@ -284,6 +307,11 @@ async function synthetiser(niche, videos) {
     transcrites: videos.filter(v => v.transcript).length,
     echecsTranscription: echecs.length,
     echecsDetail,
+    // Diagnostic (voir commentaire sur meilleureVideo.lien ci-dessus) :
+    // combien de vidéos de l'échantillon avaient un vrai handle vs un lien
+    // de repli, pour savoir si ce cas reste marginal ou s'il faut aller
+    // plus loin (ex. un 2e appel TikHub dédié à la résolution du handle).
+    videosAvecHandle, videosSansHandle,
     vuesMedianes, likesMedianes, engagementMoyen, momentum, topCreateurs
   };
 

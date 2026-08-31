@@ -377,6 +377,111 @@ test('avancer : la synthèse finale donne à chaque créateur un lien vers SA vi
     assert.equal(chef1.meilleureVideo.id, 'v-forte', 'la vidéo la plus performante doit être retenue, pas la première rencontrée');
     assert.equal(chef1.meilleureVideo.lien, 'https://www.tiktok.com/@chef1/video/v-forte');
     assert.equal(chef1.vuesCumulees, 501000);
+    // Retour du propriétaire (photo de profil) : la carte doit porter aussi
+    // les stats détaillées de la vidéo phare (likes/commentaires/partages),
+    // pas seulement les vues, pour le bandeau de stats compact.
+    assert.equal(chef1.meilleureVideo.likes, 40000);
+    assert.equal(chef1.meilleureVideo.commentaires, 2000);
+    assert.equal(chef1.meilleureVideo.partages, 1500);
+  } finally { restaurer(); }
+});
+
+test('lancer : capture la photo de profil de l\'auteur (avatarLarger) depuis l\'item de recherche', async () => {
+  // Retour du propriétaire : une vraie photo de profil plutôt qu'une
+  // initiale seule. TikHub porte l'avatar sous author.avatarLarger.urlList
+  // (même forme que les autres champs media, voir urlsVideo).
+  const restaurer = poserEnv();
+  const items = [
+    {
+      item: {
+        id: 'v-avec-avatar', desc: 'test', createTime: Math.floor(Date.now() / 1000),
+        stats: { playCount: 50000, diggCount: 2000, commentCount: 50, shareCount: 30 },
+        author: { uniqueId: 'chef.photo', nickname: 'Chef Photo', avatarLarger: { urlList: ['https://p16-sign.tiktokcdn.com/avatar-chef.jpeg'] } },
+        authorStats: { followerCount: 15000 }
+      }
+    },
+    // Reserve minimale de 5 vidéos exigée par lancer() (voir reserve.size <
+    // 5 => "pas_assez_de_videos") : ces vidéos de remplissage n'ont pas
+    // d'avatar, seule la première est vérifiée ci-dessous.
+    ...Array.from({ length: 4 }, (_, i) => ({
+      item: {
+        id: 'filler' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000),
+        stats: { playCount: 100, diggCount: 1, commentCount: 0, shareCount: 0 },
+        author: {}, authorStats: {}
+      }
+    }))
+  ];
+  let corpsInsere = null;
+  poserFetchMock({
+    pagesRecherche: [{ data: { data: items, cursor: 1, has_more: false } }],
+    custom: async (u, opts) => {
+      if (u.includes('/rest/v1/tendances_niche') && opts && opts.method === 'POST') {
+        corpsInsere = JSON.parse(opts.body);
+        return { ok: true, json: async () => [{ id: 'job-avatar-recherche' }] };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', code_acces: ENV_BASE.CODE_ADMIN, test: true } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.ok(corpsInsere, 'la ligne Supabase aurait dû être créée');
+    assert.equal(corpsInsere.videos[0].auteur.avatarUrl, 'https://p16-sign.tiktokcdn.com/avatar-chef.jpeg');
+  } finally { restaurer(); }
+});
+
+test('avancer : complète la photo de profil manquante via le détail du post, et la propage au créateur', async () => {
+  // Même repli que pour le uniqueId (retour du propriétaire) : l'item de
+  // recherche ne porte pas toujours la photo, le détail du post si.
+  const restaurer = poserEnv({ ELEVENLABS_API_KEY: 'cle-eleven-test' });
+  const maintenant = Math.floor(Date.now() / 1000);
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-avatar-manquant',
+      statut: 'en_cours',
+      niche: 'cuisine',
+      index_suivant: 0,
+      videos: [{
+        id: 'v-sans-avatar', desc: 'Une astuce', createTime: maintenant,
+        auteur: { uniqueId: 'chef.sans.photo', nickname: 'Chef Sans Photo', avatarUrl: null },
+        stats: { vues: 200000, likes: 10000, commentaires: 300, partages: 200 },
+        hashtags: [], urlsCandidates: [], transcript: null, transcriptEchec: false
+      }]
+    },
+    custom: async (u, opts) => {
+      if (u.includes('fetch_post_detail')) {
+        return {
+          ok: true, json: async () => ({
+            item: {
+              video: { playAddr: 'https://cdn-fraiche.example/frais.mp4' },
+              author: { uniqueId: 'chef.sans.photo', nickname: 'Chef Sans Photo', avatarLarger: { urlList: ['https://p16-sign.tiktokcdn.com/avatar-complete.jpeg'] } }
+            }
+          })
+        };
+      }
+      if (u.includes('cdn-fraiche.example')) {
+        return { ok: true, status: 200, headers: { get: (h) => (h === 'content-type' ? 'video/mp4' : '') }, arrayBuffer: async () => Buffer.alloc(60000).buffer };
+      }
+      if (u.includes('elevenlabs.io')) {
+        return { ok: true, text: async () => JSON.stringify({ text: 'Une astuce pratique pour la cuisine de tous les jours.' }) };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-avatar-manquant', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine');
+    const createur = (res.corpsRecu.resultat.topCreateurs || [])[0];
+    assert.ok(createur, 'le créateur doit apparaître dans le classement');
+    assert.equal(createur.avatarUrl, 'https://p16-sign.tiktokcdn.com/avatar-complete.jpeg', 'la photo complétée via fetch_post_detail doit être propagée au créateur');
   } finally { restaurer(); }
 });
 
@@ -435,6 +540,60 @@ test('avancer : complète le uniqueId manquant de l\'auteur via le détail du po
     const createur = (res.corpsRecu.resultat.topCreateurs || [])[0];
     assert.ok(createur, 'le créateur doit apparaître dans le classement même sans uniqueId au départ');
     assert.equal(createur.meilleureVideo.lien, 'https://www.tiktok.com/@conseils.finance.reel/video/v-sans-uniqueid', 'le uniqueId complété via fetch_post_detail doit servir à construire le lien');
+  } finally { restaurer(); }
+});
+
+test('avancer : même sans AUCUN handle trouvable (ni recherche, ni détail du post), le lien vidéo existe quand même (repli sur l\'ID)', async () => {
+  // Retour du propriétaire (2e passe) : toujours aucun lien affiché, y
+  // compris après le correctif de complétion via fetch_post_detail. Constat
+  // en prod : pour certaines niches (finance, actualité...), NI l'item de
+  // recherche NI le détail du post ne portent de uniqueId exploitable.
+  // Le lien doit rester utilisable : TikTok route une page /@x/video/{id}
+  // sur l'ID de la vidéo, pas sur le handle, donc un handle générique en
+  // repli donne un lien fonctionnel plutôt qu'aucun lien du tout.
+  const restaurer = poserEnv({ ELEVENLABS_API_KEY: 'cle-eleven-test' });
+  const maintenant = Math.floor(Date.now() / 1000);
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-sans-handle-du-tout',
+      statut: 'en_cours',
+      niche: 'finance',
+      index_suivant: 0,
+      videos: [{
+        id: 'v-sans-handle-nulle-part', desc: 'Placer son argent intelligemment.', createTime: maintenant,
+        auteur: { id: 'auteur-numerique-999', uniqueId: null, nickname: 'Page Finance' },
+        stats: { vues: 150000, likes: 9000, commentaires: 200, partages: 150 },
+        hashtags: [], urlsCandidates: [], transcript: null, transcriptEchec: false
+      }]
+    },
+    custom: async (u, opts) => {
+      if (u.includes('fetch_post_detail')) {
+        // Détail renvoyé mais SANS uniqueId nulle part (cas réel constaté) :
+        // extraireAuteurUsername doit renvoyer null, pas planter.
+        return { ok: true, json: async () => ({ item: { video: { playAddr: 'https://cdn-fraiche.example/frais.mp4' }, author: { id: 'auteur-numerique-999', nickname: 'Page Finance' } } }) };
+      }
+      if (u.includes('cdn-fraiche.example')) {
+        return { ok: true, status: 200, headers: { get: (h) => (h === 'content-type' ? 'video/mp4' : '') }, arrayBuffer: async () => Buffer.alloc(60000).buffer };
+      }
+      if (u.includes('elevenlabs.io')) {
+        return { ok: true, text: async () => JSON.stringify({ text: 'Placer son argent intelligemment chaque mois.' }) };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-sans-handle-du-tout', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine');
+    const createur = (res.corpsRecu.resultat.topCreateurs || [])[0];
+    assert.ok(createur, 'le créateur doit apparaître même sans handle (clé = auteur.id)');
+    assert.equal(createur.meilleureVideo.lien, 'https://www.tiktok.com/@video/video/v-sans-handle-nulle-part', 'un lien fonctionnel (repli sur l\'ID) doit exister même sans aucun handle trouvable');
+    assert.equal(res.corpsRecu.resultat.videosSansHandle, 1);
+    assert.equal(res.corpsRecu.resultat.videosAvecHandle, 0);
   } finally { restaurer(); }
 });
 

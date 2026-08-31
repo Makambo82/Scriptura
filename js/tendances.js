@@ -243,13 +243,13 @@ function afficherTendancesResultat(d) {
     </div>`;
 
   // Même carte "source" que la transcription TikTok (voir
-  // afficherResultatTranscription, js/tiktok-outils.js) : avatar à
-  // initiale (jamais une image, les URLs TikHub sont signées à durée de
-  // vie courte, voir extraireAuteurInfo) + nom + abonnés en tête, détails
-  // (vues cumulées) en dessous, pour CHAQUE créateur de la niche. Chaque
-  // carte pointe aussi vers sa vidéo la plus performante de l'échantillon
-  // (retour du propriétaire : le nom du créateur seul ne dit pas QUELLE
-  // vidéo aller voir).
+  // afficherResultatTranscription, js/tiktok-outils.js) : vraie photo de
+  // profil (repli sur l'initiale si le lien CDN a expiré, voir
+  // outils-source-avatar-img) + nom + abonnés en tête. Le corps de la carte
+  // porte la vidéo la plus performante de CE créateur dans l'échantillon
+  // (retour du propriétaire : le nom seul ne dit pas QUELLE vidéo aller
+  // voir) : sa description, ses stats (mêmes icônes que la transcription/le
+  // téléchargement) et un lien direct vers la vidéo, tout en bas de la carte.
   const createursHtml = createurs.length ? `
     <div class="score-card">
       <div class="audit-section-label">Top créateurs de ta niche</div>
@@ -257,19 +257,30 @@ function afficherTendancesResultat(d) {
         ${createurs.map((c, i) => {
           const nom = c.nickname || (c.uniqueId ? '@' + c.uniqueId : 'Créateur');
           const initiale = (c.nickname || c.uniqueId || 'C').trim().charAt(0).toUpperCase();
+          const avatarImg = c.avatarUrl
+            ? `<img class="outils-source-avatar-img" src="${tendancesEsc(c.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"/>`
+            : '';
           const mv = c.meilleureVideo;
           const descCourte = mv && mv.desc ? (mv.desc.length > 90 ? mv.desc.slice(0, 90) + '…' : mv.desc) : '';
+          const statsHtml = mv ? `
+            <div class="ds-stats-row" style="justify-content:flex-start;margin:10px 0 0">
+              ${mv.vues != null ? `<div class="ds-stat-item">${ICO('eye')}<span class="ds-stat-num">${formaterNombre(mv.vues)}</span></div>` : ''}
+              ${mv.likes != null ? `<div class="ds-stat-item">${ICO('heart')}<span class="ds-stat-num">${formaterNombre(mv.likes)}</span></div>` : ''}
+              ${mv.commentaires != null ? `<div class="ds-stat-item">${ICO('comment')}<span class="ds-stat-num">${formaterNombre(mv.commentaires)}</span></div>` : ''}
+              ${mv.partages != null ? `<div class="ds-stat-item">${ICO('share')}<span class="ds-stat-num">${formaterNombre(mv.partages)}</span></div>` : ''}
+            </div>` : '';
           return `<li>
             <div class="outils-source-head">
-              <div class="outils-source-avatar">${tendancesEsc(initiale)}</div>
+              <div class="outils-source-avatar">${tendancesEsc(initiale)}${avatarImg}</div>
               <div class="outils-source-id">
                 <div class="outils-source-nom">${tendancesEsc(nom)}</div>
                 <div class="outils-source-handle">${c.uniqueId && c.nickname ? '@' + tendancesEsc(c.uniqueId) : ''}${c.followerCount != null ? (c.uniqueId && c.nickname ? ' · ' : '') + formaterNombre(c.followerCount) + ' abonnés' : ''}</div>
               </div>
               <div class="outils-source-date">#${i + 1}</div>
             </div>
-            <p class="outils-source-desc">${formaterNombre(c.vuesCumulees || 0)} vues cumulées sur ${c.nbVideos || 1} vidéo${(c.nbVideos || 1) > 1 ? 's' : ''} de l'échantillon${descCourte ? ` · vidéo la plus vue : « ${tendancesEsc(descCourte)} »` : ''}</p>
-            ${mv && mv.lien ? `<a class="outils-source-lien" href="${tendancesEsc(mv.lien)}" target="_blank" rel="noopener noreferrer">${ICO('link')}Voir cette vidéo (${formaterNombre(mv.vues || 0)} vues)</a>` : ''}
+            ${descCourte ? `<p class="outils-source-desc">« ${tendancesEsc(descCourte)} »</p>` : ''}
+            ${statsHtml}
+            ${mv && mv.lien ? `<a class="outils-source-lien" href="${tendancesEsc(mv.lien)}" target="_blank" rel="noopener noreferrer">${ICO('link')}Voir cette vidéo</a>` : ''}
           </li>`;
         }).join('')}
       </ul>

@@ -287,14 +287,18 @@ function _outilsTelechargerTxt() {
 
 // Carte "source" de la vidéo (auteur, date, description, stats), commune à
 // la transcription et au téléchargement (même style, retour du
-// propriétaire) : jamais d'avatar image (URLs TikHub signées à durée de
-// vie courte, voir extraireAuteurInfo, api/_lib/tiktok-media.js), un badge
-// à initiale à la place.
+// propriétaire). Vraie photo de profil (extraireAuteurInfo,
+// api/_lib/tiktok-media.js) quand elle est disponible ; le badge à
+// initiale reste dessous en repli (onerror), au cas où le lien CDN
+// expire, jamais un cadre cassé ou vide.
 function _outilsCarteSourceHtml(meta) {
   meta = meta || {};
   const auteur = meta.auteur || {};
   const nom = auteur.nickname || (auteur.uniqueId ? '@' + auteur.uniqueId : 'Vidéo TikTok');
   const initiale = (auteur.nickname || auteur.uniqueId || 'T').trim().charAt(0).toUpperCase();
+  const avatarImg = auteur.avatarUrl
+    ? `<img class="outils-source-avatar-img" src="${outilsEsc(auteur.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"/>`
+    : '';
   const dateStr = meta.createTime
     ? new Date(meta.createTime * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
@@ -310,7 +314,7 @@ function _outilsCarteSourceHtml(meta) {
   return `
     <div class="outils-source-card">
       <div class="outils-source-head">
-        <div class="outils-source-avatar">${outilsEsc(initiale)}</div>
+        <div class="outils-source-avatar">${outilsEsc(initiale)}${avatarImg}</div>
         <div class="outils-source-id">
           <div class="outils-source-nom">${outilsEsc(nom)}</div>
           ${auteur.uniqueId && auteur.nickname ? `<div class="outils-source-handle">@${outilsEsc(auteur.uniqueId)}</div>` : ''}
