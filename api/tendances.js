@@ -30,7 +30,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota } from './_lib/acces.js';
-import { urlsVideo, telechargerMedia } from './_lib/tiktok-media.js';
+import { urlsVideo, telechargerMedia, detailTikHub } from './_lib/tiktok-media.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
@@ -140,13 +140,25 @@ async function transcrireEleven(buf, contentType, key) {
   finally { clearTimeout(minuteur); }
 }
 
-// Premier test réel en prod (16 vidéos trouvées sur 50 visées, seulement 2
-// transcrites sur 16) : on garde désormais la raison précise de chaque échec
-// (déjà fournie par telechargerMedia, jetée avant) dans `echecDetail`, pour
-// diagnostiquer sur des données réelles plutôt que deviner un correctif.
-async function transcrireVideo(v, elevenKey) {
+// 2 tours de test réel en prod : diagnostic confirmé, quasi tous les échecs
+// sont "http 403" (voir echecDetail, historique git). Les URLs playAddr/
+// downloadAddr capturées à `lancer` sont des liens signés à durée de vie
+// courte, périmés le temps que `avancer` les atteigne. api/tiktok-video.js
+// (mode vidéo unique, en prod, fiable) ne les utilise jamais tels quels :
+// il résout une URL FRAÎCHE juste avant de télécharger via fetch_post_detail
+// (voir resoudreVideoTikTok, _lib/tiktok-media.js). Même principe ici :
+// on retente une résolution fraîche par TikHub avant le téléchargement, et
+// on ne retombe sur les URLs de la recherche (potentiellement périmées) que
+// si cette résolution fraîche échoue (panne TikHub, id introuvable...).
+async function transcrireVideo(v, tikhubKey, elevenKey) {
   const raisons = [];
-  for (const u of (v.urlsCandidates || [])) {
+  let urls = v.urlsCandidates || [];
+  if (tikhubKey) {
+    const detail = await detailTikHub(v.id, tikhubKey);
+    const fraiches = detail ? urlsVideo(detail).slice(0, 3) : [];
+    if (fraiches.length) urls = fraiches;
+  }
+  for (const u of urls) {
     const media = await telechargerMedia(u);
     if (!media.ok) { raisons.push(media.reason || 'échec inconnu'); continue; }
     const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
@@ -320,7 +332,7 @@ async function lancer(req, res, tikhubKey) {
 }
 
 // ── action=avancer : traite un lot borné, en parallèle, jusqu'au bout ──
-async function avancer(req, res, elevenKey) {
+async function avancer(req, res, tikhubKey, elevenKey) {
   const { id, code_acces } = req.body || {};
   if (!id) return res.status(400).json({ error: { message: 'id manquant' } });
   const droits = await resoudreDroits(code_acces);
@@ -340,7 +352,7 @@ async function avancer(req, res, elevenKey) {
   if (!elevenKey) {
     lot.forEach(v => { v.transcriptEchec = true; }); // dégradation propre : la synthèse continue sans transcript
   } else {
-    await Promise.all(lot.map(v => transcrireVideo(v, elevenKey)));
+    await Promise.all(lot.map(v => transcrireVideo(v, tikhubKey, elevenKey)));
   }
 
   const nouvelIndex = Math.min(debut + LOT_PAR_AVANCEE, videos.length);
@@ -403,7 +415,7 @@ export default async function handler(req, res) {
   try {
     const action = (req.body && req.body.action) || '';
     if (action === 'lancer') return await lancer(req, res, tikhubKey);
-    if (action === 'avancer') return await avancer(req, res, elevenKey);
+    if (action === 'avancer') return await avancer(req, res, tikhubKey, elevenKey);
     return res.status(400).json({ error: { message: 'action inconnue (attendu : "lancer" ou "avancer")' } });
   } catch (e) {
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });

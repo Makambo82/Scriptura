@@ -27,9 +27,15 @@ function creerRes() {
 
 // Dispatch par URL : chaque scénario fournit juste les réponses qui
 // l'intéressent, tout le reste renvoie une réponse "vide" raisonnable.
+// `scenario.custom(url, opts)` (optionnel) est vérifié en premier, pour les
+// tests qui ont besoin de mocker des URLs arbitraires (CDN vidéo, ElevenLabs).
 function poserFetchMock(scenario) {
   global.fetch = async (url, opts) => {
     const u = String(url);
+    if (scenario.custom) {
+      const r = await scenario.custom(u, opts);
+      if (r) return r;
+    }
     if (u.includes('/rest/v1/abonnes')) {
       const rows = scenario.abonneRows != null ? scenario.abonneRows : [];
       return { ok: true, json: async () => rows };
@@ -43,6 +49,12 @@ function poserFetchMock(scenario) {
     }
     if (u.includes('/rest/v1/tendances_niche') && opts && opts.method === 'POST') {
       return { ok: true, json: async () => [{ id: 'job-test-1' }] };
+    }
+    if (u.includes('/rest/v1/tendances_niche') && (!opts || !opts.method || opts.method === 'GET')) {
+      return { ok: true, json: async () => (scenario.jobRow ? [scenario.jobRow] : []) };
+    }
+    if (u.includes('/rest/v1/tendances_niche') && opts && opts.method === 'PATCH') {
+      return { ok: true, json: async () => ({}) };
     }
     return { ok: true, json: async () => ({}) };
   };
@@ -137,6 +149,58 @@ test('GET debug sans code admin => 403', async () => {
     const res = creerRes();
     await handler(req, res);
     assert.equal(res.statutRecu, 403);
+  } finally { restaurer(); }
+});
+
+test('avancer : résout une URL fraîche via fetch_post_detail avant de télécharger (plutôt que l\'URL périmée de la recherche)', async () => {
+  const restaurer = poserEnv({ ELEVENLABS_API_KEY: 'cle-eleven-test' });
+  const urlsAppelees = [];
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-1',
+      statut: 'en_cours',
+      niche: 'cuisine',
+      index_suivant: 0,
+      videos: [{
+        id: 'v1', desc: 'test', createTime: Math.floor(Date.now() / 1000),
+        auteur: { uniqueId: 'auteur1' }, stats: { vues: 1000, likes: 10, commentaires: 1, partages: 1 },
+        hashtags: [], urlsCandidates: ['https://cdn-perimee.example/vieux.mp4'],
+        transcript: null, transcriptEchec: false
+      }]
+    },
+    custom: async (u, opts) => {
+      urlsAppelees.push(u);
+      if (u.includes('fetch_post_detail')) {
+        return { ok: true, json: async () => ({ item: { video: { playAddr: 'https://cdn-fraiche.example/frais.mp4' } } }) };
+      }
+      if (u.includes('cdn-fraiche.example')) {
+        return {
+          ok: true, status: 200,
+          headers: { get: (h) => (h === 'content-type' ? 'video/mp4' : '') },
+          arrayBuffer: async () => Buffer.alloc(60000).buffer
+        };
+      }
+      if (u.includes('cdn-perimee.example')) {
+        // L'ancienne URL périmée : si le code l'appelle encore, le test doit
+        // le voir dans urlsAppelees pour révéler la régression.
+        return { ok: false, status: 403, headers: { get: () => '' } };
+      }
+      if (u.includes('elevenlabs.io')) {
+        return { ok: true, text: async () => JSON.stringify({ text: 'Bonjour ceci est une transcription de test.' }) };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-1', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.ok(urlsAppelees.some(u => u.includes('fetch_post_detail')), 'fetch_post_detail aurait dû être appelé pour résoudre une URL fraîche');
+    assert.ok(urlsAppelees.some(u => u.includes('cdn-fraiche.example')), 'la vidéo aurait dû être téléchargée depuis l\'URL fraîche');
+    assert.ok(!urlsAppelees.some(u => u.includes('cdn-perimee.example')), 'l\'URL périmée de la recherche ne devrait plus être utilisée quand la résolution fraîche réussit');
   } finally { restaurer(); }
 });
 
