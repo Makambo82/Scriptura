@@ -117,6 +117,80 @@ function _formatPatternsViraux(patterns) {
   return `\nMÉMOIRE VIRALE DE SCRIPTURA (recettes RÉELLEMENT virales déjà décodées, retenues seulement parce que leur structure ET leurs performances l'ont prouvé). Inspire-toi de ces LEVIERS et PRINCIPES pour renforcer ta production, mais ADAPTE-les au sujet ci-dessous, ne les copie JAMAIS tels quels, ne cite jamais cette liste et n'en reprends pas les exemples :\n${lignes.join('\n')}\n`;
 }
 
+// ── Signaux issus des PROPRES analyses du créateur (audit complet et/ou
+// diagnostic sommaire DE SON compte), demandé par le propriétaire après
+// avoir étudié le mécanisme réel de Vervox : leur générateur d'idées combine
+// "tendances de niche" + "profil déclaré" + "tes analyses éventuelles (audit
+// de compte, benchmark, analyses concurrents)". Scriptura avait déjà les deux
+// premières sources (profilLigneIdees + recherche tendances) mais ignorait
+// totalement la troisième : le prompt promettait déjà des idées fondées sur
+// les "leçons d'audit" (voir plus bas, "1. OPPORTUNITÉS") sans qu'aucune
+// donnée d'audit ne soit jamais réellement transmise. Corrigé ici.
+// Best-effort, jamais bloquant : sans audit ni diagnostic sauvegardé pour ce
+// créateur, ce bloc reste vide, aucun chiffre n'est inventé.
+function _niveauRatioIdees(score, max) {
+  if (score == null || !max) return null;
+  const r = score / max;
+  return r < 0.3 ? 'très faible' : r < 0.55 ? 'faible' : r < 0.8 ? 'correct' : 'fort';
+}
+
+async function _signauxAnalysesPropresIdees() {
+  if (typeof _derniereGenerationDe !== 'function' || typeof _recentesGenerationsDe !== 'function') return '';
+  let auditGen = null, sommaires = [];
+  try {
+    [auditGen, sommaires] = await Promise.all([_derniereGenerationDe('audit'), _recentesGenerationsDe('diagnosticSommaire', 8)]);
+  } catch (e) { return ''; }
+  const sommaireGen = (sommaires || []).find(g =>
+    typeof _sommaireEstMien === 'function' ? _sommaireEstMien(g) : (g && g.contenu && g.contenu.estMonCompte !== false));
+
+  const faibles = [], forts = [], leviers = [];
+
+  // Audit complet (captures) : 5 dimensions /20 chacune (voir SCORE_DIMS,
+  // js/audit.js), recalculées EN CODE comme à l'affichage (calculerScores),
+  // jamais relues telles quelles depuis la réponse brute du modèle.
+  if (auditGen && auditGen.contenu && typeof SCORE_DIMS !== 'undefined' && typeof calculerScores === 'function') {
+    const a = auditGen.contenu;
+    const ts = a.mesures ? calculerScores(a.mesures) : (a.tiktok_score || {});
+    SCORE_DIMS.forEach(d => {
+      const n = (typeof ts[d.key] === 'number') ? ts[d.key] : parseFloat(ts[d.key]);
+      if (!Number.isFinite(n)) return;
+      const niv = _niveauRatioIdees(n, d.max);
+      if (niv === 'très faible' || niv === 'faible') faibles.push(`${d.label} (${niv}, audit complet)`);
+      else if (niv === 'fort') forts.push(`${d.label} (fort, audit complet)`);
+    });
+    (Array.isArray(a.axes_prioritaires) ? a.axes_prioritaires : []).slice(0, 2).forEach(ax => {
+      if (ax && ax.titre) leviers.push(ax.titre + (ax.action ? ' : ' + ax.action : ''));
+    });
+  }
+
+  // Diagnostic sommaire de SON compte (5 dimensions Vervox /100, voir
+  // DS_DIM_META, js/diagnostic-sommaire.js), notes déjà calculées côté code.
+  if (sommaireGen && sommaireGen.contenu && sommaireGen.contenu.diagnostic && typeof DS_DIM_META !== 'undefined') {
+    const diag = sommaireGen.contenu.diagnostic;
+    Object.keys(DS_DIM_META).forEach(cle => {
+      const meta = DS_DIM_META[cle];
+      const dim = diag[cle];
+      if (!dim || dim.disponible === false || typeof dim.score !== 'number') return;
+      const niv = _niveauRatioIdees(dim.score, meta.max);
+      if (niv === 'très faible' || niv === 'faible') faibles.push(`${meta.label} (${niv}, diagnostic sommaire)`);
+      else if (niv === 'fort') forts.push(`${meta.label} (fort, diagnostic sommaire)`);
+    });
+    (Array.isArray(diag.leviers_prioritaires) ? diag.leviers_prioritaires : []).slice(0, 2).forEach(l => {
+      if (l && l.titre) leviers.push(l.titre + (l.detail ? ' : ' + l.detail : ''));
+    });
+  }
+
+  if (!faibles.length && !forts.length && !leviers.length) return '';
+
+  return `
+SIGNAUX ISSUS DE TES PROPRES ANALYSES (audit et/ou diagnostic déjà réalisés par ce créateur sur SON compte, ce sont des FAITS RÉELS, jamais des suppositions) :
+${faibles.length ? `- Points faibles observés : ${faibles.join(', ')}` : ''}
+${forts.length ? `- Points forts déjà confirmés : ${forts.join(', ')}` : ''}
+${leviers.length ? `- Leviers déjà identifiés pour lui : ${leviers.join(' / ')}` : ''}
+
+CONSIGNE LIÉE AUX SIGNAUX CI-DESSUS : au moins 2 des 10 idées doivent répondre DIRECTEMENT à un point faible observé, transformées en VRAIE IDÉE DE VIDÉO CONCRÈTE (jamais une reformulation du levier lui-même, jamais un titre du type "améliore ta régularité"). Au moins 1 idée doit s'appuyer sur un point fort déjà confirmé pour capitaliser dessus.`;
+}
+
 function setIdeaLoading(on) {
   const btn = document.getElementById('ideaGenerateBtn');
   btn.disabled = on;
@@ -166,7 +240,12 @@ async function generateIdeas() {
 
   // Mémoire du créateur : voir js/profil.js, n'ajoute qu'une ligne de plus
   // au bloc de contexte déjà présent, ne modifie aucune règle de ce prompt.
-  const profilLigneIdees = ligneProfilPourPrompt(await chargerProfilCreateur());
+  // En parallèle, les signaux issus de SES PROPRES analyses déjà faites
+  // (audit complet, diagnostic sommaire), voir _signauxAnalysesPropresIdees.
+  const [profilLigneIdees, signauxAnalysesIdees] = await Promise.all([
+    chargerProfilCreateur().then(p => ligneProfilPourPrompt(p)),
+    _signauxAnalysesPropresIdees()
+  ]);
 
   // Recherche web, deux besoins distincts, qui peuvent se cumuler : vérification
   // factuelle pour les niches d'actualité/géopolitique/Histoire (voir js/api.js),
@@ -222,6 +301,7 @@ ${ideaGoal ? '- Objectif : ' + ideaGoal : ''}
 ${ideaTone ? '- Style/angle : ' + ideaTone : ''}
 ${theme ? '- Thème précis à explorer : ' + theme : ''}
 ${profilLigneIdees ? '- ' + profilLigneIdees : ''}
+${signauxAnalysesIdees}
 
 ${geo ? `CONTRAINTE GÉOGRAPHIQUE ABSOLUE, TU ES UN EXPERT LOCAL DE : ${geo}
 Toutes les idées DOIVENT être ancrées spécifiquement dans cette zone. Ne reste JAMAIS vague ou générique.
