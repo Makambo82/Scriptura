@@ -27,6 +27,7 @@ create table if not exists tendances_niche (
   maj_le        timestamptz default now(),
   code_acces    text,                        -- créateur propriétaire (retrouver son historique)
   niche         text,
+  zone          text,                        -- zone géographique (facultative, ex. "Côte d'Ivoire", "Europe")
   statut        text default 'en_cours',     -- 'en_cours' | 'termine' | 'echec'
   videos        jsonb default '[]'::jsonb,   -- [{id, desc, createTime, author, stats, hashtags, urlsCandidates, transcript, transcriptEchec}]
   index_suivant int default 0,               -- prochaine vidéo (dans `videos`) à transcrire
@@ -36,6 +37,11 @@ create table if not exists tendances_niche (
 
 create index if not exists tendances_niche_code_idx on tendances_niche (code_acces);
 create index if not exists tendances_niche_cree_le_idx on tendances_niche (cree_le desc);
+
+-- Ajoutée après la création initiale de la table (zone géographique, retour
+-- du propriétaire) : idempotent, sans effet si la colonne existe déjà, donc
+-- sûr à rejouer même si la table a été créée par la version ci-dessus.
+alter table tendances_niche add column if not exists zone text;
 
 alter table tendances_niche enable row level security;
 -- Aucune politique pour anon = accès refusé par défaut. Le service_role

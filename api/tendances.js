@@ -53,6 +53,24 @@ const PAGES_MAX_RECHERCHE = 20;   // garde-fou anti-boucle infinie (cf. réserve
 // derniers jours (FENETRE_JOURS) restera limitée par ce qui existe
 // vraiment, quelle que soit la taille de la réserve.
 const RESERVE_MULTIPLICATEUR = 5;
+
+// Zone géographique (retour du propriétaire) : TikHub n'expose aucun vrai
+// filtre pays/région sur fetch_general_search (rien de tel confirmé lors
+// des sondes précédentes sur sort_type, voir historique git). Le seul
+// levier honnête disponible est donc le même que pour la niche : l'ajouter
+// au MOT-CLÉ de recherche ("cuisine Côte d'Ivoire" plutôt que juste
+// "cuisine"), les créateurs mentionnant souvent leur pays/région dans leur
+// légende ou leurs hashtags. "Monde entier" (et équivalents) veut dire
+// explicitement AUCUN filtre : on ne l'ajoute jamais au mot-clé, exactement
+// comme un "&" littéral aurait abîmé la pertinence de la recherche (même
+// bug déjà corrigé pour la niche).
+const ZONE_MONDIALE_RE = /^(monde entier|monde|global|mondial|worldwide|international)$/i;
+function motRechercheAvecZone(niche, zone) {
+  const n = String(niche || '').trim();
+  const z = String(zone || '').trim();
+  if (!z || ZONE_MONDIALE_RE.test(z)) return n;
+  return n + ' ' + z;
+}
 const LOT_PAR_AVANCEE = 3;        // vidéos traitées par appel "avancer", en parallèle
 const MODEL_SYNTHESE = 'claude-haiku-4-5-20251001';
 const MAX_TRANSCRIPT = 2000;      // par vidéo, la synthèse porte sur l'ensemble de l'échantillon
@@ -232,7 +250,7 @@ function mediane(arrTrie) {
 // Chiffres calculés PAR LE CODE (déterministe, jamais recalculés par l'IA,
 // même principe que le reste de Scriptura) + synthèse qualitative de l'IA
 // sur les transcripts réellement récupérés (registre, patterns de rétention).
-async function synthetiser(niche, videos) {
+async function synthetiser(niche, videos, zone) {
   const avecStats = videos.filter(v => v.stats && v.stats.vues > 0);
   const vuesTrie = avecStats.map(v => v.stats.vues).sort((a, b) => a - b);
   const likesTrie = avecStats.map(v => v.stats.likes).sort((a, b) => a - b);
@@ -321,7 +339,8 @@ async function synthetiser(niche, videos) {
     const corpus = avecTranscript
       .map((v, i) => `- Vidéo ${i + 1} (${v.stats.vues} vues${v.hashtags.length ? ', ' + v.hashtags.join(' ') : ''}) : « ${v.desc} » — transcript : ${v.transcript}`)
       .join('\n\n');
-    const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. Voici un échantillon de ${avecTranscript.length} vidéos qui cartonnent en ce moment dans la niche "${niche}" (mot-clé de recherche), avec leur transcript réel.
+    const zoneTexte = zone && !ZONE_MONDIALE_RE.test(String(zone).trim()) ? String(zone).trim() : null;
+    const prompt = `Tu es Scriptura, consultant TikTok pour créateurs francophones. Voici un échantillon de ${avecTranscript.length} vidéos qui cartonnent en ce moment dans la niche "${niche}" (mot-clé de recherche)${zoneTexte ? `, ciblée sur la zone géographique "${zoneTexte}"` : ''}, avec leur transcript réel.
 
 ${corpus.slice(0, 40000)}
 
@@ -345,7 +364,7 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
     } catch (e) { qualitatif = {}; }
   }
 
-  return { niche, ...stats, ...qualitatif };
+  return { niche, zone: zone ? String(zone).trim() : null, ...stats, ...qualitatif };
 }
 
 // Classe les vidéos par PERFORMANCE (vues ET engagement, jamais les vues
@@ -423,7 +442,7 @@ async function construireReserve(niche, cible, tikhubKey) {
 
 // ── action=lancer : cherche les vidéos candidates, crée le job ──
 async function lancer(req, res, tikhubKey) {
-  const { niche, code_acces, test } = req.body || {};
+  const { niche, code_acces, test, zone } = req.body || {};
   if (!niche || typeof niche !== 'string' || !niche.trim()) {
     return res.status(400).json({ error: { message: 'Niche manquante' } });
   }
@@ -448,7 +467,12 @@ async function lancer(req, res, tikhubKey) {
   const cfg = supabaseConfig();
   if (!cfg) return res.status(500).json({ error: { message: 'Mémoire indisponible (Supabase non configuré).' } });
 
-  const { reserve, pagesParcourues, raisonArret } = await construireReserve(niche, cible, tikhubKey);
+  // Zone géographique (retour du propriétaire) : ajoutée au mot-clé de
+  // recherche (voir motRechercheAvecZone en tête de fichier), TikHub
+  // n'ayant aucun vrai filtre pays/région. "niche" seule reste stockée à
+  // part pour l'affichage (jamais le mot-clé composite dans le rapport).
+  const motRecherche = motRechercheAvecZone(niche, zone);
+  const { reserve, pagesParcourues, raisonArret } = await construireReserve(motRecherche, cible, tikhubKey);
 
   if (reserve.size < 5) {
     return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: reserve.size, pagesParcourues, raisonArret });
@@ -467,6 +491,7 @@ async function lancer(req, res, tikhubKey) {
   const insere = await supabaseInsert(cfg, 'tendances_niche', {
     code_acces: code_acces || null,
     niche: niche.trim(),
+    zone: zone && typeof zone === 'string' && zone.trim() ? zone.trim() : null,
     statut: 'en_cours',
     videos: Array.from(collectees.values()),
     index_suivant: 0
@@ -509,7 +534,7 @@ async function avancer(req, res, tikhubKey, elevenKey) {
   let statut = 'en_cours', resultat = null;
   if (nouvelIndex >= videos.length) {
     try {
-      resultat = await synthetiser(job.niche, videos);
+      resultat = await synthetiser(job.niche, videos, job.zone);
       statut = 'termine';
     } catch (e) {
       statut = 'echec';
@@ -568,23 +593,26 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const mot = ((req.query && (req.query.mot || req.query.q)) || '').toString().trim();
+    const zoneDebug = ((req.query && req.query.zone) || '').toString().trim();
     const debug = req.query && (req.query.debug || req.query.d);
-    if (!debug || !mot) return res.status(400).json({ error: { message: 'Debug : /api/tendances?mot=NICHE&debug=1&code_acces=CODE' } });
+    if (!debug || !mot) return res.status(400).json({ error: { message: 'Debug : /api/tendances?mot=NICHE&debug=1&code_acces=CODE[&zone=ZONE]' } });
     const droits = await resoudreDroits((req.query && req.query.code_acces) || '');
     if (!droits.isAdmin) return res.status(403).json({ error: { message: 'Réservé aux comptes admin' } });
     if (!tikhubKey) return res.status(200).json({ _debug: { tikhubKeyPresent: false, raison: 'TIKHUB_API_KEY absente côté serveur' } });
+    const motAvecZone = motRechercheAvecZone(mot, zoneDebug);
     const [resultats, diagnosticReserve] = await Promise.all([
-      Promise.all(CANDIDATS_RECHERCHE.map(c => testerCandidat(c, mot, tikhubKey))),
+      Promise.all(CANDIDATS_RECHERCHE.map(c => testerCandidat(c, motAvecZone, tikhubKey))),
       // Retour du propriétaire : "on avait parlé de 50 vidéos, pourquoi ça
       // plafonne à 15 ?" Rejoue exactement la phase de recherche d'un vrai
-      // lancer() (mêmes constantes, cible=VIDEOS_CIBLE), sans créer de job
-      // ni consommer de quota/ElevenLabs : seul le coût des appels
-      // recherche TikHub, pas de téléchargement ni de transcription.
-      construireReserve(mot, VIDEOS_CIBLE, tikhubKey)
+      // lancer() (mêmes constantes, cible=VIDEOS_CIBLE, zone incluse dans le
+      // mot-clé comme lancer() le fait réellement), sans créer de job ni
+      // consommer de quota/ElevenLabs : seul le coût des appels recherche
+      // TikHub, pas de téléchargement ni de transcription.
+      construireReserve(motAvecZone, VIDEOS_CIBLE, tikhubKey)
     ]);
     return res.status(200).json({
       _debug: {
-        mot, tikhubKeyPresent: true, candidats: resultats,
+        mot, zone: zoneDebug || null, motRecherche: motAvecZone, tikhubKeyPresent: true, candidats: resultats,
         reserve: {
           trouvees: diagnosticReserve.reserve.size,
           cibleReserve: diagnosticReserve.reserveCible,

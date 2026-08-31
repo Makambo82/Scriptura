@@ -511,15 +511,17 @@ async function handleAdminStats(req, res, cfg, body) {
     ]);
 
     // parModePlan : mêmes générations, scindées par plan (Fondateur/Pro/
-    // Creator) pour repérer ce qui pousse réellement à l'upgrade (voir
-    // carteModesAdmin, js/admin.js). `code_acces` recroisé avec la liste
-    // `codes` déjà chargée ci-dessus (même Promise.all), pas de requête
-    // supplémentaire pour ça. Fondateur identifié via CODE_ADMIN (jamais
-    // dans la table `abonnes`, voir verify-code.js). Jeton/VIP/non-abonné
-    // ne rentrent dans aucun des trois compteurs, hors du périmètre de
-    // cette comparaison.
+    // Creator/Non-abonné) pour repérer ce qui pousse réellement à l'upgrade
+    // (voir carteModesAdmin, js/admin.js). `code_acces` recroisé avec la
+    // liste `codes` déjà chargée ci-dessus (même Promise.all), pas de
+    // requête supplémentaire pour ça. Fondateur identifié via CODE_ADMIN
+    // (jamais dans la table `abonnes`, voir verify-code.js). Non-abonné =
+    // aucun code_acces du tout (quota gratuit anonyme, voir callAI,
+    // js/api.js). Jeton/VIP (un code EXISTE mais ne correspond à aucun plan
+    // Pro/Creator reconnu, ex. code désactivé/expiré) ne rentrent dans
+    // aucun des quatre compteurs, hors du périmètre de cette comparaison.
     let parMode = {};
-    let parModePlan = { fondateur: {}, pro: {}, creator: {} };
+    let parModePlan = { fondateur: {}, pro: {}, creator: {}, nonAbonne: {} };
     try {
       const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
       const rModes = await fetch(
@@ -534,6 +536,10 @@ async function handleAdminStats(req, res, cfg, body) {
         parMode[m] = (parMode[m] || 0) + 1;
         if (codeFondateur && String(r.code_acces || '').toUpperCase() === codeFondateur) {
           parModePlan.fondateur[m] = (parModePlan.fondateur[m] || 0) + 1;
+          return;
+        }
+        if (!r.code_acces) {
+          parModePlan.nonAbonne[m] = (parModePlan.nonAbonne[m] || 0) + 1;
           return;
         }
         const plan = planParCode[r.code_acces];

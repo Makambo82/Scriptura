@@ -350,11 +350,11 @@ function afficherResultatTranscription(data) {
       <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
     </div>
     <div class="err" id="outilsTelechargerDepuisTranscriptionError" style="display:none;margin-top:14px"></div>
-    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:18px">
       <button class="btn-back" style="margin-bottom:0" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
-      <button class="btn-storyboard" id="outilsTelechargerDepuisTranscriptionBtn" onclick="outilsTelechargerDepuisTranscription(this)">
+      <button class="outils-mini-btn" id="outilsTelechargerDepuisTranscriptionBtn" onclick="outilsTelechargerDepuisTranscription(this)">
         <span class="sb-gen-spinner" id="outilsTelechargerDepuisTranscriptionSpinner" style="display:none"></span>
-        <span id="outilsTelechargerDepuisTranscriptionTxt">${ICO('download')} Télécharger la vidéo</span>
+        <span id="outilsTelechargerDepuisTranscriptionTxt" style="display:inline-flex;align-items:center;gap:6px">${ICO('download')} Télécharger</span>
       </button>
     </div>
   `;
@@ -423,9 +423,88 @@ function afficherResultatTelechargement(blob, meta) {
       <button class="btn-generate" id="outilsDlBtn" style="width:100%" onclick="outilsPartagerVideo()">Télécharger la vidéo</button>
       <p class="outils-dl-note">Sur téléphone, ça ouvre la fenêtre de partage pour l'enregistrer directement dans ta galerie. Sur ordinateur, elle se télécharge normalement.</p>
     </div>
-    <button class="btn-back" style="margin-top:18px" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
+    <div class="err" id="outilsTranscrireDepuisTelechargementError" style="display:none;margin-top:14px"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:18px">
+      <button class="btn-back" style="margin-bottom:0" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
+      <button class="outils-mini-btn" id="outilsTranscrireDepuisTelechargementBtn" onclick="outilsTranscrireDepuisTelechargement(this)">
+        <span class="sb-gen-spinner" id="outilsTranscrireDepuisTelechargementSpinner" style="display:none"></span>
+        <span id="outilsTranscrireDepuisTelechargementTxt" style="display:inline-flex;align-items:center;gap:6px">${ICO('pen')} Transcrire</span>
+      </button>
+    </div>
+    <div id="outilsTranscritDepuisTelechargement"></div>
   `;
   res.style.display = 'block';
+}
+
+// Symétrique de outilsTelechargerDepuisTranscription (retour du
+// propriétaire) : depuis le résultat du TÉLÉCHARGEMENT, transcrit la même
+// vidéo (même lien déjà utilisé) sans quitter cette page. Contrairement au
+// téléchargement (qui ne change rien à l'écran, juste un partage natif), la
+// transcription produit du texte à afficher : il vient s'ajouter sous le
+// bouton, la carte de téléchargement reste intacte au-dessus.
+async function outilsTranscrireDepuisTelechargement(btn) {
+  const lienEl = document.getElementById('outilsLien');
+  const lien = (lienEl && lienEl.value || '').trim();
+  const err = document.getElementById('outilsTranscrireDepuisTelechargementError');
+  const spin = document.getElementById('outilsTranscrireDepuisTelechargementSpinner');
+  const txt = document.getElementById('outilsTranscrireDepuisTelechargementTxt');
+  if (err) err.style.display = 'none';
+  if (!lien) return;
+
+  // Même quota dédié que le téléchargement (droitAnalyseVirale) : transcrire
+  // après avoir téléchargé consomme une 2e unité, une vraie 2e opération.
+  const droit = await droitAnalyseVirale();
+  if (!droit.ok) {
+    if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
+    if (err) {
+      err.textContent = droit.raison === 'quota'
+        ? "Tu as atteint ta limite d'analyses vidéo ce mois-ci (" + droit.limite + ")."
+        : "Débloque Scriptura pour transcrire cette vidéo.";
+      err.style.display = 'block';
+    }
+    if (droit.raison !== 'quota' && droit.raison !== 'expire') openPlans('nouveau');
+    return;
+  }
+
+  btn.disabled = true;
+  if (spin) spin.style.display = 'inline-block';
+  if (txt) txt.style.display = 'none';
+  try {
+    const data = await _outilsFetchJson('/api/tiktok-video?action=transcription', lien);
+    if (!data.ok || !data.transcript) {
+      throw new Error(data.raison === 'sans_parole'
+        ? "Cette vidéo ne contient pas de parole détectable."
+        : "Impossible de récupérer cette vidéo. Vérifie le lien.");
+    }
+    _outilsDecompteApresSucces();
+    _outilsTranscript = formaterTranscriptEnParagraphes(data.transcript || '');
+    const langueTag = _outilsNomLangue(data.langue);
+    const nbMots = _outilsCompterMots(data.transcript);
+    const zone = document.getElementById('outilsTranscritDepuisTelechargement');
+    if (zone) {
+      zone.innerHTML = `
+        <div class="outils-transcript-controls" style="margin-top:18px">
+          ${langueTag ? `<span class="ds-tag">${langueTag}</span>` : ''}
+          <span class="outils-word-count">${nbMots} mot${nbMots > 1 ? 's' : ''} extrait${nbMots > 1 ? 's' : ''}</span>
+          <button class="outils-mini-btn" onclick="_outilsTelechargerTxt()">${ICO('download')} .txt</button>
+          <button class="outils-mini-btn" id="outilsCopyBtn" onclick="copySection('outilsCopyBtn', _outilsTranscript)">${ICO('clipboard')} Copier</button>
+          <button class="outils-mini-btn" onclick="shareText(this, _outilsTranscript)">${ICO('share')} Partager</button>
+        </div>
+        <div class="outils-result-card" style="margin-top:14px">
+          <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
+        </div>`;
+    }
+    btn.style.display = 'none'; // la transcription est affichée, plus besoin du bouton
+  } catch (e) {
+    if (err) {
+      err.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
+      err.style.display = 'block';
+    }
+  } finally {
+    btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.style.display = '';
+  }
 }
 
 // Ouvre la feuille de partage native (fichier déjà en main, pas de nouvel

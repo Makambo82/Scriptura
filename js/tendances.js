@@ -56,6 +56,8 @@ function resetTendances() {
   if (input) input.value = '';
   const select = document.getElementById('tendancesSelect');
   if (select) select.value = '';
+  const zoneInput = document.getElementById('tendancesZoneInput');
+  if (zoneInput) zoneInput.value = '';
   choisirModeNicheTendances(true);
   const err = document.getElementById('tendancesError');
   if (err) err.style.display = 'none';
@@ -118,6 +120,11 @@ async function lancerTendances() {
     err.style.display = 'block';
     return;
   }
+  // Facultative (retour du propriétaire) : "monde entier", "Europe",
+  // "Afrique", "Côte d'Ivoire"… ajoutée au mot-clé de recherche côté
+  // serveur (voir motRechercheAvecZone, api/tendances.js), pas juste
+  // décorative.
+  const zone = (document.getElementById('tendancesZoneInput').value || '').trim();
 
   // Le gate Pro/quota a déjà été vérifié à l'ouverture de l'écran (voir
   // ouvrirTendances) : ici on ne fait plus que lancer, la vraie décision
@@ -131,14 +138,14 @@ async function lancerTendances() {
   document.getElementById('tendancesForm').style.display = 'none';
   const loading = document.getElementById('tendancesLoading');
   loading.style.display = 'block';
-  document.getElementById('tendancesLoadingSub').textContent = 'Recherche des vidéos qui cartonnent sur « ' + niche + ' »…';
+  document.getElementById('tendancesLoadingSub').textContent = 'Recherche des vidéos qui cartonnent sur « ' + niche + ' »' + (zone ? ' · ' + zone : '') + '…';
   _tendancesMajProgres(0, 'On cherche les vidéos de ta niche…');
   window.scrollTo({ top: 0, behavior: 'auto' });
 
   try {
     const r1 = await fetch('/api/tendances', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'lancer', niche, code_acces })
+      body: JSON.stringify({ action: 'lancer', niche, zone, code_acces })
     });
     if (r1.status === 403) throw new Error(await _tendancesMessageErreur(r1));
     const j1 = await r1.json();
@@ -220,14 +227,15 @@ function afficherTendancesResultat(d) {
   if (loading) loading.style.display = 'none';
 
   const niche = d.niche || '';
+  const zone = d.zone || '';
   const createurs = Array.isArray(d.topCreateurs) ? d.topCreateurs.slice(0, 10) : [];
   const patterns = Array.isArray(d.patterns_retention) ? d.patterns_retention.filter(Boolean) : [];
   const momentum = _fmtTendancesMomentum(d.momentum);
 
   const enteteHtml = `
     <div class="ideas-header" style="margin-bottom:0">
-      <div class="ideas-eyebrow">Benchmark · ${tendancesEsc(niche)}</div>
-      <h2 class="ideas-title" style="font-size:1.5rem">Ce qui cartonne<br/><strong>sur « ${tendancesEsc(niche)} ».</strong></h2>
+      <div class="ideas-eyebrow">Benchmark · ${tendancesEsc(niche)}${zone ? ' · ' + tendancesEsc(zone) : ''}</div>
+      <h2 class="ideas-title" style="font-size:1.5rem">Ce qui cartonne<br/><strong>sur « ${tendancesEsc(niche)} »${zone ? ` (${tendancesEsc(zone)})` : ''}.</strong></h2>
       ${d.echantillon ? `<p class="ideas-sub">Basé sur ${d.echantillon} vidéos des 90 derniers jours${d.transcrites ? `, dont ${d.transcrites} transcrites` : ''}.</p>` : ''}
     </div>`;
 

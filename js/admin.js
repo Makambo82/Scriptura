@@ -657,32 +657,35 @@ async function chargerCarteModes() {
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
-    // Scindé par plan (Fondateur/Pro/Creator, voir parModePlan,
+    // Scindé par plan (Fondateur/Pro/Creator/Non-abonné, voir parModePlan,
     // api/data.js) pour voir ce qui pousse réellement à l'upgrade, plutôt
-    // qu'un simple total tous plans confondus. Jeton/VIP/non-abonné hors
-    // de cette comparaison (voir le commentaire serveur). Colonnes
-    // alignées (grille), pas une ligne de texte par plan : plus lisible
-    // pour comparer un mode à l'autre d'un coup d'œil.
-    const parModePlan = data.parModePlan || { fondateur: {}, pro: {}, creator: {} };
+    // qu'un simple total tous plans confondus. Non-abonné = quota gratuit
+    // anonyme (aucun code_acces). Jeton/VIP hors de cette comparaison (voir
+    // le commentaire serveur). Colonnes alignées (grille), pas une ligne de
+    // texte par plan : plus lisible pour comparer un mode à l'autre d'un
+    // coup d'œil.
+    const parModePlan = data.parModePlan || { fondateur: {}, pro: {}, creator: {}, nonAbonne: {} };
     const modes = Array.from(new Set([
       ...Object.keys(parModePlan.fondateur || {}),
       ...Object.keys(parModePlan.pro || {}),
-      ...Object.keys(parModePlan.creator || {})
+      ...Object.keys(parModePlan.creator || {}),
+      ...Object.keys(parModePlan.nonAbonne || {})
     ]));
     const lignes = modes
       .map(m => ({
         m,
         fondateur: (parModePlan.fondateur || {})[m] || 0,
         pro: (parModePlan.pro || {})[m] || 0,
-        creator: (parModePlan.creator || {})[m] || 0
+        creator: (parModePlan.creator || {})[m] || 0,
+        nonAbonne: (parModePlan.nonAbonne || {})[m] || 0
       }))
-      .sort((a, b) => (b.fondateur + b.pro + b.creator) - (a.fondateur + a.pro + a.creator))
-      .map(r => `<div class="admin-modes-row"><span>${escAdmin(r.m)}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span></div>`)
+      .sort((a, b) => (b.fondateur + b.pro + b.creator + b.nonAbonne) - (a.fondateur + a.pro + a.creator + a.nonAbonne))
+      .map(r => `<div class="admin-modes-row"><span>${escAdmin(r.m)}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span><span>${r.nonAbonne}</span></div>`)
       .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
     return `<div class="score-card">
       <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
       <div class="admin-modes-table" style="margin-top:14px">
-        <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span></div>
+        <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span><span>Non-abonné</span></div>
         ${lignes}
       </div>
     </div>`;

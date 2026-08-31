@@ -634,6 +634,135 @@ test('avancer : même sans AUCUN handle trouvable (ni recherche, ni détail du p
   } finally { restaurer(); }
 });
 
+test('lancer : la zone géographique est ajoutée au mot-clé envoyé à TikHub, la niche seule reste stockée', async () => {
+  // Retour du propriétaire : "ajouter la zone géographique... et surtout il
+  // faut que l'app prenne cela en compte dans la recherche des tendances".
+  // TikHub n'a aucun vrai filtre pays/région (voir motRechercheAvecZone) :
+  // le seul levier honnête est de l'ajouter au mot-clé de recherche.
+  const restaurer = poserEnv();
+  const items = Array.from({ length: 5 }, (_, i) => ({
+    item: { id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: { playCount: 1000 }, author: {}, authorStats: {} }
+  }));
+  let motsRecherches = [];
+  let corpsInsere = null;
+  poserFetchMock({
+    custom: async (u, opts) => {
+      if (u.includes('fetch_general_search')) {
+        const url = new URL(u);
+        motsRecherches.push(url.searchParams.get('keyword'));
+      }
+      if (u.includes('/rest/v1/tendances_niche') && opts && opts.method === 'POST') {
+        corpsInsere = JSON.parse(opts.body);
+        return { ok: true, json: async () => [{ id: 'job-zone-test' }] };
+      }
+      return null;
+    },
+    pagesRecherche: [{ data: { data: items, cursor: 5, has_more: false } }]
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', zone: "Côte d'Ivoire", code_acces: ENV_BASE.CODE_ADMIN, test: true } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.ok, true);
+    assert.ok(motsRecherches.some(m => m === "cuisine Côte d'Ivoire"), 'le mot-clé envoyé à TikHub doit combiner niche + zone : ' + JSON.stringify(motsRecherches));
+    assert.ok(corpsInsere, 'la ligne Supabase aurait dû être créée');
+    assert.equal(corpsInsere.niche, 'cuisine', 'la niche stockée doit rester "propre", sans la zone mélangée dedans');
+    assert.equal(corpsInsere.zone, "Côte d'Ivoire");
+  } finally { restaurer(); }
+});
+
+test('lancer : "monde entier" (et équivalents) n\'est JAMAIS ajouté au mot-clé de recherche', async () => {
+  // Retour du propriétaire : "monde entier" doit vouloir dire aucun filtre,
+  // pas un "&"-like littéral qui abîmerait la pertinence de la recherche
+  // (même piège déjà corrigé pour les niches de la liste déroulante).
+  const restaurer = poserEnv();
+  const items = Array.from({ length: 5 }, (_, i) => ({
+    item: { id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: { playCount: 1000 }, author: {}, authorStats: {} }
+  }));
+  let motsRecherches = [];
+  poserFetchMock({
+    custom: async (u) => {
+      if (u.includes('fetch_general_search')) {
+        motsRecherches.push(new URL(u).searchParams.get('keyword'));
+      }
+      return null;
+    },
+    pagesRecherche: [{ data: { data: items, cursor: 5, has_more: false } }]
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', zone: 'Monde entier', code_acces: ENV_BASE.CODE_ADMIN, test: true } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.ok(motsRecherches.every(m => m === 'cuisine'), '"monde entier" ne doit jamais apparaître dans le mot-clé : ' + JSON.stringify(motsRecherches));
+  } finally { restaurer(); }
+});
+
+test('avancer : la zone géographique du job est transmise à la synthèse finale et ressort dans le résultat', async () => {
+  const restaurer = poserEnv({ ELEVENLABS_API_KEY: 'cle-eleven-test' });
+  const maintenant = Math.floor(Date.now() / 1000);
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-avec-zone',
+      statut: 'en_cours',
+      niche: 'cuisine',
+      zone: 'Afrique',
+      index_suivant: 0,
+      videos: [{
+        id: 'v1', desc: 'Une recette locale.', createTime: maintenant,
+        auteur: { uniqueId: 'chef.afrique', nickname: 'Chef Afrique' },
+        stats: { vues: 80000, likes: 6000, commentaires: 100, partages: 50 },
+        hashtags: [], urlsCandidates: [], transcript: null, transcriptEchec: false
+      }]
+    },
+    custom: async (u) => {
+      if (u.includes('fetch_post_detail')) return { ok: true, json: async () => null };
+      if (u.includes('elevenlabs.io')) return { ok: true, text: async () => JSON.stringify({ text: 'Une recette locale expliquée en détail.' }) };
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-avec-zone', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine');
+    assert.equal(res.corpsRecu.resultat.zone, 'Afrique', 'la zone doit ressortir dans le résultat final, pour l\'affichage côté client');
+  } finally { restaurer(); }
+});
+
+test('GET debug avec zone : le mot-clé combiné est utilisé pour la sonde ET le diagnostic de réserve', async () => {
+  const restaurer = poserEnv();
+  const items = Array.from({ length: 3 }, (_, i) => ({
+    item: { id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: { playCount: 1000 }, author: {}, authorStats: {} }
+  }));
+  let motsRecherches = [];
+  poserFetchMock({
+    custom: async (u) => {
+      if (u.includes('fetch_general_search')) motsRecherches.push(new URL(u).searchParams.get('keyword'));
+      return null;
+    },
+    pagesRecherche: [
+      { data: { data: items, cursor: 3, has_more: false } },
+      { data: { data: items, cursor: 3, has_more: false } }
+    ]
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'GET', query: { mot: 'cuisine', zone: 'Europe', debug: '1', code_acces: ENV_BASE.CODE_ADMIN } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu._debug.motRecherche, 'cuisine Europe');
+    assert.ok(motsRecherches.every(m => m === 'cuisine Europe'), 'tous les appels recherche de la sonde doivent utiliser le mot-clé combiné : ' + JSON.stringify(motsRecherches));
+  } finally { restaurer(); }
+});
+
 test('GET debug avec code admin => 200, sonde TikHub appelée', async () => {
   const restaurer = poserEnv();
   poserFetchMock({

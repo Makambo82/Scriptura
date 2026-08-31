@@ -263,6 +263,74 @@ test('Tendances : si la photo de profil ne charge pas, la carte retombe propreme
   } finally { await navigateur.close(); await arreter(); }
 });
 
+test('Tendances : la zone géographique se saisit juste sous la niche, est envoyée au serveur et s\'affiche dans le résultat', async () => {
+  // Retour du propriétaire : "ajouter la zone géographique... juste en bas
+  // de niche", et "il faut que l'app prenne cela en compte dans la
+  // recherche" (pas juste décoratif, voir la vraie transmission au serveur).
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page, {});
+    const resultatAvecZone = { ...RESULTAT_REEL, zone: "Côte d'Ivoire" };
+    let corpsLance = null;
+    await page.route('**/api/tendances', async (route) => {
+      let body = {}; try { body = JSON.parse(route.request().postData() || '{}'); } catch (e) {}
+      if (body.action === 'lancer') {
+        corpsLance = body;
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, id: 'job-zone-ui', total: 15 }) });
+      }
+      if (body.action === 'avancer') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, statut: 'termine', traitees: 15, total: 15, resultat: resultatAvecZone }) });
+      }
+      route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { message: 'inattendu' } }) });
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PRO-ZONE', plan: 'pro' });
+    await page.evaluate(() => { if (typeof revelerModes === 'function') revelerModes(); });
+    await page.waitForTimeout(150);
+    await page.click('button[onclick="ouvrirTendances()"]');
+    await page.waitForTimeout(150);
+
+    // Le champ doit exister juste sous le champ de niche, avec le bon texte
+    // indicateur.
+    const zonePresente = await page.evaluate(() => {
+      const zoneEl = document.getElementById('tendancesChampZone');
+      const nicheEl = document.getElementById('tendancesChampSaisie');
+      if (!zoneEl || !nicheEl) return null;
+      // "Juste en bas de niche" : la zone doit suivre le champ de niche
+      // dans l'ordre du DOM, jamais avant.
+      const position = nicheEl.compareDocumentPosition(zoneEl);
+      return {
+        placeholder: document.getElementById('tendancesZoneInput')?.placeholder,
+        apresLaNiche: !!(position & Node.DOCUMENT_POSITION_FOLLOWING)
+      };
+    });
+    assert.ok(zonePresente, 'le champ zone géographique doit exister');
+    assert.match(zonePresente.placeholder, /monde entier/i);
+    assert.match(zonePresente.placeholder, /Europe/);
+    assert.match(zonePresente.placeholder, /Afrique/);
+    assert.match(zonePresente.placeholder, /Côte d'Ivoire/);
+    assert.equal(zonePresente.apresLaNiche, true, 'le champ zone doit être placé après le champ niche');
+
+    await page.fill('#tendancesInput', 'cuisine');
+    await page.fill('#tendancesZoneInput', "Côte d'Ivoire");
+    await page.click('#tendancesGoBtn');
+    await page.waitForSelector('#tendancesResults', { state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => (document.getElementById('tendancesResults').textContent || '').includes('Yaas0u'), null, { timeout: 10000 });
+
+    assert.ok(corpsLance, 'la requête de lancement doit avoir été envoyée');
+    assert.equal(corpsLance.zone, "Côte d'Ivoire", 'la zone saisie doit être transmise au serveur, pas juste affichée');
+
+    const texte = await page.evaluate(() => document.getElementById('tendancesResults').textContent);
+    assert.match(texte, /Côte d'Ivoire/, 'la zone doit apparaître dans l\'en-tête du résultat');
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+  } finally { await navigateur.close(); await arreter(); }
+});
+
 test('Tendances : la niche peut se saisir librement OU se choisir dans une liste déroulante', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

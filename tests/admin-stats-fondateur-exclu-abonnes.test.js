@@ -33,7 +33,13 @@ const GENERATIONS = [
   { mode: 'serie', code_acces: CODE_FONDATEUR },
   { mode: 'serie', code_acces: CODE_FONDATEUR },
   { mode: 'script', code_acces: 'FIFA' },
-  { mode: 'story', code_acces: 'BRADC8P6' }
+  { mode: 'story', code_acces: 'BRADC8P6' },
+  // Générations anonymes (quota gratuit, aucun code_acces, voir callAI,
+  // js/api.js) : doivent tomber dans une colonne "Non-abonné" à part,
+  // jamais silencieusement absentes du tableau (retour du propriétaire).
+  { mode: 'ideas', code_acces: null },
+  { mode: 'ideas', code_acces: null },
+  { mode: 'script', code_acces: null }
 ];
 
 function parseCodeFiltre(param) {
@@ -125,6 +131,9 @@ test('le fondateur (ligne héritée dans `abonnes`) est exclu des comptages et d
     assert.deepEqual(data.parModePlan.fondateur, { script: 3, serie: 2 }, 'les générations du fondateur doivent être comptées à part : ' + JSON.stringify(data.parModePlan));
     assert.deepEqual(data.parModePlan.creator, { script: 1 }, 'seule la génération de FIFA doit compter en Creator : ' + JSON.stringify(data.parModePlan));
     assert.deepEqual(data.parModePlan.pro, { story: 1 }, 'seule la génération de BRADC8P6 doit compter en Pro : ' + JSON.stringify(data.parModePlan));
+    // ── Retour du propriétaire : les générations anonymes (sans code_acces)
+    //    doivent apparaître dans une colonne "Non-abonné" dédiée ──
+    assert.deepEqual(data.parModePlan.nonAbonne, { ideas: 2, script: 1 }, 'les générations sans code_acces doivent compter en Non-abonné : ' + JSON.stringify(data.parModePlan));
   } finally {
     global.fetch = fetchOriginal;
     delete process.env.SUPABASE_URL;

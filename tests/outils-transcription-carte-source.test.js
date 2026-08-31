@@ -194,3 +194,46 @@ test('Transcription TikTok : un bouton "Télécharger la vidéo" permet de récu
     assert.equal(texteEncoreLa, true, 'le transcript doit rester affiché après le téléchargement, pas d\'écran remplacé');
   } finally { await navigateur.close(); await arreter(); }
 });
+
+test('Téléchargement TikTok : un bouton "Transcrire" permet de récupérer le texte SANS quitter le résultat du téléchargement', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page, {});
+    await page.route('**/api/tiktok-video?action=download**', (route) =>
+      route.fulfill({ status: 200, headers: { 'Content-Type': 'video/mp4' }, body: Buffer.from('faux-contenu-video') }));
+    await page.route('**/api/tiktok-video?action=transcription', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(REPONSE_COMPLETE) }));
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PRO-TR2', plan: 'pro' });
+    await page.evaluate(() => { if (typeof ouvrirOutilsTikTok === 'function') ouvrirOutilsTikTok(); });
+    await page.waitForTimeout(150);
+    await page.fill('#outilsLien', 'https://www.tiktok.com/@yamo.la.cuisine/video/7669309697672908064');
+    await page.click('#outilsTelechargementBtn');
+    await page.waitForSelector('#outilsResults', { state: 'visible', timeout: 10000 });
+
+    const btnPresent = await page.evaluate(() => !!document.getElementById('outilsTranscrireDepuisTelechargementBtn'));
+    assert.equal(btnPresent, true, 'le bouton "Transcrire" doit apparaître à côté de "Essayer un autre lien"');
+
+    // Le téléchargement (bouton + note) doit toujours être là, c'est
+    // l'ajout d'une transcription qui vient s'y ajouter, jamais un
+    // remplacement de l'écran.
+    const dlBtnAvant = await page.evaluate(() => !!document.getElementById('outilsDlBtn'));
+    assert.equal(dlBtnAvant, true);
+
+    await page.click('#outilsTranscrireDepuisTelechargementBtn');
+    await page.waitForFunction(() => (document.getElementById('outilsResults').textContent || '').includes('phrase de test'), null, { timeout: 10000 });
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+
+    const dlBtnApres = await page.evaluate(() => !!document.getElementById('outilsDlBtn'));
+    assert.equal(dlBtnApres, true, 'la carte de téléchargement doit rester affichée après la transcription, pas d\'écran remplacé');
+
+    const texte = await page.evaluate(() => document.getElementById('outilsResults').textContent);
+    assert.match(texte, /17 mots extraits/);
+    assert.match(texte, /Copier/);
+  } finally { await navigateur.close(); await arreter(); }
+});
