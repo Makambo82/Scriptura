@@ -384,6 +384,43 @@ function classerParPerformance(videos) {
     .map(x => x.v);
 }
 
+// Construit la réserve de candidats (pagination TikHub + dédoublonnage +
+// filtre de fraîcheur), AVANT tri par performance. Extrait de lancer() pour
+// être réutilisable par la sonde de diagnostic (voir action GET ?debug=1
+// ci-dessous) : retour du propriétaire, "on avait parlé de 50 vidéos,
+// pourquoi ça plafonne à 15 ?" — sans ce diagnostic détaillé (pages
+// parcourues, raison d'arrêt, doublons, vidéos trop anciennes écartées), la
+// seule façon de répondre aurait été de deviner, ou de refaire tourner une
+// analyse complète payante juste pour observer les chiffres internes.
+async function construireReserve(niche, cible, tikhubKey) {
+  const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
+  const reserveCible = cible * RESERVE_MULTIPLICATEUR;
+  const reserve = new Map(); // id -> item allégé, PAS encore filtré par performance
+  let cursor = 0, page = 0, hasMore = true;
+  let doublons = 0, tropAnciennes = 0;
+  let raisonArret = null;
+  while (reserve.size < reserveCible && hasMore && page < PAGES_MAX_RECHERCHE) {
+    const lot = await rechercherVideos(niche.trim(), cursor, tikhubKey);
+    page++;
+    if (!lot) { raisonArret = 'recherche_tikhub_echouee'; break; }
+    for (const item of lot.items) {
+      if (!item || !item.id) continue;
+      if (reserve.has(item.id)) { doublons++; continue; }
+      if (item.createTime && item.createTime < seuilDate) { tropAnciennes++; continue; }
+      reserve.set(item.id, allegerItem(item));
+    }
+    hasMore = lot.hasMore;
+    cursor = lot.cursor;
+    if (cursor == null) { raisonArret = 'cursor_absent'; break; }
+  }
+  if (!raisonArret) {
+    raisonArret = reserve.size >= reserveCible ? 'reserve_cible_atteinte'
+      : !hasMore ? 'plus_de_resultats_tikhub'
+      : 'plafond_pages_atteint';
+  }
+  return { reserve, reserveCible, pagesParcourues: page, raisonArret, doublons, tropAnciennes };
+}
+
 // ── action=lancer : cherche les vidéos candidates, crée le job ──
 async function lancer(req, res, tikhubKey) {
   const { niche, code_acces, test } = req.body || {};
@@ -411,26 +448,10 @@ async function lancer(req, res, tikhubKey) {
   const cfg = supabaseConfig();
   if (!cfg) return res.status(500).json({ error: { message: 'Mémoire indisponible (Supabase non configuré).' } });
 
-  const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
-  const reserveCible = cible * RESERVE_MULTIPLICATEUR;
-  const reserve = new Map(); // id -> item allégé, PAS encore filtré par performance
-  let cursor = 0, page = 0, hasMore = true;
-  while (reserve.size < reserveCible && hasMore && page < PAGES_MAX_RECHERCHE) {
-    const lot = await rechercherVideos(niche.trim(), cursor, tikhubKey);
-    page++;
-    if (!lot) break;
-    for (const item of lot.items) {
-      if (!item || !item.id || reserve.has(item.id)) continue;
-      if (item.createTime && item.createTime < seuilDate) continue;
-      reserve.set(item.id, allegerItem(item));
-    }
-    hasMore = lot.hasMore;
-    cursor = lot.cursor;
-    if (cursor == null) break;
-  }
+  const { reserve, pagesParcourues, raisonArret } = await construireReserve(niche, cible, tikhubKey);
 
   if (reserve.size < 5) {
-    return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: reserve.size });
+    return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: reserve.size, pagesParcourues, raisonArret });
   }
 
   // On ne garde que les vidéos qui cartonnent VRAIMENT (vues ET engagement,
@@ -452,7 +473,12 @@ async function lancer(req, res, tikhubKey) {
   });
   if (!insere.ok) return res.status(500).json({ error: { message: 'Échec de la création de l\'analyse.' } });
 
-  return res.status(200).json({ ok: true, id: insere.id, total: collectees.size });
+  // raisonArret ('reserve_cible_atteinte'/'plus_de_resultats_tikhub'/
+  // 'plafond_pages_atteint') explique honnêtement pourquoi l'échantillon
+  // final peut être < VIDEOS_CIBLE (ex. "50" annoncé) sans jamais l'inventer :
+  // certaines niches ont simplement moins de contenu récent et pertinent
+  // disponible sur TikHub que d'autres.
+  return res.status(200).json({ ok: true, id: insere.id, total: collectees.size, reserveTrouvee: reserve.size, pagesParcourues, raisonArret });
 }
 
 // ── action=avancer : traite un lot borné, en parallèle, jusqu'au bout ──
@@ -547,8 +573,28 @@ export default async function handler(req, res) {
     const droits = await resoudreDroits((req.query && req.query.code_acces) || '');
     if (!droits.isAdmin) return res.status(403).json({ error: { message: 'Réservé aux comptes admin' } });
     if (!tikhubKey) return res.status(200).json({ _debug: { tikhubKeyPresent: false, raison: 'TIKHUB_API_KEY absente côté serveur' } });
-    const resultats = await Promise.all(CANDIDATS_RECHERCHE.map(c => testerCandidat(c, mot, tikhubKey)));
-    return res.status(200).json({ _debug: { mot, tikhubKeyPresent: true, candidats: resultats } });
+    const [resultats, diagnosticReserve] = await Promise.all([
+      Promise.all(CANDIDATS_RECHERCHE.map(c => testerCandidat(c, mot, tikhubKey))),
+      // Retour du propriétaire : "on avait parlé de 50 vidéos, pourquoi ça
+      // plafonne à 15 ?" Rejoue exactement la phase de recherche d'un vrai
+      // lancer() (mêmes constantes, cible=VIDEOS_CIBLE), sans créer de job
+      // ni consommer de quota/ElevenLabs : seul le coût des appels
+      // recherche TikHub, pas de téléchargement ni de transcription.
+      construireReserve(mot, VIDEOS_CIBLE, tikhubKey)
+    ]);
+    return res.status(200).json({
+      _debug: {
+        mot, tikhubKeyPresent: true, candidats: resultats,
+        reserve: {
+          trouvees: diagnosticReserve.reserve.size,
+          cibleReserve: diagnosticReserve.reserveCible,
+          pagesParcourues: diagnosticReserve.pagesParcourues,
+          raisonArret: diagnosticReserve.raisonArret,
+          doublons: diagnosticReserve.doublons,
+          tropAnciennes: diagnosticReserve.tropAnciennes
+        }
+      }
+    });
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });

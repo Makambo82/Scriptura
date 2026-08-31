@@ -125,6 +125,43 @@ test('lancer : Pro avec quota dispo mais moins de 5 vidéos trouvées => pas_ass
     assert.equal(res.statutRecu, 200);
     assert.equal(res.corpsRecu.ok, false);
     assert.equal(res.corpsRecu.raison, 'pas_assez_de_videos');
+    // Retour du propriétaire : "pourquoi ça plafonne ?" doit toujours avoir
+    // une réponse honnête, même quand l'échantillon est insuffisant. Ce mock
+    // renvoie cursor:null (pas de page suivante identifiable) : la raison
+    // la plus précise est "cursor_absent", pas une supposition sur hasMore.
+    assert.equal(res.corpsRecu.pagesParcourues, 1);
+    assert.equal(res.corpsRecu.raisonArret, 'cursor_absent');
+  } finally { restaurer(); }
+});
+
+test('lancer : rapporte honnêtement pourquoi l\'échantillon final est plus petit que la cible (TikHub à court de résultats)', async () => {
+  // Retour du propriétaire : "on avait parlé de 50 vidéos, pourquoi ça
+  // plafonne à 15 ?" Ici, TikHub n'a que 12 vidéos pertinentes pour cette
+  // niche (has_more=false dès la 1ère page) : l'échantillon final doit
+  // rester honnêtement à 12 (pas gonflé à 50), avec la raison exposée.
+  const restaurer = poserEnv();
+  const items = Array.from({ length: 12 }, (_, i) => ({
+    item: {
+      id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000),
+      stats: { playCount: (i + 1) * 1000 }, author: {}, authorStats: {}
+    }
+  }));
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    quotaOk: true,
+    pagesRecherche: [{ data: { data: items, cursor: 12, has_more: false } }]
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'niche-etroite-test', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.ok, true);
+    assert.equal(res.corpsRecu.total, 12, 'l\'échantillon final ne doit JAMAIS être gonflé au-delà de ce que TikHub a réellement renvoyé');
+    assert.equal(res.corpsRecu.reserveTrouvee, 12);
+    assert.equal(res.corpsRecu.pagesParcourues, 1);
+    assert.equal(res.corpsRecu.raisonArret, 'plus_de_resultats_tikhub', 'la raison doit distinguer "TikHub à court de résultats" d\'un plafond de pages ou d\'une réserve atteinte');
   } finally { restaurer(); }
 });
 
@@ -610,5 +647,13 @@ test('GET debug avec code admin => 200, sonde TikHub appelée', async () => {
     assert.equal(res.statutRecu, 200);
     assert.ok(res.corpsRecu._debug.tikhubKeyPresent);
     assert.ok(Array.isArray(res.corpsRecu._debug.candidats));
+    // Retour du propriétaire : la sonde doit aussi dire pourquoi l'échantillon
+    // plafonne (rejoue la vraie phase de recherche de lancer(), sans job ni
+    // coût de téléchargement/transcription).
+    const r = res.corpsRecu._debug.reserve;
+    assert.ok(r, 'le diagnostic de réserve doit être présent');
+    assert.equal(typeof r.trouvees, 'number');
+    assert.equal(typeof r.pagesParcourues, 'number');
+    assert.ok(['reserve_cible_atteinte', 'plus_de_resultats_tikhub', 'plafond_pages_atteint', 'recherche_tikhub_echouee', 'cursor_absent'].includes(r.raisonArret));
   } finally { restaurer(); }
 });
