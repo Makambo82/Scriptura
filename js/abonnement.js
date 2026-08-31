@@ -398,6 +398,13 @@ function openPlans(contexte) {
       seulementPro = true;
       if (proBadge) proBadge.style.display = 'none';
     }
+  } else if (contexte === 'decouverte-tendances') {
+    // Tendances (benchmark de niche) : Pro uniquement, sans repli jeton côté
+    // serveur (voir MODES_JETON, api/_lib/acces.js). Message valable qu'on
+    // soit non-abonné ou déjà Creator, pas besoin de deux contextes distincts.
+    if (tag) tag.textContent = 'Fonctionnalité Pro';
+    if (titre) titre.innerHTML = 'Tendances TikTok<br/>est dans le Pro';
+    if (intro) { intro.textContent = 'Le benchmark de ta niche (top créateurs, ce qui cartonne en ce moment) fait partie du plan Pro, 1 analyse par mois.'; intro.style.display = 'block'; }
   } else if (contexte === 'decouverte-audit') {
     // Non-abonné qui clique sur l'audit : c'est une fonctionnalité Pro, on le
     // dit sans prétendre qu'il a épuisé ses générations gratuites.

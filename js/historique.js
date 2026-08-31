@@ -369,6 +369,22 @@ async function droitAnalyseVirale() {
   return { ok: false, raison: 'quota', limite };
 }
 
+// Décide si l'utilisateur peut lancer une ANALYSE DE TENDANCES (benchmark
+// niche). Contrairement au sommaire/à la vidéo, aucun repli jeton n'existe
+// côté serveur (voir MODES_JETON, api/_lib/acces.js) : réservé au Pro, 1
+// analyse par mois, point final, comme la série (mode = ['serie', 'audit',
+// 'tendances'] dans MODES_PRO). Retourne { ok:true } ou { ok:false, raison }.
+async function droitAnalyseTendances() {
+  if (estIllimite()) return { ok: true };
+  if (!unlocked || monPalier() !== 'pro') return { ok: false, raison: 'pro_requis' };
+  if (await abonnementExpire()) return { ok: false, raison: 'expire' };
+  const limite = limitesDuPalier().tendances || 0;
+  if (limite <= 0) return { ok: false, raison: 'pro_requis' };
+  const faites = await countMonthGenerations('tendances');
+  if (faites < limite) return { ok: true };
+  return { ok: false, raison: 'quota', limite };
+}
+
 // Lit le solde de jetons de l'abonné courant, pour l'affichage et les
 // vérifications d'AFFICHAGE côté client (le vrai contrôle, lui, est fait
 // côté serveur au moment de l'opération, voir api/_lib/acces.js). Passe par
@@ -1116,6 +1132,13 @@ function reopenGeneration(i) {
     const cv = g.contenu || {};
     if (typeof afficherRapportViral === 'function') afficherRapportViral(cv.rapport || {});
     if (cv.transcript && typeof _viralTranscript !== 'undefined') _viralTranscript = cv.transcript;
+  } else if (g.mode === 'tendances') {
+    const tf = document.getElementById('tendancesFlow');
+    if (tf) tf.style.display = 'block';
+    const form = document.getElementById('tendancesForm');
+    if (form) form.style.display = 'none';
+    const ct = g.contenu || {};
+    if (typeof afficherTendancesResultat === 'function') afficherTendancesResultat(ct.resultat || {});
   } else if (g.mode === 'storyboardSeul') {
     const sbsh = document.getElementById('storyboardSeulFlow');
     if (sbsh) sbsh.style.display = 'block';

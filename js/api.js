@@ -35,8 +35,8 @@ const CRITIQUE_ACTIVE = true;
 // Ces limites sont indicatives côté client (anti-abus), la vérité reste
 // le comptage Supabase par type.
 const LIMITES_MOIS = {
-  creator: { creation: 40, audit: 0, sommaire: 10, viral: 6 },
-  pro:     { creation: 70, audit: 5, sommaire: 25, viral: 15 }
+  creator: { creation: 40, audit: 0, sommaire: 10, viral: 6, tendances: 0 },
+  pro:     { creation: 70, audit: 5, sommaire: 25, viral: 15, tendances: 1 }
 };
 // Non-abonné : 1 seule analyse sommaire / 1 seule analyse vidéo (prélevées
 // aussi sur ses 5 générations gratuites).
@@ -54,7 +54,7 @@ function limitesDuPalier() {
 // de renseigner les abonnés existants, le mettre sur 'pro' évite de leur
 // couper l'accès ; le repasser sur 'creator' une fois la migration faite.
 const PLAN_PAR_DEFAUT = 'creator';
-const MODES_PRO = ['audit', 'serie'];
+const MODES_PRO = ['audit', 'serie', 'tendances'];
 
 // Statut admin/illimité : déterminé UNIQUEMENT par le serveur (voir
 // api/verify-code.js et verifyCode() dans js/auth.js), jamais en comparant
