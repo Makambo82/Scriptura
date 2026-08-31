@@ -16,6 +16,9 @@
     "api/patterns.js": {
       "maxDuration": 30
     },
+    "api/tendances.js": {
+      "maxDuration": 30
+    },
     "api/montage-media.js": {
       "maxDuration": 90
     },
