@@ -136,12 +136,16 @@ test('Tendances : abonné Pro lance une analyse, la boucle de polling avance, le
     assert.match(texte, /conversationnel/); // extrait du registre
     assert.match(texte, /Ouverture hook sensorielle/); // pattern de rétention
 
-    // Le formulaire et l'écran de chargement doivent être masqués une fois
-    // le résultat affiché (jamais superposés).
+    // Le formulaire, l'écran de chargement ET le bloc d'intro générique
+    // doivent être masqués une fois le résultat affiché (jamais superposés
+    // avec l'en-tête du résultat lui-même, voir capture réelle du
+    // propriétaire : les deux titres s'affichaient l'un sous l'autre).
     const formCache = await page.evaluate(() => document.getElementById('tendancesForm').style.display === 'none');
     const loadingCache = await page.evaluate(() => document.getElementById('tendancesLoading').style.display === 'none');
+    const introCache = await page.evaluate(() => document.getElementById('tendancesIntro').style.display === 'none');
     assert.equal(formCache, true);
     assert.equal(loadingCache, true);
+    assert.equal(introCache, true, 'Le titre générique du module doit disparaître, sinon il double le titre du résultat');
 
     assert.deepEqual(erreursJs, []);
   } finally { await navigateur.close(); await arreter(); }

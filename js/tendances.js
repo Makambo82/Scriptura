@@ -41,6 +41,8 @@ function resetTendances() {
   if (input) input.value = '';
   const err = document.getElementById('tendancesError');
   if (err) err.style.display = 'none';
+  const intro = document.getElementById('tendancesIntro');
+  if (intro) intro.style.display = '';
   const form = document.getElementById('tendancesForm');
   if (form) form.style.display = '';
   const loading = document.getElementById('tendancesLoading');
@@ -94,6 +96,8 @@ async function lancerTendances() {
   // qui n'a aucun repli jeton pour ce mode.
   const code_acces = localStorage.getItem('scriptura_code') || null;
   btn.disabled = true;
+  const intro = document.getElementById('tendancesIntro');
+  if (intro) intro.style.display = 'none';
   document.getElementById('tendancesForm').style.display = 'none';
   const loading = document.getElementById('tendancesLoading');
   loading.style.display = 'block';
@@ -154,6 +158,7 @@ async function lancerTendances() {
     afficherTendancesResultat(resultat);
 
   } catch (e) {
+    if (intro) intro.style.display = '';
     document.getElementById('tendancesForm').style.display = '';
     loading.style.display = 'none';
     err.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
@@ -176,6 +181,8 @@ function afficherTendancesResultat(d) {
   const res = document.getElementById('tendancesResults');
   if (!res || !d) return;
   _tendancesResultat = d;
+  const intro = document.getElementById('tendancesIntro');
+  if (intro) intro.style.display = 'none';
   const form = document.getElementById('tendancesForm');
   if (form) form.style.display = 'none';
   const loading = document.getElementById('tendancesLoading');
