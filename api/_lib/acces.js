@@ -22,8 +22,11 @@
 // ═══════════════════════════════════════════════════════════
 
 const LIMITES_MOIS = {
-  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6 },
-  pro:     { creation: 70, audit: 5, diagnosticSommaire: 25, analyseVirale: 15 }
+  // tendances : réservé au Pro, 1 analyse/mois, comme Vervox lui-même
+  // limite son propre benchmark de niche (~50 vidéos scannées et
+  // transcrites, bien plus lourd que les autres modes).
+  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0 },
+  pro:     { creation: 70, audit: 5, diagnosticSommaire: 25, analyseVirale: 15, tendances: 1 }
 };
 const PLAN_PAR_DEFAUT = 'creator';
 const MAX_FREE = 5;                // création, code jeton/inconnu (à vie)
@@ -174,9 +177,10 @@ async function verifierQuota(droits, mode, code) {
   if (droits.isAdmin || droits.illimite) return { ok: true };
 
   if (droits.anonyme) {
-    // L'audit détaillé n'a jamais été accessible sans code (Pro ou jeton
-    // requis) : un anonyme n'a ni l'un ni l'autre, jamais de repli gratuit.
-    if (mode === 'audit') return { ok: false, raison: 'acces_requis' };
+    // L'audit détaillé et le mode Tendances n'ont jamais été accessibles
+    // sans code (Pro ou jeton requis pour l'audit, Pro obligatoire pour
+    // Tendances) : un anonyme n'a ni l'un ni l'autre, jamais de repli gratuit.
+    if (mode === 'audit' || mode === 'tendances') return { ok: false, raison: 'acces_requis' };
     return { ok: true }; // creation/diagnosticSommaire/analyseVirale : filet IP géré à part (verifierLimiteAnonyme)
   }
 

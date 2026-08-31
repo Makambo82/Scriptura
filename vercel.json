@@ -17,7 +17,7 @@
       "maxDuration": 30
     },
     "api/tendances.js": {
-      "maxDuration": 30
+      "maxDuration": 90
     },
     "api/montage-media.js": {
       "maxDuration": 90
