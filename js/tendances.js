@@ -246,7 +246,10 @@ function afficherTendancesResultat(d) {
   // afficherResultatTranscription, js/tiktok-outils.js) : avatar à
   // initiale (jamais une image, les URLs TikHub sont signées à durée de
   // vie courte, voir extraireAuteurInfo) + nom + abonnés en tête, détails
-  // (vues cumulées) en dessous, pour CHAQUE créateur de la niche.
+  // (vues cumulées) en dessous, pour CHAQUE créateur de la niche. Chaque
+  // carte pointe aussi vers sa vidéo la plus performante de l'échantillon
+  // (retour du propriétaire : le nom du créateur seul ne dit pas QUELLE
+  // vidéo aller voir).
   const createursHtml = createurs.length ? `
     <div class="score-card">
       <div class="audit-section-label">Top créateurs de ta niche</div>
@@ -254,6 +257,8 @@ function afficherTendancesResultat(d) {
         ${createurs.map((c, i) => {
           const nom = c.nickname || (c.uniqueId ? '@' + c.uniqueId : 'Créateur');
           const initiale = (c.nickname || c.uniqueId || 'C').trim().charAt(0).toUpperCase();
+          const mv = c.meilleureVideo;
+          const descCourte = mv && mv.desc ? (mv.desc.length > 90 ? mv.desc.slice(0, 90) + '…' : mv.desc) : '';
           return `<li>
             <div class="outils-source-head">
               <div class="outils-source-avatar">${tendancesEsc(initiale)}</div>
@@ -263,7 +268,8 @@ function afficherTendancesResultat(d) {
               </div>
               <div class="outils-source-date">#${i + 1}</div>
             </div>
-            <p class="outils-source-desc">${formaterNombre(c.vuesCumulees || 0)} vues cumulées sur ${c.nbVideos || 1} vidéo${(c.nbVideos || 1) > 1 ? 's' : ''} de l'échantillon</p>
+            <p class="outils-source-desc">${formaterNombre(c.vuesCumulees || 0)} vues cumulées sur ${c.nbVideos || 1} vidéo${(c.nbVideos || 1) > 1 ? 's' : ''} de l'échantillon${descCourte ? ` · vidéo la plus vue : « ${tendancesEsc(descCourte)} »` : ''}</p>
+            ${mv && mv.lien ? `<a class="outils-source-lien" href="${tendancesEsc(mv.lien)}" target="_blank" rel="noopener noreferrer">${ICO('link')}Voir cette vidéo (${formaterNombre(mv.vues || 0)} vues)</a>` : ''}
           </li>`;
         }).join('')}
       </ul>

@@ -2890,6 +2890,9 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .outils-source-handle{font-size:0.78rem;color:var(--text-secondary)}
 .outils-source-date{flex:0 0 auto;font-size:0.76rem;color:var(--muted)}
 .outils-source-desc{font-size:0.86rem;color:var(--text-secondary);line-height:1.5;margin:14px 0 0}
+.outils-source-lien{display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--gold-light);font-weight:600;margin-top:10px;text-decoration:none}
+.outils-source-lien:hover{color:var(--gold)}
+.outils-source-lien .ico{width:14px;height:14px}
 
 /* Ligne de contrôles au-dessus du texte transcrit : langue détectée, nombre
    de mots, export .txt, copier. */

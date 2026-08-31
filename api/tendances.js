@@ -37,15 +37,22 @@ const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const VIDEOS_CIBLE = 50;          // nombre de vidéos candidates visées
 const VIDEOS_CIBLE_TEST = 5;      // mode test (admin), pour vérifier un correctif sans payer 50 vidéos
 const FENETRE_JOURS = 90;         // fraîcheur, comme Vervox
-const PAGES_MAX_RECHERCHE = 15;   // garde-fou anti-boucle infinie
+const PAGES_MAX_RECHERCHE = 20;   // garde-fou anti-boucle infinie (cf. réserve élargie ci-dessous)
 // fetch_general_search (TikHub) ne trie PAS par performance, juste par
 // pertinence du mot-clé : un 1er test réel a montré des médianes basses
 // (vues/likes) parce qu'on gardait les 50 premières vidéos rencontrées,
 // carton ou pas. On cherche donc une réserve plus large (cible × ce
 // multiplicateur, ou toutes les pages dispo si la niche en a moins), puis
 // on NE GARDE QUE les mieux vues (voir tri dans lancer()) : c'est ce
-// tri-là, pas la recherche elle-même, qui fait "ce qui cartonne".
-const RESERVE_MULTIPLICATEUR = 3;
+// tri-là, pas la recherche elle-même, qui fait "ce qui cartonne". Relevé de
+// 3 à 5 (retour du propriétaire : les résultats ne semblaient toujours pas
+// assez "explosés") : plus la réserve avant tri est large, plus la chance
+// d'y trouver les vraies vidéos à forte vue augmente. Ça reste un plafond
+// statistique, pas une garantie : la recherche reste triée par pertinence,
+// pas par popularité, donc une niche pauvre en gros cartons sur les 90
+// derniers jours (FENETRE_JOURS) restera limitée par ce qui existe
+// vraiment, quelle que soit la taille de la réserve.
+const RESERVE_MULTIPLICATEUR = 5;
 const LOT_PAR_AVANCEE = 3;        // vidéos traitées par appel "avancer", en parallèle
 const MODEL_SYNTHESE = 'claude-haiku-4-5-20251001';
 const MAX_TRANSCRIPT = 2000;      // par vidéo, la synthèse porte sur l'ensemble de l'échantillon
@@ -225,13 +232,30 @@ async function synthetiser(niche, videos) {
   const momentum = (moyRecent != null && moyAncien) ? Math.round((moyRecent / moyAncien) * 100) / 100 : null;
 
   // Classement des créateurs par vues cumulées SUR CET ÉCHANTILLON (pas leur
-  // compte entier, honnête sur ce qui est réellement mesuré ici).
+  // compte entier, honnête sur ce qui est réellement mesuré ici). Chaque
+  // créateur porte aussi sa MEILLEURE vidéo de l'échantillon (id/desc/lien) :
+  // retour du propriétaire, le rapport donnait le nom d'un créateur sans
+  // jamais dire QUELLE vidéo regarder. On parcourt les vidéos déjà classées
+  // par performance (classerParPerformance, vues ET engagement) : la
+  // première vidéo rencontrée pour un créateur est donc sa plus performante,
+  // pas juste la première de la liste brute.
   const parAuteur = new Map();
-  avecStats.forEach(v => {
+  classerParPerformance(avecStats).forEach(v => {
     const a = v.auteur || {};
     const cle = a.uniqueId || a.id;
     if (!cle) return;
-    if (!parAuteur.has(cle)) parAuteur.set(cle, { uniqueId: a.uniqueId, nickname: a.nickname, followerCount: a.followerCount, vuesCumulees: 0, nbVideos: 0 });
+    if (!parAuteur.has(cle)) {
+      parAuteur.set(cle, {
+        uniqueId: a.uniqueId, nickname: a.nickname, followerCount: a.followerCount,
+        vuesCumulees: 0, nbVideos: 0,
+        meilleureVideo: {
+          id: v.id,
+          desc: v.desc || '',
+          vues: v.stats.vues,
+          lien: a.uniqueId ? `https://www.tiktok.com/@${a.uniqueId}/video/${v.id}` : null
+        }
+      });
+    }
     const e = parAuteur.get(cle);
     e.vuesCumulees += v.stats.vues; e.nbVideos++;
   });

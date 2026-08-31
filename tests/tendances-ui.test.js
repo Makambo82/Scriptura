@@ -16,7 +16,7 @@ const RESULTAT_REEL = {
   niche: 'cuisine', echantillon: 15, transcrites: 15, echecsTranscription: 0, echecsDetail: [],
   vuesMedianes: 646900, likesMedianes: 15300, engagementMoyen: 5, momentum: 0.54,
   topCreateurs: [
-    { uniqueId: 'yaas0uk', nickname: 'Yaas0u 🇹🇳', followerCount: 504800, vuesCumulees: 2800000, nbVideos: 1 },
+    { uniqueId: 'yaas0uk', nickname: 'Yaas0u 🇹🇳', followerCount: 504800, vuesCumulees: 2800000, nbVideos: 1, meilleureVideo: { id: '7669309697672908064', desc: 'Une recette qui a cartonné cette semaine.', vues: 2800000, lien: 'https://www.tiktok.com/@yaas0uk/video/7669309697672908064' } },
     { uniqueId: 'wasafetbayti2', nickname: 'وصفات بيتي', followerCount: 97600, vuesCumulees: 2400000, nbVideos: 1 },
     { uniqueId: 'fontaine3665', nickname: 'Saveurs sauvage', followerCount: 82100, vuesCumulees: 868700, nbVideos: 2 }
   ],
@@ -153,6 +153,24 @@ test('Tendances : abonné Pro lance une analyse, la boucle de polling avance, le
     assert.match(premierCreateur.nom, /Yaas0u/);
     assert.match(premierCreateur.handle, /@yaas0uk/);
     assert.match(premierCreateur.handle, /504.800 abonnés/);
+
+    // Retour du propriétaire (2e passe) : le nom du créateur seul ne dit
+    // jamais QUELLE vidéo est allée cartonner. Chaque carte pointe donc vers
+    // la vidéo précise (lien TikTok direct), quand la donnée est disponible.
+    const lienVideo = await page.evaluate(() => {
+      const a = document.querySelector('#tendancesResults .viral-list li .outils-source-lien');
+      return a ? { href: a.getAttribute('href'), texte: a.textContent, cible: a.getAttribute('target') } : null;
+    });
+    assert.ok(lienVideo, 'un lien vers la vidéo la plus performante doit apparaître pour le premier créateur');
+    assert.equal(lienVideo.href, 'https://www.tiktok.com/@yaas0uk/video/7669309697672908064');
+    assert.equal(lienVideo.cible, '_blank');
+    assert.match(lienVideo.texte, /2.800.000 vues|2 800 000 vues/);
+
+    // Un créateur dont l'ancien format de résultat n'a pas encore de
+    // meilleureVideo (données historiques, avant ce correctif) ne doit
+    // jamais planter : la carte s'affiche sans le lien, c'est tout.
+    const nbLiens = await page.evaluate(() => document.querySelectorAll('#tendancesResults .viral-list li .outils-source-lien').length);
+    assert.equal(nbLiens, 1, 'seul le créateur avec meilleureVideo doit afficher un lien, pas de plantage pour les autres');
 
     // Le formulaire, l'écran de chargement ET le bloc d'intro générique
     // doivent être masqués une fois le résultat affiché (jamais superposés

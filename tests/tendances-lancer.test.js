@@ -334,6 +334,52 @@ test('avancer : résout une URL fraîche via fetch_post_detail avant de téléch
   } finally { restaurer(); }
 });
 
+test('avancer : la synthèse finale donne à chaque créateur un lien vers SA vidéo la plus performante de l\'échantillon', async () => {
+  // Retour du propriétaire : le rapport donnait le nom d'un créateur mais
+  // jamais quelle vidéo précise regarder. Un créateur avec 2 vidéos, l'une
+  // très faible, l'autre qui cartonne : meilleureVideo doit pointer sur la
+  // seconde, pas juste la première rencontrée, et le lien TikTok doit être
+  // construit à partir de son id + du uniqueId de l'auteur.
+  const restaurer = poserEnv();
+  const maintenant = Math.floor(Date.now() / 1000);
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-liens',
+      statut: 'en_cours',
+      niche: 'cuisine',
+      index_suivant: 0,
+      videos: [
+        {
+          id: 'v-faible', desc: 'Sa vidéo la plus faible', createTime: maintenant,
+          auteur: { uniqueId: 'chef1', nickname: 'Chef Un' },
+          stats: { vues: 1000, likes: 10, commentaires: 1, partages: 1 },
+          hashtags: [], urlsCandidates: [], transcript: 'texte', transcriptEchec: false
+        },
+        {
+          id: 'v-forte', desc: 'Sa vidéo qui cartonne', createTime: maintenant,
+          auteur: { uniqueId: 'chef1', nickname: 'Chef Un' },
+          stats: { vues: 500000, likes: 40000, commentaires: 2000, partages: 1500 },
+          hashtags: [], urlsCandidates: [], transcript: 'texte', transcriptEchec: false
+        }
+      ]
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-liens', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine');
+    const chef1 = (res.corpsRecu.resultat.topCreateurs || []).find(c => c.uniqueId === 'chef1');
+    assert.ok(chef1, 'le créateur doit apparaître dans le classement');
+    assert.equal(chef1.meilleureVideo.id, 'v-forte', 'la vidéo la plus performante doit être retenue, pas la première rencontrée');
+    assert.equal(chef1.meilleureVideo.lien, 'https://www.tiktok.com/@chef1/video/v-forte');
+    assert.equal(chef1.vuesCumulees, 501000);
+  } finally { restaurer(); }
+});
+
 test('GET debug avec code admin => 200, sonde TikHub appelée', async () => {
   const restaurer = poserEnv();
   poserFetchMock({
