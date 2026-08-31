@@ -242,14 +242,30 @@ function afficherTendancesResultat(d) {
       <div class="ds-sante-row"><span class="ds-tag ${momentum.classe}">${ICO('trend')} ${tendancesEsc(momentum.texte)}</span></div>
     </div>`;
 
+  // Même carte "source" que la transcription TikTok (voir
+  // afficherResultatTranscription, js/tiktok-outils.js) : avatar à
+  // initiale (jamais une image, les URLs TikHub sont signées à durée de
+  // vie courte, voir extraireAuteurInfo) + nom + abonnés en tête, détails
+  // (vues cumulées) en dessous, pour CHAQUE créateur de la niche.
   const createursHtml = createurs.length ? `
     <div class="score-card">
       <div class="audit-section-label">Top créateurs de ta niche</div>
-      <ul class="viral-list">
-        ${createurs.map((c, i) => `<li>
-          <div class="viral-list-head"><span class="viral-moment">#${i + 1}</span><span class="viral-tech">${tendancesEsc(c.nickname || c.uniqueId || 'Créateur')}</span></div>
-          <p>${c.uniqueId ? '@' + tendancesEsc(c.uniqueId) + ' · ' : ''}${c.followerCount != null ? formaterNombre(c.followerCount) + ' abonnés · ' : ''}${formaterNombre(c.vuesCumulees || 0)} vues cumulées sur ${c.nbVideos || 1} vidéo${(c.nbVideos || 1) > 1 ? 's' : ''} de l'échantillon</p>
-        </li>`).join('')}
+      <ul class="viral-list" style="margin-top:14px">
+        ${createurs.map((c, i) => {
+          const nom = c.nickname || (c.uniqueId ? '@' + c.uniqueId : 'Créateur');
+          const initiale = (c.nickname || c.uniqueId || 'C').trim().charAt(0).toUpperCase();
+          return `<li>
+            <div class="outils-source-head">
+              <div class="outils-source-avatar">${tendancesEsc(initiale)}</div>
+              <div class="outils-source-id">
+                <div class="outils-source-nom">${tendancesEsc(nom)}</div>
+                <div class="outils-source-handle">${c.uniqueId && c.nickname ? '@' + tendancesEsc(c.uniqueId) : ''}${c.followerCount != null ? (c.uniqueId && c.nickname ? ' · ' : '') + formaterNombre(c.followerCount) + ' abonnés' : ''}</div>
+              </div>
+              <div class="outils-source-date">#${i + 1}</div>
+            </div>
+            <p class="outils-source-desc">${formaterNombre(c.vuesCumulees || 0)} vues cumulées sur ${c.nbVideos || 1} vidéo${(c.nbVideos || 1) > 1 ? 's' : ''} de l'échantillon</p>
+          </li>`;
+        }).join('')}
       </ul>
     </div>` : '';
 

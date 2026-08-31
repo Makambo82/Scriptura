@@ -136,6 +136,24 @@ test('Tendances : abonné Pro lance une analyse, la boucle de polling avance, le
     assert.match(texte, /conversationnel/); // extrait du registre
     assert.match(texte, /Ouverture hook sensorielle/); // pattern de rétention
 
+    // Retour du propriétaire (capture) : chaque créateur doit se présenter
+    // comme une carte "source" (avatar à initiale + nom + abonnés en tête,
+    // détails en dessous), même style que la transcription TikTok
+    // (.outils-source-avatar/.outils-source-nom/.outils-source-handle).
+    const premierCreateur = await page.evaluate(() => {
+      const li = document.querySelector('#tendancesResults .viral-list li');
+      return li ? {
+        avatar: li.querySelector('.outils-source-avatar')?.textContent,
+        nom: li.querySelector('.outils-source-nom')?.textContent,
+        handle: li.querySelector('.outils-source-handle')?.textContent
+      } : null;
+    });
+    assert.ok(premierCreateur, 'le premier créateur doit être une carte avec avatar/nom/handle');
+    assert.equal(premierCreateur.avatar, 'Y', 'l\'avatar doit être l\'initiale du créateur (Yaas0u -> Y)');
+    assert.match(premierCreateur.nom, /Yaas0u/);
+    assert.match(premierCreateur.handle, /@yaas0uk/);
+    assert.match(premierCreateur.handle, /504.800 abonnés/);
+
     // Le formulaire, l'écran de chargement ET le bloc d'intro générique
     // doivent être masqués une fois le résultat affiché (jamais superposés
     // avec l'en-tête du résultat lui-même, voir capture réelle du
