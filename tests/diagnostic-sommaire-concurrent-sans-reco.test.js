@@ -14,9 +14,10 @@ const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
 const DIAG_CONCURRENT = {
   engagement: { disponible: true, score: 24, constat: 'Très bon engagement.' },
-  portee: { disponible: true, score: 20, constat: 'Portée large.' },
+  vues_moyennes: { disponible: true, score: 20, constat: 'Vues moyennes larges.' },
   regularite: { disponible: true, score: 15, constat: 'Publications régulières.' },
-  viralite: { disponible: true, score: 12, constat: 'Bonne viralité.' },
+  croissance_abonnes: { disponible: true, score: 11, constat: 'Croissance soutenue.' },
+  viralite: { disponible: true, score: 7, constat: 'Bonne viralité.' },
   abonnes: 320000,
   verdict_inspiration: { modele: 'oui', constat: 'Un vrai modèle, la recette est reproductible.' },
   faille_exploiter: 'Il ne couvre jamais les astuces de conservation, un angle libre à prendre.',

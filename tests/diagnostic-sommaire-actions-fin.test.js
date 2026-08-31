@@ -10,9 +10,10 @@ const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
 const DIAG_FAKE = {
   engagement: { disponible: true, score: 22, constat: 'Bon taux de likes rapporté aux vues.' },
-  portee: { disponible: true, score: 18, constat: 'Portée correcte mais irrégulière.' },
+  vues_moyennes: { disponible: true, score: 15, constat: 'Vues moyennes correctes mais irrégulières.' },
   regularite: { disponible: true, score: 12, constat: 'Publications espacées.' },
-  viralite: { disponible: true, score: 9, constat: 'Peu de pics viraux.' },
+  croissance_abonnes: { disponible: true, score: 8, constat: 'Croissance modeste sur les 30 derniers jours.' },
+  viralite: { disponible: true, score: 4, constat: 'Peu de pics viraux.' },
   abonnes: 45210,
   likesCumules: 812400,
   bio: {

@@ -4,17 +4,20 @@
 //  aucune capture à envoyer. api/username-scan.js lit le PROFIL et la LISTE
 //  DES VIDÉOS (vues, dates, ET sujets/légendes) via TikHub, seule source.
 //
-//  Les 4 dimensions inspirées de Vervox (Engagement, Portée, Régularité,
-//  Viralité) sont calculables quand les vidéos sont récupérées : Engagement
-//  à partir des totaux du profil ; Portée, Régularité et Viralité à partir
-//  des vues/dates par vidéo (voir calculerMetriquesVideos). En plus, les
-//  SUJETS des vidéos (légendes) alimentent une analyse de CONTENU comme
-//  Vervox : niche réelle, Top/Flop vidéos, concepts récurrents, leviers qui
-//  citent des vidéos précises. Si les vidéos ne sont pas récupérées (clé
-//  TikHub absente, compte privé, quota), on retombe proprement sur
-//  l'Engagement seul, sans jamais inventer de chiffre. Score recalculé côté
-//  code (comme js/audit.js) sur les seules dimensions réellement mesurées,
-//  jamais fourni tel quel par l'IA.
+//  Les 5 dimensions sont alignées sur les VRAIS poids Vervox (Engagement/30,
+//  Vues moyennes/25, Régularité/20, Croissance abonnés/15, Viralité/10, voir
+//  scorerDimensionsSommaire), vocabulaire propre à Scriptura. Engagement se
+//  calcule à partir des totaux du profil ; Vues moyennes, Régularité et
+//  Viralité à partir des vues/dates par vidéo (voir calculerMetriquesVideos) ;
+//  Croissance abonnés à partir d'un diagnostic PRÉCÉDENT du même compte déjà
+//  dans l'historique (voir evolutionAbonnesDiagSommaire), aucun appel API
+//  supplémentaire. En plus, les SUJETS des vidéos (légendes) alimentent une
+//  analyse de CONTENU comme Vervox : niche réelle, Top/Flop vidéos, concepts
+//  récurrents, leviers qui citent des vidéos précises. Si les vidéos ne sont
+//  pas récupérées (clé TikHub absente, compte privé, quota), on retombe
+//  proprement sur l'Engagement seul, sans jamais inventer de chiffre. Score
+//  recalculé côté code (comme js/audit.js) sur les seules dimensions
+//  réellement mesurées, jamais fourni tel quel par l'IA.
 //
 //  Rendu avec la palette Scriptura (doré + émeraude pour les points forts
 // , même mécanique que l'anneau de score du diagnostic complet).
@@ -248,7 +251,25 @@ function calculerMetriquesVideos(medias, abonnes) {
     tauxEngagementPct = Math.round(med * 1000) / 10; // 1 décimale, en %
   }
 
-  return { n, moyVues, medianeVues, maxVues, ratioViral, pctPics, ratioPortee, videosParSemaine, joursCouverts, tauxEngagementPct };
+  return { n, abonnes, moyVues, medianeVues, maxVues, ratioViral, pctPics, ratioPortee, videosParSemaine, joursCouverts, tauxEngagementPct };
+}
+
+// Paliers de "vues moyennes" (dimension /25) PAR TRANCHE D'ABONNÉS, comme
+// Vervox (« les seuils sont adaptés à ta taille de compte ») : le même
+// nombre de vues moyennes ne vaut pas la même chose pour un compte de 2K
+// abonnés que pour un compte de 500K. Vervox ne publie pas ses seuils
+// exacts, ceux-ci sont calibrés en interne (à l'aide d'un exemple réel
+// observé : ~15K abonnés, 1178 vues moyennes ⇒ 10/25), à ajuster si
+// l'usage réel montre un décalage. b0/b1/b2 = plafonds "très faible" /
+// "faible" / "correct" ; au-delà de b2 la note monte vers le max (25).
+function _dsPaliersVuesMoyennes(abonnes) {
+  const a = Math.max(0, Number(abonnes) || 0);
+  if (a < 2000)    return { b0: 300,  b1: 1200,  b2: 4000   };
+  if (a < 10000)   return { b0: 500,  b1: 2000,  b2: 7000   };
+  if (a < 50000)   return { b0: 900,  b1: 3500,  b2: 12000  };
+  if (a < 200000)  return { b0: 2500, b1: 9000,  b2: 30000  };
+  if (a < 1000000) return { b0: 6000, b1: 20000, b2: 70000  };
+  return                  { b0: 12000, b1: 40000, b2: 150000 };
 }
 
 // Barème → note : interpolation linéaire DÉTERMINISTE dans une fourchette.
@@ -260,12 +281,17 @@ function _dsInterp(x, x0, x1, s0, s1) {
   return Math.round(s0 + ((x - x0) / (x1 - x0)) * (s1 - s0));
 }
 
-// Calcule les 4 notes EN CODE à partir des métriques réelles (mêmes barèmes que
+// Calcule les 5 notes EN CODE à partir des métriques réelles (mêmes barèmes que
 // ceux décrits à l'IA), pour un score parfaitement reproductible. L'IA ne note
 // plus rien : elle ne fournit que les constats et l'analyse qualitative.
-// Renvoie null si aucune métrique (mode « profil seul »), le diagnostic garde
-// alors le comportement dégradé habituel (engagement estimé par l'IA).
-function scorerDimensionsSommaire(m) {
+// Poids alignés sur les 5 piliers RÉELS de Vervox (engagement/30, vues
+// moyennes/25, régularité/20, croissance abonnés/15, viralité/10), avec le
+// vocabulaire propre à Scriptura. `evolution` = résultat de
+// evolutionAbonnesDiagSommaire (tableau de points {label, delta, pct}, ou
+// null si aucun historique). Renvoie null si aucune métrique vidéo (mode
+// « profil seul »), le diagnostic garde alors le comportement dégradé
+// habituel (engagement estimé par l'IA).
+function scorerDimensionsSommaire(m, evolution) {
   if (!m) return null;
   const dims = {};
 
@@ -280,16 +306,18 @@ function scorerDimensionsSommaire(m) {
     dims.engagement = { score: s, disponible: true };
   } else dims.engagement = { score: null, disponible: false };
 
-  // PORTÉE /30 depuis le % vues/abonnés.
-  if (m.ratioPortee != null) {
-    const p = m.ratioPortee;
+  // VUES MOYENNES /25 depuis la moyenne de vues par vidéo, seuils adaptés à
+  // la taille du compte (voir _dsPaliersVuesMoyennes), comme Vervox.
+  if (m.moyVues != null && m.abonnes != null) {
+    const pal = _dsPaliersVuesMoyennes(m.abonnes);
+    const v = m.moyVues;
     let s;
-    if (p < 8)       s = _dsClamp(_dsInterp(p, 0, 8, 0, 8), 0, 8);
-    else if (p < 20) s = _dsInterp(p, 8, 20, 9, 15);
-    else if (p < 50) s = _dsInterp(p, 20, 50, 16, 22);
-    else             s = _dsClamp(_dsInterp(p, 50, 150, 23, 30), 23, 30);
-    dims.portee = { score: s, disponible: true };
-  } else dims.portee = { score: null, disponible: false };
+    if (v < pal.b0)      s = _dsClamp(_dsInterp(v, 0, pal.b0, 0, 8), 0, 8);
+    else if (v < pal.b1) s = _dsInterp(v, pal.b0, pal.b1, 9, 15);
+    else if (v < pal.b2) s = _dsInterp(v, pal.b1, pal.b2, 16, 22);
+    else                 s = _dsClamp(_dsInterp(v, pal.b2, pal.b2 * 3, 23, 25), 23, 25);
+    dims.vues_moyennes = { score: s, disponible: true };
+  } else dims.vues_moyennes = { score: null, disponible: false };
 
   // RÉGULARITÉ /20 depuis les vidéos/semaine.
   if (m.videosParSemaine != null) {
@@ -302,29 +330,61 @@ function scorerDimensionsSommaire(m) {
     dims.regularite = { score: s, disponible: true };
   } else dims.regularite = { score: null, disponible: false };
 
-  // VIRALITÉ /20 depuis le rapport pic/médiane (et présence de pics).
+  // CROISSANCE ABONNÉS /15 depuis l'évolution mesurée vs un diagnostic
+  // précédent du même compte (aucun appel API : lue dans l'historique local,
+  // voir evolutionAbonnesDiagSommaire). Indisponible au tout premier
+  // diagnostic d'un compte, faute de point de comparaison. On normalise sur
+  // une fenêtre ~30 jours (le % étant déjà relatif, pas besoin de paliers par
+  // taille de compte ici, contrairement aux vues moyennes en valeur absolue).
+  const pointCroissance = (Array.isArray(evolution) && evolution.length)
+    ? (evolution.find(p => p.label === '30 jours') || evolution.find(p => p.label === '90 jours') || evolution.find(p => p.label === '7 jours'))
+    : null;
+  if (pointCroissance && pointCroissance.pct != null) {
+    let pct30 = pointCroissance.pct;
+    if (pointCroissance.label === '7 jours') pct30 = pct30 * (30 / 7);
+    else if (pointCroissance.label === '90 jours') pct30 = pct30 / 3;
+    let s;
+    if (pct30 <= 0)       s = _dsClamp(_dsInterp(pct30, -10, 0, 0, 5), 0, 5);
+    else if (pct30 <= 3)  s = _dsInterp(pct30, 0, 3, 6, 9);
+    else if (pct30 <= 10) s = _dsInterp(pct30, 3, 10, 10, 13);
+    else                  s = _dsClamp(_dsInterp(pct30, 10, 30, 14, 15), 14, 15);
+    dims.croissance_abonnes = { score: s, disponible: true };
+  } else dims.croissance_abonnes = { score: null, disponible: false };
+
+  // VIRALITÉ /10 depuis le rapport pic/médiane (et présence de pics), même
+  // mécanique que Vervox (ratio max/médiane des vues).
   if (m.ratioViral != null) {
     const r = m.ratioViral;
     let s;
-    if (r < 2)       s = (m.pctPics > 0) ? 5 : _dsClamp(_dsInterp(r, 1, 2, 0, 5), 0, 5);
-    else if (r < 4)  s = _dsInterp(r, 2, 4, 6, 11);
-    else if (r < 10) s = _dsInterp(r, 4, 10, 12, 16);
-    else             s = _dsClamp(_dsInterp(r, 10, 20, 17, 20), 17, 20);
+    if (r < 2)       s = (m.pctPics > 0) ? 2 : _dsClamp(_dsInterp(r, 1, 2, 0, 2), 0, 2);
+    else if (r < 4)  s = _dsInterp(r, 2, 4, 3, 5);
+    else if (r < 10) s = _dsInterp(r, 4, 10, 6, 8);
+    else             s = _dsClamp(_dsInterp(r, 10, 20, 9, 10), 9, 10);
     dims.viralite = { score: s, disponible: true };
   } else dims.viralite = { score: null, disponible: false };
 
   return dims;
 }
 
+// Bornes de niveau [très faible / faible / correct] par dimension, propres
+// au barème de CHAQUE dimension (les plafonds ne sont pas proportionnels au
+// max quand le max diffère, ex. croissance abonnés /15 vs engagement /30).
+const DS_NIVEAU_BORNES = {
+  engagement: [8, 15, 22],          // /30
+  vues_moyennes: [8, 15, 22],       // /25
+  regularite: [5, 11, 16],          // /20
+  croissance_abonnes: [5, 9, 13],   // /15
+  viralite: [2, 5, 8]               // /10
+};
+
 // Mot de niveau d'une dimension À PARTIR DU SCORE CALCULÉ PAR LE CODE, avec les
 // mêmes bornes que les barèmes. Sert à IMPOSER le qualificatif à l'IA (constats)
 // pour qu'elle ne dise jamais « fort » sur un score faible, ni l'inverse.
 function _dsNiveauMot(cle, score) {
   if (score == null) return null;
-  if (cle === 'engagement' || cle === 'portee') { // /30
-    return score <= 8 ? 'très faible' : score <= 15 ? 'faible' : score <= 22 ? 'correct' : 'fort';
-  }
-  return score <= 5 ? 'très faible' : score <= 11 ? 'faible' : score <= 16 ? 'correct' : 'fort'; // /20
+  const b = DS_NIVEAU_BORNES[cle];
+  if (!b) return null;
+  return score <= b[0] ? 'très faible' : score <= b[1] ? 'faible' : score <= b[2] ? 'correct' : 'fort';
 }
 
 // Bascule entre l'écran de saisie (@nom d'utilisateur) et l'écran "analyse
@@ -410,7 +470,7 @@ function arreterAnimationChargementDs(prog) {
 // silencieux et enrichir sa synthèse croisée, sans dupliquer ce pipeline.
 async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
   const moi = estMonCompte !== false;
-  // Les vidéos couvrent ~6 mois. Les 4 DIMENSIONS (score) se calculent sur le
+  // Les vidéos couvrent ~6 mois. Les DIMENSIONS (score) se calculent sur le
   // RÉCENT (2 derniers mois) = l'état ACTUEL du compte ; l'analyse de contenu
   // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
   const abonnes = dsAbonnes(donnees.profil);
@@ -425,11 +485,17 @@ async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
     : toutesVideos.slice(0, Math.max(15, videosRecentes.length));
   const metriques = calculerMetriquesVideos(baseMetriques, abonnes);
 
+  // Évolution des abonnés vs un diagnostic PRÉCÉDENT du même compte (aucun
+  // appel API, lue dans l'historique local déjà sauvegardé, voir
+  // evolutionAbonnesDiagSommaire) : nourrit la dimension Croissance abonnés.
+  let evolution = null;
+  try { evolution = await evolutionAbonnesDiagSommaire(username, abonnes, estMonCompte); } catch (e) { /* dégradation silencieuse */ }
+
   // NIVEAUX déjà tranchés par le code (mêmes bornes que le barème). On les
   // impose à l'IA pour que ses CONSTATS n'emploient jamais un qualificatif qui
   // contredit le score affiché (le score, lui, est recalculé plus bas).
-  const _notesPre = scorerDimensionsSommaire(metriques);
-  const niveauxTexte = _notesPre ? ['engagement', 'portee', 'regularite', 'viralite'].map(cle => {
+  const _notesPre = scorerDimensionsSommaire(metriques, evolution);
+  const niveauxTexte = _notesPre ? ['engagement', 'vues_moyennes', 'regularite', 'croissance_abonnes', 'viralite'].map(cle => {
     const d = _notesPre[cle], meta = DS_DIM_META[cle];
     if (!d || d.disponible === false || d.score == null) return `- ${meta.label} : non mesurée (n'en parle pas comme forte ou faible)`;
     return `- ${meta.label} : ${_dsNiveauMot(cle, d.score)} (${d.score}/${meta.max})`;
@@ -442,13 +508,20 @@ DONNÉES PAR VIDÉO (calculées sur tes ${metriques.n} vidéos RÉCENTES ~2 dern
 - Vues médianes par vidéo : ${metriques.medianeVues}
 - Meilleure vidéo récente : ${metriques.maxVues} vues
 ${metriques.tauxEngagementPct != null ? `- Taux d'engagement réel (médiane interactions ÷ vues par vidéo) : ${metriques.tauxEngagementPct}%` : ''}
-${metriques.ratioPortee != null ? `- Portée : les vidéos font en moyenne ${metriques.ratioPortee}% du nombre d'abonnés en vues` : ''}
+${metriques.ratioPortee != null ? `- Pour référence, ces vues moyennes représentent ${metriques.ratioPortee}% du nombre d'abonnés` : ''}
 ${metriques.videosParSemaine != null ? `- Cadence de publication : environ ${metriques.videosParSemaine} vidéo(s) par semaine (sur ${metriques.joursCouverts} jours couverts)` : ''}
 - Rapport pic/médiane : la meilleure vidéo fait ${metriques.ratioViral}× les vues de la vidéo médiane ; ${metriques.pctPics}% des vidéos dépassent 2× la médiane.
 
-IMPORTANT : les NOTES chiffrées des 4 dimensions sont recalculées automatiquement par le code à partir de ces faits ; tes constats doivent rester COHÉRENTS avec ces chiffres (ne contredis pas un taux d'engagement de ${metriques.tauxEngagementPct != null ? metriques.tauxEngagementPct + '%' : 'n/a'} ou une portée de ${metriques.ratioPortee != null ? metriques.ratioPortee + '%' : 'n/a'}).` : `
+IMPORTANT : les NOTES chiffrées des dimensions sont recalculées automatiquement par le code à partir de ces faits ; tes constats doivent rester COHÉRENTS avec ces chiffres (ne contredis pas un taux d'engagement de ${metriques.tauxEngagementPct != null ? metriques.tauxEngagementPct + '%' : 'n/a'}).` : `
 
-LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Portée, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
+LIMITE : tu n'as PAS reçu les vidéos individuelles de ce compte (uniquement le profil agrégé). Mets donc "disponible": false et score null pour Vues moyennes, Régularité et Viralité, n'invente aucune de ces trois valeurs.`;
+
+  const blocCroissance = (Array.isArray(evolution) && evolution.length) ? `
+
+ÉVOLUTION DES ABONNÉS (mesurée face à un diagnostic PRÉCÉDENT de ce même compte, ce sont des FAITS) :
+${evolution.map(p => `- Sur ${p.label} : ${p.delta > 0 ? '+' : ''}${p.delta} abonnés${p.pct != null ? ` (${p.pct > 0 ? '+' : ''}${p.pct}%)` : ''}`).join('\n')}` : `
+
+LIMITE : aucun diagnostic précédent de ce compte dans l'historique, donc pas de point de comparaison pour la croissance abonnés. Mets "disponible": false et score null pour Croissance abonnés, n'invente aucun chiffre.`;
 
   // Historique des vidéos AVEC DATES (mois/année), du plus récent au plus
   // ancien : nourrit la niche, le top/flop, les concepts ET la détection d'un
@@ -530,9 +603,10 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
   "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
   "compte_verifie": <true/false/null>,
   "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases>" },
-  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "vues_moyennes": { "score": <0-25 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "croissance_abonnes": { "score": <0-15 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "viralite": { "score": <0-10 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
   "bio": { "actuelle": "<texte tel quel, ou null>", "etat": "<claire|a_retravailler>", "critique": "<1-2 phrases>", "suggestions": ["<alternative 1>", "<alternative 2>"] },
   "niche": { "disponible": <true/false>, "nom": "<...>", "etat": "<claire|floue>", "analyse": ["<point 1>", "<point 2 si pertinent>"] },
@@ -545,9 +619,10 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
   "profil_trouve": <true si les données décrivent bien un profil existant, false sinon>,
   "compte_verifie": <true/false/null>,
   "engagement": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, 3e personne sur ce compte>" },
-  "portee": { "score": <0-30 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "vues_moyennes": { "score": <0-25 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "regularite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
-  "viralite": { "score": <0-20 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "croissance_abonnes": { "score": <0-15 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
+  "viralite": { "score": <0-10 ou null>, "disponible": <true/false>, "constat": "<1-2 phrases, ou explication si non disponible>" },
   "sante_compte": "<Excellente|Bonne|Fragile|Critique>",
   "verdict_inspiration": { "modele": "<oui|partiel|prudence>", "constat": "<ce qui est reproductible vs ce qui est un piège, 1-2 phrases>" },
   "faille_exploiter": "<1-2 phrases : l'angle qu'il néglige et que tu peux occuper, ou null>",
@@ -565,6 +640,7 @@ SANTÉ DU COMPTE : appréciation globale de CE compte ("Excellente"|"Bonne"|"Fra
 PROFIL :
 ${tronquerSansCouperEmoji(JSON.stringify(donnees.profil || {}), 4000)}
 ${blocVideos}
+${blocCroissance}
 ${blocSujets}
 
 RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false, n'invente jamais un chiffre.
@@ -572,14 +648,15 @@ RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dan
 ENGAGEMENT (sur 30) : si le "Taux d'engagement réel" est fourni ci-dessus, commente-le (interactions ÷ vues par vidéo : c'est la vraie mesure d'engagement). Un taux élevé = audience qui réagit fort. Sinon, à défaut, estime à partir des likes cumulés ÷ nombre de vidéos face aux abonnés, en précisant que c'est une estimation.
    BARÈME indicatif /30 : TRÈS FAIBLE (< 3%) → 0-8 · FAIBLE (3-7%) → 9-15 · CORRECT (7-15%) → 16-22 · FORT (> 15%) → 23-30.
 
-PORTÉE (sur 30) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Base-toi sur le % vues/abonnés (portée) : un compte sain fait souvent 20% ou plus de son audience en vues moyennes ; en dessous de 10%, la portée est faible.
-   BARÈME /30 (strict) : TRÈS FAIBLE (portée < 8% des abonnés) → 0-8 · FAIBLE (8-20%) → 9-15 · CORRECTE (20-50%) → 16-22 · FORTE (> 50%, ou vues qui dépassent l'audience) → 23-30.
+VUES MOYENNES (sur 25) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Le score exact est calculé par le code selon des seuils ADAPTÉS À LA TAILLE DU COMPTE (le même nombre de vues moyennes ne vaut pas la même chose pour 2K abonnés que pour 500K) : commente le chiffre en le resituant par rapport aux abonnés (ex. "X vues moyennes pour Y abonnés"), sans réinventer de barème toi-même, contente-toi du niveau déjà tranché plus bas.
 
 RÉGULARITÉ (sur 20) : disponible UNIQUEMENT si la cadence est fournie. Base-toi sur les vidéos/semaine.
    BARÈME /20 (strict) : quasi inactif (< 0,5/sem) → 0-5 · irrégulier (0,5-2/sem) → 6-11 · régulier (2-5/sem) → 12-16 · très soutenu (> 5/sem) → 17-20.
 
-VIRALITÉ (sur 20) : disponible UNIQUEMENT si le rapport pic/médiane est fourni. Un compte avec des pics nets a un rapport pic/médiane élevé et plusieurs vidéos au-dessus de 2× la médiane. Un rapport proche de 1 = contenu plat, sans percée.
-   BARÈME /20 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-5 · faible (2-4×) → 6-11 · bon (4-10×) → 12-16 · fort potentiel viral (> 10×, plusieurs pics) → 17-20.
+CROISSANCE ABONNÉS (sur 15) : disponible UNIQUEMENT si un bloc "ÉVOLUTION DES ABONNÉS" est fourni ci-dessus (nécessite un diagnostic précédent du même compte, sinon "disponible": false, jamais d'invention). Une croissance stagnante ou négative est un signal d'alerte à nommer clairement ; une croissance forte sur peu de temps est un momentum à souligner et à exploiter.
+
+VIRALITÉ (sur 10) : disponible UNIQUEMENT si le rapport pic/médiane est fourni. Un compte avec des pics nets a un rapport pic/médiane élevé et plusieurs vidéos au-dessus de 2× la médiane. Un rapport proche de 1 = contenu plat, sans percée.
+   BARÈME /10 (strict) : aucun pic (rapport < 2 et 0% de pics) → 0-2 · faible (2-4×) → 3-5 · bon (4-10×) → 6-8 · fort potentiel viral (> 10×, plusieurs pics) → 9-10.
 
 ${niveauxTexte ? `NIVEAUX DÉJÀ TRANCHÉS PAR LE CODE (le score AFFICHÉ vient du code, pas de toi). Dans tes constats et dans "sante_compte", emploie EXACTEMENT ces qualificatifs, ne les recalcule pas, ne les contredis jamais (n'écris jamais « fort » sur une dimension marquée « faible ») :
 ${niveauxTexte}
@@ -605,9 +682,9 @@ ${schemaJson}`;
   // texte (constat). En mode « profil seul » (pas de vidéos), scores=null ⇒ on
   // laisse l'estimation d'engagement de l'IA (comportement dégradé inchangé).
   if (parsed) {
-    const notes = scorerDimensionsSommaire(metriques);
+    const notes = scorerDimensionsSommaire(metriques, evolution);
     if (notes) {
-      ['engagement', 'portee', 'regularite', 'viralite'].forEach(cle => {
+      ['engagement', 'vues_moyennes', 'regularite', 'croissance_abonnes', 'viralite'].forEach(cle => {
         const codeDim = notes[cle];
         const constat = (parsed[cle] && parsed[cle].constat) || '';
         parsed[cle] = { score: codeDim.score, disponible: codeDim.disponible, constat };
@@ -811,19 +888,24 @@ function animerScoreDiagSommaire(valeur, circonference) {
   requestAnimationFrame(tick);
 }
 
+// 5 dimensions alignées sur les piliers RÉELS de Vervox (30/25/20/15/10,
+// voir scorerDimensionsSommaire), vocabulaire propre à Scriptura.
 const DS_DIM_META = {
-  engagement: { icone: ICO('trend'), label: 'Engagement', max: 30 },
-  portee:     { icone: ICO('eye'), label: 'Portée', max: 30 },
-  regularite: { icone: ICO('calendar'), label: 'Régularité', max: 20 },
-  viralite:   { icone: ICO('bolt'), label: 'Viralité', max: 20 }
+  engagement:         { icone: ICO('trend'), label: 'Engagement', max: 30 },
+  vues_moyennes:      { icone: ICO('eye'), label: 'Vues moyennes', max: 25 },
+  regularite:         { icone: ICO('calendar'), label: 'Régularité', max: 20 },
+  croissance_abonnes: { icone: ICO('people'), label: 'Croissance abonnés', max: 15 },
+  viralite:           { icone: ICO('bolt'), label: 'Viralité', max: 10 }
 };
 
-// Ces 3 dimensions ont structurellement besoin de données par vidéo
-// (dates, vues individuelles) qu'aucun profil public n'expose,
-// toujours non disponibles ici, jamais une estimation inventée.
+// Raisons d'indisponibilité STRUCTURELLE (jamais une estimation inventée à la
+// place) : vues moyennes/régularité/viralité ont besoin des données par vidéo
+// qu'aucun profil public n'expose ; croissance abonnés a besoin d'un
+// diagnostic PRÉCÉDENT du même compte pour mesurer une évolution.
 const DS_TOUJOURS_INDISPONIBLE = {
-  portee: "Non calculable avec un simple profil public : TikTok n'expose pas le nombre de vues par vidéo à cette échelle. Le diagnostic complet (captures) le permet.",
+  vues_moyennes: "Non calculable avec un simple profil public : TikTok n'expose pas le nombre de vues par vidéo à cette échelle. Le diagnostic complet (captures) le permet.",
   regularite: "Non calculable sans la date de chaque vidéo, une donnée absente d'un profil public. Le diagnostic complet (captures) le permet.",
+  croissance_abonnes: "Pas encore assez d'historique sur ce compte : il faut au moins un diagnostic sommaire précédent pour mesurer une évolution.",
   viralite: "Non calculable sans pouvoir comparer tes vidéos entre elles individuellement, donnée indisponible via un simple profil public."
 };
 
@@ -1539,7 +1621,7 @@ function telechargerDiagSommairePDF() {
 
 // FACE-À-FACE « Toi face à @concurrent » : ajouté EN HAUT de mon résultat quand
 // je viens de « Analyser mon compte » après avoir décodé un concurrent. Duel
-// chiffré déterministe (score + 4 dimensions, mes chiffres vs les siens) puis
+// chiffré déterministe (score + dimensions, mes chiffres vs les siens) puis
 // synthèse IA (où je mène / suis en retard, et LE levier n°1 à lui prendre).
 // Best-effort : toute erreur laisse simplement mon résultat tel quel.
 async function afficherComparaisonConcurrent(moiDiag, moiUsername, concurrent) {
@@ -1554,7 +1636,7 @@ async function afficherComparaisonConcurrent(moiDiag, moiUsername, concurrent) {
   carte.innerHTML = `<div class="ds-vs-loading">On te compare à @${diagSommaireEsc(concUser)} ☕…</div>`;
   results.insertAdjacentElement('afterbegin', carte);
 
-  // Duel chiffré (déterministe) : score global + 4 dimensions.
+  // Duel chiffré (déterministe) : score global + dimensions.
   const mesur = x => (x && x.disponible !== false && typeof x.score === 'number' && !Number.isNaN(x.score)) ? x.score : null;
   const lignes = [{ label: 'Score global', max: 100, moi: scoreGlobalDepuisDiag(moiDiag), lui: scoreGlobalDepuisDiag(concDiag) }];
   Object.keys(DS_DIM_META).forEach(cle => {
@@ -1563,8 +1645,8 @@ async function afficherComparaisonConcurrent(moiDiag, moiUsername, concurrent) {
   });
   // Synthèse IA (courte, actionnable).
   const compact = (d) => tronquerSansCouperEmoji(JSON.stringify({
-    sante: d.sante_compte, engagement: d.engagement, portee: d.portee, regularite: d.regularite,
-    viralite: d.viralite, niche: d.niche && d.niche.nom, top: d.top_videos,
+    sante: d.sante_compte, engagement: d.engagement, vues_moyennes: d.vues_moyennes, regularite: d.regularite,
+    croissance_abonnes: d.croissance_abonnes, viralite: d.viralite, niche: d.niche && d.niche.nom, top: d.top_videos,
     formule_gagnante: d.evolution && d.evolution.formule_gagnante, concepts: d.concepts_recurrents
   }), 2500);
   // Le CODE tranche qui gagne chaque dimension (un nombre plus élevé = meilleur).
