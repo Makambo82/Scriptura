@@ -2903,6 +2903,11 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .outils-mini-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--border-soft);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-size:0.78rem;font-family:'Poppins',sans-serif;cursor:pointer;transition:border-color .2s,color .2s}
 .outils-mini-btn:hover{border-color:var(--gold);color:var(--gold-light)}
 .outils-mini-btn:disabled{opacity:0.5;cursor:not-allowed}
+/* Carte source utilisée en TÊTE de résultat (diagnostic sommaire, analyse
+   vidéo) : .outils-source-card n'a qu'un margin-top (pensé pour suivre un
+   bloc de transcription), il lui manque un espacement en dessous quand
+   c'est elle qui ouvre l'écran, juste avant la carte de score. */
+.ds-identite-card,.viral-carte-source{margin-bottom:24px}
 .outils-mini-btn .ico{width:14px;height:14px}
 
 /* Écran "analyse en cours" du diagnostic sommaire (@username) */

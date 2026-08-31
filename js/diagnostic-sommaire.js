@@ -213,6 +213,45 @@ function dsLikesCumules(profil) {
   return dsLireStat(dsStatsCompte(profil), DS_CLES_LIKES);
 }
 
+// Identité affichable du compte (photo, pseudo, @handle), pour la carte
+// source en tête du diagnostic (retour du propriétaire, raisons commerciales
+// et d'attractivité). Même repérage récursif tolérant que dsStatsCompte
+// ci-dessus (TikHub range l'objet "user" à une profondeur variable), mais
+// cherche uniqueId/nickname plutôt que les abonnés : ce n'est pas
+// forcément le même objet (structure confirmée côté serveur, voir
+// extraireIds/api/username-scan.js : profil.userInfo.user). Avatar lu sur
+// CE MÊME objet (avatarLarger/avatarMedium/avatarThumb, jamais un scan
+// séparé qui pourrait dériver vers une autre branche du profil), même
+// principe que extraireAuteurAvatar (api/_lib/tiktok-media.js) : les URLs
+// d'avatar TikTok sont des images CDN publiques, prévues pour être
+// hotlinkées telles quelles.
+function dsIdentiteCompte(profil) {
+  let trouve = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (trouve || !o || typeof o !== 'object' || prof > 6 || vus.has(o)) return;
+    vus.add(o);
+    const uniqueId = typeof o.uniqueId === 'string' ? o.uniqueId.trim() : null;
+    const nickname = typeof o.nickname === 'string' ? o.nickname.trim() : null;
+    if (uniqueId || nickname) {
+      let avatarUrl = null;
+      for (const k of Object.keys(o)) {
+        if (/^avatar(larger|medium|thumb)?$/i.test(k)) {
+          const v = o[k];
+          if (typeof v === 'string' && /^https?:\/\//.test(v)) { avatarUrl = v; break; }
+          if (v && typeof v === 'object') {
+            const liste = v.urlList || v.url_list;
+            if (Array.isArray(liste) && typeof liste[0] === 'string') { avatarUrl = liste[0]; break; }
+          }
+        }
+      }
+      trouve = { uniqueId, nickname, avatarUrl };
+      return;
+    }
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(profil || {}, 0);
+  return trouve || {};
+}
+
 // Calcule à partir des vidéos réelles (endpoint /v1/user/medias) les
 // métriques nécessaires aux dimensions Portée, Régularité et Viralité.
 // Retourne null si trop peu de vidéos chiffrées pour être fiable, le
@@ -698,6 +737,7 @@ ${schemaJson}`;
     // API supplémentaire : juste une lecture de l'historique déjà là.
     parsed.abonnes = abonnes;
     parsed.likesCumules = likesCumules;
+    parsed.identite = dsIdentiteCompte(donnees.profil);
   }
   return parsed;
 }
@@ -1173,15 +1213,33 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
     ? `<div class="ds-sante-row"><span class="ds-tag ${sante.niveau}">Santé du compte : ${sante.label}</span></div>`
     : '';
 
-  // Abonnés / likes cumulés : entre le score et la santé du compte, pour
-  // situer le score dans le contexte réel de la taille du compte (retour
-  // créateur explicite). N'affiche que ce qui a pu être extrait, jamais un
-  // "0" ou "non disponible" trompeur si TikHub n'a pas remonté la valeur.
-  const statsCompteHtml = (d.abonnes || d.likesCumules) ? `
-    <div class="ds-stats-row">
-      ${d.abonnes ? `<div class="ds-stat-item">${ICO('people')}<span class="ds-stat-num">${formaterNombre(d.abonnes)}</span><span class="ds-stat-label">Abonnés</span></div>` : ''}
-      ${d.likesCumules ? `<div class="ds-stat-item">${ICO('heart')}<span class="ds-stat-num">${formaterNombre(d.likesCumules)}</span><span class="ds-stat-label">J'aime</span></div>` : ''}
-    </div>` : '';
+  // Carte source en tête du diagnostic (retour du propriétaire, raisons
+  // commerciales et d'attractivité) : vraie photo de profil + pseudo +
+  // @handle + abonnés + j'aime cumulés, même style que les cartes source
+  // transcription/téléchargement/Tendances (.outils-source-*). La carte de
+  // score, elle, ne garde plus que l'anneau, le pourcentage et la santé du
+  // compte (voir plus bas), toute l'identité du compte vit ici.
+  const identite = d.identite || {};
+  const nomAffiche = identite.nickname || (identite.uniqueId ? '@' + identite.uniqueId : '@' + username);
+  const initialeIdentite = (identite.nickname || identite.uniqueId || username || 'C').trim().charAt(0).toUpperCase();
+  const avatarImgIdentite = identite.avatarUrl
+    ? `<img class="outils-source-avatar-img" src="${diagSommaireEsc(identite.avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()"/>`
+    : '';
+  const identiteCardHtml = `
+    <div class="outils-source-card ds-identite-card">
+      <div class="outils-source-head">
+        <div class="outils-source-avatar">${diagSommaireEsc(initialeIdentite)}${avatarImgIdentite}</div>
+        <div class="outils-source-id">
+          <div class="outils-source-nom">${diagSommaireEsc(nomAffiche)}</div>
+          ${identite.uniqueId ? `<div class="outils-source-handle">@${diagSommaireEsc(identite.uniqueId)}</div>` : ''}
+        </div>
+      </div>
+      ${(d.abonnes || d.likesCumules) ? `
+      <div class="ds-stats-row" style="justify-content:flex-start;margin-top:14px">
+        ${d.abonnes ? `<div class="ds-stat-item">${ICO('people')}<span class="ds-stat-num">${formaterNombre(d.abonnes)}</span><span class="ds-stat-label">Abonnés</span></div>` : ''}
+        ${d.likesCumules ? `<div class="ds-stat-item">${ICO('heart')}<span class="ds-stat-num">${formaterNombre(d.likesCumules)}</span><span class="ds-stat-label">J'aime</span></div>` : ''}
+      </div>` : ''}
+    </div>`;
 
   // Évolution du compte : détection d'un changement de cap (pivot) sur ~6 mois,
   // avec comparaison avant/après et formule gagnante. N'apparaît que si l'IA a
@@ -1223,8 +1281,10 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
   </div>`;
 
   results.innerHTML = `
+    ${identiteCardHtml}
+
     <div class="score-card audit-score-card ds-score-card">
-      <div class="audit-score-label">${moi ? 'DIAGNOSTIC SOMMAIRE' : 'ANALYSE CONCURRENT'} · @${diagSommaireEsc(username)}</div>
+      <div class="audit-score-label">${moi ? 'DIAGNOSTIC SOMMAIRE' : 'ANALYSE CONCURRENT'}</div>
       <div class="audit-ring-wrap">
         <svg class="audit-ring" viewBox="0 0 170 170">
           <defs>
@@ -1241,7 +1301,6 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
           <div class="audit-score-num" style="color:${paletteScore.texte}"><span id="dsScoreNum">0</span><span class="audit-score-suffix">/100</span></div>
         </div>
       </div>
-      ${statsCompteHtml}
       ${santeRowHtml}
     </div>
 

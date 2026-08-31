@@ -82,8 +82,13 @@ for (const [nom, stats] of [
         assert.ok(texte.includes(dim), 'dimension attendue absente : ' + dim);
       }
 
-      // Les vraies stats restent visibles, en simple contexte.
-      assert.ok(/vues/.test(texte), 'les vues doivent rester affichées, en contexte : ' + texte.slice(0, 400));
+      // Les vraies stats restent visibles, en simple contexte : désormais
+      // dans la carte source en tête (retour du propriétaire, icône + chiffre,
+      // voir _outilsCarteSourceHtml, js/tiktok-outils.js), plus le mot "vues"
+      // littéral comme avant (l'ancienne ligne de contexte a été retirée de
+      // la carte de score, qui ne garde plus que l'anneau et le pourcentage).
+      const chiffresSeuls = texte.replace(/\D/g, '');
+      assert.ok(chiffresSeuls.includes(String(stats.vues)), 'les vraies vues doivent rester visibles, en contexte : ' + texte.slice(0, 400));
 
       if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
     } finally {

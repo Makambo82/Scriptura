@@ -151,6 +151,8 @@ async function lancerAnalyseVirale() {
     // 1) Transcript : depuis le lien en priorité, sinon le texte collé.
     let description = '';
     let statsVideo = null; // vraies stats de la vidéo (vues/likes…), pour le score
+    let auteurVideo = null; // pseudo/photo/@handle, pour la carte source en tête du rapport
+    let createTimeVideo = null; // date de publication, même carte source
     let langueVideo = null; // langue détectée par la transcription (pour la mémoire)
     let framesVideo = []; // frames réparties sur la vidéo (base64 JPEG), pour juger le hook VISUEL et l'EXÉCUTION VISUELLE globale
     if (lien) {
@@ -158,6 +160,8 @@ async function lancerAnalyseVirale() {
       try {
         const data = await _transcriptDepuisLien(lien);
         statsVideo = data.stats || null;
+        auteurVideo = data.auteur || null;
+        createTimeVideo = data.createTime || null;
         langueVideo = data.langue || null;
         // extraireFramesVisuelles (api/tiktok-video.js) renvoie un tableau de
         // simples chaînes base64, jamais des objets : callAI/js/api.js
@@ -251,6 +255,9 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises autour. Str
       throw new Error("Analyse illisible, réessaie dans un instant.");
     }
     rapport.stats = statsVideo; // vraies stats (affichées en contexte, jamais un jugement)
+    rapport.auteur = auteurVideo; // carte source en tête du rapport (retour du propriétaire)
+    rapport.description = description;
+    rapport.createTime = createTimeVideo;
     rapport.langue = langueVideo;
     rapport.transcript = texte; // ce que Scriptura a vraiment entendu/lu (repli affiché)
     // Mémorisé pour que le score (recalculé à chaque affichage, voir
@@ -454,11 +461,15 @@ function afficherRapportViral(d) {
   const note = scoreViraliteRecette(d.signaux, d.frameDisponible);
   const score = note ? note.score : null;
   const pal = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(score) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
-  const taux = _tauxEngagementViral(d.stats);
-  // Vues, engagement, abonnés : affichés comme un simple CONTEXTE informatif,
-  // jamais transformés en jugement de portée ni en étiquette flop/viral.
-  const statsLigne = (d.stats && d.stats.vues)
-    ? `<div class="viral-stats-row">${_fmtVuesViral(d.stats.vues)} vues${taux != null ? ` · ${String(taux).replace('.', ',')}% d'engagement` : ''}${d.stats.abonnesAuteur ? ` · ${_fmtVuesViral(d.stats.abonnesAuteur)} abonnés` : ''}</div>` : '';
+  // Carte source en tête du rapport (retour du propriétaire, raisons
+  // commerciales et d'attractivité) : même composant que la transcription/
+  // le téléchargement TikTok (_outilsCarteSourceHtml, js/tiktok-outils.js),
+  // `d` porte déjà exactement les champs attendus (auteur/description/
+  // createTime/stats, voir rapport.auteur plus haut). La carte de score, elle,
+  // ne garde plus la ligne vues/engagement/abonnés (désormais dans cette
+  // carte source, sous forme d'icônes vues/likes/commentaires/partages).
+  const _carteSourceInterieur = (typeof _outilsCarteSourceHtml === 'function') ? _outilsCarteSourceHtml(d) : '';
+  const carteSourceHtml = _carteSourceInterieur ? `<div class="viral-carte-source">${_carteSourceInterieur}</div>` : '';
   const recetteForteBadge = score != null && score >= SEUIL_RECETTE_FORTE;
   const niveauTxt = note ? `${score >= SEUIL_MEMOIRE ? 'Recette très solide' : recetteForteBadge ? 'Recette solide' : 'Recette perfectible'} · ${note.leviers} leviers viraux` : '';
   const niveauTagClasse = recetteForteBadge ? 'ds-tag-ok' : 'ds-tag';
@@ -483,7 +494,6 @@ function afficherRapportViral(d) {
         </svg>
         <div class="audit-ring-center"><div class="audit-score-num" style="color:${pal.texte}"><span id="viralScoreNum">0</span><span class="audit-score-suffix">/100</span></div></div>
       </div>
-      ${statsLigne}
       ${niveauTxt ? `<div class="ds-sante-row"><span class="ds-tag ${niveauTagClasse}">${niveauTxt}</span></div>` : ''}
       ${dimsHtml}
     </div>` : '';
@@ -563,6 +573,7 @@ function afficherRapportViral(d) {
   const ctaTexte = 'Tu as la recette. Passe à l\'action : Scriptura peut <strong>t\'écrire un script</strong> qui réutilise cette structure sur TON sujet.';
 
   res.innerHTML = `
+    ${carteSourceHtml}
     ${scoreCardHtml}
     ${sujetHtml}
     ${hookHtml}
