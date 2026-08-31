@@ -141,3 +141,39 @@ test('Téléchargement TikTok : même carte source (auteur, date, stats) que la 
     assert.equal(boutonPresent, true);
   } finally { await navigateur.close(); await arreter(); }
 });
+
+test('Transcription TikTok : un bouton "Télécharger la vidéo" permet de récupérer le fichier SANS quitter le résultat de la transcription', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page, {});
+    await page.route('**/api/tiktok-video?action=download**', (route) =>
+      route.fulfill({ status: 200, headers: { 'Content-Type': 'video/mp4' }, body: Buffer.from('faux-contenu-video') }));
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PRO-DL2', plan: 'pro' });
+    await ouvrirEtTranscrire(page, REPONSE_COMPLETE);
+
+    const btnPresent = await page.evaluate(() => !!document.getElementById('outilsTelechargerDepuisTranscriptionBtn'));
+    assert.equal(btnPresent, true, 'le bouton "Télécharger la vidéo" doit apparaître à côté de "Essayer un autre lien"');
+
+    // navigator.share n'existe pas en Chromium headless : le code retombe
+    // sur telechargerBlob (voir outilsPartagerVideo), un vrai clic sur un
+    // <a download>, que Playwright intercepte comme un téléchargement réel.
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 10000 }),
+      page.click('#outilsTelechargerDepuisTranscriptionBtn')
+    ]);
+    assert.match(download.suggestedFilename(), /\.mp4$/);
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+
+    // Le résultat de la TRANSCRIPTION doit toujours être affiché, l'écran
+    // n'a jamais changé pour celui du téléchargement (retour du propriétaire :
+    // "n'a pas à quitter cette page").
+    const texteEncoreLa = await page.evaluate(() => (document.getElementById('outilsResults').textContent || '').includes('phrase de test'));
+    assert.equal(texteEncoreLa, true, 'le transcript doit rester affiché après le téléchargement, pas d\'écran remplacé');
+  } finally { await navigateur.close(); await arreter(); }
+});

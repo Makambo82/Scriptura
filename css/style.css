@@ -320,6 +320,11 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
    <select> original reste dans le DOM, masqué, .value et tout addEventListener
    ('change') déjà branché ailleurs continuent de fonctionner normalement. */
 .custom-select{position:relative}
+/* Dans un champ pilule (.ds-field, ex. sélecteur de niche Tendances) : le
+   <select> transformé doit remplir l'espace disponible comme .ds-input le
+   fait déjà, sinon il ne prend que sa largeur de contenu et laisse un vide
+   avant le bouton d'action (retour du propriétaire, capture). */
+.ds-field .custom-select{flex:1;min-width:0}
 .custom-select select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
 /* Pendant maison des boutons cliquables (≤4 choix, voir initToggleButtons,
    js/ui.js) : même principe, le <select> original reste dans le DOM pour la

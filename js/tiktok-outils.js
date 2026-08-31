@@ -345,9 +345,65 @@ function afficherResultatTranscription(data) {
     <div class="outils-result-card" style="margin-top:0">
       <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
     </div>
-    <button class="btn-back" style="margin-top:18px" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
+    <div class="err" id="outilsTelechargerDepuisTranscriptionError" style="display:none;margin-top:14px"></div>
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:18px">
+      <button class="btn-back" style="margin-bottom:0" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
+      <button class="btn-storyboard" id="outilsTelechargerDepuisTranscriptionBtn" onclick="outilsTelechargerDepuisTranscription(this)">
+        <span class="sb-gen-spinner" id="outilsTelechargerDepuisTranscriptionSpinner" style="display:none"></span>
+        <span id="outilsTelechargerDepuisTranscriptionTxt">${ICO('download')} Télécharger la vidéo</span>
+      </button>
+    </div>
   `;
   res.style.display = 'block';
+}
+
+// Depuis le résultat de la TRANSCRIPTION, télécharge la même vidéo (même
+// lien déjà utilisé) sans quitter cette page (retour du propriétaire) :
+// déclenche directement le partage natif / téléchargement du fichier
+// (voir outilsPartagerVideo), la transcription affichée reste intacte à
+// l'écran, pas de changement d'écran vers le résultat "téléchargement".
+async function outilsTelechargerDepuisTranscription(btn) {
+  const lienEl = document.getElementById('outilsLien');
+  const lien = (lienEl && lienEl.value || '').trim();
+  const err = document.getElementById('outilsTelechargerDepuisTranscriptionError');
+  const spin = document.getElementById('outilsTelechargerDepuisTranscriptionSpinner');
+  const txt = document.getElementById('outilsTelechargerDepuisTranscriptionTxt');
+  if (err) err.style.display = 'none';
+  if (!lien) return;
+
+  // Même quota dédié que la transcription (droitAnalyseVirale) : télécharger
+  // après avoir transcrit consomme une 2e unité, une vraie 2e opération.
+  const droit = await droitAnalyseVirale();
+  if (!droit.ok) {
+    if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
+    if (err) {
+      err.textContent = droit.raison === 'quota'
+        ? "Tu as atteint ta limite d'analyses vidéo ce mois-ci (" + droit.limite + ")."
+        : "Débloque Scriptura pour télécharger cette vidéo.";
+      err.style.display = 'block';
+    }
+    if (droit.raison !== 'quota' && droit.raison !== 'expire') openPlans('nouveau');
+    return;
+  }
+
+  btn.disabled = true;
+  if (spin) spin.style.display = 'inline-block';
+  if (txt) txt.style.display = 'none';
+  try {
+    const { blob } = await _outilsFetchVideo(lien);
+    _outilsDecompteApresSucces();
+    _outilsVideoBlob = blob;
+    await outilsPartagerVideo();
+  } catch (e) {
+    if (err) {
+      err.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
+      err.style.display = 'block';
+    }
+  } finally {
+    btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (txt) txt.style.display = '';
+  }
 }
 
 function afficherResultatTelechargement(blob, meta) {
