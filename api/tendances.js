@@ -495,8 +495,19 @@ async function avancer(req, res, tikhubKey, elevenKey) {
 }
 
 // ── Sonde de diagnostic (admin), conservée pour du dépannage futur ──
+// Retour du propriétaire : les vues médianes restent modestes même après la
+// réserve élargie (RESERVE_MULTIPLICATEUR). fetch_general_search trie par
+// PERTINENCE du mot-clé, jamais par popularité (voir en-tête de fichier) :
+// une réserve plus large ne peut qu'augmenter les CHANCES de tomber sur de
+// vrais cartons, elle ne change pas le tri de base. TikTok expose parfois un
+// paramètre sort_type sur son endpoint de recherche web (0=pertinence,
+// 1=plus aimées, 2=plus récentes) : ces candidats testent si TikHub le
+// répercute, AVANT de le committer dans lancer() sans certitude (coûterait
+// une analyse complète, payante, pour le découvrir). Sonde admin, gratuite
+// (une poignée d'appels recherche, aucun téléchargement/transcription).
 const CANDIDATS_RECHERCHE = [
-  { nom: 'fetch_general_search', chemin: '/api/v1/tiktok/web/fetch_general_search', params: (mot) => ({ keyword: mot, count: 10 }) }
+  { nom: 'fetch_general_search (pertinence, tri actuel de lancer())', chemin: '/api/v1/tiktok/web/fetch_general_search', params: (mot) => ({ keyword: mot, count: 20 }) },
+  { nom: 'fetch_general_search (sort_type=1, essai "plus aimées")', chemin: '/api/v1/tiktok/web/fetch_general_search', params: (mot) => ({ keyword: mot, count: 20, sort_type: 1 }) }
 ];
 function formeDonnees(v, profondeur) {
   if (profondeur > 9 || v == null) return v === null ? null : typeof v;
@@ -513,7 +524,14 @@ async function testerCandidat(candidat, mot, tikhubKey) {
     out.statut = r.status;
     let data = null;
     try { data = await r.json(); } catch (e) { out.nonJson = true; }
-    if (data) out.forme = formeDonnees(data, 0);
+    if (data) {
+      out.forme = formeDonnees(data, 0);
+      // Vues brutes des 20 premiers résultats : le moyen le plus rapide de
+      // voir si sort_type change vraiment quelque chose (comparer les 2
+      // candidats d'un coup d'œil), sans avoir à décortiquer "forme".
+      const arr = data && data.data && Array.isArray(data.data.data) ? data.data.data : [];
+      out.vuesEchantillon = arr.map(x => x && x.item && x.item.stats && x.item.stats.playCount).filter(v => typeof v === 'number');
+    }
   } catch (e) { out.erreur = e.message; }
   return out;
 }
