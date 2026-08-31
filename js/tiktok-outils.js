@@ -159,11 +159,11 @@ async function lancerOutilTikTok(type) {
       if (typeof pushNav === 'function') pushNav();
       afficherResultatTranscription(data);
     } else {
-      const blob = await _outilsFetchVideo(lien);
+      const { blob, meta } = await _outilsFetchVideo(lien);
       if (prog) prog.finish();
       _outilsDecompteApresSucces();
       if (typeof pushNav === 'function') pushNav();
-      afficherResultatTelechargement(blob);
+      afficherResultatTelechargement(blob, meta);
     }
   } catch (e) {
     if (prog) prog.stop();
@@ -223,7 +223,23 @@ async function _outilsFetchVideo(url) {
     const params = new URLSearchParams({ action: 'download', url, code_acces: localStorage.getItem('scriptura_code') || '' });
     const r = await fetch('/api/tiktok-video?' + params.toString(), { signal: ctrl.signal });
     await _outilsGererErreurReponse(r);
-    return await r.blob();
+    // Métadonnées (auteur, date, stats) passées par en-tête (voir
+    // handleDownload, api/tiktok-video.js) : le corps reste le flux vidéo
+    // brut. Best-effort, jamais bloquant si absent/illisible. atob() seul
+    // renvoie une chaîne "binaire" (1 caractère = 1 octet) : un JSON.parse
+    // direct dessus donne un texte accentué corrompu (chaque octet UTF-8
+    // lu comme un caractère Latin-1 séparé), d'où le passage par
+    // TextDecoder pour redécoder correctement l'UTF-8 d'origine.
+    let meta = null;
+    try {
+      const brut = r.headers.get('X-Scriptura-Meta');
+      if (brut) {
+        const octets = Uint8Array.from(atob(brut), c => c.charCodeAt(0));
+        meta = JSON.parse(new TextDecoder('utf-8').decode(octets));
+      }
+    } catch (e) { meta = null; }
+    const blob = await r.blob();
+    return { blob, meta };
   } finally { clearTimeout(minuteur); }
 }
 
@@ -269,18 +285,20 @@ function _outilsTelechargerTxt() {
   telechargerBlob(blob, 'transcription-tiktok.txt');
 }
 
-function afficherResultatTranscription(data) {
-  _outilsTranscript = formaterTranscriptEnParagraphes(data.transcript || '');
-  const form = document.getElementById('outilsForm');
-  if (form) form.style.display = 'none';
-
-  const auteur = data.auteur || {};
+// Carte "source" de la vidéo (auteur, date, description, stats), commune à
+// la transcription et au téléchargement (même style, retour du
+// propriétaire) : jamais d'avatar image (URLs TikHub signées à durée de
+// vie courte, voir extraireAuteurInfo, api/_lib/tiktok-media.js), un badge
+// à initiale à la place.
+function _outilsCarteSourceHtml(meta) {
+  meta = meta || {};
+  const auteur = meta.auteur || {};
   const nom = auteur.nickname || (auteur.uniqueId ? '@' + auteur.uniqueId : 'Vidéo TikTok');
   const initiale = (auteur.nickname || auteur.uniqueId || 'T').trim().charAt(0).toUpperCase();
-  const dateStr = data.createTime
-    ? new Date(data.createTime * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+  const dateStr = meta.createTime
+    ? new Date(meta.createTime * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
-  const s = data.stats || {};
+  const s = meta.stats || {};
   const statsHtml = (s.vues || s.likes || s.commentaires || s.partages) ? `
     <div class="ds-stats-row" style="justify-content:flex-start;margin-top:14px">
       ${s.vues != null ? `<div class="ds-stat-item">${ICO('eye')}<span class="ds-stat-num">${formaterNombre(s.vues)}</span></div>` : ''}
@@ -288,12 +306,8 @@ function afficherResultatTranscription(data) {
       ${s.commentaires != null ? `<div class="ds-stat-item">${ICO('comment')}<span class="ds-stat-num">${formaterNombre(s.commentaires)}</span></div>` : ''}
       ${s.partages != null ? `<div class="ds-stat-item">${ICO('share')}<span class="ds-stat-num">${formaterNombre(s.partages)}</span></div>` : ''}
     </div>` : '';
-
-  const langueTag = _outilsNomLangue(data.langue);
-  const nbMots = _outilsCompterMots(data.transcript);
-
-  const res = document.getElementById('outilsResults');
-  res.innerHTML = `
+  if (!auteur.nickname && !auteur.uniqueId && !dateStr && !meta.description && !statsHtml) return '';
+  return `
     <div class="outils-source-card">
       <div class="outils-source-head">
         <div class="outils-source-avatar">${outilsEsc(initiale)}</div>
@@ -303,9 +317,22 @@ function afficherResultatTranscription(data) {
         </div>
         ${dateStr ? `<div class="outils-source-date">${dateStr}</div>` : ''}
       </div>
-      ${data.description ? `<p class="outils-source-desc">${outilsEsc(data.description)}</p>` : ''}
+      ${meta.description ? `<p class="outils-source-desc">${outilsEsc(meta.description)}</p>` : ''}
       ${statsHtml}
-    </div>
+    </div>`;
+}
+
+function afficherResultatTranscription(data) {
+  _outilsTranscript = formaterTranscriptEnParagraphes(data.transcript || '');
+  const form = document.getElementById('outilsForm');
+  if (form) form.style.display = 'none';
+
+  const langueTag = _outilsNomLangue(data.langue);
+  const nbMots = _outilsCompterMots(data.transcript);
+
+  const res = document.getElementById('outilsResults');
+  res.innerHTML = `
+    ${_outilsCarteSourceHtml(data)}
 
     <div class="outils-transcript-controls">
       ${langueTag ? `<span class="ds-tag">${langueTag}</span>` : ''}
@@ -323,13 +350,14 @@ function afficherResultatTranscription(data) {
   res.style.display = 'block';
 }
 
-function afficherResultatTelechargement(blob) {
+function afficherResultatTelechargement(blob, meta) {
   _outilsVideoBlob = blob;
   const form = document.getElementById('outilsForm');
   if (form) form.style.display = 'none';
   const res = document.getElementById('outilsResults');
   res.innerHTML = `
-    <div class="outils-result-card">
+    ${_outilsCarteSourceHtml(meta)}
+    <div class="outils-result-card" style="margin-top:${meta ? '18px' : '24px'}">
       <h3>${ICO('download')} Téléchargement</h3>
       <p class="outils-dl-desc">Ta vidéo est prête.</p>
       <button class="btn-generate" id="outilsDlBtn" style="width:100%" onclick="outilsPartagerVideo()">Télécharger la vidéo</button>

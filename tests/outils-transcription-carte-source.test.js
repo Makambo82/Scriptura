@@ -85,3 +85,59 @@ test('Transcription TikTok : aucun plantage si auteur/stats/date manquent (repli
     assert.deepEqual(erreursJs, []);
   } finally { await navigateur.close(); await arreter(); }
 });
+
+test('Téléchargement TikTok : même carte source (auteur, date, stats) que la transcription, retour du propriétaire', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page, {});
+    // Métadonnées passées par en-tête (X-Scriptura-Meta, base64), le corps
+    // reste le flux vidéo brut (voir handleDownload, api/tiktok-video.js).
+    const meta = {
+      description: 'Une vidéo de cuisine à télécharger.',
+      stats: { vues: 120000, likes: 8000, commentaires: 42, partages: 15 },
+      auteur: { uniqueId: 'makambo82', nickname: 'Makambo' },
+      createTime: 1785650330
+    };
+    const metaBase64 = Buffer.from(JSON.stringify(meta), 'utf8').toString('base64');
+    await page.route('**/api/tiktok-video?action=download**', (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'video/mp4', 'X-Scriptura-Meta': metaBase64 },
+        body: Buffer.from('faux-contenu-video-pour-le-test')
+      }));
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PRO-DL-TEST', plan: 'pro' });
+    await page.evaluate(() => { if (typeof ouvrirOutilsTikTok === 'function') ouvrirOutilsTikTok(); });
+    await page.waitForTimeout(150);
+    await page.fill('#outilsLien', 'https://www.tiktok.com/@makambo82/video/7669309697672908064');
+    await page.click('#outilsTelechargementBtn');
+    await page.waitForSelector('#outilsResults', { state: 'visible', timeout: 10000 });
+    await page.waitForFunction(() => (document.getElementById('outilsResults').textContent || '').includes('Makambo'), null, { timeout: 10000 });
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+
+    const carte = await page.evaluate(() => {
+      const c = document.querySelector('#outilsResults .outils-source-card');
+      return c ? {
+        avatar: c.querySelector('.outils-source-avatar')?.textContent,
+        nom: c.querySelector('.outils-source-nom')?.textContent,
+        handle: c.querySelector('.outils-source-handle')?.textContent,
+        desc: c.querySelector('.outils-source-desc')?.textContent
+      } : null;
+    });
+    assert.ok(carte, 'la carte source doit apparaître aussi pour le téléchargement, même style que la transcription');
+    assert.equal(carte.avatar, 'M');
+    assert.match(carte.nom, /Makambo/);
+    assert.match(carte.handle, /@makambo82/);
+    assert.match(carte.desc, /vidéo de cuisine/);
+
+    // Le bouton de téléchargement doit toujours être là, la carte source
+    // vient s'ajouter, pas remplacer le flux existant.
+    const boutonPresent = await page.evaluate(() => !!document.getElementById('outilsDlBtn'));
+    assert.equal(boutonPresent, true);
+  } finally { await navigateur.close(); await arreter(); }
+});

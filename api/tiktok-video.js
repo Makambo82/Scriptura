@@ -232,6 +232,15 @@ async function handleDownload(req, res) {
       return res.status(502).json({ error: { message: 'Vidéo indisponible au téléchargement pour l\'instant. Réessaie plus tard, ou avec un autre lien.' } });
     }
 
+    // Même carte source (auteur, date, description, stats) que la
+    // transcription (voir afficherResultatTranscription, js/tiktok-outils.js) :
+    // le corps de la réponse reste le flux vidéo brut (le client fait
+    // .blob() dessus), les métadonnées passent donc par un en-tête dédié
+    // (JSON encodé en base64, pour rester ASCII-safe en en-tête HTTP).
+    const auteur = resolu.dataTikHub ? extraireAuteurInfo(resolu.dataTikHub) : null;
+    const createTime = resolu.dataTikHub ? extraireCreateTime(resolu.dataTikHub) : null;
+    const meta = { description: resolu.description, stats: resolu.stats, auteur, createTime };
+    res.setHeader('X-Scriptura-Meta', Buffer.from(JSON.stringify(meta), 'utf8').toString('base64'));
     res.setHeader('Content-Type', media.contentType || 'video/mp4');
     res.setHeader('Content-Disposition', 'attachment; filename="scriptura-tiktok.mp4"');
     return res.status(200).send(media.buf);
