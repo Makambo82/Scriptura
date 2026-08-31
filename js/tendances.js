@@ -36,9 +36,27 @@ async function ouvrirTendances() {
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
 
+// Deux façons d'indiquer sa niche (retour du propriétaire) : la saisie
+// libre reste la plus rapide pour qui sait déjà ce qu'il veut, la liste
+// déroulante (même taxonomie que le diagnostic TikTok, #auditNiche) évite
+// la faute de frappe ou la niche trop vague pour qui hésite.
+function choisirModeNicheTendances(estSaisie) {
+  const bSaisie = document.getElementById('tendancesModeSaisieBtn');
+  const bListe = document.getElementById('tendancesModeListeBtn');
+  const champSaisie = document.getElementById('tendancesChampSaisie');
+  const champListe = document.getElementById('tendancesChampListe');
+  if (bSaisie) bSaisie.classList.toggle('actif', !!estSaisie);
+  if (bListe) bListe.classList.toggle('actif', !estSaisie);
+  if (champSaisie) champSaisie.style.display = estSaisie ? '' : 'none';
+  if (champListe) champListe.style.display = estSaisie ? 'none' : '';
+}
+
 function resetTendances() {
   const input = document.getElementById('tendancesInput');
   if (input) input.value = '';
+  const select = document.getElementById('tendancesSelect');
+  if (select) select.value = '';
+  choisirModeNicheTendances(true);
   const err = document.getElementById('tendancesError');
   if (err) err.style.display = 'none';
   const intro = document.getElementById('tendancesIntro');
@@ -81,11 +99,22 @@ async function _tendancesMessageErreur(r) {
 async function lancerTendances() {
   const err = document.getElementById('tendancesError');
   const btn = document.getElementById('tendancesGoBtn');
+  const btnListe = document.getElementById('tendancesGoBtnListe');
   err.style.display = 'none';
 
-  const niche = (document.getElementById('tendancesInput').value || '').trim();
+  // Saisie libre OU liste déroulante, selon le mode actif (voir
+  // choisirModeNicheTendances) : la liste prime si elle est ouverte ET
+  // remplie (l'utilisateur y a explicitement choisi une niche), sinon on
+  // retombe sur le champ de saisie.
+  const champListeVisible = document.getElementById('tendancesChampListe').style.display !== 'none';
+  const valeurSelect = (document.getElementById('tendancesSelect').value || '').trim();
+  const niche = champListeVisible && valeurSelect
+    ? valeurSelect
+    : (document.getElementById('tendancesInput').value || '').trim();
   if (!niche) {
-    err.textContent = 'Indique ta niche (ex. « cuisine », « fitness », « business »).';
+    err.textContent = champListeVisible
+      ? 'Choisis ta niche dans la liste.'
+      : 'Indique ta niche (ex. « cuisine », « fitness », « business »).';
     err.style.display = 'block';
     return;
   }
@@ -96,6 +125,7 @@ async function lancerTendances() {
   // qui n'a aucun repli jeton pour ce mode.
   const code_acces = localStorage.getItem('scriptura_code') || null;
   btn.disabled = true;
+  if (btnListe) btnListe.disabled = true;
   const intro = document.getElementById('tendancesIntro');
   if (intro) intro.style.display = 'none';
   document.getElementById('tendancesForm').style.display = 'none';
@@ -165,6 +195,7 @@ async function lancerTendances() {
     err.style.display = 'block';
   } finally {
     btn.disabled = false;
+    if (btnListe) btnListe.disabled = false;
   }
 }
 

@@ -150,3 +150,56 @@ test('Tendances : abonné Pro lance une analyse, la boucle de polling avance, le
     assert.deepEqual(erreursJs, []);
   } finally { await navigateur.close(); await arreter(); }
 });
+
+test('Tendances : la niche peut se saisir librement OU se choisir dans une liste déroulante', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page, {});
+    let nicheEnvoyee = null;
+    await page.route('**/api/tendances', async (route) => {
+      const body = JSON.parse(route.request().postData() || '{}');
+      if (body.action === 'lancer') {
+        nicheEnvoyee = body.niche;
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: false, raison: 'pas_assez_de_videos', trouvees: 0 }) });
+      }
+      route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { message: 'inattendu' } }) });
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PRO-NICHE', plan: 'pro' });
+    await page.evaluate(() => { if (typeof revelerModes === 'function') revelerModes(); });
+    await page.waitForTimeout(150);
+    await page.click('button[onclick="ouvrirTendances()"]');
+    await page.waitForTimeout(150);
+
+    // Par défaut : saisie libre visible, liste masquée.
+    const etatInitial = await page.evaluate(() => ({
+      saisieVisible: document.getElementById('tendancesChampSaisie').style.display !== 'none',
+      listeVisible: document.getElementById('tendancesChampListe').style.display !== 'none'
+    }));
+    assert.equal(etatInitial.saisieVisible, true);
+    assert.equal(etatInitial.listeVisible, false);
+
+    // Bascule vers la liste déroulante.
+    await page.click('#tendancesModeListeBtn');
+    await page.waitForTimeout(100);
+    const etatListe = await page.evaluate(() => ({
+      saisieVisible: document.getElementById('tendancesChampSaisie').style.display !== 'none',
+      listeVisible: document.getElementById('tendancesChampListe').style.display !== 'none'
+    }));
+    assert.equal(etatListe.saisieVisible, false);
+    assert.equal(etatListe.listeVisible, true);
+
+    // Choisit une niche dans la liste et lance : le lien envoyé au serveur
+    // doit être celui choisi dans le <select>, pas un champ de saisie vide.
+    await page.selectOption('#tendancesSelect', 'Cuisine & Food');
+    await page.click('#tendancesGoBtnListe');
+    await page.waitForTimeout(300);
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(nicheEnvoyee, 'Cuisine & Food', 'la niche choisie dans la liste doit être celle envoyée au serveur');
+  } finally { await navigateur.close(); await arreter(); }
+});

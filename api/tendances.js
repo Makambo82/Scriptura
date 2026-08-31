@@ -38,6 +38,14 @@ const VIDEOS_CIBLE = 50;          // nombre de vidéos candidates visées
 const VIDEOS_CIBLE_TEST = 5;      // mode test (admin), pour vérifier un correctif sans payer 50 vidéos
 const FENETRE_JOURS = 90;         // fraîcheur, comme Vervox
 const PAGES_MAX_RECHERCHE = 15;   // garde-fou anti-boucle infinie
+// fetch_general_search (TikHub) ne trie PAS par performance, juste par
+// pertinence du mot-clé : un 1er test réel a montré des médianes basses
+// (vues/likes) parce qu'on gardait les 50 premières vidéos rencontrées,
+// carton ou pas. On cherche donc une réserve plus large (cible × ce
+// multiplicateur, ou toutes les pages dispo si la niche en a moins), puis
+// on NE GARDE QUE les mieux vues (voir tri dans lancer()) : c'est ce
+// tri-là, pas la recherche elle-même, qui fait "ce qui cartonne".
+const RESERVE_MULTIPLICATEUR = 3;
 const LOT_PAR_AVANCEE = 3;        // vidéos traitées par appel "avancer", en parallèle
 const MODEL_SYNTHESE = 'claude-haiku-4-5-20251001';
 const MAX_TRANSCRIPT = 2000;      // par vidéo, la synthèse porte sur l'ensemble de l'échantillon
@@ -276,6 +284,42 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
   return { niche, ...stats, ...qualitatif };
 }
 
+// Classe les vidéos par PERFORMANCE (vues ET engagement, jamais les vues
+// seules) : un gros compte peut cumuler des vues sans que le contenu soit
+// vraiment bon (juste sa base d'abonnés), alors qu'une vidéo à l'audience
+// plus modeste mais au taux d'engagement élevé est souvent le signal le
+// plus honnête de "ça cartonne vraiment" — exactement ce que ce mode
+// promet de repérer (voir en-tête de fichier). Combine les deux par RANG
+// (pas une formule à poids arbitraires) : chaque vidéo est classée une
+// fois par vues, une fois par engagement, la somme des deux rangs
+// départage (plus bas = mieux classée sur les deux plans à la fois), ce
+// qui évite qu'une métrique à l'échelle bien plus grande (vues, en
+// centaines de milliers) n'écrase l'autre (engagement, une fraction < 1)
+// dans un simple score pondéré.
+function classerParPerformance(videos) {
+  const avecTaux = videos.map(v => {
+    const s = v.stats || {};
+    const vues = s.vues || 0;
+    const engagement = vues > 0 ? ((s.likes || 0) + (s.commentaires || 0) + (s.partages || 0)) / vues : 0;
+    return { v, vues, engagement };
+  });
+  // Départage explicite par l'AUTRE métrique en cas d'égalité (ex. données
+  // d'engagement manquantes/nulles pour un lot de vidéos) : sans ce
+  // départage, un simple tri stable retombe sur l'ordre d'arrivée, qui peut
+  // par coïncidence s'opposer au rang vues et neutraliser tout le calcul
+  // (rangCombine identique pour toutes les vidéos). Avec le départage, une
+  // égalité d'engagement retombe proprement sur le classement par vues,
+  // jamais sur un artefact d'ordre d'arrivée.
+  const parVues = [...avecTaux].sort((a, b) => b.vues - a.vues || b.engagement - a.engagement);
+  const parEngagement = [...avecTaux].sort((a, b) => b.engagement - a.engagement || b.vues - a.vues);
+  const rangVues = new Map(parVues.map((x, i) => [x.v.id, i]));
+  const rangEngagement = new Map(parEngagement.map((x, i) => [x.v.id, i]));
+  return avecTaux
+    .map(x => ({ v: x.v, rangCombine: rangVues.get(x.v.id) + rangEngagement.get(x.v.id) }))
+    .sort((a, b) => a.rangCombine - b.rangCombine)
+    .map(x => x.v);
+}
+
 // ── action=lancer : cherche les vidéos candidates, crée le job ──
 async function lancer(req, res, tikhubKey) {
   const { niche, code_acces, test } = req.body || {};
@@ -304,26 +348,36 @@ async function lancer(req, res, tikhubKey) {
   if (!cfg) return res.status(500).json({ error: { message: 'Mémoire indisponible (Supabase non configuré).' } });
 
   const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
-  const collectees = new Map(); // id -> item allégé
+  const reserveCible = cible * RESERVE_MULTIPLICATEUR;
+  const reserve = new Map(); // id -> item allégé, PAS encore filtré par performance
   let cursor = 0, page = 0, hasMore = true;
-  while (collectees.size < cible && hasMore && page < PAGES_MAX_RECHERCHE) {
+  while (reserve.size < reserveCible && hasMore && page < PAGES_MAX_RECHERCHE) {
     const lot = await rechercherVideos(niche.trim(), cursor, tikhubKey);
     page++;
     if (!lot) break;
     for (const item of lot.items) {
-      if (collectees.size >= cible) break;
-      if (!item || !item.id || collectees.has(item.id)) continue;
+      if (!item || !item.id || reserve.has(item.id)) continue;
       if (item.createTime && item.createTime < seuilDate) continue;
-      collectees.set(item.id, allegerItem(item));
+      reserve.set(item.id, allegerItem(item));
     }
     hasMore = lot.hasMore;
     cursor = lot.cursor;
     if (cursor == null) break;
   }
 
-  if (collectees.size < 5) {
-    return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: collectees.size });
+  if (reserve.size < 5) {
+    return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: reserve.size });
   }
+
+  // On ne garde que les vidéos qui cartonnent VRAIMENT (vues ET engagement,
+  // pas les vues seules, voir classerParPerformance) : c'est ce tri qui
+  // fait de l'échantillon "ce qui cartonne dans la niche", pas la
+  // recherche elle-même (voir RESERVE_MULTIPLICATEUR ci-dessus).
+  const collectees = new Map(
+    classerParPerformance(Array.from(reserve.values()))
+      .slice(0, cible)
+      .map(v => [v.id, v])
+  );
 
   const insere = await supabaseInsert(cfg, 'tendances_niche', {
     code_acces: code_acces || null,

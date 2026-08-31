@@ -658,10 +658,46 @@
     </div>
 
     <div id="tendancesForm">
-      <div class="ds-field">
+      <div class="ds-scope" role="group" aria-label="Comment indiquer ta niche">
+        <button type="button" class="ds-scope-btn actif" id="tendancesModeSaisieBtn" onclick="choisirModeNicheTendances(true)">Saisir</button>
+        <button type="button" class="ds-scope-btn" id="tendancesModeListeBtn" onclick="choisirModeNicheTendances(false)">Choisir dans la liste</button>
+      </div>
+      <div class="ds-field" id="tendancesChampSaisie">
         <input class="ds-input" id="tendancesInput" placeholder="Ta niche : cuisine, fitness, business…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();lancerTendances();}"/>
         <button class="ds-go" id="tendancesGoBtn" aria-label="Analyser" onclick="lancerTendances()">
           <span id="tendancesGoArrow"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M4 12h16"/><path d="M13 6l6 6-6 6"/></svg></span>
+        </button>
+      </div>
+      <div class="ds-field" id="tendancesChampListe" style="display:none">
+        <select class="ctx-input" id="tendancesSelect">
+          <option value="">Choisis ta niche…</option>
+          <option>Art & Créativité</option>
+          <option>Beauté & Mode</option>
+          <option>Business & Entrepreneuriat</option>
+          <option>Célébrités & People</option>
+          <option>Culture & Société</option>
+          <option>Cuisine & Food</option>
+          <option>Développement personnel</option>
+          <option>Éducation</option>
+          <option>Faits divers & Crime</option>
+          <option>Finance & Argent</option>
+          <option>Géopolitique & Actualité</option>
+          <option>Histoire</option>
+          <option>Immobilier & Investissement</option>
+          <option>Lifestyle</option>
+          <option>Motivation & Mindset</option>
+          <option>Mystères & Paranormal</option>
+          <option>Parentalité & Famille</option>
+          <option>Relation & Amour</option>
+          <option>Religion & Foi</option>
+          <option>Santé & Bien-être</option>
+          <option>Spiritualité & Philosophie</option>
+          <option>Sport & Fitness</option>
+          <option>Technologie & IA</option>
+          <option>Voyage & Découverte</option>
+        </select>
+        <button class="ds-go" id="tendancesGoBtnListe" aria-label="Analyser" onclick="lancerTendances()">
+          <span><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M4 12h16"/><path d="M13 6l6 6-6 6"/></svg></span>
         </button>
       </div>
       <p class="ds-note" id="tendancesNote"><span class="ds-note-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></svg></span><span>Réservé au plan Pro, 1 analyse par mois. Ta niche en 1 à 3 mots suffit (ex. « cuisine africaine »).</span></p>
