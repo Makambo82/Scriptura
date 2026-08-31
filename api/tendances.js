@@ -35,6 +35,7 @@ import { urlsVideo, telechargerMedia, detailTikHub } from './_lib/tiktok-media.j
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const VIDEOS_CIBLE = 50;          // nombre de vidéos candidates visées
+const VIDEOS_CIBLE_TEST = 5;      // mode test (admin), pour vérifier un correctif sans payer 50 vidéos
 const FENETRE_JOURS = 90;         // fraîcheur, comme Vervox
 const PAGES_MAX_RECHERCHE = 15;   // garde-fou anti-boucle infinie
 const LOT_PAR_AVANCEE = 3;        // vidéos traitées par appel "avancer", en parallèle
@@ -277,12 +278,17 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
 
 // ── action=lancer : cherche les vidéos candidates, crée le job ──
 async function lancer(req, res, tikhubKey) {
-  const { niche, code_acces } = req.body || {};
+  const { niche, code_acces, test } = req.body || {};
   if (!niche || typeof niche !== 'string' || !niche.trim()) {
     return res.status(400).json({ error: { message: 'Niche manquante' } });
   }
   const droits = await resoudreDroits(code_acces);
   if (!droits.ok) return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+
+  // Mode test (admin uniquement) : échantillon réduit à VIDEOS_CIBLE_TEST au
+  // lieu de VIDEOS_CIBLE, pour vérifier un correctif sans payer TikHub/
+  // ElevenLabs sur 50 vidéos à chaque itération (voir debug-tendances.html).
+  const cible = (test === true && droits.isAdmin) ? VIDEOS_CIBLE_TEST : VIDEOS_CIBLE;
 
   const verdict = await verifierQuota(droits, 'tendances', code_acces);
   if (!verdict.ok) {
@@ -300,12 +306,12 @@ async function lancer(req, res, tikhubKey) {
   const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
   const collectees = new Map(); // id -> item allégé
   let cursor = 0, page = 0, hasMore = true;
-  while (collectees.size < VIDEOS_CIBLE && hasMore && page < PAGES_MAX_RECHERCHE) {
+  while (collectees.size < cible && hasMore && page < PAGES_MAX_RECHERCHE) {
     const lot = await rechercherVideos(niche.trim(), cursor, tikhubKey);
     page++;
     if (!lot) break;
     for (const item of lot.items) {
-      if (collectees.size >= VIDEOS_CIBLE) break;
+      if (collectees.size >= cible) break;
       if (!item || !item.id || collectees.has(item.id)) continue;
       if (item.createTime && item.createTime < seuilDate) continue;
       collectees.set(item.id, allegerItem(item));

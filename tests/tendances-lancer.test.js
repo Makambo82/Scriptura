@@ -152,6 +152,50 @@ test('GET debug sans code admin => 403', async () => {
   } finally { restaurer(); }
 });
 
+test('lancer : mode test (admin) limite l\'échantillon à 5 vidéos', async () => {
+  const restaurer = poserEnv();
+  const pages = [{
+    data: {
+      data: Array.from({ length: 20 }, (_, i) => ({
+        item: { id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: {}, author: {}, authorStats: {} }
+      })),
+      cursor: 20, has_more: false
+    }
+  }];
+  poserFetchMock({ pagesRecherche: pages });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', code_acces: ENV_BASE.CODE_ADMIN, test: true } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.ok, true);
+    assert.equal(res.corpsRecu.total, 5);
+  } finally { restaurer(); }
+});
+
+test('lancer : mode test ignoré pour un non-admin (reste sur l\'échantillon complet)', async () => {
+  const restaurer = poserEnv();
+  const pages = [{
+    data: {
+      data: Array.from({ length: 20 }, (_, i) => ({
+        item: { id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: {}, author: {}, authorStats: {} }
+      })),
+      cursor: 20, has_more: false
+    }
+  }];
+  poserFetchMock({ abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }], quotaOk: true, pagesRecherche: pages });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', code_acces: 'CODE-PRO', test: true } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.ok, true);
+    assert.equal(res.corpsRecu.total, 20);
+  } finally { restaurer(); }
+});
+
 test('avancer : résout une URL fraîche via fetch_post_detail avant de télécharger (plutôt que l\'URL périmée de la recherche)', async () => {
   const restaurer = poserEnv({ ELEVENLABS_API_KEY: 'cle-eleven-test' });
   const urlsAppelees = [];

@@ -15,6 +15,9 @@
   button { margin-top:18px; width:100%; padding:14px; border:none; border-radius:8px; font-size:16px;
     font-weight:600; background:#2f6e52; color:#fff; }
   button:disabled { opacity:.5; }
+  .ligne-case { display:flex; align-items:center; gap:8px; margin-top:16px; }
+  .ligne-case input[type=checkbox] { width:18px; height:18px; margin:0; }
+  .ligne-case label { margin:0; font-size:13px; color:#c7cec9; }
   #journal { margin-top:20px; padding:12px; background:#111611; border-radius:8px; font-size:12px;
     white-space:pre-wrap; word-break:break-word; max-height:60vh; overflow:auto; border:1px solid #2a352c; }
 </style>
@@ -28,6 +31,11 @@
 
 <label for="code">Code d'accès</label>
 <input id="code" placeholder="SCRIPTURA-CELINE">
+
+<div class="ligne-case">
+  <input type="checkbox" id="modeTest" checked>
+  <label for="modeTest">Mode test (5 vidéos au lieu de 50, moins cher pour vérifier un correctif)</label>
+</div>
 
 <button id="btn">Lancer l'analyse</button>
 
@@ -43,17 +51,18 @@ function log(msg) {
 document.getElementById('btn').addEventListener('click', async () => {
   const niche = document.getElementById('niche').value.trim();
   const code = document.getElementById('code').value.trim();
+  const test = document.getElementById('modeTest').checked;
   const btn = document.getElementById('btn');
   if (!niche || !code) { alert('Renseigne la niche et le code d\'accès.'); return; }
   btn.disabled = true;
   journal.textContent = '';
 
   try {
-    log('Lancement…');
+    log('Lancement' + (test ? ' (mode test, 5 vidéos)' : ' (analyse complète, 50 vidéos)') + '…');
     const r1 = await fetch('/api/tendances', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'lancer', niche, code_acces: code })
+      body: JSON.stringify({ action: 'lancer', niche, code_acces: code, test })
     });
     const j1 = await r1.json();
     log('lancer : ' + JSON.stringify(j1, null, 2));
