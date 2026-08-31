@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Test Tendances (debug)</title>
+<style>
+  body { margin:0; padding:20px; background:#0f1410; color:#e9e6dd; font-family:-apple-system,system-ui,sans-serif; }
+  h1 { font-size:18px; color:#e0b84a; margin:0 0 4px; }
+  p.note { color:#9aa39a; font-size:13px; margin:0 0 18px; }
+  label { display:block; font-size:13px; color:#9aa39a; margin:14px 0 4px; }
+  input { width:100%; box-sizing:border-box; padding:10px; border-radius:8px; border:1px solid #2a352c;
+    background:#151b16; color:#e9e6dd; font-size:16px; }
+  button { margin-top:18px; width:100%; padding:14px; border:none; border-radius:8px; font-size:16px;
+    font-weight:600; background:#2f6e52; color:#fff; }
+  button:disabled { opacity:.5; }
+  #journal { margin-top:20px; padding:12px; background:#111611; border-radius:8px; font-size:12px;
+    white-space:pre-wrap; word-break:break-word; max-height:60vh; overflow:auto; border:1px solid #2a352c; }
+</style>
+</head>
+<body>
+<h1>Test manuel : mode Tendances</h1>
+<p class="note">Page de dépannage temporaire, pas l'interface finale. Lance une vraie analyse (recherche + transcription + synthèse) et affiche chaque étape.</p>
+
+<label for="niche">Niche (mot-clé)</label>
+<input id="niche" value="cuisine">
+
+<label for="code">Code d'accès</label>
+<input id="code" placeholder="SCRIPTURA-CELINE">
+
+<button id="btn">Lancer l'analyse</button>
+
+<div id="journal"></div>
+
+<script>
+const journal = document.getElementById('journal');
+function log(msg) {
+  journal.textContent += (journal.textContent ? '\n\n' : '') + msg;
+  journal.scrollTop = journal.scrollHeight;
+}
+
+document.getElementById('btn').addEventListener('click', async () => {
+  const niche = document.getElementById('niche').value.trim();
+  const code = document.getElementById('code').value.trim();
+  const btn = document.getElementById('btn');
+  if (!niche || !code) { alert('Renseigne la niche et le code d\'accès.'); return; }
+  btn.disabled = true;
+  journal.textContent = '';
+
+  try {
+    log('Lancement…');
+    const r1 = await fetch('/api/tendances', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'lancer', niche, code_acces: code })
+    });
+    const j1 = await r1.json();
+    log('lancer : ' + JSON.stringify(j1, null, 2));
+    if (!j1.ok) { log('Échec au lancement, arrêt.'); btn.disabled = false; return; }
+
+    const id = j1.id;
+    let statut = 'en_cours';
+    while (statut === 'en_cours') {
+      const r2 = await fetch('/api/tendances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'avancer', id, code_acces: code })
+      });
+      const j2 = await r2.json();
+      statut = j2.statut;
+      log('avancer : ' + statut + ' (' + j2.traitees + '/' + j2.total + ')');
+      if (statut === 'termine') log('RÉSULTAT FINAL :\n' + JSON.stringify(j2.resultat, null, 2));
+      if (statut === 'echec') log('ÉCHEC de la synthèse.');
+    }
+    log('Terminé.');
+  } catch (e) {
+    log('Erreur : ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
