@@ -525,6 +525,14 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 }
 .script-text{font-size:0.88rem;color:#FFFFFF;line-height:1.8}
 .script-visual{font-size:0.78rem;color:var(--gold);opacity:0.45;margin-top:5px;font-style:italic}
+.script-edit-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.script-edit-btn{
+  font-size:0.68rem;padding:4px 11px;border-radius:999px;
+  border:1px solid var(--border-soft);background:transparent;color:var(--text-secondary);
+  cursor:pointer;transition:border-color .15s,color .15s;
+}
+.script-edit-btn:hover{border-color:var(--gold);color:var(--gold)}
+.script-edit-btn:disabled{opacity:0.5;cursor:default;border-color:var(--border-soft);color:var(--text-secondary)}
 .legende-block{
   background:rgba(255,255,255,0.07);border:1px solid var(--border-soft);
   border-radius:2px;padding:16px 20px;

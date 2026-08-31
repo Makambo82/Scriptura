@@ -1975,10 +1975,20 @@ function metricBar(label, value) {
     </div>`;
 }
 
+// Plafond de micro-éditions par passage (Reformuler/Raccourcir/Allonger/
+// Simplifier, voir microEditerBlocScript) pour UN script affiché : gratuit,
+// hors quota de génération (juste un confort d'édition, pas une nouvelle
+// génération, comme chez Vervox), mais un plafond simple évite l'abus
+// évident sans construire un nouveau système de quota. Remis à zéro à
+// chaque nouveau script affiché (voir renderResults ci-dessous).
+const MICRO_EDIT_MAX_PAR_SCRIPT = 20;
+let _microEditsUtilises = 0;
+
 function renderResults(d, niche, sujet) {
   const list = document.getElementById('outputList');
   const section = document.getElementById('results');
   document.getElementById('resultsMeta').textContent = niche + ' · ' + state.plateforme;
+  _microEditsUtilises = 0;
 
   // Réinitialiser le storyboard (bouton + description visibles, barre de
   // progression masquée, conteneur vide) pour une nouvelle génération.
@@ -2071,8 +2081,15 @@ function renderResults(d, niche, sujet) {
         <div class="script-block" id="scriptBlock">${(d.script || []).map((s, i) => `
           <div class="script-row" data-idx="${i}">
             <div class="script-text" id="scriptText${i}">${auditEsc(s.texte)}</div>
+            <div class="script-edit-toolbar" id="scriptEditToolbar${i}">
+              <button type="button" class="script-edit-btn" onclick="microEditerBlocScript(${i},'reformuler',this)">Reformuler</button>
+              <button type="button" class="script-edit-btn" onclick="microEditerBlocScript(${i},'raccourcir',this)">Raccourcir</button>
+              <button type="button" class="script-edit-btn" onclick="microEditerBlocScript(${i},'allonger',this)">Allonger</button>
+              <button type="button" class="script-edit-btn" onclick="microEditerBlocScript(${i},'simplifier',this)">Simplifier</button>
+            </div>
           </div>`).join('')}
         </div>
+        <div class="error-box" id="scriptEditError" style="display:none;margin-top:10px"></div>
       </div>`
     },
     {
@@ -2155,6 +2172,79 @@ function renderResults(d, niche, sujet) {
 }
 
 function toggleCard(card) { card.classList.toggle('open'); }
+
+// ── Éditeur IA par passage (Reformuler/Raccourcir/Allonger/Simplifier) ──
+// Demandé par le propriétaire après avoir étudié le générateur de scripts
+// Vervox : leur "Éditeur IA intégré" (sélectionner un passage, demander une
+// reformulation, réécrit en 2 secondes SANS tout refaire) est justement ce
+// qui manquait chez nous, le script généré était en lecture seule (seul
+// "✎ Modifier" existait, et il relance TOUT depuis les critères de départ).
+// Gratuit et hors quota de génération (un confort d'édition, pas une
+// nouvelle génération), plafonné par MICRO_EDIT_MAX_PAR_SCRIPT pour éviter
+// l'abus évident sans construire un nouveau système de quota.
+const MICRO_EDIT_CONSIGNES = {
+  reformuler: "Reformule ce passage avec d'autres mots, en gardant EXACTEMENT le même sens, la même longueur approximative et la même intention : juste une autre façon naturelle de le dire.",
+  raccourcir: "Raccourcis nettement ce passage (vise environ la moitié de sa longueur), en gardant uniquement l'essentiel, sans perdre le sens ni la clarté.",
+  allonger: "Développe ce passage avec un peu plus de détail, de texture ou d'exemple concret, en gardant un rythme naturel à l'oral, sans devenir bavard ni générique.",
+  simplifier: "Simplifie ce passage : phrases plus courtes, mots plus simples, plus facile à dire à voix haute et à comprendre d'emblée, sans perdre le sens."
+};
+
+async function microEditerBlocScript(idx, action, btn) {
+  const consigne = MICRO_EDIT_CONSIGNES[action];
+  const texteEl = document.getElementById('scriptText' + idx);
+  const errBox = document.getElementById('scriptEditError');
+  if (!consigne || !texteEl || !currentScript || !currentScript[idx]) return;
+  if (errBox) errBox.style.display = 'none';
+
+  if (_microEditsUtilises >= MICRO_EDIT_MAX_PAR_SCRIPT) {
+    if (errBox) {
+      errBox.textContent = "Tu as atteint la limite de retouches pour ce script (" + MICRO_EDIT_MAX_PAR_SCRIPT + "). Régénère un nouveau script pour continuer à en retoucher.";
+      errBox.style.display = 'block';
+    }
+    return;
+  }
+
+  const toolbar = btn ? btn.closest('.script-edit-toolbar') : null;
+  const boutons = toolbar ? Array.from(toolbar.querySelectorAll('.script-edit-btn')) : [];
+  boutons.forEach(b => b.disabled = true);
+  const labelOriginal = btn ? btn.textContent : '';
+  if (btn) btn.textContent = '…';
+
+  try {
+    const ctx = lastGenContext || {};
+    const texteActuel = currentScript[idx].texte || '';
+    const prompt = `Tu es un rédacteur TikTok francophone. Voici UN PASSAGE d'un script vidéo déjà écrit (niche : ${ctx.niche || 'non précisée'}, sujet : ${ctx.sujet || 'non précisé'}, plateforme : ${state.plateforme || 'TikTok'}).
+
+PASSAGE À MODIFIER :
+"${texteActuel}"
+
+CONSIGNE : ${consigne}
+
+Réponds UNIQUEMENT avec le nouveau texte de ce passage, rien avant, rien après : pas de guillemets, pas de JSON, pas de commentaire.`;
+
+    const raw = await callAI(MODEL_RAPIDE, 300, prompt, undefined, false, undefined, 'microEditScript');
+    const nouveauTexte = String(raw || '').trim().replace(/^["«]+|["»]+$/g, '').trim();
+    if (!nouveauTexte) throw new Error('Réponse vide');
+
+    currentScript[idx].texte = nouveauTexte;
+    texteEl.textContent = nouveauTexte;
+    // copyTexts[2] = section "Script complet" (même ordre que `sections`
+    // dans renderResults, voir le commentaire à sa construction) : à
+    // reconstruire après édition, sinon Copier/Partager renvoient l'ancien texte.
+    if (Array.isArray(copyTexts) && copyTexts.length > 2) {
+      copyTexts[2] = currentScript.map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n');
+    }
+    _microEditsUtilises++;
+  } catch (e) {
+    if (errBox) {
+      errBox.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
+      errBox.style.display = 'block';
+    }
+  } finally {
+    boutons.forEach(b => b.disabled = false);
+    if (btn) btn.textContent = labelOriginal;
+  }
+}
 
 // Variable globale pour les textes à copier
 let copyTexts = [];
