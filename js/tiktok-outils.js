@@ -242,19 +242,81 @@ function formaterTranscriptEnParagraphes(texte) {
   return paragraphes.join('\n\n');
 }
 
+// Langue détectée par ElevenLabs Scribe (code ISO 639-1) -> nom affichable.
+// Sert d'étiquette informative seulement, jamais d'un contrôle : un code
+// non répertorié s'affiche tel quel (en majuscules), jamais une erreur.
+const _OUTILS_LANGUES = {
+  fr: '🇫🇷 Français', en: '🇬🇧 Anglais', es: '🇪🇸 Espagnol', pt: '🇵🇹 Portugais',
+  ar: '🇸🇦 Arabe', de: '🇩🇪 Allemand', it: '🇮🇹 Italien', nl: '🇳🇱 Néerlandais',
+  sw: '🇰🇪 Swahili', ha: '🇳🇬 Haoussa', yo: '🇳🇬 Yoruba', wo: '🇸🇳 Wolof',
+  zh: '🇨🇳 Chinois', tr: '🇹🇷 Turc', ru: '🇷🇺 Russe', hi: '🇮🇳 Hindi',
+  ja: '🇯🇵 Japonais', ko: '🇰🇷 Coréen'
+};
+function _outilsNomLangue(code) {
+  if (!code) return null;
+  return _OUTILS_LANGUES[String(code).toLowerCase().slice(0, 2)] || String(code).toUpperCase();
+}
+
+// Nombre de mots du transcript BRUT (avant mise en paragraphes, qui ne
+// touche que les sauts de ligne, jamais les mots eux-mêmes).
+function _outilsCompterMots(texte) {
+  return (String(texte || '').trim().match(/\S+/g) || []).length;
+}
+
+function _outilsTelechargerTxt() {
+  if (!_outilsTranscript || typeof telechargerBlob !== 'function') return;
+  const blob = new Blob([_outilsTranscript], { type: 'text/plain;charset=utf-8' });
+  telechargerBlob(blob, 'transcription-tiktok.txt');
+}
+
 function afficherResultatTranscription(data) {
   _outilsTranscript = formaterTranscriptEnParagraphes(data.transcript || '');
   const form = document.getElementById('outilsForm');
   if (form) form.style.display = 'none';
+
+  const auteur = data.auteur || {};
+  const nom = auteur.nickname || (auteur.uniqueId ? '@' + auteur.uniqueId : 'Vidéo TikTok');
+  const initiale = (auteur.nickname || auteur.uniqueId || 'T').trim().charAt(0).toUpperCase();
+  const dateStr = data.createTime
+    ? new Date(data.createTime * 1000).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
+  const s = data.stats || {};
+  const statsHtml = (s.vues || s.likes || s.commentaires || s.partages) ? `
+    <div class="ds-stats-row" style="justify-content:flex-start;margin-top:14px">
+      ${s.vues != null ? `<div class="ds-stat-item">${ICO('eye')}<span class="ds-stat-num">${formaterNombre(s.vues)}</span></div>` : ''}
+      ${s.likes != null ? `<div class="ds-stat-item">${ICO('heart')}<span class="ds-stat-num">${formaterNombre(s.likes)}</span></div>` : ''}
+      ${s.commentaires != null ? `<div class="ds-stat-item">${ICO('comment')}<span class="ds-stat-num">${formaterNombre(s.commentaires)}</span></div>` : ''}
+      ${s.partages != null ? `<div class="ds-stat-item">${ICO('share')}<span class="ds-stat-num">${formaterNombre(s.partages)}</span></div>` : ''}
+    </div>` : '';
+
+  const langueTag = _outilsNomLangue(data.langue);
+  const nbMots = _outilsCompterMots(data.transcript);
+
   const res = document.getElementById('outilsResults');
   res.innerHTML = `
-    <div class="outils-result-card">
-      <h3>${ICO('pen')} Transcription</h3>
-      <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
-      <div class="sb-actions-fin">
-        <button class="icon-btn" title="Copier" id="outilsCopyBtn" onclick="copySection('outilsCopyBtn', _outilsTranscript)">${ICON_COPY}</button>
-        <button class="icon-btn" title="Partager" onclick="shareText(this, _outilsTranscript)">${ICON_SHARE}</button>
+    <div class="outils-source-card">
+      <div class="outils-source-head">
+        <div class="outils-source-avatar">${outilsEsc(initiale)}</div>
+        <div class="outils-source-id">
+          <div class="outils-source-nom">${outilsEsc(nom)}</div>
+          ${auteur.uniqueId && auteur.nickname ? `<div class="outils-source-handle">@${outilsEsc(auteur.uniqueId)}</div>` : ''}
+        </div>
+        ${dateStr ? `<div class="outils-source-date">${dateStr}</div>` : ''}
       </div>
+      ${data.description ? `<p class="outils-source-desc">${outilsEsc(data.description)}</p>` : ''}
+      ${statsHtml}
+    </div>
+
+    <div class="outils-transcript-controls">
+      ${langueTag ? `<span class="ds-tag">${langueTag}</span>` : ''}
+      <span class="outils-word-count">${nbMots} mot${nbMots > 1 ? 's' : ''} extrait${nbMots > 1 ? 's' : ''}</span>
+      <button class="outils-mini-btn" onclick="_outilsTelechargerTxt()">${ICO('download')} .txt</button>
+      <button class="outils-mini-btn" id="outilsCopyBtn" onclick="copySection('outilsCopyBtn', _outilsTranscript)">${ICO('clipboard')} Copier</button>
+      <button class="outils-mini-btn" onclick="shareText(this, _outilsTranscript)">${ICO('share')} Partager</button>
+    </div>
+
+    <div class="outils-result-card" style="margin-top:0">
+      <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
     </div>
     <button class="btn-back" style="margin-top:18px" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
   `;

@@ -147,6 +147,38 @@ function extraireAuteurUsername(obj) {
   return u;
 }
 
+// Identité affichable de l'auteur (@handle + pseudo), pour présenter la
+// source d'une transcription/analyse (voir afficherResultatTranscription,
+// js/tiktok-outils.js) : jamais son avatar, les URLs d'image TikHub sont
+// signées à durée de vie courte (voir api/tendances.js, même souci déjà
+// rencontré et corrigé pour les vidéos) et casseraient l'affichage la
+// plupart du temps si on les hotlinkait directement.
+function extraireAuteurInfo(obj) {
+  let info = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (info || !o || typeof o !== 'object' || prof > 8 || vus.has(o)) return;
+    vus.add(o);
+    const uniqueId = typeof o.uniqueId === 'string' ? o.uniqueId.trim() : null;
+    const nickname = typeof o.nickname === 'string' ? o.nickname.trim() : null;
+    if (uniqueId || nickname) { info = { uniqueId, nickname }; return; }
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(obj || {}, 0);
+  return info;
+}
+
+// Date de publication (unix, secondes) de la vidéo, pour l'affichage.
+function extraireCreateTime(obj) {
+  let t = null; const vus = new Set();
+  (function scan(o, prof) {
+    if (t != null || !o || typeof o !== 'object' || prof > 8 || vus.has(o)) return;
+    vus.add(o);
+    const v = Number(o.createTime);
+    if (Number.isFinite(v) && v > 1000000000) { t = v; return; } // filtre les faux positifs (compteurs, ids...)
+    for (const k of Object.keys(o)) { if (o[k] && typeof o[k] === 'object') scan(o[k], prof + 1); }
+  })(obj || {}, 0);
+  return t;
+}
+
 // Abonnés de l'auteur via son profil TikHub (2e appel, seulement si le
 // nombre manque dans le détail du post). Renvoie null en cas d'échec (non
 // bloquant). Même endpoint que secUidViaTikHub (api/username-scan.js),
@@ -256,6 +288,8 @@ export {
   extraireDesc,
   extraireAbonnesAuteur,
   extraireAuteurUsername,
+  extraireAuteurInfo,
+  extraireCreateTime,
   abonnesViaProfil,
   extraireStats,
   telechargerMedia,

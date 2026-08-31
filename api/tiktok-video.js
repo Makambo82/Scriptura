@@ -13,7 +13,7 @@
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
 import {
   detailTikHub, extraireAwemeId, resoudreLien, urlsVideo,
-  extraireDesc, extraireStats, extraireAuteurUsername, abonnesViaProfil,
+  extraireDesc, extraireStats, extraireAuteurUsername, extraireAuteurInfo, extraireCreateTime, abonnesViaProfil,
   telechargerMedia, resoudreVideoTikTok
 } from './_lib/tiktok-media.js';
 import ffmpegPath from 'ffmpeg-static';
@@ -137,6 +137,8 @@ async function handleTranscription(req, res) {
 
     let description = dataTikHub ? (extraireDesc(dataTikHub) || '') : '';
     let stats = dataTikHub ? extraireStats(dataTikHub) : null;
+    const auteur = dataTikHub ? extraireAuteurInfo(dataTikHub) : null;
+    const createTime = dataTikHub ? extraireCreateTime(dataTikHub) : null;
 
     let media = null;
     if (dataTikHub) {
@@ -172,6 +174,8 @@ async function handleTranscription(req, res) {
       transcript,
       description,
       stats,
+      auteur,
+      createTime,
       langue: stt.lang || null,
       // Toutes les frames extraites (voir extraireFramesVisuelles) : la
       // première sert au hook visuel (ancien frame_hook), l'ensemble sert à
