@@ -134,23 +134,30 @@ async function transcrireEleven(buf, contentType, key) {
     const r = await fetch(ELEVEN_STT, { method: 'POST', headers: { 'xi-api-key': key }, body: form, signal: ctrl.signal });
     const txt = await r.text();
     let data = null; try { data = JSON.parse(txt); } catch (e) {}
-    if (!r.ok) return { ok: false };
+    if (!r.ok) return { ok: false, reason: 'stt http ' + r.status + (data && data.detail ? ' : ' + JSON.stringify(data.detail).slice(0, 120) : '') };
     return { ok: true, text: (data && data.text) || '' };
-  } catch (e) { return { ok: false }; }
+  } catch (e) { return { ok: false, reason: 'stt ' + (e.name === 'AbortError' ? 'timeout' : e.message) }; }
   finally { clearTimeout(minuteur); }
 }
 
+// Premier test réel en prod (16 vidéos trouvées sur 50 visées, seulement 2
+// transcrites sur 16) : on garde désormais la raison précise de chaque échec
+// (déjà fournie par telechargerMedia, jetée avant) dans `echecDetail`, pour
+// diagnostiquer sur des données réelles plutôt que deviner un correctif.
 async function transcrireVideo(v, elevenKey) {
+  const raisons = [];
   for (const u of (v.urlsCandidates || [])) {
     const media = await telechargerMedia(u);
-    if (!media.ok) continue;
+    if (!media.ok) { raisons.push(media.reason || 'échec inconnu'); continue; }
     const stt = await transcrireEleven(media.buf, media.contentType, elevenKey);
     if (stt.ok && stt.text && stt.text.trim().length > 10) {
       v.transcript = stt.text.trim().slice(0, MAX_TRANSCRIPT);
       return;
     }
+    raisons.push(stt.reason || (stt.ok ? 'transcript vide/trop court' : 'échec stt inconnu'));
   }
   v.transcriptEchec = true;
+  v.echecDetail = raisons;
 }
 
 // ── Appel Claude direct (même mécanisme qu'api/generate.js), hors quota :
@@ -209,9 +216,17 @@ async function synthetiser(niche, videos) {
   });
   const topCreateurs = Array.from(parAuteur.values()).sort((a, b) => b.vuesCumulees - a.vuesCumulees).slice(0, 10);
 
+  // Diagnostic temporaire (voir transcrireVideo) : pourquoi chaque échec de
+  // téléchargement/transcription, à retirer une fois le taux de réussite
+  // fiabilisé sur des tests réels.
+  const echecs = videos.filter(v => v.transcriptEchec);
+  const echecsDetail = echecs.slice(0, 20).map(v => ({ id: v.id, raisons: v.echecDetail || [] }));
+
   const stats = {
     echantillon: videos.length,
     transcrites: videos.filter(v => v.transcript).length,
+    echecsTranscription: echecs.length,
+    echecsDetail,
     vuesMedianes, likesMedianes, engagementMoyen, momentum, topCreateurs
   };
 
