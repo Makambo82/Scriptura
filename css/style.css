@@ -1515,9 +1515,14 @@ body.hero-focus .hero-focus-rule{display:block}
    défilement automatique en JS ne s'appliquait pas sur iOS Safari avec
    cette propriété active, connue pour entrer en conflit avec des écritures
    programmatiques de scrollLeft ; inutile de toute façon depuis iOS 13, le
-   défilement inertiel est natif par défaut sur tout conteneur overflow). */
-.preuve-galerie{display:flex;gap:10px;overflow-x:auto;margin:0 -12px;padding:2px 12px 14px;scroll-snap-type:x proximity}
-.preuve-galerie img{flex:0 0 auto;width:128px;height:auto;border-radius:10px;scroll-snap-align:start;box-shadow:0 6px 18px rgba(0,0,0,0.35)}
+   défilement inertiel est natif par défaut sur tout conteneur overflow).
+   Pas de scroll-snap-type non plus (retour propriétaire : le défilement
+   automatique ne bougeait toujours pas en prod) : le magnétisme
+   d'alignement se bat avec les petits pas JS de scrollLeft, qui ne tombent
+   presque jamais pile sur un point d'alignement, particulièrement sur iOS
+   Safari où le snap est appliqué de façon agressive. */
+.preuve-galerie{display:flex;gap:10px;overflow-x:auto;margin:0 -12px;padding:2px 12px 14px}
+.preuve-galerie img{flex:0 0 auto;width:128px;height:auto;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.35)}
 .preuve-galerie::-webkit-scrollbar{height:5px}
 .preuve-galerie::-webkit-scrollbar-thumb{background:var(--gold);opacity:0.4;border-radius:99px}
 /* Flèches indicatrices de défilement (retour propriétaire : rendre visible

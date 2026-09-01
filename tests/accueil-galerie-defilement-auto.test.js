@@ -14,9 +14,7 @@
 // cause identifiée, `-webkit-overflow-scrolling:touch` sur .preuve-galerie
 // entrait en conflit avec des écritures programmatiques de scrollLeft sur
 // iOS, propriété de toute façon inutile depuis iOS 13 (défilement inertiel
-// natif par défaut), retirée du CSS. Passage de setInterval à
-// requestAnimationFrame au passage (plus idiomatique pour une animation
-// visuelle, se met en pause tout seul sur un onglet en arrière-plan).
+// natif par défaut), retirée du CSS.
 //
 // 3e passe (retour propriétaire : toujours rien à l'écran malgré la 2e
 // passe) : deuxième cause trouvée, le déclencheur de pause écoutait TOUT
@@ -28,7 +26,16 @@
 // jamais de fenêtre pour s'exécuter. Retiré ; seuls la molette
 // horizontale, les flèches, et un vrai écart de scrollLeft détecté entre
 // deux frames (preuve d'un glisser horizontal réel) déclenchent la pause
-// désormais.
+// désormais. Passage de requestAnimationFrame à setInterval au passage
+// (rAF s'est montré peu fiable pour tourner en continu, y compris en test
+// headless).
+//
+// 4e passe (retour propriétaire : toujours rien malgré la 3e passe) :
+// troisième cause trouvée, scroll-snap-type:x sur .preuve-galerie se
+// battait avec les petits pas JS de scrollLeft (0,5px), qui ne tombent
+// presque jamais pile sur un point d'alignement scroll-snap-align ; le
+// magnétisme du navigateur neutralisait ou rendait saccadée l'animation,
+// surtout agressif sur iOS Safari. Retiré du CSS.
 //
 // LIMITE CONNUE DE CE TEST : le Chromium headless-shell utilisé ici
 // n'applique jamais une écriture directe de scrollLeft (ni un scrollBy
@@ -58,6 +65,11 @@ test('accueil : galerie de preuve TikTok, le défilement manuel (flèches) fonct
 
     const fnType = await page.evaluate(() => typeof demarrerDefilementPreuveGalerie);
     assert.equal(fnType, 'function', 'demarrerDefilementPreuveGalerie doit être définie (js/app.js)');
+
+    // Verrouille la 4e passe : plus de scroll-snap-type sur la galerie, il
+    // se battait avec les petits pas JS de scrollLeft du défilement auto.
+    const snapType = await page.evaluate(() => getComputedStyle(document.getElementById('preuveGalerie')).scrollSnapType);
+    assert.ok(!snapType || snapType === 'none', 'scroll-snap-type doit être absent (conflit avec le défilement auto) : ' + snapType);
 
     // Défilement manuel via les flèches : la fonctionnalité principale que
     // le propriétaire veut garder disponible « toujours ».
