@@ -129,6 +129,18 @@ function demarrerDefilementPreuveGalerie() {
 // en dessous (voir .example-video-poster, css/style.css) ; la <video>
 // elle-même reste invisible (opacity:0) jusqu'à l'évènement natif "playing",
 // qui prouve qu'une image est réellement prête à s'afficher.
+// 4e correctif (retour propriétaire, 2e capture vidéo à l'appui : le blanc
+// revenait EN COURS DE LECTURE, à chaque boucle, pas seulement au premier
+// chargement) : preload="none" indique au navigateur de ne quasiment rien
+// garder en mémoire pour cette vidéo, y compris après une première lecture
+// complète ; au moment où `loop` revient au début, plus rien n'est
+// disponible et il faut retélécharger/redécoder, plusieurs secondes de
+// blanc à chaque tour. Repassé à preload="auto" : ce réglage ne retarde
+// plus le chargement initial (déjà différé par l'IntersectionObserver
+// ci-dessous, qui ne lance .play() qu'à l'entrée réelle dans l'écran), il
+// ne fait plus que garder toute la vidéo (~350 Ko) en mémoire une fois
+// chargée, pour qu'une boucle se contente de rembobiner sans redemander
+// quoi que ce soit.
 function forcerLectureVideosExemple() {
   const videos = document.querySelectorAll('video.example-video');
   if (!videos.length) return;

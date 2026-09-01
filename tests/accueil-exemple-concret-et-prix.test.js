@@ -43,6 +43,14 @@
 // classique séparée (.example-video-poster), toujours visible en dessous ;
 // la <video> reste invisible (opacity:0 en CSS) jusqu'à l'évènement natif
 // "playing" (classe .est-lancee ajoutée alors, voir js/app.js).
+// 7e passe (retour propriétaire, 2e capture vidéo à l'appui : le blanc
+// revenait EN COURS DE LECTURE, à chaque boucle) : preload="none" ne
+// gardait quasiment rien en mémoire après la première lecture, donc un
+// retéléchargement/redécodage à chaque retour au début (`loop`), plusieurs
+// secondes de blanc à chaque tour. Repassé à preload="auto" : le chargement
+// différé jusqu'à l'entrée dans l'écran reste assuré par l'IntersectionObserver
+// (forcerLectureVideosExemple, js/app.js), preload="auto" ne fait plus que
+// garder toute la vidéo (~350 Ko) en mémoire une fois chargée.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -70,10 +78,11 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     assert.ok(ordre.idxExample < ordre.idxWhy, 'la section exemple doit venir avant "pourquoi Scriptura"');
 
     // Deux vraies vidéos de démo (script + diagnostic), pas une maquette
-    // HTML statique : muettes, en boucle, lisibles sans interaction, mais
-    // PAS en autoplay HTML ni preload="auto" (5e passe) : le chargement est
-    // différé à l'entrée réelle dans l'écran (IntersectionObserver), pour
-    // ne jamais concurrencer le chargement initial de la page.
+    // HTML statique : muettes, en boucle, lisibles sans interaction, PAS en
+    // autoplay HTML (le chargement est différé à l'entrée réelle dans
+    // l'écran via IntersectionObserver, pour ne jamais concurrencer le
+    // chargement initial de la page), mais preload="auto" (7e passe) pour
+    // que la vidéo reste en mémoire d'une boucle à l'autre.
     const contenu = await page.evaluate(() => {
       const ex = document.querySelector('.example');
       const videos = Array.from(ex.querySelectorAll('video.example-video')).map(v => ({
@@ -88,13 +97,24 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
         videos
       };
     });
+    // LIMITE CONNUE : ce test ne peut pas vérifier l'absence de blanc à
+    // chaque boucle (bug réel constaté par la propriétaire sur iOS Safari,
+    // 7e passe) — c'est un comportement de gestion mémoire propre aux
+    // navigateurs mobiles réels sous contrainte, qu'un Chromium headless en
+    // localhost, sans pression mémoire ni réseau réel, ne reproduit pas. Ce
+    // test verrouille seulement l'attribut preload="auto" qui corrige la
+    // cause identifiée ; la vérification réelle reste le test terrain.
     assert.ok(/FCFA/.test(contenu.note), 'le prix doit être visible dans la section exemple : ' + contenu.note);
     assert.equal(contenu.videos.length, 2, 'deux vidéos de démo doivent être présentes (script + diagnostic) : ' + JSON.stringify(contenu.videos));
     assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-script(-v\d+)?\.(webm|mp4)/.test(s))), 'la démo de génération de script doit être présente : ' + JSON.stringify(contenu.videos));
     assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-sommaire(-v\d+)?\.(webm|mp4)/.test(s))), 'la démo de l\'analyse sommaire doit être présente : ' + JSON.stringify(contenu.videos));
     contenu.videos.forEach(v => {
       assert.equal(v.autoplay, false, 'chaque vidéo de démo ne doit PAS avoir l\'autoplay HTML (chargement différé via IntersectionObserver à la place) : ' + JSON.stringify(v));
-      assert.equal(v.preload, 'none', 'chaque vidéo de démo ne doit rien précharger avant d\'entrer dans l\'écran : ' + JSON.stringify(v));
+      // preload="auto" (7e passe, pas "none") : le chargement différé est
+      // déjà assuré par l'IntersectionObserver (qui ne lance .play() qu'à
+      // l'entrée dans l'écran), "auto" garde la vidéo en mémoire d'une
+      // boucle à l'autre au lieu de la retélécharger à chaque tour.
+      assert.equal(v.preload, 'auto', 'chaque vidéo de démo doit rester en mémoire pour boucler sans blanc : ' + JSON.stringify(v));
       assert.equal(v.muted, true, 'chaque vidéo de démo doit être muette (autoplay navigateur l\'exige de toute façon) : ' + JSON.stringify(v));
       assert.equal(v.loop, true, 'chaque vidéo de démo doit boucler : ' + JSON.stringify(v));
       assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
