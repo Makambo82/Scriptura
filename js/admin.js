@@ -639,6 +639,15 @@ function setAdminPlanFilter(v) {
 // parMode) : lus ensuite par carteInactifsAdmin()/carteErreursAdmin(),
 // appelées de façon synchrone une fois le Promise.all de
 // chargerTableauDeBord() résolu (voir plus haut dans ce fichier).
+// Libellés lisibles des modes (voir chargerCarteModes ci-dessous) : mêmes
+// clés que saveGeneration (js/historique.js), mêmes noms publics que les
+// boutons de l'accueil (index.html) quand ils existent, pour rester
+// cohérent avec ce que voit un créateur ailleurs dans l'app.
+const MODE_LABELS_ADMIN = {
+  ideas: 'Idées', script: 'Script', story: 'Récit', serie: 'Série',
+  audit: 'Diagnostic complet', diagnosticSommaire: 'Diagnostic sommaire',
+  storyboardSeul: 'Storyboard seul', tendances: 'Tendances', analyseVirale: 'Analyse vidéo'
+};
 let _codesActifsRecents = new Set();
 let _erreursParMode = {};
 let _erreursTotal = 0;
@@ -671,6 +680,13 @@ async function chargerCarteModes() {
       ...Object.keys(parModePlan.creator || {}),
       ...Object.keys(parModePlan.nonAbonne || {})
     ]));
+    // Libellé lisible : les clés internes (voir saveGeneration,
+    // js/historique.js) sont en camelCase technique, jamais montrées telles
+    // quelles (retour propriétaire : "diagnosticSommaire"/"analyseVirale"
+    // collés, illisibles). Retombe sur une majuscule initiale pour un mode
+    // qui n'existerait pas encore dans cette liste, plutôt que planter.
+    const majusculeInitiale = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    const libelleMode = (m) => MODE_LABELS_ADMIN[m] || majusculeInitiale(m);
     const lignes = modes
       .map(m => ({
         m,
@@ -680,13 +696,19 @@ async function chargerCarteModes() {
         nonAbonne: (parModePlan.nonAbonne || {})[m] || 0
       }))
       .sort((a, b) => (b.fondateur + b.pro + b.creator + b.nonAbonne) - (a.fondateur + a.pro + a.creator + a.nonAbonne))
-      .map(r => `<div class="admin-modes-row"><span>${escAdmin(r.m)}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span><span>${r.nonAbonne}</span></div>`)
+      .map(r => `<div class="admin-modes-row"><span>${escAdmin(libelleMode(r.m))}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span><span>${r.nonAbonne}</span></div>`)
       .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
+    // Enveloppe scrollable (retour propriétaire : la colonne "Non-abonné"
+    // sortait de l'écran sans aucun moyen de la voir sur certains
+    // navigateurs mobiles) : on ne réduit plus la largeur des colonnes,
+    // on laisse glisser le tableau à l'horizontale à la place.
     return `<div class="score-card">
       <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
-      <div class="admin-modes-table" style="margin-top:14px">
-        <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span><span>Non-abonné</span></div>
-        ${lignes}
+      <div class="admin-modes-scroll" style="margin-top:14px">
+        <div class="admin-modes-table">
+          <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span><span>Non-abonné</span></div>
+          ${lignes}
+        </div>
       </div>
     </div>`;
   } catch (e) {

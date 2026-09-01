@@ -2810,9 +2810,14 @@ body.is-unlocked .sidebar-logout{display:block}
 /* Générations par mode (tableau de bord admin) : grille à colonnes fixes
    (Fondateur/Pro/Creator) au lieu d'une ligne de texte par plan, pour
    comparer les modes d'un coup d'œil (voir chargerCarteModes, js/admin.js). */
-.admin-modes-table{display:grid;gap:2px}
+/* Enveloppe scrollable (retour propriétaire : la colonne "Non-abonné"
+   sortait de l'écran, invisible, sur certains navigateurs mobiles) : la
+   grille garde une largeur minimale fixe, le débordement glisse au doigt
+   plutôt que de comprimer les colonnes jusqu'à en perdre une. */
+.admin-modes-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.admin-modes-table{display:grid;gap:2px;min-width:400px}
 .admin-modes-header,.admin-modes-row{
-  display:grid;grid-template-columns:1fr repeat(4, 56px);align-items:center;gap:6px;
+  display:grid;grid-template-columns:minmax(120px,1fr) repeat(4, 56px);align-items:center;gap:6px;
   padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);
 }
 .admin-modes-header{
