@@ -80,11 +80,18 @@ function retirerMinuterie(texte) {
 // sans sous-titres "ne se sent pas fini" pour du TikTok). Style choisi
 // explicitement : ni un carton par plan (trop long à lire, peu dynamique),
 // ni le mot par mot façon karaoké (v2 potentielle, demande un montage plus
-// fin) mais des groupes de "2 mots longs ou 3 mots courts" - le repère
-// visuel TikTok le plus courant. Découpage à partir de l'horodatage
-// caractère par caractère renvoyé par ElevenLabs (déjà là pour caler la
-// durée de chaque plan, jusqu'ici jeté après usage).
-const SOUS_TITRE_SEUIL_LONG = 10; // caractères cumulés à partir desquels 2 mots suffisent
+// fin) mais des petits groupes de mots - le repère visuel TikTok le plus
+// courant. Découpage à partir de l'horodatage caractère par caractère
+// renvoyé par ElevenLabs (déjà là pour caler la durée de chaque plan,
+// jusqu'ici jeté après usage).
+// 2e passe (retour propriétaire : "2 mots ça fait beau, ça peut aller
+// jusqu'à 4 mots") : seuils à paliers plutôt qu'un simple "2 longs ou 3
+// courts" - un groupe s'arrête dès qu'il atteint 4 mots (plafond dur), ou
+// avant si les mots sont assez longs pour bien remplir l'écran à 3 ou 2
+// mots (mots courts -> jusqu'à 4 ; mots longs -> 2 suffisent).
+const SOUS_TITRE_SEUIL_2_MOTS = 10; // caractères cumulés à partir desquels 2 mots suffisent
+const SOUS_TITRE_SEUIL_3_MOTS = 15; // caractères cumulés à partir desquels 3 mots suffisent
+const SOUS_TITRE_MAX_MOTS = 4;
 
 function extraireMots(texte, debutsTemps, finsTemps) {
   const mots = [];
@@ -111,9 +118,16 @@ function regrouperEnSousTitres(mots) {
   for (const mot of mots) {
     courant.push(mot);
     longueurCourante += mot.texte.length;
-    const troisMots = courant.length >= 3;
-    const deuxMotsLongs = courant.length >= 2 && longueurCourante >= SOUS_TITRE_SEUIL_LONG;
-    if (troisMots || deuxMotsLongs) {
+    // Comparaisons en === (pas >=) sur le nombre de mots : un seuil de
+    // longueur atteint APRÈS avoir déjà dépassé son propre palier de mots
+    // (ex. 3 mots déjà accumulés qui franchissent seulement maintenant le
+    // seuil des 2 mots) ne doit jamais clore le groupe à retardement, sinon
+    // le seuil "3 mots" ou le plafond "4 mots" n'a jamais l'occasion de
+    // s'appliquer (bug réel trouvé par le test de ce fichier).
+    const quatreMots = courant.length >= SOUS_TITRE_MAX_MOTS;
+    const troisMotsLongs = courant.length === 3 && longueurCourante >= SOUS_TITRE_SEUIL_3_MOTS;
+    const deuxMotsLongs = courant.length === 2 && longueurCourante >= SOUS_TITRE_SEUIL_2_MOTS;
+    if (quatreMots || troisMotsLongs || deuxMotsLongs) {
       groupes.push(courant);
       courant = [];
       longueurCourante = 0;

@@ -135,8 +135,8 @@ function construireGrapheLot(durees, decalage, W, H) {
 }
 
 // Sous-titres incrustés (retour propriétaire) : groupes de mots déjà
-// calculés côté Vercel (api/montage-media.js, "2 mots longs ou 3 mots
-// courts"), reçus ici comme [{texte, debut, fin}] en secondes. Générés en
+// calculés côté Vercel (api/montage-media.js, jusqu'à 4 mots), reçus ici
+// comme [{texte, debut, fin}] en secondes. Générés en
 // ASS plutôt qu'en SRT : le filtre "subtitles" de FFmpeg suppose une
 // résolution de script par défaut (souvent 384×288, un vieux standard TV)
 // pour un SRT sans en-tête, ce qui fausse silencieusement la position
@@ -168,7 +168,13 @@ function construireASS(captions, W, H) {
   // 720×1280 : FontSize 52, MarginV 220 = un bon compromis lisible sans
   // toucher au tiers inférieur où TikTok pose ses propres icônes une fois
   // republié) ; recalculées pour rester cohérentes sur les autres formats
-  // (16:9, 1:1).
+  // (16:9, 1:1). MarginL/MarginR = 40 dans le style ci-dessous réservent une
+  // marge de sécurité de chaque côté (retour propriétaire : jamais dépasser
+  // les bords gauche/droite) ; WrapStyle:0 (repli sur deux lignes, réparties
+  // pour rester lisibles) prend le relais si un groupe de 4 mots est trop
+  // large pour tenir sur une seule ligne dans cette marge - jamais de
+  // dépassement horizontal, testé visuellement avec un groupe volontairement
+  // très long.
   const fontSize = Math.max(24, Math.round(W * 0.072));
   const marginV = Math.max(60, Math.round(H * 0.17));
   const entete = `[Script Info]
@@ -176,6 +182,7 @@ ScriptType: v4.00+
 PlayResX: ${W}
 PlayResY: ${H}
 ScaledBorderAndShadow: yes
+WrapStyle: 0
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
