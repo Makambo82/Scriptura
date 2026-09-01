@@ -25,18 +25,20 @@ async function syncServerQuota() {
 //  l'onglet est visible à l'écran, un onglet en arrière-plan ne compte
 //  pas comme "en ligne". Échoue silencieusement si la table n'existe pas
 //  encore (comme le reste des fonctionnalités Supabase de l'app).
+//  Passe par /api/data (resource=presence), plus un upsert Supabase direct
+//  depuis le client (retour propriétaire : voir le pays/navigateur des
+//  non-abonnés en ligne) : seul le serveur lit des en-têtes DE CONFIANCE
+//  (x-vercel-ip-country, user-agent), jamais fournies par le client
+//  lui-même, pour que ce signal reste impossible à falsifier.
 // ═══════════════════════════════════════════════════════════
 async function envoyerPresence() {
-  if (!supabaseClient || document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible') return;
   try {
-    // supabase-js n'exécute la requête qu'au moment où on l'attend (son
-    // constructeur de requête est un "thenable" paresseux) : sans await ici,
-    // l'upsert ne partait jamais réellement, aucune ligne n'était écrite
-    // dans `presence`, pour personne, y compris le fondateur.
-    await supabaseClient.from('presence').upsert(
-      { ref: getUserRef(), derniere_activite: new Date().toISOString(), abonne: !!unlocked },
-      { onConflict: 'ref' }
-    );
+    await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'presence', ref: getUserRef(), abonne: !!unlocked })
+    });
   } catch (e) { /* silencieux */ }
 }
 

@@ -608,6 +608,54 @@ async function handleAdminStats(req, res, cfg, body) {
   }
 }
 
+// ═══ PRÉSENCE (voir envoyerPresence, js/app.js) ═══
+// Écrit toujours avec la clé publishable (même RLS ouverte que l'ancien
+// appel direct au client, voir supabase/presence.sql), jamais besoin de la
+// clé service_role : le signal "je suis encore là" ne doit jamais dépendre
+// de sa configuration. Passe par le serveur (et non plus directement du
+// client à Supabase) uniquement pour lire pays/navigateur depuis des
+// en-têtes DE CONFIANCE (x-vercel-ip-country, injecté par la plateforme,
+// jamais fourni par le client lui-même) : un visiteur ne peut pas se
+// prétendre dans un autre pays. Jamais d'IP stockée (décision propriétaire,
+// donnée personnelle identifiante hors de propos ici, voir
+// supabase/presence.sql).
+const PRESENCE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
+const PRESENCE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
+
+function detecterNavigateur(ua) {
+  if (!ua || typeof ua !== 'string') return null;
+  const mobile = /Mobi|Android|iPhone|iPad/i.test(ua);
+  let nom = 'Autre';
+  if (/EdgA|Edge|Edg\//i.test(ua)) nom = 'Edge';
+  else if (/OPR|Opera/i.test(ua)) nom = 'Opera';
+  else if (/(Chrome|CriOS)\//i.test(ua) && !/Chromium/i.test(ua)) nom = 'Chrome';
+  else if (/FxiOS|Firefox/i.test(ua)) nom = 'Firefox';
+  else if (/Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Android/i.test(ua)) nom = 'Safari';
+  return nom + (mobile ? ' mobile' : '');
+}
+
+async function handlePresence(req, res, body) {
+  const ref = typeof body.ref === 'string' ? body.ref.trim().slice(0, 120) : '';
+  if (!ref) return res.status(200).json({ ok: false });
+  const paysEntete = req.headers['x-vercel-ip-country'];
+  const pays = (Array.isArray(paysEntete) ? paysEntete[0] : paysEntete || '').toString().trim().slice(0, 8) || null;
+  const uaEntete = req.headers['user-agent'];
+  const navigateur = detecterNavigateur(Array.isArray(uaEntete) ? uaEntete[0] : uaEntete);
+  try {
+    const r = await fetch(PRESENCE_URL + '/rest/v1/presence?on_conflict=ref', {
+      method: 'POST',
+      headers: {
+        apikey: PRESENCE_KEY, Authorization: 'Bearer ' + PRESENCE_KEY,
+        'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal'
+      },
+      body: JSON.stringify([{ ref, derniere_activite: new Date().toISOString(), abonne: !!body.abonne, pays, navigateur }])
+    });
+    return res.status(200).json({ ok: r.ok });
+  } catch (e) {
+    return res.status(200).json({ ok: false });
+  }
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -616,6 +664,8 @@ export default async function handler(req, res) {
   body = body || {};
 
   const resource = req.method === 'GET' ? (req.query && req.query.resource) : body.resource;
+
+  if (resource === 'presence') return handlePresence(req, res, body);
 
   // admin-stats vérifie ses droits lui-même (voir handleAdminStats) même
   // sans clé service_role configurée, jamais de repli silencieux pour une

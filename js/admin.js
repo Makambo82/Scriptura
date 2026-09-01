@@ -343,25 +343,93 @@ async function chargerCarteAbonnes() {
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
     _codesAbonnesAdmin = Array.isArray(data.codes) ? data.codes : [];
     _adminSearchOpen = false; _adminSearchQuery = ''; _adminFilterOpen = false; _adminPlanFilter = null;
-    const ligneNonAbonnes = nonAbonnesEnLigne != null
-      ? `<div class="ideas-sub" style="margin-top:6px" id="adminNonAbonnesEnLigne">${escAdmin(String(nonAbonnesEnLigne))} non-abonné${nonAbonnesEnLigne > 1 ? 's' : ''} en ligne maintenant</div>`
+    // Zone SÉPARÉE du clic vers la liste des abonnés (retour propriétaire :
+    // cliquer sur "N non-abonnés en ligne" ouvrait la liste des abonnés par
+    // erreur, les deux zones cliquables étaient confondues dans le même
+    // div). Son propre détail dépliable, voir toggleListeNonAbonnesAdmin.
+    const blocNonAbonnes = nonAbonnesEnLigne != null
+      ? `<div style="margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px;cursor:pointer" onclick="toggleListeNonAbonnesAdmin()">
+          <div class="ideas-sub" id="adminNonAbonnesEnLigne">${escAdmin(String(nonAbonnesEnLigne))} non-abonné${nonAbonnesEnLigne > 1 ? 's' : ''} en ligne maintenant</div>
+          <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeNonAbonnesAdminHint">Touche pour voir le détail (pays · navigateur) ↓</div>
+        </div>
+        <div id="listeNonAbonnesAdmin" style="display:none;margin-top:10px"></div>`
       : '';
     return `<div class="score-card">
       <div onclick="toggleListeAbonnesAdmin()" style="cursor:pointer">
         <div class="score-title">Abonnés actifs</div>
         <div class="score-global" style="margin-top:10px"><span class="score-global-num" id="adminAbonnesCount">${escAdmin(_codesAbonnesAdmin.filter(c => c.actif !== false).length)}</span></div>
         <div class="ideas-sub" style="margin-top:8px" id="adminAbonnesSousTexte">${escAdmin(sousTexteAbonnesAdmin())}</div>
-        ${ligneNonAbonnes}
         <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeAbonnesAdminHint">Touche pour voir le détail des codes ↓</div>
       </div>
       <div id="listeAbonnesAdmin" style="display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px">
         <div id="listeAbonnesAdminControles"></div>
         <div id="listeAbonnesAdminList" style="border-top:1px solid var(--border-soft);padding-top:10px"></div>
       </div>
+      ${blocNonAbonnes}
     </div>`;
   } catch (e) {
     return carteErreurAdmin('Abonnés actifs', e);
   }
+}
+
+// Codes pays (x-vercel-ip-country) -> libellé lisible. Couvre la
+// francophonie d'Afrique de l'Ouest/Centrale (public visé par Scriptura)
+// + quelques pays fréquents ; un code absent de cette liste s'affiche tel
+// quel plutôt que de planter.
+const PAYS_NOMS_ADMIN = {
+  CI: "Côte d'Ivoire", SN: 'Sénégal', CM: 'Cameroun', BJ: 'Bénin', TG: 'Togo',
+  ML: 'Mali', BF: 'Burkina Faso', NE: 'Niger', GN: 'Guinée', CD: 'RD Congo',
+  CG: 'Congo', GA: 'Gabon', MG: 'Madagascar', TD: 'Tchad', MR: 'Mauritanie',
+  MA: 'Maroc', DZ: 'Algérie', TN: 'Tunisie', FR: 'France', BE: 'Belgique',
+  CH: 'Suisse', CA: 'Canada', US: 'États-Unis', GB: 'Royaume-Uni'
+};
+function libellePaysAdmin(code) {
+  if (!code) return 'Pays inconnu';
+  return PAYS_NOMS_ADMIN[code] || code;
+}
+
+// Détail des non-abonnés en ligne : pays + navigateur, JAMAIS d'IP (voir
+// PRESENCE_URL/handlePresence, api/data.js, décision propriétaire). Un
+// identifiant anonyme n'a rien de lisible à afficher un par un, les
+// combinaisons identiques (pays · navigateur) sont regroupées et comptées
+// plutôt qu'une liste à plat.
+async function chargerDetailNonAbonnesAdmin() {
+  if (!supabaseClient) return '<div class="ideas-sub">Détail indisponible.</div>';
+  try {
+    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseClient
+      .from('presence')
+      .select('pays,navigateur')
+      .eq('abonne', false)
+      .gte('derniere_activite', seuil)
+      .limit(300);
+    if (error) throw error;
+    if (!data || !data.length) return '<div class="ideas-sub">Aucun non-abonné en ligne actuellement.</div>';
+    const compte = {};
+    data.forEach(row => {
+      const cle = libellePaysAdmin(row.pays) + ' · ' + (row.navigateur || 'Navigateur inconnu');
+      compte[cle] = (compte[cle] || 0) + 1;
+    });
+    return Object.entries(compte)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cle, n]) => `<div class="admin-nonabonnes-row"><span>${escAdmin(cle)}</span><span>${n}</span></div>`)
+      .join('');
+  } catch (e) {
+    return '<div class="ideas-sub">Détail indisponible.</div>';
+  }
+}
+
+async function toggleListeNonAbonnesAdmin() {
+  const el = document.getElementById('listeNonAbonnesAdmin');
+  const hint = document.getElementById('listeNonAbonnesAdminHint');
+  if (!el) return;
+  const ouvert = el.style.display !== 'none';
+  el.style.display = ouvert ? 'none' : 'block';
+  if (!ouvert) {
+    el.innerHTML = '<div class="ideas-sub">Chargement…</div>';
+    el.innerHTML = await chargerDetailNonAbonnesAdmin();
+  }
+  if (hint) hint.textContent = ouvert ? 'Touche pour voir le détail (pays · navigateur) ↓' : 'Touche pour masquer ↑';
 }
 
 async function toggleListeAbonnesAdmin() {

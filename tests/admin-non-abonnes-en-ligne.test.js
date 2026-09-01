@@ -106,3 +106,76 @@ test('Tableau de bord : au singulier avec un seul non-abonné en ligne, et rien 
     await arreter();
   }
 });
+
+// Bug signalé par la propriétaire : cliquer sur "N non-abonnés en ligne"
+// ouvrait la liste des ABONNÉS (les deux zones cliquables étaient dans le
+// même div). Corrigé en donnant à ce bloc son propre onclick et son propre
+// panneau détail (pays · navigateur, jamais l'IP, voir handlePresence dans
+// api/data.js et la décision propriétaire "Pays + navigateur seulement").
+test('Tableau de bord : cliquer sur "N non-abonnés en ligne" ouvre le détail pays/navigateur, PAS la liste des abonnés', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page, { data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(200);
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(200);
+
+    // Mock couvrant les trois requêtes réellement utilisées sur `presence` :
+    // .select('ref').in(...) (points verts abonnés), .select('ref',{count})
+    // .eq().gte() (compteur non-abonnés), .select('pays,navigateur').eq()
+    // .gte().limit() (détail groupé, nouveau).
+    await page.evaluate(() => {
+      supabaseClient = {
+        from(table) {
+          if (table !== 'presence') return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
+          return {
+            select(cols, opts) {
+              if (opts && opts.count) {
+                return { eq() { return { gte() { return Promise.resolve({ count: 2, error: null }); } }; } };
+              }
+              if (cols === 'pays,navigateur') {
+                return { eq() { return { gte() { return { limit() { return Promise.resolve({
+                  data: [
+                    { pays: 'CI', navigateur: 'Safari mobile' },
+                    { pays: 'CI', navigateur: 'Safari mobile' }
+                  ],
+                  error: null
+                }); } }; } }; } };
+              }
+              return { in() { return Promise.resolve({ data: [], error: null }); } };
+            }
+          };
+        }
+      };
+    });
+
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    // Clique réellement sur la zone "N non-abonnés en ligne" (pas un appel
+    // direct de fonction) : c'est exactement le geste signalé comme ouvrant
+    // la mauvaise liste.
+    await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne').parentElement.click());
+    await page.waitForTimeout(300);
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+
+    const [listeAbonnesVisible, detailHtml] = await page.evaluate(() => [
+      document.getElementById('listeAbonnesAdmin')?.style.display,
+      document.getElementById('listeNonAbonnesAdmin')?.innerHTML || ''
+    ]);
+
+    assert.notEqual(listeAbonnesVisible, 'block', 'cliquer sur les non-abonnés ne doit PAS ouvrir la liste des abonnés (bug signalé par la propriétaire)');
+    assert.match(detailHtml, /Côte d'Ivoire · Safari mobile/, 'le détail pays · navigateur doit apparaître, groupé : ' + detailHtml);
+    assert.match(detailHtml, />2</, 'les deux visiteurs identiques doivent être comptés ensemble : ' + detailHtml);
+    assert.ok(!/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(detailHtml), 'aucune adresse IP ne doit jamais apparaître dans le détail : ' + detailHtml);
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

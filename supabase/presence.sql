@@ -8,8 +8,19 @@
 create table if not exists presence (
   ref                text primary key,
   derniere_activite  timestamptz not null default now(),
-  abonne             boolean not null default false
+  abonne             boolean not null default false,
+  pays               text,
+  navigateur         text
 );
+
+-- pays/navigateur (retour propriétaire : voir qui sont les non-abonnés en
+-- ligne) : ajoutés après coup, idempotent pour une table déjà existante.
+-- Renseignés côté serveur (api/data.js, resource=presence) à partir des
+-- en-têtes de la requête (x-vercel-ip-country, user-agent), jamais
+-- fournis tels quels par le client, jamais d'IP stockée (décision
+-- propriétaire, donnée personnelle identifiante hors de propos ici).
+alter table presence add column if not exists pays text;
+alter table presence add column if not exists navigateur text;
 
 -- Même politique que profils_createurs/quotas/generations/series :
 -- lecture/écriture ouverte à la clé publishable déjà utilisée par l'app.
