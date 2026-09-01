@@ -12,6 +12,11 @@
 // libellé français, espacé, avec une majuscule initiale, cohérent avec
 // les noms publics utilisés ailleurs dans l'app (ex. "Analyse vidéo",
 // même eyebrow que le module lui-même).
+// 2e passe (retour propriétaire : « la partie que j'ai encadrée reste
+// figée et le reste glisse ») : ce n'est pas toute la carte qui doit
+// défiler en bloc, seulement les colonnes de chiffres. La colonne des
+// noms de mode reste figée à gauche (position:sticky), sinon on perd de
+// vue à quel mode correspond la ligne en glissant jusqu'à Non-abonné.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -91,6 +96,25 @@ test('Tableau de bord, carte "Générations par mode" : libellés lisibles et ta
       assert.ok(/^[A-ZÀ-Ý]/.test(l), `chaque libellé doit commencer par une majuscule : "${l}"`);
       assert.ok(!/[a-zà-ÿ][A-ZÀ-Ý]/.test(l), `aucun libellé ne doit rester en camelCase technique collé : "${l}"`);
     });
+
+    // Colonne des noms de mode figée : sa position à l'écran ne doit pas
+    // bouger quand on glisse le tableau, seules les colonnes de chiffres
+    // défilent (retour propriétaire, précision demandée explicitement).
+    const avantScroll = await page.evaluate(() => {
+      const premiereLigne = document.querySelector('.admin-modes-row span:first-child');
+      return premiereLigne.getBoundingClientRect().left;
+    });
+    await page.evaluate(() => {
+      const el = document.querySelector('.admin-modes-scroll');
+      el.scrollLeft = el.scrollWidth;
+    });
+    const apresScroll = await page.evaluate(() => {
+      const premiereLigne = document.querySelector('.admin-modes-row span:first-child');
+      const style = getComputedStyle(premiereLigne);
+      return { left: premiereLigne.getBoundingClientRect().left, position: style.position };
+    });
+    assert.equal(apresScroll.position, 'sticky', 'la colonne des noms de mode doit être figée (position:sticky) : ' + JSON.stringify(apresScroll));
+    assert.equal(apresScroll.left, avantScroll, 'la colonne des noms de mode ne doit pas bouger à l\'écran quand on glisse le tableau : avant ' + avantScroll + ', après ' + apresScroll.left);
   } finally {
     await navigateur.close();
     await arreter();

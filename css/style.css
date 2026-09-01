@@ -2828,6 +2828,13 @@ body.is-unlocked .sidebar-logout{display:block}
 .admin-modes-header span:first-child,.admin-modes-row span:first-child{text-align:left}
 .admin-modes-row span:first-child{font-size:0.9rem;color:var(--text-secondary)}
 .admin-modes-row span:not(:first-child){font-weight:600;color:var(--gold-light)}
+/* Colonne des noms de mode figée (retour propriétaire : en glissant vers
+   "Non-abonné", on perdait de vue à QUEL mode correspond la ligne). Seules
+   les colonnes de chiffres défilent, le nom du mode reste toujours visible
+   à gauche, comme une 1re colonne gelée de tableur. */
+.admin-modes-header span:first-child,.admin-modes-row span:first-child{
+  position:sticky;left:0;background:var(--bg-card);padding-right:8px;z-index:1;
+}
 /* Interrupteur actif/inactif (tableau de bord, liste des abonnés) : rond
    qui glisse, doré une fois actif. */
 .admin-switch{position:relative;display:inline-block;width:36px;height:20px;flex:0 0 auto}
