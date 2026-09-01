@@ -105,49 +105,33 @@ function demarrerDefilementPreuveGalerie() {
   }, INTERVALLE);
 }
 
-// Filet de sécurité : sur certains navigateurs mobiles, l'autoplay par
-// attribut seul (autoplay+muted+playsinline) ne suffit pas toujours à
-// déclencher la lecture (retour propriétaire : vidéos restées figées sur
-// leur affiche sur iOS Safari). Un appel explicite à .play() juste après le
-// chargement force la reprise ; l'erreur est avalée en silence si le
-// navigateur bloque quand même l'autoplay, l'affiche reste alors visible.
-// 2e correctif (retour propriétaire : le blanc persistait longtemps même
-// avec des URLs jamais mises en cache, sur 3 appareils) : preload="auto"
-// forçait le téléchargement immédiat des DEUX vidéos dès l'ouverture de la
-// page, en concurrence avec tout le reste (45 images de la galerie,
-// scripts, polices), alors que cette section est plus bas dans la page,
-// pas visible tout de suite. Chargement différé : preload="none" et pas
-// d'autoplay HTML, la vidéo ne commence à charger qu'au moment où elle
-// entre réellement dans l'écran (IntersectionObserver), plus jamais en
-// concurrence avec le chargement initial de la page.
-// 3e correctif (retour propriétaire, capture vidéo à l'appui : le blanc
-// durait 8 à 14 secondes, sans lien avec le cache ni le chargement initial
-// de la page qui affichait déjà l'en-tête normalement) : l'attribut poster
-// sur <video> ne suffisait pas, Safari peut peindre son propre rectangle
-// blanc par défaut tant qu'aucune frame n'est décodée, par-dessus poster ET
-// le fond CSS. L'affiche est maintenant une <img> séparée, toujours visible
-// en dessous (voir .example-video-poster, css/style.css) ; la <video>
-// elle-même reste invisible (opacity:0) jusqu'à l'évènement natif "playing",
-// qui prouve qu'une image est réellement prête à s'afficher.
-// 4e correctif (retour propriétaire, 2e capture vidéo à l'appui : le blanc
-// revenait EN COURS DE LECTURE, à chaque boucle, pas seulement au premier
-// chargement) : preload="none" indique au navigateur de ne quasiment rien
-// garder en mémoire pour cette vidéo, y compris après une première lecture
-// complète ; au moment où `loop` revient au début, plus rien n'est
-// disponible et il faut retélécharger/redécoder, plusieurs secondes de
-// blanc à chaque tour. Repassé à preload="auto" : ce réglage ne retarde
-// plus le chargement initial (déjà différé par l'IntersectionObserver
-// ci-dessous, qui ne lance .play() qu'à l'entrée réelle dans l'écran), il
-// ne fait plus que garder toute la vidéo (~350 Ko) en mémoire une fois
-// chargée, pour qu'une boucle se contente de rembobiner sans redemander
-// quoi que ce soit.
-function forcerLectureVideosExemple() {
-  const videos = document.querySelectorAll('video.example-video');
-  if (!videos.length) return;
-  const lancer = (v) => {
-    v.addEventListener('playing', () => v.classList.add('est-lancee'));
-    v.play().catch(() => {});
+// Historique : les deux démos "En pratique" ont été une <video> en boucle,
+// avec plusieurs correctifs successifs (affiche, cache, mémoire tampon)
+// contre un blanc récurrent, sans jamais l'éliminer complètement. Cause
+// réelle trouvée en examinant le fichier lui-même image par image : les 10
+// à 11 premières secondes des DEUX enregistrements captaient un écran vide
+// (l'app n'avait pas fini de charger au moment de l'enregistrement), pas un
+// problème de lecture ou de réseau. Plutôt que ré-enregistrer, remplacé par
+// un diaporama de vraies captures fixes de l'app (mêmes enregistrements,
+// juste les instants où il y a vraiment quelque chose à montrer) : une
+// <img> n'a par construction aucun des à-côtés spécifiques au rendu vidéo
+// sur Safari, le type d'élément le plus fiable du web.
+function demarrerDiaporamaExemples() {
+  const images = document.querySelectorAll('img.example-slideshow');
+  if (!images.length) return;
+  const DUREE_PAR_IMAGE = 1400; // ms
+
+  const lancer = (img) => {
+    const frames = (img.dataset.frames || '').split(',').filter(Boolean);
+    if (frames.length < 2) return;
+    let i = frames.indexOf(img.getAttribute('src'));
+    if (i < 0) i = 0;
+    setInterval(() => {
+      i = (i + 1) % frames.length;
+      img.src = frames[i];
+    }, DUREE_PAR_IMAGE);
   };
+
   if (typeof IntersectionObserver === 'function') {
     const observateur = new IntersectionObserver((entrees) => {
       entrees.forEach(entree => {
@@ -157,16 +141,16 @@ function forcerLectureVideosExemple() {
         }
       });
     }, { threshold: 0.25 });
-    videos.forEach(v => observateur.observe(v));
+    images.forEach(img => observateur.observe(img));
   } else {
-    // Repli sans IntersectionObserver (navigateur très ancien) : lecture directe.
-    videos.forEach(lancer);
+    // Repli sans IntersectionObserver (navigateur très ancien) : lancement direct.
+    images.forEach(lancer);
   }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   demarrerDefilementPreuveGalerie();
-  forcerLectureVideosExemple();
+  demarrerDiaporamaExemples();
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
