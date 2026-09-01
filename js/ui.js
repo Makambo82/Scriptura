@@ -101,7 +101,18 @@ function initCustomSelect(select) {
       const item = document.createElement('div');
       item.className = 'custom-select-option' + (opt.value === select.value ? ' selected' : '');
       item.setAttribute('role', 'option');
-      item.innerHTML = '<svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg><span>' + (opt.textContent || '') + '</span>';
+      // Description optionnelle sous le libellé (retour propriétaire : voix
+      // de montage, "voix masculine posée de la quarantaine…"), posée via
+      // data-description sur l'<option> (voir js/montage.js). Absente pour
+      // tout <select> qui ne la renseigne pas, aucun changement ailleurs
+      // dans l'app. Sur data.dataset (pas opt.textContent), donc jamais
+      // reprise dans le libellé affiché une fois le menu refermé (majTrigger
+      // plus haut ne lit que opt.textContent).
+      const description = opt.dataset.description || '';
+      item.innerHTML = '<svg class="cs-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>'
+        + '<span class="cs-option-main"><span class="cs-option-label">' + (opt.textContent || '') + '</span>'
+        + (description ? '<small class="cs-option-desc">' + description + '</small>' : '')
+        + '</span>';
       item.addEventListener('click', function () {
         select.value = opt.value;
         select.dispatchEvent(new Event('change', { bubbles: true }));

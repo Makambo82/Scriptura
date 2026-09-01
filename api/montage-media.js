@@ -54,12 +54,21 @@ function obtenirVoixDisponibles() {
     try {
       const liste = JSON.parse(brut);
       if (Array.isArray(liste) && liste.length && liste.every(v => v && v.id)) {
-        return liste.map(v => ({ id: String(v.id).trim(), label: String(v.label || v.name || v.id).trim() }));
+        // description optionnelle (retour propriétaire : afficher la
+        // caractéristique de chaque voix, ex. "voix masculine posée de la
+        // quarantaine", sous son nom au moment de choisir) : réglée dans
+        // cette même variable d'environnement, jamais codée en dur ici,
+        // cohérent avec id/label déjà entièrement configurés côté Vercel.
+        return liste.map(v => ({
+          id: String(v.id).trim(),
+          label: String(v.label || v.name || v.id).trim(),
+          description: v.description ? String(v.description).trim() : ''
+        }));
       }
     } catch (e) { /* tombe sur le repli ci-dessous */ }
   }
   const idUnique = (process.env.ELEVENLABS_VOICE_ID || '').trim();
-  return idUnique ? [{ id: idUnique, label: 'Voix par défaut' }] : [];
+  return idUnique ? [{ id: idUnique, label: 'Voix par défaut', description: '' }] : [];
 }
 
 async function handleVoices(req, res) {

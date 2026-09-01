@@ -31,7 +31,7 @@ let omImages = [];           // [{ file, url }], dans l'ordre d'ajout = ordre du
 let omAudio = null;          // { blob, url, duree, source: 'upload'|'ia', nom?, durations? }
 let omDureesManuelles = [];  // [nombre, ...] durée (s) par image, mode 'upload' uniquement
 let omModeVoix = 'upload';   // 'upload' | 'ia'
-let omVoixListe = [];        // [{ id, label }], voix ElevenLabs configurées côté serveur
+let omVoixListe = [];        // [{ id, label, description }], voix ElevenLabs configurées côté serveur
 let omVoixId = '';
 let omTexteNarration = '';
 let omVoixEnCours = false;
@@ -248,7 +248,7 @@ function omRenderVoixZone() {
   let selectHtml = '';
   if (omVoixListe.length > 1) {
     const options = ['<option value=""' + (omVoixId ? '' : ' selected') + '>Choisis une voix…</option>']
-      .concat(omVoixListe.map(v => `<option value="${v.id}"${v.id === omVoixId ? ' selected' : ''}>${outilsEsc(v.label)}</option>`));
+      .concat(omVoixListe.map(v => `<option value="${v.id}"${v.id === omVoixId ? ' selected' : ''} data-description="${outilsEsc(v.description || '')}">${outilsEsc(v.label)}</option>`));
     selectHtml = `<select class="ctx-input" id="omVoixSelect" style="margin-top:10px" onchange="omChangerVoix(this.value)">${options.join('')}</select>`;
   }
   const preview = (omAudio && omAudio.source === 'ia')

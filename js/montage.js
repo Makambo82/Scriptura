@@ -25,7 +25,7 @@ let montageVoixOff = null;  // { blob, url, durations }, générée par ElevenLa
 let montageEnCours = false;
 let montageVoixEnCours = false;
 let montageImagesEnCours = false;
-let montageVoixListe = [];  // [{ id, label }], voix ElevenLabs configurées (voir api/montage-voices.js)
+let montageVoixListe = [];  // [{ id, label, description }], voix ElevenLabs configurées (voir api/montage-media.js action=voices)
 let montageVoixId = '';     // id de la voix actuellement choisie
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
 let montageVideoFichierPromise = null; // File préchargé de la vidéo rendue, voir partagerVideoMontage
@@ -531,12 +531,12 @@ async function chargerVoixMontage() {
   if (montageVoixListe.length > 1) {
     montageVoixId = '';
     select.innerHTML = '<option value="">Choisis une voix…</option>'
-      + montageVoixListe.map(v => `<option value="${v.id}">${v.label}</option>`).join('');
+      + montageVoixListe.map(v => `<option value="${v.id}" data-description="${v.description || ''}">${v.label}</option>`).join('');
     select.value = '';
     voixEl.style.display = '';
   } else if (montageVoixListe.length === 1) {
     montageVoixId = montageVoixListe[0].id;
-    select.innerHTML = `<option value="${montageVoixId}">${montageVoixListe[0].label}</option>`;
+    select.innerHTML = `<option value="${montageVoixId}" data-description="${montageVoixListe[0].description || ''}">${montageVoixListe[0].label}</option>`;
     select.value = montageVoixId;
     voixEl.style.display = 'none';
   } else {
