@@ -10,6 +10,11 @@
 // demo-sommaire.mp4, enregistrées via Playwright en pilotant la vraie
 // interface avec des réponses IA simulées, jamais de fausses stats
 // inventées à la main dans du HTML statique), en autoplay muet en boucle.
+// 3e passe (retour propriétaire, pavé blanc constaté sur iOS Safari le
+// temps du chargement, "pas pro") : chaque vidéo a désormais un poster
+// (vraie capture de l'app, assets/demos/poster-*.jpg), et le conteneur
+// réserve sa hauteur via aspect-ratio avec un fond sombre, jamais de blanc
+// visible même avant que l'affiche ou la vidéo n'aient fini de charger.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -42,6 +47,7 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       const ex = document.querySelector('.example');
       const videos = Array.from(ex.querySelectorAll('video.example-video')).map(v => ({
         srcs: Array.from(v.querySelectorAll('source')).map(s => s.getAttribute('src') || ''),
+        poster: v.getAttribute('poster') || '',
         autoplay: v.autoplay, muted: v.muted, loop: v.loop, playsInline: v.playsInline
       }));
       return {
@@ -58,6 +64,9 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       assert.equal(v.muted, true, 'chaque vidéo de démo doit être muette (autoplay navigateur l\'exige de toute façon) : ' + JSON.stringify(v));
       assert.equal(v.loop, true, 'chaque vidéo de démo doit boucler : ' + JSON.stringify(v));
       assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
+      // Jamais de pavé blanc pendant le chargement (retour propriétaire,
+      // iOS Safari) : une affiche doit toujours être déclarée.
+      assert.ok(/poster-(script|sommaire)\.jpg/.test(v.poster), 'chaque vidéo de démo doit avoir une affiche (poster) : ' + JSON.stringify(v));
     });
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.

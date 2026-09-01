@@ -34,19 +34,24 @@ de moi-même, comme un pro qui possède le produit.
 - **Analyses** : sommaire (`js/diagnostic-sommaire.js`, via @pseudo, LamaTok +
   TikHub) ; détaillée (`js/audit.js`, captures). Mode « mon compte » vs
   « concurrent » : écriture et sections différentes.
-- **Déploiement** : développer sur la branche de feature, vérifier, puis
-  **merge fast-forward vers `main`** (prod Vercel). Rien n'est en ligne tant que
-  ce n'est pas sur `main`. Committer/pousser seulement quand la vérif est verte.
-  Le rituel ne repose plus sur ma seule vigilance manuelle à chaque fois : une
-  CI GitHub Actions (`.github/workflows/tests.yml`) tourne sur chaque push et
-  rejoue toute la suite `tests/`. Avant de proposer "Merge" au propriétaire, je
-  vérifie que le run CI du dernier commit de la branche de feature est vert
-  (`mcp__github__actions_list`/`actions_get`), pas seulement mes tests locaux.
-  Après le merge vers `main`, je vérifie aussi le run CI déclenché sur `main`
-  (un problème propre à l'environnement de prod, ex. une variable
-  d'environnement absente, peut différer du feature branch). Un run rouge à
-  l'une ou l'autre étape n'est jamais ignoré : je diagnostique et corrige
-  avant de considérer la tâche terminée.
+- **Déploiement** : développer sur la branche de feature, puis **merge
+  fast-forward vers `main`** (prod Vercel) dès que possible. Rien n'est en
+  ligne tant que ce n'est pas sur `main`.
+  Rituel révisé (retour propriétaire, la suite complète ~14 min était trop
+  lente à attendre avant chaque merge) : `node --check` sur chaque fichier
+  touché (quasi instantané) avant de merger, PAS la suite Playwright
+  complète. Dès que `node --check` passe, je commit, pousse sur la branche
+  de feature, merge fast-forward vers `main`, pousse `main`, sans attendre
+  la CI ni la suite locale. J'ENCHAÎNE ENSUITE (jamais en oubliant, jamais en
+  laissant l'utilisateur devoir relancer) sur la suite complète (locale en
+  arrière-plan et/ou la CI GitHub Actions, `.github/workflows/tests.yml`, sur
+  la branche ET sur `main`) : un run rouge à l'une ou l'autre étape n'est
+  jamais ignoré, je diagnostique, corrige, recommit/repush/re-merge tout de
+  suite, jusqu'à tout vert. La tâche n'est considérée terminée qu'une fois
+  la CI confirmée verte sur `main`, même si le merge lui-même est parti
+  avant. Ce compromis accepte qu'un bug puisse être en ligne quelques
+  minutes le temps d'être détecté et corrigé, en échange d'un rythme de
+  livraison bien plus rapide.
 - **Style de commit** : messages clairs en français, expliquant le pourquoi.
 
 ## Rappel

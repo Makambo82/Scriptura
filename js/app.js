@@ -54,17 +54,14 @@ function demarrerDefilementPreuveGalerie() {
   if (!galerie) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  const INTERVALLE = 45; // ms entre deux pas
-  const PAS = 0.35; // px par pas (~7,8px/s) : très lent, à peine perceptible
+  const VITESSE = 8; // px par seconde : très lent, à peine perceptible
   const PAUSE_APRES_INTERACTION = 2800; // ms avant reprise après une interaction
   let direction = 1;
   let derniereInteraction = 0;
+  let dernierTimestamp = null;
   // Position flottante suivie à part : scrollLeft arrondit au pixel entier à
-  // chaque lecture, un pas de 0.35px relu puis réécrit serait tronqué à 0 à
-  // chaque tick et la galerie ne bougerait jamais (bug constaté en test).
-  // setInterval, pas requestAnimationFrame : rAF ne se déclenche jamais sur
-  // une page qui n'est pas activement composée à l'écran (constaté en test
-  // headless), setInterval reste fiable dans tous les cas.
+  // chaque lecture, un pas inférieur à 1px relu puis réécrit serait tronqué
+  // et la galerie ne bougerait jamais.
   let position = galerie.scrollLeft;
 
   const signalerInteraction = () => { derniereInteraction = Date.now(); };
@@ -72,7 +69,10 @@ function demarrerDefilementPreuveGalerie() {
   galerie.addEventListener('wheel', signalerInteraction, { passive: true });
   document.querySelectorAll('.preuve-galerie-arrow').forEach(btn => btn.addEventListener('click', signalerInteraction));
 
-  setInterval(() => {
+  function pas(horodatage) {
+    requestAnimationFrame(pas);
+    const delta = dernierTimestamp != null ? (horodatage - dernierTimestamp) / 1000 : 0;
+    dernierTimestamp = horodatage;
     if (Date.now() - derniereInteraction < PAUSE_APRES_INTERACTION) return;
     const max = galerie.scrollWidth - galerie.clientWidth;
     if (max <= 0) return;
@@ -81,13 +81,29 @@ function demarrerDefilementPreuveGalerie() {
     if (Math.abs(galerie.scrollLeft - position) > 2) position = galerie.scrollLeft;
     if (position >= max - 1) direction = -1;
     else if (position <= 1) direction = 1;
-    position += PAS * direction;
+    position += VITESSE * delta * direction;
     galerie.scrollLeft = position;
-  }, INTERVALLE);
+  }
+  requestAnimationFrame(pas);
+}
+
+// Filet de sécurité : sur certains navigateurs mobiles, l'autoplay par
+// attribut seul (autoplay+muted+playsinline) ne suffit pas toujours à
+// déclencher la lecture (retour propriétaire : vidéos restées figées sur
+// leur affiche sur iOS Safari). Un appel explicite à .play() juste après le
+// chargement force la reprise ; l'erreur est avalée en silence si le
+// navigateur bloque quand même l'autoplay, l'affiche reste alors visible.
+function forcerLectureVideosExemple() {
+  document.querySelectorAll('video.example-video').forEach(v => {
+    const tenter = () => v.play().catch(() => {});
+    if (v.readyState >= 2) tenter();
+    else v.addEventListener('loadeddata', tenter, { once: true });
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   demarrerDefilementPreuveGalerie();
+  forcerLectureVideosExemple();
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
