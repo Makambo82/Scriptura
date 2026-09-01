@@ -1474,11 +1474,18 @@ body.hero-focus .hero-focus-rule{display:block}
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;
   color:var(--gold);opacity:0.75;max-width:480px;margin:0 auto 12px;text-align:left;
 }
-.example-video-wrap{max-width:280px;margin:0 auto 32px;aspect-ratio:420/860;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.45);border:1px solid rgba(226,200,122,0.18)}
-/* Fond sombre + hauteur réservée (aspect-ratio) : jamais de pavé blanc le
-   temps que la vidéo/l'affiche se charge (retour propriétaire, constaté sur
-   iOS Safari), le fond reste dans la palette même avant le premier rendu. */
-.example-video{width:100%;height:100%;display:block;object-fit:cover;background:#0e0e0e}
+.example-video-wrap{position:relative;max-width:280px;margin:0 auto 32px;aspect-ratio:420/860;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.45);border:1px solid rgba(226,200,122,0.18);background:#0e0e0e}
+/* Affiche en <img> séparée de la <video> (retour propriétaire : le blanc
+   persistait malgré poster+preload=none+fond sombre sur la <video>). Cause :
+   Safari peut peindre son propre rectangle blanc par défaut pour une <video>
+   sans frame décodée, par-dessus l'attribut poster ET le background CSS. Une
+   <img> classique n'a aucun de ces à-côtés, elle s'affiche vite et
+   normalement. Superposées, l'image reste visible jusqu'à ce que la vidéo
+   ait réellement une image à montrer (classe .est-lancee, voir
+   forcerLectureVideosExemple, js/app.js, sur l'évènement natif "playing"). */
+.example-video-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.example-video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;opacity:0;transition:opacity 0.3s ease}
+.example-video.est-lancee{opacity:1}
 .example-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin-top:26px}
 .example-note strong{color:var(--gold-light)}
 .example-cta{

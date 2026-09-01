@@ -120,10 +120,22 @@ function demarrerDefilementPreuveGalerie() {
 // d'autoplay HTML, la vidéo ne commence à charger qu'au moment où elle
 // entre réellement dans l'écran (IntersectionObserver), plus jamais en
 // concurrence avec le chargement initial de la page.
+// 3e correctif (retour propriétaire, capture vidéo à l'appui : le blanc
+// durait 8 à 14 secondes, sans lien avec le cache ni le chargement initial
+// de la page qui affichait déjà l'en-tête normalement) : l'attribut poster
+// sur <video> ne suffisait pas, Safari peut peindre son propre rectangle
+// blanc par défaut tant qu'aucune frame n'est décodée, par-dessus poster ET
+// le fond CSS. L'affiche est maintenant une <img> séparée, toujours visible
+// en dessous (voir .example-video-poster, css/style.css) ; la <video>
+// elle-même reste invisible (opacity:0) jusqu'à l'évènement natif "playing",
+// qui prouve qu'une image est réellement prête à s'afficher.
 function forcerLectureVideosExemple() {
   const videos = document.querySelectorAll('video.example-video');
   if (!videos.length) return;
-  const lancer = (v) => { v.play().catch(() => {}); };
+  const lancer = (v) => {
+    v.addEventListener('playing', () => v.classList.add('est-lancee'));
+    v.play().catch(() => {});
+  };
   if (typeof IntersectionObserver === 'function') {
     const observateur = new IntersectionObserver((entrees) => {
       entrees.forEach(entree => {

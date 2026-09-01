@@ -34,6 +34,15 @@
 // qu'au moment où elle entre réellement dans l'écran (IntersectionObserver,
 // voir forcerLectureVideosExemple, js/app.js), plus de concurrence avec le
 // chargement initial de la page.
+// 6e passe (retour propriétaire, capture vidéo à l'appui : blanc de 8 à 14s
+// TOUJOURS présent, alors que l'en-tête de la page s'affichait déjà
+// normalement, donc pas un problème de chargement global) : l'attribut
+// poster sur <video> ne suffisait pas, Safari peut peindre son propre
+// rectangle blanc par défaut pour une <video> sans frame décodée,
+// par-dessus poster ET le fond CSS. L'affiche est désormais une <img>
+// classique séparée (.example-video-poster), toujours visible en dessous ;
+// la <video> reste invisible (opacity:0 en CSS) jusqu'à l'évènement natif
+// "playing" (classe .est-lancee ajoutée alors, voir js/app.js).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -69,7 +78,8 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       const ex = document.querySelector('.example');
       const videos = Array.from(ex.querySelectorAll('video.example-video')).map(v => ({
         srcs: Array.from(v.querySelectorAll('source')).map(s => s.getAttribute('src') || ''),
-        poster: v.getAttribute('poster') || '',
+        posterAttr: v.getAttribute('poster') || '',
+        posterImg: v.closest('.example-video-wrap')?.querySelector('img.example-video-poster')?.getAttribute('src') || '',
         preload: v.getAttribute('preload') || '',
         autoplay: v.autoplay, muted: v.muted, loop: v.loop, playsInline: v.playsInline
       }));
@@ -89,8 +99,10 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       assert.equal(v.loop, true, 'chaque vidéo de démo doit boucler : ' + JSON.stringify(v));
       assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
       // Jamais de pavé blanc pendant le chargement (retour propriétaire,
-      // iOS Safari) : une affiche doit toujours être déclarée.
-      assert.ok(/poster-(script|sommaire)(-v\d+)?\.jpg/.test(v.poster), 'chaque vidéo de démo doit avoir une affiche (poster) : ' + JSON.stringify(v));
+      // iOS Safari, 6e passe) : l'affiche est une <img> séparée, pas
+      // l'attribut poster de <video> (peu fiable sur Safari).
+      assert.equal(v.posterAttr, '', 'la vidéo ne doit plus avoir d\'attribut poster (remplacé par une <img>, 6e passe) : ' + JSON.stringify(v));
+      assert.ok(/poster-(script|sommaire)(-v\d+)?\.jpg/.test(v.posterImg), 'chaque vidéo de démo doit avoir une <img class="example-video-poster"> associée : ' + JSON.stringify(v));
     });
 
     // Le chargement différé se déclenche vraiment à l'entrée dans l'écran
@@ -101,6 +113,14 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     const lecture = await page.evaluate(() =>
       Array.from(document.querySelectorAll('.example video.example-video')).map(v => v.paused));
     assert.ok(lecture.every(p => p === false), 'les vidéos doivent démarrer leur lecture une fois entrées dans l\'écran : ' + JSON.stringify(lecture));
+
+    // La classe est-lancee (opacity:1, révèle la vidéo par-dessus l'affiche)
+    // doit apparaître une fois la lecture réellement démarrée (évènement
+    // natif "playing", pas juste .play() appelé).
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('.example video.example-video')).every(v => v.classList.contains('est-lancee')),
+      { timeout: 5000 }
+    );
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.
     await page.click('.example-cta');
