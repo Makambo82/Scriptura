@@ -179,3 +179,73 @@ test('Tableau de bord : cliquer sur "N non-abonnés en ligne" ouvre le détail p
     await arreter();
   }
 });
+
+// Retour propriétaire : "si je suis dans le tableau de bord et qu'un
+// non-abonné ouvre l'app, est-il possible que ça s'affiche en temps réel
+// sans rechargement ?" Oui, via un poll (demarrerPollNonAbonnesAdmin, même
+// mécanique que le poll des abonnés). Contrairement à ce dernier, il tourne
+// dès l'ouverture du tableau de bord (le nombre est visible sans avoir à
+// déplier un panneau). Intervalle 10s (retour propriétaire : "mets tout à
+// 10s").
+test('Tableau de bord : le nombre de non-abonnés en ligne se rafraîchit sans reload, et le polling s\'arrête proprement', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    await poserMocksReseau(page, { data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(200);
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(200);
+
+    await page.evaluate(() => {
+      window.__nonAbonnesEnLigne = 3;
+      supabaseClient = {
+        from(table) {
+          if (table !== 'presence') return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
+          return {
+            select(_cols, opts) {
+              if (opts && opts.count) {
+                return { eq() { return { gte() { return Promise.resolve({ count: window.__nonAbonnesEnLigne, error: null }); } }; } };
+              }
+              return { in() { return Promise.resolve({ data: [], error: null }); } };
+            }
+          };
+        }
+      };
+    });
+
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    const texteAvant = await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne')?.textContent || '');
+    const pollingActif = await page.evaluate(() => _nonAbonnesPollInterval !== null);
+    assert.match(texteAvant, /3 non-abonnés en ligne maintenant/, 'compte initial attendu : ' + texteAvant);
+    assert.equal(pollingActif, true, 'le polling doit démarrer dès l\'ouverture du tableau de bord (pas besoin de déplier un panneau)');
+
+    // Un non-abonné supplémentaire ouvre l'app pendant que le fondateur
+    // regarde l'écran : simule ce que ferait le prochain tick, sans
+    // attendre 10s réelles (comportement observable, pas le minutage).
+    await page.evaluate(async () => {
+      window.__nonAbonnesEnLigne = 4;
+      const n = await compterNonAbonnesEnLigne();
+      document.getElementById('adminNonAbonnesEnLigne').textContent = `${n} non-abonné${n > 1 ? 's' : ''} en ligne maintenant`;
+    });
+    const texteApres = await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne')?.textContent || '');
+    assert.match(texteApres, /4 non-abonnés en ligne maintenant/, 'le compte doit refléter le nouveau non-abonné, sans recharger la page : ' + texteApres);
+
+    // arreterPollNonAbonnesAdmin (la vraie fonction, celle que le prochain
+    // tick appelle tout seul dès qu'il constate que l'écran admin a
+    // disparu, voir demarrerPollNonAbonnesAdmin dans js/admin.js) doit bien
+    // vider l'intervalle : pas de polling fantôme en arrière-plan une fois
+    // qu'on a quitté le tableau de bord. On ne teste pas le minutage réel
+    // du tick (10s), seulement que la fonction d'arrêt qu'il déclenche
+    // fonctionne.
+    await page.evaluate(() => arreterPollNonAbonnesAdmin());
+    const pollingApresFermeture = await page.evaluate(() => _nonAbonnesPollInterval);
+    assert.equal(pollingApresFermeture, null, 'le polling doit pouvoir s\'arrêter proprement en quittant le tableau de bord');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

@@ -56,6 +56,7 @@ async function chargerTableauDeBord() {
   // absente tant qu'il n'y a rien à signaler).
   zone.innerHTML = carteErreursAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
+  demarrerPollNonAbonnesAdmin();
 
   // Le fondateur vient de voir le détail des échecs (la carte ci-dessus,
   // en tête) : le badge n'a plus lieu d'être tant qu'aucun NOUVEL échec
@@ -453,13 +454,13 @@ async function toggleListeAbonnesAdmin() {
   if (hint) hint.textContent = ouvert ? 'Touche pour voir le détail des codes ↓' : 'Touche pour masquer ↑';
 }
 
-// Rafraîchit le statut en ligne toutes les 20s tant que le panneau est
+// Rafraîchit le statut en ligne toutes les 10s tant que le panneau est
 // ouvert, pour voir un abonné se connecter sans recharger la page (les
 // clients signalent leur présence toutes les 60s au plus, voir
-// envoyerPresence dans js/app.js : 20s suffit largement à le voir passer
+// envoyerPresence dans js/app.js : 10s suffit largement à le voir passer
 // au vert). S'arrête tout seul dès que le panneau ou l'écran admin
 // disparaît (retour arrière, changement d'écran), pas besoin d'un
-// crochet séparé sur la navigation.
+// crochet séparé sur la navigation. (Retour propriétaire : 20s -> 10s.)
 let _presencePollInterval = null;
 function arreterPollPresenceAdmin() {
   if (_presencePollInterval) { clearInterval(_presencePollInterval); _presencePollInterval = null; }
@@ -476,7 +477,33 @@ function demarrerPollPresenceAdmin() {
     const codesUniques = Array.from(new Set(_codesAbonnesAdmin.map(c => c.code)));
     await chargerPresenceAdmin(codesUniques);
     renderAdminListe();
-  }, 20000);
+  }, 10000);
+}
+
+// Rafraîchit le nombre de non-abonnés en ligne toutes les 10s tant que le
+// tableau de bord est ouvert (retour propriétaire : voir un non-abonné
+// ouvrir l'app en direct, sans recharger). Contrairement au poll des
+// abonnés ci-dessus, pas besoin que le détail soit déplié : le nombre est
+// visible dès l'ouverture du tableau de bord. Met juste le texte à jour en
+// place (jamais un nouveau rendu de toute la carte, qui refermerait un
+// panneau de détail déjà ouvert). S'arrête tout seul dès que l'écran admin
+// disparaît.
+let _nonAbonnesPollInterval = null;
+function arreterPollNonAbonnesAdmin() {
+  if (_nonAbonnesPollInterval) { clearInterval(_nonAbonnesPollInterval); _nonAbonnesPollInterval = null; }
+}
+function demarrerPollNonAbonnesAdmin() {
+  arreterPollNonAbonnesAdmin();
+  _nonAbonnesPollInterval = setInterval(async () => {
+    const ecranAdmin = document.getElementById('adminFlow');
+    const ligne = document.getElementById('adminNonAbonnesEnLigne');
+    if (!ecranAdmin || ecranAdmin.style.display === 'none' || !ligne) {
+      arreterPollNonAbonnesAdmin();
+      return;
+    }
+    const n = await compterNonAbonnesEnLigne();
+    if (n != null) ligne.textContent = `${n} non-abonné${n > 1 ? 's' : ''} en ligne maintenant`;
+  }, 10000);
 }
 
 function filtrerCodesAdmin() {

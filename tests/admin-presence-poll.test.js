@@ -51,7 +51,7 @@ test('le statut en ligne se rafraîchit sans reload, et le polling s\'arrête pr
 
     // Simule une connexion de FIFA pendant que le fondateur regarde l'écran,
     // puis déclenche le même rafraîchissement que ferait le prochain tick
-    // (sans attendre 20s réelles) : c'est le comportement observable qui
+    // (sans attendre 10s réelles) : c'est le comportement observable qui
     // compte, pas le minutage exact de l'intervalle.
     await page.evaluate(async () => {
       window.__basculerPresenceFifa(true);
