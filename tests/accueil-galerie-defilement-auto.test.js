@@ -5,8 +5,9 @@
 // requestAnimationFrame avec pas basé sur le temps réel écoulé, qui avance
 // une position suivie à part (scrollLeft arrondit au pixel entier à chaque
 // lecture, un pas sous 1px perdu à chaque relecture ne ferait jamais bouger
-// la galerie), avec inversion de sens aux bornes et mise en pause dès qu'un
-// pointerdown/wheel/clic sur une flèche est détecté.
+// la galerie), avec inversion de sens aux bornes et mise en pause dès
+// qu'une interaction horizontale réelle est détectée (voir 3e passe
+// ci-dessous pour ce qui compte comme telle).
 //
 // 2e passe (retour propriétaire : le défilement ne s'appliquait PAS du tout
 // sur iOS Safari en prod, un vrai bug, pas seulement une limite de test) :
@@ -16,6 +17,18 @@
 // natif par défaut), retirée du CSS. Passage de setInterval à
 // requestAnimationFrame au passage (plus idiomatique pour une animation
 // visuelle, se met en pause tout seul sur un onglet en arrière-plan).
+//
+// 3e passe (retour propriétaire : toujours rien à l'écran malgré la 2e
+// passe) : deuxième cause trouvée, le déclencheur de pause écoutait TOUT
+// pointerdown sur la galerie, y compris un doigt qui ne fait que passer
+// dessus en scrollant la PAGE verticalement, aucune intention d'interagir
+// avec la galerie elle-même. En usage réel (on scrolle la page pour
+// atteindre puis dépasser cette section), ça remettait le minuteur de
+// pause à zéro en continu, le défilement auto ne trouvait quasiment
+// jamais de fenêtre pour s'exécuter. Retiré ; seuls la molette
+// horizontale, les flèches, et un vrai écart de scrollLeft détecté entre
+// deux frames (preuve d'un glisser horizontal réel) déclenchent la pause
+// désormais.
 //
 // LIMITE CONNUE DE CE TEST : le Chromium headless-shell utilisé ici
 // n'applique jamais une écriture directe de scrollLeft (ni un scrollBy

@@ -64,8 +64,16 @@ function demarrerDefilementPreuveGalerie() {
   // et la galerie ne bougerait jamais.
   let position = galerie.scrollLeft;
 
+  // PAS de pointerdown ici (bug corrigé, retour propriétaire : le
+  // défilement auto ne se déclenchait quasiment jamais en usage réel) : un
+  // simple pointerdown se déclenche aussi quand le visiteur scrolle
+  // verticalement la PAGE avec un doigt qui passe sur la galerie, sans
+  // aucune intention d'interagir avec elle, ça mettait en pause en
+  // permanence. Seuls la molette horizontale et les flèches sont des
+  // interactions non ambiguës ; un vrai glisser horizontal sur la galerie
+  // est détecté après coup, via l'écart entre la position qu'on a fixée et
+  // scrollLeft réellement observé (voir plus bas).
   const signalerInteraction = () => { derniereInteraction = Date.now(); };
-  galerie.addEventListener('pointerdown', signalerInteraction, { passive: true });
   galerie.addEventListener('wheel', signalerInteraction, { passive: true });
   document.querySelectorAll('.preuve-galerie-arrow').forEach(btn => btn.addEventListener('click', signalerInteraction));
 
@@ -76,9 +84,16 @@ function demarrerDefilementPreuveGalerie() {
     if (Date.now() - derniereInteraction < PAUSE_APRES_INTERACTION) return;
     const max = galerie.scrollWidth - galerie.clientWidth;
     if (max <= 0) return;
-    // Une vraie interaction a pu déplacer scrollLeft sans passer par nous
-    // (glisser tactile relâché juste avant la reprise) : se resynchroniser.
-    if (Math.abs(galerie.scrollLeft - position) > 2) position = galerie.scrollLeft;
+    // Écart avec la position qu'on a fixée nous-mêmes : un vrai geste
+    // horizontal de l'utilisateur (glisser la galerie) l'a changée entre
+    // deux frames, on se resynchronise dessus ET on considère que c'est
+    // une interaction (mise en pause), contrairement à un simple scroll
+    // vertical de page qui ne touche jamais scrollLeft.
+    if (Math.abs(galerie.scrollLeft - position) > 2) {
+      position = galerie.scrollLeft;
+      derniereInteraction = Date.now();
+      return;
+    }
     if (position >= max - 1) direction = -1;
     else if (position <= 1) direction = 1;
     position += VITESSE * delta * direction;
