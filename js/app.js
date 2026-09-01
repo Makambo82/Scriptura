@@ -109,12 +109,33 @@ function demarrerDefilementPreuveGalerie() {
 // leur affiche sur iOS Safari). Un appel explicite à .play() juste après le
 // chargement force la reprise ; l'erreur est avalée en silence si le
 // navigateur bloque quand même l'autoplay, l'affiche reste alors visible.
+// 2e correctif (retour propriétaire : le blanc persistait longtemps même
+// avec des URLs jamais mises en cache, sur 3 appareils) : preload="auto"
+// forçait le téléchargement immédiat des DEUX vidéos dès l'ouverture de la
+// page, en concurrence avec tout le reste (45 images de la galerie,
+// scripts, polices), alors que cette section est plus bas dans la page,
+// pas visible tout de suite. Chargement différé : preload="none" et pas
+// d'autoplay HTML, la vidéo ne commence à charger qu'au moment où elle
+// entre réellement dans l'écran (IntersectionObserver), plus jamais en
+// concurrence avec le chargement initial de la page.
 function forcerLectureVideosExemple() {
-  document.querySelectorAll('video.example-video').forEach(v => {
-    const tenter = () => v.play().catch(() => {});
-    if (v.readyState >= 2) tenter();
-    else v.addEventListener('loadeddata', tenter, { once: true });
-  });
+  const videos = document.querySelectorAll('video.example-video');
+  if (!videos.length) return;
+  const lancer = (v) => { v.play().catch(() => {}); };
+  if (typeof IntersectionObserver === 'function') {
+    const observateur = new IntersectionObserver((entrees) => {
+      entrees.forEach(entree => {
+        if (entree.isIntersecting) {
+          lancer(entree.target);
+          observateur.unobserve(entree.target);
+        }
+      });
+    }, { threshold: 0.25 });
+    videos.forEach(v => observateur.observe(v));
+  } else {
+    // Repli sans IntersectionObserver (navigateur très ancien) : lecture directe.
+    videos.forEach(lancer);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {

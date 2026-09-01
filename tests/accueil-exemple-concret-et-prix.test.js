@@ -25,6 +25,15 @@
 // périmée dans AUCUN cache, navigateur ou CDN. Les regex ci-dessous
 // tolèrent un suffixe `-vN` optionnel pour ne pas casser ce test à la
 // prochaine renumérotation.
+// 5e passe (retour propriétaire : le blanc dure longtemps même avec des
+// URLs neuves, donc pas du cache) : preload="auto" + autoplay forçait le
+// téléchargement immédiat des DEUX vidéos dès l'ouverture de la page, en
+// concurrence avec tout le reste (45 images de galerie, scripts, polices),
+// alors que la section est plus bas, pas visible tout de suite. Retiré
+// l'autoplay HTML et preload="none" : la vidéo ne commence à charger
+// qu'au moment où elle entre réellement dans l'écran (IntersectionObserver,
+// voir forcerLectureVideosExemple, js/app.js), plus de concurrence avec le
+// chargement initial de la page.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -52,12 +61,16 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     assert.ok(ordre.idxExample < ordre.idxWhy, 'la section exemple doit venir avant "pourquoi Scriptura"');
 
     // Deux vraies vidéos de démo (script + diagnostic), pas une maquette
-    // HTML statique : autoplay muet en boucle, lisibles sans interaction.
+    // HTML statique : muettes, en boucle, lisibles sans interaction, mais
+    // PAS en autoplay HTML ni preload="auto" (5e passe) : le chargement est
+    // différé à l'entrée réelle dans l'écran (IntersectionObserver), pour
+    // ne jamais concurrencer le chargement initial de la page.
     const contenu = await page.evaluate(() => {
       const ex = document.querySelector('.example');
       const videos = Array.from(ex.querySelectorAll('video.example-video')).map(v => ({
         srcs: Array.from(v.querySelectorAll('source')).map(s => s.getAttribute('src') || ''),
         poster: v.getAttribute('poster') || '',
+        preload: v.getAttribute('preload') || '',
         autoplay: v.autoplay, muted: v.muted, loop: v.loop, playsInline: v.playsInline
       }));
       return {
@@ -70,7 +83,8 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-script(-v\d+)?\.(webm|mp4)/.test(s))), 'la démo de génération de script doit être présente : ' + JSON.stringify(contenu.videos));
     assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-sommaire(-v\d+)?\.(webm|mp4)/.test(s))), 'la démo de l\'analyse sommaire doit être présente : ' + JSON.stringify(contenu.videos));
     contenu.videos.forEach(v => {
-      assert.equal(v.autoplay, true, 'chaque vidéo de démo doit être en autoplay : ' + JSON.stringify(v));
+      assert.equal(v.autoplay, false, 'chaque vidéo de démo ne doit PAS avoir l\'autoplay HTML (chargement différé via IntersectionObserver à la place) : ' + JSON.stringify(v));
+      assert.equal(v.preload, 'none', 'chaque vidéo de démo ne doit rien précharger avant d\'entrer dans l\'écran : ' + JSON.stringify(v));
       assert.equal(v.muted, true, 'chaque vidéo de démo doit être muette (autoplay navigateur l\'exige de toute façon) : ' + JSON.stringify(v));
       assert.equal(v.loop, true, 'chaque vidéo de démo doit boucler : ' + JSON.stringify(v));
       assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
@@ -78,6 +92,15 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       // iOS Safari) : une affiche doit toujours être déclarée.
       assert.ok(/poster-(script|sommaire)(-v\d+)?\.jpg/.test(v.poster), 'chaque vidéo de démo doit avoir une affiche (poster) : ' + JSON.stringify(v));
     });
+
+    // Le chargement différé se déclenche vraiment à l'entrée dans l'écran
+    // (IntersectionObserver, forcerLectureVideosExemple, js/app.js) : après
+    // avoir scrollé la section en vue, .play() doit avoir été appelé.
+    await page.locator('.example').scrollIntoViewIfNeeded();
+    await page.waitForTimeout(800);
+    const lecture = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.example video.example-video')).map(v => v.paused));
+    assert.ok(lecture.every(p => p === false), 'les vidéos doivent démarrer leur lecture une fois entrées dans l\'écran : ' + JSON.stringify(lecture));
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.
     await page.click('.example-cta');
