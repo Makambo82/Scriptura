@@ -9,14 +9,29 @@ animations Ken Burns variées, sortie 1080×1920.
 ## Ce que fait le service
 
 - `GET /` → `OK` (santé, utilisé par l'hébergeur).
-- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "..." }`
+- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...] }`
   → rend la vidéo, la ré-uploade dans Supabase Storage (bucket `montages`,
   dossier `rendus/`), renvoie `{ "url": "https://.../montage-....mp4" }`.
+  `captions` est optionnel : sans lui (ou tableau vide), le flux vidéo est
+  simplement copié, pas de ré-encodage. Avec lui, les sous-titres sont
+  incrustés (police DejaVu Sans, voir Dockerfile) et le mux final ré-encode
+  la vidéo (un peu plus lent, nécessaire pour appliquer le filtre).
 
 ## Déploiement sur Railway (recommandé)
 
 Railway facture à l'usage (idéal pour un rendu occasionnel) et donne assez de
 RAM pour les gros montages 1080p.
+
+**Important pour les sous-titres** : Railway détecte automatiquement s'il
+doit utiliser le `Dockerfile` de ce dossier ou construire le service
+lui-même (Nixpacks) sans lui. Si un déploiement existant tournait déjà
+AVANT l'ajout des sous-titres, vérifie dans **Settings → Build** que la
+méthode de build est bien **Dockerfile** (pas Nixpacks) : c'est le
+`Dockerfile` qui installe la police nécessaire au rendu des sous-titres
+(`fonts-dejavu-core`), absente d'une image Node de base. Sans ça, un
+montage AVEC sous-titres échouera au rendu (ou les sous-titres resteront
+invisibles selon la version de libass) — un montage sans sous-titres
+continue de fonctionner normalement dans les deux cas.
 
 1. Va sur https://railway.app → connecte-toi avec **GitHub**.
 2. **New Project** → **Deploy from GitHub repo** → choisis `Makambo82/Scriptura`.

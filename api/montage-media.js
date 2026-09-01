@@ -76,6 +76,57 @@ function retirerMinuterie(texte) {
     .trim();
 }
 
+// Sous-titres incrustés dans la vidéo (retour propriétaire : le montage
+// sans sous-titres "ne se sent pas fini" pour du TikTok). Style choisi
+// explicitement : ni un carton par plan (trop long à lire, peu dynamique),
+// ni le mot par mot façon karaoké (v2 potentielle, demande un montage plus
+// fin) mais des groupes de "2 mots longs ou 3 mots courts" - le repère
+// visuel TikTok le plus courant. Découpage à partir de l'horodatage
+// caractère par caractère renvoyé par ElevenLabs (déjà là pour caler la
+// durée de chaque plan, jusqu'ici jeté après usage).
+const SOUS_TITRE_SEUIL_LONG = 10; // caractères cumulés à partir desquels 2 mots suffisent
+
+function extraireMots(texte, debutsTemps, finsTemps) {
+  const mots = [];
+  let i = 0;
+  while (i < texte.length) {
+    while (i < texte.length && /\s/.test(texte[i])) i++;
+    if (i >= texte.length) break;
+    const debutIdx = i;
+    while (i < texte.length && !/\s/.test(texte[i])) i++;
+    const finIdx = i - 1;
+    mots.push({
+      texte: texte.slice(debutIdx, i),
+      debut: debutsTemps[debutIdx] ?? 0,
+      fin: finsTemps[finIdx] ?? (debutsTemps[debutIdx] ?? 0)
+    });
+  }
+  return mots;
+}
+
+function regrouperEnSousTitres(mots) {
+  const groupes = [];
+  let courant = [];
+  let longueurCourante = 0;
+  for (const mot of mots) {
+    courant.push(mot);
+    longueurCourante += mot.texte.length;
+    const troisMots = courant.length >= 3;
+    const deuxMotsLongs = courant.length >= 2 && longueurCourante >= SOUS_TITRE_SEUIL_LONG;
+    if (troisMots || deuxMotsLongs) {
+      groupes.push(courant);
+      courant = [];
+      longueurCourante = 0;
+    }
+  }
+  if (courant.length) groupes.push(courant);
+  return groupes.map(g => ({
+    texte: g.map(m => m.texte).join(' '),
+    debut: Math.round(g[0].debut * 100) / 100,
+    fin: Math.round(g[g.length - 1].fin * 100) / 100
+  }));
+}
+
 async function handleTts(req, res, body) {
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
 
@@ -162,11 +213,20 @@ async function handleTts(req, res, body) {
       durations[durations.length - 1] = Math.round((durations[durations.length - 1] + 0.3) * 100) / 100;
     }
 
+    // Sous-titres : seulement si l'horodatage couvre bien le texte entier
+    // (même garde que pour `durations` ci-dessus) - sinon aucun sous-titre
+    // plutôt qu'un calage approximatif, un montage sans sous-titres reste
+    // utilisable, un montage avec des sous-titres mal calés est pire.
+    const captions = nbCaracteres === texteComplet.length
+      ? regrouperEnSousTitres(extraireMots(texteComplet, debutsTemps, finsTemps))
+      : [];
+
     return res.status(200).json({
       audioBase64: data.audio_base64,
       mimeType: 'audio/mpeg',
       durations,
-      totalDuration: dureeTotale
+      totalDuration: dureeTotale,
+      captions
     });
   } catch (e) {
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });

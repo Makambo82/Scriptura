@@ -213,6 +213,13 @@ export default async function handler(req, res) {
   if (!images.length || !audioUrl) {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
   }
+  // Sous-titres incrustés (retour propriétaire), voir api/montage-media.js
+  // pour leur construction. Optionnels : un tableau vide (ou absent) ne
+  // doit jamais empêcher le montage, juste le laisser sans sous-titres.
+  // Uniquement transmis au service de rendu externe ci-dessous, le rendu
+  // FFmpeg local plus bas (repli sans MONTAGE_RENDER_URL) ne les brûle pas
+  // encore dans la vidéo.
+  const captions = Array.isArray(body?.captions) ? body.captions : [];
 
   // Service de rendu externe (Railway/Render/Fly, voir render-service/),
   // proxié depuis ICI (serveur), jamais appelé directement par le
@@ -232,7 +239,7 @@ export default async function handler(req, res) {
       const rProxy = await fetch(process.env.MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render', {
         method: 'POST',
         headers: entetesProxy,
-        body: JSON.stringify({ images, audioUrl, format })
+        body: JSON.stringify({ images, audioUrl, format, captions })
       });
       const dataProxy = await rProxy.json().catch(() => ({}));
       if (!rProxy.ok || !dataProxy.url) {

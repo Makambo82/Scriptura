@@ -599,7 +599,12 @@ async function genererVoixOffMontage() {
     montageVoixOff = {
       blob,
       url: URL.createObjectURL(blob),
-      durations
+      durations,
+      // Sous-titres (groupes "2 mots longs ou 3 mots courts", voir
+      // api/montage-media.js) : tableau vide si l'horodatage ElevenLabs ne
+      // couvrait pas tout le texte, le montage reste alors utilisable sans
+      // sous-titres plutôt que d'échouer.
+      captions: Array.isArray(data.captions) ? data.captions : []
     };
     progVoixMontage.finish();
   } catch (e) {
@@ -816,6 +821,7 @@ async function lancerMontage() {
       const corpsRendu = {
         images, audioUrl: dataAudio.publicUrl,
         format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || ''),
+        captions: montageVoixOff.captions || [],
         code_acces: localStorage.getItem('scriptura_code') || null
       };
       const rRender = await fetch('/api/montage-render', {

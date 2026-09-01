@@ -134,6 +134,62 @@ function construireGrapheLot(durees, decalage, W, H) {
   return parts.join(';');
 }
 
+// Sous-titres incrustés (retour propriétaire) : groupes de mots déjà
+// calculés côté Vercel (api/montage-media.js, "2 mots longs ou 3 mots
+// courts"), reçus ici comme [{texte, debut, fin}] en secondes. Générés en
+// ASS plutôt qu'en SRT : le filtre "subtitles" de FFmpeg suppose une
+// résolution de script par défaut (souvent 384×288, un vieux standard TV)
+// pour un SRT sans en-tête, ce qui fausse silencieusement la position
+// verticale une fois mis à l'échelle vers la vraie résolution de sortie
+// (constaté visuellement en test : le texte apparaissait dans le tiers
+// SUPÉRIEUR au lieu du tiers inférieur). Un fichier ASS déclare sa propre
+// résolution (PlayResX/PlayResY = W/H réels), donc MarginV correspond
+// exactement à des pixels de la vidéo de sortie, quel que soit le format.
+function versHorodatageASS(s) {
+  const cs = Math.round(s * 100); // centièmes de seconde (précision ASS)
+  const h = Math.floor(cs / 360000);
+  const m = Math.floor((cs % 360000) / 6000);
+  const sec = Math.floor((cs % 6000) / 100);
+  const centiemes = cs % 100;
+  const pad = (n, l = 2) => String(n).padStart(l, '0');
+  return `${h}:${pad(m)}:${pad(sec)}.${pad(centiemes)}`;
+}
+
+// Échappe les caractères qui ont un sens spécial dans le format ASS
+// (accolades = balises de style inline). Le texte vient de segments de
+// storyboard écrits par l'IA en prose normale, ce cas ne devrait jamais se
+// présenter, mais mieux vaut ne jamais planter tout un rendu pour ça.
+function echapperTexteASS(texte) {
+  return String(texte).replace(/[{}]/g, '').replace(/\r?\n/g, ' ');
+}
+
+function construireASS(captions, W, H) {
+  // Taille et marge proportionnelles à la sortie (testé visuellement sur
+  // 720×1280 : FontSize 52, MarginV 220 = un bon compromis lisible sans
+  // toucher au tiers inférieur où TikTok pose ses propres icônes une fois
+  // republié) ; recalculées pour rester cohérentes sur les autres formats
+  // (16:9, 1:1).
+  const fontSize = Math.max(24, Math.round(W * 0.072));
+  const marginV = Math.max(60, Math.round(H * 0.17));
+  const entete = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${W}
+PlayResY: ${H}
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,DejaVu Sans,${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,2,40,40,${marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+  const lignes = captions.map(c =>
+    `Dialogue: 0,${versHorodatageASS(c.debut)},${versHorodatageASS(c.fin)},Default,,0,0,0,,${echapperTexteASS(c.texte)}`
+  ).join('\n');
+  return entete + lignes + '\n';
+}
+
 async function telechargerVers(url, cheminLocal) {
   const rep = await fetch(url);
   if (!rep.ok) throw new Error('Téléchargement échoué (' + rep.status + ') : ' + url);
@@ -215,6 +271,7 @@ app.post('/render', async (req, res) => {
   const dim = DIMENSIONS_VIDEO[req.body?.format];
   const W = dim ? dim.w : LARGEUR;
   const H = dim ? dim.h : HAUTEUR;
+  const captions = Array.isArray(req.body?.captions) ? req.body.captions.filter(c => c && c.texte) : [];
 
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
   try {
@@ -265,15 +322,31 @@ app.post('/render', async (req, res) => {
     const cheminConcat = path.join(dossier, 'concat.mp4');
     await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat]);
 
-    await executerFFmpeg([
-      '-i', cheminConcat, '-i', cheminAudio,
-      '-map', '0:v', '-map', '1:a',
-      '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
+    // Sous-titres incrustés (retour propriétaire), optionnels : sans eux,
+    // le flux vidéo est simplement COPIÉ (rapide, sans perte). Avec eux,
+    // le filtre "ass" impose un ré-encodage (impossible d'appliquer un
+    // filtre à un flux copié tel quel), mêmes réglages que les lots
+    // ci-dessus pour rester cohérent visuellement.
+    const argsMux = ['-i', cheminConcat, '-i', cheminAudio];
+    if (captions.length) {
+      const cheminASS = path.join(dossier, 'sous-titres.ass');
+      await fs.writeFile(cheminASS, construireASS(captions, W, H), 'utf8');
+      argsMux.push(
+        '-vf', 'ass=' + cheminASS.replace(/:/g, '\\:'),
+        '-map', '0:v', '-map', '1:a',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p'
+      );
+    } else {
+      argsMux.push('-map', '0:v', '-map', '1:a', '-c:v', 'copy');
+    }
+    argsMux.push(
+      '-c:a', 'aac', '-b:a', '160k',
       '-movflags', '+faststart',
       '-t', String(dureeTotale),
       '-y', path.join(dossier, 'out.mp4')
-    ]);
-    console.log('[render] rendu FFmpeg terminé');
+    );
+    await executerFFmpeg(argsMux);
+    console.log('[render] rendu FFmpeg terminé' + (captions.length ? ' (avec sous-titres)' : ''));
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
     const urlPublique = await uploaderVersSupabase(path.join(dossier, 'out.mp4'), nomFichier);
@@ -287,4 +360,12 @@ app.post('/render', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log('Service de rendu Scriptura à l\'écoute sur le port ' + PORT));
+// Lancé seulement si exécuté directement (npm start / node server.js),
+// jamais quand ce fichier est importé pour ses fonctions pures (voir
+// test-sous-titres.js) : sinon chaque import ouvrirait son propre serveur
+// HTTP, en concurrence sur le même port.
+if (require.main === module) {
+  app.listen(PORT, () => console.log('Service de rendu Scriptura à l\'écoute sur le port ' + PORT));
+}
+
+module.exports = { construireASS, versHorodatageASS, echapperTexteASS };

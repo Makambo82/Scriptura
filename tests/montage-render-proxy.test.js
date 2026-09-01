@@ -33,7 +33,8 @@ test('/api/montage-render proxie vers le service externe avec le jeton serveur, 
         code_acces: 'TESTADMIN_MONTAGE',
         images: [{ url: 'https://x.example/a.jpg', duration: 2 }],
         audioUrl: 'https://x.example/audio.mp3',
-        format: '9:16'
+        format: '9:16',
+        captions: [{ texte: 'Ceci est un', debut: 0, fin: 0.55 }]
       }
     };
     let statusRecu = null, jsonRecu = null;
@@ -54,6 +55,7 @@ test('/api/montage-render proxie vers le service externe avec le jeton serveur, 
     assert.deepEqual(corpsEnvoye.images, req.body.images);
     assert.equal(corpsEnvoye.audioUrl, req.body.audioUrl);
     assert.equal(corpsEnvoye.format, '9:16');
+    assert.deepEqual(corpsEnvoye.captions, req.body.captions, 'les sous-titres (retour propriétaire) doivent être transmis au service externe : ' + JSON.stringify(corpsEnvoye));
     assert.equal('code_acces' in corpsEnvoye, false, 'le code d\'accès du créateur ne doit jamais être envoyé au service externe (hors de notre contrôle)');
   } finally {
     global.fetch = fetchOriginal;

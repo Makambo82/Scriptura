@@ -365,7 +365,12 @@ async function omGenererVoixOff() {
     const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
     const duree = durations.reduce((s, d) => s + d, 0);
     prog.finish();
-    omAudio = { blob, url: URL.createObjectURL(blob), duree, durations, source: 'ia' };
+    // Sous-titres (groupes "2 mots longs ou 3 mots courts", voir
+    // api/montage-media.js) : seulement disponibles pour une voix off
+    // générée par l'IA (horodatage ElevenLabs), jamais pour un fichier
+    // audio uploadé par le fondateur (source:'upload' plus bas, aucun
+    // horodatage possible sans repasser par un service de transcription).
+    omAudio = { blob, url: URL.createObjectURL(blob), duree, durations, source: 'ia', captions: Array.isArray(data.captions) ? data.captions : [] };
   } catch (e) {
     prog.stop();
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
@@ -522,7 +527,7 @@ async function omLancerMontage() {
       const rRender = await fetch('/api/montage-render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, audioUrl, format, code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify({ images, audioUrl, format, captions: (omAudio.source === 'ia' && omAudio.captions) || [], code_acces: localStorage.getItem('scriptura_code') || null })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || "Le montage n'a pas pu être généré.");
