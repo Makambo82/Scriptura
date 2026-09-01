@@ -105,33 +105,30 @@ function demarrerDefilementPreuveGalerie() {
   }, INTERVALLE);
 }
 
-// Historique : les deux démos "En pratique" ont été une <video> en boucle,
-// avec plusieurs correctifs successifs (affiche, cache, mémoire tampon)
-// contre un blanc récurrent, sans jamais l'éliminer complètement. Cause
-// réelle trouvée en examinant le fichier lui-même image par image : les 10
-// à 11 premières secondes des DEUX enregistrements captaient un écran vide
-// (l'app n'avait pas fini de charger au moment de l'enregistrement), pas un
-// problème de lecture ou de réseau. Plutôt que ré-enregistrer, remplacé par
-// un diaporama de vraies captures fixes de l'app (mêmes enregistrements,
-// juste les instants où il y a vraiment quelque chose à montrer) : une
-// <img> n'a par construction aucun des à-côtés spécifiques au rendu vidéo
-// sur Safari, le type d'élément le plus fiable du web.
-function demarrerDiaporamaExemples() {
-  const images = document.querySelectorAll('img.example-slideshow');
-  if (!images.length) return;
-  const DUREE_PAR_IMAGE = 1400; // ms
-
-  const lancer = (img) => {
-    const frames = (img.dataset.frames || '').split(',').filter(Boolean);
-    if (frames.length < 2) return;
-    let i = frames.indexOf(img.getAttribute('src'));
-    if (i < 0) i = 0;
-    setInterval(() => {
-      i = (i + 1) % frames.length;
-      img.src = frames[i];
-    }, DUREE_PAR_IMAGE);
+// Historique : les deux démos "En pratique" en <video> ont eu un blanc
+// récurrent, jamais résolu malgré plusieurs correctifs de chargement
+// (affiche séparée, cache, mémoire tampon), remplacées un temps par un
+// diaporama d'images le temps de trouver la vraie cause. Cause réelle,
+// trouvée en deux temps : (1) les 10-11 premières secondes des DEUX
+// enregistrements captaient un écran vide (coupées au montage, fichiers
+// -v3) ; (2) le fichier était tagué avec un espace colorimétrique
+// inhabituel (bt470bg) que le lecteur natif d'iPhone rendait en blanc,
+// confirmé en testant les fichiers hors du site (téléchargés dans la
+// galerie), réencodé en bt709 (standard du web). Repassé à une vraie
+// <video>, avec tout ce qu'on a appris entre-temps : preload="auto" (pas
+// "none", qui vidait la mémoire tampon et causait un blanc à chaque
+// boucle), chargement différé à l'entrée réelle dans l'écran
+// (IntersectionObserver, pas de concurrence avec le chargement initial de
+// la page), et une <img> séparée pour l'affiche (voir
+// .example-video-poster, css/style.css) qui reste visible jusqu'à
+// l'évènement natif "playing", au cas où le rendu tarde encore un peu.
+function forcerLectureVideosExemple() {
+  const videos = document.querySelectorAll('video.example-video');
+  if (!videos.length) return;
+  const lancer = (v) => {
+    v.addEventListener('playing', () => v.classList.add('est-lancee'));
+    v.play().catch(() => {});
   };
-
   if (typeof IntersectionObserver === 'function') {
     const observateur = new IntersectionObserver((entrees) => {
       entrees.forEach(entree => {
@@ -141,16 +138,16 @@ function demarrerDiaporamaExemples() {
         }
       });
     }, { threshold: 0.25 });
-    images.forEach(img => observateur.observe(img));
+    videos.forEach(v => observateur.observe(v));
   } else {
-    // Repli sans IntersectionObserver (navigateur très ancien) : lancement direct.
-    images.forEach(lancer);
+    // Repli sans IntersectionObserver (navigateur très ancien) : lecture directe.
+    videos.forEach(lancer);
   }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   demarrerDefilementPreuveGalerie();
-  demarrerDiaporamaExemples();
+  forcerLectureVideosExemple();
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();

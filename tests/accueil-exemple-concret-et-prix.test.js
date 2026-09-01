@@ -6,19 +6,22 @@
 // renvoie vers la section tarifs complète.
 //
 // Historique (résumé) : les deux démos "En pratique" ont été une <video> en
-// boucle, avec plusieurs correctifs successifs contre un pavé blanc
-// récurrent (affiche séparée, Cache-Control, mémoire tampon), sans jamais
-// l'éliminer complètement malgré chaque cause corrigée étant réelle. Cause
-// finale trouvée en examinant le fichier vidéo lui-même image par image :
-// les 10 à 11 premières secondes des DEUX enregistrements captaient un
-// écran vide (l'app n'avait pas fini de charger côté capture), pas un
-// problème de lecture, de réseau ou de rendu. Décision propriétaire :
-// remplacer la <video> par un diaporama de vraies captures fixes de l'app
-// (démarrerDiaporamaExemples, js/app.js), tirées des mêmes enregistrements
-// mais uniquement des instants où il y a vraiment quelque chose à montrer.
-// Une <img> n'a par construction aucun des à-côtés spécifiques au rendu
-// vidéo sur Safari (affiche, préchargement, décodage, mémoire tampon), le
-// type d'élément le plus fiable du web : plus de classe de bug possible.
+// boucle, avec un blanc récurrent jamais résolu par les correctifs de
+// chargement (affiche séparée, cache, mémoire tampon), remplacées un temps
+// par un diaporama d'images le temps de trouver la vraie cause. Cause
+// réelle, trouvée en deux temps en examinant les fichiers eux-mêmes : (1)
+// les 10-11 premières secondes des DEUX enregistrements captaient un écran
+// vide (coupées au montage, fichiers -v3) ; (2) le fichier était tagué avec
+// un espace colorimétrique inhabituel (bt470bg, un standard TV très
+// ancien) que le lecteur natif d'iPhone rendait en blanc au lieu du vrai
+// contenu — confirmé en testant les fichiers en dehors du site
+// (téléchargés dans la galerie photo, toujours blancs). Réencodé en bt709
+// (standard du web) et remis en <video>, avec tout ce qu'on a appris entre
+// temps : preload="auto" (jamais "none", qui vidait la mémoire tampon et
+// causait un blanc à chaque boucle), chargement différé à l'entrée réelle
+// dans l'écran (IntersectionObserver), et une <img> séparée pour l'affiche
+// (voir .example-video-poster, css/style.css), qui reste visible jusqu'à
+// l'évènement natif "playing".
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -45,41 +48,55 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     assert.ok(ordre.idxExample > ordre.idxHow, 'la section exemple doit venir après "comment ça marche"');
     assert.ok(ordre.idxExample < ordre.idxWhy, 'la section exemple doit venir avant "pourquoi Scriptura"');
 
-    // Deux diaporamas de démo (script + diagnostic), pas une maquette HTML
-    // statique : de vraies captures de l'app, plusieurs images par
-    // diaporama listées dans data-frames.
+    // Deux vraies vidéos de démo (script + diagnostic), pas une maquette
+    // HTML statique : muettes, en boucle, lisibles sans interaction, PAS en
+    // autoplay HTML (chargement différé à l'entrée réelle dans l'écran via
+    // IntersectionObserver), preload="auto" pour rester en mémoire d'une
+    // boucle à l'autre, et une affiche en <img> séparée (pas l'attribut
+    // poster de <video>, peu fiable sur Safari).
     const contenu = await page.evaluate(() => {
       const ex = document.querySelector('.example');
-      const diaporamas = Array.from(ex.querySelectorAll('img.example-slideshow')).map(img => ({
-        src: img.getAttribute('src') || '',
-        frames: (img.dataset.frames || '').split(',').filter(Boolean),
-        loading: img.getAttribute('loading') || ''
+      const videos = Array.from(ex.querySelectorAll('video.example-video')).map(v => ({
+        srcs: Array.from(v.querySelectorAll('source')).map(s => s.getAttribute('src') || ''),
+        posterAttr: v.getAttribute('poster') || '',
+        posterImg: v.closest('.example-video-wrap')?.querySelector('img.example-video-poster')?.getAttribute('src') || '',
+        preload: v.getAttribute('preload') || '',
+        autoplay: v.autoplay, muted: v.muted, loop: v.loop, playsInline: v.playsInline
       }));
       return {
         note: ex.querySelector('.example-note')?.textContent || '',
-        diaporamas
+        videos
       };
     });
     assert.ok(/FCFA/.test(contenu.note), 'le prix doit être visible dans la section exemple : ' + contenu.note);
-    assert.equal(contenu.diaporamas.length, 2, 'deux diaporamas de démo doivent être présents (script + diagnostic) : ' + JSON.stringify(contenu.diaporamas));
-    assert.ok(contenu.diaporamas.some(d => d.frames.some(f => /slide-script-\d+\.webp/.test(f))), 'le diaporama de génération de script doit être présent : ' + JSON.stringify(contenu.diaporamas));
-    assert.ok(contenu.diaporamas.some(d => d.frames.some(f => /slide-sommaire-\d+\.webp/.test(f))), 'le diaporama de l\'analyse sommaire doit être présent : ' + JSON.stringify(contenu.diaporamas));
-    contenu.diaporamas.forEach(d => {
-      assert.ok(d.frames.length >= 2, 'un diaporama doit avoir au moins 2 images pour qu\'il y ait un vrai effet : ' + JSON.stringify(d));
-      assert.ok(d.frames.includes(d.src), 'la première image affichée doit faire partie de la liste des images du diaporama : ' + JSON.stringify(d));
-      assert.equal(d.loading, 'eager', 'la première image doit charger tout de suite (visible dès l\'arrivée sur la page) : ' + JSON.stringify(d));
+    assert.equal(contenu.videos.length, 2, 'deux vidéos de démo doivent être présentes (script + diagnostic) : ' + JSON.stringify(contenu.videos));
+    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-script-v\d+\.(webm|mp4)/.test(s))), 'la démo de génération de script doit être présente : ' + JSON.stringify(contenu.videos));
+    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-sommaire-v\d+\.(webm|mp4)/.test(s))), 'la démo de l\'analyse sommaire doit être présente : ' + JSON.stringify(contenu.videos));
+    contenu.videos.forEach(v => {
+      assert.equal(v.autoplay, false, 'chaque vidéo de démo ne doit PAS avoir l\'autoplay HTML (chargement différé via IntersectionObserver à la place) : ' + JSON.stringify(v));
+      assert.equal(v.preload, 'auto', 'chaque vidéo de démo doit rester en mémoire pour boucler sans blanc : ' + JSON.stringify(v));
+      assert.equal(v.muted, true, 'chaque vidéo de démo doit être muette (autoplay navigateur l\'exige de toute façon) : ' + JSON.stringify(v));
+      assert.equal(v.loop, true, 'chaque vidéo de démo doit boucler : ' + JSON.stringify(v));
+      assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
+      assert.equal(v.posterAttr, '', 'la vidéo ne doit pas avoir d\'attribut poster (remplacé par une <img> séparée) : ' + JSON.stringify(v));
+      assert.ok(/poster-(script|sommaire)-v\d+\.jpg/.test(v.posterImg), 'chaque vidéo de démo doit avoir une <img class="example-video-poster"> associée : ' + JSON.stringify(v));
     });
 
-    // Le diaporama démarre vraiment à l'entrée dans l'écran
-    // (IntersectionObserver, demarrerDiaporamaExemples, js/app.js) : après
-    // avoir scrollé la section en vue et attendu un cycle, l'image affichée
-    // doit avoir changé.
+    // Le chargement différé se déclenche vraiment à l'entrée dans l'écran
+    // (IntersectionObserver, forcerLectureVideosExemple, js/app.js) : après
+    // avoir scrollé la section en vue, .play() doit avoir été appelé, et
+    // la classe est-lancee (opacity:1, révèle la vidéo par-dessus
+    // l'affiche) doit apparaître une fois la lecture réellement démarrée
+    // (évènement natif "playing").
     await page.locator('.example').scrollIntoViewIfNeeded();
-    const premiereImage = await page.evaluate(() => document.querySelector('.example img.example-slideshow').getAttribute('src'));
-    await page.waitForFunction(
-      (premiere) => document.querySelector('.example img.example-slideshow').getAttribute('src') !== premiere,
-      premiereImage,
-      { timeout: 3000 }
+    await page.waitForTimeout(800);
+    const lecture = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.example video.example-video')).map(v => v.paused));
+    assert.ok(lecture.every(p => p === false), 'les vidéos doivent démarrer leur lecture une fois entrées dans l\'écran : ' + JSON.stringify(lecture));
+
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('.example video.example-video')).every(v => v.classList.contains('est-lancee')),
+      { timeout: 5000 }
     );
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.
