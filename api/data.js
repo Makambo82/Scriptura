@@ -538,8 +538,17 @@ async function handleAdminStats(req, res, cfg, body) {
         { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
       );
       const rows = await rModes.json().catch(() => []);
+      // Clé en MAJUSCULES des deux côtés (retour propriétaire, même famille
+      // de bug que Non-abonné ci-dessous) : un code d'abonné stocké en casse
+      // mixte dans `abonnes` (ex. "Tiktok-F18", cas déjà connu, voir
+      // toggle-actif/supprimer-abonne/generations-par-code plus haut, tous
+      // en ilike pour cette raison) ne matchait jamais r.code_acces, TOUJOURS
+      // en majuscules côté client (voir auth.js, .toUpperCase() avant
+      // d'enregistrer scriptura_code). Sans normaliser ici aussi, ces
+      // générations disparaissaient silencieusement du tableau, ni Creator/
+      // Pro ni Non-abonné.
       const planParCode = {};
-      (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[c.code] = c.plan; });
+      (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[String(c.code || '').toUpperCase()] = c.plan; });
       (Array.isArray(rows) ? rows : []).forEach(r => {
         const m = r.mode || 'autre';
         parMode[m] = (parMode[m] || 0) + 1;
@@ -551,7 +560,7 @@ async function handleAdminStats(req, res, cfg, body) {
           parModePlan.nonAbonne[m] = (parModePlan.nonAbonne[m] || 0) + 1;
           return;
         }
-        const plan = planParCode[r.code_acces];
+        const plan = planParCode[String(r.code_acces).toUpperCase()];
         if (plan === 'creator' || plan === 'pro') {
           parModePlan[plan][m] = (parModePlan[plan][m] || 0) + 1;
         }

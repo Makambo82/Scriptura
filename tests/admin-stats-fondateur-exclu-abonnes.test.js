@@ -23,7 +23,12 @@ const CODE_FONDATEUR = 'SCRIPTURA-CELINE';
 const ABONNES = [
   { code: CODE_FONDATEUR, plan: 'creator', actif: true, expire_le: null },
   { code: 'FIFA', plan: 'creator', actif: true, expire_le: null },
-  { code: 'BRADC8P6', plan: 'pro', actif: true, expire_le: null }
+  { code: 'BRADC8P6', plan: 'pro', actif: true, expire_le: null },
+  // Code stocké en casse mixte dans `abonnes` (cas réel déjà connu, voir
+  // toggle-actif/supprimer-abonne/generations-par-code plus haut dans
+  // api/data.js, tous en ilike pour cette même raison) : un code créé à la
+  // main dans Supabase avant le générateur automatique, par exemple.
+  { code: 'Tiktok-F18', plan: 'creator', actif: true, expire_le: null }
 ];
 
 const GENERATIONS = [
@@ -45,7 +50,15 @@ const GENERATIONS = [
   // futur appelant s'en servirait, mais anon_... est le cas réel.
   { mode: 'ideas', code_acces: 'anon_1735689600000_ab12cd' },
   { mode: 'ideas', code_acces: 'anon_1735689601000_ef34gh' },
-  { mode: 'script', code_acces: null }
+  { mode: 'script', code_acces: null },
+  // Retour propriétaire ("vérifie pour fondateur, pro et creator aussi",
+  // après le bug Non-abonné ci-dessus) : le client normalise TOUJOURS le
+  // code en majuscules avant de l'enregistrer (voir auth.js,
+  // .toUpperCase() sur scriptura_code), même si l'abonné a été créé en
+  // casse mixte dans `abonnes` (Tiktok-F18 ci-dessus). Sans normaliser la
+  // comparaison des deux côtés, cette génération ne matchait ni Tiktok-F18
+  // ni rien d'autre, et disparaissait du tableau au lieu de compter Creator.
+  { mode: 'diagnosticSommaire', code_acces: 'TIKTOK-F18' }
 ];
 
 function parseCodeFiltre(param) {
@@ -121,21 +134,26 @@ test('le fondateur (ligne héritée dans `abonnes`) est exclu des comptages et d
     assert.ok(data, 'la réponse doit contenir les statistiques : ' + JSON.stringify(res));
 
     // ── Comptages : le fondateur ne doit compter nulle part comme abonné ──
-    assert.equal(data.total, 2, 'total doit exclure la ligne fondateur : ' + data.total);
-    assert.equal(data.actifs, 2, 'actifs doit exclure la ligne fondateur : ' + data.actifs);
-    assert.equal(data.creator, 1, 'creator doit exclure la ligne fondateur (seul FIFA reste) : ' + data.creator);
+    assert.equal(data.total, 3, 'total doit exclure la ligne fondateur (FIFA, BRADC8P6, Tiktok-F18) : ' + data.total);
+    assert.equal(data.actifs, 3, 'actifs doit exclure la ligne fondateur : ' + data.actifs);
+    assert.equal(data.creator, 2, 'creator doit exclure la ligne fondateur (FIFA + Tiktok-F18) : ' + data.creator);
     assert.equal(data.pro, 1, 'pro doit valoir 1 (BRADC8P6, inchangé) : ' + data.pro);
 
     // ── La ligne fondateur reste visible dans la liste des codes (pour
     //    l'affichage "Fondateur" verrouillé, voir estFondateur, js/admin.js) ──
-    assert.equal(data.codes.length, 3, 'la liste des codes doit garder la ligne fondateur pour son affichage à part');
+    assert.equal(data.codes.length, 4, 'la liste des codes doit garder la ligne fondateur pour son affichage à part');
     assert.ok(data.codes.some(c => c.code === CODE_FONDATEUR), 'la ligne fondateur doit être présente dans `codes`');
 
     // ── Générations par mode : les générations du fondateur ne doivent
     //    JAMAIS tomber dans Creator/Pro, même si sa ligne `abonnes` porte
     //    plan:'creator' ──
     assert.deepEqual(data.parModePlan.fondateur, { script: 3, serie: 2 }, 'les générations du fondateur doivent être comptées à part : ' + JSON.stringify(data.parModePlan));
-    assert.deepEqual(data.parModePlan.creator, { script: 1 }, 'seule la génération de FIFA doit compter en Creator : ' + JSON.stringify(data.parModePlan));
+    // Retour propriétaire ("vérifie pour fondateur, pro et creator aussi") :
+    // diagnosticSommaire:1 vient de Tiktok-F18 (abonné en casse mixte dans
+    // `abonnes`, code_acces envoyé en MAJUSCULES par le client, TIKTOK-F18)
+    // — doit bien compter en Creator, pas disparaître comme Non-abonné le
+    // faisait avant le premier correctif de cette suite.
+    assert.deepEqual(data.parModePlan.creator, { script: 1, diagnosticSommaire: 1 }, 'FIFA ET Tiktok-F18 (casse mixte) doivent compter en Creator : ' + JSON.stringify(data.parModePlan));
     assert.deepEqual(data.parModePlan.pro, { story: 1 }, 'seule la génération de BRADC8P6 doit compter en Pro : ' + JSON.stringify(data.parModePlan));
     // ── Retour du propriétaire : les générations anonymes (code_acces
     //    anon_..., le cas réel, ET un code_acces vide) doivent toutes
