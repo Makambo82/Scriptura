@@ -34,11 +34,17 @@ const GENERATIONS = [
   { mode: 'serie', code_acces: CODE_FONDATEUR },
   { mode: 'script', code_acces: 'FIFA' },
   { mode: 'story', code_acces: 'BRADC8P6' },
-  // Générations anonymes (quota gratuit, aucun code_acces, voir callAI,
-  // js/api.js) : doivent tomber dans une colonne "Non-abonné" à part,
-  // jamais silencieusement absentes du tableau (retour du propriétaire).
-  { mode: 'ideas', code_acces: null },
-  { mode: 'ideas', code_acces: null },
+  // Générations d'un non-abonné (quota gratuit) : en réalité JAMAIS un
+  // code_acces vide, getUserRef() (js/api.js) renvoie toujours
+  // anon_<horodatage>_<aléa> pour quiconque n'a pas de code. Bug réel
+  // signalé par la propriétaire ("une analyse sommaire faite sans code
+  // n'apparaît nulle part dans le tableau") : le code testait `!code_acces`
+  // seul, qui ne matche jamais ce cas réel, ces générations disparaissaient
+  // silencieusement au lieu de tomber en Non-abonné. Un code_acces
+  // réellement vide (null) reste aussi testé ci-dessous, au cas où un
+  // futur appelant s'en servirait, mais anon_... est le cas réel.
+  { mode: 'ideas', code_acces: 'anon_1735689600000_ab12cd' },
+  { mode: 'ideas', code_acces: 'anon_1735689601000_ef34gh' },
   { mode: 'script', code_acces: null }
 ];
 
@@ -131,9 +137,10 @@ test('le fondateur (ligne héritée dans `abonnes`) est exclu des comptages et d
     assert.deepEqual(data.parModePlan.fondateur, { script: 3, serie: 2 }, 'les générations du fondateur doivent être comptées à part : ' + JSON.stringify(data.parModePlan));
     assert.deepEqual(data.parModePlan.creator, { script: 1 }, 'seule la génération de FIFA doit compter en Creator : ' + JSON.stringify(data.parModePlan));
     assert.deepEqual(data.parModePlan.pro, { story: 1 }, 'seule la génération de BRADC8P6 doit compter en Pro : ' + JSON.stringify(data.parModePlan));
-    // ── Retour du propriétaire : les générations anonymes (sans code_acces)
-    //    doivent apparaître dans une colonne "Non-abonné" dédiée ──
-    assert.deepEqual(data.parModePlan.nonAbonne, { ideas: 2, script: 1 }, 'les générations sans code_acces doivent compter en Non-abonné : ' + JSON.stringify(data.parModePlan));
+    // ── Retour du propriétaire : les générations anonymes (code_acces
+    //    anon_..., le cas réel, ET un code_acces vide) doivent toutes
+    //    apparaître dans une colonne "Non-abonné" dédiée, jamais disparaître ──
+    assert.deepEqual(data.parModePlan.nonAbonne, { ideas: 2, script: 1 }, 'les générations anonymes (anon_... ou vides) doivent compter en Non-abonné : ' + JSON.stringify(data.parModePlan));
   } finally {
     global.fetch = fetchOriginal;
     delete process.env.SUPABASE_URL;

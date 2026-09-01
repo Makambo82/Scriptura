@@ -515,11 +515,20 @@ async function handleAdminStats(req, res, cfg, body) {
     // (voir carteModesAdmin, js/admin.js). `code_acces` recroisé avec la
     // liste `codes` déjà chargée ci-dessus (même Promise.all), pas de
     // requête supplémentaire pour ça. Fondateur identifié via CODE_ADMIN
-    // (jamais dans la table `abonnes`, voir verify-code.js). Non-abonné =
-    // aucun code_acces du tout (quota gratuit anonyme, voir callAI,
-    // js/api.js). Jeton/VIP (un code EXISTE mais ne correspond à aucun plan
-    // Pro/Creator reconnu, ex. code désactivé/expiré) ne rentrent dans
-    // aucun des quatre compteurs, hors du périmètre de cette comparaison.
+    // (jamais dans la table `abonnes`, voir verify-code.js). Jeton/VIP (un
+    // code EXISTE mais ne correspond à aucun plan Pro/Creator reconnu, ex.
+    // code désactivé/expiré) ne rentrent dans aucun des quatre compteurs,
+    // hors du périmètre de cette comparaison.
+    //
+    // Retour propriétaire (bug réel : une analyse sommaire faite sans code
+    // n'apparaissait dans AUCUNE colonne, pas même Non-abonné) : un
+    // non-abonné n'envoie JAMAIS un code_acces vide. getUserRef() (js/api.js)
+    // renvoie toujours anon_<horodatage>_<aléa> pour quiconque n'a pas de
+    // code, y compris les non-abonnés (voir aussi handlePresence, plus haut
+    // dans ce fichier, même identifiant). Un code_acces vide ne se produit
+    // donc jamais en pratique ; en le testant seul, ces générations
+    // tombaient dans le `planParCode[...]` non trouvé juste en dessous,
+    // c'est-à-dire nulle part.
     let parMode = {};
     let parModePlan = { fondateur: {}, pro: {}, creator: {}, nonAbonne: {} };
     try {
@@ -538,7 +547,7 @@ async function handleAdminStats(req, res, cfg, body) {
           parModePlan.fondateur[m] = (parModePlan.fondateur[m] || 0) + 1;
           return;
         }
-        if (!r.code_acces) {
+        if (!r.code_acces || /^anon_/.test(r.code_acces)) {
           parModePlan.nonAbonne[m] = (parModePlan.nonAbonne[m] || 0) + 1;
           return;
         }
