@@ -354,13 +354,23 @@ const DIMENSIONS_VIRAL = [
 // MESURABLES, pas absents : ils sont retirés du calcul (dénominateur réduit
 // d'autant dans leur dimension), pour qu'un échec technique d'extraction ne
 // fasse jamais baisser artificiellement la note d'une bonne recette texte.
+//
+// Courbe QUADRATIQUE, pas linéaire (retour du propriétaire : le score était
+// trop généreux, une vidéo avec la moitié des leviers d'une dimension
+// touchait déjà la moitié des points de cette dimension). Avec le carré du
+// taux de présence, ne cocher qu'une partie des leviers coûte beaucoup plus
+// cher (1/2 des leviers ⇒ 25% des points, pas 50%), seule une dimension
+// quasi complète rapporte l'essentiel de son poids. Toujours déterministe
+// et borné 0-100, seule la répartition à l'intérieur de chaque dimension
+// change.
 function scoreViraliteRecette(signaux, frameDisponible) {
   if (!signaux || typeof signaux !== 'object') return null;
   let global = 0;
   const dimensions = DIMENSIONS_VIRAL.map(d => {
     const signauxDim = frameDisponible ? d.signaux : d.signaux.filter(s => !SIGNAUX_VISUELS.includes(s));
     const presents = signauxDim.filter(k => signaux[k] === true).length;
-    const sousScore = Math.round((presents / signauxDim.length) * d.poids);
+    const taux = presents / signauxDim.length;
+    const sousScore = Math.round(taux * taux * d.poids);
     global += sousScore;
     return { cle: d.cle, label: d.label, poids: d.poids, sousScore, presents, total: signauxDim.length };
   });

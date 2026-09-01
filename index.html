@@ -326,9 +326,13 @@
 <!-- PREUVE PAR L'EXEMPLE : vraies vidéos, vrais scripts Scriptura -->
 <section class="about">
   <div class="how-eyebrow">Déjà en ligne sur TikTok</div>
-  <p class="about-proof">On s'en sert nous-mêmes : ces vidéos existent vraiment, avec leurs vraies vues, certaines dépassent 90.000, d'autres restent à quelques centaines, exactement comme pour n'importe quel créateur.</p>
+  <p class="about-proof">Ce que des créateurs de contenu font déjà avec Scriptura : de vraies vidéos, avec de vraies vues, certaines dépassent 90.000, d'autres restent à quelques centaines, comme pour n'importe quel créateur.</p>
   <p class="preuve-galerie-legende">Chaque script est sorti de Scriptura.</p>
-  <div class="preuve-galerie">
+  <div class="preuve-galerie-wrap">
+  <button type="button" class="preuve-galerie-arrow preuve-galerie-arrow-left" aria-label="Défiler vers les vidéos précédentes" onclick="document.getElementById('preuveGalerie').scrollBy({left:-260,behavior:'smooth'})">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <div class="preuve-galerie" id="preuveGalerie">
       <img src="assets/preuve-tiktok/preuve-01.webp" alt="Couverture d'une vidéo TikTok dont le script a été généré par Scriptura" loading="lazy"/>
       <img src="assets/preuve-tiktok/preuve-02.webp" alt="Couverture d'une vidéo TikTok dont le script a été généré par Scriptura" loading="lazy"/>
       <img src="assets/preuve-tiktok/preuve-03.webp" alt="Couverture d'une vidéo TikTok dont le script a été généré par Scriptura" loading="lazy"/>
@@ -374,6 +378,10 @@
       <img src="assets/preuve-tiktok/preuve-43.webp" alt="Couverture d'une vidéo TikTok dont le script a été généré par Scriptura" loading="lazy"/>
       <img src="assets/preuve-tiktok/preuve-44.webp" alt="Couverture d'une vidéo TikTok dont le script a été généré par Scriptura" loading="lazy"/>
       <img src="assets/preuve-tiktok/preuve-45.webp" alt="Couverture d'une vidéo TikTok dont le script a été généré par Scriptura" loading="lazy"/>
+  </div>
+  <button type="button" class="preuve-galerie-arrow preuve-galerie-arrow-right" aria-label="Défiler vers plus de vidéos" onclick="document.getElementById('preuveGalerie').scrollBy({left:260,behavior:'smooth'})">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+  </button>
   </div>
 </section>
 
@@ -666,7 +674,7 @@
     <div class="ideas-header">
       <div class="ideas-eyebrow">Analyse vidéo · TikTok</div>
       <h2 class="ideas-title">Décode une vidéo,<br/><strong>refais son carton.</strong></h2>
-      <p class="ideas-sub">Colle le lien TikTok d'une vidéo. Scriptura détecte si elle a percé ou floppé : si elle cartonne, il décode sa recette du hook à la fin ; si elle a raté, il diagnostique pourquoi et te donne la mécanique pour la rendre virale, adaptée à ton compte.</p>
+      <p class="ideas-sub">Colle le lien TikTok d'une vidéo, la tienne ou celle d'un autre créateur. Scriptura décode sa recette de contenu, hook, structure, sincérité, appel à l'action, et te donne le modèle à réutiliser sur tes propres sujets.</p>
     </div>
 
     <div id="viralAnaForm">

@@ -120,16 +120,18 @@ test('analyse virale : le score de recette est calculé exactement selon les nou
     await page.evaluate(() => lancerAnalyseVirale());
     await page.waitForTimeout(1800);
 
+    // Courbe QUADRATIQUE (retour du propriétaire : le score linéaire était
+    // trop généreux) : sous-score de chaque dimension = (présents/total)² × poids.
     // Signaux du RAPPORT : Accroche [hook_fort:true, question_rhetorique:false,
-    // hook_visuel:non mesurable (pas de frame)] -> 1/2 * 25 = 13 (arrondi).
-    // Sujet & angle [angle_original:true, sujet_precis:true] -> 20/20.
+    // hook_visuel:non mesurable (pas de frame)] -> (1/2)² * 25 = 6,25 -> 6.
+    // Sujet & angle [angle_original:true, sujet_precis:true] -> (2/2)² * 20 = 20.
     // Structure & rythme [boucle_ouverte:true, cliffhanger:false, escalade:true,
-    // archetypes:true] -> 3/4 * 20 = 15.
-    // Sincérité [details_concrets:true, authenticite:true] -> 20/20.
-    // Connexion & CTA [deuxieme_personne:true, appel_action:false] -> 1/2 * 15 = 8 (arrondi).
-    // Total attendu : 13 + 20 + 15 + 20 + 8 = 76.
+    // archetypes:true] -> (3/4)² * 20 = 11,25 -> 11.
+    // Sincérité [details_concrets:true, authenticite:true] -> (2/2)² * 20 = 20.
+    // Connexion & CTA [deuxieme_personne:true, appel_action:false] -> (1/2)² * 15 = 3,75 -> 4.
+    // Total attendu : 6 + 20 + 11 + 20 + 4 = 61.
     const scoreNum = await page.evaluate(() => parseInt(document.getElementById('viralScoreNum')?.textContent || 'NaN', 10));
-    assert.equal(scoreNum, 76, 'score de recette attendu selon les nouveaux poids Vervox (25/20/20/20/15)');
+    assert.equal(scoreNum, 61, 'score de recette attendu selon la courbe quadratique (poids Vervox 25/20/20/20/15)');
   } finally {
     await navigateur.close();
     await arreter();
