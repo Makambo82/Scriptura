@@ -54,40 +54,42 @@ function demarrerDefilementPreuveGalerie() {
   if (!galerie) return;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  const VITESSE = 8; // px par seconde : très lent, à peine perceptible
+  const INTERVALLE = 60; // ms entre deux pas
+  const PAS = 0.5; // px par pas (~8,3px/s) : très lent, à peine perceptible
   const PAUSE_APRES_INTERACTION = 2800; // ms avant reprise après une interaction
   let direction = 1;
   let derniereInteraction = 0;
-  let dernierTimestamp = null;
   // Position flottante suivie à part : scrollLeft arrondit au pixel entier à
   // chaque lecture, un pas inférieur à 1px relu puis réécrit serait tronqué
   // et la galerie ne bougerait jamais.
   let position = galerie.scrollLeft;
 
-  // PAS de pointerdown ici (bug corrigé, retour propriétaire : le
-  // défilement auto ne se déclenchait quasiment jamais en usage réel) : un
-  // simple pointerdown se déclenche aussi quand le visiteur scrolle
-  // verticalement la PAGE avec un doigt qui passe sur la galerie, sans
-  // aucune intention d'interagir avec elle, ça mettait en pause en
-  // permanence. Seuls la molette horizontale et les flèches sont des
-  // interactions non ambiguës ; un vrai glisser horizontal sur la galerie
-  // est détecté après coup, via l'écart entre la position qu'on a fixée et
-  // scrollLeft réellement observé (voir plus bas).
+  // setInterval, pas requestAnimationFrame (2e correctif, retour
+  // propriétaire : le défilement ne bougeait toujours pas en prod même
+  // après avoir retiré -webkit-overflow-scrolling:touch) : rAF s'est déjà
+  // montré peu fiable pour tourner en continu sans jamais s'arrêter (constaté
+  // aussi en test headless), setInterval reste le mécanisme le plus
+  // universellement fiable pour ce genre d'animation d'arrière-plan.
+  //
+  // PAS de pointerdown ici (1er correctif) : un simple pointerdown se
+  // déclenche aussi quand le visiteur scrolle verticalement la PAGE avec un
+  // doigt qui passe sur la galerie, sans aucune intention d'interagir avec
+  // elle, ça mettait en pause en permanence. Seuls la molette horizontale
+  // et les flèches sont des interactions non ambiguës ; un vrai glisser
+  // horizontal sur la galerie est détecté après coup, via l'écart entre la
+  // position qu'on a fixée et scrollLeft réellement observé.
   const signalerInteraction = () => { derniereInteraction = Date.now(); };
   galerie.addEventListener('wheel', signalerInteraction, { passive: true });
   document.querySelectorAll('.preuve-galerie-arrow').forEach(btn => btn.addEventListener('click', signalerInteraction));
 
-  function pas(horodatage) {
-    requestAnimationFrame(pas);
-    const delta = dernierTimestamp != null ? (horodatage - dernierTimestamp) / 1000 : 0;
-    dernierTimestamp = horodatage;
+  setInterval(() => {
     if (Date.now() - derniereInteraction < PAUSE_APRES_INTERACTION) return;
     const max = galerie.scrollWidth - galerie.clientWidth;
     if (max <= 0) return;
     // Écart avec la position qu'on a fixée nous-mêmes : un vrai geste
     // horizontal de l'utilisateur (glisser la galerie) l'a changée entre
-    // deux frames, on se resynchronise dessus ET on considère que c'est
-    // une interaction (mise en pause), contrairement à un simple scroll
+    // deux pas, on se resynchronise dessus ET on considère que c'est une
+    // interaction (mise en pause), contrairement à un simple scroll
     // vertical de page qui ne touche jamais scrollLeft.
     if (Math.abs(galerie.scrollLeft - position) > 2) {
       position = galerie.scrollLeft;
@@ -96,10 +98,9 @@ function demarrerDefilementPreuveGalerie() {
     }
     if (position >= max - 1) direction = -1;
     else if (position <= 1) direction = 1;
-    position += VITESSE * delta * direction;
+    position += PAS * direction;
     galerie.scrollLeft = position;
-  }
-  requestAnimationFrame(pas);
+  }, INTERVALLE);
 }
 
 // Filet de sécurité : sur certains navigateurs mobiles, l'autoplay par
