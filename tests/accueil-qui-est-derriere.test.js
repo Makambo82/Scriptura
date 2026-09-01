@@ -2,14 +2,12 @@
 // visiteur non connecté : sans vrais abonnés à ce jour, impossible d'ajouter
 // des témoignages ou un nombre d'utilisateurs sans les inventer. À la place,
 // une section de preuve par l'exemple, entre "Pourquoi Scriptura" et les
-// tarifs : le propriétaire utilise lui-même Scriptura (mode Storytelling)
-// pour sa propre marque de contenu, avec des résultats réels (jusqu'à
-// 93,6K vues sur certaines histoires). Décision du propriétaire : ne PAS
-// nommer la marque (reste anonyme), montrer une fourchette honnête plutôt
-// que le seul pic isolé (pour ne pas donner une attente irréaliste), et
-// (2e passe) faire suivre cette preuve d'une galerie de vraies couvertures
-// de vidéos (voir .preuve-galerie) plutôt que de raconter une histoire
-// fondatrice qui n'annonçait pas cette galerie.
+// tarifs : une galerie de vraies couvertures de vidéos dont le script a été
+// généré par Scriptura (voir .preuve-galerie). Décision du propriétaire :
+// ne PAS nommer de marque (reste anonyme), et un texte d'intro court, la
+// fourchette honnête de vues (certaines dépassent 90K, d'autres restent à
+// quelques centaines) n'est plus répétée dans le texte, elle est déjà
+// visible directement sur chaque vignette (vues incrustées dans la capture).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -43,11 +41,9 @@ test('accueil : section "qui est derrière Scriptura" présente entre "pourquoi 
     assert.ok(!/makambo/i.test(texte), 'le nom de la marque ne doit pas apparaître dans ce bloc');
 
     const preuve = await page.evaluate(() => document.querySelector('.about-proof')?.textContent || '');
-    assert.ok(preuve.length > 20, 'la preuve de résultats réels doit être présente');
-    // Fourchette honnête, pas juste le pic isolé (93,6K) : au moins deux
-    // signaux différents (un haut, un plus modeste).
-    assert.ok(/90.000|90000/.test(preuve), 'doit citer le résultat haut : ' + preuve);
-    assert.ok(/quelques centaines/.test(preuve), 'doit citer aussi les résultats plus modestes, pas que le pic : ' + preuve);
+    assert.ok(preuve.length > 10, 'la preuve de résultats réels doit être présente');
+    assert.ok(/créateurs de contenu/.test(preuve), 'doit annoncer ce que font déjà des créateurs avec Scriptura : ' + preuve);
+    assert.ok(!/\bon\b|\bnous\b/i.test(preuve), 'texte à la troisième personne, jamais "on/nous" : ' + preuve);
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
   } finally {
