@@ -522,12 +522,17 @@ async function omLancerMontage() {
 
     if (statut) statut.textContent = "Montage en cours (peut prendre plusieurs minutes selon le nombre d'images)…";
     const format = await omDetecterFormat();
+    // Sous-titres activables/désactivables avant de démarrer (retour
+    // propriétaire), voir #omSousTitresCheckbox dans le HTML. Cochée par
+    // défaut ; de toute façon jamais disponible pour une voix off
+    // uploadée (aucun horodatage possible, voir omGenererVoixOff plus haut).
+    const sousTitresActives = document.getElementById('omSousTitresCheckbox')?.checked !== false;
     let dataRender;
     try {
       const rRender = await fetch('/api/montage-render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, audioUrl, format, captions: (omAudio.source === 'ia' && omAudio.captions) || [], code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify({ images, audioUrl, format, captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [], code_acces: localStorage.getItem('scriptura_code') || null })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || "Le montage n'a pas pu être généré.");

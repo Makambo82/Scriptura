@@ -818,10 +818,15 @@ async function lancerMontage() {
       // Toujours /api/montage-render (voir en-tête de fichier) : c'est lui
       // qui décide, côté serveur, d'assembler la vidéo lui-même ou de
       // proxier vers le service de rendu externe.
+      // Sous-titres activables/désactivables par le fondateur avant de
+      // lancer le montage (retour propriétaire), voir la case à cocher
+      // #montageSousTitresCheckbox juste au-dessus du bouton "Lancer le
+      // montage" dans le HTML. Cochée par défaut.
+      const sousTitresActives = document.getElementById('montageSousTitresCheckbox')?.checked !== false;
       const corpsRendu = {
         images, audioUrl: dataAudio.publicUrl,
         format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || ''),
-        captions: montageVoixOff.captions || [],
+        captions: (sousTitresActives && montageVoixOff.captions) || [],
         code_acces: localStorage.getItem('scriptura_code') || null
       };
       const rRender = await fetch('/api/montage-render', {

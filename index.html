@@ -831,7 +831,11 @@
     </div>
     <div id="omResultat"></div>
 
-    <button class="btn-regenerate" id="omLancerBtn" onclick="omLancerMontage()" disabled style="margin-top:16px">Démarrer le montage</button>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer;font-size:0.85rem;color:var(--text-secondary)">
+      <input type="checkbox" id="omSousTitresCheckbox" checked style="accent-color:var(--gold);width:16px;height:16px;flex:0 0 auto">
+      Sous-titres incrustés <span style="opacity:0.7">(voix off générée par l'IA uniquement)</span>
+    </label>
+    <button class="btn-regenerate" id="omLancerBtn" onclick="omLancerMontage()" disabled style="margin-top:10px">Démarrer le montage</button>
   </div>
 </section>
 
@@ -1861,7 +1865,7 @@
      partie du storyboard comme une section qui se déplie. -->
 <div class="montage-panel" id="montageModal">
     <div class="genimg-title">Générer la vidéo</div>
-    <div class="genimg-sub">Les images et la voix off sont générées automatiquement à partir du storyboard (<span id="montageCompteAttendu">0</span> plan(s)). Scriptura assemble ensuite le montage, sans sous-titres pour l'instant.</div>
+    <div class="genimg-sub">Les images et la voix off sont générées automatiquement à partir du storyboard (<span id="montageCompteAttendu">0</span> plan(s)). Scriptura assemble ensuite le montage.</div>
 
     <div class="montage-section">
       <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
@@ -1903,7 +1907,11 @@
     </div>
     <div id="montageResultat"></div>
 
-    <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:16px">Lancer le montage</button>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer;font-size:0.85rem;color:var(--text-secondary)">
+      <input type="checkbox" id="montageSousTitresCheckbox" checked style="accent-color:var(--gold);width:16px;height:16px;flex:0 0 auto">
+      Sous-titres incrustés
+    </label>
+    <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:10px">Lancer le montage</button>
 </div>
 
 <!-- AGRANDISSEMENT D'IMAGE DU STUDIO (lightbox) -->
