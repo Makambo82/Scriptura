@@ -381,7 +381,7 @@ test('Tendances : la niche peut se saisir librement OU se choisir dans une liste
     // vidéos, chiffres trop bas, pour "Finance & Argent"/"Géopolitique &
     // Actualité" choisies dans la liste).
     await page.selectOption('#tendancesSelect', { label: 'Cuisine & Food' });
-    await page.click('#tendancesGoBtnListe');
+    await page.click('#tendancesGoBtn');
     await page.waitForTimeout(300);
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));

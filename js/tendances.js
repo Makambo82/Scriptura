@@ -101,7 +101,6 @@ async function _tendancesMessageErreur(r) {
 async function lancerTendances() {
   const err = document.getElementById('tendancesError');
   const btn = document.getElementById('tendancesGoBtn');
-  const btnListe = document.getElementById('tendancesGoBtnListe');
   err.style.display = 'none';
 
   // Saisie libre OU liste déroulante, selon le mode actif (voir
@@ -132,7 +131,6 @@ async function lancerTendances() {
   // qui n'a aucun repli jeton pour ce mode.
   const code_acces = localStorage.getItem('scriptura_code') || null;
   btn.disabled = true;
-  if (btnListe) btnListe.disabled = true;
   const intro = document.getElementById('tendancesIntro');
   if (intro) intro.style.display = 'none';
   document.getElementById('tendancesForm').style.display = 'none';
@@ -202,7 +200,6 @@ async function lancerTendances() {
     err.style.display = 'block';
   } finally {
     btn.disabled = false;
-    if (btnListe) btnListe.disabled = false;
   }
 }
 

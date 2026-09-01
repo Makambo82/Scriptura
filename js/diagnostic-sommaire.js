@@ -1058,22 +1058,28 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
   const ringColorA = paletteScore.ringA;
   const ringColorB = paletteScore.ringB;
 
+  // Retour du propriétaire : une dimension non mesurable (ex. Croissance
+  // abonnés sans diagnostic antérieur du même compte) n'affiche plus de
+  // carte "impossible à mesurer" qui n'apporte rien, elle disparaît
+  // simplement (jamais comptée dans le score, voir dimEstMesurable/score
+  // plus haut, donc rien à recalculer ici).
   const dimsHtml = Object.keys(DS_DIM_META).map(cle => {
     const meta = DS_DIM_META[cle];
     // Dimension telle que renvoyée par l'IA ; à défaut (dimension absente de
     // la réponse), on la marque non disponible avec le texte explicatif dédié.
     const dim = d[cle] || { disponible: false, constat: DS_TOUJOURS_INDISPONIBLE[cle] };
+    const disponible = dimEstMesurable(dim);
+    if (!disponible) return '';
     // Badge coloré selon le niveau (rouge/orange/émeraude), voir
     // niveauScoreSur() dans js/audit.js, seuils partagés avec le score global.
-    const disponible = dimEstMesurable(dim);
-    const niveau = disponible ? niveauScoreSur(dim.score, meta.max) : 'niveau-neutre';
+    const niveau = niveauScoreSur(dim.score, meta.max);
     // Constat : celui de l'IA si présent, sinon le texte "non disponible".
     const constat = dim.constat || DS_TOUJOURS_INDISPONIBLE[cle] || '';
     return `<div class="ds-dim-card">
       <div class="ds-dim-head">
         <span class="ds-dim-icon">${meta.icone}</span>
         <span class="ds-dim-name">${meta.label}</span>
-        <span class="score-badge ${niveau}">${disponible ? (dim.score + '/' + meta.max) : '·'}</span>
+        <span class="score-badge ${niveau}">${dim.score + '/' + meta.max}</span>
       </div>
       <p class="ds-dim-text">${diagSommaireEsc(constat)}</p>
     </div>`;

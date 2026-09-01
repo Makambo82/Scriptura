@@ -1,16 +1,15 @@
 // Retour du propriétaire, dans la continuité de l'audit du parcours d'un
 // visiteur non connecté : sans vrais abonnés à ce jour, impossible d'ajouter
 // des témoignages ou un nombre d'utilisateurs sans les inventer. À la place,
-// une section "Qui est derrière Scriptura" raconte l'histoire fondatrice
-// réelle (la galère à trouver des idées de contenu) plutôt qu'un nom
-// personnel, entre "Pourquoi Scriptura" et les tarifs.
-//
-// Complété ensuite par une vraie preuve : le propriétaire utilise lui-même
-// Scriptura (mode Storytelling) pour sa propre marque de contenu, avec des
-// résultats réels (jusqu'à 93,6K vues sur certaines histoires). Décision du
-// propriétaire : ne PAS nommer la marque (reste anonyme comme choisi plus
-// haut), et montrer une fourchette honnête plutôt que le seul pic isolé,
-// pour ne pas donner une attente irréaliste.
+// une section de preuve par l'exemple, entre "Pourquoi Scriptura" et les
+// tarifs : le propriétaire utilise lui-même Scriptura (mode Storytelling)
+// pour sa propre marque de contenu, avec des résultats réels (jusqu'à
+// 93,6K vues sur certaines histoires). Décision du propriétaire : ne PAS
+// nommer la marque (reste anonyme), montrer une fourchette honnête plutôt
+// que le seul pic isolé (pour ne pas donner une attente irréaliste), et
+// (2e passe) faire suivre cette preuve d'une galerie de vraies couvertures
+// de vidéos (voir .preuve-galerie) plutôt que de raconter une histoire
+// fondatrice qui n'annonçait pas cette galerie.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');

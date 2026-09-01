@@ -99,7 +99,10 @@ test('diagnostic sommaire : les 5 dimensions et poids exacts de Vervox (30/25/20
     assert.equal(parCle['Engagement'], '14/30', 'Engagement doit rester noté sur 30');
     assert.equal(parCle['Vues moyennes'], '10/25', 'Vues moyennes (nouvelle dimension, remplace Portée) doit être notée sur 25');
     assert.equal(parCle['Régularité'], '14/20', 'Régularité doit rester notée sur 20');
-    assert.equal(parCle['Croissance abonnés'], '·', 'Croissance abonnés doit être non disponible (aucun diagnostic précédent de ce compte)');
+    // Retour du propriétaire : une dimension non mesurable (ici, aucun
+    // diagnostic précédent de ce compte pour juger la croissance) n'affiche
+    // plus de carte "impossible à mesurer", elle disparaît simplement.
+    assert.equal(parCle['Croissance abonnés'], undefined, 'Croissance abonnés (non mesurable) ne doit plus afficher de carte du tout : ' + JSON.stringify(etat.cartes));
     assert.equal(parCle['Viralité'], '6/10', 'Viralité doit maintenant être notée sur 10 (et non plus 20)');
 
     // Aucune trace de l'ancienne dimension "Portée" (ratio vues/abonnés, remplacée).
