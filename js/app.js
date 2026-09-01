@@ -40,7 +40,54 @@ async function envoyerPresence() {
   } catch (e) { /* silencieux */ }
 }
 
+// ═══════════════════════════════════════════════════════════
+//  DÉFILEMENT AUTOMATIQUE DE LA GALERIE DE PREUVE TIKTOK (accueil)
+//  Retour propriétaire : suggérer qu'on peut parcourir les couvertures sans
+//  obliger à toucher, très lent (jamais un carrousel qui prend le contrôle),
+//  aller-retour continu plutôt qu'un saut brutal en fin de course. Se met en
+//  pause dès que l'utilisateur interagit (glisser, molette, flèches) et
+//  reprend après un court délai d'inactivité, jamais pendant que quelqu'un
+//  scrolle lui-même. Respecte prefers-reduced-motion.
+// ═══════════════════════════════════════════════════════════
+function demarrerDefilementPreuveGalerie() {
+  const galerie = document.getElementById('preuveGalerie');
+  if (!galerie) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const INTERVALLE = 45; // ms entre deux pas
+  const PAS = 0.35; // px par pas (~7,8px/s) : très lent, à peine perceptible
+  const PAUSE_APRES_INTERACTION = 2800; // ms avant reprise après une interaction
+  let direction = 1;
+  let derniereInteraction = 0;
+  // Position flottante suivie à part : scrollLeft arrondit au pixel entier à
+  // chaque lecture, un pas de 0.35px relu puis réécrit serait tronqué à 0 à
+  // chaque tick et la galerie ne bougerait jamais (bug constaté en test).
+  // setInterval, pas requestAnimationFrame : rAF ne se déclenche jamais sur
+  // une page qui n'est pas activement composée à l'écran (constaté en test
+  // headless), setInterval reste fiable dans tous les cas.
+  let position = galerie.scrollLeft;
+
+  const signalerInteraction = () => { derniereInteraction = Date.now(); };
+  galerie.addEventListener('pointerdown', signalerInteraction, { passive: true });
+  galerie.addEventListener('wheel', signalerInteraction, { passive: true });
+  document.querySelectorAll('.preuve-galerie-arrow').forEach(btn => btn.addEventListener('click', signalerInteraction));
+
+  setInterval(() => {
+    if (Date.now() - derniereInteraction < PAUSE_APRES_INTERACTION) return;
+    const max = galerie.scrollWidth - galerie.clientWidth;
+    if (max <= 0) return;
+    // Une vraie interaction a pu déplacer scrollLeft sans passer par nous
+    // (glisser tactile relâché juste avant la reprise) : se resynchroniser.
+    if (Math.abs(galerie.scrollLeft - position) > 2) position = galerie.scrollLeft;
+    if (position >= max - 1) direction = -1;
+    else if (position <= 1) direction = 1;
+    position += PAS * direction;
+    galerie.scrollLeft = position;
+  }, INTERVALLE);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  demarrerDefilementPreuveGalerie();
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();

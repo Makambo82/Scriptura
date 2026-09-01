@@ -2,14 +2,14 @@
 // ("en tant que créateur exigeant, saurais-tu quoi faire et t'abonner ?") :
 // la page d'accueil n'avait ni exemple concret de génération, ni prix avant
 // l'argumentaire "Pourquoi Scriptura". Ajout d'une section "Exemple concret"
-// entre "Comment ça marche" et "Pourquoi Scriptura" : un exemple réel dans le
-// MÊME format que le vrai rendu d'une génération (.hooks-list/.hook-item/
-// .script-block, voir js/generation.js), plus un prix teaser qui renvoie vers
-// la section tarifs complète. Complété ensuite (pas de vrais abonnés à cette
-// date, donc pas de témoignages possibles sans les inventer) par un extrait
-// du diagnostic TikTok, même classes que le vrai rendu (.ds-dim-card, voir
-// js/diagnostic-sommaire.js), pour prouver la qualité sans avoir besoin de
-// preuve sociale qui n'existe pas encore.
+// entre "Comment ça marche" et "Pourquoi Scriptura", plus un prix teaser qui
+// renvoie vers la section tarifs complète.
+// 2e passe (retour propriétaire) : remplacement des deux maquettes statiques
+// (script figé, dimensions de diagnostic figées) par deux VRAIES captures
+// vidéo de l'app en action (assets/demos/demo-script.mp4 et
+// demo-sommaire.mp4, enregistrées via Playwright en pilotant la vraie
+// interface avec des réponses IA simulées, jamais de fausses stats
+// inventées à la main dans du HTML statique), en autoplay muet en boucle.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -36,32 +36,29 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     assert.ok(ordre.idxExample > ordre.idxHow, 'la section exemple doit venir après "comment ça marche"');
     assert.ok(ordre.idxExample < ordre.idxWhy, 'la section exemple doit venir avant "pourquoi Scriptura"');
 
-    // Reprend bien le format RÉEL d'une génération (mêmes classes que
-    // js/generation.js) et d'un diagnostic (mêmes classes que
-    // js/diagnostic-sommaire.js), pas une maquette isolée.
+    // Deux vraies vidéos de démo (script + diagnostic), pas une maquette
+    // HTML statique : autoplay muet en boucle, lisibles sans interaction.
     const contenu = await page.evaluate(() => {
       const ex = document.querySelector('.example');
-      const dims = Array.from(ex.querySelectorAll('.ds-dim-card')).map(c => ({
-        badge: c.querySelector('.score-badge')?.textContent || '',
-        texte: c.querySelector('.ds-dim-text')?.textContent || ''
+      const videos = Array.from(ex.querySelectorAll('video.example-video')).map(v => ({
+        srcs: Array.from(v.querySelectorAll('source')).map(s => s.getAttribute('src') || ''),
+        autoplay: v.autoplay, muted: v.muted, loop: v.loop, playsInline: v.playsInline
       }));
       return {
-        aHook: !!ex.querySelector('.hooks-list .hook-item'),
-        aScript: !!ex.querySelector('.script-block .script-row'),
         note: ex.querySelector('.example-note')?.textContent || '',
-        formule: ex.querySelector('.example-formule p')?.textContent || '',
-        dims
+        videos
       };
     });
-    assert.equal(contenu.aHook, true, 'l\'exemple doit inclure un vrai hook (.hook-item)');
-    assert.equal(contenu.aScript, true, 'l\'exemple doit inclure un vrai script (.script-row)');
     assert.ok(/FCFA/.test(contenu.note), 'le prix doit être visible dans la section exemple : ' + contenu.note);
-    assert.equal(contenu.dims.length, 2, 'l\'exemple de diagnostic doit avoir 2 dimensions (Engagement, Portée)');
-    contenu.dims.forEach(d => {
-      assert.ok(d.badge && d.badge.length > 0, 'chaque dimension du diagnostic doit avoir un score visible');
-      assert.ok(d.texte && d.texte.length > 10, 'chaque dimension du diagnostic doit avoir un constat explicatif : ' + JSON.stringify(d));
+    assert.equal(contenu.videos.length, 2, 'deux vidéos de démo doivent être présentes (script + diagnostic) : ' + JSON.stringify(contenu.videos));
+    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-script\.(webm|mp4)/.test(s))), 'la démo de génération de script doit être présente : ' + JSON.stringify(contenu.videos));
+    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-sommaire\.(webm|mp4)/.test(s))), 'la démo de l\'analyse sommaire doit être présente : ' + JSON.stringify(contenu.videos));
+    contenu.videos.forEach(v => {
+      assert.equal(v.autoplay, true, 'chaque vidéo de démo doit être en autoplay : ' + JSON.stringify(v));
+      assert.equal(v.muted, true, 'chaque vidéo de démo doit être muette (autoplay navigateur l\'exige de toute façon) : ' + JSON.stringify(v));
+      assert.equal(v.loop, true, 'chaque vidéo de démo doit boucler : ' + JSON.stringify(v));
+      assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
     });
-    assert.ok(contenu.formule && contenu.formule.length > 10, 'le bloc "formule gagnante" doit être présent avec du contenu : ' + contenu.formule);
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.
     await page.click('.example-cta');

@@ -1467,17 +1467,15 @@ body.hero-focus .hero-focus-rule{display:block}
 
 /* ── EXEMPLE CONCRET (retour propriétaire : montrer un vrai résultat et le
    prix avant l'argumentaire "Pourquoi Scriptura", pas seulement après).
-   .hooks-list/.hook-item/.script-block/.script-row/.script-text : mêmes
-   classes que le VRAI rendu d'une génération (voir js/generation.js), pas
-   une maquette à part, pour que l'exemple soit crédible au pixel près. ── */
+   Deux vraies captures vidéo de l'app en action (assets/demos/), en
+   autoplay muet en boucle façon démo produit, pas une maquette statique. ── */
 .example{max-width:960px;margin:0 auto;padding:48px 12px 24px;text-align:center}
 .example-sub{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;
   color:var(--gold);opacity:0.75;max-width:480px;margin:0 auto 12px;text-align:left;
 }
-.example-preview{max-width:480px;margin:0 auto 32px;text-align:left;display:flex;flex-direction:column;gap:16px}
-.example-diag{max-width:480px;margin:0 auto}
-.example-formule{max-width:480px;margin:16px auto 0;text-align:left}
+.example-video-wrap{max-width:280px;margin:0 auto 32px}
+.example-video{width:100%;display:block;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.45);border:1px solid rgba(226,200,122,0.18)}
 .example-note{font-size:0.9rem;color:var(--text-secondary);font-family:'Poppins',sans-serif;line-height:1.6;margin-top:26px}
 .example-note strong{color:var(--gold-light)}
 .example-cta{
