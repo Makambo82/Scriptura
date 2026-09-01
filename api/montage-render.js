@@ -220,6 +220,11 @@ export default async function handler(req, res) {
   // FFmpeg local plus bas (repli sans MONTAGE_RENDER_URL) ne les brûle pas
   // encore dans la vidéo.
   const captions = Array.isArray(body?.captions) ? body.captions : [];
+  // Musique de fond (retour propriétaire : montage "pas assez premium"),
+  // voir api/montage-media.js action=music pour sa génération. Optionnelle,
+  // même remarque que captions ci-dessus : seulement transmise au service de
+  // rendu externe, le repli FFmpeg local plus bas ne la mixe pas encore.
+  const musicUrl = typeof body?.musicUrl === 'string' ? body.musicUrl : '';
 
   // Service de rendu externe (Railway/Render/Fly, voir render-service/),
   // proxié depuis ICI (serveur), jamais appelé directement par le
@@ -239,7 +244,7 @@ export default async function handler(req, res) {
       const rProxy = await fetch(process.env.MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render', {
         method: 'POST',
         headers: entetesProxy,
-        body: JSON.stringify({ images, audioUrl, format, captions })
+        body: JSON.stringify({ images, audioUrl, format, captions, musicUrl })
       });
       const dataProxy = await rProxy.json().catch(() => ({}));
       if (!rProxy.ok || !dataProxy.url) {

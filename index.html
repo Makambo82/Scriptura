@@ -822,6 +822,13 @@
       <div id="omVoixZone" style="margin-top:10px"></div>
     </div>
 
+    <div class="montage-section">
+      <div class="montage-section-label">Musique de fond <span style="opacity:0.7;font-weight:400">(facultatif)</span></div>
+      <div id="omMusiqueZone" style="margin-top:10px">
+        <button class="btn-regenerate" onclick="omGenererMusique()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
+      </div>
+    </div>
+
     <div class="error-box" id="omErreur" style="display:none"></div>
     <div class="montage-statut" id="omStatut" style="display:none">Envoi des fichiers…</div>
     <div class="sb-progress-bar" id="omMontageProgBar" style="display:none">
@@ -1895,6 +1902,13 @@
       <select class="ctx-input" id="montageVoixSelect" style="display:none" onchange="changerVoixMontage(this.value)"></select>
       <div id="montageVoixZone" style="margin-top:10px">
         <button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>
+      </div>
+    </div>
+
+    <div class="montage-section">
+      <div class="montage-section-label">Musique de fond <span style="opacity:0.7;font-weight:400">(facultatif)</span></div>
+      <div id="montageMusiqueZone" style="margin-top:10px">
+        <button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
       </div>
     </div>
 

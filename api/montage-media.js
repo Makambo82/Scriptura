@@ -256,6 +256,77 @@ async function handleTts(req, res, body) {
   }
 }
 
+// ═══ MUSIQUE DE FOND (Eleven Music, retour propriétaire : le montage "pas
+// assez premium" en comparaison d'un montage CapCut fait à la main - le
+// manque le plus flagrant identifié, aucune musique nulle part sous la
+// narration) ═══
+//
+// POST https://api.elevenlabs.io/v1/music, même clé API que la voix off
+// (ELEVENLABS_API_KEY), réservée aux comptes ElevenLabs payants avec
+// l'accès Music activé (voir retour propriétaire : à vérifier/activer
+// elle-même dans son compte, rien à configurer de plus ici). Contrairement
+// à /text-to-speech/.../with-timestamps (JSON avec audio en base64), cet
+// endpoint renvoie l'AUDIO BRUT directement (Content-Type: audio/mpeg),
+// pas du JSON - assumé pour offrir la même forme de réponse au client que
+// la voix off (audioBase64), pour rester cohérent avec le flux
+// upload-vers-Supabase déjà en place (voir js/montage.js).
+const MUSIQUE_PROMPT_DEFAUT = 'Calm, subtle instrumental background music for narration, unobtrusive, gentle, no vocals, no lyrics, low energy, cinematic ambient pad';
+const MUSIQUE_DUREE_MIN_MS = 3000;
+const MUSIQUE_DUREE_MAX_MS = 600000;
+
+async function handleMusic(req, res, body) {
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (ELEVENLABS_API_KEY)' } });
+
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  }
+
+  const dureeDemandeeMs = Math.round(Number(body?.dureeMs) || 0);
+  if (!dureeDemandeeMs) {
+    return res.status(400).json({ error: { message: 'Durée manquante (dureeMs), calée sur la durée totale de la voix off' } });
+  }
+  // Bornes imposées par l'API (3s à 10min) : jamais un dépassement silencieux,
+  // on cale sur la borne la plus proche plutôt que d'envoyer une valeur
+  // qu'ElevenLabs refuserait.
+  const dureeMs = Math.min(MUSIQUE_DUREE_MAX_MS, Math.max(MUSIQUE_DUREE_MIN_MS, dureeDemandeeMs));
+
+  try {
+    const rep = await fetch('https://api.elevenlabs.io/v1/music', {
+      method: 'POST',
+      headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: MUSIQUE_PROMPT_DEFAUT,
+        music_length_ms: dureeMs,
+        model_id: 'music_v2',
+        force_instrumental: true
+      })
+    });
+
+    if (!rep.ok) {
+      // Erreur : ElevenLabs répond en JSON même quand un succès renverrait de
+      // l'audio brut (voir en-tête ci-dessus). .json() peut lui-même échouer
+      // si la réponse d'erreur n'est pas du JSON valide, jamais un plantage
+      // pour autant.
+      const data = await rep.json().catch(() => null);
+      const message = data?.detail?.message || data?.message
+        || (rep.status === 401 ? 'Accès refusé par ElevenLabs (vérifie que l\'accès à Music est bien activé sur ton compte)' : 'La musique de fond n\'a pas pu être générée');
+      return res.status(502).json({ error: { message } });
+    }
+
+    const tampon = Buffer.from(await rep.arrayBuffer());
+    if (!tampon.length) {
+      return res.status(502).json({ error: { message: 'Réponse ElevenLabs vide (pas de musique reçue)' } });
+    }
+    return res.status(200).json({ audioBase64: tampon.toString('base64'), mimeType: 'audio/mpeg' });
+  } catch (e) {
+    return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
+  }
+}
+
 // ═══ IMAGES (voir l'ancien api/montage-images.js) ═══
 
 const CONCURRENCE_MAX = 1;
@@ -359,6 +430,7 @@ export default async function handler(req, res) {
   body = body || {};
 
   if (action === 'tts') return handleTts(req, res, body);
+  if (action === 'music') return handleMusic(req, res, body);
   if (action === 'images') return handleImages(req, res, body);
 
   return res.status(400).json({ error: { message: 'action inconnue' } });

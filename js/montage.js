@@ -22,8 +22,10 @@
 let montagePlans = [];      // [{ text, visuel }], un par plan du storyboard
 let montageImages = [];     // [{ blob, apercu } | null], même ordre/longueur que montagePlans
 let montageVoixOff = null;  // { blob, url, durations }, générée par ElevenLabs
+let montageMusique = null;  // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
 let montageEnCours = false;
 let montageVoixEnCours = false;
+let montageMusiqueEnCours = false;
 let montageImagesEnCours = false;
 let montageVoixListe = [];  // [{ id, label, description }], voix ElevenLabs configurées (voir api/montage-media.js action=voices)
 let montageVoixId = '';     // id de la voix actuellement choisie
@@ -70,8 +72,10 @@ function ouvrirMontage(plans, boutonEl) {
   montageImages = new Array(montagePlans.length).fill(null);
   montageImagesSelection = new Set();
   montageVoixOff = null;
+  montageMusique = null;
   montageEnCours = false;
   montageVoixEnCours = false;
+  montageMusiqueEnCours = false;
   montageImagesEnCours = false;
   const resultat = document.getElementById('montageResultat');
   if (resultat) resultat.innerHTML = '';
@@ -626,6 +630,53 @@ async function genererVoixOffMontage() {
   }
 }
 
+// Musique de fond instrumentale (retour propriétaire : le montage Scriptura
+// "pas assez premium" comparé à un montage CapCut fait à la main, cause
+// identifiée : aucune musique de fond nulle part dans le pipeline). Générée
+// via Eleven Music (api/montage-media.js, action=music), CALÉE SUR LA DURÉE
+// DE LA VOIX OFF déjà générée : jamais lancée avant, pour connaître la durée
+// totale exacte à demander. Toujours optionnelle (bouton "Retirer" plutôt
+// qu'une case à cocher, voir renderMontageEtat) : un montage sans musique
+// reste valide, contrairement à la voix off.
+async function genererMusiqueMontage() {
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  if (montageMusiqueEnCours || !montageVoixOff) return;
+  const dureeTotaleMs = Math.round(montageVoixOff.durations.reduce((s, d) => s + (d || 0), 0) * 1000);
+  if (!dureeTotaleMs) return;
+
+  montageMusiqueEnCours = true;
+  renderMontageEtat();
+  try {
+    const rep = await fetch('/api/montage-media?action=music', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dureeMs: dureeTotaleMs, code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await rep.json();
+    if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La musique de fond n\'a pas pu être générée.');
+    const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
+    montageMusique = { blob, url: URL.createObjectURL(blob) };
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: 'montageMusique', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+      }).catch(() => {});
+    } catch (e2) { /* silencieux */ }
+  } finally {
+    montageMusiqueEnCours = false;
+    renderMontageEtat();
+  }
+}
+
+function retirerMusiqueMontage() {
+  montageMusique = null;
+  renderMontageEtat();
+}
+
 function renderMontageEtat() {
   const nbPretes = montageImages.filter(Boolean).length;
   const compte = document.getElementById('montageImagesCompte');
@@ -708,6 +759,22 @@ function renderMontageEtat() {
         <button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`;
     } else {
       zoneVoix.innerHTML = `<button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>`;
+    }
+  }
+
+  const zoneMusique = document.getElementById('montageMusiqueZone');
+  if (zoneMusique) {
+    if (montageMusiqueEnCours) {
+      zoneMusique.innerHTML = `<div class="montage-statut" style="margin:0">Génération de la musique…</div>`;
+    } else if (montageMusique) {
+      zoneMusique.innerHTML = `
+        <audio class="montage-audio-preview" src="${montageMusique.url}" controls></audio>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+          <button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button">↻ Régénérer</button>
+          <button class="btn-regenerate" onclick="retirerMusiqueMontage()" type="button">Retirer</button>
+        </div>`;
+    } else {
+      zoneMusique.innerHTML = `<button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
     }
   }
 
@@ -809,6 +876,19 @@ async function lancerMontage() {
       dataAudio = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data;
     } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
 
+    // Musique de fond : optionnelle, seulement si générée (voir
+    // genererMusiqueMontage). Le rendu (render-service/server.js) la mélange
+    // sous la voix off avec le volume automatiquement baissé.
+    let musicUrl = '';
+    if (montageMusique) {
+      try {
+        const cheminMusique = dossier + '/musique.mp3';
+        const { error: errMusique } = await supabaseClient.storage.from('montages').upload(cheminMusique, montageMusique.blob, { contentType: 'audio/mpeg' });
+        if (errMusique) throw new Error(errMusique.message);
+        musicUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminMusique).data.publicUrl;
+      } catch (e) { throw new Error('Upload de la musique de fond : ' + e.message); }
+    }
+
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
     // sondage de statut (contrairement à JSON2Video, remplacé faute de
     // crédits, voir historique de ce fichier).
@@ -827,6 +907,7 @@ async function lancerMontage() {
         images, audioUrl: dataAudio.publicUrl,
         format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || ''),
         captions: (sousTitresActives && montageVoixOff.captions) || [],
+        musicUrl,
         code_acces: localStorage.getItem('scriptura_code') || null
       };
       const rRender = await fetch('/api/montage-render', {

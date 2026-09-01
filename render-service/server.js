@@ -44,6 +44,11 @@ const DIMENSIONS_VIDEO = {
 const FPS = parseInt(process.env.MONTAGE_FPS || '25', 10);           // 25 = Ken Burns fluide
 const DUREE_TRANSITION = parseFloat(process.env.MONTAGE_TRANSITION || '0.5');
 const ZMAX = 1.20;
+// Volume de la musique de fond relatif à la voix off (1.0), reste en
+// retrait sous la narration sans jamais la couvrir (retour propriétaire :
+// musique de fond pour un montage plus premium, voir MONTAGE_TOKEN plus
+// bas pour le style des réglages réglables par variable d'environnement).
+const MUSIQUE_VOLUME = parseFloat(process.env.MONTAGE_MUSIC_VOLUME || '0.18');
 // Nombre de plans rendus ensemble dans UN graphe FFmpeg (donc de flux ouverts
 // en même temps). C'est ce nombre, pas la résolution, qui borne la mémoire :
 // un seul gros graphe de ~20 images 1080p saturait la RAM du conteneur (OOM,
@@ -279,12 +284,23 @@ app.post('/render', async (req, res) => {
   const W = dim ? dim.w : LARGEUR;
   const H = dim ? dim.h : HAUTEUR;
   const captions = Array.isArray(req.body?.captions) ? req.body.captions.filter(c => c && c.texte) : [];
+  // Musique de fond (retour propriétaire : le montage manquait de la
+  // musique la plus élémentaire pour "sonner premium"), optionnelle : sans
+  // elle, comportement inchangé. Générée côté Vercel (Eleven Music, voir
+  // api/montage-media.js action=music), une simple URL publique ici comme
+  // pour audioUrl/images.
+  const musicUrl = typeof req.body?.musicUrl === 'string' ? req.body.musicUrl : '';
 
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
   try {
     await Promise.all(images.map((img, i) => telechargerVers(img.url, path.join(dossier, `img-${i}.jpg`))));
     const cheminAudio = path.join(dossier, 'audio.mp3');
     await telechargerVers(audioUrl, cheminAudio);
+    let cheminMusique = '';
+    if (musicUrl) {
+      cheminMusique = path.join(dossier, 'musique.mp3');
+      await telechargerVers(musicUrl, cheminMusique);
+    }
 
     // Cale la vidéo sur la durée RÉELLE de l'audio : si la somme des durées de
     // segments est un peu inférieure à l'audio (ex. pauses arrondies, silence
@@ -329,22 +345,51 @@ app.post('/render', async (req, res) => {
     const cheminConcat = path.join(dossier, 'concat.mp4');
     await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat]);
 
-    // Sous-titres incrustés (retour propriétaire), optionnels : sans eux,
-    // le flux vidéo est simplement COPIÉ (rapide, sans perte). Avec eux,
-    // le filtre "ass" impose un ré-encodage (impossible d'appliquer un
-    // filtre à un flux copié tel quel), mêmes réglages que les lots
-    // ci-dessus pour rester cohérent visuellement.
+    // Sous-titres et musique de fond (retour propriétaire), tous deux
+    // optionnels et indépendants : sans les deux, le flux vidéo ET la piste
+    // audio de la voix off sont simplement COPIÉS (rapide, sans perte).
+    // Sous-titres -> filtre vidéo "ass" (impose un ré-encodage vidéo, un
+    // filtre ne peut pas s'appliquer à un flux copié tel quel). Musique ->
+    // filtre audio "amix" (mélange voix + musique, ré-encodage audio déjà
+    // nécessaire de toute façon pour convertir en AAC). Les deux peuvent
+    // cohabiter dans le même -filter_complex, chacun mappé indépendamment.
     const argsMux = ['-i', cheminConcat, '-i', cheminAudio];
+    if (cheminMusique) {
+      // -stream_loop -1 : la musique boucle indéfiniment plutôt que de
+      // s'arrêter avant la fin si la durée reçue d'ElevenLabs est un peu
+      // plus courte que la voix off (arrondis) ; amix ci-dessous cale de
+      // toute façon la sortie sur la durée de la voix (duration=first).
+      argsMux.push('-stream_loop', '-1', '-i', cheminMusique);
+    }
+
+    const filtres = [];
+    let sortieVideo = '0:v';
     if (captions.length) {
       const cheminASS = path.join(dossier, 'sous-titres.ass');
       await fs.writeFile(cheminASS, construireASS(captions, W, H), 'utf8');
-      argsMux.push(
-        '-vf', 'ass=' + cheminASS.replace(/:/g, '\\:'),
-        '-map', '0:v', '-map', '1:a',
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p'
+      filtres.push('[0:v]ass=' + cheminASS.replace(/:/g, '\\:') + '[vout]');
+      sortieVideo = '[vout]';
+    }
+    let sortieAudio = '1:a';
+    if (cheminMusique) {
+      // normalize=0 impératif : le comportement par défaut d'amix divise le
+      // volume de CHAQUE entrée par le nombre d'entrées (ici /2), ce qui
+      // aurait aussi affaibli la voix off de moitié en plus de la musique.
+      // La voix reste à son volume plein (1.0), seule la musique est
+      // baissée (MUSIQUE_VOLUME) pour rester en retrait sous la narration.
+      filtres.push(
+        `[1:a]volume=1.0[va]`,
+        `[2:a]volume=${MUSIQUE_VOLUME}[ma]`,
+        `[va][ma]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`
       );
+      sortieAudio = '[aout]';
+    }
+    if (filtres.length) argsMux.push('-filter_complex', filtres.join(';'));
+    argsMux.push('-map', sortieVideo, '-map', sortieAudio);
+    if (captions.length) {
+      argsMux.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p');
     } else {
-      argsMux.push('-map', '0:v', '-map', '1:a', '-c:v', 'copy');
+      argsMux.push('-c:v', 'copy');
     }
     argsMux.push(
       '-c:a', 'aac', '-b:a', '160k',
@@ -353,7 +398,9 @@ app.post('/render', async (req, res) => {
       '-y', path.join(dossier, 'out.mp4')
     );
     await executerFFmpeg(argsMux);
-    console.log('[render] rendu FFmpeg terminé' + (captions.length ? ' (avec sous-titres)' : ''));
+    console.log('[render] rendu FFmpeg terminé'
+      + (captions.length ? ' (avec sous-titres)' : '')
+      + (cheminMusique ? ' (avec musique de fond)' : ''));
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
     const urlPublique = await uploaderVersSupabase(path.join(dossier, 'out.mp4'), nomFichier);
@@ -375,4 +422,4 @@ if (require.main === module) {
   app.listen(PORT, () => console.log('Service de rendu Scriptura à l\'écoute sur le port ' + PORT));
 }
 
-module.exports = { construireASS, versHorodatageASS, echapperTexteASS };
+module.exports = { construireASS, versHorodatageASS, echapperTexteASS, MUSIQUE_VOLUME };

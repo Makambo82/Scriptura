@@ -35,6 +35,8 @@ let omVoixListe = [];        // [{ id, label, description }], voix ElevenLabs co
 let omVoixId = '';
 let omTexteNarration = '';
 let omVoixEnCours = false;
+let omMusique = null;        // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
+let omMusiqueEnCours = false;
 let omEnCours = false;
 
 function omResetState() {
@@ -47,6 +49,9 @@ function omResetState() {
   omVoixId = '';
   omTexteNarration = '';
   omVoixEnCours = false;
+  if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
+  omMusique = null;
+  omMusiqueEnCours = false;
   omEnCours = false;
   const err = document.getElementById('omErreur');
   if (err) err.style.display = 'none';
@@ -240,6 +245,7 @@ function omRenderVoixZone() {
       <input type="file" id="omAudioInput" accept="audio/*" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>
       <button class="btn-regenerate" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
       ${preview}`;
+    omRenderMusiqueZone();
     return;
   }
   // Marque l'option effectivement choisie (omVoixId) pour que le select
@@ -275,6 +281,7 @@ function omRenderVoixZone() {
     <button class="btn-regenerate" type="button" style="margin-top:10px" ${omVoixEnCours ? 'disabled' : ''} onclick="omGenererVoixOff()">${omVoixEnCours ? 'Génération…' : (omAudio && omAudio.source === 'ia' ? '↻ Régénérer la voix off' : 'Générer la voix off')}</button>
     ${progBar}
     ${preview}`;
+  omRenderMusiqueZone();
 }
 
 // Lit la durée réelle d'un fichier audio uploadé via l'élément <audio>
@@ -391,6 +398,73 @@ async function omGenererVoixOff() {
     omVoixEnCours = false;
     omRenderVoixZone();
     omMajBoutonLancer();
+  }
+}
+
+// Musique de fond instrumentale (retour propriétaire : le montage Scriptura
+// "pas assez premium" comparé à un montage CapCut fait à la main). Générée
+// via Eleven Music (api/montage-media.js, action=music), CALÉE SUR LA DURÉE
+// DE LA VOIX OFF déjà prête (omAudio.duree, valable pour les deux sources :
+// mesurée pour un fichier uploadé, somme des horodatages ElevenLabs pour une
+// génération IA) : jamais lancée avant, pour connaître la durée totale
+// exacte à demander. Toujours optionnelle (bouton "Retirer" plutôt qu'une
+// case à cocher, voir omRenderMusiqueZone) : un montage sans musique reste
+// valide, contrairement à la voix off.
+async function omGenererMusique() {
+  const err = document.getElementById('omErreur');
+  if (err) err.style.display = 'none';
+  if (omMusiqueEnCours || !omAudio || !(omAudio.duree > 0)) return;
+  const dureeTotaleMs = Math.round(omAudio.duree * 1000);
+
+  omMusiqueEnCours = true;
+  omRenderMusiqueZone();
+  try {
+    const rep = await fetch('/api/montage-media?action=music', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dureeMs: dureeTotaleMs, code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await rep.json();
+    if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || "La musique de fond n'a pas pu être générée.");
+    if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
+    const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
+    omMusique = { blob, url: URL.createObjectURL(blob) };
+  } catch (e) {
+    if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
+    try {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'erreur', mode: 'montageMusique', code: localStorage.getItem('scriptura_code') || null, detail: (e.message || 'erreur inconnue').slice(0, 200) })
+      }).catch(() => {});
+    } catch (e2) { /* silencieux */ }
+  } finally {
+    omMusiqueEnCours = false;
+    omRenderMusiqueZone();
+  }
+}
+
+function omRetirerMusique() {
+  if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
+  omMusique = null;
+  omRenderMusiqueZone();
+}
+
+function omRenderMusiqueZone() {
+  const zone = document.getElementById('omMusiqueZone');
+  if (!zone) return;
+  if (omMusiqueEnCours) {
+    zone.innerHTML = `<div class="montage-statut" style="margin:0">Génération de la musique…</div>`;
+  } else if (omMusique) {
+    zone.innerHTML = `
+      <audio class="montage-audio-preview" src="${omMusique.url}" controls></audio>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-regenerate" onclick="omGenererMusique()" type="button">↻ Régénérer</button>
+        <button class="btn-regenerate" onclick="omRetirerMusique()" type="button">Retirer</button>
+      </div>`;
+  } else {
+    const pret = omAudio && omAudio.duree > 0;
+    zone.innerHTML = `<button class="btn-regenerate" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
   }
 }
 
@@ -520,6 +594,19 @@ async function omLancerMontage() {
       audioUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data.publicUrl;
     } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
 
+    // Musique de fond : optionnelle, seulement si générée (voir
+    // omGenererMusique). Le rendu (render-service/server.js) la mélange sous
+    // la voix off avec le volume automatiquement baissé.
+    let musicUrl = '';
+    if (omMusique) {
+      try {
+        const cheminMusique = dossier + '/musique.mp3';
+        const { error: errMusique } = await supabaseClient.storage.from('montages').upload(cheminMusique, omMusique.blob, { contentType: 'audio/mpeg' });
+        if (errMusique) throw new Error(errMusique.message);
+        musicUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminMusique).data.publicUrl;
+      } catch (e) { throw new Error('Upload de la musique de fond : ' + e.message); }
+    }
+
     if (statut) statut.textContent = "Montage en cours (peut prendre plusieurs minutes selon le nombre d'images)…";
     const format = await omDetecterFormat();
     // Sous-titres activables/désactivables avant de démarrer (retour
@@ -532,7 +619,7 @@ async function omLancerMontage() {
       const rRender = await fetch('/api/montage-render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, audioUrl, format, captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [], code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify({ images, audioUrl, format, captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [], musicUrl, code_acces: localStorage.getItem('scriptura_code') || null })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || "Le montage n'a pas pu être généré.");
