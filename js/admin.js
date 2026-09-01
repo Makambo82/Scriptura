@@ -303,22 +303,55 @@ async function chargerPresenceAdmin(codes) {
   }
 }
 
+// Non-abonnés EN LIGNE MAINTENANT (retour propriétaire) : même mécanique
+// que le point vert/rouge des abonnés (table `presence`, seuil 2 minutes),
+// mais un simple compte plutôt qu'une liste, un identifiant anonyme
+// (anon_<horodatage>_<alea>, voir getUserRef, js/api.js) n'a rien de
+// lisible à afficher un par un. `abonne=false` couvre déjà tous les
+// visiteurs sans code_acces (voir envoyerPresence, js/app.js, qui envoie
+// abonne:!!unlocked pour CHAQUE visiteur, pas seulement les abonnés).
+// null = indisponible (RLS/réseau), distinct de 0 vrai, jamais affiché
+// comme un zéro trompeur.
+async function compterNonAbonnesEnLigne() {
+  if (!supabaseClient) return null;
+  try {
+    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const { count, error } = await supabaseClient
+      .from('presence')
+      .select('ref', { count: 'exact', head: true })
+      .eq('abonne', false)
+      .gte('derniere_activite', seuil);
+    if (error) throw error;
+    return typeof count === 'number' ? count : null;
+  } catch (e) {
+    console.warn('Non-abonnés en ligne indisponible (table presence) :', e);
+    return null;
+  }
+}
+
 async function chargerCarteAbonnes() {
   try {
-    const r = await fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ resource: 'admin-stats', code_acces: localStorage.getItem('scriptura_code') || null })
-    });
+    const [r, nonAbonnesEnLigne] = await Promise.all([
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource: 'admin-stats', code_acces: localStorage.getItem('scriptura_code') || null })
+      }),
+      compterNonAbonnesEnLigne()
+    ]);
     const data = await r.json();
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
     _codesAbonnesAdmin = Array.isArray(data.codes) ? data.codes : [];
     _adminSearchOpen = false; _adminSearchQuery = ''; _adminFilterOpen = false; _adminPlanFilter = null;
+    const ligneNonAbonnes = nonAbonnesEnLigne != null
+      ? `<div class="ideas-sub" style="margin-top:6px" id="adminNonAbonnesEnLigne">${escAdmin(String(nonAbonnesEnLigne))} non-abonné${nonAbonnesEnLigne > 1 ? 's' : ''} en ligne maintenant</div>`
+      : '';
     return `<div class="score-card">
       <div onclick="toggleListeAbonnesAdmin()" style="cursor:pointer">
         <div class="score-title">Abonnés actifs</div>
         <div class="score-global" style="margin-top:10px"><span class="score-global-num" id="adminAbonnesCount">${escAdmin(_codesAbonnesAdmin.filter(c => c.actif !== false).length)}</span></div>
         <div class="ideas-sub" style="margin-top:8px" id="adminAbonnesSousTexte">${escAdmin(sousTexteAbonnesAdmin())}</div>
+        ${ligneNonAbonnes}
         <div class="ideas-sub" style="margin-top:6px;opacity:0.6" id="listeAbonnesAdminHint">Touche pour voir le détail des codes ↓</div>
       </div>
       <div id="listeAbonnesAdmin" style="display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px">
