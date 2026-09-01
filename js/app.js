@@ -57,8 +57,8 @@ function demarrerDefilementPreuveGalerie() {
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const INTERVALLE = 60; // ms entre deux pas
-  const PAS = 0.5; // px par pas (~8,3px/s) : très lent, à peine perceptible
-  const PAUSE_APRES_INTERACTION = 2800; // ms avant reprise après une interaction
+  const PAS = 2.5; // px par pas (~42px/s) : retour propriétaire, encore trop lent à 1.4 (23px/s)
+  const PAUSE_APRES_INTERACTION = 1000; // ms avant reprise après une interaction (retour propriétaire : 2800 trop long)
   let direction = 1;
   let derniereInteraction = 0;
   // Position flottante suivie à part : scrollLeft arrondit au pixel entier à

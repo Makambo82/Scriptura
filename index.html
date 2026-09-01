@@ -6,8 +6,6 @@
 <title>Scriptura, L'OS du créateur francophone</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="css/style.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 <body>
 <script>
@@ -1643,6 +1641,15 @@
   </div>
 </footer>
 
+<!-- Déplacés hors de <head> (retour propriétaire : blanc de 8-14s au chargement
+     initial, sur mobile) : deux <script> tiers bloquants dans <head> retardaient
+     le parsing de tout le <body>, poster de la vidéo de démo compris, tant que
+     Supabase JS et jsPDF n'avaient pas fini de télécharger depuis jsDelivr. Ici,
+     en bas du body, le HTML au-dessus (dont la vidéo) est déjà parsé et ses
+     ressources déjà demandées au moment où le navigateur les atteint. Ordre
+     conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="js/modeles.js"></script>
 
 <script src="js/api.js"></script>
