@@ -15,6 +15,16 @@
 // (vraie capture de l'app, assets/demos/poster-*.jpg), et le conteneur
 // réserve sa hauteur via aspect-ratio avec un fond sombre, jamais de blanc
 // visible même avant que l'affiche ou la vidéo n'aient fini de charger.
+// 4e passe (retour propriétaire : toujours le même blanc, ET aucun
+// défilement auto sur 3 appareils différents malgré un déploiement Vercel
+// confirmé "Ready" pour le bon commit) : suspicion d'un cache CDN Vercel
+// périmé sur ces chemins (en plus du fix Cache-Control déjà posé côté
+// vercel.json), qui sert la même vieille copie à tout le monde peu importe
+// l'appareil ou le mode navigation privée. Fichiers renommés avec un
+// suffixe de version (`-v2`), une URL jamais requêtée avant ne peut être
+// périmée dans AUCUN cache, navigateur ou CDN. Les regex ci-dessous
+// tolèrent un suffixe `-vN` optionnel pour ne pas casser ce test à la
+// prochaine renumérotation.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -57,8 +67,8 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
     });
     assert.ok(/FCFA/.test(contenu.note), 'le prix doit être visible dans la section exemple : ' + contenu.note);
     assert.equal(contenu.videos.length, 2, 'deux vidéos de démo doivent être présentes (script + diagnostic) : ' + JSON.stringify(contenu.videos));
-    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-script\.(webm|mp4)/.test(s))), 'la démo de génération de script doit être présente : ' + JSON.stringify(contenu.videos));
-    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-sommaire\.(webm|mp4)/.test(s))), 'la démo de l\'analyse sommaire doit être présente : ' + JSON.stringify(contenu.videos));
+    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-script(-v\d+)?\.(webm|mp4)/.test(s))), 'la démo de génération de script doit être présente : ' + JSON.stringify(contenu.videos));
+    assert.ok(contenu.videos.some(v => v.srcs.some(s => /demo-sommaire(-v\d+)?\.(webm|mp4)/.test(s))), 'la démo de l\'analyse sommaire doit être présente : ' + JSON.stringify(contenu.videos));
     contenu.videos.forEach(v => {
       assert.equal(v.autoplay, true, 'chaque vidéo de démo doit être en autoplay : ' + JSON.stringify(v));
       assert.equal(v.muted, true, 'chaque vidéo de démo doit être muette (autoplay navigateur l\'exige de toute façon) : ' + JSON.stringify(v));
@@ -66,7 +76,7 @@ test('accueil : section "exemple concret" présente entre "comment ça marche" e
       assert.equal(v.playsInline, true, 'chaque vidéo de démo doit jouer inline (pas de plein écran forcé sur mobile) : ' + JSON.stringify(v));
       // Jamais de pavé blanc pendant le chargement (retour propriétaire,
       // iOS Safari) : une affiche doit toujours être déclarée.
-      assert.ok(/poster-(script|sommaire)\.jpg/.test(v.poster), 'chaque vidéo de démo doit avoir une affiche (poster) : ' + JSON.stringify(v));
+      assert.ok(/poster-(script|sommaire)(-v\d+)?\.jpg/.test(v.poster), 'chaque vidéo de démo doit avoir une affiche (poster) : ' + JSON.stringify(v));
     });
 
     // Le lien "Voir les tarifs" doit réellement amener à la section tarifs.
