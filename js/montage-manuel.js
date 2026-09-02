@@ -385,17 +385,18 @@ async function omAudioFichierChoisi(fichier) {
   if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
   const err = document.getElementById('omErreur');
   const { url, duree } = await omLireDureeAudio(fichier);
-  // Retour terrain : un fichier illisible par le navigateur (encodage WAV
-  // non supporté, fichier corrompu) échouait avant sans AUCUN message,
-  // juste un bouton qui restait grisé sans explication.
-  if (!duree) {
-    URL.revokeObjectURL(url);
-    if (err) { err.textContent = 'Ce fichier audio n\'a pas pu être lu par le navigateur (format ou encodage non supporté). Essaie un autre fichier, idéalement en MP3.'; err.style.display = 'block'; }
-    return;
-  }
-  if (err) err.style.display = 'none';
   omAudio = { blob: fichier, url, duree, nom: fichier.name, source: 'upload' };
   omDureesManuelles = []; // recalculées (parts égales) au prochain rendu, voir omInitDureesManuelles
+  // Retour terrain : un fichier illisible par le navigateur (encodage WAV
+  // non supporté, fichier corrompu) échouait avant sans AUCUN message, juste
+  // un bouton qui restait grisé sans explication. omAudio reste quand même
+  // renseigné (nom affiché, comme avant) : seul le bouton "Démarrer le
+  // montage" reste bloqué tant que la durée est nulle.
+  if (!duree) {
+    if (err) { err.textContent = 'Ce fichier audio n\'a pas pu être lu par le navigateur (format ou encodage non supporté). Essaie un autre fichier, idéalement en MP3.'; err.style.display = 'block'; }
+  } else if (err) {
+    err.style.display = 'none';
+  }
   omRenderVoixZone();
   omRenderDureesManuelles();
   omMajBoutonLancer();
