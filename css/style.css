@@ -2790,6 +2790,12 @@ body.is-unlocked .sidebar-logout{display:block}
 }
 .montage-toggle input:checked ~ .montage-toggle-track{background:var(--gold)}
 .montage-toggle input:checked ~ .montage-toggle-track::before{transform:translateX(18px)}
+/* Sous-titres indisponibles pour une voix off importée (voir omMajCaseSousTitres,
+   js/montage-manuel.js) : grise le curseur, jamais juste le laisser cliquable
+   sans effet. */
+.montage-toggle input:disabled{cursor:not-allowed}
+.montage-toggle input:disabled ~ .montage-toggle-track{opacity:0.4;cursor:not-allowed}
+.montage-toggle-row:has(input:disabled) .montage-toggle-label{opacity:0.55;cursor:default}
 
 /* Ligne d'arrivée du panneau : séparée par une hairline, CTA finale bien
    plus large (contrairement aux actions annexes) pour qu'elle se voie

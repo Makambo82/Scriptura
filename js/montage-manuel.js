@@ -297,6 +297,7 @@ function omRenderVoixZone() {
       ${preview}`;
     omRenderMusiqueZone();
     omMajChipVoix();
+    omMajCaseSousTitres();
     return;
   }
   // Marque l'option effectivement choisie (omVoixId) pour que le select
@@ -341,6 +342,21 @@ function omRenderVoixZone() {
     ${preview}`;
   omRenderMusiqueZone();
   omMajChipVoix();
+  omMajCaseSousTitres();
+}
+
+// Sous-titres incrustés : jamais possibles avec une voix off importée (pas
+// d'horodatage, voir le commentaire dans omLancerMontage). Retour terrain :
+// la case restait cochée et cliquable même en mode "upload", sans jamais
+// rien faire au rendu, silencieusement. On la grise et on change la note
+// pour que ce soit visible plutôt que deviné.
+function omMajCaseSousTitres() {
+  const checkbox = document.getElementById('omSousTitresCheckbox');
+  const note = document.getElementById('omSousTitresNote');
+  if (!checkbox) return;
+  const dispo = omModeVoix === 'ia';
+  checkbox.disabled = !dispo;
+  if (note) note.textContent = dispo ? '(voix IA uniquement)' : '(indisponible : voix importée, pas d\'horodatage possible)';
 }
 
 // Pastille d'état de l'en-tête "Voix off" (retour propriétaire : disposition
