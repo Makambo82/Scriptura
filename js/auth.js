@@ -38,6 +38,12 @@ async function verifierStatutServeur(code) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code })
     });
+    if (r.status === 429) {
+      // Trop de tentatives depuis cette IP (voir verifierLimiteAnonyme,
+      // api/verify-code.js) : jamais confondu avec "code invalide", sinon
+      // l'utilisateur retape en boucle un code pourtant correct.
+      return { valid: false, isAdmin: false, illimite: false, tropDeTentatives: true };
+    }
     const data = await r.json();
     localStorage.setItem('scriptura_is_admin', data.isAdmin ? 'true' : 'false');
     localStorage.setItem('scriptura_illimite', data.illimite ? 'true' : 'false');
@@ -76,7 +82,9 @@ async function verifyCode() {
   if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
 
   if (!verdict.valid) {
-    if (verdict.indisponible) {
+    if (verdict.tropDeTentatives) {
+      errorEl.textContent = 'Trop de tentatives, réessaie dans quelques minutes.';
+    } else if (verdict.indisponible) {
       // Panne réseau/serveur temporaire (voir verifierStatutServeur) : ne
       // jamais dire "code invalide" pour ça, le code peut être parfaitement
       // bon, c'est juste la vérification qui a échoué cette fois. Un message
@@ -193,7 +201,22 @@ function assurerCompteActuelConnu() {
 // connexion) : jamais une bascule silencieuse vers un compte qui ne marche
 // plus, dans ce cas on l'oublie et on rouvre la saisie manuelle, code déjà
 // rempli, pour que le message d'erreur habituel explique pourquoi.
+let _basculeCompteEnCours = false;
 async function basculerVersCompteConnu(code) {
+  // Verrou anti-double-appel (retour d'audit) : sans lui, cliquer vite sur
+  // deux comptes d'affilée lance deux vérifications serveur en parallèle,
+  // et c'est celle qui répond EN DERNIER qui gagne l'écriture localStorage,
+  // pas forcément le compte sur lequel l'utilisateur a cliqué en dernier,
+  // une bascule silencieuse vers le mauvais compte.
+  if (_basculeCompteEnCours) return;
+  _basculeCompteEnCours = true;
+  try {
+    await _basculerVersCompteConnu(code);
+  } finally {
+    _basculeCompteEnCours = false;
+  }
+}
+async function _basculerVersCompteConnu(code) {
   const verdict = await verifierStatutServeur(code);
   // Panne réseau/serveur temporaire (voir verifierStatutServeur) : JAMAIS
   // oublier le compte pour ça, sinon une simple coupure de connexion suffit

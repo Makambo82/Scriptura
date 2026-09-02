@@ -75,7 +75,11 @@ async function resoudreDroits(code) {
   const cfg = config();
   if (!cfg) {
     // Clé service role absente : dégradation (voir en-tête de fichier),
-    // on ne bloque personne mais rien n'est réellement vérifié ici.
+    // on ne bloque personne mais rien n'est réellement vérifié ici. Ce cas
+    // donne un accès Creator gratuit à N'IMPORTE QUEL code, y compris
+    // inventé : sans log, une mauvaise config Supabase en prod ouvrirait
+    // l'accès payant à tout le monde sans que personne ne s'en aperçoive.
+    console.error('[acces] SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absent(s) : accès Creator dégradé accordé sans vérification réelle');
     return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, nonConfigure: true };
   }
 
@@ -90,6 +94,7 @@ async function resoudreDroits(code) {
       // comme "code inconnu" (rows.length===0 par défaut de r.json() en
       // erreur), ce qui plafonnait TOUT abonné réel à 5 générations gratuites
       // à vie au lieu de son quota mensuel réel, à la moindre erreur d'API.
+      console.error('[acces] Supabase a répondu ' + r.status + ' sur /rest/v1/abonnes : accès Creator dégradé accordé sans vérification réelle');
       return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
     }
     const rows = await r.json();
@@ -116,6 +121,7 @@ async function resoudreDroits(code) {
   } catch (e) {
     // Panne réseau/Supabase : ne jamais enfermer un abonné dehors pour ça
     // (même filet que le comportement d'avant cette passe).
+    console.error('[acces] panne réseau vers Supabase (' + (e && e.message) + ') : accès Creator dégradé accordé sans vérification réelle');
     return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
   }
 }
@@ -240,16 +246,40 @@ function hashCourt(s) {
 // ex. les 5 générations gratuites d'un visiteur qui n'a jamais tapé de
 // code), false pour un plafond journalier classique (repart à zéro chaque
 // jour, ex. le filet anti-abus des routes coûteuses).
+function refUsageAnonyme(req, fonction, sansExpiration) {
+  const cle = sansExpiration ? 'avie' : new Date().toISOString().slice(0, 10);
+  return 'anon_' + fonction + '_' + cle + '_' + hashCourt(ipDuRequest(req));
+}
+
 async function verifierLimiteAnonyme(req, fonction, plafond, sansExpiration) {
   const cfg = config();
   if (!cfg) return { ok: true }; // clé service role absente : dégradation
-  const cle = sansExpiration ? 'avie' : new Date().toISOString().slice(0, 10);
-  const ref = 'anon_' + fonction + '_' + cle + '_' + hashCourt(ipDuRequest(req));
+  const ref = refUsageAnonyme(req, fonction, sansExpiration);
   const consomme = await consommerUsage(cfg, ref, plafond);
   // false = plafond réellement atteint. true ou null (indéterminé) : on
   // laisse passer, jamais bloquer un visiteur pour une panne ou une
   // migration pas encore faite.
   return consomme === false ? { ok: false, raison: 'limite_anonyme' } : { ok: true };
+}
+
+// Lecture SEULE (jamais de décompte ici) du compteur anonyme réel, pour
+// synchroniser l'affichage client (voir fetchServerQuota, js/api.js) sur LA
+// MÊME source que le vrai verrou serveur (verifierLimiteAnonyme). Avant ce
+// correctif, l'affichage ("N/5 générations utilisées") suivait une table
+// séparée (`quotas`, écrite en clair par le navigateur via la clé anonyme),
+// jamais la table `usage_serveur` qui décide réellement du blocage : les
+// deux pouvaient diverger (IP partagée, cache vidé...), donnant un compteur
+// visuellement faux par rapport à ce qui bloquait vraiment la génération.
+async function lireUsageAnonyme(req, fonction, sansExpiration) {
+  const cfg = config();
+  if (!cfg) return null;
+  try {
+    const ref = refUsageAnonyme(req, fonction, sansExpiration);
+    const r = await fetch(cfg.url + '/rest/v1/usage_serveur?ref=eq.' + encodeURIComponent(ref) + '&select=used', { headers: entetes(cfg.key) });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return (Array.isArray(rows) && rows[0]) ? (parseInt(rows[0].used, 10) || 0) : 0;
+  } catch (e) { return null; }
 }
 
 // Accès réservé Pro OU jeton (audit détaillé, mode Série) : mêmes règles
@@ -321,6 +351,7 @@ export {
   resoudreDroits,
   verifierQuota,
   verifierLimiteAnonyme,
+  lireUsageAnonyme,
   verifierAccesProOuJeton,
   verifierAccesMontage,
   lireUsageMontageImages,

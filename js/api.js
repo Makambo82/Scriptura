@@ -410,27 +410,45 @@ async function ensureDeviceIds() {
   return { fp: _deviceFp, ip: _userIP };
 }
 
-// Récupère le quota réel depuis Supabase (le max entre empreinte et IP).
-// Renvoie le nombre de générations déjà utilisées selon le serveur.
+// Récupère le quota réel de générations gratuites déjà utilisées. Deux
+// sources historiquement DIVERGENTES (retour d'audit) : la table `quotas`
+// (écrite en clair par le navigateur via la clé anonyme Supabase, par
+// empreinte + IP) ne reflétait jamais forcément le VRAI compteur serveur
+// qui bloque réellement la génération (usage_serveur, voir
+// verifierLimiteAnonyme/api/generate.js) — IP partagée (wifi public,
+// famille) ou cache vidé pouvaient faire diverger l'affichage du vrai
+// reste. /api/data?resource=quotaGenerationGratuite lit directement CETTE
+// même source ; on prend le max avec l'ancienne table comme repli si cette
+// lecture échoue, jamais l'inverse (ne jamais afficher moins que ce que le
+// serveur bloque réellement).
 async function fetchServerQuota() {
-  if (!supabaseClient) return null; // pas de Supabase → on garde le localStorage
+  let depuisSourceReelle = null;
   try {
-    const { fp, ip } = await ensureDeviceIds();
-    const refs = [fp];
-    if (ip) refs.push('ip_' + ip);
-    // Chercher les lignes correspondant à l'empreinte OU l'IP
-    const { data, error } = await supabaseClient
-      .from('quotas')
-      .select('ref, used')
-      .in('ref', refs);
-    if (error) throw error;
-    if (!data || !data.length) return 0;
-    // On prend le maximum (le plus contraignant)
-    return Math.max(...data.map(r => r.used || 0));
-  } catch(e) {
-    console.warn('fetchServerQuota échec', e);
-    return null;
+    const r = await fetch('/api/data?resource=quotaGenerationGratuite');
+    const j = await r.json();
+    if (j && j.ok && typeof j.used === 'number') depuisSourceReelle = j.used;
+  } catch (e) { /* on retombe sur l'ancienne source ci-dessous */ }
+
+  let depuisTableClient = null;
+  if (supabaseClient) {
+    try {
+      const { fp, ip } = await ensureDeviceIds();
+      const refs = [fp];
+      if (ip) refs.push('ip_' + ip);
+      // Chercher les lignes correspondant à l'empreinte OU l'IP
+      const { data, error } = await supabaseClient
+        .from('quotas')
+        .select('ref, used')
+        .in('ref', refs);
+      if (error) throw error;
+      depuisTableClient = (data && data.length) ? Math.max(...data.map(r => r.used || 0)) : 0;
+    } catch(e) {
+      console.warn('fetchServerQuota échec (table quotas)', e);
+    }
   }
+
+  if (depuisSourceReelle == null && depuisTableClient == null) return null;
+  return Math.max(depuisSourceReelle || 0, depuisTableClient || 0);
 }
 
 // ═══════════════════════════════════════════════════════════

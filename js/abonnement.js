@@ -202,7 +202,12 @@ const NOTIF_COMPTE_SEUIL_JOURS = 7;
 const NOTIF_COMPTE_SEUIL_GEN = 3;
 
 function cleNotifCompteJour() {
-  return 'scriptura_notif_compte_fermee_' + new Date().toISOString().slice(0, 10);
+  // Indexée par compte (retour d'audit) : sans ça, fermer la bannière avec
+  // un code sur un appareil partagé la masquait aussi pour TOUT AUTRE compte
+  // utilisé le même jour sur cet appareil (bascule rapide de compte, voir
+  // js/auth.js), y compris une vraie alerte jamais vue par ce 2e compte.
+  const code = (localStorage.getItem('scriptura_code') || 'anonyme').trim().toUpperCase();
+  return 'scriptura_notif_compte_fermee_' + code + '_' + new Date().toISOString().slice(0, 10);
 }
 
 function positionnerNotifCompte(bar) {

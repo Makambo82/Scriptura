@@ -13,7 +13,7 @@
 //  resource=generations | series | profil | admin-stats
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, lireUsageMontageImages } from './_lib/acces.js';
+import { resoudreDroits, lireUsageMontageImages, lireUsageAnonyme } from './_lib/acces.js';
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -690,6 +690,18 @@ async function handleQuotaMontage(req, res) {
   return res.status(200).json({ ok: true, concerne: true, ...usage });
 }
 
+// Lecture seule du VRAI compteur de générations gratuites (usage_serveur,
+// IP), pour que l'affichage client (fetchServerQuota, js/api.js) suive la
+// même source que le verrou serveur réel (verifierLimiteAnonyme,
+// api/generate.js), au lieu de la table `quotas` séparée écrite en clair
+// par le navigateur (voir lireUsageAnonyme, api/_lib/acces.js).
+async function handleQuotaGenerationGratuite(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Méthode non autorisée' });
+  const used = await lireUsageAnonyme(req, 'generate_creation', true);
+  if (used == null) return res.status(200).json({ ok: false });
+  return res.status(200).json({ ok: true, used });
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -701,6 +713,7 @@ export default async function handler(req, res) {
 
   if (resource === 'presence') return handlePresence(req, res, body);
   if (resource === 'quotaMontage') return handleQuotaMontage(req, res);
+  if (resource === 'quotaGenerationGratuite') return handleQuotaGenerationGratuite(req, res);
 
   // admin-stats vérifie ses droits lui-même (voir handleAdminStats) même
   // sans clé service_role configurée, jamais de repli silencieux pour une

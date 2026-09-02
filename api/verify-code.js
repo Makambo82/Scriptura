@@ -20,6 +20,8 @@
 //  - SUPABASE_SERVICE_ROLE_KEY : lecture de `abonnes` malgré la RLS verrouillée.
 // ═══════════════════════════════════════════════════════════
 
+import { verifierLimiteAnonyme } from './_lib/acces.js';
+
 function config() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -50,6 +52,17 @@ async function ligneAbonne(code) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+  }
+
+  // Aucune limite jusqu'ici : n'importe qui pouvait bombarder cette route
+  // pour deviner CODE_ADMIN/CODES_ILLIMITES par force brute (comparaison de
+  // chaînes simple, avant même Supabase). Même filet que le reste (jamais
+  // enfermer un visiteur dehors pour une panne Supabase/config absente,
+  // voir verifierLimiteAnonyme) : large mais réel (60/jour/IP, une saisie
+  // normale même avec plusieurs fautes de frappe reste largement sous ce seuil).
+  const limite = await verifierLimiteAnonyme(req, 'verify-code', 60);
+  if (!limite.ok) {
+    return res.status(429).json({ error: { message: 'Trop de tentatives, réessaie plus tard.' } });
   }
 
   let body = req.body;
