@@ -29,6 +29,18 @@ let montageMusiqueEnCours = false;
 let montageImagesEnCours = false;
 let montageVoixListe = [];  // [{ id, label, description }], voix ElevenLabs configurées (voir api/montage-media.js action=voices)
 let montageVoixId = '';     // id de la voix actuellement choisie
+// Vitesse de lecture de la voix off (retour propriétaire), transmise à
+// ElevenLabs (voice_settings.speed, voir api/montage-media.js). Plage
+// 0.5-1.5 : au-delà, ElevenLabs déconseille (voix nettement déformée),
+// même plage que le sélecteur de voix (jusqu'à 10 voix, 6 hommes/4 femmes).
+const MONTAGE_VITESSES = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
+function montageLabelVitesse(v) {
+  if (v === 1) return '1x (normal)';
+  if (v === 0.5) return '0,5x (très lent)';
+  if (v === 1.5) return '1,5x (très rapide)';
+  return String(v).replace('.', ',') + 'x';
+}
+let montageVitesseVoix = 1;
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
 let montageVideoFichierPromise = null; // File préchargé de la vidéo rendue, voir partagerVideoMontage
 let montageImagesSelection = new Set(); // indices des images cochées pour le téléchargement en lot
@@ -73,6 +85,7 @@ function ouvrirMontage(plans, boutonEl) {
   montageImagesSelection = new Set();
   montageVoixOff = null;
   montageMusique = null;
+  montageVitesseVoix = 1;
   montageEnCours = false;
   montageVoixEnCours = false;
   montageMusiqueEnCours = false;
@@ -83,6 +96,14 @@ function ouvrirMontage(plans, boutonEl) {
   if (statut) statut.style.display = 'none';
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
+  // Sélecteur de vitesse statique (jamais reconstruit par renderMontageEtat,
+  // contrairement au menu des voix) : remis à "1x (normal)" ici, sinon le
+  // panneau partagé garderait le choix d'un montage précédent affiché à
+  // l'écran sans que montageVitesseVoix (remis à 1 ci-dessus) ne corresponde.
+  // Le setter select.value est intercepté par initCustomSelect (js/ui.js)
+  // pour rafraîchir le libellé affiché même sans événement 'change'.
+  const selVitesse = document.getElementById('montageVitesseSelect');
+  if (selVitesse) selVitesse.value = '1';
   const compteAttendu = document.getElementById('montageCompteAttendu');
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
@@ -557,6 +578,17 @@ function changerVoixMontage(id) {
   renderMontageEtat();
 }
 
+function changerVitesseMontage(v) {
+  const vitesse = Number(v) || 1;
+  if (vitesse === montageVitesseVoix) return;
+  montageVitesseVoix = vitesse;
+  // Même raisonnement que changerVoixMontage ci-dessus : la voix off déjà
+  // générée l'a été à l'ancienne vitesse, elle ne correspond plus au réglage
+  // affiché.
+  montageVoixOff = null;
+  renderMontageEtat();
+}
+
 async function genererVoixOffMontage() {
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
@@ -585,7 +617,7 @@ async function genererVoixOffMontage() {
     const rep = await fetch('/api/montage-media?action=tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments: montagePlans.map(p => p.text), voiceId: montageVoixId, code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify({ segments: montagePlans.map(p => p.text), voiceId: montageVoixId, speed: montageVitesseVoix, code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La voix off n\'a pas pu être générée.');

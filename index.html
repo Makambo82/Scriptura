@@ -1900,6 +1900,20 @@
     <div class="montage-section">
       <div class="montage-section-label">Voix off</div>
       <select class="ctx-input" id="montageVoixSelect" style="display:none" onchange="changerVoixMontage(this.value)"></select>
+      <label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Vitesse de lecture</label>
+      <select class="ctx-input" id="montageVitesseSelect" style="margin-top:6px" onchange="changerVitesseMontage(this.value)">
+        <option value="0.5">0,5x (très lent)</option>
+        <option value="0.6">0,6x</option>
+        <option value="0.7">0,7x</option>
+        <option value="0.8">0,8x</option>
+        <option value="0.9">0,9x</option>
+        <option value="1" selected>1x (normal)</option>
+        <option value="1.1">1,1x</option>
+        <option value="1.2">1,2x</option>
+        <option value="1.3">1,3x</option>
+        <option value="1.4">1,4x</option>
+        <option value="1.5">1,5x (très rapide)</option>
+      </select>
       <div id="montageVoixZone" style="margin-top:10px">
         <button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>
       </div>

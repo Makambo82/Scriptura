@@ -33,6 +33,18 @@ let omDureesManuelles = [];  // [nombre, ...] durée (s) par image, mode 'upload
 let omModeVoix = 'upload';   // 'upload' | 'ia'
 let omVoixListe = [];        // [{ id, label, description }], voix ElevenLabs configurées côté serveur
 let omVoixId = '';
+// Vitesse de lecture de la voix off (retour propriétaire), transmise à
+// ElevenLabs (voice_settings.speed, voir api/montage-media.js). Plage
+// 0.5-1.5 : au-delà, ElevenLabs déconseille (voix nettement déformée), voir
+// commentaire équivalent dans js/montage.js.
+const OM_VITESSES = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5];
+function omLabelVitesse(v) {
+  if (v === 1) return '1x (normal)';
+  if (v === 0.5) return '0,5x (très lent)';
+  if (v === 1.5) return '1,5x (très rapide)';
+  return String(v).replace('.', ',') + 'x';
+}
+let omVitesseVoix = 1;
 let omTexteNarration = '';
 let omVoixEnCours = false;
 let omMusique = null;        // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
@@ -47,6 +59,7 @@ function omResetState() {
   omDureesManuelles = [];
   omModeVoix = 'upload';
   omVoixId = '';
+  omVitesseVoix = 1;
   omTexteNarration = '';
   omVoixEnCours = false;
   if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
@@ -231,6 +244,26 @@ function omChangerVoix(id) {
   }
 }
 
+// Même logique que omChangerVoix ci-dessus : une voix off IA déjà générée
+// a été produite à l'ANCIENNE vitesse, elle ne correspond plus au réglage
+// choisi, on l'invalide plutôt que de laisser un montage lancé sur un audio
+// qui ne reflète pas la vitesse affichée.
+function omChangerVitesse(v) {
+  const vitesse = Number(v) || 1;
+  if (vitesse === omVitesseVoix) return;
+  omVitesseVoix = vitesse;
+  if (omAudio && omAudio.source === 'ia') {
+    if (omAudio.url) URL.revokeObjectURL(omAudio.url);
+    omAudio = null;
+    omInvaliderResultat();
+    omMajBoutonLancer();
+    const audioEl = document.querySelector('#omVoixZone .montage-audio-preview');
+    if (audioEl) audioEl.remove();
+    const genBtn = document.querySelector('#omVoixZone .btn-regenerate');
+    if (genBtn) genBtn.textContent = 'Générer la voix off';
+  }
+}
+
 function omRenderVoixZone() {
   const zone = document.getElementById('omVoixZone');
   if (!zone) return;
@@ -257,6 +290,9 @@ function omRenderVoixZone() {
       .concat(omVoixListe.map(v => `<option value="${v.id}"${v.id === omVoixId ? ' selected' : ''} data-description="${outilsEsc(v.description || '')}">${outilsEsc(v.label)}</option>`));
     selectHtml = `<select class="ctx-input" id="omVoixSelect" style="margin-top:10px" onchange="omChangerVoix(this.value)">${options.join('')}</select>`;
   }
+  const vitesseOptions = OM_VITESSES.map(v => `<option value="${v}"${v === omVitesseVoix ? ' selected' : ''}>${omLabelVitesse(v)}</option>`).join('');
+  const vitesseHtml = `<label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Vitesse de lecture</label>
+    <select class="ctx-input" id="omVitesseSelect" style="margin-top:6px" onchange="omChangerVitesse(this.value)">${vitesseOptions}</select>`;
   const preview = (omAudio && omAudio.source === 'ia')
     ? `<audio class="montage-audio-preview" src="${omAudio.url}" controls style="margin-top:10px"></audio>`
     : '';
@@ -278,6 +314,7 @@ function omRenderVoixZone() {
     <div class="montage-statut" style="margin-bottom:6px">${indication}</div>
     <textarea class="ctx-input" id="omTexteNarration" rows="4" placeholder="Ligne 1 pour l'image 1…&#10;Ligne 2 pour l'image 2…" oninput="omTexteNarration=this.value" ${omVoixEnCours ? 'disabled' : ''}>${outilsEsc(omTexteNarration)}</textarea>
     ${selectHtml}
+    ${vitesseHtml}
     <button class="btn-regenerate" type="button" style="margin-top:10px" ${omVoixEnCours ? 'disabled' : ''} onclick="omGenererVoixOff()">${omVoixEnCours ? 'Génération…' : (omAudio && omAudio.source === 'ia' ? '↻ Régénérer la voix off' : 'Générer la voix off')}</button>
     ${progBar}
     ${preview}`;
@@ -354,7 +391,7 @@ async function omGenererVoixOff() {
     const rep = await fetch('/api/montage-media?action=tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments: lignes, voiceId: omVoixId, code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify({ segments: lignes, voiceId: omVoixId, speed: omVitesseVoix, code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await rep.json();
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || "La voix off n'a pas pu être générée.");

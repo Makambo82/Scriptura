@@ -186,6 +186,16 @@ async function handleTts(req, res, body) {
   const voixChoisie = voixDisponibles.find(v => v.id === voixDemandee) || voixDisponibles[0];
   const voiceId = voixChoisie.id;
 
+  // Vitesse de lecture (retour propriétaire) : voice_settings.speed
+  // d'ElevenLabs accepte 0.25-4.0 côté API, mais la qualité se dégrade
+  // nettement en dehors de 0.5-1.5 (voix déformée), plage exposée côté
+  // client (voir js/montage.js et js/montage-manuel.js). Toujours calée
+  // dans cette plage ici aussi, même si le client est censé déjà la
+  // respecter : jamais une valeur hors-plage envoyée telle quelle à
+  // ElevenLabs à cause d'un appel direct de l'API sans passer par l'UI.
+  const vitesseDemandee = Number(body?.speed);
+  const speed = Number.isFinite(vitesseDemandee) ? Math.min(1.5, Math.max(0.5, vitesseDemandee)) : 1;
+
   const debutsCaracteres = [];
   let curseur = 0;
   for (const s of segments) {
@@ -200,7 +210,7 @@ async function handleTts(req, res, body) {
       {
         method: 'POST',
         headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: texteComplet, model_id: 'eleven_multilingual_v2' })
+        body: JSON.stringify({ text: texteComplet, model_id: 'eleven_multilingual_v2', voice_settings: { speed } })
       }
     );
     const data = await rep.json();
