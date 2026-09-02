@@ -46,9 +46,26 @@ const DUREE_TRANSITION = parseFloat(process.env.MONTAGE_TRANSITION || '0.5');
 const ZMAX = 1.20;
 // Volume de la musique de fond relatif à la voix off (1.0), reste en
 // retrait sous la narration sans jamais la couvrir (retour propriétaire :
-// musique de fond pour un montage plus premium, voir MONTAGE_TOKEN plus
-// bas pour le style des réglages réglables par variable d'environnement).
-const MUSIQUE_VOLUME = parseFloat(process.env.MONTAGE_MUSIC_VOLUME || '0.18');
+// musique de fond pour un montage plus premium). Réglable désormais PAR
+// MONTAGE (musicVolume dans la requête /render, voir menu "Volume de la
+// musique" côté client, js/montage.js et js/montage-manuel.js) ; cette
+// variable d'environnement ne sert plus que de valeur par défaut si le
+// client n'en envoie pas (anciens appels, ou service appelé directement).
+const MUSIQUE_VOLUME_DEFAUT = parseFloat(process.env.MONTAGE_MUSIC_VOLUME || '0.15');
+// Plage exposée côté client (5%-50%) : au-delà, la musique commence à
+// couvrir la voix off, jamais l'intention d'un fond sonore.
+const MUSIQUE_VOLUME_MIN = 0.05;
+const MUSIQUE_VOLUME_MAX = 0.5;
+
+// Extrait en fonction pure (testable sans passer par une vraie requête HTTP
+// ni un rendu FFmpeg complet, voir tests/render-service-volume-musique.test.js
+// dans le dépôt principal) : jamais une valeur hors plage envoyée telle
+// quelle à FFmpeg, la valeur par défaut sert seulement si le client n'envoie
+// rien (absent, non numérique).
+function resoudreVolumeMusique(demande) {
+  const v = Number(demande);
+  return Number.isFinite(v) ? Math.min(MUSIQUE_VOLUME_MAX, Math.max(MUSIQUE_VOLUME_MIN, v)) : MUSIQUE_VOLUME_DEFAUT;
+}
 // Nombre de plans rendus ensemble dans UN graphe FFmpeg (donc de flux ouverts
 // en même temps). C'est ce nombre, pas la résolution, qui borne la mémoire :
 // un seul gros graphe de ~20 images 1080p saturait la RAM du conteneur (OOM,
@@ -290,6 +307,9 @@ app.post('/render', async (req, res) => {
   // api/montage-media.js action=music), une simple URL publique ici comme
   // pour audioUrl/images.
   const musicUrl = typeof req.body?.musicUrl === 'string' ? req.body.musicUrl : '';
+  // Volume choisi par montage (voir menu "Volume de la musique" côté
+  // client), voir resoudreVolumeMusique ci-dessus pour le bornage.
+  const musicVolume = resoudreVolumeMusique(req.body?.musicVolume);
 
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
   try {
@@ -379,7 +399,7 @@ app.post('/render', async (req, res) => {
       // baissée (MUSIQUE_VOLUME) pour rester en retrait sous la narration.
       filtres.push(
         `[1:a]volume=1.0[va]`,
-        `[2:a]volume=${MUSIQUE_VOLUME}[ma]`,
+        `[2:a]volume=${musicVolume}[ma]`,
         `[va][ma]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[aout]`
       );
       sortieAudio = '[aout]';
@@ -422,4 +442,4 @@ if (require.main === module) {
   app.listen(PORT, () => console.log('Service de rendu Scriptura à l\'écoute sur le port ' + PORT));
 }
 
-module.exports = { construireASS, versHorodatageASS, echapperTexteASS, MUSIQUE_VOLUME };
+module.exports = { construireASS, versHorodatageASS, echapperTexteASS, resoudreVolumeMusique, MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX };

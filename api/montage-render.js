@@ -225,6 +225,11 @@ export default async function handler(req, res) {
   // même remarque que captions ci-dessus : seulement transmise au service de
   // rendu externe, le repli FFmpeg local plus bas ne la mixe pas encore.
   const musicUrl = typeof body?.musicUrl === 'string' ? body.musicUrl : '';
+  // Volume de la musique de fond (retour propriétaire), choisi par montage
+  // via le menu "Volume de la musique" côté client (0.05-0.5, voir
+  // render-service/server.js pour le bornage définitif). Optionnel : sans
+  // lui, le service de rendu retombe sur sa valeur par défaut.
+  const musicVolume = Number.isFinite(Number(body?.musicVolume)) ? Number(body.musicVolume) : undefined;
 
   // Service de rendu externe (Railway/Render/Fly, voir render-service/),
   // proxié depuis ICI (serveur), jamais appelé directement par le
@@ -244,7 +249,7 @@ export default async function handler(req, res) {
       const rProxy = await fetch(process.env.MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render', {
         method: 'POST',
         headers: entetesProxy,
-        body: JSON.stringify({ images, audioUrl, format, captions, musicUrl })
+        body: JSON.stringify({ images, audioUrl, format, captions, musicUrl, musicVolume })
       });
       const dataProxy = await rProxy.json().catch(() => ({}));
       if (!rProxy.ok || !dataProxy.url) {

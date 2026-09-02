@@ -3,7 +3,7 @@
 // (tests/) : ce service a son propre package.json/déploiement, séparé du
 // site (voir README.md). Lancer avec : node render-service/test-sous-titres.js
 const assert = require('node:assert/strict');
-const { construireASS, versHorodatageASS, echapperTexteASS } = require('./server.js');
+const { construireASS, versHorodatageASS, echapperTexteASS, resoudreVolumeMusique, MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX } = require('./server.js');
 
 function test(nom, fn) {
   try {
@@ -58,4 +58,24 @@ test('construireASS gère une liste vide sans planter (aucun sous-titre à affic
   const ass = construireASS([], 720, 1280);
   assert.match(ass, /PlayResX: 720/);
   assert.ok(!ass.includes('Dialogue:'), 'aucune ligne Dialogue attendue : ' + ass);
+});
+
+// Volume de la musique de fond (retour propriétaire), réglable par montage
+// (musicVolume dans la requête /render, voir menu "Volume de la musique"
+// côté client) : jamais une valeur hors plage (5%-50%) envoyée telle quelle
+// à FFmpeg, la valeur par défaut sert seulement si le client n'en envoie pas.
+test('resoudreVolumeMusique transmet la valeur demandée si elle est déjà dans la plage 5%-50%', () => {
+  assert.equal(resoudreVolumeMusique(0.3), 0.3);
+  assert.equal(resoudreVolumeMusique(MUSIQUE_VOLUME_MIN), MUSIQUE_VOLUME_MIN);
+  assert.equal(resoudreVolumeMusique(MUSIQUE_VOLUME_MAX), MUSIQUE_VOLUME_MAX);
+});
+
+test('resoudreVolumeMusique cale une valeur hors plage sur la borne la plus proche', () => {
+  assert.equal(resoudreVolumeMusique(0.01), MUSIQUE_VOLUME_MIN, 'trop bas -> remonté au minimum');
+  assert.equal(resoudreVolumeMusique(1), MUSIQUE_VOLUME_MAX, 'trop haut -> ramené au maximum (la musique ne doit jamais pouvoir couvrir la voix)');
+});
+
+test('resoudreVolumeMusique retombe sur la valeur par défaut si rien n\'est envoyé (absent, non numérique)', () => {
+  assert.equal(resoudreVolumeMusique(undefined), MUSIQUE_VOLUME_DEFAUT);
+  assert.equal(resoudreVolumeMusique('pas-un-nombre'), MUSIQUE_VOLUME_DEFAUT);
 });

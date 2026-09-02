@@ -63,6 +63,43 @@ test('/api/montage-render proxie vers le service externe avec le jeton serveur, 
   }
 });
 
+test('/api/montage-render transmet musicUrl et musicVolume au service externe (retour propriétaire : réglage du volume de la musique de fond)', async () => {
+  const envAvant = { ...process.env };
+  process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE_VOLUME';
+  process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+
+  const fetchOriginal = global.fetch;
+  let requeteProxy = null;
+  global.fetch = async (url, options) => {
+    requeteProxy = { url, options };
+    return { ok: true, json: async () => ({ url: 'https://supabase.example/montages/rendus/test.mp4' }) };
+  };
+
+  try {
+    const { default: handler } = await import('../api/montage-render.js');
+    const req = {
+      method: 'POST',
+      body: {
+        code_acces: 'TESTADMIN_MONTAGE_VOLUME',
+        images: [{ url: 'https://x.example/a.jpg', duration: 2 }],
+        audioUrl: 'https://x.example/audio.mp3',
+        musicUrl: 'https://x.example/musique.mp3',
+        musicVolume: 0.3
+      }
+    };
+    const res = { status() { return this; }, json() { return this; } };
+    await handler(req, res);
+
+    assert.ok(requeteProxy, 'le proxy doit avoir appelé fetch vers le service externe');
+    const corpsEnvoye = JSON.parse(requeteProxy.options.body);
+    assert.equal(corpsEnvoye.musicUrl, 'https://x.example/musique.mp3');
+    assert.equal(corpsEnvoye.musicVolume, 0.3, 'le volume choisi doit être transmis tel quel au service externe : ' + JSON.stringify(corpsEnvoye));
+  } finally {
+    global.fetch = fetchOriginal;
+    process.env = envAvant;
+  }
+});
+
 test('/api/montage-render refuse un code non-fondateur avant même de songer à un rendu', async () => {
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE2';

@@ -824,6 +824,19 @@
 
     <div class="montage-section">
       <div class="montage-section-label">Musique de fond <span style="opacity:0.7;font-weight:400">(facultatif)</span></div>
+      <label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Volume de la musique</label>
+      <select class="ctx-input" id="omMusiqueVolumeSelect" style="margin-top:6px" onchange="omChangerVolumeMusique(this.value)">
+        <option value="0.05">5%</option>
+        <option value="0.1">10%</option>
+        <option value="0.15" selected>15%</option>
+        <option value="0.2">20%</option>
+        <option value="0.25">25%</option>
+        <option value="0.3">30%</option>
+        <option value="0.35">35%</option>
+        <option value="0.4">40%</option>
+        <option value="0.45">45%</option>
+        <option value="0.5">50%</option>
+      </select>
       <div id="omMusiqueZone" style="margin-top:10px">
         <button class="btn-regenerate" onclick="omGenererMusique()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
       </div>
@@ -1921,6 +1934,19 @@
 
     <div class="montage-section">
       <div class="montage-section-label">Musique de fond <span style="opacity:0.7;font-weight:400">(facultatif)</span></div>
+      <label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Volume de la musique</label>
+      <select class="ctx-input" id="montageMusiqueVolumeSelect" style="margin-top:6px" onchange="changerVolumeMusiqueMontage(this.value)">
+        <option value="0.05">5%</option>
+        <option value="0.1">10%</option>
+        <option value="0.15" selected>15%</option>
+        <option value="0.2">20%</option>
+        <option value="0.25">25%</option>
+        <option value="0.3">30%</option>
+        <option value="0.35">35%</option>
+        <option value="0.4">40%</option>
+        <option value="0.45">45%</option>
+        <option value="0.5">50%</option>
+      </select>
       <div id="montageMusiqueZone" style="margin-top:10px">
         <button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
       </div>

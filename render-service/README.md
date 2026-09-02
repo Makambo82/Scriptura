@@ -9,7 +9,7 @@ animations Ken Burns variées, sortie 1080×1920.
 ## Ce que fait le service
 
 - `GET /` → `OK` (santé, utilisé par l'hébergeur).
-- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...], "musicUrl": "..." }`
+- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...], "musicUrl": "...", "musicVolume": 0.15 }`
   → rend la vidéo, la ré-uploade dans Supabase Storage (bucket `montages`,
   dossier `rendus/`), renvoie `{ "url": "https://.../montage-....mp4" }`.
   `captions` est optionnel : sans lui (ou tableau vide), le flux vidéo est
@@ -19,8 +19,12 @@ animations Ken Burns variées, sortie 1080×1920.
   `musicUrl` est optionnel (musique de fond instrumentale, générée par
   Eleven Music, voir `api/montage-media.js` action=music) : sans lui, seule
   la voix off est présente. Avec lui, la musique est mélangée sous la voix
-  off, volume automatiquement baissé (`MONTAGE_MUSIC_VOLUME`, 0.18 par
-  défaut) et bouclée si plus courte que la vidéo.
+  off et bouclée si plus courte que la vidéo. `musicVolume` (0.05 à 0.5,
+  choisi par montage via le menu "Volume de la musique" côté client) règle
+  le niveau de la musique relatif à la voix off (toujours à 1.0) ; ignoré
+  hors plage (ramené à la borne la plus proche) ou absent (retombe sur
+  `MONTAGE_MUSIC_VOLUME`, 0.15 par défaut, variable d'environnement de ce
+  service).
 
 ## Déploiement sur Railway (recommandé)
 

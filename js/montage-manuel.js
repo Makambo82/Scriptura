@@ -49,6 +49,10 @@ let omTexteNarration = '';
 let omVoixEnCours = false;
 let omMusique = null;        // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
 let omMusiqueEnCours = false;
+// Volume de la musique de fond relatif à la voix off (retour propriétaire),
+// même remarque que js/montage.js : purement un réglage de mélange au
+// rendu, ne dépend pas du fichier musique déjà généré.
+let omVolumeMusique = 0.15;
 let omEnCours = false;
 
 function omResetState() {
@@ -65,6 +69,7 @@ function omResetState() {
   if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
   omMusique = null;
   omMusiqueEnCours = false;
+  omVolumeMusique = 0.15;
   omEnCours = false;
   const err = document.getElementById('omErreur');
   if (err) err.style.display = 'none';
@@ -72,6 +77,10 @@ function omResetState() {
   if (statut) statut.style.display = 'none';
   const resultat = document.getElementById('omResultat');
   if (resultat) resultat.innerHTML = '';
+  // Sélecteur de volume musique statique (jamais reconstruit ailleurs) :
+  // remis à 15% ici, même raison que le sélecteur de vitesse (js/montage.js).
+  const selVolumeMusique = document.getElementById('omMusiqueVolumeSelect');
+  if (selVolumeMusique) selVolumeMusique.value = '0.15';
   const btnUpload = document.getElementById('omModeUploadBtn');
   const btnIa = document.getElementById('omModeIaBtn');
   if (btnUpload) btnUpload.classList.add('actif');
@@ -487,6 +496,10 @@ function omRetirerMusique() {
   omRenderMusiqueZone();
 }
 
+function omChangerVolumeMusique(v) {
+  omVolumeMusique = Number(v) || 0.15;
+}
+
 function omRenderMusiqueZone() {
   const zone = document.getElementById('omMusiqueZone');
   if (!zone) return;
@@ -656,7 +669,7 @@ async function omLancerMontage() {
       const rRender = await fetch('/api/montage-render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, audioUrl, format, captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [], musicUrl, code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify({ images, audioUrl, format, captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [], musicUrl, musicVolume: omVolumeMusique, code_acces: localStorage.getItem('scriptura_code') || null })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || "Le montage n'a pas pu être généré.");

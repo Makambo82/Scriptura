@@ -23,6 +23,13 @@ let montagePlans = [];      // [{ text, visuel }], un par plan du storyboard
 let montageImages = [];     // [{ blob, apercu } | null], même ordre/longueur que montagePlans
 let montageVoixOff = null;  // { blob, url, durations }, générée par ElevenLabs
 let montageMusique = null;  // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
+// Volume de la musique de fond relatif à la voix off (retour propriétaire),
+// transmis au rendu (musicVolume, voir render-service/server.js pour le
+// mélange amix). Purement un réglage de MÉLANGE : contrairement à la
+// vitesse de la voix off, changer ce volume n'invalide jamais la musique
+// déjà générée (le fichier audio lui-même ne change pas, seul son niveau au
+// moment du mixage change).
+let montageVolumeMusique = 0.15;
 let montageEnCours = false;
 let montageVoixEnCours = false;
 let montageMusiqueEnCours = false;
@@ -86,6 +93,7 @@ function ouvrirMontage(plans, boutonEl) {
   montageVoixOff = null;
   montageMusique = null;
   montageVitesseVoix = 1;
+  montageVolumeMusique = 0.15;
   montageEnCours = false;
   montageVoixEnCours = false;
   montageMusiqueEnCours = false;
@@ -104,6 +112,8 @@ function ouvrirMontage(plans, boutonEl) {
   // pour rafraîchir le libellé affiché même sans événement 'change'.
   const selVitesse = document.getElementById('montageVitesseSelect');
   if (selVitesse) selVitesse.value = '1';
+  const selVolumeMusique = document.getElementById('montageMusiqueVolumeSelect');
+  if (selVolumeMusique) selVolumeMusique.value = '0.15';
   const compteAttendu = document.getElementById('montageCompteAttendu');
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
@@ -709,6 +719,10 @@ function retirerMusiqueMontage() {
   renderMontageEtat();
 }
 
+function changerVolumeMusiqueMontage(v) {
+  montageVolumeMusique = Number(v) || 0.15;
+}
+
 function renderMontageEtat() {
   const nbPretes = montageImages.filter(Boolean).length;
   const compte = document.getElementById('montageImagesCompte');
@@ -940,6 +954,7 @@ async function lancerMontage() {
         format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || ''),
         captions: (sousTitresActives && montageVoixOff.captions) || [],
         musicUrl,
+        musicVolume: montageVolumeMusique,
         code_acces: localStorage.getItem('scriptura_code') || null
       };
       const rRender = await fetch('/api/montage-render', {
