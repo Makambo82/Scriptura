@@ -689,6 +689,16 @@ async function genererMusiqueMontage() {
 
   montageMusiqueEnCours = true;
   renderMontageEtat();
+  // % estimé (même moteur que la voix off, createProgress) : aucun signal
+  // réel disponible pour un appel Eleven Music non flux, calé sur la durée
+  // demandée (une musique de 90s prend plus longtemps à générer qu'une de 10s).
+  const progMusiqueMontage = createProgress((p) => {
+    const fill = document.getElementById('montageMusiqueProgFill');
+    const pct = document.getElementById('montageMusiqueProgPct');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  }, Math.max(12000, dureeTotaleMs * 0.4));
+  progMusiqueMontage.start();
   try {
     const rep = await fetch('/api/montage-media?action=music', {
       method: 'POST',
@@ -699,7 +709,9 @@ async function genererMusiqueMontage() {
     if (!rep.ok || !data.audioBase64) throw new Error((data.error && data.error.message) || 'La musique de fond n\'a pas pu être générée.');
     const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
     montageMusique = { blob, url: URL.createObjectURL(blob) };
+    progMusiqueMontage.finish();
   } catch (e) {
+    progMusiqueMontage.stop();
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
     try {
       fetch('/api/data', {
@@ -822,7 +834,12 @@ function renderMontageEtat() {
   const zoneMusique = document.getElementById('montageMusiqueZone');
   if (zoneMusique) {
     if (montageMusiqueEnCours) {
-      zoneMusique.innerHTML = `<div class="montage-statut" style="margin:0">Génération de la musique…</div>`;
+      // % estimé, même moteur que la voix off (voir genererMusiqueMontage).
+      zoneMusique.innerHTML = `<div class="sb-progress-bar" id="montageMusiqueProgBar" style="max-width:none;margin:0">
+        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageMusiqueProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="montageMusiqueProgPct">0%</div>
+      </div>`;
     } else if (montageMusique) {
       zoneMusique.innerHTML = `
         <audio class="montage-audio-preview" src="${montageMusique.url}" controls></audio>

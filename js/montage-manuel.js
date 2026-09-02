@@ -486,6 +486,16 @@ async function omGenererMusique() {
 
   omMusiqueEnCours = true;
   omRenderMusiqueZone();
+  // % estimé (même moteur que la voix off, createProgress), calé sur la
+  // durée demandée : une musique de 90s prend plus longtemps à générer
+  // qu'une de 10s.
+  const progMusiqueOm = createProgress((p) => {
+    const fill = document.getElementById('omMusiqueProgFill');
+    const pct = document.getElementById('omMusiqueProgPct');
+    if (fill) fill.style.width = p + '%';
+    if (pct) pct.textContent = p + '%';
+  }, Math.max(12000, dureeTotaleMs * 0.4));
+  progMusiqueOm.start();
   try {
     const rep = await fetch('/api/montage-media?action=music', {
       method: 'POST',
@@ -497,7 +507,9 @@ async function omGenererMusique() {
     if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
     const blob = base64VersBlob(data.audioBase64, data.mimeType || 'audio/mpeg');
     omMusique = { blob, url: URL.createObjectURL(blob) };
+    progMusiqueOm.finish();
   } catch (e) {
+    progMusiqueOm.stop();
     if (err) { err.textContent = 'Erreur : ' + e.message; err.style.display = 'block'; }
     try {
       fetch('/api/data', {
@@ -526,7 +538,12 @@ function omRenderMusiqueZone() {
   const zone = document.getElementById('omMusiqueZone');
   if (!zone) return;
   if (omMusiqueEnCours) {
-    zone.innerHTML = `<div class="montage-statut" style="margin:0">Génération de la musique…</div>`;
+    // % estimé, même moteur que la voix off (voir omGenererMusique).
+    zone.innerHTML = `<div class="sb-progress-bar" id="omMusiqueProgBar" style="max-width:none;margin:0">
+      <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+      <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMusiqueProgFill"></div></div>
+      <div class="sb-progress-bar-pct" id="omMusiqueProgPct">0%</div>
+    </div>`;
   } else if (omMusique) {
     zone.innerHTML = `
       <audio class="montage-audio-preview" src="${omMusique.url}" controls></audio>
