@@ -2,13 +2,13 @@
 //  MONTAGE MANUEL (carte "Monter une vidéo", accueil → Services annexes)
 //  Outil à part entière (écran #montageManuelFlow dédié, retour direct :
 //  jamais imbriqué dans l'écran Outils TikTok, même s'il en réutilise le
-//  pipeline de rendu) qui ne part PAS d'un storyboard généré par l'IA :
-//  l'abonné uploade directement ses propres images et sa propre voix off
+//  pipeline de rendu) qui ne part PAS d'un storyboard généré par l'IA : le
+//  fondateur uploade directement ses propres images et sa propre voix off
 //  (fichier existant OU texte à transformer via ElevenLabs, au choix).
-//  Ouvert aux abonnés Creator et Pro (voir .outils-montage-home-btn,
-//  css/style.css, body.montage-actif) : re-vérifié côté serveur par
-//  /api/montage-render (resoudreDroits/verifierAccesMontage), jamais fié au
-//  seul CSS.
+//  Réservé au fondateur (voir .outils-montage-home-btn, css/style.css,
+//  body.is-admin) : le rendu FFmpeg reste coûteux, même restriction que le
+//  montage depuis le storyboard, re-vérifiée côté serveur par
+//  /api/montage-render (resoudreDroits/isAdmin), jamais fiée au seul CSS.
 //  Réutilise volontairement le pipeline déjà en place : /api/montage-render
 //  (proxy Railway ou repli FFmpeg local, selon MONTAGE_RENDER_URL),
 //  /api/montage-media (voix ElevenLabs), et les fonctions de partage/

@@ -1,10 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  MONTAGE VIDÉO, assemblage images + voix off, rendu par FFmpeg
 //  auto-hébergé (voir api/montage-render.js).
-//  Ouvert aux abonnés Creator et Pro (bouton visible en body.is-admin OU
-//  body.montage-actif, voir appliquerClasseMontage, js/api.js), quota
-//  d'images par mois selon le plan (voir LIMITES_MOIS.montageImages,
-//  api/_lib/acces.js).
+//  Réservé au fondateur (bouton visible uniquement en body.is-admin).
 //  Boucle complète : les images sont générées par Together AI (voir
 //  api/montage-images.js) à partir des prompts visuels déjà écrits par
 //  Scriptura pour chaque plan, et la voix off par ElevenLabs (voir

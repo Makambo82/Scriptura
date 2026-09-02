@@ -71,14 +71,6 @@ function estIllimite() {
 function appliquerClasseAdmin() {
   document.body.classList.toggle('is-admin', estCodeAdmin());
 }
-// Montage vidéo (retour propriétaire) : Creator ET Pro, pas seulement le
-// fondateur. Classe séparée de is-admin (voir css/style.css,
-// .montage-trigger-btn/.outils-montage-home-btn) : aAccesMontage()
-// (js/historique.js) couvre Creator/Pro/illimité, contrairement à is-admin
-// qui ne couvre que le fondateur.
-function appliquerClasseMontage() {
-  document.body.classList.toggle('montage-actif', typeof aAccesMontage === 'function' && aAccesMontage());
-}
 
 // ── Niches nécessitant une vérification par recherche web ──
 // Le modèle n'a aucune connaissance des faits postérieurs à son entraînement,

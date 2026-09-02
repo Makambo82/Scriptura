@@ -230,15 +230,6 @@ function aAccesMode(mode) {
   return unlocked && monPalier() === 'pro';
 }
 
-// Montage vidéo (retour propriétaire) : Creator ET Pro, contrairement à
-// aAccesMode ci-dessus qui réserve MODES_PRO au seul plan Pro. Contrôle
-// purement d'affichage (voir body.montage-actif, js/api.js) : le serveur
-// revérifie indépendamment via verifierAccesMontage (api/_lib/acces.js).
-function aAccesMontage() {
-  if (estIllimite()) return true;
-  return unlocked && (monPalier() === 'creator' || monPalier() === 'pro');
-}
-
 // Parse une date quel que soit le séparateur (yyyy/mm/dd ou yyyy-mm-dd).
 // Les slashes ne sont pas fiables selon les navigateurs : on normalise en tirets.
 function parseDateFlexible(val) {

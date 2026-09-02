@@ -36,16 +36,18 @@
 //  la voix off ElevenLabs), transitions comprises. Vérifié par exécution
 //  réelle de FFmpeg (voir historique de travail), pas seulement en théorie.
 //
-//  Ouvert aux abonnés Creator et Pro (voir verifierAccesMontage,
-//  api/_lib/acces.js), même règle que api/montage-media.js : plus
-//  seulement réservé au fondateur, le rendu utilise SUPABASE_URL/
-//  SUPABASE_ANON_KEY, déjà présents côté serveur pour d'autres routes, pour
-//  réuploader le résultat dans le même bucket public.
+//  Réservé au fondateur (bouton visible uniquement en body.is-admin) :
+//  contrairement aux autres routes du montage (voix, musique, images,
+//  déjà ouvertes à Creator/Pro), le coût du service de rendu externe
+//  n'est pas encore mesuré/quoté (retour propriétaire), le rendu utilise
+//  SUPABASE_URL/SUPABASE_ANON_KEY, déjà présents côté serveur pour
+//  d'autres routes, pour réuploader le résultat dans le même bucket
+//  public.
 // ═══════════════════════════════════════════════════════════
 
 import ffmpegPath from 'ffmpeg-static';
 import { spawn } from 'child_process';
-import { resoudreDroits, verifierAccesMontage } from './_lib/acces.js';
+import { resoudreDroits } from './_lib/acces.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -202,12 +204,11 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
-  // Ouvert aux abonnés Creator et Pro (voir en-tête de fichier), même mur
-  // d'accès que les autres routes du montage (api/montage-media.js).
+  // Réservé au fondateur (voir en-tête de fichier) : jusqu'ici seulement
+  // vérifié côté CSS (body.is-admin), donc contournable par un appel direct.
   const droits = await resoudreDroits(body?.code_acces);
-  const acces = verifierAccesMontage(droits);
-  if (!acces.ok) {
-    return res.status(403).json({ error: { message: 'Montage vidéo réservé aux abonnés Creator et Pro', code: 'ACCES_REFUSE' } });
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
   }
 
   const images = Array.isArray(body?.images) ? body.images : [];

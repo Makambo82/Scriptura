@@ -532,12 +532,11 @@ const PLANS = {
     nom: 'Creator',
     prix: '6.000 FCFA',
     titre: 'Passe au plan Creator',
-    desc: 'Les 3 modes de création + l\'analyse sommaire de compte + le montage vidéo par IA, 40 générations par mois.',
+    desc: 'Les 3 modes de création + l\'analyse sommaire de compte, 40 générations par mois.',
     wa: 'Bonjour, je veux le plan Creator de Scriptura, 6.000 FCFA/mois',
     features: [
       'Les 3 modes de création : idées, script, storytelling',
       '+ Analyse sommaire de ton compte (@username), dans ta limite de générations',
-      '+ Montage vidéo par IA (voix off, musique, sous-titres), 20 images par mois',
       '40 générations par mois',
       'Mobile Money accepté'
     ]
@@ -553,7 +552,6 @@ const PLANS = {
       '+ Diagnostic TikTok, propulsé par notre IA la plus avancée',
       '+ Crée-moi une série : des feuilletons qui font revenir ton audience',
       '+ Tendances : ce qui cartonne dans ta niche, 1 analyse par mois',
-      '+ Montage vidéo par IA, 60 images par mois',
       '70 générations de création + 5 diagnostics par mois',
       'Mobile Money accepté'
     ]

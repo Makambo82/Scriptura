@@ -167,82 +167,26 @@ test('/api/montage-render transmet watermark au service externe (retour proprié
   }
 });
 
-test('/api/montage-render refuse un code sans plan reconnu (ni fondateur, ni Creator/Pro) avant même de songer à un rendu', async () => {
-  // Retour propriétaire : le rendu est désormais ouvert aux abonnés
-  // Creator/Pro (plus seulement le fondateur), donc ce test doit vraiment
-  // configurer Supabase (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY) et simuler
-  // un code ABSENT de `abonnes` : sans ça, resoudreDroits se dégrade (clé
-  // service role absente, voir en-tête d'acces.js) sur un plan par défaut
-  // 'creator', ce qui ferait passer n'importe quel code et testerait la
-  // dégradation plutôt que le vrai refus visé ici.
+test('/api/montage-render refuse un code non-fondateur avant même de songer à un rendu', async () => {
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE2';
   process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
-  process.env.SUPABASE_URL = 'https://exemple.supabase.co';
-  process.env.SUPABASE_SERVICE_ROLE_KEY = 'cle-service-role-test';
 
   const fetchOriginal = global.fetch;
   let appeleProxy = false;
-  global.fetch = async (url) => {
-    const u = String(url);
-    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] }; // code introuvable
-    appeleProxy = true;
-    return { ok: true, json: async () => ({}) };
-  };
+  global.fetch = async () => { appeleProxy = true; return { ok: true, json: async () => ({}) }; };
 
   try {
     const { default: handler } = await import('../api/montage-render.js');
-    const req = { method: 'POST', body: { code_acces: 'PAS_ABONNE', images: [{ url: 'x', duration: 1 }], audioUrl: 'x' } };
+    const req = { method: 'POST', body: { code_acces: 'PAS_LE_FONDATEUR', images: [{ url: 'x', duration: 1 }], audioUrl: 'x' } };
     let statusRecu = null, jsonRecu = null;
     const res = { status(code) { statusRecu = code; return this; }, json(obj) { jsonRecu = obj; return this; } };
 
     await handler(req, res);
 
-    assert.equal(statusRecu, 403, 'un code sans plan reconnu doit être refusé : ' + JSON.stringify(jsonRecu));
+    assert.equal(statusRecu, 403, 'un code non-admin doit être refusé');
     assert.equal(jsonRecu.error && jsonRecu.error.code, 'ACCES_REFUSE');
     assert.equal(appeleProxy, false, 'le service externe ne doit jamais être contacté pour une requête refusée');
-  } finally {
-    global.fetch = fetchOriginal;
-    process.env = envAvant;
-  }
-});
-
-test('/api/montage-render : un abonné Creator (pas admin) passe désormais le mur d\'accès et déclenche le rendu', async () => {
-  // Retour propriétaire : le rendu vidéo, jusqu'ici réservé au fondateur,
-  // s'ouvre à Creator ET Pro en même temps que l'interface (boutons
-  // "Générer la vidéo"/"Monter une vidéo").
-  const envAvant = { ...process.env };
-  process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE3';
-  process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
-  process.env.SUPABASE_URL = 'https://exemple.supabase.co';
-  process.env.SUPABASE_SERVICE_ROLE_KEY = 'cle-service-role-test';
-
-  const fetchOriginal = global.fetch;
-  let requeteProxy = null;
-  global.fetch = async (url, options) => {
-    const u = String(url);
-    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [{ actif: true, plan: 'creator', jetons_audit: 0 }] };
-    requeteProxy = { url, options };
-    return { ok: true, json: async () => ({ url: 'https://supabase.example/montages/rendus/test.mp4' }) };
-  };
-
-  try {
-    const { default: handler } = await import('../api/montage-render.js');
-    const req = {
-      method: 'POST',
-      body: {
-        code_acces: 'CODE-CREATOR-RENDU',
-        images: [{ url: 'https://x.example/a.jpg', duration: 2 }],
-        audioUrl: 'https://x.example/audio.mp3'
-      }
-    };
-    let statusRecu = null, jsonRecu = null;
-    const res = { status(code) { statusRecu = code; return this; }, json(obj) { jsonRecu = obj; return this; } };
-
-    await handler(req, res);
-
-    assert.equal(statusRecu, 200, JSON.stringify(jsonRecu));
-    assert.ok(requeteProxy, 'le service externe aurait dû être appelé pour un abonné Creator');
   } finally {
     global.fetch = fetchOriginal;
     process.env = envAvant;
