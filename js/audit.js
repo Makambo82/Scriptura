@@ -501,9 +501,18 @@ async function lancerAudit() {
   const spin = document.getElementById('auditSpinner');
   const btnText = document.getElementById('auditBtnText');
 
+  // Verrou posé ICI, AVANT le premier `await` (bug corrigé, retour terrain,
+  // audit du 2 septembre 2026) : auparavant posé après peutAuditer(), un
+  // double-clic/double-tap dans cette fenêtre lançait deux diagnostics
+  // concurrents (deux appels IA facturés, potentiellement un jeton décompté
+  // en trop). `btn.disabled` sert aussi de garde d'entrée.
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
+
   if (!auditCaptures.length) {
     err.textContent = 'Ajoute au moins une capture de tes statistiques.';
     err.style.display = 'block';
+    if (btn) btn.disabled = false;
     return;
   }
 
@@ -513,20 +522,23 @@ async function lancerAudit() {
     err.textContent = 'Choisis ton format de contenu pour un diagnostic adapté.';
     err.style.display = 'block';
     document.getElementById('auditStyle')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (btn) btn.disabled = false;
     return;
   }
 
   // Droit d'auditer : 'pro' (analyse incluse), 'jeton' (à décompter),
   // 'illimite' (code VIP), ou false (peutAuditer a déjà proposé l'achat).
   const moyenAudit = await peutAuditer();
-  if (!moyenAudit) return;
+  if (!moyenAudit) {
+    if (btn) btn.disabled = false;
+    return;
+  }
 
   err.style.display = 'none';
   out.innerHTML = '';
 
   if (spin) spin.style.display = 'inline-block';
   if (btnText) btnText.textContent = 'Diagnostic en cours…';
-  if (btn) btn.disabled = true;
   startGenAnimation('audit');
 
   try {

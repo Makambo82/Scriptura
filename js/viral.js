@@ -98,12 +98,21 @@ async function lancerAnalyseVirale() {
   const btnText = document.getElementById('viralAnaBtnText');
   err.style.display = 'none';
 
+  // Verrou posé ICI, AVANT le premier `await` (bug corrigé, retour terrain,
+  // audit du 2 septembre 2026) : auparavant posé juste avant l'appel réseau,
+  // un double-clic/double-tap dans cette fenêtre lançait deux analyses
+  // concurrentes (deux appels IA facturés). `btn.disabled` sert aussi de
+  // garde d'entrée.
+  if (btn.disabled) return;
+  btn.disabled = true;
+
   const lien = (document.getElementById('viralAnaLien').value || '').trim();
   let texte = (document.getElementById('viralAnaTexte').value || '').trim();
 
   if (!lien && !texte) {
     err.textContent = "Colle le lien TikTok d'une vidéo, ou son texte à la main.";
     err.style.display = 'block';
+    btn.disabled = false;
     return;
   }
 
@@ -116,6 +125,7 @@ async function lancerAnalyseVirale() {
   if (lien) {
     const existante = await _analyseViraleExistante(lien);
     if (existante) {
+      btn.disabled = false;
       if (typeof pushNav === 'function') pushNav();
       afficherRapportViral(existante);
       return;
@@ -127,6 +137,7 @@ async function lancerAnalyseVirale() {
   // un jeton en débloque une de plus (droit.viaJeton, décompté après succès).
   const droit = await droitAnalyseVirale();
   if (!droit.ok) {
+    btn.disabled = false;
     if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
     if (droit.raison === 'quota') {
       err.textContent = 'Tu as atteint ta limite d\'analyses vidéo ce mois-ci (' + droit.limite + '). Elle se recharge le 1er du mois prochain.';
@@ -139,7 +150,6 @@ async function lancerAnalyseVirale() {
     return;
   }
 
-  btn.disabled = true;
   if (spin) spin.style.display = 'block';
   if (btnText) btnText.textContent = 'Analyse en cours…';
   // Animation plein écran (bande dorée hachée + étapes défilantes), la même

@@ -908,7 +908,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   font-size:1.1rem;cursor:pointer;padding:4px;z-index:2;
 }
 .paywall-close:hover{color:#fff}
-.paywall::before{
+.paywall-modal::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg,transparent,var(--gold),transparent);
 }

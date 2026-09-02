@@ -6,7 +6,7 @@
 //
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
-import { resoudreDroits, verifierQuota } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par cette route (voir MODEL_AUDIT côté
 // client pour l'analyse réelle, 'classify' plus bas utilise Haiku en dur).
@@ -288,6 +288,17 @@ export default async function handler(req, res) {
     // ── Mode CLASSIFICATION : reconnaît le type de chaque capture au chargement.
     // Tâche simple et bon marché (Haiku), sans analyse : sert à guider l'utilisateur.
     if (mode === 'classify') {
+      // Bug corrigé (retour terrain, audit du 2 septembre 2026) : cette
+      // branche répondait et faisait `return` AVANT tout contrôle d'accès
+      // (resoudreDroits/verifierQuota, plus bas), n'importe qui pouvait donc
+      // déclencher des appels Claude Haiku à volonté, sans code d'accès ni
+      // limite. Filet minimal (IP, généreux) plutôt qu'un vrai quota : cette
+      // route sert seulement à guider l'upload de captures, pas à l'analyse
+      // elle-même (déjà protégée plus bas).
+      const limiteClassify = await verifierLimiteAnonyme(req, 'audit-classify', 40);
+      if (!limiteClassify.ok) {
+        return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
+      }
       const contenuC = [];
       let numC = 0;
       for (const img of images) {

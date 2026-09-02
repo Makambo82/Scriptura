@@ -802,6 +802,14 @@ async function lancerDiagnosticSommaire() {
   const arrow = document.getElementById('diagSommaireGoArrow');
   const results = document.getElementById('diagSommaireResults');
 
+  // Verrou posé ICI, AVANT le premier `await` (bug corrigé, retour terrain,
+  // audit du 2 septembre 2026) : auparavant posé après droitAnalyseSommaire(),
+  // un double-clic/double-tap dans cette fenêtre lançait deux analyses
+  // concurrentes (deux appels IA facturés, deux écritures concurrentes du
+  // même résultat). `btn.disabled` sert aussi de garde d'entrée.
+  if (btn.disabled) return;
+  btn.disabled = true;
+
   errorBox.style.display = 'none';
   const brut = (inputEl.value || '').trim();
   const username = brut.replace(/^@+/, '');
@@ -809,6 +817,7 @@ async function lancerDiagnosticSommaire() {
   if (!username || !/^[a-zA-Z0-9._]{2,24}$/.test(username)) {
     errorBox.textContent = "Entre un nom d'utilisateur TikTok valide (lettres, chiffres, points, underscores).";
     errorBox.style.display = 'block';
+    btn.disabled = false;
     return;
   }
 
@@ -817,6 +826,7 @@ async function lancerDiagnosticSommaire() {
   // un jeton en débloque une de plus (droit.viaJeton, décompté après succès).
   const droit = await droitAnalyseSommaire();
   if (!droit.ok) {
+    btn.disabled = false;
     if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
     if (droit.raison === 'quota') {
       errorBox.textContent = 'Tu as atteint ta limite d\'analyses sommaires ce mois-ci (' + droit.limite + '). Elle se recharge le 1er du mois prochain.';
@@ -830,7 +840,6 @@ async function lancerDiagnosticSommaire() {
     return;
   }
 
-  btn.disabled = true;
   spinner.style.display = 'block';
   arrow.style.display = 'none';
   results.style.display = 'none';
@@ -1509,7 +1518,7 @@ function diagSommaireTexteBrut(d, moi, username) {
     bloc(moi ? 'Ta niche' : 'Sa niche', [niche.nom].concat(Array.isArray(niche.analyse) ? niche.analyse : []));
   }
 
-  const fmtVideo = (v) => (v.sujet || '') + (v.constat ? ' — ' + v.constat : '');
+  const fmtVideo = (v) => (v.sujet || '') + (v.constat ? ', ' + v.constat : '');
   if (Array.isArray(d.top_videos) && d.top_videos.length) {
     bloc(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons', d.top_videos.map(fmtVideo));
   }
@@ -1701,7 +1710,7 @@ function telechargerDiagSommairePDF() {
     ajouteBloc(moi ? 'Ta niche' : 'Sa niche', [niche.nom].concat(Array.isArray(niche.analyse) ? niche.analyse : []));
   }
 
-  const fmtVideo = (v) => (v.sujet || '') + (v.constat ? ' — ' + v.constat : '');
+  const fmtVideo = (v) => (v.sujet || '') + (v.constat ? ', ' + v.constat : '');
   if (Array.isArray(d.top_videos) && d.top_videos.length) {
     ajouteBloc(moi ? 'Tes vidéos qui cartonnent' : 'Ses cartons', d.top_videos.map(fmtVideo));
   }
@@ -1845,7 +1854,7 @@ function _carteVsHtml(concUser, lignes, syn) {
     </div>
     <div class="ds-vs-wrap">${tableau}</div>
     ${syn && syn.constat ? `<p class="audit-diag-constat" style="margin-top:14px">${diagSommaireEsc(syn.constat)}</p>` : ''}
-    ${syn && syn.levier_titre ? `<div class="ds-evo-formule"><div class="ds-evo-h">${ICO('target')} Ton levier n°1 face à lui</div><p><b>${diagSommaireEsc(syn.levier_titre)}</b> — ${diagSommaireEsc(syn.levier_detail || '')}</p></div>` : ''}`;
+    ${syn && syn.levier_titre ? `<div class="ds-evo-formule"><div class="ds-evo-h">${ICO('target')} Ton levier n°1 face à lui</div><p><b>${diagSommaireEsc(syn.levier_titre)}</b>, ${diagSommaireEsc(syn.levier_detail || '')}</p></div>` : ''}`;
 }
 
 // Réaffiche un face-à-face DÉJÀ calculé (stocké dans la génération) en haut du
