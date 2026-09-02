@@ -408,10 +408,16 @@ const LEVIERS_LABEL = {
 };
 // Best-effort, anonymisé : on n'envoie QUE du distillé (technique de hook,
 // leviers, principes transposables, squelette sans verbatim), jamais le
-// transcript ni le pseudo. Le serveur re-vérifie le garde-fou (score >= 90)
-// avant d'écrire. Ne bloque jamais l'utilisateur. Le garde-fou ne dépend plus
-// que de la qualité de la recette elle-même (plus de vraie performance
-// exigée en plus, ce signal a été retiré de l'analyse vidéo).
+// transcript ni le pseudo. Le serveur RECALCULE le score lui-même à partir
+// des signaux bruts (bug corrigé, retour terrain : l'ancien contrat envoyait
+// un score déjà calculé ici et le serveur se contentait de le "re-vérifier",
+// donc de lui faire confiance, un appel direct à /api/patterns avec un score
+// fabriqué pouvait empoisonner la mémoire partagée ; voir calculerScoreRecette,
+// api/patterns.js), le score ci-dessous ne sert plus qu'au garde-fou côté
+// client (éviter l'appel réseau pour rien sous le seuil). Ne bloque jamais
+// l'utilisateur. Le garde-fou ne dépend plus que de la qualité de la recette
+// elle-même (plus de vraie performance exigée en plus, ce signal a été
+// retiré de l'analyse vidéo).
 function _deposerPatternViral(d) {
   try {
     if (!d) return;
@@ -424,7 +430,8 @@ function _deposerPatternViral(d) {
       .map(r => ({ temps: (r && r.temps) || '', titre: (r && r.titre) || '' }));  // pas de detail : zéro verbatim
     const corps = {
       niche: d.niche || '', hook_technique: (d.hook && d.hook.technique) || '',
-      leviers, principes, squelette, score: note.score,
+      leviers, principes, squelette,
+      signaux: d.signaux || {}, frameDisponible: !!d.frameDisponible,
       langue: d.langue || null
     };
     fetch('/api/patterns', {

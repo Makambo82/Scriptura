@@ -8,9 +8,18 @@
 //  inspirer les générations (script/récit/idées) de tous les utilisateurs, la
 //  niche demandée servie en priorité.
 //
-//  POST { niche, hook_technique, leviers, principes, squelette, score, langue }
-//        -> écrit SI le garde-fou passe (re-vérifié ici, jamais faire
-//        confiance au client). Non bloquant.
+//  POST { niche, hook_technique, leviers, principes, squelette, signaux,
+//         frameDisponible, langue }
+//        -> écrit SI le garde-fou passe. Le score n'est PAS fourni par le
+//        client (bug corrigé, retour terrain : l'ancien contrat acceptait un
+//        `score` envoyé tel quel par le navigateur, le seuil était donc
+//        "re-vérifié" sur un chiffre jamais recalculé, n'importe qui pouvait
+//        empoisonner cette mémoire partagée avec {score:100} fabriqué). Le
+//        score est maintenant RECALCULÉ ici, en code, à partir des signaux
+//        bruts (mêmes SIGNAUX_VIRAL/DIMENSIONS_VIRAL/formule quadratique que
+//        js/viral.js scoreViraliteRecette, dupliqués ici volontairement :
+//        aucun module partagé entre le client et les fonctions serverless
+//        dans ce projet). Non bloquant.
 //  GET  ?niche=...&limit=8      -> { ok, patterns:[...] }, niche d'abord.
 //
 //  Stockage Supabase (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) : la table
@@ -34,6 +43,34 @@ function entetes(key) {
   return { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
 }
 
+// ── Recalcul du score, EN CODE, à partir des signaux bruts ──
+// Port exact de scoreViraliteRecette (js/viral.js) : même liste de signaux,
+// mêmes dimensions/poids, même formule quadratique (taux² × poids, pas
+// linéaire). Dupliqué ici volontairement (pas de module partagé entre le
+// client et les fonctions serverless dans ce projet), mais c'est la SEULE
+// version qui compte pour la mémoire partagée : le score envoyé par le
+// client, s'il en envoie un, est entièrement ignoré.
+const SIGNAUX_VIRAL = ['hook_fort', 'boucle_ouverte', 'cliffhanger', 'deuxieme_personne', 'details_concrets', 'escalade', 'question_rhetorique', 'archetypes', 'appel_action', 'angle_original', 'sujet_precis', 'authenticite', 'hook_visuel', 'execution_visuelle'];
+const SIGNAUX_VISUELS = ['hook_visuel', 'execution_visuelle'];
+const DIMENSIONS_VIRAL = [
+  { cle: 'accroche',    poids: 25, signaux: ['hook_fort', 'question_rhetorique', 'hook_visuel'] },
+  { cle: 'sujet_angle', poids: 20, signaux: ['angle_original', 'sujet_precis'] },
+  { cle: 'structure',   poids: 20, signaux: ['boucle_ouverte', 'cliffhanger', 'escalade', 'archetypes'] },
+  { cle: 'sincerite',   poids: 20, signaux: ['details_concrets', 'authenticite', 'execution_visuelle'] },
+  { cle: 'connexion',   poids: 15, signaux: ['deuxieme_personne', 'appel_action'] }
+];
+function calculerScoreRecette(signaux, frameDisponible) {
+  if (!signaux || typeof signaux !== 'object') return 0;
+  let global = 0;
+  DIMENSIONS_VIRAL.forEach(d => {
+    const signauxDim = frameDisponible ? d.signaux : d.signaux.filter(s => !SIGNAUX_VISUELS.includes(s));
+    const presents = signauxDim.filter(k => signaux[k] === true).length;
+    const taux = signauxDim.length ? presents / signauxDim.length : 0;
+    global += Math.round(taux * taux * d.poids);
+  });
+  return global;
+}
+
 // Le garde-fou : recette forte (>= seuil), sur son seul contenu. Le
 // croisement avec les vraies stats de la vidéo (portée, engagement) a été
 // retiré de l'analyse (refonte demandée par le propriétaire, alignée sur la
@@ -51,7 +88,9 @@ function bornerTableau(arr, max, mapper) {
 function texteCourt(v, n) { return typeof v === 'string' ? v.trim().slice(0, n) : ''; }
 
 async function ecrire(cfg, body) {
-  const score = Number(body.score);
+  // Score recalculé ICI à partir des signaux bruts, jamais celui (le cas
+  // échéant) envoyé par le client : voir calculerScoreRecette ci-dessus.
+  const score = calculerScoreRecette(body.signaux, !!body.frameDisponible);
   if (!passeGardeFou(score)) return { ok: false, raison: 'sous_seuil' };
 
   // On ne garde QUE du distillé : pas de transcript, pas de pseudo, pas de
