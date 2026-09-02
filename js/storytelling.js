@@ -106,6 +106,14 @@ function setStoryLoading(on) {
 // rédaction, et doit CITER le passage exact qui justifie chaque case
 // cochée (citation introuvable mot pour mot = signal invalidé).
 const GEN_SIGNAUX_JUGES_IA_RECIT = ['accroche_forte', 'rupture_attente', 'tension_maintenue', 'details_concrets', 'emotion_forte', 'cloture_complete', 'coherence_factuelle', 'non_redondance', 'originalite'];
+// Même correctif que le mode Script (voir GEN_SIGNAUX_DEUX_CITATIONS,
+// js/generation.js, retour terrain sur un score 25/100 à tort) : ces deux
+// signaux ne se prouvent jamais par une seule citation.
+// tension_maintenue décrit une relation début→fin, comme boucle_ouverte.
+// cloture_complete exige DEUX éléments obligatoires (triple question
+// miroir ET signature métapoétique) qu'une seule citation ne peut pas
+// attester simultanément.
+const GEN_SIGNAUX_DEUX_CITATIONS_RECIT = ['tension_maintenue', 'cloture_complete'];
 const GEN_DIMENSIONS_RECIT = {
   narration:  ['accroche_forte', 'cloture_complete', 'coherence_factuelle'],
   engagement: ['rythme_soutenu', 'tension_maintenue', 'non_redondance'],
@@ -164,16 +172,16 @@ ${texteComplet}
 Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peux citer un passage RÉEL et PRÉCIS (copié mot pour mot) qui le prouve sans discussion possible.
 - "accroche_forte" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être générique ?
 - "rupture_attente" : la toute première phrase surprend/contredit-elle une attente ?
-- "tension_maintenue" : la tension narrative tient-elle vraiment du début à la fin, sans relâchement ?
+- "tension_maintenue" : la tension narrative tient-elle vraiment du début à la fin, sans relâchement ? Cite le passage qui l'OUVRE ET le passage plus loin où elle culmine/se referme (deux citations, jamais une seule : ça se prouve en comparant deux endroits du texte).
 - "details_concrets" : au moins un détail précis (nom/lieu/date/chiffre) ailleurs que dans le seul hook ?
 - "emotion_forte" : un impact émotionnel réel et identifiable ?
-- "cloture_complete" : le dernier segment contient-il vraiment les DEUX éléments obligatoires (triple question miroir ET signature métapoétique) ?
+- "cloture_complete" : le dernier segment contient-il vraiment les DEUX éléments obligatoires ? Cite la triple question miroir ET la signature métapoétique séparément (deux citations, jamais une seule : une seule citation ne peut pas prouver que les DEUX sont présentes).
 - "coherence_factuelle" : aucune contradiction de date/heure/chiffre entre le hook et le reste du récit ?
 - "non_redondance" : aucun segment consécutif ne reformule simplement le précédent ?
 - "originalite" : l'angle est-il vraiment original, pas un cliché reconnaissable ?
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"rupture_attente":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve":"..."},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cloture_complete":{"present":true,"preuve":"..."},"coherence_factuelle":{"present":true,"preuve":"..."},"non_redondance":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."}}`;
+{"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"rupture_attente":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve_ouverture":"citation qui ouvre la tension","preuve_cloture":"citation plus loin qui la referme"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cloture_complete":{"present":true,"preuve_question":"citation de la triple question miroir","preuve_signature":"citation de la signature métapoétique"},"coherence_factuelle":{"present":true,"preuve":"..."},"non_redondance":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."}}`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
@@ -183,13 +191,35 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const signaux = {};
     GEN_SIGNAUX_JUGES_IA_RECIT.forEach(cle => {
       const d = jug[cle];
-      const preuve = d && typeof d.preuve === 'string' ? d.preuve.trim() : '';
-      const preuveNormalisee = preuve.toLowerCase().replace(/\s+/g, ' ');
-      const preuveValide = preuveNormalisee.length >= 4 && texteNormalise.includes(preuveNormalisee);
-      signaux[cle] = !!(d && d.present === true && preuveValide);
+      if (cle === 'tension_maintenue') {
+        const ouverture = _genValiderCitationRecit(d && d.preuve_ouverture, texteNormalise);
+        const cloture = _genValiderCitationRecit(d && d.preuve_cloture, texteNormalise);
+        const ordreValide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
+        signaux[cle] = !!(d && d.present === true && ordreValide);
+      } else if (cle === 'cloture_complete') {
+        const question = _genValiderCitationRecit(d && d.preuve_question, texteNormalise);
+        const signature = _genValiderCitationRecit(d && d.preuve_signature, texteNormalise);
+        // La triple question précède toujours la signature dans le dernier
+        // segment (voir le prompt de rédaction, point 9 puis point 10).
+        const ordreValide = question.valide && signature.valide && signature.position > question.position;
+        signaux[cle] = !!(d && d.present === true && ordreValide);
+      } else {
+        const preuve = d && typeof d.preuve === 'string' ? d.preuve.trim() : '';
+        const preuveNormalisee = preuve.toLowerCase().replace(/\s+/g, ' ');
+        const preuveValide = preuveNormalisee.length >= 4 && texteNormalise.includes(preuveNormalisee);
+        signaux[cle] = !!(d && d.present === true && preuveValide);
+      }
     });
     return signaux;
   } catch (e) { return null; }
+}
+// Même helper que _genValiderCitation (js/generation.js), dupliqué ici (pas
+// de module partagé entre fichiers chargés en <script> dans ce projet).
+function _genValiderCitationRecit(preuve, texteNormalise) {
+  const p = (typeof preuve === 'string' ? preuve : '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (p.length < 4) return { valide: false, position: -1 };
+  const position = texteNormalise.indexOf(p);
+  return { valide: position >= 0, position };
 }
 
 async function generateStory() {

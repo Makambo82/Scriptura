@@ -945,6 +945,16 @@ function afficherApercuEnDirect(buffer, cle) {
 // justifie chaque case cochée, une citation introuvable mot pour mot dans le
 // texte (vérifié mécaniquement) invalide le signal.
 const GEN_SIGNAUX_JUGES_IA = ['hook_fort', 'pattern_interrupt', 'boucle_ouverte', 'details_concrets', 'emotion_forte', 'cta_clair', 'originalite', 'promesse_tenue'];
+// Signaux qui décrivent une relation ENTRE deux endroits du texte (début et
+// fin), jamais une technique concentrée dans une seule phrase : une seule
+// citation ne peut structurellement pas les "prouver". Retour terrain (script
+// Niger/Tiani, score 25/100) : promesse_tenue et boucle_ouverte tombaient à
+// faux alors que le hook et la chute reprenaient presque mot pour mot la
+// même idée ("connaît chaque pas d'avance"), le juge n'avait tout simplement
+// aucune case pour citer DEUX passages. Ces deux signaux exigent désormais
+// une citation d'ouverture ET une citation de clôture, toutes deux vérifiées,
+// la clôture devant se situer chronologiquement APRÈS l'ouverture.
+const GEN_SIGNAUX_DEUX_CITATIONS = ['boucle_ouverte', 'promesse_tenue'];
 const GEN_DIMENSIONS_SCRIPT = {
   hook:       ['hook_fort', 'pattern_interrupt', 'originalite'],
   engagement: ['rythme_soutenu', 'deuxieme_personne', 'boucle_ouverte'],
@@ -1018,15 +1028,15 @@ ${texteComplet}
 Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peux citer un passage RÉEL et PRÉCIS (copié mot pour mot) qui le prouve sans discussion possible.
 - "hook_fort" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être générique ?
 - "pattern_interrupt" : la toute première phrase rompt-elle une attente (chiffre choc, affirmation contre-intuitive) ?
-- "boucle_ouverte" : une vraie tension/curiosité non résolue immédiatement ?
+- "boucle_ouverte" : une vraie tension/curiosité plantée tôt et qui reste non résolue un moment. Cite le passage qui l'OUVRE ET le passage plus loin où elle finit par se refermer (deux citations, jamais une seule : ça se prouve en comparant deux endroits du texte, pas dans une seule phrase).
 - "details_concrets" : des exemples/chiffres précis plutôt que du vague ?
 - "emotion_forte" : une émotion nette et identifiable ?
 - "cta_clair" : le dernier passage contient-il un vrai appel à l'action qui dit précisément quoi faire ?
 - "originalite" : l'angle est-il vraiment original, pas un cliché IA reconnaissable ?
-- "promesse_tenue" : la chute répond-elle vraiment à la promesse ouverte par le hook ?
+- "promesse_tenue" : la chute répond-elle vraiment à la promesse ouverte par le hook ? Cite le passage du DÉBUT qui ouvre la promesse ET le passage de la FIN qui la referme (deux citations, jamais une seule : ça se prouve en comparant le début et la fin, pas dans une seule phrase).
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"hook_fort":{"present":true,"preuve":"citation exacte ou vide"},"pattern_interrupt":{"present":true,"preuve":"..."},"boucle_ouverte":{"present":true,"preuve":"..."},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cta_clair":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."},"promesse_tenue":{"present":true,"preuve":"..."}}`;
+{"hook_fort":{"present":true,"preuve":"citation exacte ou vide"},"pattern_interrupt":{"present":true,"preuve":"..."},"boucle_ouverte":{"present":true,"preuve_ouverture":"citation qui plante la tension","preuve_cloture":"citation plus loin qui la referme"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cta_clair":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."},"promesse_tenue":{"present":true,"preuve_ouverture":"citation du hook qui ouvre la promesse","preuve_cloture":"citation de la chute qui la referme"}}`;
 
   try {
     const raw = await callAI(MODEL_RAPIDE, 1200, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
@@ -1036,13 +1046,27 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const signaux = {};
     GEN_SIGNAUX_JUGES_IA.forEach(cle => {
       const d = jug[cle];
-      const preuve = d && typeof d.preuve === 'string' ? d.preuve.trim() : '';
-      const preuveNormalisee = preuve.toLowerCase().replace(/\s+/g, ' ');
-      const preuveValide = preuveNormalisee.length >= 4 && texteNormalise.includes(preuveNormalisee);
-      signaux[cle] = !!(d && d.present === true && preuveValide);
+      if (GEN_SIGNAUX_DEUX_CITATIONS.includes(cle)) {
+        const ouverture = _genValiderCitation(d && d.preuve_ouverture, texteNormalise);
+        const cloture = _genValiderCitation(d && d.preuve_cloture, texteNormalise);
+        const ordreValide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
+        signaux[cle] = !!(d && d.present === true && ordreValide);
+      } else {
+        const preuve = _genValiderCitation(d && d.preuve, texteNormalise);
+        signaux[cle] = !!(d && d.present === true && preuve.valide);
+      }
     });
     return signaux;
   } catch (e) { return null; }
+}
+// Vérifie qu'une citation existe mot pour mot (espaces/casse normalisés)
+// dans le texte, et renvoie sa position pour permettre un contrôle
+// chronologique (voir GEN_SIGNAUX_DEUX_CITATIONS ci-dessus).
+function _genValiderCitation(preuve, texteNormalise) {
+  const p = (typeof preuve === 'string' ? preuve : '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (p.length < 4) return { valide: false, position: -1 };
+  const position = texteNormalise.indexOf(p);
+  return { valide: position >= 0, position };
 }
 
 // ── GÉNÉRATION ──

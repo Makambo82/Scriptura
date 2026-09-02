@@ -170,3 +170,152 @@ test('evaluerScriptGenere : une citation introuvable dans le texte invalide le s
     await arreter();
   }
 });
+
+// Cas réel signalé par le propriétaire (script Niger/Tiani, noté 25/100 à
+// tort) : boucle_ouverte et promesse_tenue décrivent une relation entre le
+// DÉBUT et la FIN du texte, jamais une technique prouvable par une seule
+// citation. Le hook et la chute reprenaient presque mot pour mot la même
+// idée ("connaît chaque pas d'avance"), mais l'ancien schéma à une seule
+// citation ("preuve") ne pouvait tout simplement pas exprimer "prouvé par
+// DEUX passages" : ces deux signaux exigent désormais preuve_ouverture ET
+// preuve_cloture, la clôture devant se situer chronologiquement après
+// l'ouverture dans le texte.
+test('evaluerScriptGenere : boucle_ouverte/promesse_tenue exigent deux citations (ouverture + clôture), jamais une seule', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Tiani le savait déjà. Sauf que le président connaît chaque pas d\'avance. Les rues restent muettes. Il se rend sans condition devant les forces du président. Regarde comment les putschs meurent avant de commencer, un président qui connaît chaque pas d\'avance.';
+
+    const jugementValide = {
+      hook_fort: { present: true, preuve: 'Tiani le savait déjà' },
+      pattern_interrupt: { present: false, preuve: '' },
+      boucle_ouverte: { present: true, preuve_ouverture: 'Les rues restent muettes', preuve_cloture: 'Il se rend sans condition devant les forces du président' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: false, preuve: '' },
+      cta_clair: { present: false, preuve: '' },
+      originalite: { present: false, preuve: '' },
+      promesse_tenue: { present: true, preuve_ouverture: 'le président connaît chaque pas d\'avance', preuve_cloture: 'un président qui connaît chaque pas d\'avance' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementValide) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signauxValides = await page.evaluate((t) => evaluerScriptGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signauxValides.boucle_ouverte, true, 'ouverture puis clôture, toutes deux réellement présentes dans le texte => signal validé : ' + JSON.stringify(signauxValides));
+    assert.equal(signauxValides.promesse_tenue, true, 'hook et chute qui se répondent réellement => signal validé (le vrai bug terrain) : ' + JSON.stringify(signauxValides));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('evaluerScriptGenere : promesse_tenue refusée si la "clôture" citée précède l\'"ouverture" (pas une vraie boucle début→fin)', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Le président connaît chaque pas d\'avance. Tiani le savait déjà.';
+    const jugementOrdreInverse = {
+      hook_fort: { present: false, preuve: '' },
+      pattern_interrupt: { present: false, preuve: '' },
+      boucle_ouverte: { present: false, preuve_ouverture: '', preuve_cloture: '' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: false, preuve: '' },
+      cta_clair: { present: false, preuve: '' },
+      originalite: { present: false, preuve: '' },
+      // Citations inversées par rapport à leur position réelle dans le texte.
+      promesse_tenue: { present: true, preuve_ouverture: 'Tiani le savait déjà', preuve_cloture: 'Le président connaît chaque pas d\'avance' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementOrdreInverse) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signaux = await page.evaluate((t) => evaluerScriptGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signaux.promesse_tenue, false, 'la "clôture" doit être chronologiquement APRÈS l\'"ouverture", sinon ce n\'est pas une vraie relation début→fin : ' + JSON.stringify(signaux));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Même correctif miroir côté Récit (voir GEN_SIGNAUX_DEUX_CITATIONS_RECIT,
+// js/storytelling.js) : tension_maintenue (relation début→fin) et
+// cloture_complete (DEUX éléments obligatoires : triple question miroir ET
+// signature métapoétique) exigent chacun deux citations distinctes.
+test('evaluerRecitGenere : tension_maintenue/cloture_complete exigent deux citations, jamais une seule', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Un général pense avoir tout préparé. La tension monte à chaque heure qui passe sans réponse. Le silence finit par tout révéler. Alors, que retenir de cette histoire ? Que le pouvoir se joue avant même le premier coup de feu ? Moi, je t\'ai pas raconté un putsch. Je t\'ai raconté une défaite écrite à l\'avance.';
+
+    const jugementValide = {
+      accroche_forte: { present: false, preuve: '' },
+      rupture_attente: { present: false, preuve: '' },
+      tension_maintenue: { present: true, preuve_ouverture: 'La tension monte à chaque heure qui passe sans réponse', preuve_cloture: 'Le silence finit par tout révéler' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: false, preuve: '' },
+      cloture_complete: {
+        present: true,
+        preuve_question: 'Alors, que retenir de cette histoire ? Que le pouvoir se joue avant même le premier coup de feu ?',
+        preuve_signature: 'Moi, je t\'ai pas raconté un putsch. Je t\'ai raconté une défaite écrite à l\'avance.'
+      },
+      coherence_factuelle: { present: false, preuve: '' },
+      non_redondance: { present: false, preuve: '' },
+      originalite: { present: false, preuve: '' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementValide) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signaux = await page.evaluate((t) => evaluerRecitGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signaux.tension_maintenue, true, 'ouverture puis clôture, toutes deux réellement présentes => signal validé : ' + JSON.stringify(signaux));
+    assert.equal(signaux.cloture_complete, true, 'question miroir puis signature, toutes deux réellement présentes et dans le bon ordre => signal validé : ' + JSON.stringify(signaux));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('evaluerRecitGenere : cloture_complete refusée si la signature citée précède la question (mauvais ordre)', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Moi, je t\'ai pas raconté un putsch. Je t\'ai raconté une défaite écrite à l\'avance. Alors, que retenir de cette histoire ?';
+    const jugementOrdreInverse = {
+      accroche_forte: { present: false, preuve: '' },
+      rupture_attente: { present: false, preuve: '' },
+      tension_maintenue: { present: false, preuve_ouverture: '', preuve_cloture: '' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: false, preuve: '' },
+      // Citations inversées par rapport à leur position réelle dans le texte.
+      cloture_complete: {
+        present: true,
+        preuve_question: 'Alors, que retenir de cette histoire ?',
+        preuve_signature: 'Moi, je t\'ai pas raconté un putsch'
+      },
+      coherence_factuelle: { present: false, preuve: '' },
+      non_redondance: { present: false, preuve: '' },
+      originalite: { present: false, preuve: '' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementOrdreInverse) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signaux = await page.evaluate((t) => evaluerRecitGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signaux.cloture_complete, false, 'la signature doit se situer APRÈS la question dans le texte, sinon ce n\'est pas la vraie structure de clôture : ' + JSON.stringify(signaux));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
