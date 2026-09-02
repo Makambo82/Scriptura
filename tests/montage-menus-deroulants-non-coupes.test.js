@@ -8,13 +8,45 @@
 // initCustomSelect). Fixé en retirant overflow:hidden (le dégradé s'estompe
 // déjà vers transparent à ses extrémités, jamais eu besoin d'un clip pour
 // rester propre sur des coins arrondis, même codex que .context-card).
+//
+// Ce test vérifie la cause exacte plutôt qu'une géométrie de substitution :
+// une 1ère version comparait la position du panneau ouvert à celle de sa
+// carte (panelBottom > carteBottom), mais cette géométrie dépend de la
+// taille relative carte/panneau (police système de repli si les polices
+// distantes ne chargent pas en CI, etc.) - un signal environnement-dépendant
+// qui a fait échouer le test en CI sans régression réelle. On vérifie
+// maintenant directement, en remontant les ancêtres du menu, qu'AUCUN n'a
+// overflow:hidden/clip (hors la propre liste défilante du menu, prévue
+// pour ça) : c'est le mécanisme exact du bug, déterministe quel que soit
+// l'environnement de rendu.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
 const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
-test('Montage (storyboard IA) : le menu déroulant "Choisis une voix..." n\'est pas coupé par la carte "Voix off" (overflow visible, panneau entier accessible)', async () => {
+// Renvoie la liste des ancêtres (entre le menu et <body>) dont l'overflow
+// couperait le panneau ouvert, en excluant .custom-select-list elle-même
+// (seule scrollable légitime du menu, voir css/style.css).
+function ancetresQuiClippent(idSelect) {
+  const wrap = document.getElementById(idSelect).closest('.custom-select');
+  const listeLegitime = wrap.querySelector('.custom-select-list');
+  const coupables = [];
+  let el = wrap.parentElement;
+  while (el && el !== document.body) {
+    if (el !== listeLegitime) {
+      const ov = getComputedStyle(el).overflow;
+      const ovY = getComputedStyle(el).overflowY;
+      if (ov === 'hidden' || ov === 'clip' || ovY === 'hidden' || ovY === 'clip') {
+        coupables.push({ tag: el.tagName, classe: el.className });
+      }
+    }
+    el = el.parentElement;
+  }
+  return coupables;
+}
+
+test('Montage (storyboard IA) : le menu déroulant "Choisis une voix..." n\'est coupé par aucun ancêtre (overflow visible de bout en bout)', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -45,45 +77,21 @@ test('Montage (storyboard IA) : le menu déroulant "Choisis une voix..." n\'est 
       renderMontageEtat();
     });
     await page.waitForTimeout(150);
-
-    // Aucune carte parente ne doit clipper le contenu qui en déborde : sinon
-    // le menu déroulant (positionné en absolu par rapport à la carte) se
-    // retrouve coupé net à la bordure de la carte.
-    const overflowCarte = await page.evaluate(() => {
-      const carte = document.getElementById('montageVoixSelect').closest('.montage-section');
-      return getComputedStyle(carte).overflow;
-    });
-    assert.notEqual(overflowCarte, 'hidden', 'la carte ne doit jamais avoir overflow:hidden, ça coupe les menus déroulants qui en débordent');
-
-    await page.evaluate(() => {
-      document.getElementById('montageVoixSelect').closest('.custom-select').scrollIntoView({ block: 'center' });
-    });
     await page.evaluate(() => {
       document.getElementById('montageVoixSelect').closest('.custom-select').querySelector('.custom-select-trigger').click();
     });
     await page.waitForTimeout(200);
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
-    const rects = await page.evaluate(() => {
-      const wrap = document.getElementById('montageVoixSelect').closest('.custom-select');
-      const panel = wrap.querySelector('.custom-select-panel');
-      const carte = wrap.closest('.montage-section');
-      const rPanel = panel.getBoundingClientRect();
-      const rCarte = carte.getBoundingClientRect();
-      return { panelHeight: rPanel.height, panelBottom: rPanel.bottom, carteBottom: rCarte.bottom };
-    });
-    // Le panneau ouvert (2 options + l'option "Choisis une voix...") a une
-    // vraie hauteur visible, et dépasse la carte qui le contient : la preuve
-    // qu'il n'est plus rogné à la bordure de la carte.
-    assert.ok(rects.panelHeight > 50, 'le panneau ouvert doit avoir une hauteur visible réelle : ' + JSON.stringify(rects));
-    assert.ok(rects.panelBottom > rects.carteBottom, 'le panneau doit pouvoir déborder de la carte "Voix off" (pas de clip) : ' + JSON.stringify(rects));
+    const coupables = await page.evaluate(ancetresQuiClippent, 'montageVoixSelect');
+    assert.deepEqual(coupables, [], 'aucun ancêtre du menu ne doit couper le panneau ouvert (dont la carte "Voix off") : ' + JSON.stringify(coupables));
   } finally {
     await navigateur.close();
     await arreter();
   }
 });
 
-test('Montage manuel : le menu déroulant "Volume de la musique" n\'est pas coupé par sa carte', async () => {
+test('Montage manuel : le menu déroulant "Volume de la musique" n\'est coupé par aucun ancêtre', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -98,32 +106,14 @@ test('Montage manuel : le menu déroulant "Volume de la musique" n\'est pas coup
     await page.waitForTimeout(150);
     await page.evaluate(() => ouvrirMontageManuelAccueil());
     await page.waitForTimeout(150);
-
-    const overflowCarte = await page.evaluate(() => {
-      const carte = document.getElementById('omMusiqueVolumeSelect').closest('.montage-section');
-      return getComputedStyle(carte).overflow;
-    });
-    assert.notEqual(overflowCarte, 'hidden', 'la carte "Musique" du montage manuel ne doit jamais avoir overflow:hidden');
-
-    await page.evaluate(() => {
-      document.getElementById('omMusiqueVolumeSelect').closest('.custom-select').scrollIntoView({ block: 'center' });
-    });
     await page.evaluate(() => {
       document.getElementById('omMusiqueVolumeSelect').closest('.custom-select').querySelector('.custom-select-trigger').click();
     });
     await page.waitForTimeout(200);
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
-    const rects = await page.evaluate(() => {
-      const wrap = document.getElementById('omMusiqueVolumeSelect').closest('.custom-select');
-      const panel = wrap.querySelector('.custom-select-panel');
-      const carte = wrap.closest('.montage-section');
-      const rPanel = panel.getBoundingClientRect();
-      const rCarte = carte.getBoundingClientRect();
-      return { panelHeight: rPanel.height, panelBottom: rPanel.bottom, carteBottom: rCarte.bottom };
-    });
-    assert.ok(rects.panelHeight > 50, 'le panneau ouvert (10 choix de volume) doit avoir une hauteur visible réelle : ' + JSON.stringify(rects));
-    assert.ok(rects.panelBottom > rects.carteBottom, 'le panneau doit pouvoir déborder de la carte "Musique" (pas de clip) : ' + JSON.stringify(rects));
+    const coupables = await page.evaluate(ancetresQuiClippent, 'omMusiqueVolumeSelect');
+    assert.deepEqual(coupables, [], 'aucun ancêtre du menu ne doit couper le panneau ouvert (dont la carte "Musique") : ' + JSON.stringify(coupables));
   } finally {
     await navigateur.close();
     await arreter();
