@@ -2068,17 +2068,17 @@ body.is-unlocked .sidebar-item.nav-switch-account-btn{display:flex}
    js/app.js et js/auth.js). */
 .sidebar-item.nav-admin-btn{display:none}
 body.is-admin .sidebar-item.nav-admin-btn{display:flex}
-/* Bouton "Générer la vidéo" (montage) : réservé au fondateur, même
-   mécanisme que le Tableau de bord ci-dessus. Plein doré (même langage que
-   .btn-generate, le bouton principal de génération), pour ressortir dans la
-   ligne Copier/Partager plutôt que de se fondre dans le cadre discret des
-   autres .btn-regenerate. */
+/* Bouton "Générer la vidéo" (montage) : ouvert au fondateur ET aux abonnés
+   Creator/Pro (voir body.montage-actif, appliquerClasseMontage, js/api.js).
+   Plein doré (même langage que .btn-generate, le bouton principal de
+   génération), pour ressortir dans la ligne Copier/Partager plutôt que de
+   se fondre dans le cadre discret des autres .btn-regenerate. */
 .montage-trigger-btn{
   display:none;
   background:var(--gold);color:var(--bg);border:none;
   box-shadow:0 4px 16px rgba(201,168,76,0.25);
 }
-body.is-admin .montage-trigger-btn{display:inline-flex;align-items:center;justify-content:center}
+body.is-admin .montage-trigger-btn, body.montage-actif .montage-trigger-btn{display:inline-flex;align-items:center;justify-content:center}
 .montage-trigger-btn:hover{
   background:var(--gold-light);color:var(--bg);
   transform:translateY(-1px);box-shadow:0 8px 26px rgba(201,168,76,0.35);
@@ -3042,11 +3042,11 @@ body.is-unlocked .sidebar-logout{display:block}
    sont pas .actif, un spinner sombre y serait invisible. */
 .outils-btn-row.ds-scope .sb-gen-spinner{border-color:rgba(255,255,255,0.25);border-top-color:var(--gold-light)}
 /* "Monter une vidéo" (carte sur l'accueil, section "Services annexes",
-   voir index.html) : réservé au fondateur (rendu FFmpeg coûteux, même
-   restriction que le montage depuis le storyboard, voir .montage-trigger-btn
-   plus haut et resoudreDroits/isAdmin côté serveur qui la revérifie). */
+   voir index.html) : ouvert au fondateur ET aux abonnés Creator/Pro, même
+   mécanisme que .montage-trigger-btn plus haut (voir body.montage-actif et
+   verifierAccesMontage côté serveur qui revérifie indépendamment). */
 .outils-montage-home-btn{display:none}
-body.is-admin .outils-montage-home-btn{display:flex}
+body.is-admin .outils-montage-home-btn, body.montage-actif .outils-montage-home-btn{display:flex}
 .outils-result-card{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:22px 20px;margin-top:24px;text-align:left}
 .outils-result-card h3{font-family:'Cinzel',serif;font-weight:500;font-size:0.9rem;color:var(--gold-light);margin:0 0 14px;letter-spacing:0.02em}
 .outils-transcript{white-space:pre-wrap;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.6;max-height:340px;overflow-y:auto;margin-bottom:16px;padding-right:4px}
