@@ -36,7 +36,14 @@ const TIKHUB_BASE = 'https://api.tikhub.io';
 const ELEVEN_STT = 'https://api.elevenlabs.io/v1/speech-to-text';
 const VIDEOS_CIBLE = 50;          // nombre de vidéos candidates visées
 const VIDEOS_CIBLE_TEST = 5;      // mode test (admin), pour vérifier un correctif sans payer 50 vidéos
-const FENETRE_JOURS = 90;         // fraîcheur, comme Vervox
+// Fraîcheur : élargie de 90 à 180j (retour propriétaire, suite au diagnostic
+// de la sonde ?debug=1 sur "cuisine" : sur ~400 vidéos brutes scannées en 20
+// pages, 89 étaient rejetées pour péremption (>90j) et 153 étaient des
+// doublons de pagination TikHub, ne laissant que 15 vidéos utilisables très
+// en dessous de la cible de 50. Le levier doublons coûte des appels TikHub
+// supplémentaires (pages), celui-ci est gratuit : il ne change que le filtre
+// appliqué aux vidéos déjà récupérées, sans appel réseau en plus.
+const FENETRE_JOURS = 180;
 const PAGES_MAX_RECHERCHE = 20;   // garde-fou anti-boucle infinie (cf. réserve élargie ci-dessous)
 // fetch_general_search (TikHub) ne trie PAS par performance, juste par
 // pertinence du mot-clé : un 1er test réel a montré des médianes basses
@@ -261,7 +268,8 @@ async function synthetiser(niche, videos, zone) {
     : null;
 
   // Momentum : vues moyennes des vidéos récentes (0-30j) vs plus anciennes
-  // (30-90j) de l'échantillon, un signe de tendance qui MONTE ou qui S'ESSOUFFLE.
+  // (30-180j, voir FENETRE_JOURS) de l'échantillon, un signe de tendance qui
+  // MONTE ou qui S'ESSOUFFLE.
   const maintenant = Math.floor(Date.now() / 1000);
   const recentes = avecStats.filter(v => v.createTime && (maintenant - v.createTime) <= 30 * 86400);
   const anciennes = avecStats.filter(v => v.createTime && (maintenant - v.createTime) > 30 * 86400);
@@ -347,7 +355,7 @@ ${corpus.slice(0, 40000)}
 FAITS DÉJÀ CALCULÉS PAR LE CODE (ne les recalcule jamais, base ta lecture dessus, ne les contredis pas) :
 - Vues médianes de l'échantillon : ${vuesMedianes}
 - Engagement moyen : ${engagementMoyen != null ? engagementMoyen + '%' : 'non mesurable'}
-- Momentum (vues moyennes récentes 0-30j vs 30-90j) : ${momentum != null ? momentum + '×' : 'non mesurable, pas assez d\'historique dans l\'échantillon'}
+- Momentum (vues moyennes récentes 0-30j vs 30-180j) : ${momentum != null ? momentum + '×' : 'non mesurable, pas assez d\'historique dans l\'échantillon'}
 
 TON TRAVAIL : à partir des TRANSCRIPTS ci-dessus UNIQUEMENT (jamais des chiffres, déjà connus, n'invente rien d'autre), identifie :
 1. Le REGISTRE de langage dominant (ton, vocabulaire typique, expressions récurrentes de cette niche).

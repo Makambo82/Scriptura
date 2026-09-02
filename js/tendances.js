@@ -206,9 +206,9 @@ async function lancerTendances() {
 function _fmtTendancesMomentum(m) {
   if (m == null) return { texte: 'Non mesurable sur cet échantillon', classe: 'ds-tag' };
   const val = String(m).replace('.', ',');
-  if (m >= 1.15) return { texte: 'En accélération (×' + val + ' vs il y a 30-90j)', classe: 'ds-tag-ok' };
-  if (m <= 0.85) return { texte: 'En ralentissement (×' + val + ' vs il y a 30-90j)', classe: 'ds-tag' };
-  return { texte: 'Stable (×' + val + ' vs il y a 30-90j)', classe: 'ds-tag' };
+  if (m >= 1.15) return { texte: 'En accélération (×' + val + ' vs il y a 30-180j)', classe: 'ds-tag-ok' };
+  if (m <= 0.85) return { texte: 'En ralentissement (×' + val + ' vs il y a 30-180j)', classe: 'ds-tag' };
+  return { texte: 'Stable (×' + val + ' vs il y a 30-180j)', classe: 'ds-tag' };
 }
 
 // Rendu du rapport (nouvelle analyse OU réouverture depuis l'historique).
@@ -233,7 +233,7 @@ function afficherTendancesResultat(d) {
     <div class="ideas-header" style="margin-bottom:0">
       <div class="ideas-eyebrow">Benchmark · ${tendancesEsc(niche)}${zone ? ' · ' + tendancesEsc(zone) : ''}</div>
       <h2 class="ideas-title" style="font-size:1.5rem">Ce qui cartonne<br/><strong>sur « ${tendancesEsc(niche)} »${zone ? ` (${tendancesEsc(zone)})` : ''}.</strong></h2>
-      ${d.echantillon ? `<p class="ideas-sub">Basé sur ${d.echantillon} vidéos des 90 derniers jours${d.transcrites ? `, dont ${d.transcrites} transcrites` : ''}.</p>` : ''}
+      ${d.echantillon ? `<p class="ideas-sub">Basé sur ${d.echantillon} vidéos des 180 derniers jours${d.transcrites ? `, dont ${d.transcrites} transcrites` : ''}.</p>` : ''}
     </div>`;
 
   const vueEnsembleHtml = `
