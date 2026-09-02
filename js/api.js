@@ -25,7 +25,7 @@ const CRITIQUE_ACTIVE = true;
 // quota de création et inversement. Le diagnostic sommaire (@nom
 // d'utilisateur) et l'analyse vidéo (lien TikTok) ont chacun leur PROPRE
 // compteur mensuel, séparé de la création : sommaire Creator 10/mois, Pro
-// 25/mois ; analyse vidéo Creator 6/mois, Pro 15/mois (plus bas que le
+// 15/mois ; analyse vidéo Creator 6/mois, Pro 10/mois (plus bas que le
 // sommaire : elle consomme deux API payées au crédit, transcription
 // ElevenLabs + décodage TikHub, coût double par appel). Un non-abonné a
 // droit à 1 de chaque (décomptée aussi sur ses 5 générations gratuites, voir
@@ -36,7 +36,7 @@ const CRITIQUE_ACTIVE = true;
 // le comptage Supabase par type.
 const LIMITES_MOIS = {
   creator: { creation: 40, audit: 0, sommaire: 10, viral: 6, tendances: 0 },
-  pro:     { creation: 70, audit: 5, sommaire: 25, viral: 15, tendances: 1 }
+  pro:     { creation: 70, audit: 5, sommaire: 15, viral: 10, tendances: 1 }
 };
 // Non-abonné : 1 seule analyse sommaire / 1 seule analyse vidéo (prélevées
 // aussi sur ses 5 générations gratuites).

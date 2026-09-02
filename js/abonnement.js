@@ -469,11 +469,11 @@ function openPlans(contexte) {
     // mais PAS forcément ses 5 générations gratuites (quota dédié séparé,
     // voir droitAnalyseSommaire). Jamais le message générique "5 générations
     // gratuites" ici, ce serait faux dans ce cas précis. Creator et Pro
-    // incluent tous les deux le diagnostic sommaire (10 et 25/mois), donc les
+    // incluent tous les deux le diagnostic sommaire (10 et 15/mois), donc les
     // deux restent proposés, contrairement à l'audit détaillé (Pro uniquement).
     if (tag) tag.textContent = 'Diagnostic déjà utilisé';
     if (titre) titre.innerHTML = 'Ton diagnostic gratuit<br/>est déjà utilisé';
-    if (intro) { intro.textContent = 'Il te reste des générations pour créer du contenu, mais plus de diagnostic sommaire gratuit. Passe au plan Creator (10 diagnostics par mois) ou Pro (25 diagnostics, plus l\'analyse détaillée) pour en refaire.'; intro.style.display = 'block'; }
+    if (intro) { intro.textContent = 'Il te reste des générations pour créer du contenu, mais plus de diagnostic sommaire gratuit. Passe au plan Creator (10 diagnostics par mois) ou Pro (15 diagnostics, plus l\'analyse détaillée) pour en refaire.'; intro.style.display = 'block'; }
   } else {
     // Non-abonné qui a épuisé ses générations gratuites (sans jetons affichés)
     if (tag) tag.textContent = 'Choisis ton offre';

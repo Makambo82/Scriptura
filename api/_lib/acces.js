@@ -34,7 +34,7 @@ const LIMITES_MOIS = {
   // 3€ (~20% des 10 000 FCFA ≈ 15,25€), avant coûts voix off/musique/rendu
   // vidéo (comptés à part).
   creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0, montageImages: 20 },
-  pro:     { creation: 70, audit: 5, diagnosticSommaire: 25, analyseVirale: 15, tendances: 1, montageImages: 60 }
+  pro:     { creation: 70, audit: 5, diagnosticSommaire: 15, analyseVirale: 10, tendances: 1, montageImages: 60 }
 };
 const PLAN_PAR_DEFAUT = 'creator';
 const MAX_FREE = 5;                // création, code jeton/inconnu (à vie)
