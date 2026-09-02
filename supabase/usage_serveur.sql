@@ -30,21 +30,31 @@ alter table usage_serveur enable row level security;
 -- service_role (api/_lib/acces.js) lit/écrit cette table, il ne passe
 -- jamais par RLS.
 
--- Incrémente `ref` de 1 SI le compteur actuel est encore sous `p_plafond`,
--- sinon ne fait rien. Renvoie true si l'incrémentation a eu lieu (donc si le
--- créateur peut consommer ce slot), false si le plafond est déjà atteint.
-create or replace function consommer_usage(p_ref text, p_plafond int)
+-- Incrémente `ref` de `p_increment` (1 par défaut) SI le compteur reste sous
+-- `p_plafond` une fois l'incrément appliqué, sinon ne fait rien. Renvoie true
+-- si l'incrémentation a eu lieu (donc si le créateur peut consommer ce/ces
+-- slot(s)), false si le plafond serait dépassé. p_increment>1 sert au quota
+-- d'images de montage (retour propriétaire : une vidéo de 10 images et une
+-- de 30 ne coûtent pas pareil, le quota se compte donc en images générées,
+-- pas en nombre de montages, décomptées en un seul appel atomique par lot).
+create or replace function consommer_usage(p_ref text, p_plafond int, p_increment int default 1)
 returns boolean
 language plpgsql
 as $$
 declare
   v_used int;
 begin
+  -- La ligne SELECT (au lieu de VALUES) filtre aussi la toute première
+  -- insertion : sans elle, un p_increment supérieur à p_plafond dès la
+  -- première consommation de ce ref passerait sans jamais être comparé au
+  -- plafond (seul le cas "ref déjà existant" était protégé par le WHERE
+  -- du ON CONFLICT).
   insert into usage_serveur (ref, used, maj_le)
-  values (p_ref, 1, now())
+  select p_ref, p_increment, now()
+  where p_increment <= p_plafond
   on conflict (ref) do update
-    set used = usage_serveur.used + 1, maj_le = now()
-    where usage_serveur.used < p_plafond
+    set used = usage_serveur.used + p_increment, maj_le = now()
+    where usage_serveur.used + p_increment <= p_plafond
   returning used into v_used;
   return v_used is not null;
 end;

@@ -25,8 +25,16 @@ const LIMITES_MOIS = {
   // tendances : réservé au Pro, 1 analyse/mois, comme Vervox lui-même
   // limite son propre benchmark de niche (~50 vidéos scannées et
   // transcrites, bien plus lourd que les autres modes).
-  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0 },
-  pro:     { creation: 70, audit: 5, diagnosticSommaire: 25, analyseVirale: 15, tendances: 1 }
+  // montageImages : quota du montage vidéo, compté en IMAGES GÉNÉRÉES dans
+  // le mois (pas en nombre de montages) - retour propriétaire : une vidéo
+  // de 10 images et une de 30 images n'ont pas le même coût, quoter par
+  // montage aurait été injuste selon la taille de chaque vidéo. Chiffré sur
+  // le pire cas mesuré chez Together (0,05€/image, modèle GPT Image 2 :
+  // 20 images Creator = 1€ (~11% des 6 000 FCFA ≈ 9,15€), 60 images Pro =
+  // 3€ (~20% des 10 000 FCFA ≈ 15,25€), avant coûts voix off/musique/rendu
+  // vidéo (comptés à part).
+  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0, montageImages: 20 },
+  pro:     { creation: 70, audit: 5, diagnosticSommaire: 25, analyseVirale: 15, tendances: 1, montageImages: 60 }
 };
 const PLAN_PAR_DEFAUT = 'creator';
 const MAX_FREE = 5;                // création, code jeton/inconnu (à vie)
@@ -146,8 +154,8 @@ async function appelerRpc(cfg, fonction, params) {
 // pour le quota permettait de supprimer son historique pour regagner du
 // quota à volonté. Ce compteur, lui, n'est accessible qu'au service_role.
 // Renvoie true (consommé), false (plafond atteint), ou null (indéterminé).
-async function consommerUsage(cfg, ref, plafond) {
-  return await appelerRpc(cfg, 'consommer_usage', { p_ref: ref, p_plafond: plafond });
+async function consommerUsage(cfg, ref, plafond, increment) {
+  return await appelerRpc(cfg, 'consommer_usage', { p_ref: ref, p_plafond: plafond, p_increment: increment || 1 });
 }
 
 // Clé de période pour le compteur d'usage : mensuelle (plans Creator/Pro
@@ -172,8 +180,11 @@ async function consommerJetonServeur(code, cfgArg) {
 }
 
 // Vérifie le quota pour un mode donné, avec repli jeton si prévu pour ce
-// mode. `code` peut être null (anonyme). Renvoie { ok, viaJeton?, raison? }.
-async function verifierQuota(droits, mode, code) {
+// mode. `code` peut être null (anonyme). `quantite` (défaut 1) : nombre de
+// slots consommés en un seul appel atomique (ex. montageImages, une seule
+// requête peut générer plusieurs images d'un coup, voir consommerUsage).
+// Renvoie { ok, viaJeton?, raison? }.
+async function verifierQuota(droits, mode, code, quantite) {
   if (droits.isAdmin || droits.illimite) return { ok: true };
 
   if (droits.anonyme) {
@@ -192,7 +203,7 @@ async function verifierQuota(droits, mode, code) {
 
   const plafond = aUnPlanReconnu ? limitePlan : (mode === 'creation' ? MAX_FREE : (MODES_GRATUIT_UNIQUE[mode] || 0));
   const ref = cleUsage(code, mode, !aUnPlanReconnu);
-  const consomme = await consommerUsage(cfg, ref, plafond);
+  const consomme = await consommerUsage(cfg, ref, plafond, quantite);
   if (consomme === true) return { ok: true };
   if (consomme === null) return { ok: true }; // fonction SQL pas encore installée ou panne : dégradation
 
@@ -254,11 +265,24 @@ async function verifierAccesProOuJeton(droits, code) {
   return { ok: false, raison: 'acces_requis' };
 }
 
+// Accès au montage vidéo (voix off, musique, images) : Creator ET Pro,
+// différenciés seulement par le quota d'images (voir LIMITES_MOIS,
+// montageImages), pas par l'accès lui-même - contrairement à
+// verifierAccesProOuJeton (réservé Pro/jeton). Le rendu vidéo final
+// (api/montage-render.js) reste séparément réservé au fondateur pour
+// l'instant (coût du service de rendu externe pas encore mesuré/quoté).
+function verifierAccesMontage(droits) {
+  if (droits.isAdmin || droits.illimite) return { ok: true };
+  if (droits.plan === 'creator' || droits.plan === 'pro') return { ok: true };
+  return { ok: false, raison: 'acces_requis' };
+}
+
 export {
   resoudreDroits,
   verifierQuota,
   verifierLimiteAnonyme,
   verifierAccesProOuJeton,
+  verifierAccesMontage,
   consommerJetonServeur,
   LIMITES_MOIS,
   MAX_FREE

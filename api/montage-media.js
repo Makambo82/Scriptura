@@ -10,7 +10,7 @@
 //  action=download | voices | tts | images
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits } from './_lib/acces.js';
+import { resoudreDroits, verifierAccesMontage, verifierQuota } from './_lib/acces.js';
 
 // ═══ DOWNLOAD (voir l'ancien api/montage-download.js) ═══
 
@@ -161,8 +161,9 @@ async function handleTts(req, res, body) {
   }
 
   const droits = await resoudreDroits(body?.code_acces);
-  if (!droits.isAdmin) {
-    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  const acces = verifierAccesMontage(droits);
+  if (!acces.ok) {
+    return res.status(403).json({ error: { message: 'Montage vidéo réservé aux abonnés Creator et Pro', code: 'ACCES_REFUSE' } });
   }
 
   // Un plafond trop bas ici causait un vrai bug silencieux : le montage
@@ -291,8 +292,9 @@ async function handleMusic(req, res, body) {
   if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (ELEVENLABS_API_KEY)' } });
 
   const droits = await resoudreDroits(body?.code_acces);
-  if (!droits.isAdmin) {
-    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  const acces = verifierAccesMontage(droits);
+  if (!acces.ok) {
+    return res.status(403).json({ error: { message: 'Montage vidéo réservé aux abonnés Creator et Pro', code: 'ACCES_REFUSE' } });
   }
 
   const dureeDemandeeMs = Math.round(Number(body?.dureeMs) || 0);
@@ -404,8 +406,9 @@ async function handleImages(req, res, body) {
   if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (TOGETHER_API_KEY)' } });
 
   const droits = await resoudreDroits(body?.code_acces);
-  if (!droits.isAdmin) {
-    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  const acces = verifierAccesMontage(droits);
+  if (!acces.ok) {
+    return res.status(403).json({ error: { message: 'Montage vidéo réservé aux abonnés Creator et Pro', code: 'ACCES_REFUSE' } });
   }
 
   const MAX_PROMPTS = 40;
@@ -413,6 +416,18 @@ async function handleImages(req, res, body) {
   if (!prompts.length || prompts.every(p => !p)) {
     return res.status(400).json({ error: { message: 'Aucun prompt à générer' } });
   }
+
+  // Quota d'images du mois (retour propriétaire : compté en images, pas en
+  // montages, voir LIMITES_MOIS.montageImages) - décompté en un seul appel
+  // atomique pour tout le lot, avant de dépenser un centime chez Together.
+  // Seuls les prompts non vides comptent (les vides ne génèrent rien, voir
+  // plus bas "Prompt vide").
+  const nbAGenerer = prompts.filter(p => p).length;
+  const quota = await verifierQuota(droits, 'montageImages', body?.code_acces, nbAGenerer);
+  if (!quota.ok) {
+    return res.status(403).json({ error: { message: 'Quota d\'images du mois atteint pour ton plan', code: 'QUOTA_ATTEINT' } });
+  }
+
   const dims = DIMENSIONS_FORMAT[body?.format] || DIMENSIONS_FORMAT['9:16'];
 
   const resultats = new Array(prompts.length).fill(null);
