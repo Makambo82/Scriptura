@@ -10,7 +10,7 @@
 //  montage depuis le storyboard, re-vérifiée côté serveur par
 //  /api/montage-render (resoudreDroits/isAdmin), jamais fiée au seul CSS.
 //  Réutilise volontairement le pipeline déjà en place : /api/montage-render
-//  (proxy Railway ou repli FFmpeg local, selon MONTAGE_RENDER_URL),
+//  (proxy vers le service de rendu externe Railway),
 //  /api/montage-media (voix ElevenLabs), et les fonctions de partage/
 //  téléchargement de js/montage.js (partagerVideoMontage, prechargerVideoMontage),
 //  plutôt que de dupliquer cette logique.

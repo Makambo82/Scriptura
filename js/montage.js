@@ -15,7 +15,7 @@
 // le jeton de ce service ne doivent JAMAIS vivre dans du JS servi au
 // client (ce serait publié en clair pour n'importe qui, exactement comme
 // une clé secrète collée dans le HTML). C'est /api/montage-render qui
-// proxie vers le service externe si configuré (voir MONTAGE_RENDER_URL/
+// proxie vers le service externe (voir MONTAGE_RENDER_URL/
 // MONTAGE_RENDER_TOKEN, variables d'environnement Vercel, et
 // render-service/README.md pour le déploiement du service lui-même).
 

@@ -106,9 +106,9 @@ Variables*, ajoute :
 - `MONTAGE_RENDER_TOKEN` — **la même valeur** que `MONTAGE_TOKEN` réglé ci-dessus.
 
 Puis redéploie (un nouveau push suffit, ou "Redeploy" sur le dernier
-déploiement). Tant que `MONTAGE_RENDER_URL` n'est pas réglée sur Vercel, le
-site continue d'utiliser le rendu Vercel local (`/api/montage-render`,
-FFmpeg auto-hébergé, plus limité) — aucune coupure pendant la migration.
+déploiement). `MONTAGE_RENDER_URL` est désormais requise : sans elle,
+`/api/montage-render` refuse la requête (le repli sur un rendu FFmpeg
+local à Vercel a été retiré, voir api/montage-render.js).
 
 ## Test rapide
 
