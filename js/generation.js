@@ -1739,6 +1739,20 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
     errorBox.style.display = 'block';
+    // Bug corrigé (retour terrain, audit du 2 septembre 2026) : lors d'une
+    // RÉGÉNÉRATION, #results est déjà masqué en tête de fonction et errorBox
+    // (dans #step3) n'est plus "active" à cet instant (l'écran résultat a
+    // pris le relais) : l'utilisateur se retrouvait devant un écran
+    // totalement vide, sans message ni bouton retour visible. On réaffiche
+    // le résultat précédent (encore dans le DOM, juste masqué) et on
+    // signale l'échec par le toast déjà utilisé pour le feedback de
+    // régénération (voir toastRegen plus bas), visible quel que soit
+    // l'écran affiché.
+    const resultsEl = document.getElementById('results');
+    if (resultsEl && resultsEl.style.display === 'none') {
+      resultsEl.style.display = '';
+      toastRegen('Erreur pendant la régénération : ' + e.message);
+    }
   } finally {
     setLoading(false);
   }
@@ -2480,6 +2494,14 @@ async function generateStoryboard() {
   const grid = document.getElementById('sbIdeeGrid');
   const statut = document.getElementById('sbIdeeStatut');
 
+  // Déclaré AVANT le try (bug corrigé, retour terrain, audit du 2 septembre
+  // 2026) : un `const prog` déclaré DANS le try n'est pas visible dans le
+  // `finally` qui suit (portée de bloc), `typeof prog !== 'undefined'` y
+  // était donc TOUJOURS faux et prog.stop() n'était jamais appelé en cas
+  // d'erreur précoce (ex. "Script vide") : le minuteur de progression
+  // (setTimeout récursif) tournait alors indéfiniment. Même correctif déjà
+  // appliqué ailleurs (js/serie.js).
+  let prog = null;
   try {
     // Découpage narratif déterministe (js/storyboard.js), AVANT tout appel IA :
     // le nombre de plans n'est plus limité par ce qu'une seule requête peut
@@ -2491,7 +2513,7 @@ async function generateStoryboard() {
     // Jalon RÉEL par lot (voir js/storyboard.js, generateStoryStoryboard,
     // même correctif) : le % avance à chaque lot VRAIMENT reçu.
     const nbLots1 = Math.max(1, Math.ceil(plans.length / TAILLE_LOT_VISUELS));
-    const prog = creerProgressionReelle(setPctSb1, Array(nbLots1).fill(1));
+    prog = creerProgressionReelle(setPctSb1, Array(nbLots1).fill(1));
     prog.start();
 
     let miniature = '';
@@ -2540,7 +2562,7 @@ async function generateStoryboard() {
     if (statut) statut.remove();
     grid.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}. <a onclick="generateStoryboard()" style="text-decoration:underline;cursor:pointer">Réessayer</a></div>`);
   } finally {
-    if (typeof prog !== 'undefined') prog.stop();
+    if (prog) prog.stop();
     const pb1 = document.getElementById('sbProgBar1');
     if (pb1) setTimeout(() => { pb1.style.display = 'none'; }, 600);
     if (btn) btn.disabled = false;

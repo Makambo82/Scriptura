@@ -366,6 +366,12 @@ async function generateStoryStoryboard() {
         ${blocGenImage(storeCopyText(p.visuel || ''))}
       </div>`;
 
+  // Déclaré AVANT le try (bug corrigé, retour terrain, audit du 2 septembre
+  // 2026) : un `const prog` déclaré DANS le try n'est pas visible dans le
+  // `finally` (portée de bloc), le minuteur de progression pouvait tourner
+  // indéfiniment après une erreur précoce (ex. "Récit vide"). Même correctif
+  // que js/generation.js/js/serie.js.
+  let prog = null;
   try {
     // Découpage narratif déterministe (moteur en tête de fichier), AVANT tout
     // appel IA : le nombre de plans n'est plus limité par ce qu'une seule
@@ -377,7 +383,7 @@ async function generateStoryStoryboard() {
     // connu seulement maintenant) : le % avance à chaque lot VRAIMENT reçu,
     // pas sur un minuteur (voir creerProgressionReelle, plus haut).
     const nbLots = Math.max(1, Math.ceil(plans.length / TAILLE_LOT_VISUELS));
-    const prog = creerProgressionReelle(setPctSb2, Array(nbLots).fill(1));
+    prog = creerProgressionReelle(setPctSb2, Array(nbLots).fill(1));
     prog.start();
 
     out.innerHTML = `<div class="sb-actions-top"><button class="btn-regenerate sb-regen" onclick="regenererContenu('storyboardStory')">↻ Régénérer</button></div><div class="sb-aide">${ICO('bulb')} Clique sur un logo (ChatGPT ou Gemini) sous chaque prompt : le texte est copié automatiquement et l'app s'ouvre.</div><div class="storyboard-grid" id="storyStoryboardGrid" style="margin-top:18px"></div>`;
@@ -431,7 +437,7 @@ async function generateStoryStoryboard() {
     // un échec en cours de route ne fait plus disparaître ce qui a déjà réussi.
     out.insertAdjacentHTML('beforeend', `<div class="error-box" style="display:block;margin-top:14px">Erreur : ${e.message}</div>`);
   } finally {
-    if (typeof prog !== 'undefined') prog.stop();
+    if (prog) prog.stop();
     const pb2 = document.getElementById('sbProgBar2'); if (pb2) setTimeout(() => { pb2.style.display = 'none'; }, 600);
     btn.disabled = false;
     document.getElementById('storyboardSpinner2').style.display = 'none';

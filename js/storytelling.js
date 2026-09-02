@@ -853,6 +853,19 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   } catch(e) {
     errorBox.textContent = 'Erreur : ' + e.message;
     errorBox.style.display = 'block';
+    // Bug corrigé (retour terrain, audit du 2 septembre 2026, même correctif
+    // que js/generation.js) : lors d'une RÉGÉNÉRATION, #storyResults est
+    // déjà masqué en tête de fonction et storyErrorBox (dans storyFormCard,
+    // déjà masqué via masquerFormulaireGeneration) est invisible :
+    // l'utilisateur se retrouvait devant un écran vide. On réaffiche le
+    // récit précédent (encore dans le DOM) et on signale l'échec par un
+    // toast (voir toastRegen, js/generation.js), visible quel que soit
+    // l'écran affiché.
+    const resultsEl = document.getElementById('storyResults');
+    if (resultsEl && resultsEl.style.display === 'none' && typeof toastRegen === 'function') {
+      resultsEl.style.display = '';
+      toastRegen('Erreur pendant la régénération : ' + e.message);
+    }
   } finally {
     setStoryLoading(false);
   }
