@@ -931,26 +931,52 @@ function afficherApercuEnDirect(buffer, cle) {
 // Un script tout juste écrit n'a par nature AUCUNE performance réelle à
 // mesurer (contrairement à l'Audit, qui note de vraies vidéos publiées) :
 // l'IA ne note donc plus rien elle-même, elle coche seulement la PRÉSENCE de
-// techniques concrètes sur SON PROPRE texte (tâche de détection, bien plus
-// fiable pour elle qu'inventer un nombre), et c'est le CODE qui calcule
-// chaque dimension à partir de ces cases. Même principe que
-// scoreViraliteRecette (js/viral.js) pour l'analyse de vidéos virales,
-// adapté ici à un contenu qui vient d'être généré.
-const GEN_SIGNAUX_SCRIPT = ['hook_fort', 'pattern_interrupt', 'boucle_ouverte', 'deuxieme_personne', 'rythme_soutenu', 'details_concrets', 'emotion_forte', 'cta_clair', 'originalite', 'promesse_tenue'];
+// techniques concrètes, et c'est le CODE qui calcule chaque dimension à
+// partir de ces cases. Même principe que scoreViraliteRecette (js/viral.js).
+//
+// Renforcé une 2e fois (retour terrain, un score à 100% questionné à raison) :
+// deux failles de rigueur corrigées ici. (1) deuxieme_personne/rythme_soutenu
+// sont désormais détectés directement en CODE (regex/statistique), plus
+// aucune IA impliquée pour ces deux-là. (2) Les 8 signaux restants viennent
+// d'un 2e appel IA INDÉPENDANT (voir evaluerScriptGenere), qui ne voit QUE le
+// texte fini, jamais le contexte de rédaction : le même appel qui vient
+// d'écrire un texte a un biais d'auto-complaisance connu à le noter
+// lui-même. Ce juge extérieur doit en plus CITER le passage exact qui
+// justifie chaque case cochée, une citation introuvable mot pour mot dans le
+// texte (vérifié mécaniquement) invalide le signal.
+const GEN_SIGNAUX_JUGES_IA = ['hook_fort', 'pattern_interrupt', 'boucle_ouverte', 'details_concrets', 'emotion_forte', 'cta_clair', 'originalite', 'promesse_tenue'];
 const GEN_DIMENSIONS_SCRIPT = {
   hook:       ['hook_fort', 'pattern_interrupt', 'originalite'],
   engagement: ['rythme_soutenu', 'deuxieme_personne', 'boucle_ouverte'],
   emotion:    ['emotion_forte', 'details_concrets'],
   viral:      ['originalite', 'emotion_forte', 'cta_clair']
 };
+// Présence d'une adresse directe au spectateur (tu/vous), comptage MÉCANIQUE,
+// aucune IA : au moins 2 occurrences pour éviter qu'un seul "tu" incident
+// dans une citation ne déclenche le signal.
+function _genDetecterDeuxiemePersonne(texte) {
+  const m = String(texte || '').match(/\b(tu|t'|toi|ton|ta|tes|vous|votre|vos)\b/gi);
+  return !!m && m.length >= 2;
+}
+// Rythme soutenu approximé par la longueur moyenne des phrases (statistique
+// pure, aucune IA) : des phrases courtes collent à la consigne "une image
+// mentale toutes les 3-5 secondes", des phrases longues trahissent un
+// temps mort ou une idée diluée.
+function _genDetecterRythmeSoutenu(texte) {
+  const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
+  if (!phrases.length) return false;
+  const motsTotal = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
+  return (motsTotal / phrases.length) <= 12;
+}
 // Score d'une dimension : simple taux de présence des signaux qui la
-// composent, jamais un chiffre choisi librement. `signaux` absent/vide (l'IA
-// n'a pas renvoyé ce champ, ex. ancien format) retombe sur 50 (neutre),
-// jamais un plantage d'affichage ni une fausse note haute par défaut.
+// composent, jamais un chiffre choisi librement. Un signal EXPLICITEMENT
+// true/false compte pour 1/0 ; un signal ABSENT (clé manquante, ex. l'appel
+// d'évaluation a échoué techniquement) compte pour 0.5, crédit neutre plutôt
+// qu'une fausse note basse. `signaux` totalement absent retombe sur 50.
 function _genScoreDimension(signaux, cles) {
   if (!signaux || typeof signaux !== 'object') return 50;
-  const presents = cles.filter(c => signaux[c] === true).length;
-  return Math.round((presents / cles.length) * 100);
+  const total = cles.reduce((somme, c) => somme + (signaux[c] === true ? 1 : signaux[c] === false ? 0 : 0.5), 0);
+  return Math.round((total / cles.length) * 100);
 }
 // RÉTENTION : mélange le taux de signaux pertinents (boucle ouverte, chute
 // qui tient sa promesse, rythme) avec le VRAI respect de la durée cible
@@ -974,6 +1000,49 @@ function scorerScriptGenere(signaux, motsReels, wt) {
     emotion: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.emotion),
     retention: _genScoreRetention(signaux, motsReels, wt)
   };
+}
+// Juge EXTÉRIEUR et indépendant (voir commentaire d'en-tête ci-dessus) :
+// reçoit UNIQUEMENT le texte fini, jamais le brief ni le contexte de
+// rédaction. Chaque signal exige une citation vérifiée mot pour mot dans le
+// texte (normalisée : espaces/casse), sinon il retombe à false. Renvoie
+// null en cas d'échec technique (jamais bloquant, voir l'appelant).
+async function evaluerScriptGenere(texteComplet) {
+  if (!texteComplet || !texteComplet.trim()) return null;
+  const prompt = `Tu es un critique EXTÉRIEUR et exigeant, tu n'as PAS écrit ce script. Voici un script TikTok déjà terminé. Ta seule mission : juger honnêtement s'il contient VRAIMENT chacune des techniques ci-dessous, et CITER le passage exact qui le prouve (jamais une paraphrase, jamais un extrait qui n'existe pas mot pour mot dans le texte).
+
+SCRIPT :
+"""
+${texteComplet}
+"""
+
+Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peux citer un passage RÉEL et PRÉCIS (copié mot pour mot) qui le prouve sans discussion possible.
+- "hook_fort" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être générique ?
+- "pattern_interrupt" : la toute première phrase rompt-elle une attente (chiffre choc, affirmation contre-intuitive) ?
+- "boucle_ouverte" : une vraie tension/curiosité non résolue immédiatement ?
+- "details_concrets" : des exemples/chiffres précis plutôt que du vague ?
+- "emotion_forte" : une émotion nette et identifiable ?
+- "cta_clair" : le dernier passage contient-il un vrai appel à l'action qui dit précisément quoi faire ?
+- "originalite" : l'angle est-il vraiment original, pas un cliché IA reconnaissable ?
+- "promesse_tenue" : la chute répond-elle vraiment à la promesse ouverte par le hook ?
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"hook_fort":{"present":true,"preuve":"citation exacte ou vide"},"pattern_interrupt":{"present":true,"preuve":"..."},"boucle_ouverte":{"present":true,"preuve":"..."},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cta_clair":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."},"promesse_tenue":{"present":true,"preuve":"..."}}`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 1200, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+    const jug = parseAIResponse(raw);
+    if (!jug) return null;
+    const texteNormalise = String(texteComplet).toLowerCase().replace(/\s+/g, ' ');
+    const signaux = {};
+    GEN_SIGNAUX_JUGES_IA.forEach(cle => {
+      const d = jug[cle];
+      const preuve = d && typeof d.preuve === 'string' ? d.preuve.trim() : '';
+      const preuveNormalisee = preuve.toLowerCase().replace(/\s+/g, ' ');
+      const preuveValide = preuveNormalisee.length >= 4 && texteNormalise.includes(preuveNormalisee);
+      signaux[cle] = !!(d && d.present === true && preuveValide);
+    });
+    return signaux;
+  } catch (e) { return null; }
 }
 
 // ── GÉNÉRATION ──
@@ -1313,20 +1382,8 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Une seule image mentale par phrase, changement toutes les 3 à 5 secondes.
 Écris ta MEILLEURE version. Chaque script doit être digne d'un créateur professionnel.
 
-AUTO-DIAGNOSTIC HONNÊTE (jamais un chiffre, seulement des cases) : une fois le script écrit, relis-le et coche HONNÊTEMENT, comme un critique exigeant, la présence RÉELLE de chaque technique ci-dessous (true/false). Le score affiché à l'utilisateur est calculé ailleurs, à partir de ces cases, ne l'invente pas toi-même et ne gonfle rien : une case cochée à tort donnera un score mérité par rien.
-- "hook_fort" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être un hook générique ("voici 5 astuces"…) ?
-- "pattern_interrupt" : la toute première phrase rompt-elle une attente (chiffre choc, affirmation contre-intuitive, question inattendue) ?
-- "boucle_ouverte" : le script ouvre-t-il une vraie tension/curiosité non résolue immédiatement ?
-- "deuxieme_personne" : le script s'adresse-t-il directement au spectateur (tu/vous), pas seulement à la 3e personne ?
-- "rythme_soutenu" : une image mentale par phrase, aucun temps mort, changement toutes les 3-5 secondes ?
-- "details_concrets" : des exemples/chiffres précis plutôt que du vague ?
-- "emotion_forte" : une émotion nette et identifiable (pas juste informatif) ?
-- "cta_clair" : le dernier bloc contient-il un vrai appel à l'action, qui dit précisément quoi faire ?
-- "originalite" : l'angle est-il vraiment original, pas un cliché IA reconnaissable ?
-- "promesse_tenue" : la chute répond-elle vraiment à la promesse ouverte par le hook ?
-
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"signaux":{"hook_fort":true,"pattern_interrupt":true,"boucle_ouverte":true,"deuxieme_personne":true,"rythme_soutenu":true,"details_concrets":true,"emotion_forte":true,"cta_clair":true,"originalite":true,"promesse_tenue":true},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
+{"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
@@ -1614,10 +1671,24 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
 
     // Score déterministe (voir scorerScriptGenere plus haut) : calculé ICI à
-    // partir des signaux cochés par l'IA, jamais depuis un chiffre qu'elle
-    // aurait choisi elle-même. wordCount est déjà le compte FINAL (après
-    // l'éventuelle correction de durée ci-dessus).
-    parsed.score = scorerScriptGenere(parsed.signaux, wordCount, wt);
+    // partir de signaux, jamais d'un chiffre choisi par l'IA. deuxieme_personne/
+    // rythme_soutenu sont détectés directement en CODE (aucune IA, voir
+    // _genDetecterDeuxiemePersonne/_genDetecterRythmeSoutenu), les 8 autres
+    // viennent d'un 2e appel IA INDÉPENDANT et exigeant une citation
+    // vérifiée (voir evaluerScriptGenere) : jamais le même appel qui vient
+    // d'écrire le script qui se note lui-même (biais d'auto-complaisance).
+    // wordCount est déjà le compte FINAL (après l'éventuelle correction de
+    // durée ci-dessus).
+    const texteFinalScript = (parsed.script || []).map(s => (s && s.texte) || '').join(' ');
+    const signauxIA = repondreMaintenant ? null : await evaluerScriptGenere(texteFinalScript);
+    const signauxFinal = Object.assign(
+      {
+        deuxieme_personne: _genDetecterDeuxiemePersonne(texteFinalScript),
+        rythme_soutenu: _genDetecterRythmeSoutenu(texteFinalScript)
+      },
+      signauxIA || {}
+    );
+    parsed.score = scorerScriptGenere(signauxFinal, wordCount, wt);
 
     // Incrémenter le compteur si pas débloqué
     if (!unlocked && !_regenGratuiteEnCours) {

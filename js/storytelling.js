@@ -93,21 +93,40 @@ function setStoryLoading(on) {
 
 // ── SCORE DÉTERMINISTE DU RÉCIT (retour terrain, audit du 2 septembre 2026) ──
 // Même correctif et même principe que scorerScriptGenere (js/generation.js) :
-// l'IA ne note plus rien elle-même, elle coche la PRÉSENCE de techniques
-// concrètes sur SON PROPRE récit, et c'est le CODE qui calcule chaque
-// dimension à partir de ces cases. Signaux adaptés au récit (accroche
-// narrative/clôture/cohérence factuelle) plutôt qu'au vocabulaire hook
-// TikTok du mode Script, d'où un jeu de signaux et un mapping distincts.
+// l'IA ne note plus rien elle-même, le CODE calcule chaque dimension à
+// partir de cases cochées. Signaux adaptés au récit (accroche narrative/
+// clôture/cohérence factuelle) plutôt qu'au vocabulaire hook TikTok du mode
+// Script, d'où un jeu de signaux et un mapping distincts.
+//
+// Renforcé une 2e fois (retour terrain, un score à 100% questionné à raison,
+// même correctif que le mode Script) : rythme_soutenu est détecté
+// directement en CODE (statistique de longueur de phrase), plus aucune IA.
+// Les 9 signaux restants viennent d'un 2e appel IA INDÉPENDANT (voir
+// evaluerRecitGenere), qui ne voit QUE le texte fini, jamais le contexte de
+// rédaction, et doit CITER le passage exact qui justifie chaque case
+// cochée (citation introuvable mot pour mot = signal invalidé).
+const GEN_SIGNAUX_JUGES_IA_RECIT = ['accroche_forte', 'rupture_attente', 'tension_maintenue', 'details_concrets', 'emotion_forte', 'cloture_complete', 'coherence_factuelle', 'non_redondance', 'originalite'];
 const GEN_DIMENSIONS_RECIT = {
   narration:  ['accroche_forte', 'cloture_complete', 'coherence_factuelle'],
   engagement: ['rythme_soutenu', 'tension_maintenue', 'non_redondance'],
   emotion:    ['emotion_forte', 'details_concrets'],
   viral:      ['originalite', 'rupture_attente', 'emotion_forte']
 };
+// Même détecteur mécanique que le mode Script (voir _genDetecterRythmeSoutenu,
+// js/generation.js), dupliqué ici (pas de module partagé entre fichiers
+// chargés en <script> dans ce projet).
+function _genDetecterRythmeSoutenuRecit(texte) {
+  const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
+  if (!phrases.length) return false;
+  const motsTotal = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
+  return (motsTotal / phrases.length) <= 12;
+}
+// Signal EXPLICITEMENT true/false = 1/0 ; ABSENT (échec technique de
+// l'évaluation IA) = 0.5, crédit neutre plutôt qu'une fausse note basse.
 function _genScoreDimensionRecit(signaux, cles) {
   if (!signaux || typeof signaux !== 'object') return 50;
-  const presents = cles.filter(c => signaux[c] === true).length;
-  return Math.round((presents / cles.length) * 100);
+  const total = cles.reduce((somme, c) => somme + (signaux[c] === true ? 1 : signaux[c] === false ? 0 : 0.5), 0);
+  return Math.round((total / cles.length) * 100);
 }
 // RÉTENTION : mêmes principes que le mode Script (voir _genScoreRetention,
 // js/generation.js) : signaux de tension/clôture/rythme mélangés avec le
@@ -129,6 +148,48 @@ function scorerRecitGenere(signaux, motsReels, wt) {
     emotion: _genScoreDimensionRecit(signaux, GEN_DIMENSIONS_RECIT.emotion),
     retention: _genScoreRetentionRecit(signaux, motsReels, wt)
   };
+}
+// Juge EXTÉRIEUR et indépendant (voir commentaire d'en-tête ci-dessus),
+// même mécanique que evaluerScriptGenere (js/generation.js) adaptée au
+// vocabulaire du récit. Renvoie null en cas d'échec technique.
+async function evaluerRecitGenere(texteComplet) {
+  if (!texteComplet || !texteComplet.trim()) return null;
+  const prompt = `Tu es un critique EXTÉRIEUR et exigeant, tu n'as PAS écrit ce récit. Voici un récit TikTok déjà terminé. Ta seule mission : juger honnêtement s'il contient VRAIMENT chacune des techniques ci-dessous, et CITER le passage exact qui le prouve (jamais une paraphrase, jamais un extrait qui n'existe pas mot pour mot dans le texte).
+
+RÉCIT :
+"""
+${texteComplet}
+"""
+
+Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peux citer un passage RÉEL et PRÉCIS (copié mot pour mot) qui le prouve sans discussion possible.
+- "accroche_forte" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être générique ?
+- "rupture_attente" : la toute première phrase surprend/contredit-elle une attente ?
+- "tension_maintenue" : la tension narrative tient-elle vraiment du début à la fin, sans relâchement ?
+- "details_concrets" : au moins un détail précis (nom/lieu/date/chiffre) ailleurs que dans le seul hook ?
+- "emotion_forte" : un impact émotionnel réel et identifiable ?
+- "cloture_complete" : le dernier segment contient-il vraiment les DEUX éléments obligatoires (triple question miroir ET signature métapoétique) ?
+- "coherence_factuelle" : aucune contradiction de date/heure/chiffre entre le hook et le reste du récit ?
+- "non_redondance" : aucun segment consécutif ne reformule simplement le précédent ?
+- "originalite" : l'angle est-il vraiment original, pas un cliché reconnaissable ?
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"rupture_attente":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve":"..."},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cloture_complete":{"present":true,"preuve":"..."},"coherence_factuelle":{"present":true,"preuve":"..."},"non_redondance":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."}}`;
+
+  try {
+    const raw = await callAI(MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+    const jug = parseAIResponse(raw);
+    if (!jug) return null;
+    const texteNormalise = String(texteComplet).toLowerCase().replace(/\s+/g, ' ');
+    const signaux = {};
+    GEN_SIGNAUX_JUGES_IA_RECIT.forEach(cle => {
+      const d = jug[cle];
+      const preuve = d && typeof d.preuve === 'string' ? d.preuve.trim() : '';
+      const preuveNormalisee = preuve.toLowerCase().replace(/\s+/g, ' ');
+      const preuveValide = preuveNormalisee.length >= 4 && texteNormalise.includes(preuveNormalisee);
+      signaux[cle] = !!(d && d.present === true && preuveValide);
+    });
+    return signaux;
+  } catch (e) { return null; }
 }
 
 async function generateStory() {
@@ -343,20 +404,10 @@ EN PLUS DU RÉCIT, génère aussi :
 - Une LÉGENDE prête à publier (accrocheuse, avec appel à commenter/partager)
 - 8 HASHTAGS pertinents pour la portée
 
-Vise l'excellence absolue. AUTO-DIAGNOSTIC HONNÊTE (jamais un chiffre, seulement des cases) : une fois le récit écrit, relis-le et coche HONNÊTEMENT, comme un critique exigeant, la présence RÉELLE de chaque technique ci-dessous (true/false). Le score affiché à l'utilisateur est calculé ailleurs, à partir de ces cases, ne l'invente pas toi-même et ne gonfle rien : une case cochée à tort donnera un score mérité par rien.
-- "accroche_forte" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être générique ?
-- "rupture_attente" : la toute première phrase surprend/contredit-elle une attente ?
-- "tension_maintenue" : la tension narrative tient-elle vraiment du début à la fin, sans relâchement ?
-- "rythme_soutenu" : une image mentale toutes les 3-5 secondes, aucun temps mort ?
-- "details_concrets" : au moins un détail précis (nom/lieu/date/chiffre) ailleurs que dans le seul hook ?
-- "emotion_forte" : un impact émotionnel réel et identifiable ?
-- "cloture_complete" : le dernier segment contient-il vraiment les DEUX éléments obligatoires (triple question miroir ET signature métapoétique) ?
-- "coherence_factuelle" : aucune contradiction de date/heure/chiffre entre le hook et le reste du récit ?
-- "non_redondance" : aucun segment consécutif ne reformule simplement le précédent ?
-- "originalite" : l'angle est-il vraiment original, pas un cliché reconnaissable ?
+Vise l'excellence absolue.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","signaux":{"accroche_forte":true,"rupture_attente":true,"tension_maintenue":true,"rythme_soutenu":true,"details_concrets":true,"emotion_forte":true,"cloture_complete":true,"coherence_factuelle":true,"non_redondance":true,"originalite":true},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Ouverture","texte":"le \"Aujourd'hui, on parle de...\" (ou variante fluide) qui pose le personnage ou l'enjeu, voir point 2"},{"segment":"Détonateur","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Ouverture","texte":"le \"Aujourd'hui, on parle de...\" (ou variante fluide) qui pose le personnage ou l'enjeu, voir point 2"},{"segment":"Détonateur","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
 Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
 
@@ -764,9 +815,17 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
     // Score déterministe (voir scorerRecitGenere plus haut) : calculé ICI,
     // une fois TOUTES les passes de correction terminées (durée, hook/
-    // ouverture, clôture), à partir des signaux cochés par l'IA sur son
-    // texte original, jamais un chiffre qu'elle aurait choisi elle-même.
-    parsed.score = scorerRecitGenere(parsed.signaux, countStoryWords(parsed.recit), wt);
+    // ouverture, clôture). rythme_soutenu détecté en CODE, les 9 autres
+    // signaux viennent d'un 2e appel IA INDÉPENDANT et exigeant une citation
+    // vérifiée (voir evaluerRecitGenere) : jamais le même appel qui vient
+    // d'écrire le récit qui se note lui-même.
+    const texteFinalRecit = (parsed.recit || []).map(s => (s && s.texte) || '').join(' ');
+    const signauxIARecit = repondreMaintenant ? null : await evaluerRecitGenere(texteFinalRecit);
+    const signauxFinalRecit = Object.assign(
+      { rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinalRecit) },
+      signauxIARecit || {}
+    );
+    parsed.score = scorerRecitGenere(signauxFinalRecit, countStoryWords(parsed.recit), wt);
 
     if (!unlocked && !_regenGratuiteEnCours) {
       usedGen++;
