@@ -229,6 +229,19 @@ async function omChargerVoix() {
 function omChoisirModeVoix(mode) {
   if (mode === omModeVoix) return;
   omModeVoix = mode;
+  // Bug corrigé (retour terrain, audit du 2 septembre 2026) : basculer de
+  // mode laissait l'ancien omAudio (voix IA ou fichier importé) actif en
+  // mémoire. Si le nombre d'images n'avait pas changé entre-temps, le bouton
+  // "Démarrer le montage" pouvait rester activable et lancer un rendu avec
+  // cette ANCIENNE voix (et ses sous-titres, s'ils étaient cochés), alors
+  // que l'écran affichait le nouveau mode "rien choisi". On efface donc
+  // systématiquement omAudio au changement de mode, même logique que
+  // omChangerVoix/omChangerVitesse pour un changement de voix IA.
+  if (omAudio) {
+    if (omAudio.url) URL.revokeObjectURL(omAudio.url);
+    omAudio = null;
+  }
+  omDureesManuelles = [];
   const btnUpload = document.getElementById('omModeUploadBtn');
   const btnIa = document.getElementById('omModeIaBtn');
   if (btnUpload) btnUpload.classList.toggle('actif', mode === 'upload');
