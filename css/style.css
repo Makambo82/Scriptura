@@ -2692,9 +2692,17 @@ body.is-unlocked .sidebar-logout{display:block}
    annexe (tous en .btn-regenerate, même poids). */
 .montage-section{
   margin-top:16px;background:var(--bg-card);border:1px solid var(--border-soft);
-  border-radius:12px;padding:20px;position:relative;overflow:hidden;
+  border-radius:12px;padding:20px;position:relative;
 }
 .montage-section:first-of-type{margin-top:28px}
+/* PAS de overflow:hidden sur .montage-section (retour propriétaire, capture
+   à l'appui) : le menu déroulant maison (.custom-select-panel, voir plus
+   bas) se positionne en absolu par rapport à la carte et doit pouvoir
+   déborder pour s'ouvrir normalement, sinon il se retrouve coupé par les
+   bords de la carte, illisible et non défilable. Le dégradé ci-dessous
+   s'estompe déjà vers transparent à ses extrémités (même codex que
+   .context-card plus haut, jamais eu besoin d'un clip pour rester propre
+   sur des coins arrondis). */
 .montage-section::before{
   content:'';position:absolute;top:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg,transparent,var(--gold),transparent);
