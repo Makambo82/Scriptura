@@ -864,13 +864,6 @@
 
     <div class="montage-finish">
       <div class="error-box" id="omErreur" style="display:none"></div>
-      <div class="montage-statut" id="omStatut" style="display:none">Envoi des fichiers…</div>
-      <div class="sb-progress-bar" id="omMontageProgBar" style="display:none">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
-        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMontageProgFill"></div></div>
-        <div class="sb-progress-bar-pct" id="omMontageProgPct">0%</div>
-      </div>
-      <div id="omResultat"></div>
 
       <div class="montage-field">
         <label class="montage-field-label" for="omTexteFin">Texte de fin <span class="montage-toggle-note">(optionnel, affiché dans les 2,5 dernières secondes)</span></label>
@@ -887,6 +880,18 @@
           <span class="montage-toggle-track"></span>
         </span>
       </div>
+
+      <!-- Retour propriétaire : la barre de progression puis la vidéo une
+           fois prête doivent apparaître ICI, juste au-dessus du bouton
+           "Démarrer le montage" (pas au-dessus de "Texte de fin"). -->
+      <div class="montage-statut" id="omStatut" style="display:none;margin-top:16px">Envoi des fichiers…</div>
+      <div class="sb-progress-bar" id="omMontageProgBar" style="display:none;margin-top:16px">
+        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMontageProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="omMontageProgPct">0%</div>
+      </div>
+      <div id="omResultat" style="margin-top:16px"></div>
+
       <button class="btn-montage-primary btn-montage-lancer" id="omLancerBtn" onclick="omLancerMontage()" disabled>Démarrer le montage</button>
     </div>
   </div>
@@ -2020,13 +2025,6 @@
 
     <div class="montage-finish">
       <div class="error-box" id="montageErreur" style="display:none"></div>
-      <div class="montage-statut" id="montageStatut" style="display:none">Envoi des fichiers…</div>
-      <div class="sb-progress-bar" id="montageProgBar" style="display:none">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
-        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageProgFill"></div></div>
-        <div class="sb-progress-bar-pct" id="montageProgPct">0%</div>
-      </div>
-      <div id="montageResultat"></div>
 
       <div class="montage-field">
         <label class="montage-field-label" for="montageTexteFin">Texte de fin <span class="montage-toggle-note">(optionnel, affiché dans les 2,5 dernières secondes)</span></label>
@@ -2043,6 +2041,20 @@
           <span class="montage-toggle-track"></span>
         </span>
       </div>
+
+      <!-- Retour propriétaire : la barre de progression puis la vidéo une
+           fois prête doivent apparaître ICI, entre le réglage des
+           sous-titres et le bouton "Lancer le montage" (pas au-dessus de
+           "Texte de fin" comme avant), pour rester juste au-dessus du
+           bouton qui a déclenché le montage. -->
+      <div class="montage-statut" id="montageStatut" style="display:none;margin-top:16px">Envoi des fichiers…</div>
+      <div class="sb-progress-bar" id="montageProgBar" style="display:none;margin-top:16px">
+        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="montageProgPct">0%</div>
+      </div>
+      <div id="montageResultat" style="margin-top:16px"></div>
+
       <button class="btn-montage-primary btn-montage-lancer" id="montageLancerBtn" onclick="lancerMontage()" disabled>Lancer le montage</button>
     </div>
 </div>
