@@ -51,6 +51,10 @@ let montageVitesseVoix = 1;
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
 let montageVideoFichierPromise = null; // File préchargé de la vidéo rendue, voir partagerVideoMontage
 let montageImagesSelection = new Set(); // indices des images cochées pour le téléchargement en lot
+// Style graphique choisi AU MONTAGE (retour propriétaire) : prime sur celui
+// du storyboard si le créateur en choisit un ici, vide = garder les prompts
+// du storyboard tels quels (voir appliquerStyleVisuelSansRatio, js/api.js).
+let montageStyleOverride = '';
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série, génération en direct ET
@@ -90,6 +94,7 @@ function ouvrirMontage(plans, boutonEl) {
     .filter(p => p.text);
   montageImages = new Array(montagePlans.length).fill(null);
   montageImagesSelection = new Set();
+  montageStyleOverride = '';
   montageVoixOff = null;
   montageMusique = null;
   montageVitesseVoix = 1;
@@ -118,6 +123,11 @@ function ouvrirMontage(plans, boutonEl) {
   // ci-dessus, le panneau partagé garderait sinon le texte d'un montage précédent.
   const texteFin = document.getElementById('montageTexteFin');
   if (texteFin) texteFin.value = '';
+  // Style graphique (retour propriétaire) : reconstruit à chaque ouverture
+  // (comme le menu des voix) avec "Garder le style du storyboard" toujours
+  // sélectionné par défaut, jamais le choix d'un montage précédent.
+  const selStyle = document.getElementById('montageStyleSelect');
+  if (selStyle) { selStyle.innerHTML = stylesVisuelsOptionsHTML(''); selStyle.value = ''; }
   const compteAttendu = document.getElementById('montageCompteAttendu');
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
@@ -494,10 +504,11 @@ async function genererImagesMontage() {
     montageImageIndexEnCours = i;
     renderMontageEtat();
     try {
+      const promptBrut = montagePlans[i].visuel || montagePlans[i].text;
       const rep = await fetch('/api/montage-media?action=images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: [montagePlans[i].visuel || montagePlans[i].text], format: ratioDuPrompt(montagePlans[i].visuel || ''), code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify({ prompts: [construirePromptImageMontage(promptBrut)], format: ratioDuPrompt(promptBrut), code_acces: localStorage.getItem('scriptura_code') || null })
       });
       const data = await rep.json();
       const img = data.images && data.images[0];
@@ -527,10 +538,11 @@ async function regenererImageMontage(i) {
   montageImagesEnCours = true;
   renderMontageEtat();
   try {
+    const promptBrut = plan.visuel || plan.text;
     const rep = await fetch('/api/montage-media?action=images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: [plan.visuel || plan.text], format: ratioDuPrompt(plan.visuel || ''), code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify({ prompts: [construirePromptImageMontage(promptBrut)], format: ratioDuPrompt(promptBrut), code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await rep.json();
     const img = data.images && data.images[0];
@@ -600,6 +612,43 @@ function changerVitesseMontage(v) {
   // générée l'a été à l'ancienne vitesse, elle ne correspond plus au réglage
   // affiché.
   montageVoixOff = null;
+  renderMontageEtat();
+}
+
+// Style graphique choisi AU MONTAGE (retour propriétaire) : prime sur celui
+// du storyboard - un utilisateur a pu choisir un style avant de générer le
+// storyboard (déjà présent dans chaque prompt), puis changer d'avis une
+// fois arrivé au montage. S'il ne choisit rien ici, les prompts du
+// storyboard partent inchangés (voir construirePromptImageMontage plus bas).
+function changerStyleMontage(id) {
+  const nouveauStyle = id || '';
+  if (nouveauStyle === montageStyleOverride) return;
+  montageStyleOverride = nouveauStyle;
+  // Les images déjà générées reflètent l'ancien choix (storyboard ou style
+  // précédent) : les invalider plutôt que laisser croire qu'elles suivent
+  // déjà le nouveau style, même logique que changerVoixMontage ci-dessus.
+  if (montageImages.some(Boolean)) {
+    montageImages = new Array(montagePlans.length).fill(null);
+  }
+  renderMontageEtat();
+}
+
+// Applique le style choisi AU MONTAGE au prompt d'un plan, s'il y en a un
+// (sinon le prompt du storyboard part tel quel). Centralisé ici : utilisé à
+// la fois par genererImagesMontage et regenererImageMontage plus bas.
+function construirePromptImageMontage(promptBrut) {
+  return montageStyleOverride ? appliquerStyleVisuelSansRatio(promptBrut, montageStyleOverride) : promptBrut;
+}
+
+// Supprime les images sélectionnées (retour propriétaire) : les remet à
+// null, exactement l'état d'un plan dont la génération a échoué (regénérer
+// via l'IA ou charger sa propre image restent proposés, voir
+// renderMontageEtat), plutôt qu'un vrai retrait qui désynchroniserait
+// montageImages de montagePlans (même longueur toujours attendue ailleurs).
+function supprimerImagesSelectionnees() {
+  if (!montageImagesSelection.size) return;
+  montageImagesSelection.forEach(i => { montageImages[i] = null; });
+  montageImagesSelection = new Set();
   renderMontageEtat();
 }
 
@@ -802,6 +851,10 @@ function renderMontageEtat() {
       ? `⬇ Télécharger la sélection (${nbSelection}) (.zip)`
       : '⬇ Télécharger toutes les images (.zip)';
   }
+  // Bouton "supprimer la sélection" (retour propriétaire) : actif seulement
+  // si au moins une image est cochée, comme les autres actions de sélection.
+  const btnDelSelection = document.getElementById('montageDelSelectionBtn');
+  if (btnDelSelection) btnDelSelection.disabled = montageImagesSelection.size === 0;
 
   const zoneVoix = document.getElementById('montageVoixZone');
   if (zoneVoix) {

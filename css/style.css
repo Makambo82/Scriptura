@@ -2754,6 +2754,20 @@ body.is-unlocked .sidebar-logout{display:block}
 .btn-montage-primary:hover{background:var(--gold-light);transform:translateY(-1px);box-shadow:0 10px 26px rgba(201,168,76,0.22)}
 .btn-montage-primary:disabled{opacity:0.4;cursor:default;transform:none;box-shadow:none}
 
+/* Bouton icône seule (retour propriétaire : "supprimer la sélection" sans
+   texte, à côté de "Tout sélectionner") : même famille visuelle que
+   .btn-regenerate (fantôme, bordure dorée fine) mais circulaire, sans
+   libellé, pour une action secondaire compacte répétée peu souvent. */
+.btn-montage-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:36px;height:36px;flex:0 0 auto;border-radius:50%;
+  background:transparent;border:1px solid var(--border);color:var(--gold);
+  cursor:pointer;transition:all 0.2s;
+}
+.btn-montage-icon .ico{width:16px;height:16px}
+.btn-montage-icon:hover{background:var(--gold-pale);border-color:var(--gold)}
+.btn-montage-icon:disabled{opacity:0.4;cursor:default}
+
 /* Interrupteur (sous-titres) : même <input type="checkbox"> qu'avant (même
    id, .checked inchangé, tests existants intacts, voir
    tests/montage-sous-titres-case-a-cocher.test.js qui ne lit jamais que

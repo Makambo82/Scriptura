@@ -538,8 +538,9 @@ function optionsStoryboardHTML() {
 
 // Retire tout footer de style + le "9:16", applique le style demandé, remet
 // "9:16" en dernier. Idempotent (ne s'empile jamais). Style "neutre" = pas de
-// footer. Sert à la fois pour le storyboard (assainirPromptVisuel) et pour la
-// génération d'images du montage.
+// footer. Utilisé pour le storyboard (assainirPromptVisuel), AVANT génération
+// : le ratio réappliqué est le format GLOBAL actuel (formatVisuelActuel),
+// cohérent puisque le storyboard n'a pas encore de ratio propre à ce stade.
 function appliquerStyleVisuel(prompt, styleId) {
   let p = String(prompt || '');
   // Retire un footer de ratio existant (9:16, 16:9 ou 1:1) et un footer de style.
@@ -551,6 +552,38 @@ function appliquerStyleVisuel(prompt, styleId) {
   const ratio = formatVisuelActuel();
   if (!p.endsWith(ratio)) p = p + ' ' + ratio;
   return p;
+}
+
+// Variante pour le MONTAGE (retour propriétaire) : le créateur a pu choisir
+// un style graphique avant le storyboard, puis en changer d'avis une fois
+// au montage - ce choix-là prime alors sur celui du storyboard, MAIS sans
+// jamais toucher le ratio déjà fixé dans CE prompt précis (contrairement à
+// appliquerStyleVisuel ci-dessus, qui réapplique le format GLOBAL actuel :
+// pertinent avant génération du storyboard, pas au montage où le ratio de
+// chaque plan est déjà arrêté et ne doit jamais changer au passage). Si le
+// créateur ne choisit rien au montage, les prompts partent inchangés
+// (voir stylesVisuelsOptionsHTML, l'option vide ne doit jamais forcer
+// "peinture" par défaut comme le fait appliquerStyleVisuel ci-dessus).
+function appliquerStyleVisuelSansRatio(prompt, styleId) {
+  const ratio = ratioDuPrompt(prompt);
+  let p = String(prompt || '');
+  p = p.replace(/\s*(ratio\s*)?\b(9[\s:\/]+16|16[\s:\/]+9|1[\s:\/]+1)\b\.?\s*$/i, '').trim();
+  p = p.replace(REGEX_FOOTER_STYLE, '').trim();
+  const st = STYLES_VISUELS.find(s => s.id === styleId);
+  if (st && st.footer) p = p.replace(/[.\s]*$/, '').trim() + '. ' + st.footer;
+  return (p + ' ' + ratio).trim();
+}
+
+// Menu de style graphique indépendant du storyboard (retour propriétaire) :
+// utilisé dans le panneau de montage pour PRIMER sur le style déjà présent
+// dans les prompts du storyboard, si le créateur en choisit un autre à ce
+// stade. Ne touche JAMAIS localStorage (scriptura_style_visuel, réservé au
+// choix fait AVANT le storyboard) : par défaut ("Garder le style du
+// storyboard"), les prompts partent inchangés, contrairement au menu du
+// storyboard (optionsStoryboardHTML) qui retombe sur "peinture" par défaut.
+function stylesVisuelsOptionsHTML(styleIdSelectionne) {
+  return '<option value="">Garder le style du storyboard</option>'
+    + STYLES_VISUELS.map(s => `<option value="${s.id}"${s.id === styleIdSelectionne ? ' selected' : ''}>${s.label}</option>`).join('');
 }
 
 /**

@@ -1928,20 +1928,29 @@
         </div>
         <div class="montage-chip" id="montageImagesCompte">0 / 0</div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div class="montage-field">
+        <label class="montage-field-label" for="montageStyleSelect">Style graphique <span class="montage-toggle-note">(remplace celui du storyboard si choisi)</span></label>
+        <select class="ctx-input" id="montageStyleSelect" onchange="changerStyleMontage(this.value)"></select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
         <button class="btn-montage-primary" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">Générer les images</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
         <button class="btn-regenerate" id="montageChargerImagesBtn" onclick="declencherUploadImages()" type="button" title="Charger tes propres images (ex. générées avec ChatGPT ou Gemini), dans l'ordre des plans">Charger mes images</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <button class="btn-regenerate" id="montageSelectAllBtn" onclick="toggleToutSelectionnerImages()" type="button">Tout sélectionner</button>
+        <button class="btn-montage-icon" id="montageDelSelectionBtn" onclick="supprimerImagesSelectionnees()" type="button" title="Supprimer la sélection">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <button class="btn-regenerate" id="montageDlSelectionBtn" onclick="telechargerImagesSelectionnees()" type="button">Télécharger la sélection (.zip)</button>
         <select class="ctx-input" id="montageImgFormatSelect" style="flex:0 0 auto;width:auto" title="Format de téléchargement des images">
           <option value="png">PNG</option>
           <option value="jpeg">JPEG</option>
           <option value="webp">WEBP</option>
         </select>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        <button class="btn-regenerate" id="montageSelectAllBtn" onclick="toggleToutSelectionnerImages()" type="button">Tout sélectionner</button>
-        <button class="btn-regenerate" id="montageDlSelectionBtn" onclick="telechargerImagesSelectionnees()" type="button">Télécharger la sélection (.zip)</button>
       </div>
       <div class="sb-progress-bar" id="montageImagesLoader" style="display:none;max-width:none;margin-top:14px">
         <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
