@@ -213,6 +213,15 @@ function dsLikesCumules(profil) {
   return dsLireStat(dsStatsCompte(profil), DS_CLES_LIKES);
 }
 
+// Extrait le nombre total de vidéos publiées par le compte (même clé "stats"
+// du compte, même mécanique tolérante que dsAbonnes/dsLikesCumules
+// ci-dessus). Utilisé UNIQUEMENT pour l'estimation d'engagement en mode
+// « profil seul », voir _dsEstimerTauxEngagement plus bas.
+const DS_CLES_VIDEOS = /^(videocount|video_count|awemecount|aweme_count)$/i;
+function dsNombreVideos(profil) {
+  return dsLireStat(dsStatsCompte(profil), DS_CLES_VIDEOS);
+}
+
 // Identité affichable du compte (photo, pseudo, @handle), pour la carte
 // source en tête du diagnostic (retour du propriétaire, raisons commerciales
 // et d'attractivité). Même repérage récursif tolérant que dsStatsCompte
@@ -330,24 +339,56 @@ function _dsInterp(x, x0, x1, s0, s1) {
 // null si aucun historique). Renvoie null si aucune métrique vidéo (mode
 // « profil seul »), le diagnostic garde alors le comportement dégradé
 // habituel (engagement estimé par l'IA).
-function scorerDimensionsSommaire(m, evolution) {
-  if (!m) return null;
+// Barème /30 de la dimension Engagement, EXTRAIT en fonction pure pour être
+// partagé entre le taux d'engagement RÉEL (interactions/vues par vidéo) et
+// l'estimation dégradée en mode « profil seul » (voir
+// _dsEstimerTauxEngagement) : même échelle, même seuils, le score reste
+// déterministe dans les deux cas.
+function _dsScoreEngagementDepuisTaux(e) {
+  if (e < 3)       return _dsClamp(_dsInterp(e, 0, 3, 0, 8), 0, 8);
+  if (e < 7)       return _dsInterp(e, 3, 7, 9, 15);
+  if (e < 15)      return _dsInterp(e, 7, 15, 16, 22);
+  return _dsClamp(_dsInterp(e, 15, 30, 23, 30), 23, 30);
+}
+
+// Estimation dégradée du taux d'engagement en mode « profil seul » (aucune
+// vidéo chiffrée disponible, voir calculerMetriquesVideos) : moyenne de
+// "j'aime" par vidéo, rapportée aux abonnés. Moins précis que le taux réel
+// (les likes ne sont qu'UNE des interactions, et le dénominateur est les
+// abonnés plutôt que les vues), mais reste un chiffre RÉEL calculé à partir
+// de données mesurées (bug corrigé, retour terrain : avant ce correctif,
+// cette dimension était laissée à la seule appréciation de l'IA dès que le
+// détail par vidéo manquait, deux analyses identiques d'un même compte
+// pouvaient afficher deux scores Engagement différents).
+function _dsEstimerTauxEngagement(likesCumules, nombreVideos, abonnes) {
+  if (!likesCumules || !nombreVideos || !abonnes) return null;
+  const moyLikesParVideo = likesCumules / nombreVideos;
+  return Math.round((moyLikesParVideo / abonnes) * 1000) / 10; // %, 1 décimale
+}
+
+// `estimEngagement` (optionnel) : taux d'engagement estimé (voir
+// _dsEstimerTauxEngagement), utilisé UNIQUEMENT si `m` ne fournit pas de
+// taux réel. Ne renvoie plus jamais null globalement : chaque dimension
+// porte son propre disponible/score, jamais un bloc entier laissé à
+// l'appréciation de l'IA faute d'UNE SEULE métrique manquante.
+function scorerDimensionsSommaire(m, evolution, estimEngagement) {
   const dims = {};
 
-  // ENGAGEMENT /30 depuis le taux d'engagement réel (interactions/vues), en %.
-  if (m.tauxEngagementPct != null) {
-    const e = m.tauxEngagementPct;
-    let s;
-    if (e < 3)       s = _dsClamp(_dsInterp(e, 0, 3, 0, 8), 0, 8);
-    else if (e < 7)  s = _dsInterp(e, 3, 7, 9, 15);
-    else if (e < 15) s = _dsInterp(e, 7, 15, 16, 22);
-    else             s = _dsClamp(_dsInterp(e, 15, 30, 23, 30), 23, 30);
-    dims.engagement = { score: s, disponible: true };
-  } else dims.engagement = { score: null, disponible: false };
+  // ENGAGEMENT /30 : taux réel (interactions/vues) si les vidéos sont
+  // disponibles, sinon estimation profil seul, TOUJOURS calculée en code.
+  const tauxReel = m && m.tauxEngagementPct != null ? m.tauxEngagementPct : null;
+  const tauxUtilise = tauxReel != null ? tauxReel : estimEngagement;
+  if (tauxUtilise != null) {
+    dims.engagement = { score: _dsScoreEngagementDepuisTaux(tauxUtilise), disponible: true, estime: tauxReel == null };
+  } else {
+    dims.engagement = { score: null, disponible: false };
+  }
 
   // VUES MOYENNES /25 depuis la moyenne de vues par vidéo, seuils adaptés à
-  // la taille du compte (voir _dsPaliersVuesMoyennes), comme Vervox.
-  if (m.moyVues != null && m.abonnes != null) {
+  // la taille du compte (voir _dsPaliersVuesMoyennes), comme Vervox. Reste
+  // réellement impossible à mesurer sans détail par vidéo, aucune estimation
+  // raisonnable ne peut s'y substituer (contrairement à l'engagement ci-dessus).
+  if (m && m.moyVues != null && m.abonnes != null) {
     const pal = _dsPaliersVuesMoyennes(m.abonnes);
     const v = m.moyVues;
     let s;
@@ -359,7 +400,7 @@ function scorerDimensionsSommaire(m, evolution) {
   } else dims.vues_moyennes = { score: null, disponible: false };
 
   // RÉGULARITÉ /20 depuis les vidéos/semaine.
-  if (m.videosParSemaine != null) {
+  if (m && m.videosParSemaine != null) {
     const v = m.videosParSemaine;
     let s;
     if (v < 0.5)     s = _dsClamp(_dsInterp(v, 0, 0.5, 0, 5), 0, 5);
@@ -392,7 +433,7 @@ function scorerDimensionsSommaire(m, evolution) {
 
   // VIRALITÉ /10 depuis le rapport pic/médiane (et présence de pics), même
   // mécanique que Vervox (ratio max/médiane des vues).
-  if (m.ratioViral != null) {
+  if (m && m.ratioViral != null) {
     const r = m.ratioViral;
     let s;
     if (r < 2)       s = (m.pctPics > 0) ? 2 : _dsClamp(_dsInterp(r, 1, 2, 0, 2), 0, 2);
@@ -514,6 +555,7 @@ async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
   // et la détection de pivot, elles, exploitent tout l'historique (bloc plus bas).
   const abonnes = dsAbonnes(donnees.profil);
   const likesCumules = dsLikesCumules(donnees.profil);
+  const nombreVideos = dsNombreVideos(donnees.profil);
   const toutesVideos = Array.isArray(donnees.medias) ? donnees.medias : [];
   const seuilRecent = Math.floor(Date.now() / 1000) - 60 * 86400;
   const videosRecentes = toutesVideos.filter(v => typeof v.date === 'number' && v.date >= seuilRecent);
@@ -523,6 +565,11 @@ async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
     ? videosRecentes
     : toutesVideos.slice(0, Math.max(15, videosRecentes.length));
   const metriques = calculerMetriquesVideos(baseMetriques, abonnes);
+  // Estimation dégradée de l'engagement en mode « profil seul » (aucune
+  // vidéo chiffrée) : calculée UNE FOIS ici, réutilisée pour le pré-calcul
+  // des niveaux ci-dessous ET pour l'écrasement déterministe final plus bas,
+  // toujours la même valeur pour les deux (voir _dsEstimerTauxEngagement).
+  const estimEngagement = metriques ? null : _dsEstimerTauxEngagement(likesCumules, nombreVideos, abonnes);
 
   // Évolution des abonnés vs un diagnostic PRÉCÉDENT du même compte (aucun
   // appel API, lue dans l'historique local déjà sauvegardé, voir
@@ -533,7 +580,7 @@ async function _diagnostiquerContenu(donnees, username, estMonCompte = true) {
   // NIVEAUX déjà tranchés par le code (mêmes bornes que le barème). On les
   // impose à l'IA pour que ses CONSTATS n'emploient jamais un qualificatif qui
   // contredit le score affiché (le score, lui, est recalculé plus bas).
-  const _notesPre = scorerDimensionsSommaire(metriques, evolution);
+  const _notesPre = scorerDimensionsSommaire(metriques, evolution, estimEngagement);
   const niveauxTexte = _notesPre ? ['engagement', 'vues_moyennes', 'regularite', 'croissance_abonnes', 'viralite'].map(cle => {
     const d = _notesPre[cle], meta = DS_DIM_META[cle];
     if (!d || d.disponible === false || d.score == null) return `- ${meta.label} : non mesurée (n'en parle pas comme forte ou faible)`;
@@ -684,7 +731,7 @@ ${blocSujets}
 
 RÈGLE ABSOLUE D'HONNÊTETÉ : n'utilise QUE ce qui est réellement présent dans ces données (profil + éventuel bloc "DONNÉES PAR VIDÉO"). Si une donnée est absente, mets null / "disponible": false, n'invente jamais un chiffre.
 
-ENGAGEMENT (sur 30) : si le "Taux d'engagement réel" est fourni ci-dessus, commente-le (interactions ÷ vues par vidéo : c'est la vraie mesure d'engagement). Un taux élevé = audience qui réagit fort. Sinon, à défaut, estime à partir des likes cumulés ÷ nombre de vidéos face aux abonnés, en précisant que c'est une estimation.
+ENGAGEMENT (sur 30) : le score vient TOUJOURS du code (jamais de toi, y compris quand le taux réel manque : le code calcule alors lui-même une estimation à partir des likes cumulés). Si le "Taux d'engagement réel" est fourni ci-dessus, commente-le (interactions ÷ vues par vidéo : c'est la vraie mesure d'engagement). Sinon, commente le niveau déjà tranché plus bas en précisant explicitement que c'est une estimation (pas de détail vidéo disponible), sans jamais recalculer ni inventer de chiffre toi-même.
    BARÈME indicatif /30 : TRÈS FAIBLE (< 3%) → 0-8 · FAIBLE (3-7%) → 9-15 · CORRECT (7-15%) → 16-22 · FORT (> 15%) → 23-30.
 
 VUES MOYENNES (sur 25) : disponible UNIQUEMENT si le bloc "DONNÉES PAR VIDÉO" est présent. Le score exact est calculé par le code selon des seuils ADAPTÉS À LA TAILLE DU COMPTE (le même nombre de vues moyennes ne vaut pas la même chose pour 2K abonnés que pour 500K) : commente le chiffre en le resituant par rapport aux abonnés (ex. "X vues moyennes pour Y abonnés"), sans réinventer de barème toi-même, contente-toi du niveau déjà tranché plus bas.
@@ -720,15 +767,20 @@ ${schemaJson}`;
   // les fourchettes des barèmes, d'où des scores différents d'une analyse à
   // l'autre) par des notes calculées EN CODE à partir des chiffres réels. Même
   // compte + mêmes données ⇒ même score, toujours. On ne garde de l'IA que le
-  // texte (constat). En mode « profil seul » (pas de vidéos), scores=null ⇒ on
-  // laisse l'estimation d'engagement de l'IA (comportement dégradé inchangé).
+  // texte (constat). Bug corrigé (retour terrain) : en mode « profil seul »
+  // (pas de vidéos chiffrées), l'Engagement était auparavant laissé à la
+  // seule appréciation de l'IA faute de taux réel ; il utilise maintenant une
+  // estimation calculée en code (likes cumulés / vidéos / abonnés, voir
+  // _dsEstimerTauxEngagement) quand le taux réel manque (estimEngagement
+  // déjà calculé plus haut, réutilisé tel quel pour rester cohérent avec
+  // niveauxTexte donné à l'IA).
   if (parsed) {
-    const notes = scorerDimensionsSommaire(metriques, evolution);
+    const notes = scorerDimensionsSommaire(metriques, evolution, estimEngagement);
     if (notes) {
       ['engagement', 'vues_moyennes', 'regularite', 'croissance_abonnes', 'viralite'].forEach(cle => {
         const codeDim = notes[cle];
         const constat = (parsed[cle] && parsed[cle].constat) || '';
-        parsed[cle] = { score: codeDim.score, disponible: codeDim.disponible, constat };
+        parsed[cle] = { score: codeDim.score, disponible: codeDim.disponible, constat, estime: codeDim.estime || false };
       });
     }
     // Abonnés bruts au moment de CE diagnostic, sauvegardés avec lui (voir
