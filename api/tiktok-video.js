@@ -121,15 +121,13 @@ async function handleTranscription(req, res) {
       const limiteIP = await verifierLimiteAnonyme(req, 'video-stt', PLAFOND_ANONYME_JOUR);
       if (!limiteIP.ok) return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
     }
-    const verdict = await verifierQuota(droits, 'analyseVirale', code_acces);
-    if (!verdict.ok) {
-      return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
-    }
 
     let urlResolue = url.trim();
     let id = extraireAwemeId(urlResolue);
     if (!id) { urlResolue = await resoudreLien(urlResolue); id = extraireAwemeId(urlResolue); }
     if (!id) {
+      // Pas de quota consommé : lien mal formé, jamais le travail réel de
+      // cette route (bug corrigé, retour terrain).
       return res.status(422).json({ error: { message: "Lien TikTok non reconnu. Vérifie le lien, ou colle le texte de la vidéo à la main." } });
     }
 
@@ -148,7 +146,21 @@ async function handleTranscription(req, res) {
       }
     }
     if (!media) {
+      // Pas de quota consommé : vidéo privée/supprimée/indisponible, jamais
+      // atteint la transcription (bug corrigé, retour terrain).
       return res.status(200).json({ ok: false, description, stats, raison: 'video_indisponible' });
+    }
+
+    // SEULEMENT MAINTENANT (retour terrain) : le lien est confirmé valide et
+    // la vidéo réellement téléchargeable, juste avant l'appel ElevenLabs
+    // (payant) qui suit. Un échec de transcription ElevenLabs lui-même
+    // (raison 'stt_echec' plus bas) continue de consommer le quota,
+    // volontairement : la vidéo a réellement été traitée à ce stade, et
+    // laisser ce cas gratuit permettrait de déclencher des appels
+    // ElevenLabs à volonté sans jamais toucher son quota.
+    const verdict = await verifierQuota(droits, 'analyseVirale', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
     }
 
     if (stats && stats.vues && !stats.abonnesAuteur) {
@@ -211,13 +223,10 @@ async function handleDownload(req, res) {
       const limiteIP = await verifierLimiteAnonyme(req, 'tiktok-download', PLAFOND_ANONYME_JOUR);
       if (!limiteIP.ok) return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
     }
-    const verdict = await verifierQuota(droits, 'analyseVirale', code_acces);
-    if (!verdict.ok) {
-      return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
-    }
 
     const resolu = await resoudreVideoTikTok(url, tikhubKey);
     if (!resolu) {
+      // Pas de quota consommé : lien mal formé (bug corrigé, retour terrain).
       return res.status(422).json({ error: { message: 'Lien TikTok non reconnu. Vérifie le lien.' } });
     }
 
@@ -229,7 +238,16 @@ async function handleDownload(req, res) {
       if (m.ok) { media = m; break; }
     }
     if (!media) {
+      // Pas de quota consommé : vidéo indisponible au téléchargement (bug
+      // corrigé, retour terrain).
       return res.status(502).json({ error: { message: 'Vidéo indisponible au téléchargement pour l\'instant. Réessaie plus tard, ou avec un autre lien.' } });
+    }
+
+    // SEULEMENT MAINTENANT (retour terrain) : le lien est confirmé valide et
+    // la vidéo réellement téléchargée.
+    const verdict = await verifierQuota(droits, 'analyseVirale', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: "Quota d'analyses vidéo atteint.", code: 'QUOTA_ATTEINT', raison: verdict.raison } });
     }
 
     // Même carte source (auteur, date, description, stats) que la

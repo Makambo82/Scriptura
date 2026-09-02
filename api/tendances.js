@@ -538,14 +538,16 @@ async function lancer(req, res, tikhubKey) {
   // ElevenLabs sur 50 vidéos à chaque itération (voir debug-tendances.html).
   const cible = (test === true && droits.isAdmin) ? VIDEOS_CIBLE_TEST : VIDEOS_CIBLE;
 
-  const verdict = await verifierQuota(droits, 'tendances', code_acces);
-  if (!verdict.ok) {
-    // Un Creator a un plafond de 0/mois : ce n'est jamais "déjà utilisé",
-    // le mode ne lui est simplement pas ouvert (comme l'audit détaillé).
-    if (verdict.raison === 'acces_requis' || droits.plan !== 'pro') {
-      return res.status(403).json({ error: { message: 'Le mode Tendances est réservé au plan Pro.', code: 'ACCES_REFUSE' } });
-    }
-    return res.status(403).json({ error: { message: "Tu as déjà utilisé ton analyse de tendances ce mois-ci.", code: 'QUOTA_ATTEINT' } });
+  // Accès réservé Pro (jamais de jeton pour Tendances, voir LIMITES_MOIS) :
+  // vérifié ICI SANS consommer le quota, pour ne jamais lancer la recherche
+  // TikHub coûteuse pour un compte qui n'y a de toute façon pas accès. Le
+  // quota réel n'est consommé que plus bas, une fois confirmé qu'assez de
+  // vidéos ont été trouvées (bug corrigé, retour terrain : avant ce
+  // correctif, un Pro qui tapait une niche trop pointue perdait son unique
+  // analyse du mois pour un résultat vide, le quota était décompté AVANT le
+  // travail réel, sans aucun moyen de le récupérer).
+  if (!droits.isAdmin && !droits.illimite && droits.plan !== 'pro') {
+    return res.status(403).json({ error: { message: 'Le mode Tendances est réservé au plan Pro.', code: 'ACCES_REFUSE' } });
   }
 
   const cfg = supabaseConfig();
@@ -562,6 +564,13 @@ async function lancer(req, res, tikhubKey) {
 
   if (reserve.size < 5) {
     return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: reserve.size, pagesParcourues, raisonArret });
+  }
+
+  // Assez de vidéos trouvées : SEULEMENT MAINTENANT on consomme le quota
+  // mensuel (atomique, voir verifierQuota/consommer_usage), jamais avant.
+  const verdict = await verifierQuota(droits, 'tendances', code_acces);
+  if (!verdict.ok) {
+    return res.status(403).json({ error: { message: "Tu as déjà utilisé ton analyse de tendances ce mois-ci.", code: 'QUOTA_ATTEINT' } });
   }
 
   // On ne garde que les vidéos qui cartonnent VRAIMENT (vues ET engagement,

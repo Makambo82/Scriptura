@@ -96,9 +96,31 @@ test('lancer : anonyme (sans code_acces) reçoit aussi "réservé au plan Pro"',
   } finally { restaurer(); }
 });
 
-test('lancer : Pro ayant déjà consommé son quota du mois reçoit le message "déjà utilisé"', async () => {
+// Bug corrigé (retour terrain, audit du 2 septembre 2026) : le quota était
+// auparavant décompté AVANT la recherche TikHub, un Pro sur une niche trop
+// pointue perdait son unique analyse du mois pour un résultat vide. Le
+// quota n'est désormais consommé qu'APRÈS confirmation qu'assez de vidéos
+// ont été trouvées (voir api/tendances.js, action=lancer) : ce test fournit
+// donc 5 vidéos valides pour que la recherche réussisse, et vérifie que
+// c'est SEULEMENT à ce moment-là que le quota déjà épuisé se manifeste.
+function video5FillerItems() {
+  return Array.from({ length: 5 }, (_, i) => ({
+    item: {
+      id: 'video-quota-test-' + i,
+      desc: 'test', createTime: Math.floor(Date.now() / 1000),
+      stats: { playCount: 1000, diggCount: 100, commentCount: 10, shareCount: 5 },
+      author: {}, authorStats: {}
+    }
+  }));
+}
+
+test('lancer : Pro ayant déjà consommé son quota du mois reçoit le message "déjà utilisé" (une fois la recherche réussie)', async () => {
   const restaurer = poserEnv();
-  poserFetchMock({ abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }], quotaOk: false });
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    quotaOk: false,
+    pagesRecherche: [{ data: { data: video5FillerItems(), cursor: null, has_more: false } }]
+  });
   try {
     const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
     const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', code_acces: 'CODE-PRO' } };
@@ -107,6 +129,29 @@ test('lancer : Pro ayant déjà consommé son quota du mois reçoit le message "
     assert.equal(res.statutRecu, 403);
     assert.equal(res.corpsRecu.error.code, 'QUOTA_ATTEINT');
     assert.match(res.corpsRecu.error.message, /déjà utilisé/);
+  } finally { restaurer(); }
+});
+
+test('lancer : Pro sur une niche trop pointue (moins de 5 vidéos) NE consomme PAS son quota du mois', async () => {
+  const restaurer = poserEnv();
+  let consommeAppele = false;
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    quotaOk: true,
+    pagesRecherche: [{ data: { data: [], cursor: null, has_more: false } }],
+    custom(u) {
+      if (u.includes('/rest/v1/rpc/consommer_usage')) consommeAppele = true;
+      return null; // laisse poserFetchMock répondre normalement ensuite
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.raison, 'pas_assez_de_videos');
+    assert.equal(consommeAppele, false, 'le quota ne doit JAMAIS être décompté quand la recherche ne trouve pas assez de vidéos : le Pro doit pouvoir réessayer sans avoir perdu son analyse du mois');
   } finally { restaurer(); }
 });
 

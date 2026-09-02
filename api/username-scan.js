@@ -254,19 +254,25 @@ export default async function handler(req, res) {
       const limiteIP = await verifierLimiteAnonyme(req, 'username-scan', PLAFOND_ANONYME_JOUR);
       if (!limiteIP.ok) return res.status(403).json({ error: { message: 'Limite atteinte, réessaie plus tard.', code: 'QUOTA_ATTEINT' } });
     }
-    const verdict = await verifierQuota(droits, 'diagnosticSommaire', code_acces);
-    if (!verdict.ok) {
-      return res.status(403).json({ error: { message: 'Quota de diagnostics sommaires atteint.', code: 'QUOTA_ATTEINT', raison: verdict.raison } });
-    }
 
     const propre = username.trim().replace(/^@+/, '');
 
-    // 1) Profil via TikHub (abonnés, likes cumulés, bio, secUid en un appel)
+    // 1) Profil via TikHub (abonnés, likes cumulés, bio, secUid en un appel).
+    // Le quota n'est consommé qu'APRÈS, une fois le profil confirmé trouvable
+    // (bug corrigé, retour terrain : avant ce correctif, un pseudo privé,
+    // introuvable, ou une panne TikHub décomptait quand même le quota de
+    // diagnostics sommaires du mois, pour un résultat qui n'arrivait jamais
+    // à l'écran).
     const repProfil = await profilViaTikHub(propre, tikhubKey);
     if (!repProfil.ok) {
       return res.status(repProfil.status || 502).json({ error: { message: repProfil.message } });
     }
     const profil = repProfil.profil;
+
+    const verdict = await verifierQuota(droits, 'diagnosticSommaire', code_acces);
+    if (!verdict.ok) {
+      return res.status(403).json({ error: { message: 'Quota de diagnostics sommaires atteint.', code: 'QUOTA_ATTEINT', raison: verdict.raison } });
+    }
 
     // 2) Vidéos via TikHub (payé au crédit), avec le secUid déjà fourni par
     // le profil ci-dessus (repli sur un appel dédié si absent).
