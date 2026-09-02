@@ -346,7 +346,12 @@ const TENTATIVES_MAX = 3;
 // pour comparer coût et fiabilité réels. Tailles héritées des tests
 // précédents (carré/portrait/paysage fixes) : à ajuster si Together les
 // refuse pour ce modèle précis, l'erreur remontée par genererUneImage le dira.
-const MODELE = 'openai/gpt-image-2';
+// Réglable par variable d'environnement (retour propriétaire : "essayer
+// d'autres modèles pour réduire les coûts", GPT Image 2 étant nettement
+// plus cher que la moyenne des modèles Together) SANS redéploiement de
+// code à chaque essai : change TOGETHER_IMAGE_MODEL sur Vercel, redéploie
+// juste la variable, génère de vraies images sur le site pour comparer.
+const MODELE = process.env.TOGETHER_IMAGE_MODEL || 'openai/gpt-image-2';
 const DIMENSIONS_FORMAT = {
   '9:16': { w: 1024, h: 1536 },
   '16:9': { w: 1536, h: 1024 },
