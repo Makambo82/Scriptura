@@ -693,11 +693,15 @@ test('lancer : "monde entier" (et équivalents) n\'est JAMAIS ajouté au mot-cl�
   });
   try {
     const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
-    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', zone: 'Monde entier', code_acces: ENV_BASE.CODE_ADMIN, test: true } };
+    // "histoire" plutôt que "cuisine" : aucun synonyme mappé (voir
+    // SYNONYMES_NICHE, api/tendances.js), pour tester la gestion de la zone
+    // isolément, sans la recherche multi-mots-clés (couverte par d'autres
+    // tests dédiés).
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'histoire', zone: 'Monde entier', code_acces: ENV_BASE.CODE_ADMIN, test: true } };
     const res = creerRes();
     await handler(req, res);
     assert.equal(res.statutRecu, 200);
-    assert.ok(motsRecherches.every(m => m === 'cuisine'), '"monde entier" ne doit jamais apparaître dans le mot-clé : ' + JSON.stringify(motsRecherches));
+    assert.ok(motsRecherches.every(m => m === 'histoire'), '"monde entier" ne doit jamais apparaître dans le mot-clé : ' + JSON.stringify(motsRecherches));
   } finally { restaurer(); }
 });
 
@@ -754,12 +758,15 @@ test('GET debug avec zone : le mot-clé combiné est utilisé pour la sonde ET l
   });
   try {
     const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
-    const req = { method: 'GET', query: { mot: 'cuisine', zone: 'Europe', debug: '1', code_acces: ENV_BASE.CODE_ADMIN } };
+    // "histoire" : aucun synonyme mappé (voir SYNONYMES_NICHE), pour isoler
+    // la combinaison zone+mot-clé de la recherche multi-mots-clés (testée à
+    // part).
+    const req = { method: 'GET', query: { mot: 'histoire', zone: 'Europe', debug: '1', code_acces: ENV_BASE.CODE_ADMIN } };
     const res = creerRes();
     await handler(req, res);
     assert.equal(res.statutRecu, 200);
-    assert.equal(res.corpsRecu._debug.motRecherche, 'cuisine Europe');
-    assert.ok(motsRecherches.every(m => m === 'cuisine Europe'), 'tous les appels recherche de la sonde doivent utiliser le mot-clé combiné : ' + JSON.stringify(motsRecherches));
+    assert.equal(res.corpsRecu._debug.motRecherche, 'histoire Europe');
+    assert.ok(motsRecherches.every(m => m === 'histoire Europe'), 'tous les appels recherche de la sonde doivent utiliser le mot-clé combiné : ' + JSON.stringify(motsRecherches));
   } finally { restaurer(); }
 });
 
@@ -831,5 +838,71 @@ test('GET debug : arrêt anticipé si 3 pages d\'affilée n\'apportent AUCUNE vi
     assert.equal(r.pagesParcourues, 4, 'doit s\'arrêter juste après la 3e page stagnante d\'affilée, pas continuer : ' + JSON.stringify(r));
     assert.equal(r.trouvees, 5, 'les 5 vidéos trouvées à la 1ère page restent dans l\'échantillon (l\'arrêt anticipé ne perd rien) : ' + JSON.stringify(r));
     assert.equal(r.doublons, 15, '3 pages de 5 doublons chacune : ' + JSON.stringify(r));
+  } finally { restaurer(); }
+});
+
+test('GET debug : une niche avec synonyme mappé ("finance") cherche aussi le 2e mot-clé ("argent"), sans compter deux fois une vidéo trouvée par les deux', async () => {
+  // Retour propriétaire, "refaire le code sur les 50" : Tendances n'a
+  // qu'1 analyse/mois en Pro, mieux vaut chercher un 2e mot-clé apparenté
+  // (voir SYNONYMES_NICHE) que plafonner l'échantillon sur un seul terme.
+  // "finance" (menu déroulant "Finance & Argent") doit donc aussi chercher
+  // "argent", et une vidéo qui ressort dans les deux recherches ne doit
+  // jamais être comptée deux fois dans l'échantillon final.
+  const restaurer = poserEnv();
+  const video = (id) => ({ item: { id, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: { playCount: 1000 }, author: {}, authorStats: {} } });
+  const partagee = video('fin-v0'); // même id que la 1ère vidéo de "finance", retrouvée aussi via "argent"
+
+  poserFetchMock({
+    custom: async (u) => {
+      if (!u.includes('cursor=')) return { ok: true, json: async () => ({ data: { data: [], cursor: 0, has_more: false } }) }; // sondes testerCandidat (sort_type), hors sujet ici
+      const params = new URL(u).searchParams;
+      const keyword = params.get('keyword');
+      const cursor = params.get('cursor');
+      if (keyword === 'finance' && cursor === '0') {
+        return { ok: true, json: async () => ({ data: { data: [video('fin-v0'), video('fin-v1'), video('fin-v2')], cursor: 1, has_more: false } }) };
+      }
+      if (keyword === 'argent' && cursor === '0') {
+        return { ok: true, json: async () => ({ data: { data: [partagee, video('arg-v1'), video('arg-v2')], cursor: 1, has_more: false } }) };
+      }
+      return { ok: true, json: async () => ({ data: { data: [], cursor: null, has_more: false } }) };
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'GET', query: { mot: 'finance', debug: '1', code_acces: ENV_BASE.CODE_ADMIN } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    const r = res.corpsRecu._debug.reserve;
+    assert.equal(r.trouvees, 5, '3 vidéos de "finance" + 3 de "argent" - 1 doublon partagé = 5 : ' + JSON.stringify(r));
+    assert.equal(r.doublons, 1, 'la vidéo trouvée par les deux mots-clés compte comme UN SEUL doublon, jamais deux vidéos : ' + JSON.stringify(r));
+    assert.equal(r.pagesParcourues, 2, '1 page par mot-clé (chacun a has_more:false dès la 1ère page) : ' + JSON.stringify(r));
+    assert.ok(Array.isArray(r.variantes) && r.variantes.length === 2, 'le détail doit lister les deux mots-clés cherchés : ' + JSON.stringify(r));
+    assert.equal(r.variantes[0].mot, 'finance');
+    assert.equal(r.variantes[1].mot, 'argent');
+  } finally { restaurer(); }
+});
+
+test('GET debug : une niche SANS synonyme mappé ne cherche qu\'un seul mot-clé, comportement inchangé', async () => {
+  const restaurer = poserEnv();
+  let appelsAvecCursor = 0;
+  poserFetchMock({
+    custom: async (u) => {
+      if (!u.includes('cursor=')) return { ok: true, json: async () => ({ data: { data: [], cursor: 0, has_more: false } }) };
+      appelsAvecCursor++;
+      return { ok: true, json: async () => ({ data: { data: [], cursor: null, has_more: false } }) };
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    // "histoire" : aucune entrée dans SYNONYMES_NICHE.
+    const req = { method: 'GET', query: { mot: 'histoire', debug: '1', code_acces: ENV_BASE.CODE_ADMIN } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    const r = res.corpsRecu._debug.reserve;
+    assert.equal(r.variantes.length, 1, 'une seule variante attendue pour une niche sans synonyme mappé : ' + JSON.stringify(r));
+    assert.equal(r.variantes[0].mot, 'histoire');
+    assert.equal(appelsAvecCursor, 1, 'un seul appel de pagination réelle attendu (hors sondes sort_type) : ' + appelsAvecCursor);
   } finally { restaurer(); }
 });

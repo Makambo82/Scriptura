@@ -71,6 +71,33 @@ const RESERVE_MULTIPLICATEUR = 5;
 // explicitement AUCUN filtre : on ne l'ajoute jamais au mot-clé, exactement
 // comme un "&" littéral aurait abîmé la pertinence de la recherche (même
 // bug déjà corrigé pour la niche).
+// Variantes de niche (retour propriétaire, "refaire le code sur les 50" :
+// vu que Tendances ne se relance qu'1 fois/mois en Pro (LIMITES_MOIS), mieux
+// vaut payer une 2e recherche TikHub que plafonner artificiellement
+// l'échantillon d'une analyse aussi rare). Diagnostic sur 4 niches (voir
+// construireReserve ci-dessous) : payer PLUS DE PAGES sur le MÊME mot-clé
+// n'aide plus après ~15-24 vidéos (TikHub reboucle, stagnation_doublons),
+// mais un DEUXIÈME mot-clé apparenté cherche dans une zone différente de
+// leur index. Les couples ne sont jamais inventés : ce sont les moitiés du
+// libellé du menu déroulant (index.html, tendancesSelect) que la valeur
+// envoyée au serveur laissait tomber ("Finance & Argent" n'envoyait que
+// "finance", jamais "argent"). Absent pour une niche tapée librement
+// (aucun synonyme à deviner) : recherche sur le seul mot tapé, comme avant.
+const SYNONYMES_NICHE = {
+  'art': 'créativité', 'beauté': 'mode', 'business': 'entrepreneuriat',
+  'célébrités': 'people', 'société': 'culture', 'cuisine': 'food',
+  'faits divers': 'crime', 'finance': 'argent', 'actualité': 'géopolitique',
+  'immobilier': 'investissement', 'motivation': 'mindset', 'paranormal': 'mystères',
+  'parentalité': 'famille', 'relation amoureuse': 'amour', 'religion': 'foi',
+  'bien-être': 'santé', 'spiritualité': 'philosophie', 'fitness': 'sport',
+  'technologie': 'ia', 'voyage': 'découverte'
+};
+function variantesNiche(niche) {
+  const n = String(niche || '').trim();
+  const synonyme = SYNONYMES_NICHE[n.toLowerCase()];
+  return synonyme ? [n, synonyme] : [n];
+}
+
 const ZONE_MONDIALE_RE = /^(monde entier|monde|global|mondial|worldwide|international)$/i;
 function motRechercheAvecZone(niche, zone) {
   const n = String(niche || '').trim();
@@ -431,23 +458,23 @@ function classerParPerformance(videos) {
 // jamais l'échantillon final obtenu (les pages arrêtées n'apportaient rien
 // de toute façon), économise seulement des appels facturés inutiles.
 const PAGES_STAGNATION_MAX = 3;
-async function construireReserve(niche, cible, tikhubKey) {
-  const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
-  const reserveCible = cible * RESERVE_MULTIPLICATEUR;
-  const reserve = new Map(); // id -> item allégé, PAS encore filtré par performance
-  let cursor = 0, page = 0, hasMore = true;
-  let doublons = 0, tropAnciennes = 0;
-  let pagesSansNouveaute = 0;
-  let raisonArret = null;
+
+// Pagine UN mot-clé (une variante), mute directement `reserve`/compteurs
+// PARTAGÉS entre variantes (voir construireReserve) : un doublon détecté
+// entre deux mots-clés différents (ex. une vidéo qui ressort à la fois sur
+// "finance" et "argent") compte bien comme doublon, jamais deux fois dans
+// l'échantillon final.
+async function paginerVariante(motRecherche, reserve, seuilDate, reserveCible, compteurs, tikhubKey) {
+  let cursor = 0, page = 0, hasMore = true, pagesSansNouveaute = 0, raisonArret = null;
   while (reserve.size < reserveCible && hasMore && page < PAGES_MAX_RECHERCHE) {
     const tailleAvant = reserve.size;
-    const lot = await rechercherVideos(niche.trim(), cursor, tikhubKey);
+    const lot = await rechercherVideos(motRecherche, cursor, tikhubKey);
     page++;
     if (!lot) { raisonArret = 'recherche_tikhub_echouee'; break; }
     for (const item of lot.items) {
       if (!item || !item.id) continue;
-      if (reserve.has(item.id)) { doublons++; continue; }
-      if (item.createTime && item.createTime < seuilDate) { tropAnciennes++; continue; }
+      if (reserve.has(item.id)) { compteurs.doublons++; continue; }
+      if (item.createTime && item.createTime < seuilDate) { compteurs.tropAnciennes++; continue; }
       reserve.set(item.id, allegerItem(item));
     }
     hasMore = lot.hasMore;
@@ -465,7 +492,36 @@ async function construireReserve(niche, cible, tikhubKey) {
       : !hasMore ? 'plus_de_resultats_tikhub'
       : 'plafond_pages_atteint';
   }
-  return { reserve, reserveCible, pagesParcourues: page, raisonArret, doublons, tropAnciennes };
+  return { pages: page, raisonArret };
+}
+
+// Cherche sur PLUSIEURS mots-clés apparentés (voir variantesNiche) l'un
+// après l'autre, dans la MÊME réserve partagée (dédoublonnage cross-mots-
+// clés inclus) : passe au mot-clé suivant seulement si le précédent n'a pas
+// suffi à atteindre la cible. S'arrête immédiatement dès que la cible est
+// atteinte, jamais de recherche superflue sur un 2e mot-clé si le 1er a
+// déjà rempli la réserve.
+async function construireReserve(niche, zone, cible, tikhubKey) {
+  const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
+  const reserveCible = cible * RESERVE_MULTIPLICATEUR;
+  const reserve = new Map(); // id -> item allégé, PAS encore filtré par performance
+  const compteurs = { doublons: 0, tropAnciennes: 0 };
+  const variantes = [];
+  let pagesParcourues = 0, raisonArret = null;
+
+  for (const mot of variantesNiche(niche)) {
+    if (reserve.size >= reserveCible) break;
+    const motRecherche = motRechercheAvecZone(mot, zone);
+    const resultat = await paginerVariante(motRecherche, reserve, seuilDate, reserveCible, compteurs, tikhubKey);
+    pagesParcourues += resultat.pages;
+    raisonArret = resultat.raisonArret;
+    variantes.push({ mot: motRecherche, pages: resultat.pages, raisonArret: resultat.raisonArret });
+  }
+
+  return {
+    reserve, reserveCible, pagesParcourues, raisonArret,
+    doublons: compteurs.doublons, tropAnciennes: compteurs.tropAnciennes, variantes
+  };
 }
 
 // ── action=lancer : cherche les vidéos candidates, crée le job ──
@@ -499,8 +555,10 @@ async function lancer(req, res, tikhubKey) {
   // recherche (voir motRechercheAvecZone en tête de fichier), TikHub
   // n'ayant aucun vrai filtre pays/région. "niche" seule reste stockée à
   // part pour l'affichage (jamais le mot-clé composite dans le rapport).
-  const motRecherche = motRechercheAvecZone(niche, zone);
-  const { reserve, pagesParcourues, raisonArret } = await construireReserve(motRecherche, cible, tikhubKey);
+  // construireReserve cherche aussi un éventuel synonyme (voir
+  // variantesNiche) avant de renoncer, la zone est ajoutée à chaque
+  // variante individuellement.
+  const { reserve, pagesParcourues, raisonArret } = await construireReserve(niche, zone, cible, tikhubKey);
 
   if (reserve.size < 5) {
     return res.status(200).json({ ok: false, raison: 'pas_assez_de_videos', trouvees: reserve.size, pagesParcourues, raisonArret });
@@ -632,11 +690,11 @@ export default async function handler(req, res) {
       Promise.all(CANDIDATS_RECHERCHE.map(c => testerCandidat(c, motAvecZone, tikhubKey))),
       // Retour du propriétaire : "on avait parlé de 50 vidéos, pourquoi ça
       // plafonne à 15 ?" Rejoue exactement la phase de recherche d'un vrai
-      // lancer() (mêmes constantes, cible=VIDEOS_CIBLE, zone incluse dans le
-      // mot-clé comme lancer() le fait réellement), sans créer de job ni
-      // consommer de quota/ElevenLabs : seul le coût des appels recherche
-      // TikHub, pas de téléchargement ni de transcription.
-      construireReserve(motAvecZone, VIDEOS_CIBLE, tikhubKey)
+      // lancer() (mêmes constantes, cible=VIDEOS_CIBLE, zone et éventuel
+      // synonyme de niche gérés comme lancer() le fait réellement), sans
+      // créer de job ni consommer de quota/ElevenLabs : seul le coût des
+      // appels recherche TikHub, pas de téléchargement ni de transcription.
+      construireReserve(mot, zoneDebug, VIDEOS_CIBLE, tikhubKey)
     ]);
     return res.status(200).json({
       _debug: {
@@ -647,7 +705,8 @@ export default async function handler(req, res) {
           pagesParcourues: diagnosticReserve.pagesParcourues,
           raisonArret: diagnosticReserve.raisonArret,
           doublons: diagnosticReserve.doublons,
-          tropAnciennes: diagnosticReserve.tropAnciennes
+          tropAnciennes: diagnosticReserve.tropAnciennes,
+          variantes: diagnosticReserve.variantes
         }
       }
     });
