@@ -49,7 +49,7 @@ function montageLabelVitesse(v) {
 }
 let montageVitesseVoix = 1;
 let montageImageIndexEnCours = -1; // index du plan en cours de génération (-1 = aucun)
-let montageVideoFichierPromise = null; // File préchargé de la vidéo rendue, voir partagerVideoMontage
+const montageVideoFichierPromiseParUrl = new Map(); // File préchargé par URL de vidéo rendue, voir partagerVideoMontage
 let montageImagesSelection = new Set(); // indices des images cochées pour le téléchargement en lot
 // Style graphique choisi AU MONTAGE (retour propriétaire) : prime sur celui
 // du storyboard si le créateur en choisit un ici, vide = garder les prompts
@@ -180,7 +180,7 @@ async function partagerVideoMontage(btn, url) {
   const libelle = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Préparation…'; }
   try {
-    const fichier = (await (montageVideoFichierPromise || prechargerVideoMontage(url))) || await (async () => {
+    const fichier = (await (montageVideoFichierPromiseParUrl.get(url) || prechargerVideoMontage(url))) || await (async () => {
       const rep = await fetch('/api/montage-media?action=download&url=' + encodeURIComponent(url));
       if (!rep.ok) throw new Error('récupération impossible');
       return new File([await rep.blob()], 'scriptura-montage.mp4', { type: 'video/mp4' });
@@ -951,7 +951,6 @@ async function lancerMontage() {
   }
 
   montageEnCours = true;
-  montageVideoFichierPromise = null;
   renderMontageEtat();
   if (resultat) resultat.innerHTML = '';
   // Simple texte ici (pas montageStatutHTML, qui embarque sa propre bande
@@ -1055,7 +1054,7 @@ async function lancerMontage() {
     // Précharge la vidéo dès qu'elle existe, pas au clic sur "Télécharger"
     // (voir prechargerVideoMontage) : le temps que l'utilisateur regarde
     // l'aperçu avant de cliquer suffit largement à finir le téléchargement.
-    montageVideoFichierPromise = prechargerVideoMontage(dataRender.url);
+    montageVideoFichierPromiseParUrl.set(dataRender.url, prechargerVideoMontage(dataRender.url));
     const nbRemplaces = construireImagesEffectives.nbRemplaces || 0;
     const note = nbRemplaces > 0
       ? `<div class="montage-statut" style="margin:0 0 10px">${nbRemplaces} plan(s) sans image (bloqué·s) remplacé·s par l'image voisine. Régénère ces images puis relance le montage pour un rendu complet.</div>`

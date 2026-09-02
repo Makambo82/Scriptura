@@ -781,7 +781,7 @@ async function omLancerMontage() {
     // Précharge la vidéo dès qu'elle existe pour que le partage natif iOS
     // (partagerVideoMontage, js/montage.js) fonctionne sans aller-retour
     // réseau au clic, même mécanisme que le montage depuis le storyboard.
-    montageVideoFichierPromise = prechargerVideoMontage(dataRender.url);
+    montageVideoFichierPromiseParUrl.set(dataRender.url, prechargerVideoMontage(dataRender.url));
     if (resultat) resultat.innerHTML = `
       <video class="montage-video" src="${outilsEsc(dataRender.url)}" controls playsinline></video>
       <button class="btn-regenerate" style="display:inline-block;margin-top:12px" onclick="partagerVideoMontage(this, '${outilsEsc(dataRender.url)}')" type="button">Télécharger la vidéo</button>`;
