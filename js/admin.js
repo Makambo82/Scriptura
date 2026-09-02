@@ -840,10 +840,16 @@ async function chargerCarteModes() {
       </div>
     </div>`;
   } catch (e) {
-    _codesActifsRecents = new Set();
-    _erreursParMode = {};
-    _erreursTotal = 0;
-    _erreursRecentes = [];
+    // Retour d'audit : remettre _erreursTotal/_erreursParMode/_erreursRecentes
+    // à zéro ici faisait DISPARAÎTRE silencieusement la carte d'alerte
+    // "Échecs de génération" (carteErreursAdmin, if (!_erreursTotal) return
+    // '') à la moindre panne réseau de CETTE requête, alors même que de
+    // vrais échecs récents avaient pu être chargés lors d'une visite
+    // précédente. On garde le dernier état connu (même filet que le reste :
+    // jamais confondre "panne" et "rien à signaler") ; seule cette carte
+    // "Générations par mode" affiche l'erreur de chargement. Même logique
+    // pour _codesActifsRecents (carteInactifsAdmin) : la remettre à vide
+    // ferait passer TOUS les abonnés pour inactifs depuis 14 jours à tort.
     return carteErreurAdmin('Générations par mode · 30 jours', e);
   }
 }

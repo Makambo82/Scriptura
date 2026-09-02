@@ -14,7 +14,15 @@
 //  est signalé comme faible), plutôt que d'inventer des données.
 // ═══════════════════════════════════════════════════════════
 
-let _recommandations = [];
+// Indexée par containerId (retour d'audit) : accueil ('accueilPremium'),
+// fin d'audit détaillé ('auditOpportunites') et diagnostic sommaire
+// ('diagSommaireOpportunites') coexistent dans le DOM (écrans juste
+// masqués, pas détruits, comme le reste de l'app). Une seule variable
+// globale partagée entre les trois faisait que le dernier écran rendu
+// écrasait le tableau des autres : cliquer "Créer le script" sur une carte
+// d'un écran plus ancien encore visible pouvait générer le script d'UNE
+// AUTRE recommandation que celle réellement affichée sur cette carte.
+const _recommandationsParContainer = new Map();
 // true UNIQUEMENT quand la prochaine génération de script provient du bouton
 // "Créer le script" de la recommandation (voir creerScriptDepuisRecommandation
 // et generate(), js/generation.js). Consommé (remis à false) par le tout
@@ -342,23 +350,25 @@ function rendreRecommandationSommaire(containerId, data, entete) {
     zone.style.display = 'none';
     return;
   }
-  // Nécessaire pour que creerScriptDepuisRecommandation(0) (bouton ci-dessous)
-  // retrouve la bonne recommandation, même mécanisme que rendreRecommandations,
-  // voir plus bas. Le non-abonné garde ses limites habituelles (MAX_FREE) au
-  // moment de générer réellement le script : ce bouton ne fait que pré-remplir
-  // le récapitulatif, il ne contourne aucun quota.
-  _recommandations = data.recommandations;
+  // Nécessaire pour que creerScriptDepuisRecommandation(containerId, 0)
+  // (bouton ci-dessous) retrouve la bonne recommandation, même mécanisme
+  // que rendreRecommandations, voir plus bas. Indexé par containerId (voir
+  // _recommandationsParContainer) : plusieurs écrans de recommandation
+  // coexistent dans le DOM. Le non-abonné garde ses limites habituelles
+  // (MAX_FREE) au moment de générer réellement le script : ce bouton ne
+  // fait que pré-remplir le récapitulatif, il ne contourne aucun quota.
+  _recommandationsParContainer.set(containerId, data.recommandations);
   zone.innerHTML = `
     ${entete || ''}
     <div class="score-card">
       ${carteRecommandationSommaire(data.recommandations[0])}
-      <button class="btn-generate" style="margin-top:14px" onclick="creerScriptDepuisRecommandation(0)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg> Créer le script</button>
+      <button class="btn-generate" style="margin-top:14px" onclick="creerScriptDepuisRecommandation('${containerId}', 0)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg> Créer le script</button>
       <div class="ds-result-subscribe" style="margin-top:12px">✦ Abonne-toi pour un suivi personnalisé complet : 6 recommandations détaillées, hooks, tons conseillés, et un script en un clic.</div>
     </div>`;
   zone.style.display = 'block';
 }
 
-function carteRecommandationSecondaire(reco, index) {
+function carteRecommandationSecondaire(reco, index, containerId) {
   const justifs = (reco.justifications || []).map(j => '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg> ' + escaperReco(j)).join('<br/>');
   return `<div class="out-card idea-card">
     <div class="out-header" onclick="toggleCard(this.parentElement)">
@@ -370,7 +380,7 @@ function carteRecommandationSecondaire(reco, index) {
       <div class="idea-section"><div class="idea-section-label">◆ Pourquoi</div><div class="idea-section-text">${justifs}</div></div>
       <div class="idea-section"><div class="idea-section-label">◆ Potentiel</div><div class="idea-section-text">${escaperReco(reco.potentiel || 'Moyen')}</div></div>
       ${infoSourceReco(reco) ? `<div class="idea-section"><div class="idea-section-label">◆ Basé sur</div><div class="idea-section-text">${infoSourceReco(reco).icone} ${infoSourceReco(reco).texte}</div></div>` : ''}
-      <div class="idea-actions"><button class="idea-btn-script" onclick="creerScriptDepuisRecommandation(${index})"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg> Créer le script</button></div>
+      <div class="idea-actions"><button class="idea-btn-script" onclick="creerScriptDepuisRecommandation('${containerId}', ${index})"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/></svg> Créer le script</button></div>
     </div>
   </div>`;
 }
@@ -411,7 +421,7 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
     return;
   }
 
-  _recommandations = data.recommandations;
+  _recommandationsParContainer.set(containerId, data.recommandations);
   const autresId = containerId + 'Autres';
   const confianceNote = (data.niveau_confiance === 'faible')
     ? '<div class="audit-diag-interp" style="margin-top:14px">Scriptura te connaît encore peu, ces recommandations s\'affineront à mesure que tu utilises Scriptura davantage.</div>'
@@ -423,7 +433,7 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
       ${carteRecommandationHero(data.recommandations[0], avecRafraichir)}
       ${confianceNote}
       ${avecRafraichir ? noteLimiteReco() : ''}
-      <button class="btn-generate" style="margin-top:10px" onclick="creerScriptDepuisRecommandation(0)">Créer le script</button>
+      <button class="btn-generate" style="margin-top:10px" onclick="creerScriptDepuisRecommandation('${containerId}', 0)">Créer le script</button>
       <button class="btn-storyboard" style="width:100%;justify-content:center;margin-top:10px" onclick="toggleAutresRecommandations('${autresId}')">Voir d'autres recommandations</button>
       <div id="${autresId}" style="display:none;margin-top:18px"></div>
     </div>
@@ -431,11 +441,16 @@ function rendreRecommandations(containerId, data, entete, avecRafraichir) {
   zone.style.display = 'block';
 }
 
+// `id` est toujours containerId + 'Autres' (voir rendreRecommandations
+// ci-dessus) : on en retrouve le containerId d'origine pour lire LE BON
+// tableau de recommandations dans _recommandationsParContainer.
 function toggleAutresRecommandations(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  const containerId = id.replace(/Autres$/, '');
   if (el.style.display === 'none') {
-    el.innerHTML = _recommandations.slice(1).map((r, i) => carteRecommandationSecondaire(r, i + 1)).join('');
+    const liste = _recommandationsParContainer.get(containerId) || [];
+    el.innerHTML = liste.slice(1).map((r, i) => carteRecommandationSecondaire(r, i + 1, containerId)).join('');
     el.style.display = 'block';
   } else {
     el.style.display = 'none';
@@ -446,8 +461,8 @@ function toggleAutresRecommandations(id) {
 // et creerScriptDepuisOpportunite (js/generation.js, js/audit.js), ne
 // modifie ni ne redemande rien, ne fait que pré-remplir des champs déjà
 // existants avant d'ouvrir directement le récapitulatif.
-function creerScriptDepuisRecommandation(index) {
-  const reco = _recommandations[index];
+function creerScriptDepuisRecommandation(containerId, index) {
+  const reco = (_recommandationsParContainer.get(containerId) || [])[index];
   if (!reco) return;
 
   _recoEnCoursDaction = true; // la prochaine génération de script correspond à cette recommandation

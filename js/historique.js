@@ -950,27 +950,40 @@ function _histItem(id) {
 
 // Enregistre l'état favori côté serveur, en arrière-plan (ne bloque jamais
 // l'interface). L'affichage, lui, a déjà été mis à jour tout de suite.
-function _persisterFavori(table, ids, valeur) {
+// `surEchec` : rappel optionnel invoqué si l'enregistrement échoue vraiment
+// (retour audit). Avant ce correctif, un échec restait silencieux
+// (console.warn seul) : l'étoile affichait un favori jamais réellement
+// enregistré côté serveur, l'utilisateur le croyait acquis jusqu'à ce qu'un
+// rechargement fasse disparaître son "favori" sans explication.
+function _persisterFavori(table, ids, valeur, surEchec) {
   if (!ids.length) return;
   const resource = table === 'series' ? 'series' : 'generations';
   fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ resource, action: 'favori', code: getUserRef(), ids, valeur })
-  }).then(function (r) { if (!r.ok) console.warn('Favori non enregistré'); })
-    .catch(function (e) { console.warn('Favori non enregistré', e); });
+  }).then(function (r) { if (!r.ok) { console.warn('Favori non enregistré'); if (surEchec) surEchec(); } })
+    .catch(function (e) { console.warn('Favori non enregistré', e); if (surEchec) surEchec(); });
 }
 
 // Ajoute/retire UNE génération (ou série) des favoris. Réponse INSTANTANÉE :
 // l'étoile devient dorée et l'élément remonte en haut tout de suite ;
-// l'enregistrement se fait en arrière-plan.
+// l'enregistrement se fait en arrière-plan. En cas d'échec réel de
+// l'enregistrement, l'étoile revient à son état précédent (retour audit :
+// jamais laisser une étoile dorée mentir sur ce qui est vraiment enregistré).
 function toggleFavori(id) {
   const { estSerie, rawId, item } = _histItem(id);
   if (!item) return;
-  const nouveau = !item.favori;
+  const ancien = !!item.favori;
+  const nouveau = !ancien;
   item.favori = nouveau;          // maj optimiste du cache
   dessinerHistorique();           // affichage immédiat (doré + épinglé)
-  _persisterFavori(estSerie ? 'series' : 'generations', [rawId], nouveau);
+  _persisterFavori(estSerie ? 'series' : 'generations', [rawId], nouveau, function () {
+    const r = _histItem(id);
+    if (r.item) r.item.favori = ancien;
+    dessinerHistorique();
+    if (typeof toastRegen === 'function') toastRegen('Favori non enregistré, réessaie.');
+  });
 }
 
 // Met en favori (ou retire) toutes les cartes cochées, en une fois et sans délai.
@@ -980,14 +993,26 @@ function favoriSelected() {
   // Si tout le lot est déjà en favori → on retire ; sinon → on met en favori.
   const tousDejaFav = ids.every(id => { const r = _histItem(id); return r.item && r.item.favori; });
   const nouveau = !tousDejaFav;
+  const anciens = new Map(ids.map(id => { const r = _histItem(id); return [id, r.item ? !!r.item.favori : null]; }));
   ids.forEach(id => { const r = _histItem(id); if (r.item) r.item.favori = nouveau; });
   _selectMode = false;
   _selectedIds.clear();
   dessinerHistorique();           // affichage immédiat
-  const idsSeries = ids.filter(x => String(x).startsWith('serie:')).map(x => x.slice(6));
+  const idsSeries = ids.filter(x => String(x).startsWith('serie:'));
   const idsGen = ids.filter(x => !String(x).startsWith('serie:'));
-  _persisterFavori('generations', idsGen, nouveau);
-  _persisterFavori('series', idsSeries, nouveau);
+  // Rollback scopé à SON SEUL lot : si generations échoue mais series
+  // réussit (ou l'inverse), on ne revient en arrière que sur celui qui a
+  // vraiment échoué, jamais sur un lot réellement enregistré côté serveur.
+  const revenirEnArriere = function (sousEnsemble) {
+    sousEnsemble.forEach(id => {
+      const r = _histItem(id);
+      if (r.item) r.item.favori = anciens.get(id);
+    });
+    dessinerHistorique();
+    if (typeof toastRegen === 'function') toastRegen('Favoris non enregistrés, réessaie.');
+  };
+  _persisterFavori('generations', idsGen.map(x => x), nouveau, () => revenirEnArriere(idsGen));
+  _persisterFavori('series', idsSeries.map(x => x.slice(6)), nouveau, () => revenirEnArriere(idsSeries));
 }
 
 function enterSelectMode() {
