@@ -77,24 +77,33 @@ function compresserImage(file) {
       const img = new Image();
       img.onerror = () => reject(new Error('image invalide'));
       img.onload = () => {
-        // Compression adaptative : au-delà de 8 captures, on réduit un peu plus
-        // pour que le poids TOTAL de l'envoi reste dans les limites du serveur.
-        // 1100 px reste largement suffisant pour lire des chiffres de statistiques.
-        const beaucoup = auditCaptures.length >= 8;
-        const MAX = beaucoup ? 1100 : 1400;
-        const QUALITE = beaucoup ? 0.72 : 0.82;
-        let { width, height } = img;
-        if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
-        const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', QUALITE);
-        resolve({
-          nom: file.name || 'capture',
-          dataUrl: dataUrl,
-          mediaType: 'image/jpeg',
-          base64: dataUrl.split(',')[1]
-        });
+        // Retour audit : img.onload n'était pas protégé, une exception ici
+        // (ex. canvas.toDataURL sur une image corrompue/trop grande) ne
+        // résolvait ni ne rejetait jamais la promesse, la boucle d'ajout de
+        // captures restait bloquée sans message.
+        try {
+          // Compression adaptative : au-delà de 8 captures, on réduit un peu
+          // plus pour que le poids TOTAL de l'envoi reste dans les limites du
+          // serveur. 1100 px reste largement suffisant pour lire des
+          // chiffres de statistiques.
+          const beaucoup = auditCaptures.length >= 8;
+          const MAX = beaucoup ? 1100 : 1400;
+          const QUALITE = beaucoup ? 0.72 : 0.82;
+          let { width, height } = img;
+          if (width > MAX) { height = Math.round(height * MAX / width); width = MAX; }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', QUALITE);
+          resolve({
+            nom: file.name || 'capture',
+            dataUrl: dataUrl,
+            mediaType: 'image/jpeg',
+            base64: dataUrl.split(',')[1]
+          });
+        } catch (e) {
+          reject(new Error('compression impossible'));
+        }
       };
       img.src = reader.result;
     };

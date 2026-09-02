@@ -141,6 +141,24 @@ async function supabaseUpdate(cfg, table, id, patch) {
   return { ok: r.ok };
 }
 
+// Verrou optimiste (retour audit) : deux appels concurrents (ex. deux
+// onglets) sur le même job traiteraient deux fois le même lot, la dernière
+// écriture écraserait silencieusement les transcriptions de l'autre. Le
+// PATCH n'a désormais d'effet QUE si `colonneCondition` vaut encore
+// `valeurAttendue` (relue par cette même requête juste avant), sinon 0 ligne
+// n'est modifiée et `appliquee` revient à false pour que l'appelant le sache.
+async function supabaseUpdateSiInchange(cfg, table, id, colonneCondition, valeurAttendue, patch) {
+  const url = cfg.url + '/rest/v1/' + table
+    + '?id=eq.' + encodeURIComponent(id)
+    + '&' + colonneCondition + '=eq.' + encodeURIComponent(valeurAttendue);
+  const r = await fetch(url, {
+    method: 'PATCH', headers: { ...supabaseHeaders(cfg.key), Prefer: 'return=representation' }, body: JSON.stringify(patch)
+  });
+  if (!r.ok) return { ok: false, appliquee: false };
+  const rows = await r.json().catch(() => []);
+  return { ok: true, appliquee: Array.isArray(rows) && rows.length > 0 };
+}
+
 // ── Recherche TikHub (fetch_general_search, confirmé en prod) ──
 async function rechercherVideos(mot, cursor, tikhubKey) {
   const url = TIKHUB_BASE + '/api/v1/tiktok/web/fetch_general_search?' +
@@ -542,6 +560,14 @@ async function lancer(req, res, tikhubKey) {
   if (!niche || typeof niche !== 'string' || !niche.trim()) {
     return res.status(400).json({ error: { message: 'Niche manquante' } });
   }
+  // Retour audit : niche/zone en texte libre étaient concaténées telles
+  // quelles dans le prompt Claude et la requête TikHub, sans aucun plafond.
+  if (niche.trim().length > 80) {
+    return res.status(400).json({ error: { message: 'Niche trop longue (80 caractères maximum).' } });
+  }
+  if (zone != null && typeof zone === 'string' && zone.trim().length > 80) {
+    return res.status(400).json({ error: { message: 'Zone géographique trop longue (80 caractères maximum).' } });
+  }
   const droits = await resoudreDroits(code_acces);
   if (!droits.ok) return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
 
@@ -657,7 +683,18 @@ async function avancer(req, res, tikhubKey, elevenKey) {
     }
   }
 
-  await supabaseUpdate(cfg, 'tendances_niche', id, { videos, index_suivant: nouvelIndex, statut, resultat, maj_le: new Date().toISOString() });
+  const maj = await supabaseUpdateSiInchange(cfg, 'tendances_niche', id, 'index_suivant', debut,
+    { videos, index_suivant: nouvelIndex, statut, resultat, maj_le: new Date().toISOString() });
+  if (maj.ok && !maj.appliquee) {
+    // Un autre appel concurrent (même job, ex. deux onglets) a déjà avancé
+    // ce job entre notre lecture et notre écriture : on abandonne NOTRE
+    // écriture plutôt que d'écraser la sienne, et on relit l'état réel pour
+    // que l'appelant reparte de la vérité actuelle, jamais d'une supposition.
+    const jobActuel = await supabaseGetById(cfg, 'tendances_niche', id);
+    if (jobActuel) {
+      return res.status(200).json({ ok: true, statut: jobActuel.statut, traitees: jobActuel.index_suivant, total: (jobActuel.videos || []).length, resultat: jobActuel.resultat || null });
+    }
+  }
   return res.status(200).json({ ok: true, statut, traitees: nouvelIndex, total: videos.length, resultat });
 }
 

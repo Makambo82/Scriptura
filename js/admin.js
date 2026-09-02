@@ -61,12 +61,18 @@ async function chargerTableauDeBord() {
   // Le fondateur vient de voir le détail des échecs (la carte ci-dessus,
   // en tête) : le badge n'a plus lieu d'être tant qu'aucun NOUVEL échec
   // n'est venu s'ajouter depuis. Voir marquerErreursVues, ci-dessous.
-  marquerErreursVues(_erreursTotal);
-  // Marque aussi l'horodatage de cette visite (voir carteErreursAdmin,
-  // dernierePriseConnaissanceErreurs) : APRÈS le rendu ci-dessus, jamais
-  // avant, sinon les erreurs qu'on vient tout juste de découvrir
-  // apparaîtraient déjà dorées au lieu de rouges sur cette même visite.
-  marquerErreursVuesLe();
+  // UNIQUEMENT si le chargement a réellement réussi (retour d'audit) :
+  // sinon une visite où rien n'a pu s'afficher (panne réseau) serait quand
+  // même enregistrée comme "vue", et une vraie erreur toute nouvelle,
+  // jamais réellement consultée, perdrait son badge rouge pour de bon.
+  if (_erreursChargementReussi) {
+    marquerErreursVues(_erreursTotal);
+    // Marque aussi l'horodatage de cette visite (voir carteErreursAdmin,
+    // dernierePriseConnaissanceErreurs) : APRÈS le rendu ci-dessus, jamais
+    // avant, sinon les erreurs qu'on vient tout juste de découvrir
+    // apparaîtraient déjà dorées au lieu de rouges sur cette même visite.
+    marquerErreursVuesLe();
+  }
 }
 
 // ── Codes qui expirent bientôt (7 prochains jours, ou déjà expirés mais
@@ -780,6 +786,12 @@ let _codesActifsRecents = new Set();
 let _erreursParMode = {};
 let _erreursTotal = 0;
 let _erreursRecentes = [];
+// true seulement si le DERNIER chargement a réellement réussi (voir
+// chargerTableauDeBord ci-dessous, retour d'audit) : marquerErreursVues/
+// marquerErreursVuesLe ne doivent jamais s'exécuter après une visite où le
+// fondateur n'a en réalité rien pu voir, sous peine de marquer "vue" une
+// erreur toute nouvelle qu'il n'a en fait jamais consultée.
+let _erreursChargementReussi = false;
 
 async function chargerCarteModes() {
   try {
@@ -794,6 +806,7 @@ async function chargerCarteModes() {
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
+    _erreursChargementReussi = true;
     // Scindé par plan (Fondateur/Pro/Creator/Non-abonné, voir parModePlan,
     // api/data.js) pour voir ce qui pousse réellement à l'upgrade, plutôt
     // qu'un simple total tous plans confondus. Non-abonné = quota gratuit
@@ -850,6 +863,7 @@ async function chargerCarteModes() {
     // "Générations par mode" affiche l'erreur de chargement. Même logique
     // pour _codesActifsRecents (carteInactifsAdmin) : la remettre à vide
     // ferait passer TOUS les abonnés pour inactifs depuis 14 jours à tort.
+    _erreursChargementReussi = false;
     return carteErreurAdmin('Générations par mode · 30 jours', e);
   }
 }

@@ -54,7 +54,11 @@ function poserFetchMock(scenario) {
       return { ok: true, json: async () => (scenario.jobRow ? [scenario.jobRow] : []) };
     }
     if (u.includes('/rest/v1/tendances_niche') && opts && opts.method === 'PATCH') {
-      return { ok: true, json: async () => ({}) };
+      // Simule le verrou optimiste (Prefer: return=representation, voir
+      // supabaseUpdateSiInchange, api/tendances.js) : une ligne "appliquée"
+      // par défaut, sauf si le scénario veut explicitement simuler une
+      // écriture concurrente perdante (scenario.patchAppliquee === false).
+      return { ok: true, json: async () => (scenario.patchAppliquee === false ? [] : [{ id: 'job-test-1' }]) };
     }
     return { ok: true, json: async () => ({}) };
   };
@@ -80,6 +84,35 @@ test('lancer : Creator (plafond 0) reçoit "réservé au plan Pro", jamais "déj
     assert.equal(res.corpsRecu.error.code, 'ACCES_REFUSE');
     assert.match(res.corpsRecu.error.message, /réservé au plan Pro/);
     assert.doesNotMatch(res.corpsRecu.error.message, /déjà utilisé/);
+  } finally { restaurer(); }
+});
+
+// Audit du 2 septembre 2026 : niche/zone en texte libre étaient concaténées
+// telles quelles dans le prompt Claude et la requête TikHub, sans aucun
+// plafond de longueur.
+test('lancer : une niche trop longue est refusée avant tout appel réseau', async () => {
+  const restaurer = poserEnv();
+  poserFetchMock({});
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'x'.repeat(200), code_acces: ENV_BASE.CODE_ADMIN } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 400);
+    assert.match(res.corpsRecu.error.message, /trop longue/);
+  } finally { restaurer(); }
+});
+
+test('lancer : une zone géographique trop longue est refusée avant tout appel réseau', async () => {
+  const restaurer = poserEnv();
+  poserFetchMock({});
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'lancer', niche: 'cuisine', zone: 'y'.repeat(200), code_acces: ENV_BASE.CODE_ADMIN } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 400);
+    assert.match(res.corpsRecu.error.message, /trop longue/);
   } finally { restaurer(); }
 });
 
@@ -361,6 +394,55 @@ test('lancer : mode test ignoré pour un non-admin (reste sur l\'échantillon co
     assert.equal(res.statutRecu, 200);
     assert.equal(res.corpsRecu.ok, true);
     assert.equal(res.corpsRecu.total, 20);
+  } finally { restaurer(); }
+});
+
+// Audit du 2 septembre 2026 : deux appels concurrents "avancer" sur le
+// même job (ex. deux onglets) traiteraient deux fois le même lot, la
+// DERNIÈRE écriture écrasant silencieusement les transcriptions de
+// l'autre. Le PATCH est désormais conditionné à index_suivant inchangé
+// (verrou optimiste, supabaseUpdateSiInchange). Ce test simule le PATCH
+// perdant (aucune ligne appliquée, scenario.patchAppliquee:false) et
+// vérifie que la réponse reflète l'état RÉEL relu en base (celui du
+// concurrent gagnant), jamais le résultat local qui vient d'être abandonné.
+test('avancer : un PATCH concurrent perdant (verrou optimiste) fait relire l\'état réel plutôt que de l\'écraser', async () => {
+  const restaurer = poserEnv();
+  const cinqVideos = Array.from({ length: 5 }, (_, i) => ({
+    id: 'v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000),
+    auteur: { uniqueId: 'a' + i }, stats: { vues: 100, likes: 1, commentaires: 0, partages: 0 },
+    hashtags: [], urlsCandidates: [], transcript: 'texte', transcriptEchec: false
+  }));
+  let appelsGet = 0;
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: { id: 'job-concurrent', statut: 'en_cours', niche: 'cuisine', index_suivant: 0, videos: cinqVideos },
+    patchAppliquee: false,
+    custom: async (u, opts) => {
+      if (u.includes('/rest/v1/tendances_niche') && (!opts || !opts.method || opts.method === 'GET')) {
+        appelsGet++;
+        // 1er GET : lecture initiale normale du job (avant tout traitement).
+        // 2e GET (relecture après l'échec du PATCH, notre verrou optimiste) :
+        // simule l'état déjà avancé par le concurrent gagnant entre-temps.
+        if (appelsGet === 1) return null; // laisse poserFetchMock répondre avec jobRow
+        return {
+          ok: true, json: async () => [{
+            id: 'job-concurrent', statut: 'termine', niche: 'cuisine', index_suivant: 5, videos: cinqVideos,
+            resultat: { niche: 'cuisine', marqueurConcurrentGagnant: true }
+          }]
+        };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-concurrent', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine', 'doit refléter l\'état réel (concurrent gagnant), pas le calcul local abandonné (en_cours) : ' + JSON.stringify(res.corpsRecu));
+    assert.equal(res.corpsRecu.traitees, 5, 'doit refléter index_suivant réel (5), pas le nouvelIndex local abandonné (3) : ' + JSON.stringify(res.corpsRecu));
+    assert.ok(res.corpsRecu.resultat && res.corpsRecu.resultat.marqueurConcurrentGagnant, 'le résultat renvoyé doit être celui du concurrent gagnant, jamais écrasé : ' + JSON.stringify(res.corpsRecu));
   } finally { restaurer(); }
 });
 

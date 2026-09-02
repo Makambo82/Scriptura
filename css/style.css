@@ -46,7 +46,6 @@ nav{
    par updateScrollBtn (js/ui.js), même mécanisme que le bouton remonter. */
 body.nav-scrolled .logo{opacity:0.45}
 body .logo:hover{opacity:1}
-.nav-tag{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.2em;color:var(--gold);opacity:0.6;text-transform:uppercase}
 
 /* ── BANNIÈRE COMPTE (abonnement bientôt expiré / générations bientôt
    épuisées) : fixe, juste sous la nav, chevauche légèrement le haut du
@@ -175,16 +174,6 @@ body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
   font-size:1rem;font-weight:300;color:rgba(255,255,255,0.7);
   max-width:420px;line-height:1.9;margin-bottom:52px;letter-spacing:0.02em;
 }
-.hero-btn{
-  display:inline-flex;align-items:center;gap:12px;
-  background:var(--gold);color:var(--bg);
-  font-family:'Cinzel',serif;font-weight:500;font-size:0.75rem;
-  padding:17px 48px;border-radius:999px;
-  letter-spacing:0.18em;text-transform:uppercase;
-  border:none;cursor:pointer;
-  transition:all 0.3s;
-}
-.hero-btn:hover{background:var(--gold-light);transform:translateY(-2px);box-shadow:0 16px 48px rgba(201,168,76,0.2)}
 .hero-free{margin-top:16px;font-size:0.7rem;color:rgba(255,255,255,0.7);letter-spacing:0.1em}
 
 /* TICKER, un mot à la fois, entre en glissant d'un côté, tient 2s, ressort
@@ -263,23 +252,6 @@ body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
 .choice:hover .choice-arrow{opacity:1}
 
 /* GRID CHOICES (plateformes) */
-.choices-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-@media(max-width:520px){.choices-grid{grid-template-columns:1fr 1fr}}
-.choice-tile{
-  background:var(--bg-card);border:1px solid rgba(255,255,255,0.1);
-  border-radius:8px;padding:24px 20px;cursor:pointer;
-  transition:all 0.25s;text-align:center;position:relative;overflow:hidden;
-}
-.choice-tile::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,var(--gold),transparent);
-  transform:scaleX(0);transition:transform 0.3s;
-}
-.choice-tile:hover{border-color:var(--gold);background:rgba(201,168,76,0.05)}
-.choice-tile:hover::before{transform:scaleX(1)}
-.tile-icon{font-size:1.8rem;margin-bottom:10px;display:block}
-.tile-name{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;color:#FFFFFF}
-
 /* CONTEXT STEP */
 .context-card{
   background:var(--bg-card);border:1px solid var(--border);
@@ -688,15 +660,6 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .grid-btn:hover{border-color:var(--gold);color:var(--gold)}
 .grid-btn.active{background:var(--gold-pale);border-color:var(--gold);color:var(--gold);font-weight:500}
 
-/* LOGO DANS TILES */
-.tile-logo{
-  width:34px;height:34px;
-  color:var(--gold);
-  margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;
-  transition:all 0.2s;
-}
-.choice-tile:hover .tile-logo{opacity:1}
-
 /* ── SCRIPTURA SCORE ── */
 .score-card{
   background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(255,255,255,0.03));
@@ -807,15 +770,6 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .star-pulse{display:inline-block;animation:star-pulse 1.6s ease-in-out infinite}
 .gen-step-text{
   font-size:0.9rem;color:var(--white);font-family:'Poppins',sans-serif;
-}
-.gen-progress{
-  width:100%;height:2px;background:rgba(255,255,255,0.1);
-  border-radius:999px;overflow:hidden;margin-top:40px;
-}
-.gen-progress-fill{
-  height:100%;width:0%;
-  background:linear-gradient(90deg,var(--gold),var(--gold-light));
-  transition:width 0.6s ease;
 }
 /* ── Aperçu en direct (Script/Récit/Série écrits au fur et à mesure) ── */
 .gen-live-preview{
@@ -949,7 +903,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   background:var(--bg-card);border:1px solid var(--border);border-radius:22px;
   padding:30px 24px 26px;max-width:420px;width:100%;position:relative;text-align:center;
 }
-.rappel-close{position:absolute;top:16px;right:18px;background:none;border:none;color:rgba(255,255,255,0.4);font-size:1.15rem;cursor:pointer}
+.rappel-close{position:absolute;top:16px;right:18px;background:none;border:none;color:rgba(255,255,255,0.4);font-size:1.15rem;cursor:pointer;padding:8px}
 .rappel-close:hover{color:#fff}
 .rappel-tag{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);opacity:0.85;margin-bottom:12px}
 .rappel-title{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:#fff;line-height:1.3;margin-bottom:16px}
@@ -992,6 +946,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .plans-close{
   position:absolute;top:16px;right:18px;background:none;border:none;
   color:rgba(255,255,255,0.5);font-size:1.2rem;cursor:pointer;line-height:1;
+  padding:8px;
 }
 .plans-close:hover{color:#fff}
 .plans-tag{
@@ -1085,6 +1040,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .modal-close{
   position:absolute;top:16px;right:20px;background:none;border:none;
   color:rgba(255,255,255,0.5);font-size:1.2rem;cursor:pointer;transition:color 0.2s;
+  padding:8px;
 }
 .modal-close:hover{color:#FFFFFF}
 .modal-tag{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:18px}
@@ -2108,7 +2064,7 @@ body.is-unlocked .sidebar-logout{display:block}
 /* Texte "Appuie pour rouvrir", discret */
 .history-reopen{
   font-size:0.72rem;
-  color:rgba(255,255,255,0.35);
+  color:rgba(255,255,255,0.55);
   margin-top:6px;
   letter-spacing:0.02em;
 }
@@ -2275,6 +2231,7 @@ body.is-unlocked .sidebar-logout{display:block}
 .genimg-close{
   position:absolute;top:14px;right:16px;background:none;border:none;
   color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;
+  padding:8px;
 }
 .genimg-title{
   font-family:'Playfair Display',serif;font-weight:500;font-style:normal;font-size:1.6rem;line-height:1.3;
@@ -2596,7 +2553,7 @@ body.is-unlocked .sidebar-logout{display:block}
 .aw-card{background:rgba(255,255,255,0.03);border:1px solid var(--border-soft);border-radius:14px;padding:22px 20px}
 .aw-schema{display:flex;justify-content:center}
 .aw-schema svg{width:100%;max-width:220px;height:auto}
-.aw-schema-note{text-align:center;font-size:0.68rem;color:rgba(255,255,255,0.35);margin-top:4px;margin-bottom:16px;font-style:italic}
+.aw-schema-note{text-align:center;font-size:0.68rem;color:rgba(255,255,255,0.55);margin-top:4px;margin-bottom:16px;font-style:italic}
 .aw-title{font-family:'Poppins',sans-serif;font-size:1.02rem;color:#F5F3EE;line-height:1.35;margin-bottom:12px;text-align:center}
 .aw-path{font-size:0.85rem;color:var(--text-secondary);line-height:1.55;text-align:center;background:rgba(201,168,76,0.06);border:1px solid var(--border-soft);border-radius:10px;padding:12px 14px}
 .aw-tip{font-size:0.8rem;color:rgba(255,255,255,0.45);line-height:1.5;text-align:center;margin-top:12px}
@@ -2656,7 +2613,7 @@ body.is-unlocked .sidebar-logout{display:block}
   text-transform:uppercase;color:var(--gold);margin-bottom:10px;
 }
 .couv-ligne{font-size:0.86rem;line-height:1.9;color:var(--text-secondary)}
-.couv-ligne.manque{color:rgba(255,255,255,0.35)}
+.couv-ligne.manque{color:rgba(255,255,255,0.55)}
 .couv-note{
   margin-top:10px;padding:10px 12px;border-radius:8px;
   background:rgba(201,168,76,0.07);border:1px solid var(--border-soft);
@@ -3025,7 +2982,7 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-go:disabled{opacity:0.6;cursor:default;transform:none}
 .ds-note{display:flex;align-items:flex-start;gap:8px;font-family:'Poppins',sans-serif;font-size:0.82rem;color:rgba(255,255,255,0.55);line-height:1.5;margin-top:16px;text-align:left}
 .ds-note-ico{flex:0 0 auto;margin-top:2px;color:var(--gold)}
-.ds-sep{display:flex;align-items:center;gap:14px;margin:34px 0 22px;color:rgba(255,255,255,0.35);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase}
+.ds-sep{display:flex;align-items:center;gap:14px;margin:34px 0 22px;color:rgba(255,255,255,0.55);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.16em;text-transform:uppercase}
 .ds-sep::before,.ds-sep::after{content:'';flex:1;height:1px;background:var(--border-soft)}
 .ds-alt{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:18px 20px;text-align:left;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.55}
 .ds-alt strong{color:var(--gold-light);font-weight:600}

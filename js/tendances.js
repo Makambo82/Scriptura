@@ -195,7 +195,7 @@ async function lancerTendances() {
     _tendancesMajProgres(100, 'Terminé.');
     _tendancesResultat = resultat;
 
-    if (!unlocked) { /* Tendances n'est jamais accessible sans abonnement Pro, rien à décompter ici */ }
+    // Tendances n'est jamais accessible sans abonnement Pro, rien à décompter pour un non-abonné.
     saveGeneration('tendances', 'Tendances · ' + (resultat.niche || niche), { niche: resultat.niche || niche, resultat });
     if (typeof updateQuotaJour === 'function') updateQuotaJour();
 

@@ -210,24 +210,3 @@ function goHome() {
   window.scrollTo({ top: 0, behavior: 'auto' });
   animerEntreeEcran(document.getElementById('homePage'));
 }
-
-function backToHome() {
-  // Si des résultats sont affichés, "Retour" ramène au formulaire (page précédente)
-  // plutôt que directement à l'accueil.
-  const resultsBlocks = ['results', 'ideasResults', 'storyResults'];
-  let closedSomething = false;
-  for (const id of resultsBlocks) {
-    const el = document.getElementById(id);
-    if (el && el.style.display !== 'none' && el.offsetParent !== null) {
-      el.style.display = 'none';
-      closedSomething = true;
-    }
-  }
-  if (closedSomething) {
-    // On reste dans le mode, on remonte juste au formulaire
-    window.scrollTo({ top: 0, behavior: 'auto' });
-    return;
-  }
-  // Sinon, retour à l'accueil
-  goHome();
-}

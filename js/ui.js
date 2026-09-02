@@ -590,6 +590,7 @@ function seDeconnecter() {
   localStorage.removeItem('scriptura_expire');
   localStorage.removeItem('scriptura_is_admin');
   localStorage.removeItem('scriptura_illimite');
+  localStorage.removeItem('scriptura_plan'); // retour audit : orphelin sinon, source de confusion en débogage
   document.body.classList.remove('is-unlocked');
   closeSidebar();
   location.reload();

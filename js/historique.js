@@ -956,9 +956,9 @@ function _histItem(id) {
 // enregistré côté serveur, l'utilisateur le croyait acquis jusqu'à ce qu'un
 // rechargement fasse disparaître son "favori" sans explication.
 function _persisterFavori(table, ids, valeur, surEchec) {
-  if (!ids.length) return;
+  if (!ids.length) return Promise.resolve();
   const resource = table === 'series' ? 'series' : 'generations';
-  fetch('/api/data', {
+  return fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ resource, action: 'favori', code: getUserRef(), ids, valeur })
@@ -971,19 +971,26 @@ function _persisterFavori(table, ids, valeur, surEchec) {
 // l'enregistrement se fait en arrière-plan. En cas d'échec réel de
 // l'enregistrement, l'étoile revient à son état précédent (retour audit :
 // jamais laisser une étoile dorée mentir sur ce qui est vraiment enregistré).
+// Verrouillé le temps de la persistance (retour audit) : deux clics
+// rapprochés sur la même carte envoyaient deux requêtes aux valeurs
+// opposées, l'état final réellement enregistré en base pouvait alors ne
+// pas correspondre au dernier clic visible à l'écran.
+const _favorisEnCours = new Set();
 function toggleFavori(id) {
+  if (_favorisEnCours.has(id)) return;
   const { estSerie, rawId, item } = _histItem(id);
   if (!item) return;
   const ancien = !!item.favori;
   const nouveau = !ancien;
   item.favori = nouveau;          // maj optimiste du cache
   dessinerHistorique();           // affichage immédiat (doré + épinglé)
+  _favorisEnCours.add(id);
   _persisterFavori(estSerie ? 'series' : 'generations', [rawId], nouveau, function () {
     const r = _histItem(id);
     if (r.item) r.item.favori = ancien;
     dessinerHistorique();
     if (typeof toastRegen === 'function') toastRegen('Favori non enregistré, réessaie.');
-  });
+  }).finally(function () { _favorisEnCours.delete(id); });
 }
 
 // Met en favori (ou retire) toutes les cartes cochées, en une fois et sans délai.
@@ -1116,16 +1123,21 @@ function reopenGeneration(i) {
     currentHooks = g.contenu.hooks;
     lastGenContext = g.contenu.context || { sujet: g.titre, plateforme: 'TikTok' };
     renderResults(g.contenu, g.contenu.niche || '', g.titre || '');
-    // Réafficher le storyboard sauvegardé s'il existe
+    // Réafficher le storyboard sauvegardé s'il existe. renderResults() vient
+    // de s'exécuter entièrement (synchrone, aucun await), y compris son
+    // propre reset de #storyboardContainer : appeler reafficherStoryboard
+    // directement, sans délai arbitraire, reste donc correctement ordonné
+    // (retour audit : l'ancien setTimeout(200) ne protégeait rien
+    // d'identifiable, juste une fragilité de plus sur un appareil lent).
     if (g.contenu.storyboard_genere) {
-      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, false, g.contenu.guide_montage), 200);
+      reafficherStoryboard(g.contenu.storyboard_genere, false, g.contenu.guide_montage);
     }
   } else if (g.mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
     lastStoryContext = { sujet: g.titre || '', plateforme: '' };
     renderStory(g.contenu);
     if (g.contenu.storyboard_genere) {
-      setTimeout(() => reafficherStoryboard(g.contenu.storyboard_genere, true, g.contenu.guide_montage), 200);
+      reafficherStoryboard(g.contenu.storyboard_genere, true, g.contenu.guide_montage);
     }
   } else if (g.mode === 'ideas') {
     document.getElementById('ideasFlow').style.display = 'block';

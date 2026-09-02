@@ -159,10 +159,19 @@ document.addEventListener('DOMContentLoaded', function() {
   if (unlocked && localStorage.getItem('scriptura_illimite') === null) {
     const monCode = localStorage.getItem('scriptura_code') || '';
     if (monCode && typeof verifierStatutServeur === 'function') {
+      // Même verrou que basculerVersCompteConnu (js/auth.js), réutilisé ici
+      // (retour audit) : cette migration écrit les mêmes clés localStorage
+      // (scriptura_is_admin/scriptura_illimite/scriptura_code) qu'une
+      // bascule de compte. Sans verrou partagé, basculer de compte pendant
+      // cette fenêtre étroite pouvait mélanger le code d'un compte avec le
+      // statut admin/illimité d'un autre.
+      if (typeof _basculeCompteEnCours !== 'undefined') _basculeCompteEnCours = true;
       verifierStatutServeur(monCode).then(() => {
         appliquerClasseAdmin();
         if (typeof renderGenCounter === 'function') renderGenCounter();
         if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
+      }).finally(() => {
+        if (typeof _basculeCompteEnCours !== 'undefined') _basculeCompteEnCours = false;
       });
     } else {
       localStorage.setItem('scriptura_is_admin', 'false');

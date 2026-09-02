@@ -105,7 +105,13 @@ function ouvrirMontageManuelAccueil() {
 }
 
 // ── IMAGES ──
+// Verrouillées pendant la génération de la voix IA (retour audit) : si le
+// nombre d'images retombe par coïncidence sur la même valeur après un
+// ajout/retrait pendant la génération, la voix "prête" pouvait correspondre
+// à un texte désynchronisé des images réellement affichées, sans que rien
+// ne le signale.
 function omAjouterImages(fileList) {
+  if (omVoixEnCours) return;
   const fichiers = Array.prototype.filter.call(fileList || [], f => f.type && f.type.startsWith('image/'));
   fichiers.forEach(f => omImages.push({ file: f, url: URL.createObjectURL(f) }));
   const input = document.getElementById('omImagesInput');
@@ -114,6 +120,7 @@ function omAjouterImages(fileList) {
 }
 
 function omRetirerImage(i) {
+  if (omVoixEnCours) return;
   const [retire] = omImages.splice(i, 1);
   if (retire) URL.revokeObjectURL(retire.url);
   omApresChangementImages();
@@ -148,9 +155,14 @@ function omRenderImages() {
     zone.innerHTML = omImages.map((im, i) => `
       <div class="audit-thumb">
         <img src="${im.url}" alt="image ${i + 1}"/>
-        <button class="audit-thumb-del" onclick="omRetirerImage(${i})" title="Retirer">✕</button>
+        <button class="audit-thumb-del" onclick="omRetirerImage(${i})" title="Retirer" ${omVoixEnCours ? 'disabled' : ''}>✕</button>
       </div>`).join('');
   }
+  // Images verrouillées pendant la génération de la voix IA (voir
+  // omAjouterImages/omRetirerImage) : le bouton d'ajout doit refléter le
+  // même verrou, pas juste les boutons de retrait individuels.
+  const btnAjouter = document.getElementById('omAjouterImagesBtn');
+  if (btnAjouter) btnAjouter.disabled = omVoixEnCours;
   omRenderDureesManuelles();
 }
 
@@ -399,7 +411,12 @@ function omLireDureeAudio(fichier) {
       // le montage" resté grisé, sans dire pourquoi).
       if (!Number.isFinite(audio.duration)) {
         audio.currentTime = 1e101;
-        audio.ontimeupdate = () => { audio.ontimeupdate = null; fini(audio.duration); };
+        // Retour audit : sans filet, si ontimeupdate ne se déclenche jamais
+        // (cas rare hors Safari), la promesse restait bloquée pour de bon,
+        // sans erreur affichée. Le filet retombe sur duree:0, déjà le
+        // signal existant pour afficher le message d'erreur prévu.
+        const filet = setTimeout(() => { audio.ontimeupdate = null; fini(0); }, 3000);
+        audio.ontimeupdate = () => { clearTimeout(filet); audio.ontimeupdate = null; fini(audio.duration); };
       } else {
         fini(audio.duration);
       }
@@ -461,6 +478,7 @@ async function omGenererVoixOff() {
 
   omVoixEnCours = true;
   omRenderVoixZone();
+  omRenderImages(); // verrouille visuellement l'ajout/retrait d'image pendant la génération
   // Durée estimée proportionnelle au texte (lecture ElevenLabs + traitement) :
   // un texte de 53 lignes prend nettement plus longtemps qu'une seule ligne,
   // une durée fixe donnerait une barre trompeuse dans un sens ou l'autre.
@@ -519,6 +537,7 @@ async function omGenererVoixOff() {
   } finally {
     omVoixEnCours = false;
     omRenderVoixZone();
+    omRenderImages(); // redéverrouille l'ajout/retrait d'image une fois la génération terminée
     omMajBoutonLancer();
   }
 }
