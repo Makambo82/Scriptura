@@ -55,6 +55,21 @@ function copierCodeInfos(el, code) {
   } catch (e) { /* silencieux */ }
 }
 
+// Quota d'images de montage du mois (voir api/data.js, resource=quotaMontage,
+// et lireUsageMontageImages, api/_lib/acces.js) : { concerne, used, plafond }.
+// `concerne:false` pour un non-abonné (le montage ne le concerne pas), en
+// cas de panne, ou si aucun code n'est enregistré - jamais bloquant pour le
+// reste du panneau (voir ouvrirInfosAbonne, appelé en Promise.all).
+async function fetchQuotaMontage() {
+  const code = localStorage.getItem('scriptura_code') || '';
+  if (!code) return { concerne: false };
+  try {
+    const r = await fetch('/api/data?resource=quotaMontage&code=' + encodeURIComponent(code));
+    const data = await r.json();
+    return (data && data.ok) ? data : { concerne: false };
+  } catch (e) { return { concerne: false }; }
+}
+
 // Pop-up d'informations sur l'abonnement (plan, expiration, décompte)
 async function ouvrirInfosAbonne() {
   const overlay = document.getElementById('infosAbonneOverlay');
@@ -78,6 +93,7 @@ async function ouvrirInfosAbonne() {
     html += `<div class="infos-ligne"><span class="infos-label">Analyse vidéo</span><span class="infos-val">Illimitée</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Diagnostics TikTok</span><span class="infos-val">Illimités</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Série</span><span class="infos-val">Illimitée</span></div>`;
+    html += `<div class="infos-ligne"><span class="infos-label">Montage vidéo (images)</span><span class="infos-val">Illimité</span></div>`;
     corps.innerHTML = html;
     return;
   }
@@ -119,11 +135,12 @@ async function ouvrirInfosAbonne() {
   // normale côté serveur (voir api/generate.js, mode=creationSerie mappé
   // sur le quota 'creation'), elle est déjà incluse dans "Générations".
   const limites = limitesDuPalier();
-  const [faitesCrea, faitsSomm, faitsViral, faitsAudit] = await Promise.all([
+  const [faitesCrea, faitsSomm, faitsViral, faitsAudit, quotaMontage] = await Promise.all([
     countMonthGenerations('creation'),
     limites.sommaire > 0 ? countMonthGenerations('diagnosticSommaire') : Promise.resolve(0),
     limites.viral > 0 ? countMonthGenerations('analyseVirale') : Promise.resolve(0),
-    limites.audit > 0 ? countMonthGenerations('audit') : Promise.resolve(0)
+    limites.audit > 0 ? countMonthGenerations('audit') : Promise.resolve(0),
+    fetchQuotaMontage()
   ]);
 
   const resteCrea = Math.max(0, limites.creation - faitesCrea);
@@ -150,6 +167,17 @@ async function ouvrirInfosAbonne() {
   // Série : incluse (comptée dans les générations) en Pro, débloquée à
   // l'unité par jeton en Creator (voir aAccesMode('serie'), js/historique.js)
   html += `<div class="infos-ligne"><span class="infos-label">Série</span><span class="infos-val">${plan === 'pro' ? 'Incluse (comptée dans tes générations)' : '1 jeton par série'}</span></div>`;
+
+  // Montage vidéo (images) : Creator ET Pro (voir verifierAccesMontage,
+  // api/_lib/acces.js), quota compté en images générées dans le mois, pas
+  // en nombre de montages (retour propriétaire : une vidéo de 10 images et
+  // une de 30 n'ont pas le même coût). Lu depuis usage_serveur (source de
+  // vérité serveur), jamais depuis `generations` (les images n'y sont
+  // jamais insérées, voir lireUsageMontageImages).
+  if (quotaMontage && quotaMontage.concerne) {
+    const resteMontage = Math.max(0, quotaMontage.plafond - quotaMontage.used);
+    html += `<div class="infos-ligne"><span class="infos-label">Montage vidéo (images)</span><span class="infos-val">${formaterNombre(quotaMontage.used)} / ${formaterNombre(quotaMontage.plafond)} · ${formaterNombre(resteMontage)} restantes</span></div>`;
+  }
 
   // Jetons achetés à l'unité : séparés, sans plafond, ne périment pas
   html += `<div class="infos-ligne"><span class="infos-label">Jetons</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;

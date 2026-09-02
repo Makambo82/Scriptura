@@ -13,7 +13,7 @@
 //  resource=generations | series | profil | admin-stats
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits } from './_lib/acces.js';
+import { resoudreDroits, lireUsageMontageImages } from './_lib/acces.js';
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -674,6 +674,22 @@ async function handlePresence(req, res, body) {
   }
 }
 
+// ═══ QUOTA MONTAGE (images), pour le panneau "Ton accès Scriptura" ═══
+// Retour propriétaire : afficher le quota d'images de montage comme les
+// autres compteurs (Générations, Diagnostic sommaire...). Impossible de
+// réutiliser handleGenerations/action=count : les images de montage ne sont
+// jamais insérées dans `generations`, seul `usage_serveur` (service_role
+// uniquement) connaît le vrai décompte, voir lireUsageMontageImages.
+async function handleQuotaMontage(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Méthode non autorisée' });
+  const code = (req.query && req.query.code) || '';
+  if (!code) return res.status(200).json({ ok: false, concerne: false });
+  const droits = await resoudreDroits(code);
+  const usage = await lireUsageMontageImages(droits, code);
+  if (!usage) return res.status(200).json({ ok: true, concerne: false });
+  return res.status(200).json({ ok: true, concerne: true, ...usage });
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -684,6 +700,7 @@ export default async function handler(req, res) {
   const resource = req.method === 'GET' ? (req.query && req.query.resource) : body.resource;
 
   if (resource === 'presence') return handlePresence(req, res, body);
+  if (resource === 'quotaMontage') return handleQuotaMontage(req, res);
 
   // admin-stats vérifie ses droits lui-même (voir handleAdminStats) même
   // sans clé service_role configurée, jamais de repli silencieux pour une

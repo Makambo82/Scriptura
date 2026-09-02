@@ -265,6 +265,36 @@ async function verifierAccesProOuJeton(droits, code) {
   return { ok: false, raison: 'acces_requis' };
 }
 
+// Lecture SEULE (jamais de décompte ici) du quota d'images de montage du
+// mois en cours, pour l'affichage côté client (panneau "Ton accès
+// Scriptura", voir js/abonnement.js). Ne peut pas réutiliser
+// countMonthGenerations (js/historique.js, compte les lignes `generations`) :
+// les images de montage n'y sont jamais insérées, seul `usage_serveur`
+// (service_role uniquement, cette même table que consommerUsage) connaît le
+// vrai décompte. `code` non normalisé ici : cleUsage() attend le code déjà
+// tel qu'utilisé par verifierQuota (voir handleImages, api/montage-media.js).
+async function lireUsageMontageImages(droits, code) {
+  // plafond:null (pas Infinity, qui ne survivrait pas à la sérialisation
+  // JSON de la réponse HTTP - JSON.stringify(Infinity) => null de toute
+  // façon) : illimite:true suffit, l'appelant ne doit jamais lire
+  // used/plafond dans ce cas.
+  if (droits.isAdmin || droits.illimite) return { used: 0, plafond: null, illimite: true };
+  const plafond = droits.plan ? (LIMITES_MOIS[droits.plan] || {}).montageImages : null;
+  if (plafond == null) return null; // pas Creator/Pro : le montage ne le concerne pas
+  const cfg = config();
+  if (!cfg) return { used: 0, plafond, nonConfigure: true };
+  try {
+    const ref = cleUsage(code, 'montageImages', false);
+    const r = await fetch(cfg.url + '/rest/v1/usage_serveur?ref=eq.' + encodeURIComponent(ref) + '&select=used', { headers: entetes(cfg.key) });
+    if (!r.ok) return { used: 0, plafond, panne: true };
+    const rows = await r.json();
+    const used = (Array.isArray(rows) && rows[0]) ? (parseInt(rows[0].used, 10) || 0) : 0;
+    return { used, plafond };
+  } catch (e) {
+    return { used: 0, plafond, panne: true };
+  }
+}
+
 // Accès au montage vidéo (voix off, musique, images) : Creator ET Pro,
 // différenciés seulement par le quota d'images (voir LIMITES_MOIS,
 // montageImages), pas par l'accès lui-même - contrairement à
@@ -283,6 +313,7 @@ export {
   verifierLimiteAnonyme,
   verifierAccesProOuJeton,
   verifierAccesMontage,
+  lireUsageMontageImages,
   consommerJetonServeur,
   LIMITES_MOIS,
   MAX_FREE
