@@ -419,14 +419,28 @@ function classerParPerformance(videos) {
 // parcourues, raison d'arrêt, doublons, vidéos trop anciennes écartées), la
 // seule façon de répondre aurait été de deviner, ou de refaire tourner une
 // analyse complète payante juste pour observer les chiffres internes.
+//
+// Arrêt anticipé sur stagnation (retour propriétaire, suite à ce même
+// diagnostic sur "cuisine" après l'élargissement de FENETRE_JOURS à 180j :
+// 231 doublons sur ~258 vidéos brutes scannées en 20 pages, soit 89% -
+// TikHub reboucle sur les mêmes vidéos bien avant la 20e page pour une
+// niche générique) : si PAGES_STAGNATION_MAX pages d'affilée n'apportent
+// STRICTEMENT AUCUNE vidéo nouvelle à la réserve (que ce soit doublon ou
+// trop ancienne, peu importe la raison), la suite ne fera que payer
+// d'autres appels TikHub pour le même résultat déjà observé. Ne réduit
+// jamais l'échantillon final obtenu (les pages arrêtées n'apportaient rien
+// de toute façon), économise seulement des appels facturés inutiles.
+const PAGES_STAGNATION_MAX = 3;
 async function construireReserve(niche, cible, tikhubKey) {
   const seuilDate = Math.floor(Date.now() / 1000) - FENETRE_JOURS * 86400;
   const reserveCible = cible * RESERVE_MULTIPLICATEUR;
   const reserve = new Map(); // id -> item allégé, PAS encore filtré par performance
   let cursor = 0, page = 0, hasMore = true;
   let doublons = 0, tropAnciennes = 0;
+  let pagesSansNouveaute = 0;
   let raisonArret = null;
   while (reserve.size < reserveCible && hasMore && page < PAGES_MAX_RECHERCHE) {
+    const tailleAvant = reserve.size;
     const lot = await rechercherVideos(niche.trim(), cursor, tikhubKey);
     page++;
     if (!lot) { raisonArret = 'recherche_tikhub_echouee'; break; }
@@ -439,6 +453,12 @@ async function construireReserve(niche, cible, tikhubKey) {
     hasMore = lot.hasMore;
     cursor = lot.cursor;
     if (cursor == null) { raisonArret = 'cursor_absent'; break; }
+    if (reserve.size === tailleAvant) {
+      pagesSansNouveaute++;
+      if (pagesSansNouveaute >= PAGES_STAGNATION_MAX) { raisonArret = 'stagnation_doublons'; break; }
+    } else {
+      pagesSansNouveaute = 0;
+    }
   }
   if (!raisonArret) {
     raisonArret = reserve.size >= reserveCible ? 'reserve_cible_atteinte'

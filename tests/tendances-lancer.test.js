@@ -783,6 +783,53 @@ test('GET debug avec code admin => 200, sonde TikHub appelée', async () => {
     assert.ok(r, 'le diagnostic de réserve doit être présent');
     assert.equal(typeof r.trouvees, 'number');
     assert.equal(typeof r.pagesParcourues, 'number');
-    assert.ok(['reserve_cible_atteinte', 'plus_de_resultats_tikhub', 'plafond_pages_atteint', 'recherche_tikhub_echouee', 'cursor_absent'].includes(r.raisonArret));
+    assert.ok(['reserve_cible_atteinte', 'plus_de_resultats_tikhub', 'plafond_pages_atteint', 'recherche_tikhub_echouee', 'cursor_absent', 'stagnation_doublons'].includes(r.raisonArret));
+  } finally { restaurer(); }
+});
+
+test('GET debug : arrêt anticipé si 3 pages d\'affilée n\'apportent AUCUNE vidéo nouvelle (retour propriétaire : 89% de doublons observés sur "cuisine", pas la peine de payer les pages suivantes)', async () => {
+  // Constat réel en prod : sur 20 pages payées, 231 des ~258 vidéos brutes
+  // étaient des doublons de pages précédentes. Ici, 1 page utile (5 vidéos
+  // neuves) suivie de 3 pages qui reboublent exactement les mêmes 5 : la
+  // recherche doit s'arrêter à la 4e page (page utile + 3 stagnantes),
+  // JAMAIS continuer jusqu'au plafond de 20 pages pour un résultat déjà
+  // acquis.
+  const restaurer = poserEnv();
+  const cinqVideos = Array.from({ length: 5 }, (_, i) => ({
+    item: { id: 'stagn-v' + i, desc: 'test', createTime: Math.floor(Date.now() / 1000), stats: { playCount: 1000 }, author: {}, authorStats: {} }
+  }));
+  // La sonde GET ?debug=1 lance EN PARALLÈLE construireReserve() (pagination
+  // par curseur, ce qu'on teste ici) ET testerCandidat() ×2 (sondes fixes
+  // sans curseur, pour comparer sort_type) : les deux tapent
+  // fetch_general_search, donc un simple tableau consommé au fil de l'eau
+  // (pagesRecherche) mélangerait les deux et fausserait ce test. On
+  // distingue par la présence du paramètre cursor (toujours envoyé par
+  // rechercherVideos, jamais par testerCandidat) et on répond selon SA
+  // VALEUR, indépendamment de l'ordre d'arrivée concurrent.
+  poserFetchMock({
+    custom: async (u) => {
+      if (!u.includes('cursor=')) return { ok: true, json: async () => ({ data: { data: [], cursor: 0, has_more: false } }) };
+      const cursor = new URL(u).searchParams.get('cursor');
+      const parPage = {
+        '0': { data: { data: cinqVideos, cursor: 1, has_more: true } },   // page 1 : 5 nouvelles
+        '1': { data: { data: cinqVideos, cursor: 2, has_more: true } },   // page 2 : 0 nouvelle (stagnation 1)
+        '2': { data: { data: cinqVideos, cursor: 3, has_more: true } },   // page 3 : 0 nouvelle (stagnation 2)
+        '3': { data: { data: cinqVideos, cursor: 4, has_more: true } }    // page 4 : 0 nouvelle (stagnation 3) => arrêt ici
+      };
+      const page = parPage[cursor];
+      return { ok: true, json: async () => (page || { data: { data: [], cursor: null, has_more: false } }) };
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'GET', query: { mot: 'niche-stagnante-test', debug: '1', code_acces: ENV_BASE.CODE_ADMIN } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    const r = res.corpsRecu._debug.reserve;
+    assert.equal(r.raisonArret, 'stagnation_doublons', 'doit reconnaître la stagnation, pas attendre le plafond de 20 pages : ' + JSON.stringify(r));
+    assert.equal(r.pagesParcourues, 4, 'doit s\'arrêter juste après la 3e page stagnante d\'affilée, pas continuer : ' + JSON.stringify(r));
+    assert.equal(r.trouvees, 5, 'les 5 vidéos trouvées à la 1ère page restent dans l\'échantillon (l\'arrêt anticipé ne perd rien) : ' + JSON.stringify(r));
+    assert.equal(r.doublons, 15, '3 pages de 5 doublons chacune : ' + JSON.stringify(r));
   } finally { restaurer(); }
 });
