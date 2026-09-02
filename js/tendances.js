@@ -92,10 +92,18 @@ function _tendancesMajProgres(pct, statut) {
 // Parse une réponse d'erreur 403 du serveur (ACCES_REFUSE / QUOTA_ATTEINT),
 // même mécanique que les autres modes (voir _outilsGererErreurReponse,
 // js/tiktok-outils.js).
-async function _tendancesMessageErreur(r) {
+// Lit une réponse /api/tendances en JSON de façon sûre : une panne serveur
+// (500, timeout Vercel, erreur réseau intermédiaire) peut renvoyer une page
+// HTML ou un corps vide plutôt qu'un JSON valide, et r.json() lève alors une
+// erreur de parsing brute ("Unexpected token <...") qui remontait telle
+// quelle jusqu'à l'utilisateur. On récupère systématiquement ce cas avec un
+// message clair, pour tout statut non-ok (pas seulement 403).
+async function _tendancesLireReponse(r) {
   let payload = null;
   try { payload = await r.json(); } catch (e) {}
-  return (payload && payload.error && payload.error.message) || 'Erreur serveur.';
+  if (!r.ok) throw new Error((payload && payload.error && payload.error.message) || 'Erreur serveur.');
+  if (!payload) throw new Error('Réponse invalide du serveur, réessaie.');
+  return payload;
 }
 
 async function lancerTendances() {
@@ -145,8 +153,7 @@ async function lancerTendances() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'lancer', niche, zone, code_acces })
     });
-    if (r1.status === 403) throw new Error(await _tendancesMessageErreur(r1));
-    const j1 = await r1.json();
+    const j1 = await _tendancesLireReponse(r1);
     if (!j1.ok) {
       if (j1.raison === 'pas_assez_de_videos') {
         throw new Error("Pas assez de vidéos trouvées pour cette niche (" + (j1.trouvees || 0) + "). Essaie un mot-clé un peu plus large.");
@@ -169,8 +176,7 @@ async function lancerTendances() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'avancer', id, code_acces })
       });
-      if (r2.status === 403) throw new Error(await _tendancesMessageErreur(r2));
-      const j2 = await r2.json();
+      const j2 = await _tendancesLireReponse(r2);
       if (!j2.ok) throw new Error((j2.error && j2.error.message) || 'Erreur pendant la transcription.');
       statut = j2.statut;
       resultat = j2.resultat;
@@ -179,7 +185,11 @@ async function lancerTendances() {
     }
 
     if (statut === 'echec' || !resultat) {
-      throw new Error("La synthèse a échoué. Ton analyse de ce mois-ci a déjà été consommée, réessaie le mois prochain.");
+      // La panne est désormais journalisée côté serveur (voir avancer(),
+      // api/tendances.js), consultable au Tableau de bord. Le message reste
+      // honnête sur la cause (problème technique, pas une limite atteinte
+      // par l'utilisateur) plutôt que de sembler l'en tenir responsable.
+      throw new Error("Un problème technique a empêché la synthèse de se terminer. Ton analyse de ce mois-ci est malheureusement déjà consommée ; contacte-nous si ça se reproduit.");
     }
 
     _tendancesMajProgres(100, 'Terminé.');

@@ -585,8 +585,18 @@ async function lancerAudit() {
       });
 
       if (res.status === 403) {
-        if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
-        throw new Error('Ton abonnement a expiré. Renouvelle pour relancer un diagnostic.');
+        let payload = null;
+        try { payload = await res.json(); } catch (e) {}
+        const code = payload && payload.error && payload.error.code;
+        // Seule une vraie expiration déconnecte l'abonné et affiche ce
+        // message précis (retour d'audit : n'importe quel 403, y compris un
+        // compte désactivé ou un accès jamais accordé, affichait à tort
+        // "ton abonnement a expiré").
+        if (code === 'ABONNEMENT_EXPIRE') {
+          if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+          throw new Error('Ton abonnement a expiré. Renouvelle pour relancer un diagnostic.');
+        }
+        throw new Error((payload && payload.error && payload.error.message) || 'Accès refusé.');
       }
       const data = await res.json();
       if (!res.ok) {

@@ -468,6 +468,56 @@ test('avancer : la synthèse finale donne à chaque créateur un lien vers SA vi
   } finally { restaurer(); }
 });
 
+// Audit du 2 septembre 2026 : quand la synthèse QUALITATIVE échoue (ex.
+// Anthropic renvoie une réponse vide/invalide), synthetiser() dégrade
+// proprement le résultat (registre/durée/patterns absents, les chiffres
+// déterministes restent) — un comportement voulu, à garder. Mais cette
+// panne n'était journalisée NULLE PART, ni logs serveur ni trace admin :
+// invisible même si elle devenait fréquente (clé Anthropic expirée...).
+// Vérifie qu'un log serveur identifiable apparaît désormais.
+test('avancer : un échec de la synthèse qualitative (Anthropic) est journalisé, même si le rapport se termine quand même', async () => {
+  const restaurer = poserEnv();
+  const maintenant = Math.floor(Date.now() / 1000);
+  const logsErreur = [];
+  const consoleErrorOriginal = console.error;
+  console.error = (...args) => { logsErreur.push(args.join(' ')); };
+  poserFetchMock({
+    abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
+    jobRow: {
+      id: 'job-synthese-qualitative-echec',
+      statut: 'en_cours',
+      niche: 'cuisine',
+      index_suivant: 0,
+      // Au moins 3 vidéos avec transcript : sous ce seuil, synthetiser()
+      // n'appelle même pas l'IA (voir avecTranscript.length >= 3), ce qui
+      // ne teste rien de ce correctif.
+      videos: Array.from({ length: 3 }, (_, i) => ({
+        id: 'v' + i, desc: 'test', createTime: maintenant,
+        auteur: { uniqueId: 'chef' + i }, stats: { vues: 1000, likes: 10, commentaires: 1, partages: 1 },
+        hashtags: [], urlsCandidates: [], transcript: 'Un vrai transcript de test suffisamment long.', transcriptEchec: false
+      }))
+    },
+    custom: async (u) => {
+      if (u.includes('api.anthropic.com')) {
+        // Réponse sans contenu exploitable : appelClaudeDirect lève
+        // "Réponse IA vide ou invalide".
+        return { ok: true, json: async () => ({ content: [] }) };
+      }
+      return null;
+    }
+  });
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const req = { method: 'POST', body: { action: 'avancer', id: 'job-synthese-qualitative-echec', code_acces: 'CODE-PRO' } };
+    const res = creerRes();
+    await handler(req, res);
+    assert.equal(res.statutRecu, 200);
+    assert.equal(res.corpsRecu.statut, 'termine', 'le rapport doit rester utilisable malgré la panne IA (chiffres déterministes intacts)');
+    assert.equal(res.corpsRecu.resultat.registre, undefined, 'sans IA fonctionnelle, la section qualitative reste absente (comportement existant, inchangé)');
+    assert.ok(logsErreur.some(l => l.includes('tendances') && l.includes('cuisine')), 'la panne de synthèse qualitative doit désormais être journalisée : ' + JSON.stringify(logsErreur));
+  } finally { console.error = consoleErrorOriginal; restaurer(); }
+});
+
 test('lancer : capture la photo de profil de l\'auteur (avatarLarger) depuis l\'item de recherche', async () => {
   // Retour du propriétaire : une vraie photo de profil plutôt qu'une
   // initiale seule. TikHub porte l'avatar sous author.avatarLarger.urlList

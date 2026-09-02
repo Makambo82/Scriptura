@@ -29,7 +29,7 @@
 //  diagnostic conservée pour du dépannage futur (endpoints TikHub candidats).
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, verifierQuota } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, codeAccesRefuse } from './_lib/acces.js';
 import { urlsVideo, telechargerMedia, detailTikHub, extraireAuteurUsername, extraireAuteurAvatar } from './_lib/tiktok-media.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
@@ -145,8 +145,10 @@ async function supabaseUpdate(cfg, table, id, patch) {
 async function rechercherVideos(mot, cursor, tikhubKey) {
   const url = TIKHUB_BASE + '/api/v1/tiktok/web/fetch_general_search?' +
     new URLSearchParams({ keyword: mot, count: 20, cursor: String(cursor || 0) }).toString();
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tikhubKey } });
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tikhubKey }, signal: ctrl.signal });
     if (!r.ok) return null;
     const data = await r.json();
     const inner = data && data.data;
@@ -154,6 +156,7 @@ async function rechercherVideos(mot, cursor, tikhubKey) {
     const items = arr.map(x => x && x.item).filter(Boolean);
     return { items, cursor: inner ? inner.cursor : cursor, hasMore: !!(inner && inner.has_more) };
   } catch (e) { return null; }
+  finally { clearTimeout(minuteur); }
 }
 
 // Ne garde QUE les champs utiles (la réponse brute de TikHub est massive :
@@ -396,7 +399,16 @@ Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balises Markdown au
       const raw = await appelClaudeDirect(prompt, 2000);
       const nettoye = raw.replace(/^```json\s*|\s*```$/g, '').trim();
       qualitatif = JSON.parse(nettoye);
-    } catch (e) { qualitatif = {}; }
+    } catch (e) {
+      // Dégradation propre côté utilisateur (le rapport reste "termine" avec
+      // les chiffres déterministes, la section registre/durée/patterns
+      // disparaît simplement, voir js/tendances.js), mais cette panne était
+      // jusqu'ici invisible, ni logs ni trace : au moins un log serveur pour
+      // la repérer si elle devient fréquente (clé Anthropic, format de
+      // réponse...).
+      console.error('[tendances] synthèse qualitative dégradée', niche, e && e.message);
+      qualitatif = {};
+    }
   }
 
   return { niche, zone: zone ? String(zone).trim() : null, ...stats, ...qualitatif };
@@ -531,7 +543,7 @@ async function lancer(req, res, tikhubKey) {
     return res.status(400).json({ error: { message: 'Niche manquante' } });
   }
   const droits = await resoudreDroits(code_acces);
-  if (!droits.ok) return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+  if (!droits.ok) return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
 
   // Mode test (admin uniquement) : échantillon réduit à VIDEOS_CIBLE_TEST au
   // lieu de VIDEOS_CIBLE, pour vérifier un correctif sans payer TikHub/
@@ -606,7 +618,7 @@ async function avancer(req, res, tikhubKey, elevenKey) {
   const { id, code_acces } = req.body || {};
   if (!id) return res.status(400).json({ error: { message: 'id manquant' } });
   const droits = await resoudreDroits(code_acces);
-  if (!droits.ok) return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+  if (!droits.ok) return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
 
   const cfg = supabaseConfig();
   if (!cfg) return res.status(500).json({ error: { message: 'Mémoire indisponible (Supabase non configuré).' } });
@@ -633,6 +645,15 @@ async function avancer(req, res, tikhubKey, elevenKey) {
       statut = 'termine';
     } catch (e) {
       statut = 'echec';
+      // Journalise la panne (jamais faite jusqu'ici : un échec de synthèse
+      // était totalement invisible, ni logs serveur ni trace admin, alors
+      // que le quota mensuel Pro (1/mois) est déjà consommé à ce stade).
+      console.error('[tendances] synthèse échouée', job.niche, e && e.message);
+      supabaseInsert(cfg, 'erreurs_generation', {
+        mode: 'tendances',
+        code_acces: code_acces || null,
+        detail: ('synthèse (' + job.niche + ') : ' + (e && e.message || 'erreur inconnue')).slice(0, 300)
+      }).catch(() => {});
     }
   }
 

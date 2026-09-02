@@ -6,7 +6,7 @@
 //
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par cette route (voir MODEL_AUDIT côté
 // client pour l'analyse réelle, 'classify' plus bas utilise Haiku en dur).
@@ -337,7 +337,7 @@ export default async function handler(req, res) {
     // Pro, jamais accessible à un visiteur anonyme, voir verifierQuota).
     const droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
-      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
     }
     const verdict = await verifierQuota(droits, 'audit', code_acces);
     if (!verdict.ok) {

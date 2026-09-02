@@ -3,7 +3,7 @@
 // demandé, puis relaie vers Anthropic. Voir api/_lib/acces.js pour le détail
 // de la résolution des droits (le serveur ne fait plus confiance au client :
 // ni pour le plan, ni pour le quota, ni pour le modèle/nombre de tokens).
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierAccesProOuJeton, MAX_FREE } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierAccesProOuJeton, codeAccesRefuse, MAX_FREE } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par l'app pour ce type d'appel (voir
 // MODEL_CREATIF/MODEL_RAPIDE/MODEL_QUALITE_RECIT, js/api.js) : un modèle
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     // (service role), jamais depuis une valeur envoyée par le client.
     const droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
-      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
     }
 
     // Quota : le mode Série (Pro ou jeton pour ENTRER, puis compte comme une

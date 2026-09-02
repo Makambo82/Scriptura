@@ -10,7 +10,7 @@
 //  action=transcription (POST, JSON) | action=download (GET, flux binaire)
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
 import {
   detailTikHub, extraireAwemeId, resoudreLien, urlsVideo,
   extraireDesc, extraireStats, extraireAuteurUsername, extraireAuteurInfo, extraireCreateTime, abonnesViaProfil,
@@ -115,7 +115,7 @@ async function handleTranscription(req, res) {
 
     const droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
-      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
     }
     if (droits.anonyme) {
       const limiteIP = await verifierLimiteAnonyme(req, 'video-stt', PLAFOND_ANONYME_JOUR);
@@ -217,7 +217,7 @@ async function handleDownload(req, res) {
   try {
     const droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
-      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
     }
     if (droits.anonyme) {
       const limiteIP = await verifierLimiteAnonyme(req, 'tiktok-download', PLAFOND_ANONYME_JOUR);

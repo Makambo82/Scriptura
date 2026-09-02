@@ -214,16 +214,22 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     } finally {
       clearTimeout(delaiMax);
     }
-    // Abonnement expiré/désactivé, OU quota du mode atteint : deux refus
+    // Abonnement expiré, accès refusé pour une autre raison (compte
+    // désactivé, jamais eu accès…), OU quota du mode atteint : trois refus
     // distincts renvoyés par le serveur avec le même statut HTTP (403),
-    // distingués par error.code (voir api/generate.js).
+    // distingués par error.code (voir api/generate.js, api/_lib/acces.js).
+    // Seul ABONNEMENT_EXPIRE doit déconnecter l'abonné localement ; un autre
+    // refus (compte désactivé, accès jamais accordé) ne doit pas l'enfermer
+    // dehors avec un message trompeur "ton abonnement a expiré".
     if (res.status === 403) {
       let payload = null;
       try { payload = await res.json(); } catch (e) {}
       if (payload && payload.error && payload.error.code === 'QUOTA_ATTEINT') {
         return { ok: false, recoverable: false, detail: 'quota atteint', quotaAtteint: true };
       }
-      if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
+      if (payload && payload.error && payload.error.code === 'ABONNEMENT_EXPIRE' && typeof gererAbonnementExpire === 'function') {
+        gererAbonnementExpire();
+      }
       return { ok: false, recoverable: false, detail: 'accès refusé' };
     }
     // Surcharge / erreur serveur temporaire → échec récupérable (on renvoie null)

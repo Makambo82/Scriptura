@@ -307,6 +307,16 @@ function verifierAccesMontage(droits) {
   return { ok: false, raison: 'acces_requis' };
 }
 
+// Code d'erreur 403 à renvoyer au client selon la raison exacte du refus.
+// Seule une VRAIE expiration doit faire déconnecter l'abonné côté client
+// (gererAbonnementExpire, voir js/api.js) : un compte désactivé, un accès
+// jamais accordé ou une limite anonyme sont des refus différents, pas des
+// abonnements expirés, et ne doivent pas être confondus dans le message
+// affiché ni provoquer une déconnexion locale trompeuse.
+function codeAccesRefuse(droits) {
+  return (droits && droits.raison === 'abonnement expiré') ? 'ABONNEMENT_EXPIRE' : 'ACCES_REFUSE';
+}
+
 export {
   resoudreDroits,
   verifierQuota,
@@ -315,6 +325,7 @@ export {
   verifierAccesMontage,
   lireUsageMontageImages,
   consommerJetonServeur,
+  codeAccesRefuse,
   LIMITES_MOIS,
   MAX_FREE
 };

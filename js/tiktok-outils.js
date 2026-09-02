@@ -187,8 +187,13 @@ async function _outilsGererErreurReponse(r) {
     if (payload && payload.error && payload.error.code === 'QUOTA_ATTEINT') {
       throw new Error(payload.error.message || 'Quota atteint.');
     }
-    if (typeof gererAbonnementExpire === 'function') gererAbonnementExpire();
-    throw new Error('Accès refusé.');
+    // Seule une vraie expiration déconnecte l'abonné (un compte désactivé
+    // ou un accès jamais accordé sont des refus différents, voir
+    // api/_lib/acces.js#codeAccesRefuse).
+    if (payload && payload.error && payload.error.code === 'ABONNEMENT_EXPIRE' && typeof gererAbonnementExpire === 'function') {
+      gererAbonnementExpire();
+    }
+    throw new Error((payload && payload.error && payload.error.message) || 'Accès refusé.');
   }
   if (!r.ok) {
     let payload = null;

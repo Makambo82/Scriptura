@@ -17,7 +17,7 @@
 //  Debug : body.debug=true renvoie _debug (id extrait + réponses des sources).
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
 const PLAFOND_ANONYME_JOUR = 5; // filet IP, coûte 2 API payées par appel
@@ -248,7 +248,7 @@ export default async function handler(req, res) {
     // 1 seule fois à vie sinon), jamais une valeur envoyée par le client.
     const droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
-      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: 'ACCES_REFUSE' } });
+      return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
     }
     if (droits.anonyme) {
       const limiteIP = await verifierLimiteAnonyme(req, 'username-scan', PLAFOND_ANONYME_JOUR);
