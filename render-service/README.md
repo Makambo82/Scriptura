@@ -9,13 +9,16 @@ animations Ken Burns variées, sortie 1080×1920.
 ## Ce que fait le service
 
 - `GET /` → `OK` (santé, utilisé par l'hébergeur).
-- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...], "musicUrl": "...", "musicVolume": 0.15 }`
+- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...], "musicUrl": "...", "musicVolume": 0.15, "endCardText": "..." }`
   → rend la vidéo, la ré-uploade dans Supabase Storage (bucket `montages`,
   dossier `rendus/`), renvoie `{ "url": "https://.../montage-....mp4" }`.
   `captions` est optionnel : sans lui (ou tableau vide), le flux vidéo est
   simplement copié, pas de ré-encodage. Avec lui, les sous-titres sont
   incrustés (police DejaVu Sans, voir Dockerfile) et le mux final ré-encode
-  la vidéo (un peu plus lent, nécessaire pour appliquer le filtre).
+  la vidéo (un peu plus lent, nécessaire pour appliquer le filtre). Les
+  chiffres/statistiques dans le texte des sous-titres sont automatiquement
+  colorés en doré (retour propriétaire, "pro CapCut" : accroche l'œil en
+  premier sur TikTok).
   `musicUrl` est optionnel (musique de fond instrumentale, générée par
   Eleven Music, voir `api/montage-media.js` action=music) : sans lui, seule
   la voix off est présente. Avec lui, la musique est mélangée sous la voix
@@ -25,6 +28,13 @@ animations Ken Burns variées, sortie 1080×1920.
   hors plage (ramené à la borne la plus proche) ou absent (retombe sur
   `MONTAGE_MUSIC_VOLUME`, 0.15 par défaut, variable d'environnement de ce
   service).
+  `endCardText` est optionnel (carton de fin/appel à l'action, saisi par le
+  créateur avant de lancer le montage) : affiché en gros, centré, doré,
+  dans les 2,5 dernières secondes de la vidéo (indépendant de `captions` :
+  fonctionne même sous-titres désactivés). Chaque plan reçoit aussi
+  automatiquement un léger étalonnage (contraste/saturation, réglable via
+  `MONTAGE_GRADE_CONTRASTE`/`MONTAGE_GRADE_SATURATION`), toujours actif,
+  aucun champ de requête associé.
 
 ## Déploiement sur Railway (recommandé)
 

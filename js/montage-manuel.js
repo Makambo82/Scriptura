@@ -81,6 +81,8 @@ function omResetState() {
   // remis à 15% ici, même raison que le sélecteur de vitesse (js/montage.js).
   const selVolumeMusique = document.getElementById('omMusiqueVolumeSelect');
   if (selVolumeMusique) selVolumeMusique.value = '0.15';
+  const texteFin = document.getElementById('omTexteFin');
+  if (texteFin) texteFin.value = '';
   const btnUpload = document.getElementById('omModeUploadBtn');
   const btnIa = document.getElementById('omModeIaBtn');
   if (btnUpload) btnUpload.classList.add('actif');
@@ -708,7 +710,16 @@ async function omLancerMontage() {
       const rRender = await fetch('/api/montage-render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, audioUrl, format, captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [], musicUrl, musicVolume: omVolumeMusique, code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify({
+          images, audioUrl, format,
+          captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [],
+          musicUrl, musicVolume: omVolumeMusique,
+          // Carton de fin (retour propriétaire, "en tant que pro CapCut") :
+          // texte d'appel à l'action facultatif, affiché dans les dernières
+          // secondes par le service de rendu.
+          endCardText: (document.getElementById('omTexteFin')?.value || '').trim(),
+          code_acces: localStorage.getItem('scriptura_code') || null
+        })
       });
       dataRender = await rRender.json();
       if (!rRender.ok || !dataRender.url) throw new Error((dataRender.error && dataRender.error.message) || "Le montage n'a pas pu être généré.");

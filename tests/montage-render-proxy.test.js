@@ -100,6 +100,41 @@ test('/api/montage-render transmet musicUrl et musicVolume au service externe (r
   }
 });
 
+test('/api/montage-render transmet endCardText au service externe (retour propriétaire : carton de fin "pro CapCut")', async () => {
+  const envAvant = { ...process.env };
+  process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE_CARTE';
+  process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+
+  const fetchOriginal = global.fetch;
+  let requeteProxy = null;
+  global.fetch = async (url, options) => {
+    requeteProxy = { url, options };
+    return { ok: true, json: async () => ({ url: 'https://supabase.example/montages/rendus/test.mp4' }) };
+  };
+
+  try {
+    const { default: handler } = await import('../api/montage-render.js');
+    const req = {
+      method: 'POST',
+      body: {
+        code_acces: 'TESTADMIN_MONTAGE_CARTE',
+        images: [{ url: 'https://x.example/a.jpg', duration: 2 }],
+        audioUrl: 'https://x.example/audio.mp3',
+        endCardText: 'Suis pour plus de contenu comme ça'
+      }
+    };
+    const res = { status() { return this; }, json() { return this; } };
+    await handler(req, res);
+
+    assert.ok(requeteProxy, 'le proxy doit avoir appelé fetch vers le service externe');
+    const corpsEnvoye = JSON.parse(requeteProxy.options.body);
+    assert.equal(corpsEnvoye.endCardText, 'Suis pour plus de contenu comme ça', 'le texte du carton de fin doit être transmis tel quel : ' + JSON.stringify(corpsEnvoye));
+  } finally {
+    global.fetch = fetchOriginal;
+    process.env = envAvant;
+  }
+});
+
 test('/api/montage-render refuse un code non-fondateur avant même de songer à un rendu', async () => {
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE2';

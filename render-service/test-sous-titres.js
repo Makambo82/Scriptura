@@ -3,7 +3,12 @@
 // (tests/) : ce service a son propre package.json/déploiement, séparé du
 // site (voir README.md). Lancer avec : node render-service/test-sous-titres.js
 const assert = require('node:assert/strict');
-const { construireASS, versHorodatageASS, echapperTexteASS, resoudreVolumeMusique, MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX } = require('./server.js');
+const {
+  construireASS, versHorodatageASS, echapperTexteASS, mettreEnValeurChiffres,
+  construireGrapheLot, resoudreVolumeMusique,
+  MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
+  GRADE_CONTRASTE, GRADE_SATURATION, DUREE_CARTE_FIN
+} = require('./server.js');
 
 function test(nom, fn) {
   try {
@@ -78,4 +83,44 @@ test('resoudreVolumeMusique cale une valeur hors plage sur la borne la plus proc
 test('resoudreVolumeMusique retombe sur la valeur par défaut si rien n\'est envoyé (absent, non numérique)', () => {
   assert.equal(resoudreVolumeMusique(undefined), MUSIQUE_VOLUME_DEFAUT);
   assert.equal(resoudreVolumeMusique('pas-un-nombre'), MUSIQUE_VOLUME_DEFAUT);
+});
+
+// Mots-clés en couleur (retour propriétaire, "en tant que pro CapCut") :
+// chiffres/statistiques colorés en doré dans les sous-titres.
+test('mettreEnValeurChiffres entoure les chiffres/statistiques de balises de couleur ASS, jamais le reste du texte', () => {
+  const resultat = mettreEnValeurChiffres('Gagne 73% de temps en 3 minutes');
+  assert.equal(resultat, 'Gagne {\\c&H7AC8E2&}73%{\\c&HFFFFFF&} de temps en {\\c&H7AC8E2&}3 {\\c&HFFFFFF&}minutes', resultat);
+});
+
+test('mettreEnValeurChiffres laisse un texte sans chiffre totalement inchangé', () => {
+  assert.equal(mettreEnValeurChiffres('Aucun chiffre ici'), 'Aucun chiffre ici');
+});
+
+// Carton de fin (retour propriétaire, "en tant que pro CapCut") : appel à
+// l'action facultatif dans les dernières secondes, style distinct
+// (centré, plus grand, doré) des sous-titres habituels.
+test('construireASS ajoute une ligne Dialogue pour le carton de fin (style CarteFin) quand il est fourni', () => {
+  const ass = construireASS([], 720, 1280, { texte: 'Suis pour plus', debut: 27.5, fin: 30 });
+  assert.match(ass, /Style: CarteFin,/, 'le style CarteFin doit être déclaré : ' + ass);
+  assert.match(ass, /Dialogue: 1,0:00:27\.50,0:00:30\.00,CarteFin,,0,0,0,,Suis pour plus/, ass);
+});
+
+test('construireASS n\'ajoute AUCUNE ligne Dialogue de carton de fin quand aucun n\'est fourni (facultatif)', () => {
+  const ass = construireASS([{ texte: 'Un test', debut: 0, fin: 1 }], 720, 1280);
+  assert.ok(!ass.includes(',CarteFin,'), 'aucune ligne carton de fin attendue sans le paramètre : ' + ass);
+});
+
+test('construireASS applique la mise en couleur des chiffres aux sous-titres normaux', () => {
+  const ass = construireASS([{ texte: '10 astuces', debut: 0, fin: 1 }], 720, 1280);
+  assert.match(ass, /Dialogue: 0,0:00:00\.00,0:00:01\.00,Default,,0,0,0,,\{\\c&H7AC8E2&\}10 \{\\c&HFFFFFF&\}astuces/, ass);
+});
+
+// Étalonnage (retour propriétaire, "en tant que pro CapCut") : contraste et
+// saturation appliqués à chaque plan, pour un rendu moins plat que des
+// images IA brutes.
+test('construireGrapheLot applique le filtre d\'étalonnage (eq contrast/saturation) à chaque plan', () => {
+  const graphe = construireGrapheLot([2, 3], 0, 720, 1280);
+  const occurrences = (graphe.match(/eq=contrast=/g) || []).length;
+  assert.equal(occurrences, 2, 'un filtre eq par plan attendu (2 plans) : ' + graphe);
+  assert.ok(graphe.includes(`eq=contrast=${GRADE_CONTRASTE}:saturation=${GRADE_SATURATION}`), graphe);
 });
