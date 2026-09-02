@@ -73,6 +73,19 @@ export default async function handler(req, res) {
       verdict = (droits.isAdmin || droits.illimite || droits.plan === 'pro')
         ? { ok: true }
         : { ok: false, raison: 'acces_requis' };
+    } else if (modeDemande === 'microEditScript' || modeDemande === 'microEditRecit') {
+      // Éditeur IA par passage (Reformuler/Raccourcir/Allonger/Simplifier,
+      // voir js/generation.js et js/storytelling.js) : gratuit et hors quota
+      // de génération par conception (un confort d'édition sur un script déjà
+      // généré, pas une nouvelle génération), plafonné côté client par
+      // MICRO_EDIT_MAX_PAR_SCRIPT. BUG CORRIGÉ (retour terrain) : ces deux
+      // modes n'existaient dans AUCUNE limite de plan, verifierQuota() les
+      // faisait donc retomber sur un plafond de 0 et refusait systématiquement
+      // pour Creator/Pro (un anonyme, lui, passait car verifierQuota() laisse
+      // passer tout mode non listé pour les anonymes). Accès déjà filtré plus
+      // haut par resoudreDroits() (compte désactivé/invalide refusé avant
+      // d'arriver ici) : rien à revérifier de plus pour un simple bloc de texte.
+      verdict = { ok: true };
     } else {
       if (droits.anonyme) {
         const limiteIP = await verifierLimiteAnonyme(req, 'generate', PLAFOND_ANONYME_JOUR);
