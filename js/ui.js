@@ -34,7 +34,13 @@ const _ICO_PATHS = {
   // Même glyphe que ICON_SHARE (js/storyboard.js, bouton "Partager"), en
   // trait fin pour rester cohérent avec les autres icônes ICO() : un même
   // symbole "partage" dans toute l'app, pas deux dessins différents.
-  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/>'
+  share: '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/>',
+  // Ajoutées pour l'en-tête de chaque étape du panneau de montage (retour
+  // propriétaire : donner un vrai repère visuel par section, voir
+  // css/style.css .montage-section-title).
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/>',
+  musicnote: '<path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
+  subtitles: '<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M7 10.5h3"/><path d="M7 13.5h5"/><path d="M14 10.5h3"/><path d="M14 13.5h3"/>'
 };
 function ICO(nom, cls) {
   const p = _ICO_PATHS[nom];

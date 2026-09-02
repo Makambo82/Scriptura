@@ -2676,18 +2676,104 @@ body.is-unlocked .sidebar-logout{display:block}
    js/montage.js), s'affiche comme une extension du storyboard. Aucun
    moyen de le fermer, ce n'est pas voulu. */
 .montage-panel{
-  display:none;text-align:left;max-width:460px;
+  display:none;text-align:left;max-width:480px;
   background:none;border:none;
   padding:26px 0;margin-top:16px;
 }
 .montage-panel.active{display:block}
 .montage-panel .genimg-title,.montage-panel .genimg-sub{text-align:left}
-.montage-section{margin-top:20px}
+
+/* Chaque étape (images / voix off / musique) devient une vraie carte
+   délimitée (fond + bord + hairline dorée en haut, même codex que
+   .context-card plus haut) plutôt qu'un simple label suivi de contrôles à
+   plat : retour propriétaire, le montage "ne fait pas assez premium" à
+   côté d'un éditeur comme CapCut, cause identifiée : aucune hiérarchie
+   visuelle entre les étapes, ni entre un bouton principal et un bouton
+   annexe (tous en .btn-regenerate, même poids). */
+.montage-section{
+  margin-top:16px;background:var(--bg-card);border:1px solid var(--border-soft);
+  border-radius:12px;padding:20px;position:relative;overflow:hidden;
+}
+.montage-section:first-of-type{margin-top:28px}
+.montage-section::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+}
+.montage-section-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:16px;
+}
+.montage-section-title{display:flex;align-items:center;gap:10px;min-width:0}
+.montage-section-title .ico{color:var(--gold);width:17px;height:17px;flex-shrink:0}
 .montage-section-label{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.12em;
-  text-transform:uppercase;color:var(--gold);margin-bottom:10px;
+  text-transform:uppercase;color:var(--gold);margin:0;
 }
+.montage-section-optional{
+  font-size:0.68rem;color:var(--muted);text-transform:none;letter-spacing:0;
+  font-family:'Poppins',sans-serif;font-weight:400;
+}
+/* Pastille d'état à droite de chaque en-tête (retour propriétaire : donner
+   un vrai repère d'avancement, dans le même esprit que les points d'étape
+   de l'onboarding, voir .sdot plus haut dans ce fichier). */
+.montage-chip{
+  font-family:'Poppins',sans-serif;font-size:0.68rem;font-weight:500;
+  padding:3px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0;
+  background:rgba(255,255,255,0.06);color:var(--muted);
+  border:1px solid rgba(255,255,255,0.1);transition:all 0.2s;
+}
+.montage-chip.montage-chip-pret{background:var(--emerald-pale);color:var(--emerald-light);border-color:var(--emerald-border)}
+
+.montage-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.montage-field + .montage-field{margin-top:12px}
+.montage-field-label{font-size:0.78rem;color:var(--text-secondary)}
+
 .montage-audio-preview{width:100%;display:block}
+
+/* Bouton d'action PRINCIPALE d'une étape (Générer les images / la voix off
+   / une musique de fond) : rempli, contrairement aux actions annexes qui
+   restent en style fantôme (.btn-regenerate) juste à côté. Reprend le
+   traitement de .hero-btn (déjà le bouton "premium" de la page d'accueil)
+   plutôt que d'inventer un nouveau style pour rester cohérent avec le
+   reste du site. */
+.btn-montage-primary{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'Cinzel',serif;font-size:0.62rem;font-weight:500;
+  letter-spacing:0.13em;text-transform:uppercase;
+  background:var(--gold);color:var(--bg);border:none;
+  padding:12px 22px;border-radius:999px;cursor:pointer;transition:all 0.25s;
+}
+.btn-montage-primary:hover{background:var(--gold-light);transform:translateY(-1px);box-shadow:0 10px 26px rgba(201,168,76,0.22)}
+.btn-montage-primary:disabled{opacity:0.4;cursor:default;transform:none;box-shadow:none}
+
+/* Interrupteur (sous-titres) : même <input type="checkbox"> qu'avant (même
+   id, .checked inchangé, tests existants intacts, voir
+   tests/montage-sous-titres-case-a-cocher.test.js qui ne lit jamais que
+   .checked), seulement redessiné en interrupteur plutôt que la case système. */
+.montage-toggle-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+}
+.montage-toggle-label{font-size:0.86rem;color:var(--text-secondary);display:flex;align-items:center;gap:9px;cursor:pointer}
+.montage-toggle-label .ico{color:var(--gold);width:16px;height:16px;flex-shrink:0}
+.montage-toggle-note{opacity:0.7;font-size:0.78rem}
+.montage-toggle{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0}
+.montage-toggle input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.montage-toggle-track{
+  position:absolute;inset:0;background:rgba(255,255,255,0.14);border-radius:999px;
+  transition:background 0.2s;pointer-events:none;
+}
+.montage-toggle-track::before{
+  content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;
+  background:#fff;transition:transform 0.2s;
+}
+.montage-toggle input:checked ~ .montage-toggle-track{background:var(--gold)}
+.montage-toggle input:checked ~ .montage-toggle-track::before{transform:translateX(18px)}
+
+/* Ligne d'arrivée du panneau : séparée par une hairline, CTA finale bien
+   plus large (contrairement aux actions annexes) pour qu'elle se voie
+   comme LE bouton qui termine le montage, pas un bouton parmi d'autres. */
+.montage-finish{margin-top:24px;padding-top:22px;border-top:1px solid var(--border-soft)}
+.btn-montage-lancer{width:100%;padding:16px;font-size:0.7rem;letter-spacing:0.16em;margin-top:18px}
 .montage-thumb-echec{
   display:flex;align-items:center;justify-content:center;gap:14px;
   border:1px dashed rgba(224,85,85,0.5);background:rgba(224,85,85,0.08);

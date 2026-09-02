@@ -138,7 +138,12 @@ function omApresChangementImages() {
 function omRenderImages() {
   const zone = document.getElementById('omImagesThumbs');
   const compte = document.getElementById('omImagesCompte');
-  if (compte) compte.textContent = String(omImages.length);
+  // Pastille d'état de l'en-tête "Images" (retour propriétaire : disposition
+  // premium du montage) : verte dès qu'au moins une image est ajoutée.
+  if (compte) {
+    compte.textContent = String(omImages.length);
+    compte.classList.toggle('montage-chip-pret', omImages.length > 0);
+  }
   if (zone) {
     zone.innerHTML = omImages.map((im, i) => `
       <div class="audit-thumb">
@@ -249,7 +254,8 @@ function omChangerVoix(id) {
     const audioEl = document.querySelector('#omVoixZone .montage-audio-preview');
     if (audioEl) audioEl.remove();
     const genBtn = document.querySelector('#omVoixZone .btn-regenerate');
-    if (genBtn) genBtn.textContent = 'Générer la voix off';
+    if (genBtn) { genBtn.textContent = 'Générer la voix off'; genBtn.classList.replace('btn-regenerate', 'btn-montage-primary'); }
+    omMajChipVoix();
   }
 }
 
@@ -269,7 +275,8 @@ function omChangerVitesse(v) {
     const audioEl = document.querySelector('#omVoixZone .montage-audio-preview');
     if (audioEl) audioEl.remove();
     const genBtn = document.querySelector('#omVoixZone .btn-regenerate');
-    if (genBtn) genBtn.textContent = 'Générer la voix off';
+    if (genBtn) { genBtn.textContent = 'Générer la voix off'; genBtn.classList.replace('btn-regenerate', 'btn-montage-primary'); }
+    omMajChipVoix();
   }
 }
 
@@ -283,11 +290,13 @@ function omRenderVoixZone() {
            <div class="montage-statut" style="margin:6px 0 0">${outilsEsc(omAudio.nom)} · ${Math.round(omAudio.duree)}s</div>
          </div>`
       : '';
+    const boutonUploadClasse = (omAudio && omAudio.source === 'upload') ? 'btn-regenerate' : 'btn-montage-primary';
     zone.innerHTML = `
       <input type="file" id="omAudioInput" accept="audio/*" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>
-      <button class="btn-regenerate" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
+      <button class="${boutonUploadClasse}" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
       ${preview}`;
     omRenderMusiqueZone();
+    omMajChipVoix();
     return;
   }
   // Marque l'option effectivement choisie (omVoixId) pour que le select
@@ -300,8 +309,10 @@ function omRenderVoixZone() {
     selectHtml = `<select class="ctx-input" id="omVoixSelect" style="margin-top:10px" onchange="omChangerVoix(this.value)">${options.join('')}</select>`;
   }
   const vitesseOptions = OM_VITESSES.map(v => `<option value="${v}"${v === omVitesseVoix ? ' selected' : ''}>${omLabelVitesse(v)}</option>`).join('');
-  const vitesseHtml = `<label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Vitesse de lecture</label>
-    <select class="ctx-input" id="omVitesseSelect" style="margin-top:6px" onchange="omChangerVitesse(this.value)">${vitesseOptions}</select>`;
+  const vitesseHtml = `<div class="montage-field" style="margin-top:12px">
+    <label class="montage-field-label" for="omVitesseSelect">Vitesse de lecture</label>
+    <select class="ctx-input" id="omVitesseSelect" onchange="omChangerVitesse(this.value)">${vitesseOptions}</select>
+  </div>`;
   const preview = (omAudio && omAudio.source === 'ia')
     ? `<audio class="montage-audio-preview" src="${omAudio.url}" controls style="margin-top:10px"></audio>`
     : '';
@@ -319,15 +330,26 @@ function omRenderVoixZone() {
          <div class="sb-progress-bar-pct" id="omVoixProgPct">0%</div>
        </div>`
     : '';
+  const boutonVoixClasse = (omAudio && omAudio.source === 'ia') ? 'btn-regenerate' : 'btn-montage-primary';
   zone.innerHTML = `
     <div class="montage-statut" style="margin-bottom:6px">${indication}</div>
     <textarea class="ctx-input" id="omTexteNarration" rows="4" placeholder="Ligne 1 pour l'image 1…&#10;Ligne 2 pour l'image 2…" oninput="omTexteNarration=this.value" ${omVoixEnCours ? 'disabled' : ''}>${outilsEsc(omTexteNarration)}</textarea>
     ${selectHtml}
     ${vitesseHtml}
-    <button class="btn-regenerate" type="button" style="margin-top:10px" ${omVoixEnCours ? 'disabled' : ''} onclick="omGenererVoixOff()">${omVoixEnCours ? 'Génération…' : (omAudio && omAudio.source === 'ia' ? '↻ Régénérer la voix off' : 'Générer la voix off')}</button>
+    <button class="${boutonVoixClasse}" type="button" style="margin-top:12px" ${omVoixEnCours ? 'disabled' : ''} onclick="omGenererVoixOff()">${omVoixEnCours ? 'Génération…' : (omAudio && omAudio.source === 'ia' ? '↻ Régénérer la voix off' : 'Générer la voix off')}</button>
     ${progBar}
     ${preview}`;
   omRenderMusiqueZone();
+  omMajChipVoix();
+}
+
+// Pastille d'état de l'en-tête "Voix off" (retour propriétaire : disposition
+// premium du montage), commune aux deux modes (upload/IA).
+function omMajChipVoix() {
+  const chip = document.getElementById('omVoixChip');
+  if (!chip) return;
+  chip.textContent = omAudio ? 'Prêt ✓' : (omVoixEnCours ? 'Génération…' : 'À faire');
+  chip.classList.toggle('montage-chip-pret', !!omAudio);
 }
 
 // Lit la durée réelle d'un fichier audio uploadé via l'élément <audio>
@@ -514,7 +536,7 @@ function omRenderMusiqueZone() {
       </div>`;
   } else {
     const pret = omAudio && omAudio.duree > 0;
-    zone.innerHTML = `<button class="btn-regenerate" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
+    zone.innerHTML = `<button class="btn-montage-primary" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
   }
 }
 

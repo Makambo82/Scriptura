@@ -726,7 +726,12 @@ function changerVolumeMusiqueMontage(v) {
 function renderMontageEtat() {
   const nbPretes = montageImages.filter(Boolean).length;
   const compte = document.getElementById('montageImagesCompte');
-  if (compte) compte.textContent = nbPretes + ' / ' + montagePlans.length + ' image(s)';
+  // Pastille d'état de l'en-tête (retour propriétaire : disposition premium
+  // du montage) : verte une fois toutes les images prêtes, neutre sinon.
+  if (compte) {
+    compte.textContent = nbPretes + ' / ' + montagePlans.length;
+    compte.classList.toggle('montage-chip-pret', montagePlans.length > 0 && nbPretes === montagePlans.length);
+  }
 
   const zoneImg = document.getElementById('montageImagesThumbs');
   if (zoneImg) {
@@ -804,8 +809,14 @@ function renderMontageEtat() {
         </div>
         <button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`;
     } else {
-      zoneVoix.innerHTML = `<button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>`;
+      zoneVoix.innerHTML = `<button class="btn-montage-primary" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>`;
     }
+  }
+  // Pastille d'état de l'en-tête "Voix off" (retour propriétaire).
+  const chipVoix = document.getElementById('montageVoixChip');
+  if (chipVoix) {
+    chipVoix.textContent = montageVoixOff ? 'Prêt ✓' : (montageVoixEnCours ? 'Génération…' : 'À faire');
+    chipVoix.classList.toggle('montage-chip-pret', !!montageVoixOff);
   }
 
   const zoneMusique = document.getElementById('montageMusiqueZone');
@@ -820,7 +831,7 @@ function renderMontageEtat() {
           <button class="btn-regenerate" onclick="retirerMusiqueMontage()" type="button">Retirer</button>
         </div>`;
     } else {
-      zoneMusique.innerHTML = `<button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
+      zoneMusique.innerHTML = `<button class="btn-montage-primary" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
     }
   }
 

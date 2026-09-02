@@ -806,56 +806,84 @@
     </div>
 
     <div class="montage-section">
-      <div class="montage-section-label">Images (<span id="omImagesCompte">0</span>)</div>
+      <div class="montage-section-head">
+        <div class="montage-section-title">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M4 17l4.5-4.5 3.5 3 3-2.5L20.5 17"/></svg>
+          <div class="montage-section-label">Images</div>
+        </div>
+        <div class="montage-chip" id="omImagesCompte">0</div>
+      </div>
       <input type="file" id="omImagesInput" accept="image/*" multiple style="display:none" onchange="omAjouterImages(this.files)"/>
-      <button class="btn-regenerate" type="button" onclick="document.getElementById('omImagesInput').click()">Ajouter des images</button>
+      <button class="btn-montage-primary" type="button" onclick="document.getElementById('omImagesInput').click()">Ajouter des images</button>
       <div class="audit-thumbs" id="omImagesThumbs" style="margin-top:14px"></div>
       <div id="omDureesZone"></div>
     </div>
 
     <div class="montage-section">
-      <div class="montage-section-label">Voix off</div>
+      <div class="montage-section-head">
+        <div class="montage-section-title">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>
+          <div class="montage-section-label">Voix off</div>
+        </div>
+        <div class="montage-chip" id="omVoixChip">À faire</div>
+      </div>
       <div class="ds-scope" id="omVoixModeRow" style="margin-top:0">
         <button type="button" class="ds-scope-btn actif" id="omModeUploadBtn" onclick="omChoisirModeVoix('upload')">Importer un fichier</button>
         <button type="button" class="ds-scope-btn" id="omModeIaBtn" onclick="omChoisirModeVoix('ia')">Générer avec l'IA</button>
       </div>
-      <div id="omVoixZone" style="margin-top:10px"></div>
+      <div id="omVoixZone" style="margin-top:14px"></div>
     </div>
 
     <div class="montage-section">
-      <div class="montage-section-label">Musique de fond <span style="opacity:0.7;font-weight:400">(facultatif)</span></div>
-      <label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Volume de la musique</label>
-      <select class="ctx-input" id="omMusiqueVolumeSelect" style="margin-top:6px" onchange="omChangerVolumeMusique(this.value)">
-        <option value="0.05">5%</option>
-        <option value="0.1">10%</option>
-        <option value="0.15" selected>15%</option>
-        <option value="0.2">20%</option>
-        <option value="0.25">25%</option>
-        <option value="0.3">30%</option>
-        <option value="0.35">35%</option>
-        <option value="0.4">40%</option>
-        <option value="0.45">45%</option>
-        <option value="0.5">50%</option>
-      </select>
-      <div id="omMusiqueZone" style="margin-top:10px">
-        <button class="btn-regenerate" onclick="omGenererMusique()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
+      <div class="montage-section-head">
+        <div class="montage-section-title">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+          <div class="montage-section-label">Musique</div>
+        </div>
+        <div class="montage-chip montage-section-optional">Facultatif</div>
+      </div>
+      <div class="montage-field">
+        <label class="montage-field-label" for="omMusiqueVolumeSelect">Volume de la musique</label>
+        <select class="ctx-input" id="omMusiqueVolumeSelect" onchange="omChangerVolumeMusique(this.value)">
+          <option value="0.05">5%</option>
+          <option value="0.1">10%</option>
+          <option value="0.15" selected>15%</option>
+          <option value="0.2">20%</option>
+          <option value="0.25">25%</option>
+          <option value="0.3">30%</option>
+          <option value="0.35">35%</option>
+          <option value="0.4">40%</option>
+          <option value="0.45">45%</option>
+          <option value="0.5">50%</option>
+        </select>
+      </div>
+      <div id="omMusiqueZone" style="margin-top:14px">
+        <button class="btn-montage-primary" onclick="omGenererMusique()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
       </div>
     </div>
 
-    <div class="error-box" id="omErreur" style="display:none"></div>
-    <div class="montage-statut" id="omStatut" style="display:none">Envoi des fichiers…</div>
-    <div class="sb-progress-bar" id="omMontageProgBar" style="display:none">
-      <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
-      <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMontageProgFill"></div></div>
-      <div class="sb-progress-bar-pct" id="omMontageProgPct">0%</div>
-    </div>
-    <div id="omResultat"></div>
+    <div class="montage-finish">
+      <div class="error-box" id="omErreur" style="display:none"></div>
+      <div class="montage-statut" id="omStatut" style="display:none">Envoi des fichiers…</div>
+      <div class="sb-progress-bar" id="omMontageProgBar" style="display:none">
+        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMontageProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="omMontageProgPct">0%</div>
+      </div>
+      <div id="omResultat"></div>
 
-    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer;font-size:0.85rem;color:var(--text-secondary)">
-      <input type="checkbox" id="omSousTitresCheckbox" checked style="accent-color:var(--gold);width:16px;height:16px;flex:0 0 auto">
-      Sous-titres incrustés <span style="opacity:0.7">(voix off générée par l'IA uniquement)</span>
-    </label>
-    <button class="btn-regenerate" id="omLancerBtn" onclick="omLancerMontage()" disabled style="margin-top:10px">Démarrer le montage</button>
+      <div class="montage-toggle-row">
+        <label class="montage-toggle-label" for="omSousTitresCheckbox">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M7 10.5h3"/><path d="M7 13.5h5"/><path d="M14 10.5h3"/><path d="M14 13.5h3"/></svg>
+          Sous-titres incrustés <span class="montage-toggle-note">(voix IA uniquement)</span>
+        </label>
+        <span class="montage-toggle">
+          <input type="checkbox" id="omSousTitresCheckbox" checked>
+          <span class="montage-toggle-track"></span>
+        </span>
+      </div>
+      <button class="btn-montage-primary btn-montage-lancer" id="omLancerBtn" onclick="omLancerMontage()" disabled>Démarrer le montage</button>
+    </div>
   </div>
 </section>
 
@@ -1888,9 +1916,17 @@
     <div class="genimg-sub">Les images et la voix off sont générées automatiquement à partir du storyboard (<span id="montageCompteAttendu">0</span> plan(s)). Scriptura assemble ensuite le montage.</div>
 
     <div class="montage-section">
-      <div class="montage-section-label">Images (<span id="montageImagesCompte">0 / 0</span>)</div>
+      <div class="montage-section-head">
+        <div class="montage-section-title">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M4 17l4.5-4.5 3.5 3 3-2.5L20.5 17"/></svg>
+          <div class="montage-section-label">Images</div>
+        </div>
+        <div class="montage-chip" id="montageImagesCompte">0 / 0</div>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn-regenerate" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">Générer les images</button>
+        <button class="btn-montage-primary" id="montageGenImagesBtn" onclick="genererImagesMontage()" type="button">Générer les images</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px">
         <button class="btn-regenerate" id="montageChargerImagesBtn" onclick="declencherUploadImages()" type="button" title="Charger tes propres images (ex. générées avec ChatGPT ou Gemini), dans l'ordre des plans">Charger mes images</button>
         <select class="ctx-input" id="montageImgFormatSelect" style="flex:0 0 auto;width:auto" title="Format de téléchargement des images">
           <option value="png">PNG</option>
@@ -1911,61 +1947,85 @@
     </div>
 
     <div class="montage-section">
-      <div class="montage-section-label">Voix off</div>
+      <div class="montage-section-head">
+        <div class="montage-section-title">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/></svg>
+          <div class="montage-section-label">Voix off</div>
+        </div>
+        <div class="montage-chip" id="montageVoixChip">À faire</div>
+      </div>
       <select class="ctx-input" id="montageVoixSelect" style="display:none" onchange="changerVoixMontage(this.value)"></select>
-      <label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Vitesse de lecture</label>
-      <select class="ctx-input" id="montageVitesseSelect" style="margin-top:6px" onchange="changerVitesseMontage(this.value)">
-        <option value="0.5">0,5x (très lent)</option>
-        <option value="0.6">0,6x</option>
-        <option value="0.7">0,7x</option>
-        <option value="0.8">0,8x</option>
-        <option value="0.9">0,9x</option>
-        <option value="1" selected>1x (normal)</option>
-        <option value="1.1">1,1x</option>
-        <option value="1.2">1,2x</option>
-        <option value="1.3">1,3x</option>
-        <option value="1.4">1,4x</option>
-        <option value="1.5">1,5x (très rapide)</option>
-      </select>
-      <div id="montageVoixZone" style="margin-top:10px">
-        <button class="btn-regenerate" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>
+      <div class="montage-field">
+        <label class="montage-field-label" for="montageVitesseSelect">Vitesse de lecture</label>
+        <select class="ctx-input" id="montageVitesseSelect" onchange="changerVitesseMontage(this.value)">
+          <option value="0.5">0,5x (très lent)</option>
+          <option value="0.6">0,6x</option>
+          <option value="0.7">0,7x</option>
+          <option value="0.8">0,8x</option>
+          <option value="0.9">0,9x</option>
+          <option value="1" selected>1x (normal)</option>
+          <option value="1.1">1,1x</option>
+          <option value="1.2">1,2x</option>
+          <option value="1.3">1,3x</option>
+          <option value="1.4">1,4x</option>
+          <option value="1.5">1,5x (très rapide)</option>
+        </select>
+      </div>
+      <div id="montageVoixZone" style="margin-top:14px">
+        <button class="btn-montage-primary" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>
       </div>
     </div>
 
     <div class="montage-section">
-      <div class="montage-section-label">Musique de fond <span style="opacity:0.7;font-weight:400">(facultatif)</span></div>
-      <label style="display:block;margin-top:10px;font-size:0.85rem;color:var(--text-secondary)">Volume de la musique</label>
-      <select class="ctx-input" id="montageMusiqueVolumeSelect" style="margin-top:6px" onchange="changerVolumeMusiqueMontage(this.value)">
-        <option value="0.05">5%</option>
-        <option value="0.1">10%</option>
-        <option value="0.15" selected>15%</option>
-        <option value="0.2">20%</option>
-        <option value="0.25">25%</option>
-        <option value="0.3">30%</option>
-        <option value="0.35">35%</option>
-        <option value="0.4">40%</option>
-        <option value="0.45">45%</option>
-        <option value="0.5">50%</option>
-      </select>
-      <div id="montageMusiqueZone" style="margin-top:10px">
-        <button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
+      <div class="montage-section-head">
+        <div class="montage-section-title">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+          <div class="montage-section-label">Musique</div>
+        </div>
+        <div class="montage-chip montage-section-optional">Facultatif</div>
+      </div>
+      <div class="montage-field">
+        <label class="montage-field-label" for="montageMusiqueVolumeSelect">Volume de la musique</label>
+        <select class="ctx-input" id="montageMusiqueVolumeSelect" onchange="changerVolumeMusiqueMontage(this.value)">
+          <option value="0.05">5%</option>
+          <option value="0.1">10%</option>
+          <option value="0.15" selected>15%</option>
+          <option value="0.2">20%</option>
+          <option value="0.25">25%</option>
+          <option value="0.3">30%</option>
+          <option value="0.35">35%</option>
+          <option value="0.4">40%</option>
+          <option value="0.45">45%</option>
+          <option value="0.5">50%</option>
+        </select>
+      </div>
+      <div id="montageMusiqueZone" style="margin-top:14px">
+        <button class="btn-montage-primary" onclick="genererMusiqueMontage()" type="button" disabled title="Génère d'abord la voix off">Générer une musique de fond</button>
       </div>
     </div>
 
-    <div class="error-box" id="montageErreur" style="display:none"></div>
-    <div class="montage-statut" id="montageStatut" style="display:none">Envoi des fichiers…</div>
-    <div class="sb-progress-bar" id="montageProgBar" style="display:none">
-      <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
-      <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageProgFill"></div></div>
-      <div class="sb-progress-bar-pct" id="montageProgPct">0%</div>
-    </div>
-    <div id="montageResultat"></div>
+    <div class="montage-finish">
+      <div class="error-box" id="montageErreur" style="display:none"></div>
+      <div class="montage-statut" id="montageStatut" style="display:none">Envoi des fichiers…</div>
+      <div class="sb-progress-bar" id="montageProgBar" style="display:none">
+        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageProgFill"></div></div>
+        <div class="sb-progress-bar-pct" id="montageProgPct">0%</div>
+      </div>
+      <div id="montageResultat"></div>
 
-    <label style="display:flex;align-items:center;gap:8px;margin-top:16px;cursor:pointer;font-size:0.85rem;color:var(--text-secondary)">
-      <input type="checkbox" id="montageSousTitresCheckbox" checked style="accent-color:var(--gold);width:16px;height:16px;flex:0 0 auto">
-      Sous-titres incrustés
-    </label>
-    <button class="btn-regenerate" id="montageLancerBtn" onclick="lancerMontage()" disabled style="margin-top:10px">Lancer le montage</button>
+      <div class="montage-toggle-row">
+        <label class="montage-toggle-label" for="montageSousTitresCheckbox">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M7 10.5h3"/><path d="M7 13.5h5"/><path d="M14 10.5h3"/><path d="M14 13.5h3"/></svg>
+          Sous-titres incrustés
+        </label>
+        <span class="montage-toggle">
+          <input type="checkbox" id="montageSousTitresCheckbox" checked>
+          <span class="montage-toggle-track"></span>
+        </span>
+      </div>
+      <button class="btn-montage-primary btn-montage-lancer" id="montageLancerBtn" onclick="lancerMontage()" disabled>Lancer le montage</button>
+    </div>
 </div>
 
 <!-- AGRANDISSEMENT D'IMAGE DU STUDIO (lightbox) -->
