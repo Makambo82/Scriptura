@@ -233,11 +233,6 @@ export default async function handler(req, res) {
   // render-service/server.js pour le bornage définitif). Optionnel : sans
   // lui, le service de rendu retombe sur sa valeur par défaut.
   const musicVolume = Number.isFinite(Number(body?.musicVolume)) ? Number(body.musicVolume) : undefined;
-  // Carton de fin (retour propriétaire, "en tant que pro CapCut") : texte
-  // d'appel à l'action saisi par le créateur avant de lancer le montage
-  // (champ "Texte de fin" côté client), affiché dans les 2,5 dernières
-  // secondes. Optionnel, même remarque que captions/musicUrl ci-dessus.
-  const endCardText = typeof body?.endCardText === 'string' ? body.endCardText.slice(0, 200) : '';
   // Filigrane Scriptura (retour propriétaire), facultatif, activé/désactivé
   // par case à cocher côté client.
   const watermark = !!body?.watermark;
@@ -260,7 +255,7 @@ export default async function handler(req, res) {
       const rProxy = await fetch(process.env.MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render', {
         method: 'POST',
         headers: entetesProxy,
-        body: JSON.stringify({ images, audioUrl, format, captions, musicUrl, musicVolume, endCardText, watermark })
+        body: JSON.stringify({ images, audioUrl, format, captions, musicUrl, musicVolume, watermark })
       });
       const dataProxy = await rProxy.json().catch(() => ({}));
       if (!rProxy.ok || !dataProxy.url) {

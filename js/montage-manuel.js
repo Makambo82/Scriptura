@@ -81,8 +81,6 @@ function omResetState() {
   // remis à 15% ici, même raison que le sélecteur de vitesse (js/montage.js).
   const selVolumeMusique = document.getElementById('omMusiqueVolumeSelect');
   if (selVolumeMusique) selVolumeMusique.value = '0.15';
-  const texteFin = document.getElementById('omTexteFin');
-  if (texteFin) texteFin.value = '';
   const btnUpload = document.getElementById('omModeUploadBtn');
   const btnIa = document.getElementById('omModeIaBtn');
   if (btnUpload) btnUpload.classList.add('actif');
@@ -714,10 +712,6 @@ async function omLancerMontage() {
           images, audioUrl, format,
           captions: (sousTitresActives && omAudio.source === 'ia' && omAudio.captions) || [],
           musicUrl, musicVolume: omVolumeMusique,
-          // Carton de fin (retour propriétaire, "en tant que pro CapCut") :
-          // texte d'appel à l'action facultatif, affiché dans les dernières
-          // secondes par le service de rendu.
-          endCardText: (document.getElementById('omTexteFin')?.value || '').trim(),
           // Filigrane Scriptura (retour propriétaire), coché par défaut.
           watermark: document.getElementById('omFiligraneCheckbox')?.checked !== false,
           code_acces: localStorage.getItem('scriptura_code') || null

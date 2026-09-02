@@ -119,10 +119,6 @@ function ouvrirMontage(plans, boutonEl) {
   if (selVitesse) selVitesse.value = '1';
   const selVolumeMusique = document.getElementById('montageMusiqueVolumeSelect');
   if (selVolumeMusique) selVolumeMusique.value = '0.15';
-  // Texte de fin (retour propriétaire) : même raison que les sélecteurs
-  // ci-dessus, le panneau partagé garderait sinon le texte d'un montage précédent.
-  const texteFin = document.getElementById('montageTexteFin');
-  if (texteFin) texteFin.value = '';
   // Style graphique (retour propriétaire) : reconstruit à chaque ouverture
   // (comme le menu des voix) avec "Garder le style du storyboard" toujours
   // sélectionné par défaut, jamais le choix d'un montage précédent.
@@ -1040,10 +1036,6 @@ async function lancerMontage() {
         captions: (sousTitresActives && montageVoixOff.captions) || [],
         musicUrl,
         musicVolume: montageVolumeMusique,
-        // Carton de fin (retour propriétaire, "en tant que pro CapCut") :
-        // texte d'appel à l'action facultatif, affiché dans les dernières
-        // secondes par le service de rendu (render-service/server.js).
-        endCardText: (document.getElementById('montageTexteFin')?.value || '').trim(),
         // Filigrane Scriptura (retour propriétaire), coché par défaut.
         watermark: document.getElementById('montageFiligraneCheckbox')?.checked !== false,
         code_acces: localStorage.getItem('scriptura_code') || null

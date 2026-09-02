@@ -52,9 +52,6 @@ const ZMAX = 1.20;
 // convention que FPS/DUREE_TRANSITION ci-dessus.
 const GRADE_CONTRASTE = parseFloat(process.env.MONTAGE_GRADE_CONTRASTE || '1.08');
 const GRADE_SATURATION = parseFloat(process.env.MONTAGE_GRADE_SATURATION || '1.15');
-// Durée du carton de fin (appel à l'action, retour propriétaire), dans les
-// dernières secondes de la vidéo.
-const DUREE_CARTE_FIN = 2.5;
 // Volume de la musique de fond relatif à la voix off (1.0), reste en
 // retrait sous la narration sans jamais la couvrir (retour propriétaire :
 // musique de fond pour un montage plus premium). Réglable désormais PAR
@@ -210,7 +207,7 @@ function mettreEnValeurChiffres(texteEchappe) {
   return texteEchappe.replace(MOTIF_CHIFFRE_ASS, (m) => `{\\c&H7AC8E2&}${m}{\\c&HFFFFFF&}`);
 }
 
-function construireASS(captions, W, H, carteFin, filigraneDureeTotale) {
+function construireASS(captions, W, H, filigraneDureeTotale) {
   // Taille et marge proportionnelles à la sortie (testé visuellement sur
   // 720×1280 : FontSize 52, MarginV 220 = un bon compromis lisible sans
   // toucher au tiers inférieur où TikTok pose ses propres icônes une fois
@@ -224,11 +221,6 @@ function construireASS(captions, W, H, carteFin, filigraneDureeTotale) {
   // très long.
   const fontSize = Math.max(24, Math.round(W * 0.072));
   const marginV = Math.max(60, Math.round(H * 0.17));
-  // Style du carton de fin (retour propriétaire) : nettement plus grand,
-  // centré à l'écran (Alignment=5) plutôt qu'en bas comme les sous-titres,
-  // en doré, pour qu'il se voie comme un vrai carton et non une ligne de
-  // sous-titre parmi d'autres.
-  const fontSizeCarte = Math.max(28, Math.round(W * 0.09));
   // Filigrane Scriptura (retour propriétaire, facultatif via case à cocher
   // côté client) : petit, semi-transparent (alpha 0x80, l'inverse de
   // l'habitude CSS en ASS : 00=opaque, FF=invisible), coin bas-droit
@@ -246,7 +238,6 @@ WrapStyle: 0
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,DejaVu Sans,${fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,2,40,40,${marginV},1
-Style: CarteFin,DejaVu Sans,${fontSizeCarte},&H007AC8E2,&H000000FF,&H00000000,&H00000000,1,0,0,0,100,100,0,0,1,3,0,5,50,50,0,1
 Style: Filigrane,DejaVu Sans,${fontSizeFiligrane},&H80FFFFFF,&H000000FF,&H80000000,&H00000000,1,0,0,0,100,100,3,0,1,1,0,3,${marginFiligrane},${marginFiligrane},${marginFiligrane},1
 
 [Events]
@@ -259,19 +250,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   const lignes = captions.map(c =>
     `Dialogue: 0,${versHorodatageASS(c.debut)},${versHorodatageASS(c.fin)},Default,,0,0,0,,${mettreEnValeurChiffres(echapperTexteASS(c.texte))}`
   ).join('\n');
-  // Carton de fin (retour propriétaire) : facultatif, saisi par le créateur
-  // avant de lancer le montage (voir menu client). Layer 1 (au-dessus des
-  // sous-titres habituels) au cas où sa fenêtre chevauche la toute dernière
-  // ligne de sous-titres.
-  const ligneCarte = carteFin
-    ? `\nDialogue: 1,${versHorodatageASS(carteFin.debut)},${versHorodatageASS(carteFin.fin)},CarteFin,,0,0,0,,${echapperTexteASS(carteFin.texte)}`
-    : '';
-  // Filigrane : dure toute la vidéo (0 -> durée totale), Layer 0 (sous le
-  // carton de fin s'ils se chevauchent, jamais gênant vu sa faible opacité).
+  // Filigrane : dure toute la vidéo (0 -> durée totale).
   const ligneFiligrane = filigraneDureeTotale
     ? `\nDialogue: 0,${versHorodatageASS(0)},${versHorodatageASS(filigraneDureeTotale)},Filigrane,,0,0,0,,SCRIPTURA`
     : '';
-  return entete + lignes + ligneCarte + ligneFiligrane + '\n';
+  return entete + lignes + ligneFiligrane + '\n';
 }
 
 async function telechargerVers(url, cheminLocal) {
@@ -356,11 +339,6 @@ app.post('/render', async (req, res) => {
   const W = dim ? dim.w : LARGEUR;
   const H = dim ? dim.h : HAUTEUR;
   const captions = Array.isArray(req.body?.captions) ? req.body.captions.filter(c => c && c.texte) : [];
-  // Carton de fin (retour propriétaire, "en tant que pro CapCut") : texte
-  // d'appel à l'action saisi par le créateur avant de lancer le montage
-  // (voir champ "Texte de fin" côté client), facultatif. Fenêtre calculée
-  // plus bas une fois dureeTotale connue (dernières DUREE_CARTE_FIN secondes).
-  const texteCarteFin = typeof req.body?.endCardText === 'string' ? req.body.endCardText.trim().slice(0, 200) : '';
   // Filigrane Scriptura (retour propriétaire), facultatif, activé/désactivé
   // par case à cocher côté client (défaut coché) : petit texte "SCRIPTURA"
   // semi-transparent en coin bas-droit, présent toute la vidéo.
@@ -397,9 +375,6 @@ app.post('/render', async (req, res) => {
     }
     const dureeTotale = durees.reduce((s, d) => s + d, 0);
     console.log(`[render] début, ${images.length} plans, audio ${dureeReelleAudio.toFixed(2)}s, vidéo ${dureeTotale.toFixed(2)}s`);
-    const carteFin = texteCarteFin
-      ? { texte: texteCarteFin, debut: Math.max(0, dureeTotale - DUREE_CARTE_FIN), fin: dureeTotale }
-      : null;
     const filigraneDureeTotale = filigraneActif ? dureeTotale : 0;
 
     // Rendu PAR LOTS (mémoire bornée) : chaque lot = un graphe FFmpeg
@@ -452,13 +427,12 @@ app.post('/render', async (req, res) => {
 
     const filtres = [];
     let sortieVideo = '0:v';
-    // Le carton de fin (carteFin) et le filigrane déclenchent aussi le
-    // filtre "ass" même sans sous-titres actifs (ex. sous-titres désactivés
-    // par le fondateur, mais carton de fin ou filigrane quand même
-    // demandés) : les trois sont indépendants les uns des autres.
-    if (captions.length || carteFin || filigraneDureeTotale) {
+    // Le filigrane déclenche aussi le filtre "ass" même sans sous-titres
+    // actifs (ex. sous-titres désactivés par le fondateur, mais filigrane
+    // quand même demandé) : les deux sont indépendants l'un de l'autre.
+    if (captions.length || filigraneDureeTotale) {
       const cheminASS = path.join(dossier, 'sous-titres.ass');
-      await fs.writeFile(cheminASS, construireASS(captions, W, H, carteFin, filigraneDureeTotale), 'utf8');
+      await fs.writeFile(cheminASS, construireASS(captions, W, H, filigraneDureeTotale), 'utf8');
       filtres.push('[0:v]ass=' + cheminASS.replace(/:/g, '\\:') + '[vout]');
       sortieVideo = '[vout]';
     }
@@ -478,7 +452,7 @@ app.post('/render', async (req, res) => {
     }
     if (filtres.length) argsMux.push('-filter_complex', filtres.join(';'));
     argsMux.push('-map', sortieVideo, '-map', sortieAudio);
-    if (captions.length || carteFin || filigraneDureeTotale) {
+    if (captions.length || filigraneDureeTotale) {
       argsMux.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p');
     } else {
       argsMux.push('-c:v', 'copy');
@@ -493,7 +467,6 @@ app.post('/render', async (req, res) => {
     console.log('[render] rendu FFmpeg terminé'
       + (captions.length ? ' (avec sous-titres)' : '')
       + (cheminMusique ? ' (avec musique de fond)' : '')
-      + (carteFin ? ' (avec carton de fin)' : '')
       + (filigraneDureeTotale ? ' (avec filigrane)' : ''));
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
@@ -520,5 +493,5 @@ module.exports = {
   construireASS, versHorodatageASS, echapperTexteASS, mettreEnValeurChiffres,
   construireGrapheLot, resoudreVolumeMusique,
   MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
-  GRADE_CONTRASTE, GRADE_SATURATION, DUREE_CARTE_FIN
+  GRADE_CONTRASTE, GRADE_SATURATION
 };

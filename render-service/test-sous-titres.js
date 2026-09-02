@@ -7,7 +7,7 @@ const {
   construireASS, versHorodatageASS, echapperTexteASS, mettreEnValeurChiffres,
   construireGrapheLot, resoudreVolumeMusique,
   MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
-  GRADE_CONTRASTE, GRADE_SATURATION, DUREE_CARTE_FIN
+  GRADE_CONTRASTE, GRADE_SATURATION
 } = require('./server.js');
 
 function test(nom, fn) {
@@ -96,20 +96,6 @@ test('mettreEnValeurChiffres laisse un texte sans chiffre totalement inchangé',
   assert.equal(mettreEnValeurChiffres('Aucun chiffre ici'), 'Aucun chiffre ici');
 });
 
-// Carton de fin (retour propriétaire, "en tant que pro CapCut") : appel à
-// l'action facultatif dans les dernières secondes, style distinct
-// (centré, plus grand, doré) des sous-titres habituels.
-test('construireASS ajoute une ligne Dialogue pour le carton de fin (style CarteFin) quand il est fourni', () => {
-  const ass = construireASS([], 720, 1280, { texte: 'Suis pour plus', debut: 27.5, fin: 30 });
-  assert.match(ass, /Style: CarteFin,/, 'le style CarteFin doit être déclaré : ' + ass);
-  assert.match(ass, /Dialogue: 1,0:00:27\.50,0:00:30\.00,CarteFin,,0,0,0,,Suis pour plus/, ass);
-});
-
-test('construireASS n\'ajoute AUCUNE ligne Dialogue de carton de fin quand aucun n\'est fourni (facultatif)', () => {
-  const ass = construireASS([{ texte: 'Un test', debut: 0, fin: 1 }], 720, 1280);
-  assert.ok(!ass.includes(',CarteFin,'), 'aucune ligne carton de fin attendue sans le paramètre : ' + ass);
-});
-
 test('construireASS applique la mise en couleur des chiffres aux sous-titres normaux', () => {
   const ass = construireASS([{ texte: '10 astuces', debut: 0, fin: 1 }], 720, 1280);
   assert.match(ass, /Dialogue: 0,0:00:00\.00,0:00:01\.00,Default,,0,0,0,,\{\\c&H7AC8E2&\}10 \{\\c&HFFFFFF&\}astuces/, ass);
@@ -129,7 +115,7 @@ test('construireGrapheLot applique le filtre d\'étalonnage (eq contrast/saturat
 // client, cochée par défaut) : petit texte semi-transparent en coin bas-droit,
 // présent toute la vidéo.
 test('construireASS ajoute une ligne Dialogue "SCRIPTURA" (style Filigrane) sur toute la durée quand demandé', () => {
-  const ass = construireASS([], 720, 1280, null, 42.5);
+  const ass = construireASS([], 720, 1280, 42.5);
   assert.match(ass, /Style: Filigrane,/, 'le style Filigrane doit être déclaré : ' + ass);
   assert.match(ass, /Dialogue: 0,0:00:00\.00,0:00:42\.50,Filigrane,,0,0,0,,SCRIPTURA/, ass);
 });
@@ -139,14 +125,12 @@ test('construireASS n\'ajoute AUCUNE ligne de filigrane quand il n\'est pas dema
   assert.ok(!ass.includes(',Filigrane,'), 'aucune ligne de filigrane attendue sans le paramètre : ' + ass);
 });
 
-test('construireASS : le filigrane peut cohabiter avec sous-titres et carton de fin, chacun sur sa propre ligne', () => {
+test('construireASS : le filigrane peut cohabiter avec les sous-titres, chacun sur sa propre ligne', () => {
   const ass = construireASS(
     [{ texte: 'Un test', debut: 0, fin: 1 }],
     720, 1280,
-    { texte: 'Suis pour plus', debut: 8, fin: 10 },
     10
   );
   assert.match(ass, /,Default,,0,0,0,,/, 'sous-titre présent : ' + ass);
-  assert.match(ass, /,CarteFin,,0,0,0,,Suis pour plus/, 'carton de fin présent : ' + ass);
   assert.match(ass, /,Filigrane,,0,0,0,,SCRIPTURA/, 'filigrane présent : ' + ass);
 });
