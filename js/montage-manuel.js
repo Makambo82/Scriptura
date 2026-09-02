@@ -292,7 +292,7 @@ function omRenderVoixZone() {
       : '';
     const boutonUploadClasse = (omAudio && omAudio.source === 'upload') ? 'btn-regenerate' : 'btn-montage-primary';
     zone.innerHTML = `
-      <input type="file" id="omAudioInput" accept="audio/*" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>
+      <input type="file" id="omAudioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>
       <button class="${boutonUploadClasse}" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
       ${preview}`;
     omRenderMusiqueZone();
@@ -360,8 +360,22 @@ function omLireDureeAudio(fichier) {
     const url = URL.createObjectURL(fichier);
     const audio = new Audio();
     audio.preload = 'metadata';
-    audio.onloadedmetadata = () => resolve({ url, duree: audio.duration || 0 });
-    audio.onerror = () => resolve({ url, duree: 0 });
+    const fini = (duree) => resolve({ url, duree: (Number.isFinite(duree) && duree > 0) ? duree : 0 });
+    audio.onloadedmetadata = () => {
+      // Bug connu Safari/WebKit (retour terrain : WAV valide "non reconnu"
+      // sans aucun message) : la durée d'un blob audio reste parfois
+      // Infinity tant qu'on n'a pas cherché une position, avant de se
+      // corriger sur ontimeupdate. Sans ce contournement, ces fichiers
+      // étaient silencieusement traités comme durée 0 (bouton "Démarrer
+      // le montage" resté grisé, sans dire pourquoi).
+      if (!Number.isFinite(audio.duration)) {
+        audio.currentTime = 1e101;
+        audio.ontimeupdate = () => { audio.ontimeupdate = null; fini(audio.duration); };
+      } else {
+        fini(audio.duration);
+      }
+    };
+    audio.onerror = () => fini(0);
     audio.src = url;
   });
 }
@@ -369,7 +383,17 @@ function omLireDureeAudio(fichier) {
 async function omAudioFichierChoisi(fichier) {
   if (!fichier) return;
   if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
+  const err = document.getElementById('omErreur');
   const { url, duree } = await omLireDureeAudio(fichier);
+  // Retour terrain : un fichier illisible par le navigateur (encodage WAV
+  // non supporté, fichier corrompu) échouait avant sans AUCUN message,
+  // juste un bouton qui restait grisé sans explication.
+  if (!duree) {
+    URL.revokeObjectURL(url);
+    if (err) { err.textContent = 'Ce fichier audio n\'a pas pu être lu par le navigateur (format ou encodage non supporté). Essaie un autre fichier, idéalement en MP3.'; err.style.display = 'block'; }
+    return;
+  }
+  if (err) err.style.display = 'none';
   omAudio = { blob: fichier, url, duree, nom: fichier.name, source: 'upload' };
   omDureesManuelles = []; // recalculées (parts égales) au prochain rendu, voir omInitDureesManuelles
   omRenderVoixZone();
