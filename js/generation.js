@@ -923,6 +923,59 @@ function afficherApercuEnDirect(buffer, cle) {
   conteneur.scrollTop = conteneur.scrollHeight;
 }
 
+// ── SCORE DÉTERMINISTE DU SCRIPT (retour terrain, audit du 2 septembre 2026) ──
+// Bug corrigé : le "Scriptura Score" venait auparavant directement de
+// l'auto-évaluation de l'IA (elle inventait un chiffre 0-100 par dimension),
+// deux générations identiques pouvaient afficher deux scores différents,
+// contraire au pilier "mêmes données ⇒ même score, toujours" (voir CLAUDE.md).
+// Un script tout juste écrit n'a par nature AUCUNE performance réelle à
+// mesurer (contrairement à l'Audit, qui note de vraies vidéos publiées) :
+// l'IA ne note donc plus rien elle-même, elle coche seulement la PRÉSENCE de
+// techniques concrètes sur SON PROPRE texte (tâche de détection, bien plus
+// fiable pour elle qu'inventer un nombre), et c'est le CODE qui calcule
+// chaque dimension à partir de ces cases. Même principe que
+// scoreViraliteRecette (js/viral.js) pour l'analyse de vidéos virales,
+// adapté ici à un contenu qui vient d'être généré.
+const GEN_SIGNAUX_SCRIPT = ['hook_fort', 'pattern_interrupt', 'boucle_ouverte', 'deuxieme_personne', 'rythme_soutenu', 'details_concrets', 'emotion_forte', 'cta_clair', 'originalite', 'promesse_tenue'];
+const GEN_DIMENSIONS_SCRIPT = {
+  hook:       ['hook_fort', 'pattern_interrupt', 'originalite'],
+  engagement: ['rythme_soutenu', 'deuxieme_personne', 'boucle_ouverte'],
+  emotion:    ['emotion_forte', 'details_concrets'],
+  viral:      ['originalite', 'emotion_forte', 'cta_clair']
+};
+// Score d'une dimension : simple taux de présence des signaux qui la
+// composent, jamais un chiffre choisi librement. `signaux` absent/vide (l'IA
+// n'a pas renvoyé ce champ, ex. ancien format) retombe sur 50 (neutre),
+// jamais un plantage d'affichage ni une fausse note haute par défaut.
+function _genScoreDimension(signaux, cles) {
+  if (!signaux || typeof signaux !== 'object') return 50;
+  const presents = cles.filter(c => signaux[c] === true).length;
+  return Math.round((presents / cles.length) * 100);
+}
+// RÉTENTION : mélange le taux de signaux pertinents (boucle ouverte, chute
+// qui tient sa promesse, rythme) avec le VRAI respect de la durée cible
+// (compte de mots réel, mesuré en code, jamais une estimation) : un script
+// qui coche tout mais dépasse largement la cible ne retient pas vraiment
+// l'audience jusqu'au bout.
+function _genScoreRetention(signaux, motsReels, wt) {
+  const base = _genScoreDimension(signaux, ['boucle_ouverte', 'promesse_tenue', 'rythme_soutenu']);
+  let scoreMots = 100;
+  if (wt && wt.min && wt.max) {
+    if (motsReels < wt.min) scoreMots = Math.max(40, 100 - Math.round((wt.min - motsReels) / wt.min * 100));
+    else if (motsReels > wt.max) scoreMots = Math.max(40, 100 - Math.round((motsReels - wt.max) / wt.max * 100));
+  }
+  return Math.round(base * 0.7 + scoreMots * 0.3);
+}
+function scorerScriptGenere(signaux, motsReels, wt) {
+  return {
+    viral: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.viral),
+    hook: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.hook),
+    engagement: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.engagement),
+    emotion: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.emotion),
+    retention: _genScoreRetention(signaux, motsReels, wt)
+  };
+}
+
 // ── GÉNÉRATION ──
 async function generate() {
   if (!_regenGratuiteEnCours) resetRegen('script');
@@ -1258,18 +1311,22 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.
 - Chaque phrase a une fonction, aucun remplissage.
 - Une seule image mentale par phrase, changement toutes les 3 à 5 secondes.
-Écris ta MEILLEURE version, vise l'excellence absolue (score global 90-100). Chaque script doit être digne d'un créateur professionnel.
+Écris ta MEILLEURE version. Chaque script doit être digne d'un créateur professionnel.
 
-EVALUATION HONNETE DU SCORE : après avoir écrit, évalue ton propre travail avec RIGUEUR et HONNETETE, comme un critique exigeant. Ne gonfle pas les chiffres artificiellement : un bon score doit être MERITE par la qualité réelle du script.
-- "viral" : potentiel de partage réel
-- "hook" : le hook arrête-t-il vraiment le scroll en 2 secondes ?
-- "engagement" : maintient-il l'attention sans temps mort ?
-- "emotion" : provoque-t-il une vraie émotion ?
-- "retention" : pourcentage (0-100) de spectateurs qui regarderont jusqu'au bout, selon la force du hook, le rythme et la promesse de la chute.
-Si ton script ne mérite pas 90+, réécris-le AVANT de répondre jusqu'à ce qu'il soit réellement excellent.
+AUTO-DIAGNOSTIC HONNÊTE (jamais un chiffre, seulement des cases) : une fois le script écrit, relis-le et coche HONNÊTEMENT, comme un critique exigeant, la présence RÉELLE de chaque technique ci-dessous (true/false). Le score affiché à l'utilisateur est calculé ailleurs, à partir de ces cases, ne l'invente pas toi-même et ne gonfle rien : une case cochée à tort donnera un score mérité par rien.
+- "hook_fort" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être un hook générique ("voici 5 astuces"…) ?
+- "pattern_interrupt" : la toute première phrase rompt-elle une attente (chiffre choc, affirmation contre-intuitive, question inattendue) ?
+- "boucle_ouverte" : le script ouvre-t-il une vraie tension/curiosité non résolue immédiatement ?
+- "deuxieme_personne" : le script s'adresse-t-il directement au spectateur (tu/vous), pas seulement à la 3e personne ?
+- "rythme_soutenu" : une image mentale par phrase, aucun temps mort, changement toutes les 3-5 secondes ?
+- "details_concrets" : des exemples/chiffres précis plutôt que du vague ?
+- "emotion_forte" : une émotion nette et identifiable (pas juste informatif) ?
+- "cta_clair" : le dernier bloc contient-il un vrai appel à l'action, qui dit précisément quoi faire ?
+- "originalite" : l'angle est-il vraiment original, pas un cliché IA reconnaissable ?
+- "promesse_tenue" : la chute répond-elle vraiment à la promesse ouverte par le hook ?
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"score":{"viral":85,"hook":90,"engagement":80,"emotion":88,"retention":82},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
+{"signaux":{"hook_fort":true,"pattern_interrupt":true,"boucle_ouverte":true,"deuxieme_personne":true,"rythme_soutenu":true,"details_concrets":true,"emotion_forte":true,"cta_clair":true,"originalite":true,"promesse_tenue":true},"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
@@ -1555,6 +1612,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         break; // parsing échoué, on garde la version actuelle
       }
     }
+
+    // Score déterministe (voir scorerScriptGenere plus haut) : calculé ICI à
+    // partir des signaux cochés par l'IA, jamais depuis un chiffre qu'elle
+    // aurait choisi elle-même. wordCount est déjà le compte FINAL (après
+    // l'éventuelle correction de durée ci-dessus).
+    parsed.score = scorerScriptGenere(parsed.signaux, wordCount, wt);
 
     // Incrémenter le compteur si pas débloqué
     if (!unlocked && !_regenGratuiteEnCours) {

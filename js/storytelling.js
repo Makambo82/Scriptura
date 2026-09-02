@@ -91,6 +91,46 @@ function setStoryLoading(on) {
   else stopGenAnimation();
 }
 
+// ── SCORE DÉTERMINISTE DU RÉCIT (retour terrain, audit du 2 septembre 2026) ──
+// Même correctif et même principe que scorerScriptGenere (js/generation.js) :
+// l'IA ne note plus rien elle-même, elle coche la PRÉSENCE de techniques
+// concrètes sur SON PROPRE récit, et c'est le CODE qui calcule chaque
+// dimension à partir de ces cases. Signaux adaptés au récit (accroche
+// narrative/clôture/cohérence factuelle) plutôt qu'au vocabulaire hook
+// TikTok du mode Script, d'où un jeu de signaux et un mapping distincts.
+const GEN_DIMENSIONS_RECIT = {
+  narration:  ['accroche_forte', 'cloture_complete', 'coherence_factuelle'],
+  engagement: ['rythme_soutenu', 'tension_maintenue', 'non_redondance'],
+  emotion:    ['emotion_forte', 'details_concrets'],
+  viral:      ['originalite', 'rupture_attente', 'emotion_forte']
+};
+function _genScoreDimensionRecit(signaux, cles) {
+  if (!signaux || typeof signaux !== 'object') return 50;
+  const presents = cles.filter(c => signaux[c] === true).length;
+  return Math.round((presents / cles.length) * 100);
+}
+// RÉTENTION : mêmes principes que le mode Script (voir _genScoreRetention,
+// js/generation.js) : signaux de tension/clôture/rythme mélangés avec le
+// vrai respect de la durée cible (mots comptés en code, jamais estimés).
+function _genScoreRetentionRecit(signaux, motsReels, wt) {
+  const base = _genScoreDimensionRecit(signaux, ['tension_maintenue', 'cloture_complete', 'rythme_soutenu']);
+  let scoreMots = 100;
+  if (wt && wt.min && wt.max) {
+    if (motsReels < wt.min) scoreMots = Math.max(40, 100 - Math.round((wt.min - motsReels) / wt.min * 100));
+    else if (motsReels > wt.max) scoreMots = Math.max(40, 100 - Math.round((motsReels - wt.max) / wt.max * 100));
+  }
+  return Math.round(base * 0.7 + scoreMots * 0.3);
+}
+function scorerRecitGenere(signaux, motsReels, wt) {
+  return {
+    viral: _genScoreDimensionRecit(signaux, GEN_DIMENSIONS_RECIT.viral),
+    narration: _genScoreDimensionRecit(signaux, GEN_DIMENSIONS_RECIT.narration),
+    engagement: _genScoreDimensionRecit(signaux, GEN_DIMENSIONS_RECIT.engagement),
+    emotion: _genScoreDimensionRecit(signaux, GEN_DIMENSIONS_RECIT.emotion),
+    retention: _genScoreRetentionRecit(signaux, motsReels, wt)
+  };
+}
+
 async function generateStory() {
   if (!_regenGratuiteEnCours) resetRegen('story');
   const input = document.getElementById('storyInput').value.trim();
@@ -303,16 +343,20 @@ EN PLUS DU RÉCIT, génère aussi :
 - Une LÉGENDE prête à publier (accrocheuse, avec appel à commenter/partager)
 - 8 HASHTAGS pertinents pour la portée
 
-Vise l'excellence absolue (score global 90-100). EVALUATION HONNETE : évalue ton récit avec RIGUEUR, sans gonfler les chiffres. Le score doit être MERITE.
-- "viral" : potentiel de partage
-- "narration" : qualité du récit, de l'accroche à la chute
-- "engagement" : capacité à retenir l'attention sans temps mort
-- "emotion" : impact émotionnel réel
-- "retention" : pourcentage (0-100) d'auditeurs qui écouteront jusqu'à la chute finale, selon la force de l'accroche, la tension maintenue et la promesse de résolution.
-Si ton récit ne mérite pas 90+, réécris-le AVANT de répondre.
+Vise l'excellence absolue. AUTO-DIAGNOSTIC HONNÊTE (jamais un chiffre, seulement des cases) : une fois le récit écrit, relis-le et coche HONNÊTEMENT, comme un critique exigeant, la présence RÉELLE de chaque technique ci-dessous (true/false). Le score affiché à l'utilisateur est calculé ailleurs, à partir de ces cases, ne l'invente pas toi-même et ne gonfle rien : une case cochée à tort donnera un score mérité par rien.
+- "accroche_forte" : le hook arrête-t-il vraiment le scroll en 2 secondes, sans être générique ?
+- "rupture_attente" : la toute première phrase surprend/contredit-elle une attente ?
+- "tension_maintenue" : la tension narrative tient-elle vraiment du début à la fin, sans relâchement ?
+- "rythme_soutenu" : une image mentale toutes les 3-5 secondes, aucun temps mort ?
+- "details_concrets" : au moins un détail précis (nom/lieu/date/chiffre) ailleurs que dans le seul hook ?
+- "emotion_forte" : un impact émotionnel réel et identifiable ?
+- "cloture_complete" : le dernier segment contient-il vraiment les DEUX éléments obligatoires (triple question miroir ET signature métapoétique) ?
+- "coherence_factuelle" : aucune contradiction de date/heure/chiffre entre le hook et le reste du récit ?
+- "non_redondance" : aucun segment consécutif ne reformule simplement le précédent ?
+- "originalite" : l'angle est-il vraiment original, pas un cliché reconnaissable ?
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","score":{"viral":90,"narration":92,"engagement":88,"emotion":91,"retention":85},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Ouverture","texte":"le \"Aujourd'hui, on parle de...\" (ou variante fluide) qui pose le personnage ou l'enjeu, voir point 2"},{"segment":"Détonateur","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
+{"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","signaux":{"accroche_forte":true,"rupture_attente":true,"tension_maintenue":true,"rythme_soutenu":true,"details_concrets":true,"emotion_forte":true,"cloture_complete":true,"coherence_factuelle":true,"non_redondance":true,"originalite":true},"hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Ouverture","texte":"le \"Aujourd'hui, on parle de...\" (ou variante fluide) qui pose le personnage ou l'enjeu, voir point 2"},{"segment":"Détonateur","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
 Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
 
@@ -717,6 +761,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         if (!partageDesMotsAvecModele(dernierSegment.texte, clotureModeleSeule, 7)) break; // propre, inutile de retenter
       }
     }
+
+    // Score déterministe (voir scorerRecitGenere plus haut) : calculé ICI,
+    // une fois TOUTES les passes de correction terminées (durée, hook/
+    // ouverture, clôture), à partir des signaux cochés par l'IA sur son
+    // texte original, jamais un chiffre qu'elle aurait choisi elle-même.
+    parsed.score = scorerRecitGenere(parsed.signaux, countStoryWords(parsed.recit), wt);
 
     if (!unlocked && !_regenGratuiteEnCours) {
       usedGen++;
