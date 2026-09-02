@@ -1044,6 +1044,8 @@ async function lancerMontage() {
         // texte d'appel à l'action facultatif, affiché dans les dernières
         // secondes par le service de rendu (render-service/server.js).
         endCardText: (document.getElementById('montageTexteFin')?.value || '').trim(),
+        // Filigrane Scriptura (retour propriétaire), coché par défaut.
+        watermark: document.getElementById('montageFiligraneCheckbox')?.checked !== false,
         code_acces: localStorage.getItem('scriptura_code') || null
       };
       const rRender = await fetch('/api/montage-render', {

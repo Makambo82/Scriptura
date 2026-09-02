@@ -9,7 +9,7 @@ animations Ken Burns variées, sortie 1080×1920.
 ## Ce que fait le service
 
 - `GET /` → `OK` (santé, utilisé par l'hébergeur).
-- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...], "musicUrl": "...", "musicVolume": 0.15, "endCardText": "..." }`
+- `POST /render` avec `{ "images": [{ "url": "...", "duration": 2.5 }, ...], "audioUrl": "...", "captions": [{ "texte": "...", "debut": 0, "fin": 1.5 }, ...], "musicUrl": "...", "musicVolume": 0.15, "endCardText": "...", "watermark": true }`
   → rend la vidéo, la ré-uploade dans Supabase Storage (bucket `montages`,
   dossier `rendus/`), renvoie `{ "url": "https://.../montage-....mp4" }`.
   `captions` est optionnel : sans lui (ou tableau vide), le flux vidéo est
@@ -35,6 +35,9 @@ animations Ken Burns variées, sortie 1080×1920.
   automatiquement un léger étalonnage (contraste/saturation, réglable via
   `MONTAGE_GRADE_CONTRASTE`/`MONTAGE_GRADE_SATURATION`), toujours actif,
   aucun champ de requête associé.
+  `watermark` (booléen, coché par défaut côté client) affiche "SCRIPTURA"
+  en petit, semi-transparent, coin bas-droit, sur toute la durée de la
+  vidéo ; indépendant de `captions`/`endCardText`.
 
 ## Déploiement sur Railway (recommandé)
 

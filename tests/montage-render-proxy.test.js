@@ -135,6 +135,38 @@ test('/api/montage-render transmet endCardText au service externe (retour propri
   }
 });
 
+test('/api/montage-render transmet watermark au service externe (retour propriétaire : filigrane Scriptura décochable)', async () => {
+  const envAvant = { ...process.env };
+  process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE_FILIGRANE';
+  process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+
+  const fetchOriginal = global.fetch;
+  let requetes = [];
+  global.fetch = async (url, options) => {
+    requetes.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ url: 'https://supabase.example/montages/rendus/test.mp4' }) };
+  };
+
+  try {
+    const { default: handler } = await import('../api/montage-render.js');
+    const corpsBase = {
+      code_acces: 'TESTADMIN_MONTAGE_FILIGRANE',
+      images: [{ url: 'https://x.example/a.jpg', duration: 2 }],
+      audioUrl: 'https://x.example/audio.mp3'
+    };
+    const res = { status() { return this; }, json() { return this; } };
+    await handler({ method: 'POST', body: { ...corpsBase, watermark: true } }, res);
+    await handler({ method: 'POST', body: { ...corpsBase, watermark: false } }, res);
+
+    assert.equal(requetes.length, 2);
+    assert.equal(requetes[0].watermark, true, 'watermark:true doit être transmis tel quel : ' + JSON.stringify(requetes[0]));
+    assert.equal(requetes[1].watermark, false, 'watermark:false (décoché) doit être transmis tel quel : ' + JSON.stringify(requetes[1]));
+  } finally {
+    global.fetch = fetchOriginal;
+    process.env = envAvant;
+  }
+});
+
 test('/api/montage-render refuse un code non-fondateur avant même de songer à un rendu', async () => {
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE2';

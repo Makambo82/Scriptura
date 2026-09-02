@@ -124,3 +124,29 @@ test('construireGrapheLot applique le filtre d\'étalonnage (eq contrast/saturat
   assert.equal(occurrences, 2, 'un filtre eq par plan attendu (2 plans) : ' + graphe);
   assert.ok(graphe.includes(`eq=contrast=${GRADE_CONTRASTE}:saturation=${GRADE_SATURATION}`), graphe);
 });
+
+// Filigrane Scriptura (retour propriétaire), facultatif (case à cocher côté
+// client, cochée par défaut) : petit texte semi-transparent en coin bas-droit,
+// présent toute la vidéo.
+test('construireASS ajoute une ligne Dialogue "SCRIPTURA" (style Filigrane) sur toute la durée quand demandé', () => {
+  const ass = construireASS([], 720, 1280, null, 42.5);
+  assert.match(ass, /Style: Filigrane,/, 'le style Filigrane doit être déclaré : ' + ass);
+  assert.match(ass, /Dialogue: 0,0:00:00\.00,0:00:42\.50,Filigrane,,0,0,0,,SCRIPTURA/, ass);
+});
+
+test('construireASS n\'ajoute AUCUNE ligne de filigrane quand il n\'est pas demandé (facultatif, décochable)', () => {
+  const ass = construireASS([{ texte: 'Un test', debut: 0, fin: 1 }], 720, 1280);
+  assert.ok(!ass.includes(',Filigrane,'), 'aucune ligne de filigrane attendue sans le paramètre : ' + ass);
+});
+
+test('construireASS : le filigrane peut cohabiter avec sous-titres et carton de fin, chacun sur sa propre ligne', () => {
+  const ass = construireASS(
+    [{ texte: 'Un test', debut: 0, fin: 1 }],
+    720, 1280,
+    { texte: 'Suis pour plus', debut: 8, fin: 10 },
+    10
+  );
+  assert.match(ass, /,Default,,0,0,0,,/, 'sous-titre présent : ' + ass);
+  assert.match(ass, /,CarteFin,,0,0,0,,Suis pour plus/, 'carton de fin présent : ' + ass);
+  assert.match(ass, /,Filigrane,,0,0,0,,SCRIPTURA/, 'filigrane présent : ' + ass);
+});

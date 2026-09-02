@@ -718,6 +718,8 @@ async function omLancerMontage() {
           // texte d'appel à l'action facultatif, affiché dans les dernières
           // secondes par le service de rendu.
           endCardText: (document.getElementById('omTexteFin')?.value || '').trim(),
+          // Filigrane Scriptura (retour propriétaire), coché par défaut.
+          watermark: document.getElementById('omFiligraneCheckbox')?.checked !== false,
           code_acces: localStorage.getItem('scriptura_code') || null
         })
       });

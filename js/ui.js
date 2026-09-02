@@ -40,7 +40,9 @@ const _ICO_PATHS = {
   // css/style.css .montage-section-title).
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M9 21h6"/>',
   musicnote: '<path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
-  subtitles: '<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M7 10.5h3"/><path d="M7 13.5h5"/><path d="M14 10.5h3"/><path d="M14 13.5h3"/>'
+  subtitles: '<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="M7 10.5h3"/><path d="M7 13.5h5"/><path d="M14 10.5h3"/><path d="M14 13.5h3"/>',
+  // Filigrane Scriptura (retour propriétaire) : évoque un tampon/sceau.
+  watermark: '<circle cx="12" cy="12" r="7.5"/><path d="M9 12.5l2 2 4-4.5"/><path d="M12 19.5v3"/><path d="M9.5 22.5h5"/>'
 };
 function ICO(nom, cls) {
   const p = _ICO_PATHS[nom];
