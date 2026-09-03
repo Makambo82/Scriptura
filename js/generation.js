@@ -1016,8 +1016,28 @@ function scorerScriptGenere(signaux, motsReels, wt) {
 // rédaction. Chaque signal exige une citation vérifiée mot pour mot dans le
 // texte (normalisée : espaces/casse), sinon il retombe à false. Renvoie
 // null en cas d'échec technique (jamais bloquant, voir l'appelant).
-async function evaluerScriptGenere(texteComplet) {
+// Retour terrain : les scores "viral" et "émotion" tombaient souvent à 0%
+// ou très bas sur des scripts pourtant solides. Deux causes distinctes,
+// corrigées ensemble ici.
+//
+// 1. "cta_clair" (1/3 du score viral) demandait systématiquement un appel à
+//    l'action PARLÉ. Or pour l'objectif "Faire plus de vues", le script est
+//    volontairement écrit SANS CTA parlé (boucle chute→hook à la place, voir
+//    codesObjectifScript plus haut, retour terrain + recherche tendances
+//    TikTok 2026 : un CTA parlé casse la boucle et mange du temps d'antenne).
+//    Le juge cherchait donc un CTA qui n'est plus censé exister, condamnant
+//    "viral" à plafonner à 2/3 sur cet objectif, quelle que soit la qualité
+//    réelle du script. objectifPourJuge (le seul élément de contexte transmis
+//    au juge, jamais le brief ni la stratégie choisie) permet d'adapter le
+//    critère plutôt que de le contredire, sans réintroduire de biais
+//    d'auto-complaisance : le juge reste libre de constater ou non la boucle,
+//    il vérifie juste la bonne chose.
+async function evaluerScriptGenere(texteComplet, objectifPourJuge) {
   if (!texteComplet || !texteComplet.trim()) return null;
+  const estObjectifVuesPourJuge = objectifPourJuge === 'Faire plus de vues et maximiser la portée';
+  const critereCta = estObjectifVuesPourJuge
+    ? '"cta_clair" : ce script vise la PORTÉE PURE, pas de CTA parlé attendu ici (stratégie assumée). La chute boucle-t-elle vraiment sur le hook (même mot, même image, même idée), pour un effet de relecture immédiate ? Coche "present":true si cette boucle est réelle, et cite le passage de la chute qui la ferme.'
+    : '"cta_clair" : le dernier passage contient-il un vrai appel à l\'action qui dit précisément quoi faire ?';
   const prompt = `Tu es un critique EXTÉRIEUR et exigeant, tu n'as PAS écrit ce script. Voici un script TikTok déjà terminé. Ta seule mission : juger honnêtement s'il contient VRAIMENT chacune des techniques ci-dessous, et CITER le passage exact qui le prouve (jamais une paraphrase, jamais un extrait qui n'existe pas mot pour mot dans le texte).
 
 SCRIPT :
@@ -1031,7 +1051,7 @@ Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peu
 - "boucle_ouverte" : une vraie tension/curiosité plantée tôt et qui reste non résolue un moment. Cite le passage qui l'OUVRE ET le passage plus loin où elle finit par se refermer (deux citations, jamais une seule : ça se prouve en comparant deux endroits du texte, pas dans une seule phrase).
 - "details_concrets" : des exemples/chiffres précis plutôt que du vague ?
 - "emotion_forte" : une émotion nette et identifiable ?
-- "cta_clair" : le dernier passage contient-il un vrai appel à l'action qui dit précisément quoi faire ?
+- ${critereCta}
 - "originalite" : l'angle est-il vraiment original, pas un cliché IA reconnaissable ?
 - "promesse_tenue" : la chute répond-elle vraiment à la promesse ouverte par le hook ? Cite le passage du DÉBUT qui ouvre la promesse ET le passage de la FIN qui la referme (deux citations, jamais une seule : ça se prouve en comparant le début et la fin, pas dans une seule phrase).
 
@@ -1042,7 +1062,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const raw = await callAI(MODEL_RAPIDE, 1200, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
     const jug = parseAIResponse(raw);
     if (!jug) return null;
-    const texteNormalise = String(texteComplet).toLowerCase().replace(/\s+/g, ' ');
+    const texteNormalise = _genNormaliserTexteJuge(texteComplet);
     const signaux = {};
     GEN_SIGNAUX_JUGES_IA.forEach(cle => {
       const d = jug[cle];
@@ -1059,11 +1079,39 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     return signaux;
   } catch (e) { return null; }
 }
-// Vérifie qu'une citation existe mot pour mot (espaces/casse normalisés)
-// dans le texte, et renvoie sa position pour permettre un contrôle
-// chronologique (voir GEN_SIGNAUX_DEUX_CITATIONS ci-dessus).
+// Retour terrain : des scores "viral"/"émotion" à 0% sur des scripts
+// pourtant solides. Cause trouvée : le rédacteur et le juge sont deux appels
+// IA SÉPARÉS (c'est voulu, voir le commentaire d'en-tête plus haut), rien ne
+// garantit qu'ils utilisent la même apostrophe ( ' vs ’ ), les mêmes
+// guillemets, la même ellipse ( ... vs … ) ou le même tiret. Une citation
+// vraie en substance mais tapée avec un caractère différent était rejetée en
+// bloc par un simple indexOf(), faisant tomber le signal à false alors que
+// le juge avait raison sur le fond. Normalise ces variantes AVANT toute
+// comparaison, aussi bien côté texte de référence que côté citation.
+function _genNormaliserTexteJuge(s) {
+  return String(s || '')
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[‘’‚′`]/g, "'")   // apostrophes courbes/simples -> '
+    .replace(/[«»“”„]/g, '"') // guillemets français/courbes -> "
+    .replace(/…/g, '...')                          // ellipse unicode -> trois points
+    .replace(/[–—]/g, '-')                    // tirets moyen/long -> tiret simple
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+// Vérifie qu'une citation existe mot pour mot (variantes typographiques et
+// espaces normalisés, voir _genNormaliserTexteJuge) dans le texte, et
+// renvoie sa position pour permettre un contrôle chronologique (voir
+// GEN_SIGNAUX_DEUX_CITATIONS ci-dessus).
 function _genValiderCitation(preuve, texteNormalise) {
-  const p = (typeof preuve === 'string' ? preuve : '').trim().toLowerCase().replace(/\s+/g, ' ');
+  let p = _genNormaliserTexteJuge(preuve);
+  // Le juge encadre parfois sa citation de guillemets alors que le passage
+  // original n'en a pas ("comme ceci") : retirés seulement s'ils encadrent
+  // TOUTE la citation, jamais s'ils apparaissent au milieu (là, ils font
+  // partie du texte cité, ex. un dialogue rapporté).
+  if (p.length >= 2 && p[0] === '"' && p[p.length - 1] === '"') {
+    p = p.slice(1, -1).trim();
+  }
   if (p.length < 4) return { valide: false, position: -1 };
   const position = texteNormalise.indexOf(p);
   return { valide: position >= 0, position };
@@ -1823,7 +1871,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // wordCount est déjà le compte FINAL (après l'éventuelle correction de
     // durée ci-dessus).
     const texteFinalScript = (parsed.script || []).map(s => (s && s.texte) || '').join(' ');
-    const signauxIA = repondreMaintenant ? null : await evaluerScriptGenere(texteFinalScript);
+    const signauxIA = repondreMaintenant ? null : await evaluerScriptGenere(texteFinalScript, state.objectif);
     const signauxFinal = Object.assign(
       {
         deuxieme_personne: _genDetecterDeuxiemePersonne(texteFinalScript),

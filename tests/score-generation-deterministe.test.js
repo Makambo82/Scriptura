@@ -319,3 +319,220 @@ test('evaluerRecitGenere : cloture_complete refusée si la signature citée pré
     await arreter();
   }
 });
+
+// Retour créateur : les dimensions "viral" et "émotion" tombaient souvent à
+// 0% ou très bas sur des scripts pourtant solides, à cause de deux failles
+// distinctes dans le juge indépendant.
+//
+// FAILLE 1 : le rédacteur et le juge sont deux appels IA SÉPARÉS (voulu,
+// anti-complaisance), rien ne garantit qu'ils tapent la même apostrophe
+// (' vs '), les mêmes guillemets, la même ellipse (... vs …) ou le même
+// tiret. Une citation vraie en substance mais typographiée différemment
+// était rejetée par un simple indexOf(), faisant tomber le signal à false
+// alors que le juge avait raison sur le fond. _genNormaliserTexteJuge/
+// _genValiderCitation normalisent désormais ces variantes des deux côtés
+// avant comparaison.
+test('evaluerScriptGenere : une citation reste valide malgré une apostrophe, une ellipse ou un tiret différents de ceux du texte', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    // Texte du script : apostrophe COURBE, ellipse unicode, tiret long.
+    const texte = 'L’attitude positive n’est pas feinte… Un choix simple — rester ou partir. Suis-moi pour la suite.';
+
+    const jugementFake = {
+      hook_fort: { present: false, preuve: '' },
+      pattern_interrupt: { present: false, preuve: '' },
+      boucle_ouverte: { present: false, preuve: '' },
+      details_concrets: { present: false, preuve: '' },
+      // Citation retapée avec une apostrophe DROITE, alors que le texte a une apostrophe COURBE.
+      emotion_forte: { present: true, preuve: 'L\'attitude positive n\'est pas feinte' },
+      // Citation encadrée de guillemets français par le juge, retapée avec trois points et un tiret simple.
+      cta_clair: { present: true, preuve: '«Un choix simple - rester ou partir»' },
+      originalite: { present: false, preuve: '' },
+      promesse_tenue: { present: false, preuve: '' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementFake) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signaux = await page.evaluate((t) => evaluerScriptGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signaux.emotion_forte, true, 'apostrophe différente (courbe vs droite) => la citation doit rester valide : ' + JSON.stringify(signaux));
+    assert.equal(signaux.cta_clair, true, 'guillemets ajoutés + ellipse/tiret différents => la citation doit rester valide : ' + JSON.stringify(signaux));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('evaluerScriptGenere : une citation réellement absente du texte reste rejetée malgré la normalisation', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Un texte tout à fait ordinaire, sans grande tension.';
+    const jugementFake = {
+      hook_fort: { present: false, preuve: '' },
+      pattern_interrupt: { present: false, preuve: '' },
+      boucle_ouverte: { present: false, preuve: '' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: true, preuve: 'ceci n\'apparaît nulle part dans le texte fourni' },
+      cta_clair: { present: false, preuve: '' },
+      originalite: { present: false, preuve: '' },
+      promesse_tenue: { present: false, preuve: '' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementFake) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signaux = await page.evaluate((t) => evaluerScriptGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signaux.emotion_forte, false, 'la normalisation ne doit jamais valider une citation qui n\'existe vraiment pas dans le texte : ' + JSON.stringify(signaux));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// FAILLE 2 : "cta_clair" (1/3 du score viral) demandait systématiquement un
+// appel à l'action PARLÉ. Or pour l'objectif "Faire plus de vues", le script
+// est volontairement écrit SANS CTA parlé (boucle chute→hook à la place,
+// voir codesObjectifScript, js/generation.js) : le juge cherchait donc un
+// CTA qui n'est plus censé exister, condamnant "viral" à plafonner à 2/3 sur
+// cet objectif quelle que soit la qualité réelle. evaluerScriptGenere reçoit
+// désormais l'objectif choisi (jamais le brief ni la stratégie, pour ne pas
+// réintroduire de biais d'auto-complaisance) et adapte UNIQUEMENT ce critère.
+test('evaluerScriptGenere : pour "Faire plus de vues", le juge vérifie la boucle chute→hook, jamais un CTA parlé', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Tiani le savait déjà, 22h à Niamey. Et depuis ce soir-là, tout Niamey le sait aussi.';
+    // Le juge coche cta_clair vrai en citant la BOUCLE (chute qui reprend
+    // "Niamey" et "savait" du hook), jamais une phrase d'appel à l'action :
+    // un script bien fait pour cet objectif n'en contient plus.
+    const jugementBoucle = {
+      hook_fort: { present: false, preuve: '' },
+      pattern_interrupt: { present: false, preuve: '' },
+      boucle_ouverte: { present: false, preuve: '' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: false, preuve: '' },
+      cta_clair: { present: true, preuve: 'Et depuis ce soir-là, tout Niamey le sait aussi' },
+      originalite: { present: false, preuve: '' },
+      promesse_tenue: { present: false, preuve: '' }
+    };
+
+    let dernierPrompt = '';
+    await poserMocksReseau(page, {
+      generate: (body) => {
+        dernierPrompt = JSON.stringify(body.messages || []);
+        return { content: [{ text: JSON.stringify(jugementBoucle) }] };
+      }
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+
+    const signauxVues = await page.evaluate(
+      (t) => evaluerScriptGenere(t, 'Faire plus de vues et maximiser la portée'),
+      texte
+    );
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+
+    assert.match(dernierPrompt, /PORTÉE PURE/, 'le prompt du juge doit demander la boucle, pas un CTA parlé, pour cet objectif');
+    assert.doesNotMatch(dernierPrompt, /un vrai appel à l'action qui dit précisément quoi faire/,
+      'le critère CTA classique ne doit plus apparaître pour cet objectif');
+    assert.equal(signauxVues.cta_clair, true,
+      'une vraie boucle chute→hook doit valider cta_clair pour "Faire plus de vues", sans qu\'aucun CTA parlé n\'existe : ' + JSON.stringify(signauxVues));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('evaluerScriptGenere : pour les autres objectifs, le critère CTA classique reste inchangé', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Un texte quelconque. Commente "OUI" pour recevoir le lien.';
+    const jugementCtaClassique = {
+      hook_fort: { present: false, preuve: '' },
+      pattern_interrupt: { present: false, preuve: '' },
+      boucle_ouverte: { present: false, preuve: '' },
+      details_concrets: { present: false, preuve: '' },
+      emotion_forte: { present: false, preuve: '' },
+      cta_clair: { present: true, preuve: 'Commente "OUI" pour recevoir le lien' },
+      originalite: { present: false, preuve: '' },
+      promesse_tenue: { present: false, preuve: '' }
+    };
+
+    let dernierPrompt = '';
+    await poserMocksReseau(page, {
+      generate: (body) => {
+        dernierPrompt = JSON.stringify(body.messages || []);
+        return { content: [{ text: JSON.stringify(jugementCtaClassique) }] };
+      }
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+
+    const signauxVentes = await page.evaluate(
+      (t) => evaluerScriptGenere(t, 'Générer des ventes via mon contenu'),
+      texte
+    );
+    const signauxSansObjectif = await page.evaluate((t) => evaluerScriptGenere(t), texte);
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.match(dernierPrompt, /un vrai appel à l'action qui dit précisément quoi faire/,
+      'le critère CTA classique doit rester posé pour un objectif autre que "Faire plus de vues"');
+    assert.doesNotMatch(dernierPrompt, /PORTÉE PURE/, 'le critère boucle ne doit apparaître QUE pour "Faire plus de vues"');
+    assert.equal(signauxVentes.cta_clair, true, 'un vrai CTA parlé doit toujours valider cta_clair hors objectif "vues" : ' + JSON.stringify(signauxVentes));
+    assert.equal(signauxSansObjectif.cta_clair, true, 'sans objectif transmis, le comportement par défaut reste le critère CTA classique : ' + JSON.stringify(signauxSansObjectif));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Même correctif de normalisation côté Récit (voir _genNormaliserTexteJugeRecit,
+// js/storytelling.js), qui avait en plus une 3e copie divergente de la même
+// logique en ligne dans evaluerRecitGenere : unifiée pour ne dépendre que
+// d'un seul point de correction.
+test('evaluerRecitGenere : une citation reste valide malgré une apostrophe ou des guillemets différents de ceux du texte', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const texte = 'Il pensait avoir tout prévu… L’attente est devenue insoutenable. Personne ne l’a vu venir.';
+    const jugementFake = {
+      accroche_forte: { present: false, preuve: '' },
+      rupture_attente: { present: false, preuve: '' },
+      tension_maintenue: { present: false, preuve_ouverture: '', preuve_cloture: '' },
+      details_concrets: { present: false, preuve: '' },
+      // Ellipse retapée en trois points, apostrophe droite au lieu de courbe.
+      emotion_forte: { present: true, preuve: 'Il pensait avoir tout prévu... L\'attente est devenue insoutenable' },
+      cloture_complete: { present: false, preuve_question: '', preuve_signature: '' },
+      coherence_factuelle: { present: false, preuve: '' },
+      non_redondance: { present: false, preuve: '' },
+      originalite: { present: false, preuve: '' }
+    };
+    await poserMocksReseau(page, { generate: () => ({ content: [{ text: JSON.stringify(jugementFake) }] }) });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    const signaux = await page.evaluate((t) => evaluerRecitGenere(t), texte);
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+    assert.equal(signaux.emotion_forte, true, 'ellipse et apostrophe différentes => la citation doit rester valide : ' + JSON.stringify(signaux));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

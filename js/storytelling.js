@@ -187,7 +187,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const raw = await callAI(MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
     const jug = parseAIResponse(raw);
     if (!jug) return null;
-    const texteNormalise = String(texteComplet).toLowerCase().replace(/\s+/g, ' ');
+    const texteNormalise = _genNormaliserTexteJugeRecit(texteComplet);
     const signaux = {};
     GEN_SIGNAUX_JUGES_IA_RECIT.forEach(cle => {
       const d = jug[cle];
@@ -204,19 +204,39 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         const ordreValide = question.valide && signature.valide && signature.position > question.position;
         signaux[cle] = !!(d && d.present === true && ordreValide);
       } else {
-        const preuve = d && typeof d.preuve === 'string' ? d.preuve.trim() : '';
-        const preuveNormalisee = preuve.toLowerCase().replace(/\s+/g, ' ');
-        const preuveValide = preuveNormalisee.length >= 4 && texteNormalise.includes(preuveNormalisee);
-        signaux[cle] = !!(d && d.present === true && preuveValide);
+        // Passait auparavant par sa propre normalisation en ligne (une 3e
+        // copie de la même logique que _genValiderCitationRecit, divergente
+        // d'elle) : unifié pour ne dépendre que d'un seul point de correction.
+        const preuve = _genValiderCitationRecit(d && d.preuve, texteNormalise);
+        signaux[cle] = !!(d && d.present === true && preuve.valide);
       }
     });
     return signaux;
   } catch (e) { return null; }
 }
+// Même correctif que le mode Script (voir _genNormaliserTexteJuge,
+// js/generation.js, retour terrain sur des scores viral/émotion à 0% causés
+// par une simple différence d'apostrophe ou d'ellipse entre le rédacteur et
+// le juge, deux appels IA séparés) : dupliqué ici, pas de module partagé
+// entre fichiers chargés en <script> dans ce projet.
+function _genNormaliserTexteJugeRecit(s) {
+  return String(s || '')
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[‘’‚′`]/g, "'")
+    .replace(/[«»“”„]/g, '"')
+    .replace(/…/g, '...')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 // Même helper que _genValiderCitation (js/generation.js), dupliqué ici (pas
 // de module partagé entre fichiers chargés en <script> dans ce projet).
 function _genValiderCitationRecit(preuve, texteNormalise) {
-  const p = (typeof preuve === 'string' ? preuve : '').trim().toLowerCase().replace(/\s+/g, ' ');
+  let p = _genNormaliserTexteJugeRecit(preuve);
+  if (p.length >= 2 && p[0] === '"' && p[p.length - 1] === '"') {
+    p = p.slice(1, -1).trim();
+  }
   if (p.length < 4) return { valide: false, position: -1 };
   const position = texteNormalise.indexOf(p);
   return { valide: position >= 0, position };
