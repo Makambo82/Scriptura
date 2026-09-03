@@ -875,8 +875,8 @@ async function initAccueilPremiumInterne(zone) {
     // jamais, même s'il traîne encore dans le localStorage de quelqu'un.
     if (dataAnon && dataAnon.onboarding) dataAnon = null;
     if (!dataAnon) {
-      // Vérifié AVANT d'afficher quoi que ce soit : promettre "je regarde ce
-      // qui marche dans ta niche" à un visiteur dont on ne connaît encore
+      // Vérifié AVANT d'afficher quoi que ce soit : promettre "Scriptura
+      // regarde ce qui marche dans ta niche" à un visiteur dont on ne connaît encore
       // rien serait malhonnête. S'il n'y a vraiment rien à exploiter, on
       // saute directement au message "Bienvenue" plus bas, sans message
       // d'attente ni appel IA inutile (le résultat serait "onboarding" de
@@ -889,7 +889,7 @@ async function initAccueilPremiumInterne(zone) {
         // vide et silencieuse pendant tout l'appel IA (voir même principe
         // plus bas pour le cas abonné).
         zone.innerHTML = `<div class="results-heading">${salutationAccueil()}</div>
-          <div class="ideas-sub" style="margin:6px 0 20px">Un instant, je regarde ce qui marche en ce moment sur TikTok dans ta niche, pour te proposer une première idée…</div>`;
+          <div class="ideas-sub" style="margin:6px 0 20px">Un instant, Scriptura regarde ce qui marche en ce moment sur TikTok dans ta niche, pour te proposer une première idée…</div>`;
         zone.style.display = 'block';
         dataAnon = await genererRecommandations(null, null);
         // Ne JAMAIS mettre en cache un résultat "onboarding" (pas encore assez
@@ -910,7 +910,7 @@ async function initAccueilPremiumInterne(zone) {
     const dejaSommaireAnon = await aFaitDiagnosticSommaire();
     zone.innerHTML = dejaSommaireAnon ? `
       <div class="results-heading">${salutationAccueil()}</div>
-      <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait, il me manque une génération (une idée, un script ou un récit) pour te proposer une vraie recommandation, fiable.</div>
+      <div class="ideas-sub" style="margin:6px 0 20px">Ton diagnostic sommaire est fait, il manque encore une génération (une idée, un script ou un récit) à Scriptura pour te proposer une vraie recommandation, fiable.</div>
       <button class="btn-generate" onclick="demarrerIdeesDepuisSommaire()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 18.5h5"/><path d="M10.5 21h3"/><path d="M12 3.5c-3.6 0-6 2.7-5.4 6.1.3 1.7 1.4 2.9 2.4 3.9.6.6.9 1.2 1 2h4c.1-.8.4-1.4 1-2 1-1 2.1-2.2 2.4-3.9C18 6.2 15.6 3.5 12 3.5Z"/></svg> Trouver mes premières idées</button>
     ` : `
       <div class="results-heading">Bienvenue sur Scriptura.</div>
@@ -922,7 +922,7 @@ async function initAccueilPremiumInterne(zone) {
   }
 
   const entete = `<div class="results-heading">${salutationAccueil()}</div>
-    <div class="ideas-sub" style="margin:6px 0 20px">Voici ce que je te recommande aujourd'hui.</div>`;
+    <div class="ideas-sub" style="margin:6px 0 20px">Voici ce que Scriptura te recommande aujourd'hui.</div>`;
 
   // Une recommandation déjà générée aujourd'hui pour ce créateur : on la
   // réaffiche telle quelle plutôt que de refaire un appel identique.
