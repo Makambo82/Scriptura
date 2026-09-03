@@ -658,7 +658,24 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     //  mécaniquement plutôt que de laisser le créateur avec un seul choix.
     // ══════════════════════════════════════
     if (!Array.isArray(parsed.hooks)) parsed.hooks = [];
-    if (!repondreMaintenant && parsed.hooks.length < 5) {
+
+    // ══════════════════════════════════════
+    //  COMPLÉTION DES HOOKS ET CONTRÔLE DE DURÉE, LANCÉS EN PARALLÈLE
+    //  Même correctif que le mode Script (voir js/generation.js) : ces deux
+    //  passes ne se touchent jamais. La complétion des hooks ne lit/écrit
+    //  QUE parsed.hooks (sujet, hooks déjà là, jamais le corps du récit) ;
+    //  le contrôle de durée ne lit/écrit QUE parsed.recit (jamais les
+    //  hooks). Chaque fonction ci-dessous est un copier-coller STRICT de
+    //  son bloc d'origine (mêmes prompts, mêmes règles, même nombre de
+    //  tentatives) : seule leur exécution devient concurrente, via
+    //  Promise.all plus bas. Les passes SUIVANTES (normalisation hook/
+    //  ouverture, clôture) restent volontairement séquentielles APRÈS ce
+    //  Promise.all : elles lisent/réécrivent parsed.recit une fois que sa
+    //  version finale de durée est connue, jamais avant (voir leurs
+    //  commentaires dédiés plus bas).
+    // ══════════════════════════════════════
+    async function completerHooksRecit() {
+      if (repondreMaintenant || parsed.hooks.length >= 5) return;
       try {
         const hooksExistantsTxt = parsed.hooks.length
           ? parsed.hooks.map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n')
@@ -707,9 +724,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
         return propre === seg.texte ? seg : Object.assign({}, seg, { texte: propre });
       });
     }
-    parsed.recit = nettoyerSegmentsRecit(parsed.recit);
 
-    if (storyFormat === 'court' && wt) {
+    async function corrigerDureeRecit() {
+      parsed.recit = nettoyerSegmentsRecit(parsed.recit);
+      if (!(storyFormat === 'court' && wt)) return;
+
       let storyWordCount = countStoryWords(parsed.recit);
       let storyCorrectionAttempts = 0;
       const hardMinStory = Math.round(wt.min * 0.9);
@@ -758,10 +777,27 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       }
     }
 
+    // Pas d'avancerEtapeGen(5) ICI, avant le Promise.all : contrairement au
+    // mode Script (où hooks manquants + durée partagent UN SEUL step
+    // numéroté), le Récit a une numérotation FINE où le step 4 est dédié au
+    // "calibrage de la durée" (appelé DANS corrigerDureeRecit ci-dessus, si
+    // la boucle de correction tourne réellement) et le step 5 marque la
+    // phase SUIVANTE, "hook et ouverture". Appeler avancerEtapeGen(5) avant
+    // le Promise.all aurait, par la garde "jamais en arrière" de la
+    // fonction, rendu tout avancerEtapeGen(4) ultérieur muet : l'étape
+    // "Calibrage de la durée" aurait disparu de l'écran de progression
+    // même quand la correction tournait réellement en arrière-plan.
+    await Promise.all([completerHooksRecit(), corrigerDureeRecit()]);
+
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(5); // phase : hook et ouverture
 
     // ══════════════════════════════════════
     //  NORMALISATION FINALE DU HOOK ET DE L'OUVERTURE
+    //  Volontairement APRÈS le Promise.all ci-dessus (séquentielle, pas
+    //  parallélisable avec la correction de durée) : lit/réécrit
+    //  parsed.recit une fois sa version finale de durée connue, jamais
+    //  avant, sinon la correction de durée pourrait écraser cette
+    //  normalisation en réécrivant le récit en entier juste après.
     //  Retour terrain répété : le hook (point 1, EXACTEMENT 2 phrases) se
     //  retrouve fusionné avec l'Ouverture (point 2, "Aujourd'hui, on parle
     //  de...") en un seul bloc de 4 phrases ou plus, l'exemple JSON montrant

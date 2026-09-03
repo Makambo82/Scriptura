@@ -1757,7 +1757,23 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
     //  mécaniquement plutôt que de laisser le créateur avec un seul choix.
     // ══════════════════════════════════════
     if (!Array.isArray(parsed.hooks)) parsed.hooks = [];
-    if (!repondreMaintenant && parsed.hooks.length < 5) {
+
+    // ══════════════════════════════════════
+    //  COMPLÉTION DES HOOKS ET CONTRÔLE DE DURÉE, LANCÉS EN PARALLÈLE
+    //  Retour créateur (2-3 minutes d'attente jugées trop longues) :
+    //  ces deux passes tournaient l'une après l'autre alors qu'elles ne se
+    //  touchent JAMAIS. La complétion des hooks ne lit/écrit QUE
+    //  parsed.hooks (sujet, hooks déjà là, jamais le corps du script) ; le
+    //  contrôle de durée ne lit/écrit QUE parsed.script (jamais les hooks).
+    //  Chaque fonction ci-dessous est un copier-coller STRICT de son bloc
+    //  d'origine (même prompts, mêmes règles, même nombre de tentatives,
+    //  aucune ligne de logique changée) : seule leur exécution devient
+    //  concurrente au lieu de séquentielle, via Promise.all plus bas.
+    //  Économise un aller-retour complet (jusqu'à ~10-20s) chaque fois que
+    //  les deux se déclenchent pour la même génération.
+    // ══════════════════════════════════════
+    async function completerHooksScript() {
+      if (repondreMaintenant || parsed.hooks.length >= 5) return;
       try {
         const hooksExistantsTxt = parsed.hooks.length
           ? parsed.hooks.map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n')
@@ -1780,37 +1796,29 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       } catch (e) { /* on garde les hooks déjà obtenus si la complétion échoue */ }
     }
 
-    // Qualité (critique/révision) ET complétion des hooks terminées pour de
-    // vrai, quel que soit le nombre de passes réellement effectuées : jalon
-    // réel avant le dernier contrôle (voir GEN_POIDS/avancerEtapeGen).
-    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(5);
-
-    // ══════════════════════════════════════
-    //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
-    //  Compte les mots réels. Si hors cible, régénère avec correction.
-    // ══════════════════════════════════════
-    // Nettoyage AVANT tout comptage : sinon un "[0-3 sec]" ou un "VOIX OFF :"
-    // parasite gonfle artificiellement le nombre de mots et fausse aussi bien
-    // la décision de corriger la durée que le minutage recalculé plus bas.
-    parsed.script = nettoyerBlocsScript(parsed.script);
-    let wordCount = countScriptWords(parsed.script);
-    let correctionAttempts = 0;
-
     // Tolérance : on accepte une petite marge (10%) mais on corrige si vraiment hors cible
     const hardMin = Math.round(wt.min * 0.9);
     const hardMax = Math.round(wt.max * 1.1);
 
-    // 3 tentatives (au lieu de 2) : retour terrain, un script "2 minutes"
-    // livré à 95 mots sans aucun avertissement. Avant ce correctif, une
-    // simple erreur réseau/parsing sur UNE tentative de correction
-    // abandonnait la boucle immédiatement (`break`), livrant tel quel un
-    // script deux à trois fois trop court. Une erreur ponctuelle ne doit
-    // plus jamais faire abandonner la correction : elle compte comme une
-    // tentative ratée, la boucle retente au tour suivant.
-    while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 3 && !repondreMaintenant) {
-      correctionAttempts++;
-      const tooShort = wordCount < hardMin;
-      const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
+    async function corrigerDureeScript() {
+      // Nettoyage AVANT tout comptage : sinon un "[0-3 sec]" ou un "VOIX OFF :"
+      // parasite gonfle artificiellement le nombre de mots et fausse aussi bien
+      // la décision de corriger la durée que le minutage recalculé plus bas.
+      parsed.script = nettoyerBlocsScript(parsed.script);
+      let wordCount = countScriptWords(parsed.script);
+      let correctionAttempts = 0;
+
+      // 3 tentatives (au lieu de 2) : retour terrain, un script "2 minutes"
+      // livré à 95 mots sans aucun avertissement. Avant ce correctif, une
+      // simple erreur réseau/parsing sur UNE tentative de correction
+      // abandonnait la boucle immédiatement (`break`), livrant tel quel un
+      // script deux à trois fois trop court. Une erreur ponctuelle ne doit
+      // plus jamais faire abandonner la correction : elle compte comme une
+      // tentative ratée, la boucle retente au tour suivant.
+      while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 3 && !repondreMaintenant) {
+        correctionAttempts++;
+        const tooShort = wordCount < hardMin;
+        const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
 
 TEXTE RÉELLEMENT PARLÉ DU SCRIPT ACTUEL (${wordCount} mots, c'est LUI seul qui détermine la durée de la vidéo) :
 ${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
@@ -1828,22 +1836,32 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
 
-      let correctedScript = null;
-      try {
-        const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
-        correctedScript = parseAIResponse(correctRaw);
-      } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
+        let correctedScript = null;
+        try {
+          const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+          correctedScript = parseAIResponse(correctRaw);
+        } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
 
-      if (correctedScript && Array.isArray(correctedScript.script) && correctedScript.script.length) {
-        // Même nettoyage sur la version corrigée : la correction de durée est
-        // un nouvel appel IA, donc une nouvelle occasion d'y glisser une
-        // étiquette parasite, et son texte sert directement au recomptage.
-        parsed.script = nettoyerBlocsScript(correctedScript.script);
-        wordCount = countScriptWords(parsed.script);
+        if (correctedScript && Array.isArray(correctedScript.script) && correctedScript.script.length) {
+          // Même nettoyage sur la version corrigée : la correction de durée est
+          // un nouvel appel IA, donc une nouvelle occasion d'y glisser une
+          // étiquette parasite, et son texte sert directement au recomptage.
+          parsed.script = nettoyerBlocsScript(correctedScript.script);
+          wordCount = countScriptWords(parsed.script);
+        }
+        // Correction invalide/vide : on ne casse plus la boucle, le tour
+        // suivant retente avec la dernière version connue de parsed.script.
       }
-      // Correction invalide/vide : on ne casse plus la boucle, le tour
-      // suivant retente avec la dernière version connue de parsed.script.
+      return wordCount;
     }
+
+    // Qualité (critique/révision) ET complétion des hooks terminées pour de
+    // vrai, quel que soit le nombre de passes réellement effectuées : jalon
+    // réel avant le dernier contrôle (voir GEN_POIDS/avancerEtapeGen), posé
+    // avant de lancer les deux tâches en parallèle ci-dessous.
+    if (typeof avancerEtapeGen === 'function') avancerEtapeGen(5);
+
+    const [, wordCount] = await Promise.all([completerHooksScript(), corrigerDureeScript()]);
 
     // Timestamps recalculés en code sur le script FINAL (après l'éventuelle
     // correction de durée ci-dessus), jamais avant : recalculer plus tôt
