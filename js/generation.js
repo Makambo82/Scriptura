@@ -1196,6 +1196,18 @@ async function generate() {
     departInstructionScript = `\nPOINT DE DÉPART : le sujet ci-dessus est déjà précis et arrêté par le créateur, reste rigoureusement ancré dessus. N'élargis JAMAIS vers un thème plus général et ne dévie JAMAIS vers un angle différent de celui donné : approfondis ce sujet exact, ne le remplace pas par un autre.\n`;
   }
 
+  // Retour terrain (2 scripts consécutifs) : "Tu sais...", "Et si je te
+  // disais..." jugés clichés/IA par le créateur, alors que ni l'un ni
+  // l'autre ne figurait dans la liste interdite existante. Recherche
+  // (tendances TikTok 2026, sources multiples) : ces formules correspondent
+  // exactement aux hooks les plus signalés comme génériques/IA à
+  // l'international ("you know...", "what if I told you...", "did you know
+  // that...", "wait for it", "watch till the end", "hi guys, today..."),
+  // liste enrichie en conséquence. Réutilisée pour le choix de direction ET
+  // la génération finale des hooks (une seule source, jamais deux listes
+  // qui divergent).
+  const GEN_HOOKS_CLICHES_INTERDITS = '"Tu sais...", "Et si je te disais...", "Imagine...", "Laisse-moi te dire...", "Aujourd\'hui on va parler de...", "Voici pourquoi...", "Vous ne devinerez jamais...", "Voici 5 astuces...", "Saviez-vous que...", "Dans cette vidéo...", "Attends la fin...", "Regarde jusqu\'au bout..."';
+
   // Les choix du créateur (plateforme, objectif) doivent avoir un effet réel
   // et vérifiable sur le script produit, pas juste apparaître en contexte
   // passif. Avant ce correctif, la plateforme n'avait aucun code concret
@@ -1227,10 +1239,16 @@ async function generate() {
   // l'appel à cette trame dans le brief). "critique" : questions propres à
   // cet objectif que le Critique Éditorial doit se poser en plus de sa
   // grille générale (anti-IA-générique, clichés...), jamais à sa place.
+  // Retour terrain (2 scripts consécutifs, objectif "Faire plus de vues" les
+  // deux fois) : le CTA final restait une jolie formule de clôture
+  // thématique ("Regarde comment...", "C'est vrai ou pas ?") sans jamais
+  // nommer une action précise, alors que la consigne demandait déjà
+  // "inciter au partage". Rendue explicite : verbe d'action nommé, sinon ce
+  // n'est pas un CTA, juste une chute qui y ressemble.
   const codesObjectifScript = {
     'Faire plus de vues et maximiser la portée': {
       corps: 'privilégie l\'angle et l\'émotion qui donnent le plus envie de PARTAGER ou d\'enchaîner sur une autre vidéo du compte (surprise, choc, humour, forte identification), la portée prime sur la conversion. La structure et les relances doivent maximiser la rétention pure jusqu\'au bout, sans jamais ralentir pour expliquer ou vendre quoi que ce soit.',
-      cta: 'inciter au partage ou à regarder une autre vidéo, la portée prime, pas la conversion.',
+      cta: 'la toute dernière phrase doit contenir un VERBE D\'ACTION EXPLICITE de partage/portée ("partage à quelqu\'un qui...", "envoie ça à...", "montre ça à la personne qui...", "va voir la vidéo où je...", "dis-moi en commentaire si..."), jamais seulement une chute thématique ou une question rhétorique qui sonne comme un CTA sans en être un. La portée prime, pas la conversion, mais l\'action demandée doit être nommée sans ambiguïté.',
       trame: 'hook → anomalie ou paradoxe → première révélation → nouvelle question qui relance la curiosité → contexte bref → révélation plus forte → twist → conclusion mémorable.',
       critique: 'Les 3 premières secondes donnent-elles vraiment envie de rester ? Y a-t-il un ou plusieurs moments où la tension retombe (un passage à vide, une baisse de rythme) ? Chaque phrase justifie-t-elle vraiment sa présence, ou une partie pourrait-elle être supprimée sans perte ?'
     },
@@ -1317,7 +1335,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 5. STRATÉGIE ÉMOTIONNELLE ET RÉTENTION : Quelle émotion dominante veux-tu déclencher ? Pour tenir l'attention jusqu'au bout, appuie-toi consciemment sur ta connaissance de la psychologie humaine et choisis, parmi ces leviers, celui ou ceux qui serviront le mieux CE sujet (nomme-le/les) : la BOUCLE OUVERTE MAINTENUE (une tension posée tôt, jamais refermée avant la fin), la RÉCOMPENSE IMPRÉVISIBLE (varier le rythme et les révélations pour que le spectateur ne puisse jamais deviner ce qui vient), l'ESCALADE DES ENJEUX (chaque relance plus forte que la précédente, jamais un plateau), ou le MICRO-CLIFFHANGER (une relance juste avant chaque coupure mentale naturelle). Précise où placer les "retention hooks" (relances qui réaccrochent) et quel levier psychologique chacun exploite.
 
-6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Appuie-toi sur ta connaissance de la psychologie humaine pour choisir CONSCIEMMENT le levier le plus puissant pour ce sujet précis (nomme-le) parmi : la BOUCLE OUVERTE / CURIOSITY GAP (une information manquante que le spectateur a besoin de combler), le PATTERN INTERRUPT (une forme ou une amorce qui casse ce à quoi on s'attend), l'AVERSION À LA PERTE (ce que le spectateur risque de manquer ou perdre s'il ne regarde pas), la DISSONANCE / CONTRADICTION (deux faits qui ne devraient normalement pas coexister), ou l'IDENTIFICATION MENACÉE (une menace ou une promesse qui touche directement le spectateur, pas un tiers abstrait). Le hook ne doit jamais être seulement accrocheur : il doit provoquer une envie IRRÉPRESSIBLE de continuer, en exploitant délibérément ce levier précis, pas au hasard. Teste mentalement la direction envisagée : est-elle prévisible ? Ressemble-t-elle à un hook ChatGPT générique ("Voici pourquoi...", "Vous ne devinerez jamais...") ? Crée-t-elle une vraie tension et une boucle de curiosité ? Si elle échoue à l'un de ces tests, cherche une meilleure direction. Donne la direction ET le levier psychologique choisi (pas encore la formulation finale).
+6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Appuie-toi sur ta connaissance de la psychologie humaine pour choisir CONSCIEMMENT le levier le plus puissant pour ce sujet précis (nomme-le) parmi : la BOUCLE OUVERTE / CURIOSITY GAP (une information manquante que le spectateur a besoin de combler), le PATTERN INTERRUPT (une forme ou une amorce qui casse ce à quoi on s'attend), l'AVERSION À LA PERTE (ce que le spectateur risque de manquer ou perdre s'il ne regarde pas), la DISSONANCE / CONTRADICTION (deux faits qui ne devraient normalement pas coexister), l'IDENTIFICATION MENACÉE (une menace ou une promesse qui touche directement le spectateur, pas un tiers abstrait), l'ENTRÉE EN PLEINE ACTION / IN MEDIAS RES (commencer au milieu d'une scène ou d'un résultat déjà arrivé, jamais poser calmement le décor avant, un début qui commence après coup retient nettement moins), ou le CHIFFRE/DÉTAIL PRÉCIS DÈS LA PREMIÈRE PHRASE (un chiffre, un montant, une durée exacte plutôt qu'une généralité vague). Le hook ne doit jamais être seulement accrocheur : il doit provoquer une envie IRRÉPRESSIBLE de continuer, en exploitant délibérément ce levier précis, pas au hasard. Teste mentalement la direction envisagée : est-elle prévisible ? Correspond-elle à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-elle être prononcée par n'importe quel créateur sur n'importe quel sujet (si oui, encore trop générique, cherche plus spécifique à CE sujet précis) ? Crée-t-elle une vraie tension et une boucle de curiosité ? Si elle échoue à l'un de ces tests, cherche une meilleure direction. Donne la direction ET le levier psychologique choisi (pas encore la formulation finale).
 
 7. STRATÉGIE DE CTA : Quel appel à l'action final servira le mieux l'objectif "${state.objectif}" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s'abonner pour une raison précise) ?
 
@@ -1377,9 +1395,9 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 4. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
 
 5. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair. Jamais un "abonne-toi" générique. ${objectifInstructionScript}
-Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA.
+Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA. TEST OBLIGATOIRE avant de valider : la dernière phrase nomme-t-elle une action précise et exécutable (partage, commente, abonne-toi, va voir, dis-moi...) ? Une chute qui sonne bien ou une question rhétorique SANS consigne d'action claire n'est PAS un CTA, même si elle referme joliment le propos, réécris-la.
 
-6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Ressemble-t-il à un hook ChatGPT classique ("Voici 5 astuces", "Saviez-vous que", "Dans cette vidéo") ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ, remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
+6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Chaque hook tient en UNE respiration (viser 7 à 10 mots, jamais une phrase qu'on devrait couper pour reprendre son souffle à l'oral). Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Correspond-il à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-il être prononcé par n'importe quel créateur sur n'importe quel sujet (trop générique si oui) ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ, remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
 7. ${plateformeInstructionScript}
 
@@ -1622,7 +1640,7 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
           ? parsed.hooks.map((h, i) => (i + 1) + '. [' + (h.style || '') + '] ' + h.texte).join('\n')
           : 'aucun';
         const nbManquants = 5 - parsed.hooks.length;
-        const completHooksPrompt = `Tu es le Rédacteur en Chef de Scriptura. Ce script a déjà ${parsed.hooks.length} hook(s) sur les 5 exigés. Génère les ${nbManquants} hook(s) manquant(s), qui arrêtent vraiment le scroll, mais RADICALEMENT différents des hooks déjà existants, jamais une reformulation proche, jamais une formule générique type ChatGPT.
+        const completHooksPrompt = `Tu es le Rédacteur en Chef de Scriptura. Ce script a déjà ${parsed.hooks.length} hook(s) sur les 5 exigés. Génère les ${nbManquants} hook(s) manquant(s), qui arrêtent vraiment le scroll, mais RADICALEMENT différents des hooks déjà existants, jamais une reformulation proche, jamais une formule générique type ChatGPT, et surtout jamais une des formules interdites (${GEN_HOOKS_CLICHES_INTERDITS}).
 
 SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
 
