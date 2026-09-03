@@ -20,13 +20,22 @@ const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
 const BRIEF_FAKE = { analyse_strategique: 'A', angle_choisi: 'Angle X', pourquoi_cet_angle: 'P', structure: 'S', emotion_dominante: 'E', strategie_hook: 'H', strategie_retention: 'R', strategie_cta: 'C' };
+// Le texte de chaque bloc commence par la phrase distinctive attendue par
+// les assertions ci-dessous, puis un remplissage neutre assez long (2 blocs
+// x 80 mots = 160, dans la fourchette 117-170 attendue pour la durée par
+// défaut) pour passer à la fois le contrôle de complétude ET le contrôle de
+// durée strict (voir js/generation.js, scriptEstComplet + la boucle de
+// correction de durée) sans déclencher de boucle de correction inutile,
+// sans quoi generate() échouerait ou ralentirait avant même l'appel de
+// micro-édition testé ici.
+const REMPLISSAGE_BLOC = ' Une phrase supplémentaire pour donner assez de matière à ce bloc de test, avec plusieurs mots bien distincts afin de dépasser largement le seuil minimal de complétude attendu par le contrôle de durée, et aussi la fourchette de mots visée pour la durée par défaut de ce test, afin d\'éviter toute boucle de correction inutile qui ralentirait ce test sans rien apporter à ce qu\'il vérifie réellement, à savoir l\'isolation stricte du passage édité.';
 const SCRIPT_FAKE = {
   score: { viral: 90, hook: 90, engagement: 90, emotion: 90, retention: 90 },
   analyse: 'ok',
   hooks: [{ style: 'x', texte: 'Hook 1' }],
   script: [
-    { temps: '0-3 sec', texte: 'Premier bloc du script, le hook.', visuel: 'Visuel 1' },
-    { temps: '3-10 sec', texte: 'Deuxième bloc du script, le développement.', visuel: 'Visuel 2' }
+    { temps: '0-3 sec', texte: 'Premier bloc du script, le hook.' + REMPLISSAGE_BLOC, visuel: 'Visuel 1' },
+    { temps: '3-10 sec', texte: 'Deuxième bloc du script, le développement.' + REMPLISSAGE_BLOC, visuel: 'Visuel 2' }
   ],
   legende: 'Légende', hashtags: ['#a'], variantes_titre: ['T1']
 };

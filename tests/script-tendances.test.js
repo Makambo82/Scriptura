@@ -11,7 +11,13 @@ const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
 const BRIEF_FAKE = { analyse_strategique: 'A', angle_choisi: 'Angle X', pourquoi_cet_angle: 'P', structure: 'S', emotion_dominante: 'E', strategie_hook: 'H', strategie_retention: 'R', strategie_cta: 'C' };
-const SCRIPT_FAKE = { score: { viral: 90, hook: 90, engagement: 90, emotion: 90, retention: 90 }, analyse: 'ok', hooks: [{ style: 'x', texte: 'Hook 1' }], script: [{ temps: '0-3 sec', texte: 'Texte', visuel: 'Visuel' }], legende: 'Légende', hashtags: ['#a'], variantes_titre: ['T1'] };
+// Script assez long (8 blocs x 17 mots = 136 mots) pour tomber directement
+// dans la fourchette 117-170 attendue pour la durée par défaut (1 minute) :
+// passe le contrôle de complétude ET le contrôle de durée strict (voir
+// js/generation.js, scriptEstComplet + la boucle de correction de durée)
+// sans déclencher de boucle de correction inutile, ce test ne portant pas
+// sur la durée.
+const SCRIPT_FAKE = { score: { viral: 90, hook: 90, engagement: 90, emotion: 90, retention: 90 }, analyse: 'ok', hooks: [{ style: 'x', texte: 'Hook 1' }], script: Array.from({ length: 8 }, (_, i) => ({ temps: '0-3 sec', texte: 'Bloc numéro ' + i + ' avec plusieurs mots pour dépasser largement le seuil minimal de complétude du script généré.', visuel: 'Visuel' })), legende: 'Légende', hashtags: ['#a'], variantes_titre: ['T1'] };
 
 async function genererScript(page, niche, sujet) {
   const requetes = [];

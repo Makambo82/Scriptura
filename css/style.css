@@ -697,6 +697,15 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 }
 .score-global-max{font-size:0.9rem;color:rgba(255,255,255,0.4)}
 .score-metrics{display:flex;flex-direction:column;gap:14px}
+/* Avertissement honnête (voir generation.js, avertissementDuree) : script
+   livré malgré tout hors de la durée choisie après toutes les tentatives de
+   correction, jamais silencieux. Doré, pas rouge : c'est une info utile à
+   l'action ("régénère si besoin"), pas une panne de l'app. */
+.duree-avertissement{
+  margin-top:14px;padding:10px 14px;border-radius:6px;
+  background:var(--gold-pale);border:1px solid var(--border-soft);
+  color:var(--gold-light);font-size:0.8rem;line-height:1.5;
+}
 .metric{}
 .metric-top{
   display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;

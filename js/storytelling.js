@@ -648,7 +648,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       const hardMinStory = Math.round(wt.min * 0.9);
       const hardMaxStory = Math.round(wt.max * 1.1);
 
-      while ((storyWordCount < hardMinStory || storyWordCount > hardMaxStory) && storyCorrectionAttempts < 2 && !repondreMaintenant) {
+      // 3 tentatives (comme le mode Script, voir js/generation.js) : une
+      // simple erreur réseau/parsing sur une seule tentative ne doit plus
+      // faire abandonner tout de suite (voir le catch plus bas), un récit
+      // deux fois trop court partait auparavant sans aucun avertissement.
+      while ((storyWordCount < hardMinStory || storyWordCount > hardMaxStory) && storyCorrectionAttempts < 3 && !repondreMaintenant) {
         storyCorrectionAttempts++;
         const tropCourt = storyWordCount < hardMinStory;
         const correctionPromptStory = `Tu es le Rédacteur en Chef de Scriptura. Le récit suivant ne respecte PAS la durée demandée et doit être corrigé.
@@ -672,14 +676,24 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4); // phase : calibrage de la durée
           const correctRawStory = await callAI(MODEL_CREATIF, 8000, correctionPromptStory, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
           correctedStory = parseAIResponse(correctRawStory);
-        } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
+        } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
 
         if (correctedStory && Array.isArray(correctedStory.recit) && correctedStory.recit.length) {
           parsed.recit = correctedStory.recit;
           storyWordCount = countStoryWords(parsed.recit);
-        } else {
-          break; // parsing échoué, on garde la version actuelle
         }
+        // Correction invalide/vide : on ne casse plus la boucle, le tour
+        // suivant retente avec la dernière version connue de parsed.recit.
+      }
+
+      // Toutes les tentatives épuisées et la durée cible n'est toujours pas
+      // atteinte : le créateur doit le savoir plutôt que de découvrir en
+      // silence un récit trop court ou trop long (voir affichage dans
+      // renderStory). Jamais bloquant, juste honnête.
+      if (storyWordCount < hardMinStory || storyWordCount > hardMaxStory) {
+        parsed.avertissementDuree = storyWordCount < hardMinStory
+          ? `Ce récit fait ${storyWordCount} mots, plus court que les ${wt.min}-${wt.max} mots visés pour ${storyDuree}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`
+          : `Ce récit fait ${storyWordCount} mots, plus long que les ${wt.min}-${wt.max} mots visés pour ${storyDuree}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`;
       }
     }
 
@@ -945,6 +959,7 @@ function renderStory(d) {
           ${metricBar('Force émotionnelle', s.emotion)}
           ${metricBar('Rétention estimée', s.retention)}
         </div>
+        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
       </div>`;
   }
 

@@ -1438,8 +1438,27 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
+    function countScriptWords(script) {
+      if (!script || !Array.isArray(script)) return 0;
+      return script.map(s => (s.texte || '')).join(' ').split(/\s+/).filter(Boolean).length;
+    }
+
+    // Retour terrain : un script "2 minutes" livré avec 4 blocs et ~95 mots
+    // (au lieu des 5 blocs / 270-310 mots attendus), sans aucune erreur ni
+    // avertissement. scriptEstComplet() ne vérifiait que la présence de
+    // tableaux non vides, jamais leur taille réelle : un brouillon deux fois
+    // trop court passait ce test haut la main et partait directement en
+    // critique/révision (qui ne corrigent pas la durée), pour n'être rattrapé
+    // que par le contrôle de durée strict plus bas, lequel abandonnait
+    // silencieusement à la moindre erreur réseau (voir plus bas). Un script
+    // à moins de la moitié du minimum demandé n'est jamais un choix créatif
+    // valable, c'est une réponse tronquée ou une consigne ignorée : autant le
+    // détecter ICI, au point le moins cher du pipeline (avant tout critique/
+    // révision), pour relancer une génération complète tout de suite.
     function scriptEstComplet(p) {
-      return !!p && Array.isArray(p.script) && p.script.length > 0 && Array.isArray(p.hooks) && p.hooks.length > 0;
+      if (!p || !Array.isArray(p.script) || !p.script.length || !Array.isArray(p.hooks) || !p.hooks.length) return false;
+      if (wt && wt.min && countScriptWords(p.script) < wt.min * 0.5) return false;
+      return true;
     }
 
     // Le brief (Directeur éditorial) vient de se terminer pour de vrai :
@@ -1675,11 +1694,6 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
     //  Compte les mots réels. Si hors cible, régénère avec correction.
     // ══════════════════════════════════════
-    function countScriptWords(script) {
-      if (!script || !Array.isArray(script)) return 0;
-      return script.map(s => (s.texte || '')).join(' ').split(/\s+/).filter(Boolean).length;
-    }
-
     let wordCount = countScriptWords(parsed.script);
     let correctionAttempts = 0;
 
@@ -1687,7 +1701,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     const hardMin = Math.round(wt.min * 0.9);
     const hardMax = Math.round(wt.max * 1.1);
 
-    while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 2 && !repondreMaintenant) {
+    // 3 tentatives (au lieu de 2) : retour terrain, un script "2 minutes"
+    // livré à 95 mots sans aucun avertissement. Avant ce correctif, une
+    // simple erreur réseau/parsing sur UNE tentative de correction
+    // abandonnait la boucle immédiatement (`break`), livrant tel quel un
+    // script deux à trois fois trop court. Une erreur ponctuelle ne doit
+    // plus jamais faire abandonner la correction : elle compte comme une
+    // tentative ratée, la boucle retente au tour suivant.
+    while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 3 && !repondreMaintenant) {
       correctionAttempts++;
       const tooShort = wordCount < hardMin;
       const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
@@ -1711,15 +1732,26 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       try {
         const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
         correctedScript = parseAIResponse(correctRaw);
-      } catch(e) { break; /* en cas d'erreur (même après réessais), on garde la version actuelle */ }
+      } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
 
-      if (correctedScript && correctedScript.script) {
+      if (correctedScript && Array.isArray(correctedScript.script) && correctedScript.script.length) {
         parsed.script = correctedScript.script;
         wordCount = countScriptWords(parsed.script);
-      } else {
-        break; // parsing échoué, on garde la version actuelle
       }
+      // Correction invalide/vide : on ne casse plus la boucle, le tour
+      // suivant retente avec la dernière version connue de parsed.script.
     }
+
+    // Toutes les tentatives épuisées et la durée cible n'est toujours pas
+    // atteinte (cas rare, mais justement celui qui passait inaperçu) :
+    // le créateur doit le savoir plutôt que de découvrir en silence un
+    // script deux fois plus court que la durée choisie. Jamais bloquant,
+    // juste honnête (voir affichage dans renderResults).
+    const avertissementDuree = (wordCount < hardMin || wordCount > hardMax)
+      ? (wordCount < hardMin
+          ? `Ce script fait ${wordCount} mots, plus court que les ${wt.min}-${wt.max} mots visés pour ${wt.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`
+          : `Ce script fait ${wordCount} mots, plus long que les ${wt.min}-${wt.max} mots visés pour ${wt.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`)
+      : '';
 
     // Score déterministe (voir scorerScriptGenere plus haut) : calculé ICI à
     // partir de signaux, jamais d'un chiffre choisi par l'IA. deuxieme_personne/
@@ -1740,6 +1772,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       signauxIA || {}
     );
     parsed.score = scorerScriptGenere(signauxFinal, wordCount, wt);
+    if (avertissementDuree) parsed.avertissementDuree = avertissementDuree;
 
     // Incrémenter le compteur si pas débloqué
     if (!unlocked && !_regenGratuiteEnCours) {
@@ -2233,7 +2266,7 @@ function renderResults(d, niche, sujet) {
           ${metricBar('Force émotionnelle', s.emotion)}
           ${metricBar('Rétention estimée', s.retention)}
         </div>
-        
+        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
       </div>`;
     list.innerHTML = scoreHTML;
     // Animer les barres après affichage
