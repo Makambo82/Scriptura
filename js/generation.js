@@ -978,6 +978,32 @@ function _genDetecterRythmeSoutenu(texte) {
   const motsTotal = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
   return (motsTotal / phrases.length) <= 12;
 }
+// Promesse chiffrée faite dans un hook ("l'erreur numéro trois", "la 3e
+// raison", "le secret n°2"), détectée MÉCANIQUEMENT, aucune IA. Retour
+// terrain : un script annonçait "l'erreur numéro trois", énumérait cinq
+// erreurs, puis révélait comme "erreur trois" ce qui était la cinquième de
+// la liste. Le spectateur qui compte décroche pile au moment de la
+// révélation, c'est-à-dire là où il doit rester. Le CODE repère la promesse
+// (bon marché, fiable), l'IA vérifie ensuite qu'elle est tenue au bon rang
+// (voir le contrôle injecté dans le prompt du Critique).
+// Volontairement conservateur : un rang n'est retenu que s'il est collé à un
+// marqueur explicite (numéro/n°) ou à un nom énumérable, pour ne pas
+// déclencher sur "la première fois" ou "deux minutes".
+const _GEN_NOMS_RANG = "erreurs?|raisons?|secrets?|astuces?|[ée]tapes?|r[èe]gles?|pi[èe]ges?|conseils?|points?|techniques?|cl[ée]s?|le[çc]ons?|principes?|habitudes?|signes?|sympt[ôo]mes?|m[ée]thodes?|facteurs?|crit[èe]res?|ingr[ée]dients?|trucs?|phases?|niveaux?";
+const _GEN_NOMBRES_RANG = "\\d{1,2}|une?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix";
+const _GEN_ORDINAUX_RANG = "premi[èe]res?|deuxi[èe]mes?|troisi[èe]mes?|quatri[èe]mes?|cinqui[èe]mes?|sixi[èe]mes?|septi[èe]mes?|huiti[èe]mes?|neuvi[èe]mes?|dixi[èe]mes?|\\d{1,2}\\s*(?:[èe]mes?|ers?|[èe]res?|es?)";
+function _genDetecterPromesseRang(texte) {
+  const t = String(texte || '');
+  const nom = '(?:' + _GEN_NOMS_RANG + ')';
+  const nb = '(?:' + _GEN_NOMBRES_RANG + ')';
+  const ord = '(?:' + _GEN_ORDINAUX_RANG + ')';
+  const m =
+    // "l'erreur numéro trois", "le secret n° 2", "l'erreur 3"
+    t.match(new RegExp('\\b' + nom + "\\s+(?:num[ée]ro\\s+|n\\s*[°ºo]\\s*\\.?\\s*)?" + nb + '\\b', 'i')) ||
+    // "la troisième erreur", "la 3e raison"
+    t.match(new RegExp('\\b' + ord + '\\s+' + nom + '\\b', 'i'));
+  return m ? m[0].replace(/\s+/g, ' ').trim() : '';
+}
 // Score d'une dimension : simple taux de présence des signaux qui la
 // composent, jamais un chiffre choisi librement. Un signal EXPLICITEMENT
 // true/false compte pour 1/0 ; un signal ABSENT (clé manquante, ex. l'appel
@@ -1207,6 +1233,35 @@ async function generate() {
     '5 minutes':   { min: 680, max: 780, blocs: '7-8', desc: '5 minutes' }
   };
   const wt = wordTargets[selectedDuree] || wordTargets['1 minute'];
+
+  // ── PLAFOND DE DURÉE PAR BLOC ──
+  // Retour terrain : un script "1 minute" livré en 4 blocs de 9 / 117 / 18 / 6
+  // mots. Le compte total était juste (150 mots = 60,0 s pile) et la structure
+  // hook → corps → chute respectée, mais UN bloc portait 78% du script, soit
+  // 47 secondes d'un seul tenant. Deux conséquences réelles : la timeline
+  // affichée au créateur ne lui donne plus aucun repère de rythme, et le champ
+  // "visuel" de ce bloc doit couvrir 47 secondes avec une seule direction de
+  // tournage, alors que l'app elle-même prescrit de changer de plan avant
+  // 15-25 secondes.
+  // La règle de répartition posée dans le prompt bornait le PREMIER bloc
+  // (hook) et le DERNIER (CTA/chute), mais laissait "les blocs du milieu se
+  // partagent tout le reste" sans aucun maximum : le modèle empile donc au
+  // milieu. Le plafond ci-dessous ferme ce trou.
+  // Volontairement RELATIF au format, jamais un 25 s uniforme : les cibles de
+  // blocs (3 pour 30 s, ..., 7-8 pour 5 min) correspondent à la structure "peu
+  // de blocs longs" des apps de référence, et un plafond fixe forcerait à
+  // multiplier les blocs sur les formats longs. On tolère donc jusqu'à 1,5 fois
+  // la part moyenne d'un bloc pour la durée choisie, avec un plancher à 25 s
+  // (le seuil de plan fixe déjà retenu par l'app).
+  const DUREE_BLOC_TOLERANCE = 1.5;
+  const DUREE_BLOC_PLANCHER = 25;
+  function plafondDureeBloc() {
+    const motsCible = wt ? (wt.min + wt.max) / 2 : 0;
+    const nbBlocs = parseInt(String((wt && wt.blocs) || ''), 10);
+    if (!motsCible || !nbBlocs) return DUREE_BLOC_PLANCHER;
+    const secondesCible = motsCible / MOTS_PAR_SEC_PARLE;
+    return Math.max(DUREE_BLOC_PLANCHER, (secondesCible / nbBlocs) * DUREE_BLOC_TOLERANCE);
+  }
 
   // Mémoire du créateur : une ligne de contexte factuelle en plus, construite
   // depuis le profil déjà connu (voir js/profil.js). N'existe que si des
@@ -1444,7 +1499,7 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 2. RÉPARTITION DU TEMPS ENTRE LES BLOCS (structure standard des vidéos qui performent, à respecter strictement) : hook (0-3 secondes) → corps → CTA/chute (5-10 dernières secondes).
    - Le PREMIER bloc EST le hook : il doit tenir en 0 à 3 SECONDES, soit 7 à 10 MOTS, une seule respiration. Un premier bloc de 25-30 mots n'est plus un hook, c'est déjà du développement : à ce moment-là le spectateur a scrollé depuis longtemps. C'est la contrainte la plus violée et la plus coûteuse, ne la traite pas comme une suggestion.
    - Le DERNIER bloc (CTA ou chute) tient en 5 à 10 secondes, soit 12 à 25 mots.
-   - Les blocs du milieu se partagent tout le reste de la durée cible.
+   - Les blocs du milieu se partagent tout le reste de la durée cible, de façon ÉQUILIBRÉE. AUCUN bloc, du premier au dernier, ne dépasse ${Math.round(plafondDureeBloc())} SECONDES de parole, soit environ ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} MOTS. Un bloc qui concentre à lui seul la moitié du script est un échec de découpage, même si le total de mots est juste : le créateur n'a plus aucun repère de rythme, et une seule direction de tournage doit alors couvrir près d'une minute d'antenne. Quand un passage dépasse ce plafond, coupe-le en deux blocs à une frontière naturelle (changement d'idée, bascule, révélation).
    Repère de conversion, le même que celui utilisé pour vérifier ton script : environ 2,5 mots par seconde de parole.
 
 3. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
@@ -1452,6 +1507,7 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 4. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
 
 5. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
+   COHÉRENCE DE LA PROMESSE CHIFFRÉE (piège classique, vérifie-le avant de répondre) : si ton hook annonce un rang précis ("l'erreur numéro trois", "la 2e raison", "le secret n°4"), alors l'élément que tu révèles ensuite comme étant CE rang doit être EXACTEMENT le rang qu'il occupe dans ton énumération, compté dans l'ordre d'apparition. Annoncer l'erreur 3, énumérer cinq erreurs, puis révéler comme "erreur 3" celle qui était la cinquième de ta liste : le spectateur qui compte le remarque, et il décroche pile au moment de la révélation, c'est-à-dire là où il devait rester. Soit tu fais correspondre le rang, soit tu ne chiffres pas la promesse du hook.
 
 6. ${estObjectifVues
   ? 'CHUTE EN BOUCLE (pas un CTA parlé) : ' + objectifInstructionScript + ' Ne force JAMAIS une phrase "partage/abonne-toi" parlée à la fin pour cet objectif, ça casse la boucle et mange du temps d\'antenne pour rien (voir le brief). TEST OBLIGATOIRE avant de valider : la dernière phrase reprend-elle vraiment un mot, une image ou l\'idée exacte de la toute première phrase, de façon à ce qu\'une relecture immédiate semble naturelle ? Si la chute n\'a aucun lien littéral avec l\'ouverture, réécris-la.'
@@ -1517,6 +1573,57 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         const fin = Math.max(debut + 1, Math.round(curseur));
         return Object.assign({}, bloc, { temps: debut + '-' + fin + ' sec' });
       });
+    }
+
+    // Découpe en CODE (aucune IA, aucun mot ajouté, retiré ou modifié) tout
+    // bloc qui dépasse le plafond, aux frontières de PHRASES et en parts
+    // équilibrées. Le total de mots, donc la durée et le score de durée, sont
+    // strictement inchangés : c'est un redécoupage, pas une réécriture, d'où
+    // zéro risque de dégrader le texte. Un bloc d'une seule phrase n'est
+    // jamais coupé en plein milieu, on préfère un bloc long à une phrase
+    // amputée.
+    function decouperBlocsTropLongs(script) {
+      if (!Array.isArray(script) || !script.length) return script;
+      const plafond = plafondDureeBloc();
+      const suiteVisuel = estFaceless
+        ? 'Change de visuel ici, dans la continuité du plan précédent'
+        : 'Change de cadrage ici, ou coupe vers un plan d\'illustration, dans la continuité du plan précédent';
+      const sortie = [];
+      script.forEach(bloc => {
+        const texte = bloc && typeof bloc.texte === 'string' ? bloc.texte : '';
+        if (!texte || dureeParleeDe(texte) <= plafond) { sortie.push(bloc); return; }
+        const phrases = (typeof splitIntoSentences === 'function' ? splitIntoSentences(texte) : []);
+        if (phrases.length < 2) { sortie.push(bloc); return; }
+        const parts = Math.min(phrases.length, Math.ceil(dureeParleeDe(texte) / plafond));
+        const motsDe = p => p.split(/\s+/).filter(Boolean).length;
+        const motsTotal = phrases.reduce((s, p) => s + motsDe(p), 0);
+        const cibleParPart = motsTotal / parts;
+        const groupes = [];
+        let courant = [];
+        let motsCourant = 0;
+        phrases.forEach((phrase, i) => {
+          courant.push(phrase);
+          motsCourant += motsDe(phrase);
+          const restantes = phrases.length - (i + 1);
+          const groupesRestants = parts - groupes.length - 1; // groupes encore à former après celui-ci
+          // On ferme le groupe dès qu'il atteint sa part, sauf s'il ne reste
+          // plus assez de phrases pour remplir les groupes suivants.
+          if (groupesRestants >= 1 && motsCourant >= cibleParPart && restantes >= groupesRestants) {
+            groupes.push(courant);
+            courant = [];
+            motsCourant = 0;
+          }
+        });
+        if (courant.length) groupes.push(courant);
+        groupes.forEach((groupe, i) => {
+          const visuelOrigine = (bloc && typeof bloc.visuel === 'string') ? bloc.visuel.trim() : '';
+          sortie.push(Object.assign({}, bloc, {
+            texte: groupe.join(' '),
+            visuel: i === 0 ? bloc.visuel : (visuelOrigine ? suiteVisuel + ' : ' + visuelOrigine : suiteVisuel + '.')
+          }));
+        });
+      });
+      return sortie;
     }
 
     // Filet de sécurité déterministe, même principe que le mode Série (voir
@@ -1642,6 +1749,15 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         const scriptForReview = (parsed.script || []).map((s, i) => '[segment ' + i + ', ' + s.temps + '] ' + s.texte).join('\n');
         const hooksForReview = (parsed.hooks || []).map((h, i) => (i + 1) + '. ' + h.texte).join('\n');
 
+        // Promesse chiffrée repérée en CODE (voir _genDetecterPromesseRang) :
+        // le contrôle n'est injecté dans le prompt du Critique que s'il y a
+        // vraiment un rang à vérifier, pour ne pas diluer sa consigne quand le
+        // script ne promet aucun numéro.
+        const promesseRangScript = (typeof _genDetecterPromesseRang === 'function')
+          ? (_genDetecterPromesseRang((parsed.script && parsed.script[0] && parsed.script[0].texte) || '')
+             || _genDetecterPromesseRang((parsed.hooks && parsed.hooks[0] && parsed.hooks[0].texte) || ''))
+          : '';
+
         const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
 
 CONTEXTE :
@@ -1662,7 +1778,8 @@ TON TRAVAIL, EN TROIS TEMPS :
 
 1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Vérifie aussi que l'angle, l'émotion et la structure servent vraiment l'objectif du créateur ci-dessus (pas seulement le CTA final) : si le corps du script pourrait être identique quel que soit l'objectif choisi, c'est une faiblesse à signaler. Pour chaque faiblesse, indique le numéro du segment concerné.
 ${objectifCritiqueScript ? `\n1bis. CONTRÔLE SPÉCIFIQUE À L'OBJECTIF "${state.objectif}" : ${objectifCritiqueScript} Toute réponse négative ou mitigée à ces questions est une faiblesse à signaler, au même titre que celles du point 1.\n` : ''}
-1ter. CONTRÔLE DE LA RÉPARTITION DU TEMPS (structure standard des vidéos qui performent : hook 0-3 secondes, puis corps, puis CTA/chute sur 5-10 secondes) : COMPTE les mots du PREMIER segment. Au-delà de 10-12 mots, il dépasse les 3 secondes de hook (repère : ~2,5 mots par seconde) et ce n'est plus un hook mais du développement déguisé, le spectateur a déjà scrollé. Signale-le comme une faiblesse du segment 0, avec le nombre de mots constaté. Même contrôle sur le DERNIER segment, qui doit tenir en 5-10 secondes (12 à 25 mots).
+1ter. CONTRÔLE DE LA RÉPARTITION DU TEMPS (structure standard des vidéos qui performent : hook 0-3 secondes, puis corps, puis CTA/chute sur 5-10 secondes) : COMPTE les mots du PREMIER segment. Au-delà de 10-12 mots, il dépasse les 3 secondes de hook (repère : ~2,5 mots par seconde) et ce n'est plus un hook mais du développement déguisé, le spectateur a déjà scrollé. Signale-le comme une faiblesse du segment 0, avec le nombre de mots constaté. Même contrôle sur le DERNIER segment, qui doit tenir en 5-10 secondes (12 à 25 mots). COMPTE ENFIN les mots de CHAQUE segment du milieu : aucun ne doit dépasser ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots (${Math.round(plafondDureeBloc())} secondes de parole). Un segment qui porte à lui seul la moitié du script est une faiblesse à signaler même si le total de mots est juste : indique son numéro, son nombre de mots, et à quelle frontière d'idée il devrait être coupé en deux.${promesseRangScript ? `
+1quater. CONTRÔLE DE LA PROMESSE CHIFFRÉE : l'ouverture de ce script promet explicitement « ${promesseRangScript} ». ÉNUMÈRE dans l'ordre d'apparition les éléments que le corps du script présente vraiment, numérote-les, puis vérifie que l'élément révélé/développé comme étant ce rang est EXACTEMENT celui qui occupe ce rang dans ton énumération. S'il y a décalage (le hook annonce le rang 3 mais la révélation porte sur le 5e élément listé), c'est une faiblesse MAJEURE : signale-la avec le numéro du segment de la révélation, le rang promis et le rang réellement livré. Un spectateur qui compte décroche pile à cet instant, c'est-à-dire au moment de la révélation.` : ''}
 2. RÉFUTATION, LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
 
 3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE, note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
@@ -1728,6 +1845,8 @@ RÈGLES :
 - Renvoie la liste COMPLÈTE des segments (les inchangés recopiés à l'identique, les faibles réécrits), dans le même ordre, avec le même nombre total de segments.
 - Respecte la durée cible ${wt.min}-${wt.max} mots au total et ${wt.blocs} blocs.
 - Répartition du temps à préserver : premier bloc (hook) 7 à 10 mots pour tenir en 0-3 secondes, dernier bloc 12 à 25 mots pour tenir en 5-10 secondes. Si tu réécris le premier segment, il doit RESTER dans cette limite, jamais s'allonger.
+- Aucun segment ne dépasse ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots (${Math.round(plafondDureeBloc())} secondes de parole) : un segment réécrit ne doit jamais absorber le contenu d'un autre ni gonfler au-delà de cette limite.${promesseRangScript ? `
+- L'ouverture promet « ${promesseRangScript} » : si tu réécris le segment de la révélation ou l'énumération, le rang annoncé et le rang réellement livré doivent correspondre exactement.` : ''}
 - Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, ${estObjectifVues ? 'la chute doit boucler sur le hook (même mot/image/idée), jamais un CTA parlé de partage.' : 'le CTA final être présent et clair.'}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -1830,6 +1949,7 @@ RÈGLES :
 - Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
 - Garde ${wt.blocs} blocs, un hook fort au début, ${estObjectifVues ? 'une chute qui boucle sur le hook à la fin (pas de CTA parlé)' : 'un CTA clair à la fin'}
 - RÉPARTITION DU TEMPS (structure standard des vidéos qui performent) : le PREMIER bloc est le hook et tient en 0-3 secondes, soit 7 à 10 MOTS maximum, jamais plus. Le DERNIER bloc tient en 5-10 secondes, soit 12 à 25 mots. Tout l'allongement ou le raccourcissement se joue donc sur les blocs du MILIEU, jamais en gonflant le hook.
+- AUCUN bloc ne dépasse ${Math.round(plafondDureeBloc())} secondes de parole, soit environ ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots. Les blocs du milieu se répartissent le temps de façon équilibrée : si tu dois allonger, répartis sur plusieurs blocs plutôt que d'en gonfler un seul.
 - Chaque phrase garde une fonction, zéro remplissage
 - Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujetCourt}
 
@@ -1862,6 +1982,16 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(5);
 
     const [, wordCount] = await Promise.all([completerHooksScript(), corrigerDureeScript()]);
+
+    // Filet déterministe de dernier recours sur la répartition : si malgré la
+    // règle de prompt et le contrôle du Critique un bloc dépasse encore le
+    // plafond, on le redécoupe ICI, aux frontières de phrases. Aucun mot n'est
+    // ajouté, retiré ni modifié : le compte de mots (donc wordCount,
+    // l'avertissement de durée et le score) reste strictement identique.
+    // Placé APRÈS toutes les passes IA (plus rien ne peut recoller les blocs)
+    // et AVANT le recalcul des timestamps, qui doit porter sur le découpage
+    // final réellement affiché au créateur.
+    parsed.script = decouperBlocsTropLongs(parsed.script);
 
     // Timestamps recalculés en code sur le script FINAL (après l'éventuelle
     // correction de durée ci-dessus), jamais avant : recalculer plus tôt
