@@ -24,17 +24,20 @@ function masquerTousLesEcrans() {
 
 // ═══════════════════════════════════════════════════════════
 //  BLOCAGE DU ZOOM MOBILE AU FOCUS D'UN CHAMP, corrige un "petit zoom avant"
-//  signalé au clic dans une zone de saisie, sur tous les modes. Tous les
+//  signalé au clic dans une zone de saisie, sur TOUS les navigateurs mobiles
+//  (Safari iOS ET Chrome Android confirmés), sur tous les modes. Tous les
 //  champs de saisie sont déjà en 16px minimum (voir css/style.css), seuil
-//  normalement suffisant, mais certains navigateurs mobiles (Safari iOS
-//  notamment) zooment quand même légèrement au focus d'un champ. Le seul
-//  fix fiable : verrouiller l'échelle (maximum-scale=1, user-scalable=no)
-//  DÈS le focusin, avant que le navigateur ait le temps d'appliquer son
-//  zoom automatique, puis la redéverrouiller à la perte de focus pour ne
-//  jamais bloquer le pincement une fois le champ quitté. On couvre aussi
-//  un changement d'écran pendant qu'un champ est encore focus (l'app ne
-//  recharge jamais la page, un zoom résiduel pourrait sinon persister d'un
-//  écran à l'autre) en réinitialisant également à chaque masquerTousLesEcrans.
+//  normalement suffisant, mais le navigateur zoome quand même légèrement au
+//  focus d'un champ dans certains cas (mise en page, densité d'écran...). Le
+//  seul fix fiable, indépendant du navigateur car il agit directement sur la
+//  balise <meta name="viewport"> que tous respectent (pas de détection de
+//  user-agent ici) : verrouiller l'échelle (maximum-scale=1, user-scalable=no)
+//  DÈS le focusin, avant que le navigateur ait le temps d'appliquer son zoom
+//  automatique, puis la redéverrouiller à la perte de focus pour ne jamais
+//  bloquer le pincement une fois le champ quitté. On couvre aussi un
+//  changement d'écran pendant qu'un champ est encore focus (l'app ne recharge
+//  jamais la page, un zoom résiduel pourrait sinon persister d'un écran à
+//  l'autre) en réinitialisant également à chaque masquerTousLesEcrans.
 // ═══════════════════════════════════════════════════════════
 // Contenu d'origine capturé UNE SEULE FOIS au chargement : si on le relisait
 // à chaque appel via getAttribute(), deux réinitialisations rapprochées (ex.
