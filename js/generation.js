@@ -1393,24 +1393,30 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
    ⚠️ MÉTHODE OBLIGATOIRE : Avant de finaliser, COMPTE mot par mot le total de ton script. S'il fait moins de ${wt.min} mots, tu DOIS ajouter du contenu de valeur pour atteindre la cible. S'il dépasse ${wt.max}, tu DOIS couper. Ne rends JAMAIS un script hors de la fourchette ${wt.min}-${wt.max} mots.
    Un script de ${wt.desc} qui fait moins de ${wt.min} mots est un ÉCHEC TOTAL. Vise le milieu de la fourchette (environ ${Math.round((wt.min + wt.max) / 2)} mots).
 
-2. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
+2. RÉPARTITION DU TEMPS ENTRE LES BLOCS (structure standard des vidéos qui performent, à respecter strictement) : hook (0-3 secondes) → corps → CTA/chute (5-10 dernières secondes).
+   - Le PREMIER bloc EST le hook : il doit tenir en 0 à 3 SECONDES, soit 7 à 10 MOTS, une seule respiration. Un premier bloc de 25-30 mots n'est plus un hook, c'est déjà du développement : à ce moment-là le spectateur a scrollé depuis longtemps. C'est la contrainte la plus violée et la plus coûteuse, ne la traite pas comme une suggestion.
+   - Le DERNIER bloc (CTA ou chute) tient en 5 à 10 secondes, soit 12 à 25 mots.
+   - Les blocs du milieu se partagent tout le reste de la durée cible.
+   Repère de conversion, le même que celui utilisé pour vérifier ton script : environ 2,5 mots par seconde de parole.
 
-3. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
+3. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
 
-4. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
+4. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
 
-5. ${estObjectifVues
+5. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
+
+6. ${estObjectifVues
   ? 'CHUTE EN BOUCLE (pas un CTA parlé) : ' + objectifInstructionScript + ' Ne force JAMAIS une phrase "partage/abonne-toi" parlée à la fin pour cet objectif, ça casse la boucle et mange du temps d\'antenne pour rien (voir le brief). TEST OBLIGATOIRE avant de valider : la dernière phrase reprend-elle vraiment un mot, une image ou l\'idée exacte de la toute première phrase, de façon à ce qu\'une relecture immédiate semble naturelle ? Si la chute n\'a aucun lien littéral avec l\'ouverture, réécris-la.'
   : 'CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l\'action clair. Jamais un "abonne-toi" générique. ' + objectifInstructionScript + '\nLe CTA doit être naturel, percutant, et donner envie d\'agir MAINTENANT. C\'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA. TEST OBLIGATOIRE avant de valider : la dernière phrase nomme-t-elle une action précise et exécutable (partage, commente, abonne-toi, va voir, dis-moi...) ? Une chute qui sonne bien ou une question rhétorique SANS consigne d\'action claire n\'est PAS un CTA, même si elle referme joliment le propos, réécris-la.'
 }
 
-6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Chaque hook tient en UNE respiration (viser 7 à 10 mots, jamais une phrase qu'on devrait couper pour reprendre son souffle à l'oral). Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Correspond-il à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-il être prononcé par n'importe quel créateur sur n'importe quel sujet (trop générique si oui) ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ, remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
+7. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Chaque hook tient en UNE respiration (viser 7 à 10 mots, jamais une phrase qu'on devrait couper pour reprendre son souffle à l'oral). Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Correspond-il à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-il être prononcé par n'importe quel créateur sur n'importe quel sujet (trop générique si oui) ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ, remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
-7. ${plateformeInstructionScript}
+8. ${plateformeInstructionScript}
 
-8. ORIENTÉ OBJECTIF DU DÉBUT À LA FIN, PAS SEULEMENT LE CTA : ${objectifCorpsInstructionScript} Le brief stratégique ci-dessus a déjà dû en tenir compte pour l'angle, l'émotion et la structure, vérifie que ton texte le reflète vraiment, pas seulement le dernier bloc.
+9. ORIENTÉ OBJECTIF DU DÉBUT À LA FIN, PAS SEULEMENT LE CTA : ${objectifCorpsInstructionScript} Le brief stratégique ci-dessus a déjà dû en tenir compte pour l'angle, l'émotion et la structure, vérifie que ton texte le reflète vraiment, pas seulement le dernier bloc.
 
-9. LE CHAMP "texte" NE CONTIENT JAMAIS DE MINUTAGE : le champ "temps" (ex: "0-3 sec") est SÉPARÉ et sert uniquement de repère visuel pour le créateur, ne le répète JAMAIS en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : il ne doit jamais commencer par "0-3 sec :", "(0 à 3 secondes)" ou toute variante numérique de minutage. Écris directement la phrase parlée.
+10. LE CHAMP "texte" NE CONTIENT JAMAIS DE MINUTAGE : le champ "temps" (ex: "0-3 sec") est SÉPARÉ et sert uniquement de repère visuel pour le créateur, ne le répète JAMAIS en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : il ne doit jamais commencer par "0-3 sec :", "(0 à 3 secondes)" ou toute variante numérique de minutage. Écris directement la phrase parlée.
 
 FORMAT, RÈGLE ABSOLUE, écris VRAIMENT pour ce format (les deux ne se ressemblent JAMAIS) :
 
@@ -1608,6 +1614,7 @@ TON TRAVAIL, EN TROIS TEMPS :
 
 1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Vérifie aussi que l'angle, l'émotion et la structure servent vraiment l'objectif du créateur ci-dessus (pas seulement le CTA final) : si le corps du script pourrait être identique quel que soit l'objectif choisi, c'est une faiblesse à signaler. Pour chaque faiblesse, indique le numéro du segment concerné.
 ${objectifCritiqueScript ? `\n1bis. CONTRÔLE SPÉCIFIQUE À L'OBJECTIF "${state.objectif}" : ${objectifCritiqueScript} Toute réponse négative ou mitigée à ces questions est une faiblesse à signaler, au même titre que celles du point 1.\n` : ''}
+1ter. CONTRÔLE DE LA RÉPARTITION DU TEMPS (structure standard des vidéos qui performent : hook 0-3 secondes, puis corps, puis CTA/chute sur 5-10 secondes) : COMPTE les mots du PREMIER segment. Au-delà de 10-12 mots, il dépasse les 3 secondes de hook (repère : ~2,5 mots par seconde) et ce n'est plus un hook mais du développement déguisé, le spectateur a déjà scrollé. Signale-le comme une faiblesse du segment 0, avec le nombre de mots constaté. Même contrôle sur le DERNIER segment, qui doit tenir en 5-10 secondes (12 à 25 mots).
 2. RÉFUTATION, LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
 
 3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE, note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
@@ -1672,6 +1679,7 @@ RÈGLES :
 - Ne touche JAMAIS un segment qui n'est pas listé ci-dessus comme à réécrire.
 - Renvoie la liste COMPLÈTE des segments (les inchangés recopiés à l'identique, les faibles réécrits), dans le même ordre, avec le même nombre total de segments.
 - Respecte la durée cible ${wt.min}-${wt.max} mots au total et ${wt.blocs} blocs.
+- Répartition du temps à préserver : premier bloc (hook) 7 à 10 mots pour tenir en 0-3 secondes, dernier bloc 12 à 25 mots pour tenir en 5-10 secondes. Si tu réécris le premier segment, il doit RESTER dans cette limite, jamais s'allonger.
 - Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, ${estObjectifVues ? 'la chute doit boucler sur le hook (même mot/image/idée), jamais un CTA parlé de partage.' : 'le CTA final être présent et clair.'}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
@@ -1765,6 +1773,7 @@ ${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + w
 RÈGLES :
 - Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
 - Garde ${wt.blocs} blocs, un hook fort au début, ${estObjectifVues ? 'une chute qui boucle sur le hook à la fin (pas de CTA parlé)' : 'un CTA clair à la fin'}
+- RÉPARTITION DU TEMPS (structure standard des vidéos qui performent) : le PREMIER bloc est le hook et tient en 0-3 secondes, soit 7 à 10 MOTS maximum, jamais plus. Le DERNIER bloc tient en 5-10 secondes, soit 12 à 25 mots. Tout l'allongement ou le raccourcissement se joue donc sur les blocs du MILIEU, jamais en gonflant le hook.
 - Chaque phrase garde une fonction, zéro remplissage
 - Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujetCourt}
 
