@@ -1239,30 +1239,34 @@ async function generate() {
   // l'appel à cette trame dans le brief). "critique" : questions propres à
   // cet objectif que le Critique Éditorial doit se poser en plus de sa
   // grille générale (anti-IA-générique, clichés...), jamais à sa place.
-  // Retour terrain (2 scripts consécutifs, objectif "Faire plus de vues" les
-  // deux fois) : le CTA final restait une jolie formule de clôture
-  // thématique ("Regarde comment...", "C'est vrai ou pas ?") sans jamais
-  // nommer une action précise, alors que la consigne demandait déjà
-  // "inciter au partage". Rendue explicite : verbe d'action nommé, sinon ce
-  // n'est pas un CTA, juste une chute qui y ressemble.
+  // Retour terrain + recherche (tendances TikTok 2026, sources multiples) :
+  // mon 1er correctif imposait un CTA de partage PARLÉ pour "Faire plus de
+  // vues", exactement l'inverse de la pratique confirmée. Pour la pure
+  // portée, le levier qui compte est la BOUCLE (la chute rejoint l'ouverture,
+  // pour que la relecture automatique TikTok redémarre sans coupure
+  // ressentie) : les rewatchs comptent 2x plus qu'une vue simple pour
+  // l'algorithme, et un CTA parlé de 2-3s mange du temps d'antenne et casse
+  // justement cette boucle. L'appel à l'action, s'il y en a un, doit être
+  // discret (commente/reste jusqu'au bout) et vivre dans la LÉGENDE, jamais
+  // forcé dans le script parlé lui-même.
   const codesObjectifScript = {
     'Faire plus de vues et maximiser la portée': {
-      corps: 'privilégie l\'angle et l\'émotion qui donnent le plus envie de PARTAGER ou d\'enchaîner sur une autre vidéo du compte (surprise, choc, humour, forte identification), la portée prime sur la conversion. La structure et les relances doivent maximiser la rétention pure jusqu\'au bout, sans jamais ralentir pour expliquer ou vendre quoi que ce soit.',
-      cta: 'la toute dernière phrase doit contenir un VERBE D\'ACTION EXPLICITE de partage/portée ("partage à quelqu\'un qui...", "envoie ça à...", "montre ça à la personne qui...", "va voir la vidéo où je...", "dis-moi en commentaire si..."), jamais seulement une chute thématique ou une question rhétorique qui sonne comme un CTA sans en être un. La portée prime, pas la conversion, mais l\'action demandée doit être nommée sans ambiguïté.',
-      trame: 'hook → anomalie ou paradoxe → première révélation → nouvelle question qui relance la curiosité → contexte bref → révélation plus forte → twist → conclusion mémorable.',
-      critique: 'Les 3 premières secondes donnent-elles vraiment envie de rester ? Y a-t-il un ou plusieurs moments où la tension retombe (un passage à vide, une baisse de rythme) ? Chaque phrase justifie-t-elle vraiment sa présence, ou une partie pourrait-elle être supprimée sans perte ?'
+      corps: 'privilégie l\'angle et l\'émotion qui donnent le plus envie de RE-REGARDER ou d\'enchaîner sur une autre vidéo du compte (surprise, choc, humour, forte identification), la portée prime sur la conversion. La structure et les relances doivent maximiser la rétention pure jusqu\'au bout, sans jamais ralentir pour expliquer ou vendre quoi que ce soit.',
+      cta: 'PRIVILÉGIE LA BOUCLE plutôt qu\'un CTA parlé : la toute dernière phrase doit rejoindre ou faire écho à la toute première (même mot, même image, même idée), pour que la relecture automatique de TikTok enchaîne sans coupure ressentie et pousse au rewatch (pesé 2x plus qu\'une vue simple par l\'algorithme). N\'ajoute PAS de phrase de type "partage/abonne-toi" parlée à la fin, ça mange du temps d\'antenne et casse la boucle : si un vrai appel à l\'action est utile, il vivra dans la légende, pas ici. Tout au plus, une relance implicite très courte ("et ça continue" / "regarde bien la fin") est acceptable si elle sert la boucle, jamais un ordre de partage explicite.',
+      trame: 'hook → anomalie ou paradoxe → première révélation → nouvelle question qui relance la curiosité → contexte bref → révélation plus forte → twist → chute qui BOUCLE sur le hook (même mot, même image, ou la même phrase complétée différemment), pour un effet de relecture immédiate.',
+      critique: 'Les 3 premières secondes donnent-elles vraiment envie de rester ? Y a-t-il un ou plusieurs moments où la tension retombe (un passage à vide, une baisse de rythme) ? La chute boucle-t-elle vraiment sur l\'ouverture (même mot/image/idée), ou est-ce une simple conclusion qui n\'a aucun lien littéral avec le hook ? Chaque phrase justifie-t-elle vraiment sa présence, ou une partie pourrait-elle être supprimée sans perte ?'
     },
     'Gagner des abonnés qualifiés rapidement': {
-      corps: 'construis un angle qui donne une signature reconnaissable au créateur (un point de vue, une expertise, une manière de traiter ce type de sujet), pas un contenu isolé et interchangeable. La structure doit laisser deviner qu\'il y a une suite ou un contenu récurrent à suivre, l\'émotion dominante doit créer de l\'attachement au créateur autant qu\'au sujet.',
-      cta: 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent), jamais un "abonne-toi" générique.',
-      trame: 'hook → histoire ou information forte → valeur livrée au spectateur → signature éditoriale (la manière propre au créateur de traiter ce type de sujet, pas générique) → ouverture vers un autre contenu du compte → pourquoi suivre ce compte précisément → CTA d\'abonnement.',
-      critique: 'Le créateur a-t-il une identité claire et reconnaissable dans ce script, ou pourrait-il être signé par n\'importe quel compte ? Le spectateur comprend-il concrètement pourquoi suivre CE compte plutôt qu\'un autre sur le même sujet ? Le script donne-t-il envie de voir la prochaine vidéo, pas seulement d\'avoir aimé celle-ci ?'
+      corps: 'construis un angle qui donne une signature reconnaissable au créateur (un point de vue, une expertise, une manière de traiter ce type de sujet), pas un contenu isolé et interchangeable. Traite ce sujet comme un ÉPISODE d\'une série implicite sur ce thème (même sans le nommer explicitement "partie 1"), l\'émotion dominante doit créer de l\'attachement au créateur autant qu\'au sujet.',
+      cta: 'donner une raison concrète et précise de s\'abonner (promesse de valeur future, contenu récurrent, "la suite arrive"), jamais un "abonne-toi" générique. Le contenu-série (une raison claire de vouloir voir la suite) fait mieux que la portée pure pour la fidélisation, prouvé.',
+      trame: 'hook → histoire ou information forte → valeur livrée au spectateur → signature éditoriale (la manière propre au créateur de traiter ce type de sujet, pas générique) → ouverture explicite vers la suite ou un autre contenu du compte (traite ce sujet comme un épisode, pas un one-shot) → pourquoi suivre ce compte précisément → CTA d\'abonnement.',
+      critique: 'Le créateur a-t-il une identité claire et reconnaissable dans ce script, ou pourrait-il être signé par n\'importe quel compte ? Le spectateur comprend-il concrètement pourquoi suivre CE compte plutôt qu\'un autre sur le même sujet ? Le script donne-t-il vraiment envie de voir la prochaine vidéo (une suite, un approfondissement identifiable), pas seulement d\'avoir aimé celle-ci ?'
     },
     'Générer des ventes via mon contenu': {
-      corps: 'construis l\'angle autour d\'un problème réel et douloureux pour l\'audience, que l\'offre du créateur résout implicitement. Privilégie une structure problème → agitation → solution assumée, l\'émotion dominante doit créer le désir ou l\'urgence d\'agir, jamais du contenu purement informatif qui n\'oriente vers rien.',
+      corps: 'construis l\'angle autour d\'un problème réel et douloureux pour l\'audience, que l\'offre du créateur résout implicitement. Privilégie une structure problème → agitation → solution assumée : l\'AGITATION doit rendre le problème concrètement urgent et personnel (montrer les vraies conséquences de l\'inaction, pas juste le nommer), prouvé pour augmenter l\'intention d\'achat de 37% par rapport à un problème simplement énoncé. Ton natif et vécu ("j\'ai réparé la mauvaise partie du problème"), jamais le ton d\'une pub léchée. L\'émotion dominante doit créer le désir ou l\'urgence d\'agir, jamais du contenu purement informatif qui n\'oriente vers rien.',
       cta: 'inciter à passer à l\'action commerciale (lien, DM, commentaire déclencheur, offre), sans jamais sonner comme une pub déguisée.',
-      trame: 'problème → prise de conscience → aggravation ou enjeu réel de ce problème → nouvelle façon de voir ce problème → solution → preuve ou crédibilité → offre → CTA. L\'offre n\'apparaît jamais avant que le désir soit réellement construit.',
-      critique: 'Le problème posé est-il assez important pour justifier qu\'on y consacre du temps et, potentiellement, de l\'argent ? Le désir est-il vraiment construit avant que l\'offre apparaisse, ou l\'offre arrive-t-elle trop tôt/brutalement ? L\'objection la plus probable du spectateur (prix, doute, "ça marche vraiment ?") est-elle anticipée d\'une façon ou d\'une autre ?'
+      trame: 'problème → prise de conscience → agitation réelle (conséquences concrètes de l\'inaction, pas juste "c\'est grave") → nouvelle façon de voir ce problème → solution → preuve ou crédibilité → offre → CTA. L\'offre n\'apparaît jamais avant que le désir soit réellement construit.',
+      critique: 'Le problème posé est-il assez important pour justifier qu\'on y consacre du temps et, potentiellement, de l\'argent ? L\'agitation montre-t-elle de VRAIES conséquences concrètes, ou reste-t-elle une affirmation vague ("c\'est un problème") sans les rendre tangibles ? Le désir est-il vraiment construit avant que l\'offre apparaisse, ou l\'offre arrive-t-elle trop tôt/brutalement ? L\'objection la plus probable du spectateur (prix, doute, "ça marche vraiment ?") est-elle anticipée d\'une façon ou d\'une autre ?'
     },
     'Renforcer mon expertise et ma crédibilité': {
       corps: 'choisis un angle qui démontre une maîtrise réelle et non évidente du sujet (nuance, contre-intuition, preuve concrète), jamais un contenu superficiel ou putaclic. Privilégie une structure de démonstration/preuve plutôt qu\'une simple accroche, l\'émotion dominante visée est le respect et la confiance envers le créateur, pas seulement le divertissement.',
@@ -1283,6 +1287,7 @@ async function generate() {
   // suivantes travaillent sur l'angle déjà distillé par le Directeur
   // Éditorial, pas sur le fichier brut, pour ne pas répéter son coût.
   const estObjectifVentes = state.objectif === 'Générer des ventes via mon contenu';
+  const estObjectifVues = state.objectif === 'Faire plus de vues et maximiser la portée';
   const venteContexteScript = (estObjectifVentes && (venteDescription || venteFichier))
     ? `\nCE QUE LE CRÉATEUR VEND : ${venteDescription || '(voir le fichier joint au message)'}${venteFichier ? ' Un fichier joint au message (photo du produit ou extrait du document fourni) donne des détails supplémentaires, utilise-le activement pour construire un angle, une preuve et une offre concrets, pas génériques.' : ''}\n`
     : '';
@@ -1337,7 +1342,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Appuie-toi sur ta connaissance de la psychologie humaine pour choisir CONSCIEMMENT le levier le plus puissant pour ce sujet précis (nomme-le) parmi : la BOUCLE OUVERTE / CURIOSITY GAP (une information manquante que le spectateur a besoin de combler), le PATTERN INTERRUPT (une forme ou une amorce qui casse ce à quoi on s'attend), l'AVERSION À LA PERTE (ce que le spectateur risque de manquer ou perdre s'il ne regarde pas), la DISSONANCE / CONTRADICTION (deux faits qui ne devraient normalement pas coexister), l'IDENTIFICATION MENACÉE (une menace ou une promesse qui touche directement le spectateur, pas un tiers abstrait), l'ENTRÉE EN PLEINE ACTION / IN MEDIAS RES (commencer au milieu d'une scène ou d'un résultat déjà arrivé, jamais poser calmement le décor avant, un début qui commence après coup retient nettement moins), ou le CHIFFRE/DÉTAIL PRÉCIS DÈS LA PREMIÈRE PHRASE (un chiffre, un montant, une durée exacte plutôt qu'une généralité vague). Le hook ne doit jamais être seulement accrocheur : il doit provoquer une envie IRRÉPRESSIBLE de continuer, en exploitant délibérément ce levier précis, pas au hasard. Teste mentalement la direction envisagée : est-elle prévisible ? Correspond-elle à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-elle être prononcée par n'importe quel créateur sur n'importe quel sujet (si oui, encore trop générique, cherche plus spécifique à CE sujet précis) ? Crée-t-elle une vraie tension et une boucle de curiosité ? Si elle échoue à l'un de ces tests, cherche une meilleure direction. Donne la direction ET le levier psychologique choisi (pas encore la formulation finale).
 
-7. STRATÉGIE DE CTA : Quel appel à l'action final servira le mieux l'objectif "${state.objectif}" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s'abonner pour une raison précise) ?
+7. STRATÉGIE DE CHUTE : ${estObjectifVues ? 'Pour l\'objectif "Faire plus de vues", pas de CTA parlé : décris comment la chute va boucler sur le hook (quel mot/image/idée du hook elle va reprendre), pour un effet de relecture immédiate.' : 'Quel appel à l\'action final servira le mieux l\'objectif "' + state.objectif + '" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s\'abonner pour une raison précise) ?'}
 
 8. ANTI-RÉPÉTITION : Si le profil du créateur ci-dessus mentionne des angles, hooks ou structures déjà utilisés récemment, ton angle et ta structure choisis DOIVENT en être nettement différents. Ne recycle jamais ce qui a déjà été fait pour ce créateur.
 
@@ -1394,8 +1399,10 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
 4. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
 
-5. CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l'action clair. Jamais un "abonne-toi" générique. ${objectifInstructionScript}
-Le CTA doit être naturel, percutant, et donner envie d'agir MAINTENANT. C'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA. TEST OBLIGATOIRE avant de valider : la dernière phrase nomme-t-elle une action précise et exécutable (partage, commente, abonne-toi, va voir, dis-moi...) ? Une chute qui sonne bien ou une question rhétorique SANS consigne d'action claire n'est PAS un CTA, même si elle referme joliment le propos, réécris-la.
+5. ${estObjectifVues
+  ? 'CHUTE EN BOUCLE (pas un CTA parlé) : ' + objectifInstructionScript + ' Ne force JAMAIS une phrase "partage/abonne-toi" parlée à la fin pour cet objectif, ça casse la boucle et mange du temps d\'antenne pour rien (voir le brief). TEST OBLIGATOIRE avant de valider : la dernière phrase reprend-elle vraiment un mot, une image ou l\'idée exacte de la toute première phrase, de façon à ce qu\'une relecture immédiate semble naturelle ? Si la chute n\'a aucun lien littéral avec l\'ouverture, réécris-la.'
+  : 'CTA OBLIGATOIRE À LA FIN : Le DERNIER bloc du script DOIT contenir un appel à l\'action clair. Jamais un "abonne-toi" générique. ' + objectifInstructionScript + '\nLe CTA doit être naturel, percutant, et donner envie d\'agir MAINTENANT. C\'est la partie qui transforme une vue en résultat. Ne termine JAMAIS un script sans CTA. TEST OBLIGATOIRE avant de valider : la dernière phrase nomme-t-elle une action précise et exécutable (partage, commente, abonne-toi, va voir, dis-moi...) ? Une chute qui sonne bien ou une question rhétorique SANS consigne d\'action claire n\'est PAS un CTA, même si elle referme joliment le propos, réécris-la.'
+}
 
 6. HOOKS DIFFÉRENCIANTS ET TESTÉS : Génère 5 hooks qui suivent la direction du brief. Chaque hook tient en UNE respiration (viser 7 à 10 mots, jamais une phrase qu'on devrait couper pour reprendre son souffle à l'oral). Avant de valider CHAQUE hook, teste-le mentalement : est-il prévisible ? Correspond-il à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-il être prononcé par n'importe quel créateur sur n'importe quel sujet (trop générique si oui) ? Crée-t-il une vraie tension psychologique immédiate ? Ouvre-t-il une boucle de curiosité (une question implicite que le spectateur veut absolument voir résolue) ? Promet-il une révélation forte ? Un hook qui échoue à l'un de ces tests est REJETÉ, remplace-le avant de répondre. INTERDIT les formules génériques. Chaque hook doit être IMPOSSIBLE à confondre avec du ChatGPT basique.
 
@@ -1419,13 +1426,13 @@ RÈGLES DE QUALITÉ À RESPECTER :
 - Un simple prompt ChatGPT ne doit JAMAIS pouvoir reproduire ça. Sois nettement supérieur.
 - Le hook doit vraiment arrêter le scroll.
 - Le compte de mots doit être dans la cible ${wt.min}-${wt.max}.
-- Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.
+- ${estObjectifVues ? 'Le dernier bloc DOIT boucler sur le hook (même mot/image/idée), jamais un CTA parlé du type "partage/abonne-toi" (voir consigne de chute ci-dessus).' : 'Le dernier bloc DOIT contenir un vrai CTA qui dit quoi faire.'}
 - Chaque phrase a une fonction, aucun remplissage.
 - Une seule image mentale par phrase, changement toutes les 3 à 5 secondes.
 Écris ta MEILLEURE version. Chaque script doit être digne d'un créateur professionnel.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"légende prête à copier avec CTA fort, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
+{"analyse":"pourquoi ce sujet+angle peut exploser, en 2-3 phrases percutantes qui reprennent l'angle stratégique","hooks":[{"style":"Type de hook","texte":"le hook complet et percutant"}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"${estFaceless ? "ce qu'on voit à l'écran" : "comment se filmer pour ce bloc"}"}],"legende":"${estObjectifVues ? 'légende prête à copier, PAS un CTA de partage fort ici non plus (voir le script qui boucle déjà) : une phrase courte qui donne envie de commenter ou de rester (ex. une question ouverte liée au sujet), engagement léger, jamais un ordre' : 'légende prête à copier avec CTA fort'}, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"]}
 
 Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMPÉRATIVEMENT entre ${wt.min} et ${wt.max} mots au total (vise ${Math.round((wt.min + wt.max) / 2)} mots). Compte tes mots avant de répondre. C'est la règle la plus importante.`;
 
@@ -1605,7 +1612,7 @@ RÈGLES :
 - Ne touche JAMAIS un segment qui n'est pas listé ci-dessus comme à réécrire.
 - Renvoie la liste COMPLÈTE des segments (les inchangés recopiés à l'identique, les faibles réécrits), dans le même ordre, avec le même nombre total de segments.
 - Respecte la durée cible ${wt.min}-${wt.max} mots au total et ${wt.blocs} blocs.
-- Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, le CTA final être présent et clair.
+- Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, ${estObjectifVues ? 'la chute doit boucler sur le hook (même mot/image/idée), jamais un CTA parlé de partage.' : 'le CTA final être présent et clair.'}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}
@@ -1691,7 +1698,7 @@ ${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + w
 
 RÈGLES :
 - Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
-- Garde ${wt.blocs} blocs, un hook fort au début, un CTA clair à la fin
+- Garde ${wt.blocs} blocs, un hook fort au début, ${estObjectifVues ? 'une chute qui boucle sur le hook à la fin (pas de CTA parlé)' : 'un CTA clair à la fin'}
 - Chaque phrase garde une fonction, zéro remplissage
 - Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujetCourt}
 
