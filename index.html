@@ -2,7 +2,17 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!-- interactive-widget=resizes-content (Chrome 108+, Firefox 132+, ignoré
+     sans risque par les navigateurs qui ne le connaissent pas encore) :
+     par défaut, l'ouverture du clavier virtuel ne redimensionne QUE le
+     "visual viewport", jamais la mise en page. Ce rétrécissement du visual
+     viewport, combiné au recentrage automatique du navigateur sur le champ
+     actif, donne souvent l'impression d'un zoom au clic dans un champ alors
+     qu'il n'y a pas de vrai zoom de page (retour créateur du 3 septembre
+     2026). Avec cette valeur, la mise en page se redimensionne réellement
+     pour tenir au-dessus du clavier, sans ce rétrécissement/recentrage
+     perçu comme un zoom. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="css/style.css"/>

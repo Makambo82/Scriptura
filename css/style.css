@@ -21,7 +21,19 @@
   --text-secondary:rgba(255,255,255,0.75);
   --white:#FFFFFF;
 }
-html{scroll-behavior:auto}
+/* Retour créateur du 3 septembre 2026, persistant malgré le 16px déjà en
+   place sur tous les champs et le verrouillage de la balise viewport au
+   focus (voir js/navigation.js) : sans cette ligne, WebKit peut appliquer sa
+   propre inflation automatique du texte sur mobile ("text autosizer", pensé
+   pour les pages non responsive), qui fait varier la taille RENDUE d'un
+   champ indépendamment de son font-size déclaré en CSS et peut donc
+   déclencher le zoom natif au focus même sur un champ correctement réglé à
+   16px. text-size-adjust:100% verrouille le texte à sa taille CSS exacte,
+   sans cette ambiguïté. Aucun risque : ne bloque ni le zoom manuel (pincer),
+   ni l'agrandissement de texte choisi par l'utilisateur dans les réglages
+   d'accessibilité du système (ceux-ci s'appliquent en amont, au niveau du
+   navigateur, jamais via ce mécanisme d'inflation automatique). */
+html{scroll-behavior:auto;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 /* Empêche le zoom par double-tap accidentel sur mobile (Safari iOS surtout),
    distinct du zoom auto au focus d'un champ (déjà bloqué par le 16px minimum
    sur .ctx-input/.ctx-textarea/.ds-input/.modal-input), cette règle couvre
