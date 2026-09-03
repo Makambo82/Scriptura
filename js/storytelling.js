@@ -439,7 +439,7 @@ Vise l'excellence absolue.
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Ouverture","texte":"le \"Aujourd'hui, on parle de...\" (ou variante fluide) qui pose le personnage ou l'enjeu, voir point 2"},{"segment":"Détonateur","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
-Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
+Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 6 à 11 secondes de narration à l'oral (soit ~15 à 29 mots par segment), en visant ~21 mots. Ce repère est MESURÉ sur les 333 segments réels des 15 modèles de référence (médiane 21 mots, intervalle courant 15-29), il n'est pas théorique : un segment nettement plus court hache la narration et s'écarte des modèles que tu dois reproduire. Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
 
   try {
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(1); // phase : écriture du récit
@@ -837,13 +837,24 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       // Budget de mots donné à la passe de clôture. Cette passe tourne APRÈS
       // le contrôle de durée (à raison, voir le commentaire ci-dessus) et
       // impose une structure lourde (phrase d'intro + 3 questions parallèles
-      // + signature métapoétique), soit 40 à 70 mots. Sans budget, elle
-      // faisait sortir de la fourchette un récit calibré pile dedans, en
-      // silence : sur un récit "30 secondes" (60-78 mots), c'est +50%. On lui
-      // dit donc combien de mots il reste réellement, plutôt que de constater
-      // la dérive après coup.
+      // + signature métapoétique). Sans budget, elle faisait sortir de la
+      // fourchette un récit calibré pile dedans, en silence : sur un récit
+      // "30 secondes" (60-78 mots), c'est +50%.
+      // Budget MESURÉ sur les 15 modèles de référence, pas choisi à la main :
+      // leur clôture pèse 49 mots en moyenne (médiane 50, de 30 à 63) pour
+      // 528 mots de récit, soit ~10% du total. D'où : 10% de la cible, avec
+      // un plancher à 30 mots (en dessous, la structure imposée ne tient
+      // simplement pas) et un plafond à 63 (le maximum jamais atteint par un
+      // modèle). Un premier jet de ce budget, non mesuré, autorisait jusqu'à
+      // 195 mots sur un récit de 5 minutes, soit trois fois la clôture la
+      // plus longue de tous les modèles.
+      // wt est null en format LONG (aucune durée choisie, donc aucune cible
+      // de mots) : la garde est indispensable ici, pas seulement dans le
+      // ternaire plus bas, sinon wt.min plante toute la génération.
+      const centreCibleRecit = wt ? (wt.min + wt.max) / 2 : 0;
+      const budgetMotsCloture = Math.min(63, Math.max(30, Math.round(centreCibleRecit * 0.10)));
       const budgetCloture = (storyFormat === 'court' && wt)
-        ? `\n- BUDGET DE LONGUEUR : le récit entier vise ${wt.min}-${wt.max} mots et fait actuellement ${countStoryWords(parsed.recit)} mots, dont ${((dernierSegment.texte || '').match(/\S+/g) || []).length} pour cette clôture. Ta clôture réécrite doit tenir dans un volume comparable (au plus ~${Math.max(35, Math.round(wt.max * 0.25))} mots) : respecte la structure du modèle en resserrant les phrases, jamais en rallongeant le récit au-delà de sa durée cible.`
+        ? `\n- BUDGET DE LONGUEUR : le récit entier vise ${wt.min}-${wt.max} mots et fait actuellement ${countStoryWords(parsed.recit)} mots, dont ${((dernierSegment.texte || '').match(/\S+/g) || []).length} pour cette clôture. Ta clôture réécrite doit tenir en ~${budgetMotsCloture} mots au plus, la proportion qu'elle occupe dans les modèles de référence : respecte leur structure en resserrant les phrases, jamais en rallongeant le récit au-delà de sa durée cible.`
         : '';
 
       for (let tentative = 0; tentative < 2; tentative++) {

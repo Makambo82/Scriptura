@@ -197,3 +197,62 @@ test('Script : étiquettes parasites retirées, minutage recalculé cohérent av
     await arreter();
   }
 });
+
+test('Récit format long : la génération aboutit alors qu\'aucune durée cible n\'existe', async () => {
+  // Non-régression d'un bug introduit pendant l'audit puis rattrapé par les
+  // tests : le budget de mots donné à la passe de clôture était calculé hors
+  // de sa garde, or wt (cibles de mots) vaut null en format LONG, où le
+  // créateur ne choisit aucune durée. wt.min levait alors une TypeError qui
+  // faisait échouer TOUTE la génération de récit long, silencieusement du
+  // point de vue du créateur (écran d'erreur générique).
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const RECIT = {
+      titre: 'Titre du récit',
+      ton: 'Dramatique',
+      hooks: Array.from({ length: 5 }, (_, i) => ({ style: 'x', texte: 'Hook ' + i })),
+      recit: [
+        { segment: 'Hook', texte: 'Il pensait avoir tout prévu. Personne ne l\'a vu venir.' },
+        { segment: 'Ouverture', texte: 'Aujourd\'hui, on parle de cette affaire que tout le monde a oubliée depuis.' },
+        { segment: 'Clôture', texte: 'Alors, que retenir de cette histoire ? Que le silence protège ? Que la peur commande ? Ou que tout se jouait avant ? Moi, je t\'ai pas raconté une chute. Je t\'ai montré un miroir.' }
+      ],
+      legende: 'Légende', hashtags: ['#a']
+    };
+
+    await poserMocksReseau(page, {
+      generate: () => ({ content: [{ text: JSON.stringify(RECIT) }] })
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'RECITLONG' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(200);
+
+    await page.evaluate(() => {
+      masquerTousLesEcrans();
+      document.getElementById('storyInput').value = 'Un fait historique marquant à raconter';
+      // Format long : aucune durée choisie, donc aucune cible de mots (wt null).
+      storyFormat = 'long';
+      storyDuree = '';
+      storyTon = '';
+    });
+    await page.evaluate(() => generateStory());
+    await page.waitForTimeout(2500);
+
+    const etat = await page.evaluate(() => ({
+      recitAffiche: !!(typeof currentStory !== 'undefined' && currentStory && Array.isArray(currentStory.recit) && currentStory.recit.length),
+      resultsVisible: document.getElementById('storyResults') && document.getElementById('storyResults').style.display !== 'none'
+    }));
+
+    assert.equal(etat.recitAffiche, true, 'un récit long doit être généré et rendu, jamais interrompu par une erreur de calcul de budget');
+    assert.equal(etat.resultsVisible, true, 'l\'écran de résultat du récit doit être visible');
+    const typeErrors = erreursJs.filter(m => /TypeError/i.test(m));
+    assert.equal(typeErrors.length, 0, 'aucune TypeError ne doit survenir en format long : ' + typeErrors.join(' | '));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
