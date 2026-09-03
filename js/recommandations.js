@@ -675,7 +675,7 @@ async function demarrerIdeesDepuisSommaire() {
     const themeEl = document.getElementById('ideaTheme');
     if (themeEl && !themeEl.value.trim()) {
       const placeholderAvant = themeEl.placeholder;
-      themeEl.placeholder = 'Je réfléchis à un sujet pour toi…';
+      themeEl.placeholder = 'Scriptura réfléchit à un sujet pour toi…';
       const sujet = await suggestionSujetDepuisSommaire(nicheNom, (d.bio && d.bio.actuelle) || '');
       // Revérifié après l'appel : l'utilisateur a pu commencer à taper
       // pendant l'attente, jamais écraser ce qu'il a déjà saisi.
@@ -933,8 +933,8 @@ async function initAccueilPremiumInterne(zone) {
   // jamais, même s'il traîne encore dans le localStorage de quelqu'un.
   if (data && data.onboarding) data = null;
   if (!data) {
-    // Vérifié AVANT d'afficher le message d'attente : promettre "je regarde
-    // ce qui marche dans ta niche" à un abonné dont on ne connaît encore
+    // Vérifié AVANT d'afficher le message d'attente : promettre "Scriptura
+    // regarde ce qui marche dans ta niche" à un abonné dont on ne connaît encore
     // rien serait malhonnête. S'il n'y a vraiment rien à exploiter, on saute
     // directement au message "Scriptura apprend encore tes habitudes" plus
     // bas, sans message d'attente ni appel IA inutile.
@@ -948,7 +948,7 @@ async function initAccueilPremiumInterne(zone) {
       zone.innerHTML = `${entete}
         <div class="score-card">
           <div class="audit-score-label"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> RECOMMANDATION IA</div>
-          <div class="audit-diag-interp">Je regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ton profil et de tes générations, pour préparer ta recommandation du jour…</div>
+          <div class="audit-diag-interp">Scriptura regarde ce qui marche en ce moment dans ta niche sur TikTok, à partir de ton profil et de tes générations, pour préparer ta recommandation du jour…</div>
         </div>`;
       zone.style.display = 'block';
       data = await genererRecommandations(null, null);

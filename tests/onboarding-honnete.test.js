@@ -1,4 +1,4 @@
-// Non-régression : le message "je regarde ce qui marche en ce moment dans
+// Non-régression : le message "Scriptura regarde ce qui marche en ce moment dans
 // ta niche sur TikTok" ne doit JAMAIS s'afficher (ni déclencher d'appel IA)
 // pour un utilisateur dont on ne connaît encore rien (aucune niche, aucun
 // diagnostic, aucune génération) : ça sonnerait faussement commercial. Un
@@ -33,7 +33,7 @@ test('aucune fausse promesse de recherche dans la niche pour un abonné dont on 
     await page.waitForTimeout(300);
     const etatBlanc = await page.evaluate(() => document.getElementById('accueilPremium').textContent);
 
-    assert.equal(etatBlanc.toLowerCase().includes('je regarde ce qui marche'), false, 'ne doit jamais prétendre chercher dans la niche si elle est inconnue');
+    assert.equal(etatBlanc.toLowerCase().includes('scriptura regarde ce qui marche'), false, 'ne doit jamais prétendre chercher dans la niche si elle est inconnue');
     assert.equal(etatBlanc.includes('à la fin de ton diagnostic'), true, 'doit afficher le message d\'onboarding honnête');
     assert.equal(appelsGenerate - avant, 0, 'aucun appel IA ne doit être déclenché sans mémoire minimale');
 
@@ -51,7 +51,7 @@ test('aucune fausse promesse de recherche dans la niche pour un abonné dont on 
     await page.evaluate(() => { initAccueilPremium(); });
     await page.waitForTimeout(150);
     const etatPendant = await page.evaluate(() => document.getElementById('accueilPremium').textContent);
-    assert.equal(etatPendant.toLowerCase().includes('je regarde ce qui marche'), true, 'doit chercher dans la niche dès qu\'une mémoire minimale existe');
+    assert.equal(etatPendant.toLowerCase().includes('scriptura regarde ce qui marche'), true, 'doit chercher dans la niche dès qu\'une mémoire minimale existe');
 
     await page.waitForTimeout(1500);
     const etatFinal = await page.evaluate(() => document.getElementById('accueilPremium').textContent);
