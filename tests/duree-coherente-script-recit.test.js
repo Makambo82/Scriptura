@@ -256,3 +256,89 @@ test('Récit format long : la génération aboutit alors qu\'aucune durée cible
     await arreter();
   }
 });
+
+test('Récit : la durée choisie est connue du rédacteur, du critique ET du réviseur', async () => {
+  // Retour propriétaire : le mode Récit doit calquer la structure du modèle
+  // sur le sujet DANS LA DURÉE CHOISIE. Or la consigne de longueur
+  // n'atteignait que le prompt d'écriture. Le Critique, lui, comparait un
+  // récit de 30 secondes (69 mots visés) au script COMPLET du modèle (386 à
+  // 768 mots) tout en ayant pour règle de signaler les étapes "développées
+  // alors que le modèle ne fait que les effleurer, ou l'inverse" : la
+  // compression correcte était donc signalée comme un écart de calque, puis
+  // le Réviseur "corrigeait" en rallongeant, faisant sauter la durée. Ce
+  // test verrouille la circulation de la contrainte jusqu'aux trois agents.
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const RECIT = {
+      titre: 'Titre', ton: 'Dramatique', modele_utilise: 'inconnu',
+      hooks: Array.from({ length: 5 }, (_, i) => ({ style: 'x', texte: 'Hook ' + i })),
+      recit: [
+        { segment: 'Hook', texte: 'Il pensait avoir tout prévu. Personne ne l\'a vu venir.' },
+        { segment: 'Ouverture', texte: 'Aujourd\'hui, on parle de cette affaire oubliée de tous.' },
+        { segment: 'Clôture', texte: 'Alors, que retenir de cette histoire ? Que le silence protège ? Que la peur commande ? Ou que tout se jouait avant ? Moi, je t\'ai pas raconté une chute. Je t\'ai montré un miroir.' }
+      ],
+      legende: 'L', hashtags: ['#a']
+    };
+    // Critique volontairement sévère : force le déclenchement du Réviseur,
+    // pour capturer AUSSI son prompt.
+    const CRITIQUE = {
+      verdict: 'à améliorer',
+      viralite: { hook: 10, curiosite: 10, rythme: 10, progression: 10, transitions: 10, revelation: 10, memorisation: 10 },
+      segments_faibles: [{ index: 1, probleme: 'trop plat' }],
+      faiblesses: ['segment 1 trop plat']
+    };
+
+    const prompts = [];
+    await poserMocksReseau(page, {
+      generate: (body) => {
+        const texte = JSON.stringify(body.messages || []);
+        prompts.push(texte);
+        // Le critique renvoie un verdict, tout le reste renvoie un récit.
+        return { content: [{ text: JSON.stringify(/Critique Éditorial/.test(texte) ? CRITIQUE : RECIT) }] };
+      }
+    });
+
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'RECITDUREE' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      masquerTousLesEcrans();
+      document.getElementById('storyInput').value = 'Un fait historique marquant à raconter';
+      storyFormat = 'court';
+      storyDuree = '30 secondes';
+      storyTon = '';
+    });
+    await page.evaluate(() => generateStory());
+    await page.waitForTimeout(3000);
+
+    const promptEcriture = prompts.find(p => /Rédacteur|raconte|récit/i.test(p) && /LONGUEUR/.test(p));
+    const promptCritique = prompts.find(p => /Critique Éditorial/.test(p));
+    const promptReviseur = prompts.find(p => /Réviseur en Chef/.test(p) && /SEGMENTS À RÉÉCRIRE/.test(p));
+
+    assert.ok(promptEcriture, 'le prompt d\'écriture doit avoir été envoyé');
+    assert.match(promptEcriture, /RÉFÉRENCE DE STRUCTURE, JAMAIS DE LONGUEUR/,
+      'le rédacteur doit être averti que le modèle ne dicte pas la longueur');
+    assert.match(promptEcriture, /BUDGET CONCRET POUR 30 secondes/,
+      'le rédacteur doit recevoir un budget de segments concret pour la durée choisie');
+
+    assert.ok(promptCritique, 'le prompt du critique doit avoir été envoyé');
+    assert.match(promptCritique, /DURÉE CHOISIE PAR LE CRÉATEUR/,
+      'le critique doit connaître la durée choisie, sinon il pénalise la compression correcte');
+    assert.match(promptCritique, /n'est donc PAS un écart de calque/,
+      'le critique doit savoir qu\'une étape resserrée n\'est pas un écart de calque');
+
+    assert.ok(promptReviseur, 'le prompt du réviseur doit avoir été envoyé');
+    assert.match(promptReviseur, /DURÉE CHOISIE PAR LE CRÉATEUR/,
+      'le réviseur doit connaître la durée choisie, sinon ses réécritures la font sauter');
+
+    if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

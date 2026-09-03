@@ -262,9 +262,37 @@ async function generateStory() {
   };
   const wt = wordTargets[storyDuree] || null;
 
+  // Budget de segments déduit de la durée choisie, avec le découpage déjà
+  // prescrit plus bas (13 à 18 mots par segment). Donne au modèle un repère
+  // CONCRET du nombre d'étapes dont il dispose réellement pour transposer la
+  // structure du modèle de référence, au lieu de le laisser deviner.
+  const segMinRecit = wt ? Math.max(3, Math.round(wt.min / 18)) : 0;
+  const segMaxRecit = wt ? Math.max(segMinRecit + 1, Math.round(wt.max / 13)) : 0;
+
   const longueurInstruction = storyFormat === 'court' && wt
-    ? `LONGUEUR, RÈGLE ABSOLUE, RESPECT STRICT (peu importe la longueur du texte fourni par le créateur, même un article entier) : le récit doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au total, pour ${storyDuree}. Compte tes mots avant de répondre. Condense ta méthode narrative pour tenir dans cette durée sans perdre en impact, ne t'étends JAMAIS au-delà sous prétexte que le texte source est riche ou long : ton travail est de le RÉDUIRE à l'essentiel qui tient dans cette durée, pas de tout caser.`
+    ? `LONGUEUR, RÈGLE ABSOLUE ET NON NÉGOCIABLE, ELLE PRIME SUR TOUT LE RESTE (peu importe la longueur du texte fourni par le créateur, même un article entier, ET peu importe la longueur du modèle de référence) : le récit doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au total, pour ${storyDuree}. Repère de conversion : ~2,5 mots par seconde de narration. Compte tes mots avant de répondre, puis recompte après.
+
+LE MODÈLE DE RÉFÉRENCE EST UNE RÉFÉRENCE DE STRUCTURE, JAMAIS DE LONGUEUR. Les modèles de référence font entre 386 et 768 mots, soit 2min30 à 5min de narration. Si la durée choisie ici est plus courte, tu ne dois SURTOUT PAS produire un récit de la longueur du modèle : tu dois TRANSPOSER sa structure entière à l'échelle de ${storyDuree}. Concrètement : toutes ses étapes narratives sont présentes, dans le même ordre, avec la même mécanique, mais chacune est RESSERRÉE. Une étape que le modèle développe sur un paragraphe entier peut tenir ici en une seule phrase, c'est normal et c'est exactement le travail attendu, jamais un appauvrissement.
+
+CE QUI SE COMPRIME quand la durée est courte : le développement, les détails secondaires, les exemples, le nombre de phrases consacrées à chaque étape. CE QUI NE SE COMPRIME JAMAIS ET NE DISPARAÎT JAMAIS : le hook, l'ouverture, le détonateur, la montée de tension, la clôture (triple question miroir ET signature métapoétique). On resserre chaque étape, on n'en supprime aucune.
+
+BUDGET CONCRET POUR ${storyDuree} : environ ${segMinRecit} à ${segMaxRecit} segments de 13 à 18 mots. Répartis les étapes du modèle sur ce nombre de segments. Si le modèle en compte davantage, FUSIONNE les étapes voisines les moins essentielles plutôt que d'en sacrifier une, et n'étale jamais une étape sur plusieurs segments quand le budget est serré.
+
+ERREUR LA PLUS FRÉQUENTE, CELLE À NE JAMAIS COMMETTRE : calibrer le récit sur la longueur du modèle de référence au lieu de la durée demandée par le créateur. Un récit hors de la fourchette ${wt.min}-${wt.max} mots est un ÉCHEC, quelle que soit sa qualité par ailleurs.`
     : `LONGUEUR : Format narratif long. Déploie pleinement ton histoire, sans restriction de durée. Prends le temps de développer l'immersion, la tension et les rebondissements comme dans un vrai récit captivant.`;
+
+  // La durée cible doit être connue de TOUS les agents qui jugent ou
+  // réécrivent le récit, pas seulement du rédacteur. Sans elle, le Critique
+  // compare un récit de 30 secondes (69 mots visés) au script complet du
+  // modèle (386 à 768 mots) et signale comme "écart de calque" la compression
+  // qui est précisément le travail demandé ; le Réviseur "corrige" alors en
+  // rallongeant, et la durée choisie saute. C'est une cause structurelle de
+  // récits hors cible, invisible tant que la contrainte ne circulait qu'au
+  // moment de l'écriture (elle n'apparaissait que dans le prompt d'écriture).
+  const contrainteDureeRecit = (storyFormat === 'court' && wt)
+    ? `\nDURÉE CHOISIE PAR LE CRÉATEUR, CONTRAINTE NON NÉGOCIABLE : ${storyDuree}, soit ${wt.min} à ${wt.max} mots au total (~2,5 mots par seconde de narration).
+LE MODÈLE CI-DESSUS EST UNE RÉFÉRENCE DE STRUCTURE, PAS DE LONGUEUR : les modèles font 386 à 768 mots (2min30 à 5min). Un récit correctement calqué à ${storyDuree} reprend TOUTES les étapes du modèle, dans le même ordre, avec la même mécanique, mais chacune resserrée à l'échelle de cette durée. Une étape traitée en une phrase là où le modèle lui consacre un paragraphe n'est donc PAS un écart de calque, c'est la transposition correcte, ne la signale jamais comme une faiblesse. Les seuls vrais écarts de calque sont : une étape SAUTÉE, une étape RÉORDONNÉE, ou une clôture amputée (triple question miroir ou signature métapoétique manquante).`
+    : '';
 
   // Un texte collé long (article, notes brutes, plusieurs pages) est capé
   // avant d'entrer dans le prompt : la borne reste large (~20 000 caractères,
@@ -439,7 +467,7 @@ Vise l'excellence absolue.
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"titre":"un titre évocateur pour ce récit","ton":"le ton choisi","modele_utilise":"le TITRE EXACT (copié tel quel) du candidat choisi plus haut","hooks":[{"style":"Type de hook","texte":"le hook complet"}],"recit":[{"segment":"Hook","texte":"..."},{"segment":"Ouverture","texte":"le \"Aujourd'hui, on parle de...\" (ou variante fluide) qui pose le personnage ou l'enjeu, voir point 2"},{"segment":"Détonateur","texte":"..."},{"segment":"Immersion","texte":"..."},{"segment":"Contexte","texte":"..."},{"segment":"Tension","texte":"..."},{"segment":"Clôture","texte":"la triple question miroir, PLUS la signature métapoétique obligatoire"}],"legende":"la légende prête à publier, SANS AUCUN hashtag dans le texte (les hashtags vont uniquement dans le champ hashtags séparé)","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"variantes_titre":["titre A percutant","titre B percutant"],"analyse":"analyse critique courte du récit et pourquoi il fonctionne"}
 
-Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 6 à 11 secondes de narration à l'oral (soit ~15 à 29 mots par segment), en visant ~21 mots. Ce repère est MESURÉ sur les 333 segments réels des 15 modèles de référence (médiane 21 mots, intervalle courant 15-29), il n'est pas théorique : un segment nettement plus court hache la narration et s'écarte des modèles que tu dois reproduire. Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
+Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et différentes à tester. Découpe le récit en segments : chaque segment doit correspondre à environ 5 à 7 secondes de narration à l'oral (soit ~13 à 18 mots par segment). Le nombre de segments s'adapte à la longueur totale du récit. Le dernier segment DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement, jamais l'une sans l'autre. Le champ "modele_utilise" DOIT correspondre exactement au titre du candidat effectivement suivi, c'est ce qui permet de vérifier après coup que le reste de la structure (hors clôture) a bien été respecté.`;
 
   try {
     if (typeof avancerEtapeGen === 'function') avancerEtapeGen(1); // phase : écriture du récit
@@ -507,6 +535,7 @@ SUJET : ${sujetPourPrompt}
 RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
 ${recitForReview}
 ${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (référence réelle à comparer, pas une supposition) :\n"""\n${structureModeleRef}\n"""` : ''}
+${contrainteDureeRecit}
 
 TON TRAVAIL :
 1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
@@ -571,6 +600,7 @@ SUJET : ${sujetPourPrompt}
 RÉCIT ACTUEL (segments numérotés) :
 ${recitForReview}
 ${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (toute réécriture doit rester CALQUÉE sur SA structure entière, pas seulement sa clôture) :\n"""\n${structureModeleRef}\n"""` : ''}
+${contrainteDureeRecit}${(storyFormat === 'court' && wt) ? `\nTes segments réécrits doivent tenir dans le MÊME volume que ceux qu'ils remplacent (13 à 18 mots chacun) : une réécriture qui rallonge le récit le fait sortir de la durée choisie, c'est un échec même si le texte est meilleur.` : ''}
 
 SEGMENTS À RÉÉCRIRE (uniquement ceux-ci) :
 ${segmentsFaiblesTxt}
@@ -854,7 +884,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       const centreCibleRecit = wt ? (wt.min + wt.max) / 2 : 0;
       const budgetMotsCloture = Math.min(63, Math.max(30, Math.round(centreCibleRecit * 0.10)));
       const budgetCloture = (storyFormat === 'court' && wt)
-        ? `\n- BUDGET DE LONGUEUR : le récit entier vise ${wt.min}-${wt.max} mots et fait actuellement ${countStoryWords(parsed.recit)} mots, dont ${((dernierSegment.texte || '').match(/\S+/g) || []).length} pour cette clôture. Ta clôture réécrite doit tenir en ~${budgetMotsCloture} mots au plus, la proportion qu'elle occupe dans les modèles de référence : respecte leur structure en resserrant les phrases, jamais en rallongeant le récit au-delà de sa durée cible.`
+        ? `\n- BUDGET DE LONGUEUR : le récit entier vise ${wt.min}-${wt.max} mots et fait actuellement ${countStoryWords(parsed.recit)} mots, dont ${((dernierSegment.texte || '').match(/\S+/g) || []).length} pour cette clôture. Ta clôture réécrite doit tenir en ~${budgetMotsCloture} mots au plus, la proportion qu'elle occupe dans les modèles de référence. Tu tiens ce budget en RESSERRANT les phrases (questions plus courtes, plus incisives), JAMAIS en supprimant un élément : les trois questions parallèles ET la signature métapoétique restent toutes présentes, quelle que soit la durée. Si le budget est serré, chaque question devient une question courte, elle ne disparaît pas.`
         : '';
 
       for (let tentative = 0; tentative < 2; tentative++) {
