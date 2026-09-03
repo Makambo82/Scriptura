@@ -23,18 +23,18 @@ function masquerTousLesEcrans() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  RÉINITIALISATION DU ZOOM MOBILE, corrige un "zoom aléatoire" signalé
-//  sur tous les modes : comme l'app change d'écran sans jamais recharger
-//  la page, un zoom résiduel (pincement accidentel, ou reliquat du zoom
-//  système sur un champ) pouvait persister d'un écran à l'autre. Tous les
-//  champs de saisie sont déjà en 16px minimum (voir css/style.css), mais
-//  certains navigateurs mobiles (Safari iOS notamment) zooment quand même
-//  légèrement au focus d'un champ, malgré le 16px, et ne redézooment pas
-//  toujours tout seuls en le quittant : le zoom traîne alors tel quel,
-//  sur le même écran, bien avant tout changement d'écran. On réinitialise
-//  donc À LA FOIS à chaque changement d'écran (masquerTousLesEcrans) ET dès
-//  qu'un champ de saisie perd le focus (délégation sur document, couvre
-//  aussi les champs ajoutés dynamiquement en HTML par l'app).
+//  BLOCAGE DU ZOOM MOBILE AU FOCUS D'UN CHAMP, corrige un "petit zoom avant"
+//  signalé au clic dans une zone de saisie, sur tous les modes. Tous les
+//  champs de saisie sont déjà en 16px minimum (voir css/style.css), seuil
+//  normalement suffisant, mais certains navigateurs mobiles (Safari iOS
+//  notamment) zooment quand même légèrement au focus d'un champ. Le seul
+//  fix fiable : verrouiller l'échelle (maximum-scale=1, user-scalable=no)
+//  DÈS le focusin, avant que le navigateur ait le temps d'appliquer son
+//  zoom automatique, puis la redéverrouiller à la perte de focus pour ne
+//  jamais bloquer le pincement une fois le champ quitté. On couvre aussi
+//  un changement d'écran pendant qu'un champ est encore focus (l'app ne
+//  recharge jamais la page, un zoom résiduel pourrait sinon persister d'un
+//  écran à l'autre) en réinitialisant également à chaque masquerTousLesEcrans.
 // ═══════════════════════════════════════════════════════════
 // Contenu d'origine capturé UNE SEULE FOIS au chargement : si on le relisait
 // à chaque appel via getAttribute(), deux réinitialisations rapprochées (ex.
@@ -47,6 +47,12 @@ const _viewportOriginal = (() => {
   return (meta && meta.getAttribute('content')) || 'width=device-width, initial-scale=1.0';
 })();
 let _zoomResetTimer = null;
+function verrouillerZoom() {
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) return;
+  if (_zoomResetTimer) { clearTimeout(_zoomResetTimer); _zoomResetTimer = null; }
+  meta.setAttribute('content', _viewportOriginal + ', maximum-scale=1.0, user-scalable=no');
+}
 function reinitialiserZoom() {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta) return;
@@ -59,15 +65,18 @@ function reinitialiserZoom() {
     _zoomResetTimer = null;
   }, 150);
 }
+// Cases/fichiers exclus : jamais de zoom au focus sur ceux-là, inutile de
+// verrouiller/réinitialiser à chaque coche (l'historique et les images du
+// montage en cochent plusieurs d'affilée en mode sélection).
+function _champTexteZoom(t) {
+  return !!t && ((t.tagName === 'INPUT' && !['checkbox', 'file', 'radio'].includes(t.type))
+    || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+}
+document.addEventListener('focusin', (e) => {
+  if (_champTexteZoom(e.target)) verrouillerZoom();
+});
 document.addEventListener('focusout', (e) => {
-  const t = e.target;
-  if (!t) return;
-  // Cases/fichiers exclus : jamais de zoom au focus sur ceux-là, inutile de
-  // réinitialiser à chaque coche (l'historique et les images du montage en
-  // cochent plusieurs d'affilée en mode sélection).
-  const estChampTexte = (t.tagName === 'INPUT' && !['checkbox', 'file', 'radio'].includes(t.type))
-    || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT';
-  if (estChampTexte) reinitialiserZoom();
+  if (_champTexteZoom(e.target)) reinitialiserZoom();
 });
 
 // Identifie l'écran actuellement visible
