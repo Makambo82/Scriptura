@@ -1389,7 +1389,7 @@ ${selectedTone ? '- Ton : ' + selectedTone : ''}
 
 RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 
-1. RESPECT STRICT DE LA DURÉE (RÈGLE N°1 ABSOLUE, PEU IMPORTE LA LONGUEUR DU TEXTE SOURCE FOURNI PAR LE CRÉATEUR, MÊME UN ARTICLE OU UN DOCUMENT DE PLUSIEURS PAGES) : Le script doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au TOTAL (pour ${wt.desc}), répartis en ${wt.blocs} blocs. Si le créateur a collé une matière longue, ton travail est de la RÉDUIRE à l'essentiel qui tient dans cette durée choisie, jamais de tout caser sous prétexte qu'il y a plus de matière disponible : la durée choisie prime toujours sur la richesse de la source.
+1. RESPECT STRICT DE LA DURÉE (RÈGLE N°1 ABSOLUE, PEU IMPORTE LA LONGUEUR DU TEXTE SOURCE FOURNI PAR LE CRÉATEUR, MÊME UN ARTICLE OU UN DOCUMENT DE PLUSIEURS PAGES) : Le script doit faire EXACTEMENT entre ${wt.min} et ${wt.max} mots au TOTAL (pour ${wt.desc}), répartis en ${wt.blocs} blocs. CE COMPTE PORTE UNIQUEMENT SUR LA SOMME DES CHAMPS "texte" (ce qui est réellement PARLÉ, seul élément qui consomme du temps à l'écran) : les champs "visuel", y compris le texte à l'écran qu'ils décrivent, ne comptent JAMAIS dans ce total, ils ne sont pas lus à voix haute et ne durent rien. Ne réduis donc jamais le texte parlé sous prétexte que les visuels sont déjà fournis. Si le créateur a collé une matière longue, ton travail est de la RÉDUIRE à l'essentiel qui tient dans cette durée choisie, jamais de tout caser sous prétexte qu'il y a plus de matière disponible : la durée choisie prime toujours sur la richesse de la source.
    ⚠️ MÉTHODE OBLIGATOIRE : Avant de finaliser, COMPTE mot par mot le total de ton script. S'il fait moins de ${wt.min} mots, tu DOIS ajouter du contenu de valeur pour atteindre la cible. S'il dépasse ${wt.max}, tu DOIS couper. Ne rends JAMAIS un script hors de la fourchette ${wt.min}-${wt.max} mots.
    Un script de ${wt.desc} qui fait moins de ${wt.min} mots est un ÉCHEC TOTAL. Vise le milieu de la fourchette (environ ${Math.round((wt.min + wt.max) / 2)} mots).
 
@@ -1445,24 +1445,40 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
 
     // Retour terrain : les timestamps ("temps") de chaque bloc étaient un
     // pur pari de l'IA, sans aucun ancrage dans le texte réel, un bloc
-    // annoncé "0-3 sec" pouvait contenir 29 mots (~10 secondes à un rythme
-    // de narration normal), un autre annoncé "20-45 sec" à peine de quoi en
-    // remplir la moitié. Recalculé ICI en code, à partir du nombre de mots
-    // RÉEL de chaque bloc et du même rythme que le storyboard
-    // (MOTS_PAR_SEC/DUREE_MIN/dureeDe, voir js/storyboard.js, déjà 100%
-    // déterministe pour ce calcul) : les timestamps affichés correspondent
-    // désormais au temps de lecture réel, jamais un chiffre choisi
-    // librement par l'IA. Cumulatif : chaque bloc démarre pile où le
-    // précédent s'arrête, comme un vrai minutage de tournage.
+    // annoncé "0-3 sec" pouvait contenir 29 mots (~12 secondes de parole),
+    // un autre annoncé "20-45 sec" à peine de quoi en remplir la moitié.
+    // Recalculé ICI en code, à partir du nombre de mots RÉEL de chaque bloc
+    // et du rythme de parole de référence de l'app (MOTS_PAR_SEC_PARLE, voir
+    // js/storyboard.js), le MÊME qui sert à calibrer les cibles de mots par
+    // durée : un script parfaitement calibré affiche donc une timeline qui
+    // tombe bien sur la durée choisie par le créateur. Cumulatif : chaque
+    // bloc démarre pile où le précédent s'arrête, comme un vrai minutage.
     function recalculerTempsBlocs(script) {
       if (!Array.isArray(script)) return script;
       let curseur = 0;
       return script.map(bloc => {
-        const duree = Math.max(DUREE_MIN, dureeDe(bloc && bloc.texte));
+        const duree = Math.max(DUREE_MIN, dureeParleeDe(bloc && bloc.texte));
         const debut = Math.round(curseur);
         curseur += duree;
         const fin = Math.max(debut + 1, Math.round(curseur));
         return Object.assign({}, bloc, { temps: debut + '-' + fin + ' sec' });
+      });
+    }
+
+    // Filet de sécurité déterministe, même principe que le mode Série (voir
+    // nettoyerEtiquettesEpisodeSerie, js/serie.js) : la règle "le champ texte
+    // ne contient jamais de minutage ni d'étiquette" n'était jusqu'ici qu'une
+    // consigne de prompt, que l'IA peut ignorer. Quand elle l'ignorait, le
+    // "[0-3 sec]" ou le "VOIX OFF :" resté dans le texte était compté comme
+    // des MOTS (donc faussait le contrôle de durée ET le minutage recalculé),
+    // était lu à voix haute par la synthèse vocale du montage, et se
+    // retrouvait dans le script copié par le créateur.
+    function nettoyerBlocsScript(script) {
+      if (!Array.isArray(script)) return script;
+      return script.map(bloc => {
+        if (!bloc || typeof bloc.texte !== 'string') return bloc;
+        const propre = nettoyerEtiquettesEpisodeSerie(bloc.texte);
+        return propre === bloc.texte ? bloc : Object.assign({}, bloc, { texte: propre });
       });
     }
 
@@ -1717,6 +1733,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     //  CONTRÔLE QUALITÉ STRICT DE LA DURÉE
     //  Compte les mots réels. Si hors cible, régénère avec correction.
     // ══════════════════════════════════════
+    // Nettoyage AVANT tout comptage : sinon un "[0-3 sec]" ou un "VOIX OFF :"
+    // parasite gonfle artificiellement le nombre de mots et fausse aussi bien
+    // la décision de corriger la durée que le minutage recalculé plus bas.
+    parsed.script = nettoyerBlocsScript(parsed.script);
     let wordCount = countScriptWords(parsed.script);
     let correctionAttempts = 0;
 
@@ -1736,10 +1756,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       const tooShort = wordCount < hardMin;
       const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
 
-SCRIPT ACTUEL (${wordCount} mots) :
+TEXTE RÉELLEMENT PARLÉ DU SCRIPT ACTUEL (${wordCount} mots, c'est LUI seul qui détermine la durée de la vidéo) :
 ${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
 
-PROBLÈME : Ce script fait ${wordCount} mots. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots.
+PROBLÈME : Ce script fait ${wordCount} mots PARLÉS. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots parlés (le texte à l'écran décrit dans les visuels ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
 ${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Ajoute du contenu de valeur, développe les idées, ajoute des détails percutants, SANS remplissage inutile. Garde le même sujet, le même angle, le même ton.' : 'Le script est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
 
 RÈGLES :
@@ -1758,7 +1778,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
 
       if (correctedScript && Array.isArray(correctedScript.script) && correctedScript.script.length) {
-        parsed.script = correctedScript.script;
+        // Même nettoyage sur la version corrigée : la correction de durée est
+        // un nouvel appel IA, donc une nouvelle occasion d'y glisser une
+        // étiquette parasite, et son texte sert directement au recomptage.
+        parsed.script = nettoyerBlocsScript(correctedScript.script);
         wordCount = countScriptWords(parsed.script);
       }
       // Correction invalide/vide : on ne casse plus la boucle, le tour

@@ -10,6 +10,28 @@ const MOTS_PAR_SEC = 2.8;   // rythme de narration posée
 const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet)
 const DUREE_MAX = 7;        // au-delà : plusieurs images cachées
 
+// Rythme de PAROLE de référence pour tout ce qui PROMET une durée au
+// créateur (cibles de mots et minutage affiché des modes Script et Récit).
+// Volontairement distinct de MOTS_PAR_SEC ci-dessus : ce dernier est un
+// SEUIL DE DÉCOUPAGE en plans, calibré empiriquement avec DUREE_MAX pour
+// décider quand une phrase mérite son propre visuel, jamais une promesse de
+// durée faite à l'utilisateur.
+// 2,5 mots/seconde = ~150 mots/minute : un débit TikTok francophone naturel
+// (parole brute ~168 mots/min) moins la respiration réelle d'une vidéo
+// (silences, temps de lecture du texte à l'écran, battements). C'est la
+// valeur déjà retenue par le mode Série (voir WORD_TARGETS_SERIE, js/serie.js),
+// désormais partagée par les trois modes : avant ça, Script et Récit
+// promettaient des durées à ~2,4 mots/s pendant que leur minutage s'affichait
+// à 2,8, et un script "2 minutes" parfaitement calibré affichait une timeline
+// qui s'arrêtait à 1min44.
+const MOTS_PAR_SEC_PARLE = 2.5;
+
+// Durée parlée réelle d'un texte, en secondes (sert aux promesses de durée,
+// voir MOTS_PAR_SEC_PARLE). Même comptage de mots que partout ailleurs.
+function dureeParleeDe(texte) {
+  return (texte || '').split(/\s+/).filter(Boolean).length / MOTS_PAR_SEC_PARLE;
+}
+
 // Découpe en phrases, ponctuation conservée
 function splitIntoSentences(texte) {
   if (!texte || typeof texte !== 'string') return [];

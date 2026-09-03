@@ -69,9 +69,36 @@ function nettoyerEtiquettesEpisodeSerie(texte) {
   const MOTIFS = "voix off|texte (à|a) l'?[ée]cran|[ée]cran noir|texte blanc|plan\\s+\\d+";
   const reLigneEntiere = new RegExp('^(' + MOTIFS + ')\\s*:?\\s*$', 'i');
   const rePrefixe = new RegExp('^\\s*(' + MOTIFS + ')\\s*:?\\s*', 'i');
+  // Minutages. Audit du 3 septembre 2026 : ce filet ne reconnaissait que la
+  // forme "[0-3 s]" et laissait donc passer TOUS les formats réellement
+  // produits et pourtant explicitement interdits par les prompts, dont
+  // "[0-3 sec]" (le format même du mode Script), "(0-3 secondes)",
+  // "[0:00-0:05]" (cité tel quel comme interdit par le prompt Récit) et
+  // "0-3 sec :" en tête de ligne. Restés dans le texte, ils étaient comptés
+  // comme des mots (donc faussaient le contrôle de durée et le minutage
+  // recalculé), lus à voix haute par la synthèse vocale du montage, et
+  // copiés tels quels par le créateur.
+  // Deux niveaux de prudence, pour ne jamais manger de la prose légitime :
+  //   - entre crochets/parenthèses, on retire partout, mais seulement si une
+  //     unité de temps OU un format mm:ss est présent (jamais un "[12-20]" nu) ;
+  //   - sans crochets, uniquement en TÊTE de ligne ET suivi de ":", la forme
+  //     exacte que les prompts interdisent. Sans cette double condition, une
+  //     phrase parlée légitime comme "Tu as 3-4 secondes pour convaincre."
+  //     serait mutilée.
+  const HEURE = "\\d{1,3}(?:\\s*[:h]\\s*\\d{1,2})?";
+  const UNITE = "(?:s|sec|secs|seconde|secondes|min|mn|minute|minutes)";
+  const SEPARATEUR = "\\s*(?:-|–|—|à)\\s*";
+  const reMinutageEncadre = new RegExp(
+    "[\\[\\(]\\s*(?:" +
+      HEURE + SEPARATEUR + HEURE + "\\s*" + UNITE +           // [0-3 sec], (0 à 3 secondes)
+      "|\\d{1,3}\\s*[:h]\\s*\\d{1,2}" + SEPARATEUR + "\\d{1,3}\\s*[:h]\\s*\\d{1,2}" + // [0:00-0:05]
+    ")\\s*[\\]\\)]\\s*", 'gi');
+  const reMinutagePrefixe = new RegExp(
+    "^\\s*" + HEURE + SEPARATEUR + HEURE + "\\s*" + UNITE + "?\\s*:\\s*", 'i');
   return texte
-    .replace(/[\[\(]\s*\d{1,3}\s*-\s*\d{1,3}\s*s\s*[\]\)]\s*/gi, '')
+    .replace(reMinutageEncadre, '')
     .split('\n')
+    .map(ligne => ligne.replace(reMinutagePrefixe, ''))
     .map(ligne => {
       // Étiquette seule, toute la ligne entre crochets/parenthèses : "[ÉCRAN NOIR]", "(VOIX OFF)"
       const enveloppee = ligne.trim().match(/^[\[\(](.+)[\]\)]$/);

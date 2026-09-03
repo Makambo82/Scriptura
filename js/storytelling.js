@@ -642,6 +642,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       return recit.map(s => (s.texte || '')).join(' ').split(/\s+/).filter(Boolean).length;
     }
 
+    // Filet de sécurité déterministe, même principe que le mode Série (voir
+    // nettoyerEtiquettesEpisodeSerie, js/serie.js) et que le mode Script :
+    // la règle "le champ texte ne contient jamais de minutage" n'était ici
+    // aussi qu'une consigne de prompt, que l'IA peut ignorer. Un "[0-3 sec]"
+    // ou un "VOIX OFF :" resté dans le texte était compté comme des MOTS
+    // (donc faussait le contrôle de durée), lu à voix haute par la synthèse
+    // vocale du montage, et copié tel quel par le créateur.
+    function nettoyerSegmentsRecit(recit) {
+      if (!Array.isArray(recit)) return recit;
+      return recit.map(seg => {
+        if (!seg || typeof seg.texte !== 'string') return seg;
+        const propre = nettoyerEtiquettesEpisodeSerie(seg.texte);
+        return propre === seg.texte ? seg : Object.assign({}, seg, { texte: propre });
+      });
+    }
+    parsed.recit = nettoyerSegmentsRecit(parsed.recit);
+
     if (storyFormat === 'court' && wt) {
       let storyWordCount = countStoryWords(parsed.recit);
       let storyCorrectionAttempts = 0;
@@ -679,21 +696,15 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
 
         if (correctedStory && Array.isArray(correctedStory.recit) && correctedStory.recit.length) {
-          parsed.recit = correctedStory.recit;
+          // Même nettoyage sur la version corrigée : la correction de durée
+          // est un nouvel appel IA, donc une nouvelle occasion d'y glisser
+          // une étiquette parasite, et son texte sert directement au
+          // recomptage juste en dessous.
+          parsed.recit = nettoyerSegmentsRecit(correctedStory.recit);
           storyWordCount = countStoryWords(parsed.recit);
         }
         // Correction invalide/vide : on ne casse plus la boucle, le tour
         // suivant retente avec la dernière version connue de parsed.recit.
-      }
-
-      // Toutes les tentatives épuisées et la durée cible n'est toujours pas
-      // atteinte : le créateur doit le savoir plutôt que de découvrir en
-      // silence un récit trop court ou trop long (voir affichage dans
-      // renderStory). Jamais bloquant, juste honnête.
-      if (storyWordCount < hardMinStory || storyWordCount > hardMaxStory) {
-        parsed.avertissementDuree = storyWordCount < hardMinStory
-          ? `Ce récit fait ${storyWordCount} mots, plus court que les ${wt.min}-${wt.max} mots visés pour ${storyDuree}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`
-          : `Ce récit fait ${storyWordCount} mots, plus long que les ${wt.min}-${wt.max} mots visés pour ${storyDuree}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`;
       }
     }
 
@@ -823,6 +834,17 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
       const clotureModeleSeule = structureModeleRef.split('\n\n').pop() || '';
       const dernierSegment = parsed.recit[parsed.recit.length - 1];
+      // Budget de mots donné à la passe de clôture. Cette passe tourne APRÈS
+      // le contrôle de durée (à raison, voir le commentaire ci-dessus) et
+      // impose une structure lourde (phrase d'intro + 3 questions parallèles
+      // + signature métapoétique), soit 40 à 70 mots. Sans budget, elle
+      // faisait sortir de la fourchette un récit calibré pile dedans, en
+      // silence : sur un récit "30 secondes" (60-78 mots), c'est +50%. On lui
+      // dit donc combien de mots il reste réellement, plutôt que de constater
+      // la dérive après coup.
+      const budgetCloture = (storyFormat === 'court' && wt)
+        ? `\n- BUDGET DE LONGUEUR : le récit entier vise ${wt.min}-${wt.max} mots et fait actuellement ${countStoryWords(parsed.recit)} mots, dont ${((dernierSegment.texte || '').match(/\S+/g) || []).length} pour cette clôture. Ta clôture réécrite doit tenir dans un volume comparable (au plus ~${Math.max(35, Math.round(wt.max * 0.25))} mots) : respecte la structure du modèle en resserrant les phrases, jamais en rallongeant le récit au-delà de sa durée cible.`
+        : '';
 
       for (let tentative = 0; tentative < 2; tentative++) {
         try {
@@ -841,7 +863,7 @@ RÈGLES :
 - Réécris la clôture pour qu'elle suive la structure du modèle ci-dessus PHRASE PAR PHRASE : si le modèle a une phrase d'intro suivie de 3 questions/phrases parallèles, le récit doit avoir exactement ça, ni moins ni plus, aucune phrase fusionnée ou sautée.
 - INTERDICTION ABSOLUE de reprendre une phrase du modèle telle quelle ou en changeant juste un ou deux mots (ex. "Que parfois, la tendresse ne sauve rien ?" copié sur "Que parfois, la beauté ne sauve rien ?" est un ÉCHEC). Chaque phrase doit être NOUVELLE, écrite pour CE sujet précis, viser AUSSI BIEN sinon MIEUX que le modèle dans la même mécanique, jamais une simple substitution de mots.
 - Garde impérativement la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), elle est obligatoire dans tous les cas. Place-la comme dans la clôture actuelle (juste avant ou après la structure de clôture).
-- Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture s'aligne sur le modèle, jamais son texte.
+- Garde le même sujet, le même ton, la même idée centrale, seule la FORME de la clôture s'aligne sur le modèle, jamais son texte.${budgetCloture}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"cloture":"la nouvelle clôture complète corrigée"}`;
@@ -854,6 +876,28 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         } catch (e) { break; /* si la correction échoue, on garde la clôture actuelle */ }
 
         if (!partageDesMotsAvecModele(dernierSegment.texte, clotureModeleSeule, 7)) break; // propre, inutile de retenter
+      }
+    }
+
+    // Avertissement de durée calculé ICI, et pas à la fin du contrôle de
+    // durée : les deux passes de normalisation ci-dessus (hook/ouverture, qui
+    // INSÈRE un segment, et clôture, qui RÉÉCRIT le dernier) tournent APRÈS ce
+    // contrôle et changent donc le nombre de mots final. Calculé plus haut,
+    // l'avertissement portait sur un état périmé : il pouvait annoncer une
+    // durée correcte pour un récit devenu hors cible, ou l'inverse, pendant
+    // que le score, lui, était bien calculé sur le compte final (le créateur
+    // voyait alors une rétention pénalisée sans aucune explication). Recompté
+    // sur le récit VRAIMENT final, donc cohérent avec le score affiché.
+    if (storyFormat === 'court' && wt) {
+      const motsFinauxRecit = countStoryWords(parsed.recit);
+      const hardMinFinal = Math.round(wt.min * 0.9);
+      const hardMaxFinal = Math.round(wt.max * 1.1);
+      if (motsFinauxRecit < hardMinFinal || motsFinauxRecit > hardMaxFinal) {
+        parsed.avertissementDuree = motsFinauxRecit < hardMinFinal
+          ? `Ce récit fait ${motsFinauxRecit} mots, plus court que les ${wt.min}-${wt.max} mots visés pour ${storyDuree}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`
+          : `Ce récit fait ${motsFinauxRecit} mots, plus long que les ${wt.min}-${wt.max} mots visés pour ${storyDuree}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`;
+      } else {
+        delete parsed.avertissementDuree;
       }
     }
 
