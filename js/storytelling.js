@@ -1005,12 +1005,29 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // vérifiée (voir evaluerRecitGenere) : jamais le même appel qui vient
     // d'écrire le récit qui se note lui-même.
     const texteFinalRecit = (parsed.recit || []).map(s => (s && s.texte) || '').join(' ');
-    const signauxIARecit = repondreMaintenant ? null : await evaluerRecitGenere(texteFinalRecit);
-    const signauxFinalRecit = Object.assign(
-      { rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinalRecit) },
-      signauxIARecit || {}
-    );
-    parsed.score = scorerRecitGenere(signauxFinalRecit, countStoryWords(parsed.recit), wt);
+    // Même angle mort que le mode Script (voir le commentaire détaillé dans
+    // generate(), js/generation.js) : juge indépendant muet = tous ses signaux
+    // absents = crédit neutre de 0,5 partout = un score fabriqué affiché comme
+    // une mesure. Une seconde tentative (l'appel le moins cher du pipeline),
+    // puis, à défaut, aucun chiffre inventé.
+    let signauxIARecit = null;
+    if (!repondreMaintenant) {
+      signauxIARecit = await evaluerRecitGenere(texteFinalRecit);
+      if (!signauxIARecit) signauxIARecit = await evaluerRecitGenere(texteFinalRecit);
+    }
+    if (!signauxIARecit) {
+      parsed.score = null;
+      parsed.evaluationIndisponible = repondreMaintenant
+        ? 'Score non calculé : tu as demandé ton brouillon tout de suite, l\'évaluation indépendante n\'a pas eu le temps de tourner. Le récit, lui, est complet.'
+        : 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois. Plutôt que d\'afficher une note approximative, Scriptura préfère ne rien inventer. Régénère pour l\'obtenir.';
+    } else {
+      const signauxFinalRecit = Object.assign(
+        { rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinalRecit) },
+        signauxIARecit
+      );
+      parsed.score = scorerRecitGenere(signauxFinalRecit, countStoryWords(parsed.recit), wt);
+      delete parsed.evaluationIndisponible;
+    }
 
     if (!unlocked && !_regenGratuiteEnCours) {
       usedGen++;
@@ -1101,6 +1118,17 @@ function renderStory(d) {
           ${metricBar('Rétention estimée', s.retention)}
         </div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+      </div>`;
+  } else if (d.evaluationIndisponible) {
+    // Juge indépendant muet : aucune barre, aucun chiffre fabriqué (voir le
+    // commentaire dans la génération du récit plus haut).
+    scoreHTML = `
+      <div class="score-card sb-appear">
+        <div class="score-header">
+          <div class="score-title">◆ Scriptura Score</div>
+          <div class="score-global"><span class="score-global-max">non calculé</span></div>
+        </div>
+        <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
       </div>`;
   }
 

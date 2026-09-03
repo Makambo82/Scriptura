@@ -2019,15 +2019,39 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // wordCount est déjà le compte FINAL (après l'éventuelle correction de
     // durée ci-dessus).
     const texteFinalScript = (parsed.script || []).map(s => (s && s.texte) || '').join(' ');
-    const signauxIA = repondreMaintenant ? null : await evaluerScriptGenere(texteFinalScript, state.objectif);
-    const signauxFinal = Object.assign(
-      {
-        deuxieme_personne: _genDetecterDeuxiemePersonne(texteFinalScript),
-        rythme_soutenu: _genDetecterRythmeSoutenu(texteFinalScript)
-      },
-      signauxIA || {}
-    );
-    parsed.score = scorerScriptGenere(signauxFinal, wordCount, wt);
+    // Retour terrain : un script solide affiché à 50/100 sur QUATRE dimensions
+    // exactement. Ce n'était pas une note, c'était l'absence de note : quand le
+    // juge indépendant ne répond pas (réseau, ou JSON illisible), TOUS ses
+    // signaux sont absents et le crédit neutre de 0,5 par signal (voir
+    // _genScoreDimension) produit mécaniquement un 50 parfait, affiché comme
+    // s'il avait été mesuré. C'est exactement ce qu'un score déterministe ne
+    // doit jamais faire : un chiffre inventé qui ressemble à une mesure.
+    // Deux réponses. D'abord une SECONDE tentative : le juge est l'appel le
+    // moins cher du pipeline (1200 tokens), une réponse illisible ne mérite
+    // pas de coûter son score au créateur. Ensuite, s'il ne répond toujours
+    // pas, on ne fabrique aucun chiffre : le score n'est pas calculé et on le
+    // DIT (voir renderResults).
+    let signauxIA = null;
+    if (!repondreMaintenant) {
+      signauxIA = await evaluerScriptGenere(texteFinalScript, state.objectif);
+      if (!signauxIA) signauxIA = await evaluerScriptGenere(texteFinalScript, state.objectif);
+    }
+    if (!signauxIA) {
+      parsed.score = null;
+      parsed.evaluationIndisponible = repondreMaintenant
+        ? 'Score non calculé : tu as demandé ton brouillon tout de suite, l\'évaluation indépendante n\'a pas eu le temps de tourner. Le script, lui, est complet.'
+        : 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois. Plutôt que d\'afficher une note approximative, Scriptura préfère ne rien inventer. Régénère pour l\'obtenir.';
+    } else {
+      const signauxFinal = Object.assign(
+        {
+          deuxieme_personne: _genDetecterDeuxiemePersonne(texteFinalScript),
+          rythme_soutenu: _genDetecterRythmeSoutenu(texteFinalScript)
+        },
+        signauxIA
+      );
+      parsed.score = scorerScriptGenere(signauxFinal, wordCount, wt);
+      delete parsed.evaluationIndisponible;
+    }
     if (avertissementDuree) parsed.avertissementDuree = avertissementDuree;
 
     // Incrémenter le compteur si pas débloqué
@@ -2531,6 +2555,18 @@ function renderResults(d, niche, sujet) {
         bar.style.width = bar.dataset.width + '%';
       });
     }, 100);
+  } else if (d.evaluationIndisponible) {
+    // Le juge indépendant n'a pas répondu : aucune barre, aucun chiffre
+    // fabriqué (voir le commentaire dans generate()). La carte reste, pour que
+    // le créateur sache que le score existe et pourquoi il manque ici.
+    list.innerHTML = `
+      <div class="score-card sb-appear">
+        <div class="score-header">
+          <div class="score-title">◆ Scriptura Score</div>
+          <div class="score-global"><span class="score-global-max">non calculé</span></div>
+        </div>
+        <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
+      </div>`;
   }
 
   const sections = [
