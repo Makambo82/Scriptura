@@ -1443,6 +1443,29 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       return script.map(s => (s.texte || '')).join(' ').split(/\s+/).filter(Boolean).length;
     }
 
+    // Retour terrain : les timestamps ("temps") de chaque bloc étaient un
+    // pur pari de l'IA, sans aucun ancrage dans le texte réel, un bloc
+    // annoncé "0-3 sec" pouvait contenir 29 mots (~10 secondes à un rythme
+    // de narration normal), un autre annoncé "20-45 sec" à peine de quoi en
+    // remplir la moitié. Recalculé ICI en code, à partir du nombre de mots
+    // RÉEL de chaque bloc et du même rythme que le storyboard
+    // (MOTS_PAR_SEC/DUREE_MIN/dureeDe, voir js/storyboard.js, déjà 100%
+    // déterministe pour ce calcul) : les timestamps affichés correspondent
+    // désormais au temps de lecture réel, jamais un chiffre choisi
+    // librement par l'IA. Cumulatif : chaque bloc démarre pile où le
+    // précédent s'arrête, comme un vrai minutage de tournage.
+    function recalculerTempsBlocs(script) {
+      if (!Array.isArray(script)) return script;
+      let curseur = 0;
+      return script.map(bloc => {
+        const duree = Math.max(DUREE_MIN, dureeDe(bloc && bloc.texte));
+        const debut = Math.round(curseur);
+        curseur += duree;
+        const fin = Math.max(debut + 1, Math.round(curseur));
+        return Object.assign({}, bloc, { temps: debut + '-' + fin + ' sec' });
+      });
+    }
+
     // Retour terrain : un script "2 minutes" livré avec 4 blocs et ~95 mots
     // (au lieu des 5 blocs / 270-310 mots attendus), sans aucune erreur ni
     // avertissement. scriptEstComplet() ne vérifiait que la présence de
@@ -1741,6 +1764,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       // Correction invalide/vide : on ne casse plus la boucle, le tour
       // suivant retente avec la dernière version connue de parsed.script.
     }
+
+    // Timestamps recalculés en code sur le script FINAL (après l'éventuelle
+    // correction de durée ci-dessus), jamais avant : recalculer plus tôt
+    // referait le travail à chaque tentative de correction pour rien.
+    parsed.script = recalculerTempsBlocs(parsed.script);
 
     // Toutes les tentatives épuisées et la durée cible n'est toujours pas
     // atteinte (cas rare, mais justement celui qui passait inaperçu) :
