@@ -1391,13 +1391,21 @@ body.hero-focus .hero-focus-rule{display:block}
    l'univers premium. currentColor = doré clair, ajustable par état. */
 .mode-icon svg{width:22px;height:22px;display:block;color:var(--gold-light)}
 /* Pulsation sur l'icône SEULE (jamais le cadre .mode-icon autour), scopée
-   aux 6 boutons du hero (#heroModes) uniquement, pas à leurs jumeaux visuels
-   des Services annexes plus bas, qui restent fixes. Même halo marqué que
-   .how-icon svg (keyframe howIconPulse, voir plus bas), décalé en cascade. */
+   aux 6 boutons du hero (#heroModes) ET à leurs clones du panneau de création
+   (.creer-panneau) uniquement, pas à leurs jumeaux visuels des Services
+   annexes plus bas, qui restent fixes. Même halo marqué que .how-icon svg
+   (keyframe howIconPulse, voir plus bas), décalé en cascade.
+   Le panneau doit être nommé explicitement : ses boutons sont des CLONES du
+   hero dont on a retiré les identifiants (sans quoi la page se retrouverait
+   avec des id en double, voir _remplirPanneauCreation, js/ui.js), donc le
+   sélecteur #heroModes ne les atteint plus. */
 @media(prefers-reduced-motion:no-preference){
-  #heroModes .mode-icon svg{animation:howIconPulse 1.7s ease-in-out infinite}
-  #heroModes > *:nth-child(3n+2) .mode-icon svg{animation-delay:.18s}
-  #heroModes > *:nth-child(3n) .mode-icon svg{animation-delay:.36s}
+  #heroModes .mode-icon svg,
+  .creer-panneau .mode-icon svg{animation:howIconPulse 1.7s ease-in-out infinite}
+  #heroModes > *:nth-child(3n+2) .mode-icon svg,
+  .creer-panneau .hero-modes > *:nth-child(3n+2) .mode-icon svg{animation-delay:.18s}
+  #heroModes > *:nth-child(3n) .mode-icon svg,
+  .creer-panneau .hero-modes > *:nth-child(3n) .mode-icon svg{animation-delay:.36s}
 }
 .mode-label{
   font-family:'Playfair Display',serif;font-size:1rem;font-weight:500;

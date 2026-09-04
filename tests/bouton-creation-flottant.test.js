@@ -282,3 +282,46 @@ test('le bouton reste dans la palette Scriptura et au-dessus de la zone sûre du
     await arreter();
   }
 });
+
+// Retour propriétaire : dans le hero, les icônes des modes pulsent doucement,
+// et cette pulsation avait disparu dans le panneau. Cause exacte : elle est
+// ciblée par l'identifiant #heroModes, or les clones du panneau sont
+// volontairement dépouillés de leurs identifiants (sinon la page se retrouve
+// avec des id en double). Le sélecteur ne les atteignait donc plus.
+test('les icônes du panneau pulsent comme celles du hero', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+
+    const vu = await page.evaluate(() => {
+      const icones = Array.from(document.querySelectorAll('#creerPanneau .mode-icon svg'));
+      const heroIcone = document.querySelector('#heroModes .mode-icon svg');
+      return {
+        nb: icones.length,
+        animations: icones.map(i => getComputedStyle(i).animationName),
+        decalages: Array.from(new Set(icones.map(i => getComputedStyle(i).animationDelay))),
+        hero: heroIcone ? getComputedStyle(heroIcone).animationName : null
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.ok(vu.nb >= 6, 'toutes les icônes doivent être là : ' + vu.nb);
+    assert.ok(vu.animations.every(a => a === 'howIconPulse'),
+      'REGRESSION : chaque icône du panneau doit pulser comme dans le hero : ' + JSON.stringify(vu.animations));
+    assert.equal(vu.hero, 'howIconPulse', 'et le hero garde évidemment la sienne');
+    assert.ok(vu.decalages.length > 1,
+      'la pulsation reste décalée en cascade, jamais toutes les icônes à l\'unisson : ' + JSON.stringify(vu.decalages));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
