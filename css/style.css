@@ -1901,6 +1901,27 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 
 /* ── BOUTON RETOUR EN HAUT ── */
+/* ── REPLI « AFFINER » DES CHAMPS OPTIONNELS ── */
+/* Discret par nature : c'est une porte, pas une action. Elle ne doit pas
+   entrer en concurrence visuelle avec le bouton de génération. */
+.affiner-toggle{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;margin:0 0 18px;padding:12px 16px;
+  background:transparent;border:1px dashed rgba(201,168,76,0.28);border-radius:12px;
+  color:rgba(255,255,255,0.62);cursor:pointer;
+  font-family:'Cinzel',serif;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;
+  transition:border-color 0.25s, color 0.25s, background 0.25s;
+}
+.affiner-toggle:hover{border-color:rgba(201,168,76,0.55);color:var(--gold-light);background:rgba(201,168,76,0.05)}
+.affiner-chev{transition:transform 0.25s ease;font-size:0.9rem}
+.affiner-toggle[aria-expanded="true"] .affiner-chev{transform:rotate(180deg)}
+.affiner-toggle[aria-expanded="true"]{border-style:solid;color:var(--gold-light);border-color:rgba(201,168,76,0.45)}
+/* [hidden] suffit à masquer ; l'ouverture est animée, jamais un saut sec. */
+@keyframes affinerIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:no-preference){
+  .affiner-champs:not([hidden]){animation:affinerIn 0.3s ease}
+}
+
 /* ── BOUTON DE CRÉATION FLOTTANT (accueil uniquement) ── */
 /* Silhouette du bouton de création TikTok (rectangle arrondi large + "+"),
    reconnue au premier coup d'oeil par un créateur, mais dans la palette

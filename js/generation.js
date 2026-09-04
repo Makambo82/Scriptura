@@ -38,9 +38,45 @@ function setupIdeaButtons() {
   updateGeoRequirement();
 }
 
+// ── REPLI « AFFINER » DU MODE IDÉES ──
+// Les quatre champs repliés sont tous optionnels, le prompt a un repli
+// explicite pour chacun. Deux cas imposent pourtant de les montrer, et les
+// oublier créerait un piège :
+//  - la ZONE GÉOGRAPHIQUE devient OBLIGATOIRE pour cinq niches, et la
+//    génération est bloquée si elle manque. Un champ requis caché derrière un
+//    repli produirait un message d'erreur sur un champ invisible ;
+//  - la mémoire du créateur PRÉ-REMPLIT audience, ton et plateforme depuis les
+//    générations passées. Un choix déjà posé doit rester visible, sinon le
+//    créateur ne sait pas avec quoi il génère.
+// Dans ces deux cas le panneau s'ouvre tout seul.
+function ouvrirAffinerIdees(ouvert) {
+  const panneau = document.getElementById('ideaAffiner');
+  const btn = document.getElementById('ideaAffinerBtn');
+  if (!panneau || !btn) return;
+  panneau.hidden = !ouvert;
+  btn.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+}
+function basculerAffinerIdees() {
+  const panneau = document.getElementById('ideaAffiner');
+  if (panneau) ouvrirAffinerIdees(panneau.hidden);
+}
+function majAffinerIdees() {
+  const panneau = document.getElementById('ideaAffiner');
+  if (!panneau || !panneau.hidden) return; // déjà ouvert : on ne le referme jamais dans le dos du créateur
+  const niche = (document.getElementById('ideaNiche') || {}).value || '';
+  const geoRequis = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'].includes(niche);
+  const dejaRempli = ['ideaAudience', 'ideaGeo', 'ideaPlatformGrid', 'ideaTone']
+    .some(id => { const el = document.getElementById(id); return !!(el && el.value); });
+  if (geoRequis || dejaRempli) ouvrirAffinerIdees(true);
+}
+
 function updateGeoRequirement() {
   const niche = document.getElementById('ideaNiche').value;
   const geoRequired = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'].includes(niche);
+  // Branché sur le changement de niche, donc rejoué aussi quand la mémoire du
+  // créateur pré-remplit un champ (elle déclenche un vrai 'change' depuis le
+  // correctif du 4 septembre, voir preRemplirSiVide, js/profil.js).
+  if (typeof majAffinerIdees === 'function') majAffinerIdees();
   const label = document.getElementById('ideaGeoLabel');
   const optional = document.getElementById('geoOptional');
   const input = document.getElementById('ideaGeo');
@@ -78,6 +114,7 @@ function restartIdeas() {
   ideaGoal = '';
   ideaTone = '';
   document.getElementById('ideaPlatformGrid').value = '';
+  if (typeof ouvrirAffinerIdees === 'function') ouvrirAffinerIdees(false);
   document.querySelectorAll('#ideaGoalGrid .grid-btn').forEach(b => b.classList.remove('active'));
   updateGeoRequirement();
   const errorBox = document.getElementById('ideaErrorBox');
@@ -217,7 +254,13 @@ async function generateIdeas() {
   // Géo obligatoire pour Histoire et Géopolitique
   if (['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'].includes(niche) && !geo) {
     errorBox.textContent = 'Pour ' + niche + ', précise une zone géographique (pays, région, empire…) pour des idées ciblées.';
-    errorBox.style.display = 'block'; return;
+    errorBox.style.display = 'block';
+    // Le champ visé est dans le repli : l'ouvrir et y emmener le créateur,
+    // plutôt que de lui reprocher un champ qu'il ne voit pas.
+    if (typeof ouvrirAffinerIdees === 'function') ouvrirAffinerIdees(true);
+    const champGeo = document.getElementById('ideaGeo');
+    if (champGeo && champGeo.scrollIntoView) champGeo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
   }
 
   if (!theme) {

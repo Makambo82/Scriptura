@@ -1253,6 +1253,21 @@
         </select>
       </div>
 
+      <!-- Quatre champs OPTIONNELS repliés par défaut : le code lui-même le dit,
+           chacun a son repli explicite dans le prompt (du type "aucune plateforme
+           précisée, reste généraliste"). Seule la niche est indispensable.
+           Les montrer tous d'emblée donnait un formulaire de sept blocs pour une
+           intention simple.
+           Le panneau s'ouvre TOUT SEUL dès qu'un de ces champs est rempli (mémoire
+           du créateur) ou dès que la zone géographique devient obligatoire pour la
+           niche choisie : jamais un champ requis ou déjà renseigné caché derrière
+           un repli. Voir majAffinerIdees, js/generation.js. -->
+      <button type="button" class="affiner-toggle" id="ideaAffinerBtn" aria-expanded="false" aria-controls="ideaAffiner" onclick="basculerAffinerIdees()">
+        <span>Affiner : audience, zone, plateforme, ton</span>
+        <span class="affiner-chev" aria-hidden="true">▾</span>
+      </button>
+      <div class="affiner-champs" id="ideaAffiner" hidden>
+
       <div class="ctx-field">
         <label class="ctx-label">Ton audience</label>
         <select class="ctx-input" id="ideaAudience">
@@ -1297,16 +1312,6 @@
       </div>
 
       <div class="ctx-field">
-        <label class="ctx-label">Ton objectif principal</label>
-        <div class="btn-grid" id="ideaGoalGrid">
-          <button type="button" class="grid-btn" data-val="faire des vues">Faire des vues</button>
-          <button type="button" class="grid-btn" data-val="gagner des abonnés">Gagner des abonnés</button>
-          <button type="button" class="grid-btn" data-val="générer des ventes">Générer des ventes</button>
-          <button type="button" class="grid-btn" data-val="renforcer mon expertise">Mon expertise</button>
-        </div>
-      </div>
-
-      <div class="ctx-field">
         <label class="ctx-label">Ton & voix</label>
         <select class="ctx-input" id="ideaTone">
           <option value="">Choisis ton & voix…</option>
@@ -1322,6 +1327,18 @@
           <option value="émotionnel et sensible, qui va chercher le ressenti, l'empathie ou les larmes">Émotionnel</option>
         </select>
       </div>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton objectif principal</label>
+        <div class="btn-grid" id="ideaGoalGrid">
+          <button type="button" class="grid-btn" data-val="faire des vues">Faire des vues</button>
+          <button type="button" class="grid-btn" data-val="gagner des abonnés">Gagner des abonnés</button>
+          <button type="button" class="grid-btn" data-val="générer des ventes">Générer des ventes</button>
+          <button type="button" class="grid-btn" data-val="renforcer mon expertise">Mon expertise</button>
+        </div>
+      </div>
+
 
       <div class="ctx-field">
         <label class="ctx-label">Le sujet que tu veux explorer</label>
