@@ -151,3 +151,102 @@ test('la durée pré-remplie pilote réellement la cible de mots de la générat
     await arreter();
   }
 });
+
+// Décision du propriétaire, après le retour terrain de la durée héritée :
+// limiter le pré-remplissage aux TRAITS STABLES du créateur (sa niche, son
+// format faceless ou face caméra) et ne plus pré-remplir les DÉCISIONS PAR
+// VIDÉO (ton, durée, genre narratif, objectif). Hériter d'une durée ou d'un ton
+// de la génération précédente revient à supposer que le créateur fait toujours
+// exactement la même vidéo : ce n'est pas un service, c'est une surprise.
+//
+// À ne pas confondre avec une suppression de la mémoire du créateur : celle-ci
+// continue d'alimenter la ligne de contexte des prompts, avec l'anti-répétition
+// des angles, hooks et structures déjà produits. Seul le pré-remplissage du
+// formulaire est concerné.
+test('le pré-remplissage se limite aux traits stables : niche et format', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    // Un profil bien rempli : TOUT est connu de ce créateur.
+    const profil = {
+      declare: {
+        niche_principale: 'Histoire',
+        style_contenu: 'Faceless',
+        ton_prefere: 'Storytelling',
+        duree_moyenne: '2 minutes',
+        structure_narrative: 'Enquête',
+        objectifs: ['Faire des vues']
+      },
+      observe: { themes_traites: [], themes_a_eviter: [], plateformes: [], hooks_recents: [], angles_recents: [], structures_recentes: [], nb_generations: 5 },
+      lecons: { recommandations_permanentes: [], dernier_score_audit: null }
+    };
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PROFILSTABLE' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+
+    // chargerProfilCreateur renvoie ce cache tel quel : on teste la POLITIQUE
+    // de pré-remplissage, pas le transport réseau (couvert ailleurs).
+    const vu = await page.evaluate(async (profil) => {
+      _profilCreateur = profil;
+      ['niche', 'format', 'tone', 'dureeGrid'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+      selectedTone = ''; selectedDuree = '';
+      await appliquerProfilCreateur('script');
+      return {
+        niche: document.getElementById('niche').value,
+        format: document.getElementById('format').value,
+        ton: document.getElementById('tone').value,
+        duree: document.getElementById('dureeGrid').value,
+        varTon: selectedTone,
+        varDuree: selectedDuree
+      };
+    }, profil);
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.niche, 'Histoire', 'la niche est un trait stable, elle reste pré-remplie');
+    assert.ok(vu.format, 'le format aussi (faceless ou face caméra ne change pas d\'une vidéo à l\'autre) : ' + vu.format);
+    assert.equal(vu.ton, '',
+      'REGRESSION : le ton est une décision par vidéo, l\'hériter impose un choix que le créateur n\'a pas fait');
+    assert.equal(vu.duree, '',
+      'REGRESSION : c\'est exactement la durée héritée qui a produit un script de 48 secondes pour un formulaire affichant 2 minutes');
+    assert.equal(vu.varTon, '', 'et rien ne part en douce dans la variable lue par la génération');
+    assert.equal(vu.varDuree, '');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('la mémoire du créateur reste vivante dans les prompts, elle n\'est pas supprimée', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const profil = {
+      declare: { niche_principale: 'Histoire', style_contenu: 'Faceless', ton_prefere: 'Storytelling', duree_moyenne: '2 minutes', structure_narrative: null, objectifs: [] },
+      observe: { themes_traites: ['Behanzin'], themes_a_eviter: [], plateformes: [], hooks_recents: ['Un roi qui dit non'], angles_recents: ['La résistance impossible'], structures_recentes: [], nb_generations: 5 },
+      lecons: { recommandations_permanentes: [], dernier_score_audit: null }
+    };
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PROFILPROMPT' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+
+    const ligne = await page.evaluate(async (profil) => {
+      _profilCreateur = profil;
+      return ligneProfilPourPrompt(await chargerProfilCreateur());
+    }, profil);
+
+    assert.match(ligne, /niche habituelle : Histoire/, 'le profil continue d\'informer les prompts');
+    assert.match(ligne, /hooks déjà utilisés/, 'et surtout l\'anti-répétition reste en place');
+    assert.match(ligne, /Un roi qui dit non/, 'avec les hooks réellement produits');
+    assert.match(ligne, /angles déjà exploités/);
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

@@ -218,25 +218,37 @@ async function appliquerProfilCreateur(mode) {
   if (!profil) return;
   const d = profil.declare;
 
+  // ── CE QUI SE PRÉ-REMPLIT, ET CE QUI NE SE PRÉ-REMPLIT PLUS ──
+  // Décision du propriétaire, après un retour terrain où une durée héritée de
+  // la génération précédente a produit un script de 48 secondes alors que le
+  // formulaire affichait 2 minutes.
+  //
+  // Les champs pré-remplis se limitent désormais aux TRAITS STABLES du
+  // créateur : sa niche et son format (faceless ou face caméra). Ça ne change
+  // pas d'une vidéo à l'autre, donc les reposer lui fait gagner du temps sans
+  // jamais le surprendre.
+  //
+  // Le TON, la DURÉE, le GENRE narratif et l'OBJECTIF ne sont plus pré-remplis :
+  // ce sont des décisions PAR VIDÉO, pas des préférences de créateur. Les
+  // hériter revenait à supposer qu'il fait toujours exactement la même vidéo,
+  // et un choix qu'il n'a pas posé lui-même est une surprise, pas un service.
+  //
+  // La mémoire du créateur n'est PAS supprimée pour autant : elle continue
+  // d'alimenter la ligne de contexte des prompts (voir ligneProfilPourPrompt),
+  // avec l'anti-répétition des angles, hooks et structures déjà produits. Seul
+  // le pré-remplissage du formulaire est concerné ici.
   if (mode === 'script') {
     preRemplirSiVide('niche', d.niche_principale);
     preRemplirSiVide('format', d.style_contenu);
-    preRemplirSiVide('tone', d.ton_prefere);
-    preRemplirSiVide('dureeGrid', d.duree_moyenne);
   } else if (mode === 'ideas') {
     preRemplirSiVide('ideaNiche', d.niche_principale);
-    preRemplirSiVide('ideaTone', d.ton_prefere);
   } else if (mode === 'audit') {
     preRemplirSiVide('auditNiche', d.niche_principale);
-    preRemplirSiVide('auditObjectif', d.objectifs && d.objectifs[0]);
     preRemplirSiVide('auditStyle', d.style_contenu);
   } else if (mode === 'serie') {
     // initSerieSelects() copie les options juste avant : les selects sont déjà prêts.
     preRemplirSiVide('serieNiche', d.niche_principale);
     preRemplirSiVide('serieFormat', d.style_contenu); // style_contenu = format habituel (faceless / face caméra)
-    preRemplirSiVide('serieStyle', d.ton_prefere);
-    preRemplirSiVide('serieGenre', d.structure_narrative);
-    preSelectionnerGrilleSiVide('serieDureeGrid', d.duree_moyenne);
   }
 }
 
