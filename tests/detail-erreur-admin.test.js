@@ -77,3 +77,69 @@ test('cliquer un mode déplie le détail réel des échecs (message, quand, code
     await arreter();
   }
 });
+
+// Retour propriétaire : "dans le tableau de bord, au niveau des échecs de
+// génération, il n'y a pas score-script ou score-story". Vérification faite,
+// rien ne les filtrait : la carte affiche TOUS les modes remontés, un mode
+// inconnu du dictionnaire de libellés s'affichant brut (c'est le cas de
+// "montageRendu" sur sa capture). L'absence venait donc simplement du fait
+// qu'aucun juge n'avait échoué depuis la mise en ligne de ce journal.
+// Ce test verrouille les deux choses qui, elles, méritaient d'être garanties :
+// ces deux modes s'affichent bel et bien avec un libellé lisible, et ils
+// restent COMPTÉS À PART de 'script'/'story' (le script est livré complet,
+// seul le score manque, les mélanger fausserait la santé du service).
+test('un score non calculé apparaît dans la carte, avec son libellé, sans être confondu avec un échec de génération', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const maintenant = Date.now();
+    const erreursRecentes = [
+      { mode: 'script', detail: '(529) serveur occupé', code_acces: 'ABC', cree_le: new Date(maintenant - 20 * 60000).toISOString() },
+      { mode: 'score-script', detail: 'score non calculé : réponse du juge illisible (aucun JSON exploitable) | 2e tentative (autre modèle) : appel au juge impossible : (529) serveur occupé', code_acces: 'ABC', cree_le: new Date(maintenant - 15 * 60000).toISOString() },
+      { mode: 'score-story', detail: 'score non calculé : appel au juge impossible : délai dépassé (55s)', code_acces: 'DEF', cree_le: new Date(maintenant - 5 * 60000).toISOString() }
+    ];
+    await poserMocksReseau(page, {
+      data: (body) => body.resource === 'admin-stats'
+        ? { codes: [], parModePlan: {}, erreursParMode: { script: 1, 'score-script': 1, 'score-story': 1 }, erreursTotal: 3, erreursRecentes }
+        : undefined
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      localStorage.setItem('scriptura_is_admin', 'true');
+      localStorage.setItem('scriptura_illimite', 'true');
+    });
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
+    });
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    const lignes = await page.evaluate(() => Array.from(document.querySelectorAll('.erreur-mode-ligne')).map(l => l.textContent.trim()));
+    assert.ok(lignes.some(l => /Score non calculé \(Script\)/.test(l)),
+      'le mode score-script doit apparaître avec un libellé lisible, jamais brut : ' + JSON.stringify(lignes));
+    assert.ok(lignes.some(l => /Score non calculé \(Récit\)/.test(l)),
+      'idem pour score-story : ' + JSON.stringify(lignes));
+    // Comptés à part : la ligne "Script" reste à 1, elle n'absorbe pas le
+    // score non calculé qui l'a suivi sur la même génération.
+    const ligneScript = lignes.find(l => /^Script/.test(l));
+    assert.ok(ligneScript && /1$/.test(ligneScript),
+      'le compteur d\'échecs de génération ne doit pas être gonflé par un score non calculé : ' + ligneScript);
+
+    // Et le détail reste consultable, avec la cause en clair.
+    await page.evaluate(() => toggleDetailErreursMode('score-script'));
+    await page.waitForTimeout(150);
+    const detail = await page.evaluate(() => {
+      const el = document.getElementById('detailErreurs_score-script');
+      return { display: el ? el.style.display : null, texte: el ? el.textContent : '' };
+    });
+    assert.equal(detail.display, 'block', 'le détail doit s\'ouvrir malgré le tiret dans le nom du mode');
+    assert.match(detail.texte, /illisible/, 'la cause doit être lisible telle qu\'elle a été journalisée');
+    assert.match(detail.texte, /2e tentative/, 'et couvrir les deux tentatives');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

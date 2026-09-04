@@ -905,7 +905,12 @@ const LABEL_MODE_ERREUR = {
   recommandation: 'Recommandations', montageGuide: 'Guide de montage',
   diagnosticSommaire: 'Diagnostic sommaire', diagnosticFusion: 'Diagnostic (fusion)',
   analyseVirale: 'Analyse virale', audit: 'Diagnostic détaillé',
-  creation: 'Ancien échec (avant précision par mode)', creationSerie: 'Série', autre: 'Autre'
+  creation: 'Ancien échec (avant précision par mode)', creationSerie: 'Série', autre: 'Autre',
+  // Volontairement séparés de 'script'/'story' : quand le juge indépendant
+  // du score ne répond pas, le script ou le récit est bel et bien livré,
+  // complet. Ce n'est pas un échec de génération, seul le score manque, et
+  // les compter ensemble fausserait la lecture de la santé du service.
+  'score-script': 'Score non calculé (Script)', 'score-story': 'Score non calculé (Récit)'
 };
 function labelModeErreur(m) { return LABEL_MODE_ERREUR[m] || m; }
 
