@@ -292,12 +292,33 @@ test('les quatre formats existent, et chacun produit vraiment ses dimensions', a
       generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
     });
 
-    const proposes = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('#carrouselFormats .choice')).map(c => c.getAttribute('data-format')));
-    assert.deepEqual(proposes, ['1:1', '4:5', '9:16', '16:9'], 'les quatre formats sont proposés');
+    // Menu déroulant depuis le retour du propriétaire : le format est un
+    // réglage secondaire, quatre cartes lui donnaient autant de place à
+    // l'écran qu'à l'objectif, qui est LE choix structurant du mode.
+    const menu = await page.evaluate(() => {
+      const el = document.getElementById('carrouselFormat');
+      return { balise: el.tagName, valeurs: Array.from(el.options).map(o => o.value), valeur: el.value };
+    });
+    assert.equal(menu.balise, 'SELECT', 'le format se choisit dans un menu déroulant');
+    assert.deepEqual(menu.valeurs, ['1:1', '4:5', '9:16', '16:9'], 'les quatre formats sont proposés');
+    assert.equal(menu.valeur, '4:5', 'le portrait 4:5 est le choix par défaut, c\'est celui qui performe');
 
-    const parDefaut = await page.evaluate(() => lireFormatCarrousel());
-    assert.equal(parDefaut, '4:5', 'le portrait 4:5 est le choix par défaut, c\'est celui qui performe');
+    // Et c'est bien la valeur DU CHAMP qui est lue, pas une variable interne
+    // laissée derrière : c'est exactement le piège qui a produit un script de
+    // 48 secondes pendant que le formulaire affichait 2 minutes.
+    const suitLeChamp = await page.evaluate(() => {
+      const el = document.getElementById('carrouselFormat');
+      el.value = '16:9';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return lireFormatCarrousel();
+    });
+    assert.equal(suitLeChamp, '16:9',
+      'REGRESSION : le menu changerait à l\'écran pendant que la génération partirait sur l\'ancien format');
+    await page.evaluate(() => {
+      const el = document.getElementById('carrouselFormat');
+      el.value = '4:5';
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
 
     await genererDepuisMock(page);
 

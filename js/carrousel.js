@@ -155,21 +155,32 @@ function majCurseurSlidesCarrousel() {
   return n;
 }
 
-function choisirFormatCarrousel(valeur, el) {
+function choisirFormatCarrousel(valeur) {
   if (!CAR_FORMATS[valeur]) return;
   carrouselFormat = valeur;
-  document.querySelectorAll('#carrouselFormats .choice').forEach(c => c.classList.remove('selected'));
-  if (el) el.classList.add('selected');
   // Un format changé après coup doit se voir tout de suite sur les aperçus
   // déjà affichés, sinon le créateur télécharge un format qu'il ne voit pas.
   if (carrouselResultat) renderCarrousel();
 }
 
+// Relu depuis le CHAMP à chaque lecture, jamais depuis la seule variable :
+// c'est exactement le piège qui a produit un script de 48 secondes pendant
+// que le formulaire affichait 2 minutes (un champ modifié à l'écran pendant
+// qu'une variable interne gardait l'ancienne valeur).
 function lireFormatCarrousel() {
-  const choisi = document.querySelector('#carrouselFormats .choice.selected');
-  const valeur = choisi && choisi.getAttribute('data-format');
+  const champ = document.getElementById('carrouselFormat');
+  const valeur = champ && champ.value;
   if (valeur && CAR_FORMATS[valeur]) carrouselFormat = valeur;
   return carrouselFormat;
+}
+
+// Remet le menu du formulaire d'accord avec le format réellement en vigueur.
+// Sans ça, changer de format depuis l'écran de résultat laisserait le
+// formulaire afficher l'ancien choix au retour, et la génération suivante
+// repartirait sur celui-là.
+function syncMenuFormatCarrousel() {
+  const champ = document.getElementById('carrouselFormat');
+  if (champ && champ.value !== carrouselFormat) champ.value = carrouselFormat;
 }
 
 function resetCarrouselForm() {
@@ -177,6 +188,8 @@ function resetCarrouselForm() {
   if (curseur) curseur.value = String(CARROUSEL_SLIDES_DEFAUT);
   majCurseurSlidesCarrousel();
   syncVenteFieldCarrousel();
+  const menuFormat = document.getElementById('carrouselFormat');
+  if (menuFormat) { carrouselFormat = CAR_FORMAT_DEFAUT; menuFormat.value = CAR_FORMAT_DEFAUT; }
   const err = document.getElementById('carrouselErrorBox');
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   const res = document.getElementById('carrouselResults');
@@ -1228,5 +1241,6 @@ function renderCarrousel() {
 function changerFormatDepuisResultat(valeur) {
   if (!CAR_FORMATS[valeur]) return;
   carrouselFormat = valeur;
+  syncMenuFormatCarrousel();
   renderCarrousel();
 }

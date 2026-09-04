@@ -3463,11 +3463,6 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .car-slider:focus-visible{box-shadow:0 0 0 3px var(--emerald-pale)}
 .car-slider-bornes{display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:6px}
 
-/* Choix du format, dans le formulaire : quatre cartes compactes plutôt qu'un
-   menu, pour que les quatre proportions soient comparables d'un coup d'oeil. */
-.car-format-choix .choice{text-align:center;align-items:center}
-.car-format-choix .choice .choice-label{font-size:1.05rem;letter-spacing:0.02em}
-
 /* Barre de format sur l'écran de résultat : changer d'avis après coup ne doit
    pas obliger à régénérer, les aperçus sont recomposés (voir
    changerFormatDepuisResultat, js/carrousel.js). */
