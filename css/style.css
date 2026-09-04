@@ -3451,33 +3451,64 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .car-slider:focus-visible{box-shadow:0 0 0 3px var(--emerald-pale)}
 .car-slider-bornes{display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:6px}
 
-/* Une slide = son visuel à gauche, son texte et ses actions à droite. En
-   dessous de 640px la carte passe en colonne : sur un téléphone, une
-   vignette 9:16 côte à côte avec du texte ne laisse de place ni à l'un ni
-   à l'autre. */
+/* Choix du format, dans le formulaire : quatre cartes compactes plutôt qu'un
+   menu, pour que les quatre proportions soient comparables d'un coup d'oeil. */
+.car-format-choix .choice{text-align:center}
+.car-format-choix .choice .choice-label{font-size:1.05rem;letter-spacing:0.02em}
+
+/* Barre de format sur l'écran de résultat : changer d'avis après coup ne doit
+   pas obliger à régénérer, les aperçus sont recomposés (voir
+   changerFormatDepuisResultat, js/carrousel.js). */
+.car-formats-barre{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
+.car-formats-label{
+  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:var(--gold);opacity:0.7;
+}
+.car-formats{display:flex;gap:8px;flex-wrap:wrap}
+.car-format-btn{
+  padding:7px 13px;border-radius:10px;cursor:pointer;
+  background:var(--bg-soft);border:1px solid var(--border-soft);
+  color:var(--text-secondary);font-family:'Poppins',sans-serif;
+  font-size:0.84rem;font-weight:600;transition:all 0.2s ease;
+}
+.car-format-btn span{display:block;font-size:0.66rem;font-weight:400;opacity:0.62}
+.car-format-btn:hover{border-color:var(--border)}
+.car-format-btn.actif{background:var(--gold-pale);border-color:var(--gold);color:var(--gold-light)}
+
+/* Une slide = son aperçu à gauche, son contenu et ses actions à droite.
+   L'aperçu est la VRAIE composition rendue sur canvas, pas une maquette
+   approchante : ce que le créateur voit est ce qu'il télécharge. Sa
+   proportion suit donc le format choisi (aspect-ratio posé en ligne). */
 .car-slides{display:flex;flex-direction:column;gap:14px;margin-top:16px}
 .car-slide{
   display:flex;gap:14px;padding:14px;border-radius:14px;
   background:var(--bg-card);border:1px solid var(--border-soft);
 }
-.car-slide-visuel{position:relative;flex:0 0 96px;width:96px;height:170px;border-radius:10px;overflow:hidden;background:var(--bg-soft)}
+.car-slide-visuel{
+  position:relative;flex:0 0 132px;width:132px;border-radius:10px;
+  overflow:hidden;background:var(--bg-soft);
+}
 .car-slide-img{width:100%;height:100%;object-fit:cover;display:block}
 .car-slide-vide{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
-  text-align:center;font-size:0.72rem;color:var(--muted);line-height:1.5;padding:8px;
-  background:linear-gradient(150deg,#101014,#16211D 60%,#0C0C0F);
-}
-.car-slide-vide span{opacity:0.6;font-size:0.66rem}
-.car-slide-num{
-  position:absolute;top:6px;left:6px;padding:2px 7px;border-radius:99px;
-  background:rgba(0,0,0,0.62);color:var(--gold);font-size:0.68rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;height:100%;
+  text-align:center;font-size:0.7rem;color:var(--muted);padding:8px;
 }
 .car-slide-corps{flex:1;min-width:0}
-.car-slide-texte{margin:0 0 6px;font-size:1rem;line-height:1.45;color:var(--text);font-weight:600;white-space:pre-wrap}
+.car-slide-role{
+  margin:0 0 5px;font-family:'Cinzel',serif;font-size:0.58rem;
+  letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);opacity:0.8;
+}
+.car-slide-texte{
+  margin:0 0 8px;font-family:'Playfair Display',serif;font-weight:700;
+  font-size:1.08rem;line-height:1.3;color:var(--text);
+}
+.car-slide-points{margin:0 0 8px;padding-left:18px;font-size:0.82rem;line-height:1.55;color:var(--text-secondary)}
+.car-slide-points strong{color:var(--text)}
+.car-slide-bandeau{
+  margin:0 0 8px;padding:8px 11px;border-radius:9px;font-size:0.8rem;line-height:1.5;
+  background:var(--gold-pale);border:1px solid var(--border-soft);color:var(--gold-light);
+}
 .car-slide-mots{margin:0 0 8px;font-size:0.74rem;color:var(--muted)}
-/* Un dépassement de lisibilité se voit, il ne se devine pas : c'est le seul
-   défaut d'un carrousel qu'un créateur peut corriger en dix secondes. */
-.car-slide-mots.car-trop{color:#E2C87A;font-weight:600}
 .car-slide-visuel-note{margin:0 0 10px;font-size:0.78rem;color:var(--text-secondary);line-height:1.5}
 .car-slide-visuel-note strong{color:var(--gold)}
 .car-slide-actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -3485,6 +3516,7 @@ body.is-admin .outils-montage-home-btn{display:flex}
 
 @media(max-width:640px){
   .car-slide{flex-direction:column}
-  .car-slide-visuel{flex:none;width:100%;height:180px}
-  .car-slide-num{top:8px;left:8px}
+  /* En colonne, l'aperçu reprend toute la largeur et garde sa proportion
+     réelle : c'est là qu'on juge vraiment une slide, autant la voir grand. */
+  .car-slide-visuel{flex:none;width:100%;max-width:300px;margin:0 auto}
 }

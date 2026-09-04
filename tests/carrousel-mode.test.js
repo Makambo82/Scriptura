@@ -1,7 +1,8 @@
 // Décision produit du propriétaire : ajouter le format CARROUSEL (les
 // publications à slides qu'on fait défiler du doigt), avec un curseur de 6 à
-// 15 slides, la consigne visuelle de chaque slide, et la génération des
-// images à la demande, dans la limite du plan.
+// 15 slides, un choix de format (1:1, 4:5, 9:16, 16:9), la consigne visuelle
+// de chaque slide, et la génération des images à la demande dans la limite
+// du plan.
 //
 // CE QUI EST VERROUILLÉ ICI, et pourquoi chaque point compte :
 //
@@ -11,21 +12,25 @@
 //    plafond de secondes par bloc et d'une "Rétention estimée" calculée
 //    contre une cible qui ne veut rien dire pour lui.
 //
-// 2. LE SCORE EST ENTIÈREMENT DÉTERMINISTE ET NE COÛTE RIEN. Aucun juge IA
-//    n'est appelé, contrairement au Script et au Récit : tout ce qui fait la
-//    performance d'un carrousel se COMPTE. Le pilier du produit est donc
-//    respecté sans dépenser un seul token pour l'évaluation, et deux fois
-//    les mêmes slides donnent deux fois le même score.
+// 2. LA SLIDE EST UNE MISE EN PAGE, PAS UNE PHRASE SUR UNE PHOTO. Le
+//    propriétaire a fourni des carrousels de référence après la première
+//    version, et l'écart était sans appel. Le modèle rédige des slides
+//    STRUCTURÉES (pastille, titre, définition, points, bandeau) et le code
+//    les met en page sur canvas.
 //
-// 3. LE BUDGET D'IMAGES EST SÉPARÉ de celui du montage vidéo (décision du
-//    propriétaire, 15 en Creator, 40 en Pro). Partagés, un carrousel de 15
-//    slides aurait mangé 75% des 20 images mensuelles d'un Creator, le
-//    laissant arbitrer entre deux fonctions qu'il a déjà payées.
+// 3. LE SCORE EST ENTIÈREMENT DÉTERMINISTE ET NE COÛTE RIEN. Aucun juge IA,
+//    contrairement au Script et au Récit : tout ce qui fait la performance
+//    d'un carrousel se COMPTE. Le pilier du produit est respecté sans
+//    dépenser un seul token pour l'évaluation.
 //
-// 4. LES IMAGES SONT GÉNÉRÉES SANS AUCUN TEXTE. Les modèles d'images écrivent
-//    des lettres tordues et des fautes dès qu'on leur demande une phrase : le
-//    texte est posé par-dessus par le code. Une régression ici rendrait
-//    chaque slide inutilisable, et de façon silencieuse.
+// 4. LE BUDGET D'IMAGES EST SÉPARÉ de celui du montage vidéo (15 en Creator,
+//    40 en Pro). Partagés, un carrousel de 15 slides aurait mangé 75% des 20
+//    images mensuelles d'un Creator.
+//
+// 5. LES IMAGES SONT GÉNÉRÉES SANS AUCUN TEXTE. Les modèles d'images écrivent
+//    des lettres tordues dès qu'on leur demande une phrase : le texte est
+//    posé par le code. Une régression ici rendrait chaque slide inutilisable,
+//    et de façon silencieuse.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -33,18 +38,48 @@ const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
 const CARROUSEL_IA = {
-  titre: 'Les erreurs de budget',
-  analyse: 'Un angle concret sur une douleur quotidienne.',
+  titre: 'Compte ou marque',
+  analyse: 'Un angle qui oppose deux statuts que tout le monde confond.',
   direction_visuelle: 'photographie sobre, lumière rasante, tons chauds',
   slides: [
-    { numero: 1, role: 'hook', texte: '3 erreurs qui ruinent ton budget', visuel: 'un portefeuille vide posé sur une table en bois' },
-    { numero: 2, role: 'corps', texte: '1. Tu paies tes abonnements sans les compter…', visuel: 'une pile de tickets de caisse' },
-    { numero: 3, role: 'corps', texte: '2. Tu épargnes ce qui reste, jamais l\'inverse…', visuel: 'une tirelire en contre-jour' },
-    { numero: 4, role: 'corps', texte: '3. Tu confonds revenu et argent disponible…', visuel: 'un carnet de comptes ouvert' },
-    { numero: 5, role: 'cta', texte: 'Enregistre ce carrousel et commente ton pire poste de dépense', visuel: 'une main qui referme un carnet' }
+    {
+      numero: 1, gabarit: 'couverture',
+      eyebrow: 'Entrepreneuriat digital', titre: 'Un compte qui vend n\'est pas une marque',
+      titre_accent: 'marque', bandeau: 'Les 4 piliers qui transforment un compte en marque.',
+      visuel: 'un portefeuille vide posé sur une table en bois'
+    },
+    {
+      numero: 2, gabarit: 'contenu', badge: 'Pilier 1 / 3', emoji: '🎯',
+      titre: 'Le positionnement clair',
+      definition: 'Ce que tu es la seule à dire, de la façon dont tu le dis.',
+      points: [
+        { emoji: '🎯', titre: 'Trouve ton angle', texte: 'Pas "je parle d\'argent", mais "pour les mamans qui commencent".' },
+        { emoji: '🚫', titre: 'Ce que tu refuses', texte: 'Une marque forte dit aussi non au contenu générique.' }
+      ],
+      bandeau: 'Un positionnement flou attire tout le monde et ne retient personne.',
+      visuel: 'une boussole sur une table'
+    },
+    {
+      numero: 3, gabarit: 'contenu', badge: 'Pilier 2 / 3', emoji: '📖',
+      titre: 'Le storytelling personnel',
+      definition: 'Montrer le parcours, pas seulement le résultat.',
+      points: [{ emoji: '📖', titre: 'Partage tes débuts', texte: 'Les gens se connectent à ton parcours, pas à ta perfection.' }],
+      bandeau: 'On ne s\'attache pas à un produit, on s\'attache à une histoire.',
+      visuel: 'un carnet ouvert'
+    },
+    {
+      numero: 4, gabarit: 'recap', eyebrow: 'Prochaine étape',
+      titre: 'Ta première vente commence ici', titre_accent: 'première vente',
+      points: [
+        { emoji: '📌', titre: 'Épingle ce carrousel', texte: 'Les 3 prérequis sont dedans.' },
+        { emoji: '💬', titre: 'Commente ton sujet', texte: 'Je te dis si c\'est viable.' }
+      ],
+      bandeau: 'Série Gagner de l\'argent sur TikTok.',
+      visuel: 'une porte entrouverte vers la lumière'
+    }
   ],
-  legende: 'Et toi, tu es sur laquelle ?',
-  hashtags: ['#budget', '#argent', '#finance'],
+  legende: 'Tu es dans quelle catégorie ?',
+  hashtags: ['#marque', '#tiktok', '#entrepreneuriat'],
   son_suggere: 'une nappe calme et posée, sans percussion'
 };
 
@@ -55,6 +90,14 @@ async function ouvrirCarrousel(page, baseUrl, gestionnaires) {
   await page.waitForTimeout(300);
   await page.evaluate(() => chooseMode('carrousel'));
   await page.waitForTimeout(300);
+}
+
+async function genererDepuisMock(page) {
+  await page.evaluate(() => {
+    document.getElementById('carrouselSujet').value = 'compte contre marque';
+    return genererCarrousel();
+  });
+  await page.waitForTimeout(900);
 }
 
 test('le carrousel est un mode à part entière, avec son propre écran', async () => {
@@ -112,14 +155,13 @@ test('le curseur va de 6 à 15 slides, et c\'est bien sa valeur qui part dans le
 
     const bornes = await page.evaluate(() => {
       const c = document.getElementById('carrouselSlides');
-      return { min: c.min, max: c.max, pas: c.step, defaut: c.value, type: c.type };
+      return { min: c.min, max: c.max, pas: c.step, type: c.type };
     });
     assert.equal(bornes.type, 'range', 'une ligne graduée qu\'on fait glisser, pas un menu');
     assert.equal(bornes.min, '6');
     assert.equal(bornes.max, '15');
     assert.equal(bornes.pas, '1');
 
-    // On glisse jusqu'à 12 : l'affichage suit immédiatement.
     const affiche = await page.evaluate(() => {
       const c = document.getElementById('carrouselSlides');
       c.value = '12';
@@ -131,11 +173,7 @@ test('le curseur va de 6 à 15 slides, et c\'est bien sa valeur qui part dans le
     // Et surtout, c'est ce nombre-là qui est demandé au modèle. Le piège
     // classique de l'app : un champ qui change à l'écran pendant qu'une
     // variable interne garde l'ancienne valeur.
-    await page.evaluate(() => {
-      document.getElementById('carrouselSujet').value = 'les erreurs de budget';
-      return genererCarrousel();
-    });
-    await page.waitForTimeout(600);
+    await genererDepuisMock(page);
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.match(promptVu, /EXACTEMENT 12/,
       'REGRESSION : le curseur bougerait à l\'écran pendant que le prompt demanderait encore 8 slides');
@@ -157,29 +195,25 @@ test('le score est calculé par le CODE, jamais par l\'IA, et ne dépense aucun 
     await ouvrirCarrousel(page, baseUrl, {
       generate: () => { appelsIA++; return { content: [{ text: JSON.stringify(CARROUSEL_IA) }] }; }
     });
+    await genererDepuisMock(page);
 
-    await page.evaluate(() => {
-      document.getElementById('carrouselSujet').value = 'les erreurs de budget';
-      return genererCarrousel();
-    });
-    await page.waitForTimeout(800);
-
-    // UN SEUL appel : pas de critique, pas de réviseur, pas de juge. C'est
-    // ce qui rend le mode carrousel nettement moins cher que le Script.
+    // UN SEUL appel : pas de critique, pas de réviseur, pas de juge. C'est ce
+    // qui rend le mode carrousel nettement moins cher que le Script.
     assert.equal(appelsIA, 1,
-      'REGRESSION : un juge ou un critique ajouté ici doublerait le coût du mode pour une note que le code sait déjà calculer seul');
+      'REGRESSION : un juge ou un critique ajouté ici doublerait le coût du mode pour une note que le code sait calculer seul');
 
-    // Même entrée, même score, à chaque fois : c'est le pilier du produit.
     const vu = await page.evaluate(() => {
-      const s1 = scoreCarrousel(carrouselResultat.slides, carrouselResultat.legende, carrouselResultat.hashtags);
-      const s2 = scoreCarrousel(carrouselResultat.slides, carrouselResultat.legende, carrouselResultat.hashtags);
-      // Un carrousel volontairement raté : slide 1 interminable, aucune
-      // relance, deux idées par slide, aucun appel à l'action.
+      const s1 = scoreCarrousel(carrouselResultat.slides);
+      const s2 = scoreCarrousel(carrouselResultat.slides);
+      // Un carrousel volontairement raté : titre d'accroche interminable,
+      // aucune numérotation, points bien trop longs, aucun appel à l'action.
       const rate = scoreCarrousel([
-        { texte: 'Dans cette publication je vais vous expliquer en détail toutes les différentes erreurs que beaucoup de personnes commettent très régulièrement quand elles gèrent leur budget mensuel' },
-        { texte: 'La première chose. Il faut compter ses dépenses. Ensuite il faut aussi penser à épargner.' },
-        { texte: 'Voilà c est tout pour aujourd hui.' }
-      ], '', []);
+        { gabarit: 'couverture', titre: 'Dans cette publication je vais vous expliquer en détail toutes les différentes erreurs que beaucoup de personnes commettent régulièrement', points: [] },
+        { gabarit: 'contenu', badge: 'Suite', titre: 'La première chose à savoir absolument avant de commencer quoi que ce soit', points: [
+          { titre: 'Un titre de point beaucoup trop long pour être lu', texte: 'Un texte qui continue encore et encore sans jamais s\'arrêter, ce qui fait que personne ne le lit jamais en entier sur un téléphone.' }
+        ] },
+        { gabarit: 'recap', titre: 'Voilà c est tout pour aujourd hui', points: [] }
+      ]);
       return { s1, identique: JSON.stringify(s1) === JSON.stringify(s2), rate: rate.global };
     });
 
@@ -197,7 +231,56 @@ test('le score est calculé par le CODE, jamais par l\'IA, et ne dépense aucun 
   }
 });
 
-test('chaque slide affiche son texte, son nombre de mots et sa consigne visuelle', async () => {
+test('chaque slide affiche sa structure, son nombre de mots et sa consigne visuelle', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+    await genererDepuisMock(page);
+
+    const vu = await page.evaluate(() => {
+      const cartes = Array.from(document.querySelectorAll('#carrouselResults .car-slide'));
+      const tout = document.getElementById('carrouselResults').innerText;
+      return {
+        nb: cartes.length,
+        formulaireMasque: document.getElementById('carrouselForm').style.display === 'none',
+        premiere: cartes[0] ? cartes[0].innerText : '',
+        consignes: cartes.filter(c => /Visuel\s*:/.test(c.innerText)).length,
+        mots: cartes.filter(c => /\d+\s+mots?/.test(c.innerText)).length,
+        points: document.querySelectorAll('#carrouselResults .car-slide-points li').length,
+        legende: tout.includes('Tu es dans quelle catégorie ?'),
+        son: tout.includes('nappe calme'),
+        boutonsImage: document.querySelectorAll('#carrouselResults button[onclick^="genererImageCarrousel"]').length
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.nb, 4, 'une carte par slide');
+    assert.equal(vu.formulaireMasque, true, 'le formulaire laisse la place au résultat');
+    assert.match(vu.premiere, /Un compte qui vend n'est pas une marque/, 'le titre exact de la slide');
+    assert.equal(vu.consignes, 4, 'chaque slide porte sa consigne visuelle, c\'est le livrable demandé');
+    assert.equal(vu.mots, 4, 'et son nombre de mots');
+    assert.equal(vu.points, 5,
+      'REGRESSION : sans les points, la slide redevient une phrase posée sur un fond, ce que le propriétaire a explicitement refusé');
+    assert.equal(vu.legende, true, 'la légende est là');
+    assert.equal(vu.son, true, 'le son suggéré aussi, un carrousel muet perd sa portée');
+    assert.equal(vu.boutonsImage, 4,
+      'le fond se génère SLIDE PAR SLIDE, jamais imposé en bloc : c\'est ce qui protège le quota');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Demande explicite du propriétaire, après les carrousels de référence :
+// "Prévoir aussi le format des carrousels (1:1, 4:5, 9:16, 16:9)".
+test('les quatre formats existent, et chacun produit vraiment ses dimensions', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -209,44 +292,96 @@ test('chaque slide affiche son texte, son nombre de mots et sa consigne visuelle
       generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
     });
 
-    await page.evaluate(() => {
-      document.getElementById('carrouselSujet').value = 'les erreurs de budget';
-      return genererCarrousel();
-    });
-    await page.waitForTimeout(800);
+    const proposes = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('#carrouselFormats .choice')).map(c => c.getAttribute('data-format')));
+    assert.deepEqual(proposes, ['1:1', '4:5', '9:16', '16:9'], 'les quatre formats sont proposés');
 
-    const vu = await page.evaluate(() => {
-      const cartes = Array.from(document.querySelectorAll('#carrouselResults .car-slide'));
-      return {
-        nb: cartes.length,
-        formulaireMasque: document.getElementById('carrouselForm').style.display === 'none',
-        premiere: cartes[0] ? cartes[0].innerText : '',
-        consignes: cartes.filter(c => /Visuel\s*:/.test(c.innerText)).length,
-        mots: cartes.filter(c => /\d+\s+mots?/.test(c.innerText)).length,
-        legende: document.getElementById('carrouselResults').innerText.includes('Et toi, tu es sur laquelle ?'),
-        son: document.getElementById('carrouselResults').innerText.includes('nappe calme'),
-        boutonsImage: document.querySelectorAll('#carrouselResults button[onclick^="genererImageCarrousel"]').length
-      };
+    const parDefaut = await page.evaluate(() => lireFormatCarrousel());
+    assert.equal(parDefaut, '4:5', 'le portrait 4:5 est le choix par défaut, c\'est celui qui performe');
+
+    await genererDepuisMock(page);
+
+    // Chaque format doit produire une image aux VRAIES dimensions, pas un
+    // simple libellé. Une slide dont la proportion ne suit pas le format
+    // choisi serait rognée par TikTok au moment de la publication.
+    const mesures = await page.evaluate(async () => {
+      const attendus = { '1:1': [1080, 1080], '4:5': [1080, 1350], '9:16': [1080, 1920], '16:9': [1920, 1080] };
+      const resultats = {};
+      for (const f of Object.keys(attendus)) {
+        carrouselFormat = f;
+        const blob = await composerSlideCarrousel(1);
+        const bitmap = await createImageBitmap(blob);
+        resultats[f] = [bitmap.width, bitmap.height, blob.size];
+      }
+      return resultats;
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(vu.nb, 5, 'une carte par slide');
-    assert.equal(vu.formulaireMasque, true, 'le formulaire laisse la place au résultat');
-    assert.match(vu.premiere, /3 erreurs qui ruinent ton budget/, 'le texte exact de la slide, prêt à copier');
-    assert.equal(vu.consignes, 5, 'chaque slide porte sa consigne visuelle, c\'est le livrable demandé');
-    assert.equal(vu.mots, 5,
-      'et son nombre de mots : c\'est le seul défaut qu\'un créateur corrige en dix secondes, il doit se voir');
-    assert.equal(vu.legende, true, 'la légende est là');
-    assert.equal(vu.son, true, 'le son suggéré aussi, un carrousel muet perd sa portée');
-    assert.equal(vu.boutonsImage, 5,
-      'l\'image se génère SLIDE PAR SLIDE, jamais imposée en bloc : c\'est ce qui protège le quota');
+    assert.deepEqual(mesures['1:1'].slice(0, 2), [1080, 1080]);
+    assert.deepEqual(mesures['4:5'].slice(0, 2), [1080, 1350]);
+    assert.deepEqual(mesures['9:16'].slice(0, 2), [1080, 1920]);
+    assert.deepEqual(mesures['16:9'].slice(0, 2), [1920, 1080]);
+    Object.keys(mesures).forEach(f => {
+      assert.ok(mesures[f][2] > 10000,
+        'une slide quasi vide en ' + f + ' signifierait que la mise en page n\'a pas été dessinée : ' + mesures[f][2] + ' octets');
+    });
   } finally {
     await navigateur.close();
     await arreter();
   }
 });
 
-test('l\'image est demandée SANS AUCUN TEXTE, et sur le budget carrousel', async () => {
+// LE PIÈGE DU 16:9, trouvé en regardant le rendu et non en lisant le code :
+// l'unité d'échelle partait de la seule LARGEUR, donc un 1920x1080 dessinait
+// tout 1,78 fois trop grand pour une hauteur deux fois moindre, et la mise en
+// page débordait hors du cadre. Sans erreur, sans avertissement.
+test('aucun format ne laisse la mise en page déborder hors du cadre', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+    await genererDepuisMock(page);
+
+    const debordements = await page.evaluate(() => {
+      const mauvais = [];
+      const fmts = ['1:1', '4:5', '9:16', '16:9'];
+      for (const f of fmts) {
+        carrouselFormat = f;
+        const fmt = CAR_FORMATS[f];
+        const c = document.createElement('canvas').getContext('2d');
+        const u = Math.min(fmt.l / 1080, fmt.h / 1350);
+        const marge = 30 * u;
+        const dispoL = fmt.l - (marge + 52 * u) * 2;
+        const zone = { x: 0, l: Math.min(dispoL, 1180 * u) };
+        const haut = marge + 28 * u + 6 * u + 44 * u;
+        const dispo = (fmt.h - marge - 40 * u) - haut;
+        // La slide la plus dense du carrousel : c'est elle qui déborde en
+        // premier, donc c'est elle qu'il faut mesurer.
+        const slide = carrouselResultat.slides[1];
+        const blocs = carrouselBlocs(slide, carrouselAccent(1));
+        const e = carrouselEchelleQuiTient(c, blocs, zone, carrouselAccent(1), dispo, u);
+        const hauteur = carrouselDisposer(c, blocs, zone, e, carrouselAccent(1), false, 0);
+        if (hauteur > dispo) mauvais.push(f + ' : ' + Math.round(hauteur) + 'px pour ' + Math.round(dispo) + 'px disponibles');
+      }
+      return mauvais;
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(debordements, [],
+      'REGRESSION : la mise en page sort du cadre, silencieusement, et la slide est inutilisable');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('le fond est demandé SANS AUCUN TEXTE, sur le budget carrousel et au bon format', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -259,7 +394,6 @@ test('l\'image est demandée SANS AUCUN TEXTE, et sur le budget carrousel', asyn
     });
 
     let corpsImage = null;
-    // 1x1 PNG transparent, suffisant : on teste la demande, pas le rendu.
     const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
     await page.route('**/api/montage-media?action=images', async (route) => {
       try { corpsImage = JSON.parse(route.request().postData() || '{}'); } catch (e) { corpsImage = {}; }
@@ -269,39 +403,29 @@ test('l\'image est demandée SANS AUCUN TEXTE, et sur le budget carrousel', asyn
       });
     });
 
-    await page.evaluate(() => {
-      document.getElementById('carrouselSujet').value = 'les erreurs de budget';
-      return genererCarrousel();
-    });
-    await page.waitForTimeout(800);
-    await page.evaluate(() => genererImageCarrousel(0));
-    await page.waitForTimeout(600);
+    await genererDepuisMock(page);
+    await page.evaluate(() => { carrouselFormat = '9:16'; return genererImageCarrousel(0); });
+    await page.waitForTimeout(700);
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.ok(corpsImage, 'la génération d\'image doit bien partir');
     assert.equal(corpsImage.usage, 'carrousel',
-      'REGRESSION : sans ce marqueur, le carrousel viderait le quota d\'images du MONTAGE VIDÉO, que l\'abonné a payé pour autre chose');
-    assert.equal(corpsImage.format, '9:16', 'format vertical, comme une slide TikTok');
+      'REGRESSION SILENCIEUSE : le carrousel viderait le quota d\'images du MONTAGE VIDÉO, que l\'abonné a payé pour autre chose');
+    assert.equal(corpsImage.format, '9:16',
+      'le fond doit être demandé au format réellement choisi, sinon il est rogné à la composition');
     const prompt = String((corpsImage.prompts || [])[0] || '');
     assert.match(prompt, /portefeuille vide/, 'la consigne visuelle de la slide est bien transmise');
     assert.match(prompt, /Aucune lettre, aucun mot, aucun texte/,
       'REGRESSION : un modèle d\'images à qui on demande une phrase écrit des lettres tordues et des fautes, la slide devient inutilisable');
     assert.match(prompt, /photographie sobre/,
       'la direction artistique commune est reprise, sinon les slides n\'ont aucune cohérence entre elles');
-
-    // L'image générée s'affiche bien à sa place.
-    const affichee = await page.evaluate(() => {
-      const img = document.querySelector('#carrouselResults .car-slide .car-slide-img');
-      return !!img && img.getAttribute('src').startsWith('data:image');
-    });
-    assert.equal(affichee, true, 'et l\'image revenue s\'affiche sur sa slide');
   } finally {
     await navigateur.close();
     await arreter();
   }
 });
 
-test('une slide se télécharge finie, texte compris, même sans image générée', async () => {
+test('une slide se télécharge finie, mise en page comprise, même sans fond généré', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -312,24 +436,21 @@ test('une slide se télécharge finie, texte compris, même sans image généré
     await ouvrirCarrousel(page, baseUrl, {
       generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
     });
-    await page.evaluate(() => {
-      document.getElementById('carrouselSujet').value = 'les erreurs de budget';
-      return genererCarrousel();
-    });
-    await page.waitForTimeout(800);
+    await genererDepuisMock(page);
 
-    // Sans aucune image générée : la slide doit quand même être livrable, sur
-    // fond sobre. C'est ce qui permet à un créateur à court de quota, ou qui
-    // n'en veut pas, de publier quand même.
+    // Sans aucun fond généré : la slide doit être livrable telle quelle. Les
+    // carrousels de référence du propriétaire n'ont AUCUNE photo, c'est donc
+    // le cas normal, pas un cas dégradé.
     const vu = await page.evaluate(async () => {
-      const blob = await composerSlideCarrousel(0);
-      return { type: blob.type, taille: blob.size };
+      const blob = await composerSlideCarrousel(1);
+      return { type: blob.type, taille: blob.size, aucunFond: carrouselImages.every(i => i === null) };
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.aucunFond, true, 'aucune image générée dans ce test');
     assert.equal(vu.type, 'image/png');
-    assert.ok(vu.taille > 2000,
-      'REGRESSION : une image quasi vide signifierait que le texte n\'a pas été dessiné, et la slide serait inutilisable : ' + vu.taille + ' octets');
+    assert.ok(vu.taille > 10000,
+      'REGRESSION : une image quasi vide signifierait que la mise en page n\'a pas été dessinée : ' + vu.taille + ' octets');
   } finally {
     await navigateur.close();
     await arreter();
@@ -349,26 +470,73 @@ test('un carrousel rouvert depuis l\'historique retrouve ses slides et son score
     const vu = await page.evaluate((contenu) => {
       // reopenGeneration prend un INDICE dans window._historyData, jamais
       // l'objet lui-même : on reproduit donc l'état réel de l'historique.
-      window._historyData = [{ id: 'g1', mode: 'carrousel', titre: 'Les erreurs de budget', contenu }];
+      window._historyData = [{ id: 'g1', mode: 'carrousel', titre: 'Compte ou marque', contenu }];
       reopenGeneration(0);
       const zone = document.getElementById('carrouselResults');
       return {
         ecran: document.getElementById('carrouselFlow').style.display !== 'none',
         slides: zone.querySelectorAll('.car-slide').length,
-        // Les images ne sont pas réenregistrées (plusieurs Mo par carrousel) :
+        // Les fonds ne sont pas réenregistrés (plusieurs Mo par carrousel) :
         // le tableau doit repartir vide À LA BONNE LONGUEUR, sinon une slide
-        // afficherait l'image d'un carrousel précédent.
-        imagesVides: carrouselImages.length === 5 && carrouselImages.every(i => i === null),
+        // afficherait le fond d'un carrousel précédent.
+        imagesVides: carrouselImages.length === 4 && carrouselImages.every(i => i === null),
         score: zone.innerText.match(/(\d+)\s*\/\s*100/)
       };
-    }, { resultat: CARROUSEL_IA, context: { niche: 'Finance & Argent', nbSlides: 5 } });
+    }, { resultat: CARROUSEL_IA, context: { niche: 'Business & Entrepreneuriat', nbSlides: 4 } });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.equal(vu.ecran, true, 'le carrousel se rouvre sur son écran');
-    assert.equal(vu.slides, 5, 'toutes ses slides sont là');
+    assert.equal(vu.slides, 4, 'toutes ses slides sont là');
     assert.equal(vu.imagesVides, true,
-      'REGRESSION : un tableau d\'images mal réinitialisé afficherait les images du carrousel précédent');
+      'REGRESSION : un tableau mal réinitialisé afficherait les fonds du carrousel précédent');
     assert.ok(vu.score, 'et le score est recalculé à la réouverture, jamais laissé vide');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Compatibilité : les carrousels générés AVANT la refonte de la mise en page
+// n'ont qu'un champ `texte` par slide. Ils doivent continuer de se rouvrir,
+// sinon la refonte détruit silencieusement l'historique des créateurs.
+test('un carrousel de l\'ancienne forme se rouvre sans rien perdre', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl);
+
+    const vu = await page.evaluate(async () => {
+      const ancien = {
+        titre: 'Ancien carrousel',
+        slides: [
+          { numero: 1, role: 'hook', texte: '3 erreurs qui ruinent ton budget', visuel: 'un portefeuille' },
+          { numero: 2, role: 'corps', texte: '1. Tu paies tes abonnements sans les compter…', visuel: 'des tickets' },
+          { numero: 3, role: 'cta', texte: 'Enregistre ce carrousel et commente', visuel: 'un carnet' }
+        ],
+        legende: 'Et toi ?', hashtags: ['#budget']
+      };
+      window._historyData = [{ id: 'g0', mode: 'carrousel', titre: 'Ancien', contenu: { resultat: ancien } }];
+      reopenGeneration(0);
+      const blob = await composerSlideCarrousel(0);
+      return {
+        slides: document.querySelectorAll('#carrouselResults .car-slide').length,
+        // L'ancien `texte` devient le `titre` de la slide : rien n'est perdu.
+        premierTitre: carrouselResultat.slides[0].titre,
+        score: !!scoreCarrousel(carrouselResultat.slides),
+        taille: blob.size
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.slides, 3, 'les trois slides sont là');
+    assert.match(vu.premierTitre, /3 erreurs qui ruinent ton budget/,
+      'REGRESSION : la refonte effacerait le contenu des carrousels déjà enregistrés');
+    assert.equal(vu.score, true, 'le score se recalcule sur l\'ancienne forme');
+    assert.ok(vu.taille > 10000, 'et la slide se compose quand même : ' + vu.taille + ' octets');
   } finally {
     await navigateur.close();
     await arreter();

@@ -995,6 +995,34 @@
         <textarea class="ctx-textarea" id="carrouselSujet" placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
       </div>
 
+      <!-- Format de publication. 4:5 par défaut : c'est le format des
+           carrousels qui performent, celui qui occupe le plus de hauteur
+           d'écran sans être rogné dans le fil. Le choix reste modifiable
+           APRÈS génération (voir changerFormatDepuisResultat), les aperçus
+           sont recomposés, donc le créateur voit toujours ce qu'il
+           téléchargera. -->
+      <div class="ctx-field">
+        <label class="ctx-label">Format des slides</label>
+        <div class="choices-compact car-format-choix" id="carrouselFormats">
+          <div class="choice" data-format="1:1" onclick="choisirFormatCarrousel('1:1', this)">
+            <span class="choice-label">1:1</span>
+            <span class="choice-desc">Carré</span>
+          </div>
+          <div class="choice selected" data-format="4:5" onclick="choisirFormatCarrousel('4:5', this)">
+            <span class="choice-label">4:5</span>
+            <span class="choice-desc">Portrait, recommandé</span>
+          </div>
+          <div class="choice" data-format="9:16" onclick="choisirFormatCarrousel('9:16', this)">
+            <span class="choice-label">9:16</span>
+            <span class="choice-desc">Plein écran</span>
+          </div>
+          <div class="choice" data-format="16:9" onclick="choisirFormatCarrousel('16:9', this)">
+            <span class="choice-label">16:9</span>
+            <span class="choice-desc">Paysage</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Curseur du nombre de slides, demandé par le propriétaire : une
            ligne graduée qu'on fait glisser, plutôt qu'un menu déroulant. Le
            nombre choisi est LA décision structurante du format, il mérite
