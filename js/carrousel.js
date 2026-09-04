@@ -1147,14 +1147,29 @@ function carteScoreCarrouselHTML(s) {
     ? '<p class="ctx-note" style="margin-top:10px">Slides dont un élément déborde : ' + s.slidesTropLongues.join(', ') +
       '. Un titre au-delà de ' + CAR_MOTS_TITRE_MAX + ' mots ou un point au-delà de ' + CAR_MOTS_POINT_TEXTE_MAX + ' est survolé, pas lu.</p>'
     : '';
+  // Structure IDENTIQUE à la carte du mode Script (voir js/generation.js) :
+  // en-tête "◆ Scriptura Score" à gauche, note en gros à droite, puis les
+  // barres. Le carrousel avait sa propre présentation, plus pauvre, et deux
+  // cartes de score différentes dans la même app donnent l'impression que la
+  // note ne veut pas dire la même chose d'un mode à l'autre. Elle veut dire
+  // exactement la même chose : elle est calculée par le code, sur des
+  // signaux mesurés, dans les deux cas.
   return `
-    <div class="score-card">
-      <div class="score-global"><span class="score-num">${s.global}</span><span class="score-den">/100</span></div>
-      ${barre('Puissance du hook', s.hook)}
-      ${barre('Taux de swipe estimé', s.swipe)}
-      ${barre('Lisibilité des slides', s.lisibilite)}
-      ${barre('Force du CTA', s.cta)}
-      ${barre('Densité maîtrisée', s.densite)}
+    <div class="score-card sb-appear">
+      <div class="score-header">
+        <div class="score-title">◆ Scriptura Score</div>
+        <div class="score-global">
+          <span class="score-global-num">${s.global}</span>
+          <span class="score-global-max">/ 100</span>
+        </div>
+      </div>
+      <div class="score-metrics">
+        ${barre('Puissance du hook', s.hook)}
+        ${barre('Taux de swipe estimé', s.swipe)}
+        ${barre('Lisibilité des slides', s.lisibilite)}
+        ${barre('Force du CTA', s.cta)}
+        ${barre('Densité maîtrisée', s.densite)}
+      </div>
       ${alerte}
     </div>`;
 }
@@ -1258,23 +1273,38 @@ function renderCarrousel() {
     ${carteScoreCarrouselHTML(score)}
     ${r.analyse ? `<p class="ctx-note" style="margin:14px 0">${carrouselEchapper(r.analyse)}</p>` : ''}
     <div class="car-slides">${slidesHtml}</div>
-    <div class="context-card" style="margin-top:18px">
-      <div class="ctx-field">
-        <label class="ctx-label">Légende</label>
-        <p class="car-bloc-texte">${carrouselEchapper(r.legende || '')}</p>
+    <!-- Carte repliable, exactement comme les sections de résultat du mode
+         Script (out-card / out-header / out-body, voir renderResults dans
+         js/generation.js) : mêmes classes, donc mêmes tailles de police,
+         mêmes hashtags en pastilles, et le même geste pour ouvrir et fermer.
+         Deux présentations différentes pour la même chose, d'un mode à
+         l'autre, obligent le créateur à réapprendre l'écran à chaque fois. -->
+    <div class="out-card sb-appear" style="margin-top:18px">
+      <div class="out-header" onclick="toggleCard(this.parentElement)">
+        <div class="out-title">Légende &amp; Hashtags</div>
+        <div class="out-toggle">+</div>
       </div>
-      ${r.hashtags && r.hashtags.length ? `<div class="ctx-field"><label class="ctx-label">Hashtags</label><p class="car-bloc-texte">${carrouselEchapper(r.hashtags.join(' '))}</p></div>` : ''}
-      <!-- Copier et partager la légende AVEC ses hashtags, en un geste : c'est
-           le bloc qu'on colle tel quel dans TikTok au moment de publier, le
-           couper en deux copies n'aurait aucun sens. Mêmes helpers que partout
-           ailleurs dans l'app (copyText/shareText via storeCopyText, pour ne
-           jamais injecter le texte dans l'attribut onclick, où une apostrophe
-           casserait tout). -->
-      <div class="sb-actions-fin">
-        <button class="icon-btn" title="Copier la légende et les hashtags" onclick="copyText(this, '${storeCopyText(legendeCompleteCarrousel())}')">${typeof ICON_COPY !== 'undefined' ? ICON_COPY : '&#9109;'}</button>
-        <button class="icon-btn" title="Partager la légende et les hashtags" onclick="shareText(this, '${storeCopyText(legendeCompleteCarrousel())}')">${typeof ICON_SHARE !== 'undefined' ? ICON_SHARE : '&#8599;'}</button>
+      <div class="out-body">
+        <div class="out-section">
+          <div class="out-section-label">Légende</div>
+          <div class="legende-block">${carrouselEchapper(r.legende || '')}</div>
+          ${r.hashtags && r.hashtags.length ? `<div class="hashtags">${r.hashtags.map(h => `<span class="ht">${carrouselEchapper(h)}</span>`).join('')}</div>` : ''}
+          <!-- Copier et partager la légende AVEC ses hashtags, en un geste :
+               c'est le bloc qu'on colle tel quel dans TikTok au moment de
+               publier, le couper en deux copies n'aurait aucun sens. Mêmes
+               helpers que partout ailleurs dans l'app (copyText/shareText via
+               storeCopyText, pour ne jamais injecter le texte dans l'attribut
+               onclick, où une apostrophe casserait tout). -->
+          <div class="sb-actions-fin">
+            <button class="icon-btn" title="Copier la légende et les hashtags" onclick="copyText(this, '${storeCopyText(legendeCompleteCarrousel())}')">${typeof ICON_COPY !== 'undefined' ? ICON_COPY : '&#9109;'}</button>
+            <button class="icon-btn" title="Partager la légende et les hashtags" onclick="shareText(this, '${storeCopyText(legendeCompleteCarrousel())}')">${typeof ICON_SHARE !== 'undefined' ? ICON_SHARE : '&#8599;'}</button>
+          </div>
+        </div>
+        ${r.son_suggere ? `<div class="out-section">
+          <div class="out-section-label">Son suggéré</div>
+          <div class="legende-block">${carrouselEchapper(r.son_suggere)}</div>
+        </div>` : ''}
       </div>
-      ${r.son_suggere ? `<div class="ctx-field" style="margin-top:14px"><label class="ctx-label">Son suggéré</label><p class="car-bloc-texte">${carrouselEchapper(r.son_suggere)}</p></div>` : ''}
     </div>
     <button class="btn-restart" onclick="telechargerToutesSlidesCarrousel()">${ico('download')} Télécharger toutes les slides</button>`;
 

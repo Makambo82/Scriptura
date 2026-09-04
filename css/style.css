@@ -1922,10 +1922,15 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
       TITRE : c'est align-items:flex-start plus une hauteur d'icône calée sur
       la hauteur de ligne du libellé (1.3em) qui l'y maintient, quel que soit
       le nombre de lignes de la description en dessous. */
-.choices-compact .choice{padding:14px 16px;flex-direction:row;align-items:flex-start;gap:11px}
+/* Troisième retour du propriétaire sur ces cartes : l'icône était calée sur
+   la LIGNE DU TITRE, il la veut CENTRÉE entre le titre et sa description,
+   c'est-à-dire sur la hauteur du bloc de texte. `align-items:center` sur la
+   carte suffit et reste juste quel que soit le nombre de lignes, alors qu'un
+   décalage fixe se décalerait dès qu'une description passe sur deux lignes. */
+.choices-compact .choice{padding:14px 16px;flex-direction:row;align-items:center;gap:11px}
 .choices-compact .choice-icon{
   width:auto;flex:none;opacity:1;color:var(--gold);
-  display:flex;align-items:center;height:1.3em;font-size:1.05rem;
+  display:flex;align-items:center;font-size:1.05rem;
 }
 .choices-compact .choice-icon svg{width:1.15em;height:1.15em;display:block}
 .choices-compact .choice-body{flex:1;min-width:0}
@@ -3532,7 +3537,10 @@ body.is-admin .outils-montage-home-btn{display:flex}
 /* Barre de format sur l'écran de résultat : changer d'avis après coup ne doit
    pas obliger à régénérer, les aperçus sont recomposés (voir
    changerFormatDepuisResultat, js/carrousel.js). */
-.car-formats-barre{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 4px}
+/* Retour propriétaire : la barre de format et la carte de score se
+   touchaient presque. Une marge basse franche les sépare, sinon les deux
+   blocs se lisent comme un seul. */
+.car-formats-barre{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 20px}
 .car-formats-label{
   font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;
   text-transform:uppercase;color:var(--gold);opacity:0.7;
@@ -3561,6 +3569,11 @@ body.is-admin .outils-montage-home-btn{display:flex}
   position:relative;flex:0 0 132px;width:132px;border-radius:10px;
   overflow:hidden;background:var(--bg-soft);
 }
+/* Retour propriétaire : en colonne (téléphone), le cadre de l'aperçu et le
+   titre qui le suit se touchaient. La marge vit ici, sur le corps, plutôt que
+   sous l'aperçu : côte à côte (écran large) elle n'a pas lieu d'être, et une
+   marge sous l'aperçu s'y verrait comme un décalage inexpliqué. */
+@media(max-width:640px){ .car-slide-corps{margin-top:14px} }
 .car-slide-img{width:100%;height:100%;object-fit:cover;display:block}
 .car-slide-vide{
   display:flex;align-items:center;justify-content:center;height:100%;

@@ -776,8 +776,9 @@ test('dans la tuile, l\'emoji et le titre sont vraiment centrés verticalement',
 //    hauteur. La description est passée dessous.
 //
 // 2. Ma correction empilait alors les trois éléments, ICÔNE COMPRISE, qui se
-//    retrouvait seule au-dessus du titre. L'icône doit être SUR LA LIGNE DU
-//    TITRE, et pulser comme celles du hero. Les objectifs du carrousel, qui
+//    retrouvait seule au-dessus du titre. Elle est revenue à côté du texte,
+//    puis, sur un troisième retour, CENTRÉE entre le titre et sa
+//    description. Et elle pulse, comme celles du hero. Les objectifs du carrousel, qui
 //    n'avaient aucune icône, en ont reçu une, la même que l'objectif
 //    équivalent du mode Script : un même objectif se reconnaît au même
 //    symbole d'un mode à l'autre.
@@ -808,6 +809,8 @@ test('les libellés d\'objectif tiennent sur une ligne, description dessous', as
         const bl = lab.getBoundingClientRect();
         const bd = desc ? desc.getBoundingClientRect() : null;
         const bi = icone ? icone.getBoundingClientRect() : null;
+        const corpsEl = c.querySelector('.choice-body');
+        const corps = corpsEl ? corpsEl.getBoundingClientRect() : null;
         const hauteurLigne = parseFloat(getComputedStyle(lab).lineHeight) || parseFloat(getComputedStyle(lab).fontSize) * 1.3;
         return {
           texte: lab.textContent.trim(),
@@ -816,10 +819,10 @@ test('les libellés d\'objectif tiennent sur une ligne, description dessous', as
           dessous: bd ? bd.top >= bl.bottom - 2 : true,
           hauteur: Math.round(c.getBoundingClientRect().height),
           aIcone: !!svg,
-          // Sur la MÊME LIGNE que le titre : on compare le centre de l'icône
-          // au centre de la PREMIÈRE ligne du libellé, pas à celui du bloc
-          // entier, qui bougerait avec la longueur de la description.
-          ecartLigne: bi ? Math.abs((bi.top + bi.bottom) / 2 - (bl.top + hauteurLigne / 2)) : null,
+          // CENTRÉE entre le titre et sa description (troisième retour du
+          // propriétaire sur ces cartes) : on compare le centre de l'icône au
+          // centre du BLOC DE TEXTE entier, pas à celui de la première ligne.
+          ecartCentre: (bi && corps) ? Math.abs((bi.top + bi.bottom) / 2 - (corps.top + corps.bottom) / 2) : null,
           aGauche: bi ? bi.right <= bl.left + 1 : null,
           pulse: svg ? getComputedStyle(svg).animationName : null,
           delai: svg ? getComputedStyle(svg).animationDelay : null
@@ -840,8 +843,8 @@ test('les libellés d\'objectif tiennent sur une ligne, description dessous', as
           'REGRESSION (' + nom + ') : la description de "' + c.texte + '" est revenue à côté du libellé au lieu d\'être dessous');
         assert.equal(c.aIcone, true, 'chaque objectif de ' + nom + ' porte une icône : ' + c.texte);
         assert.equal(c.aGauche, true, 'l\'icône est à gauche du titre, pas ailleurs : ' + c.texte);
-        assert.ok(c.ecartLigne <= 4,
-          'REGRESSION (' + nom + ') : l\'icône de "' + c.texte + '" n\'est plus sur la ligne du titre, écart de ' + Math.round(c.ecartLigne) + 'px');
+        assert.ok(c.ecartCentre <= 3,
+          'REGRESSION (' + nom + ') : l\'icône de "' + c.texte + '" n\'est plus centrée entre le titre et sa description, écart de ' + Math.round(c.ecartCentre) + 'px');
         assert.equal(c.pulse, 'howIconPulse',
           'REGRESSION (' + nom + ') : l\'icône de "' + c.texte + '" ne pulse plus : ' + c.pulse);
       });
@@ -993,6 +996,103 @@ test('aucun emoji système dans les boutons : les icônes rendent pareil sur iPh
       'une icône à couleur fixe jurerait dans un bouton doré, elle doit suivre currentColor');
     assert.equal(vu.telechargerAIcone, true,
       'le bouton Télécharger porte l\'icône Scriptura, pas la flèche bleue d\'iOS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Cinq retours du propriétaire, captures à l'appui, sur la présentation du
+// résultat. Regroupés ici parce qu'ils partagent une même racine : le mode
+// carrousel s'était construit sa propre présentation au lieu de reprendre
+// celle du mode Script, et deux présentations différentes pour la même chose
+// obligent le créateur à réapprendre l'écran d'un mode à l'autre.
+test('le résultat du carrousel reprend la présentation du mode Script', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+    await genererDepuisMock(page);
+
+    // 1. La CARTE DE SCORE : même structure que celle du Script (en-tête
+    //    "◆ Scriptura Score" à gauche, note en gros à droite). Le carrousel
+    //    affichait un "93 /100" nu, plus pauvre, qui donnait l'impression
+    //    que la note ne voulait pas dire la même chose d'un mode à l'autre.
+    const score = await page.evaluate(() => {
+      const c = document.querySelector('#carrouselResults .score-card');
+      return {
+        entete: !!c.querySelector('.score-header'),
+        titre: (c.querySelector('.score-title') || {}).textContent || '',
+        num: (c.querySelector('.score-global-num') || {}).textContent || '',
+        max: (c.querySelector('.score-global-max') || {}).textContent || '',
+        metriques: c.querySelectorAll('.score-metrics .metric').length
+      };
+    });
+    assert.equal(score.entete, true, 'REGRESSION : la carte de score a perdu l\'en-tête du mode Script');
+    assert.match(score.titre, /Scriptura Score/, 'même titre que partout ailleurs : ' + score.titre);
+    assert.match(score.num, /^\d+$/, 'la note est bien là : ' + score.num);
+    assert.match(score.max, /100/, score.max);
+    assert.equal(score.metriques, 5, 'les cinq dimensions sont dans le bloc des métriques');
+
+    // 2. Une MARGE FRANCHE entre le choix de format et la carte de score :
+    //    collés, les deux blocs se lisaient comme un seul.
+    const marges = await page.evaluate(() => {
+      const f = document.querySelector('.car-formats-barre').getBoundingClientRect();
+      const s = document.querySelector('#carrouselResults .score-card').getBoundingClientRect();
+      const v = document.querySelector('.car-slide-visuel').getBoundingClientRect();
+      const c = document.querySelector('.car-slide-corps').getBoundingClientRect();
+      return { formatScore: Math.round(s.top - f.bottom), apercuTexte: Math.round(c.top - v.bottom) };
+    });
+    assert.ok(marges.formatScore >= 14,
+      'REGRESSION : le format et le score se touchent, ils se lisent comme un seul bloc : ' + marges.formatScore + 'px');
+
+    // 3. Et une marge entre l'aperçu de la slide et le texte qui le suit,
+    //    sur téléphone, où la carte passe en colonne.
+    assert.ok(marges.apercuTexte >= 10,
+      'REGRESSION : le cadre de l\'aperçu et le titre se touchent : ' + marges.apercuTexte + 'px');
+
+    // 4. La LÉGENDE devient une carte REPLIABLE, avec les mêmes classes que
+    //    les sections du mode Script, donc la même taille de police et les
+    //    hashtags en pastilles.
+    const legende = await page.evaluate(() => {
+      const carte = Array.from(document.querySelectorAll('#carrouselResults .out-card'))
+        .find(c => /Légende/.test(c.textContent));
+      if (!carte) return null;
+      const replieAuDepart = !carte.classList.contains('open');
+      carte.querySelector('.out-header').click();
+      const bloc = carte.querySelector('.legende-block');
+      // Référence : un .legende-block du mode Script, hors du carrousel.
+      const temoin = document.createElement('div');
+      temoin.className = 'legende-block';
+      temoin.style.position = 'absolute';
+      document.body.appendChild(temoin);
+      const policeScript = getComputedStyle(temoin).fontSize;
+      temoin.remove();
+      return {
+        replieAuDepart,
+        ouvreAuClic: carte.classList.contains('open'),
+        police: getComputedStyle(bloc).fontSize,
+        policeScript,
+        pastilles: carte.querySelectorAll('.ht').length,
+        boutons: carte.querySelectorAll('.sb-actions-fin .icon-btn').length
+      };
+    });
+    assert.ok(legende, 'la carte Légende doit exister');
+    assert.equal(legende.replieAuDepart, true, 'repliée au départ, comme les sections du mode Script');
+    assert.equal(legende.ouvreAuClic, true, 'et elle s\'ouvre au clic sur son en-tête');
+    assert.equal(legende.police, legende.policeScript,
+      'REGRESSION : la légende du carrousel doit avoir EXACTEMENT la police du mode Script, mesurée contre lui et non contre une valeur recopiée : ' + legende.police + ' contre ' + legende.policeScript);
+    assert.equal(legende.pastilles, CARROUSEL_IA.hashtags.length,
+      'les hashtags sont en pastilles, comme dans le Script : ' + legende.pastilles);
+    assert.equal(legende.boutons, 2, 'et les boutons copier/partager restent dedans');
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {
     await navigateur.close();
     await arreter();
