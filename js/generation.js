@@ -1,4 +1,10 @@
-let ideaPlatform = '';
+// TikTok, toujours (décision du propriétaire : le sélecteur de plateforme a
+// été retiré de tous les modes, Scriptura est exclusivement orienté TikTok).
+// La constante est CONSERVÉE plutôt que le mot écrit en dur partout : elle
+// documente qu'il s'agit d'une décision produit, et non d'un oubli, à chacun
+// des endroits qui la lisent.
+const PLATEFORME_SCRIPTURA = 'TikTok';
+let ideaPlatform = PLATEFORME_SCRIPTURA;
 let ideaGoal = '';
 let ideaTone = '';
 
@@ -9,10 +15,6 @@ function setupIdeaButtons() {
   const ideaToneSelectEl = document.getElementById('ideaTone');
   if (ideaToneSelectEl) {
     ideaToneSelectEl.addEventListener('change', function() { ideaTone = this.value; });
-  }
-  const ideaPlatformSelectEl = document.getElementById('ideaPlatformGrid');
-  if (ideaPlatformSelectEl) {
-    ideaPlatformSelectEl.addEventListener('change', function() { ideaPlatform = this.value; });
   }
   groups.forEach(g => {
     const container = document.getElementById(g.id);
@@ -124,10 +126,9 @@ function restartIdeas() {
   document.getElementById('ideaGeo').value = '';
   document.getElementById('ideaTheme').value = '';
   document.getElementById('ideaTone').value = '';
-  ideaPlatform = '';
+  ideaPlatform = PLATEFORME_SCRIPTURA;
   ideaGoal = '';
   ideaTone = '';
-  document.getElementById('ideaPlatformGrid').value = '';
   if (typeof ouvrirAffinerIdees === 'function') ouvrirAffinerIdees(false);
   document.querySelectorAll('#ideaGoalGrid .grid-btn').forEach(b => b.classList.remove('active'));
   updateGeoRequirement();
@@ -322,16 +323,8 @@ async function generateIdeas() {
     ? `RESPECT STRICT ET EXCLUSIF DU TON CHOISI : le créateur a choisi précisément ce ton : "${ideaTone}". Chaque angle et chaque hook proposés doivent rester dans CE ton exact, sans dérive vers un autre registre, c'est une consigne explicite, pas une suggestion.`
     : `Aucun ton précisé : adapte le ton au style le plus pertinent pour la niche et le sujet de chaque idée.`;
 
-  const codesPlateformeIdees = {
-    'TikTok': 'hooks courts et percutants dès la première seconde, rythme rapide, tutoiement direct.',
-    'Instagram Reels': 'hooks un peu plus soignés et esthétiques, peuvent installer une micro-narration, ton communauté/lifestyle.',
-    'YouTube Shorts': 'hooks proches d\'un titre de recherche (curiosité ou promesse claire dès les premiers mots), pensés pour capter au scroll ET à la recherche.',
-    'Facebook': 'hooks au ton plus familier et générationnel, qui invitent explicitement au partage et à la discussion en commentaire.',
-    'LinkedIn': 'hooks professionnels, orientés retour d\'expérience ou enseignement concret, jamais putaclic, la crédibilité prime sur le sensationnalisme.'
-  };
-  const ideaPlatformInstruction = ideaPlatform
-    ? `PLATEFORME "${ideaPlatform}", RESPECTE SES CODES : ${codesPlateformeIdees[ideaPlatform] || 'adapte le format des hooks aux usages de cette plateforme précise.'}`
-    : `Aucune plateforme précisée : reste généraliste, sans t'ancrer dans les codes d'une seule.`;
+  // TikTok certain, donc consigne ferme (voir plateformeInstructionScript).
+  const ideaPlatformInstruction = `PLATEFORME, RÈGLE ABSOLUE : ces idées sont destinées à TIKTOK, jamais à une autre plateforme. Chaque hook doit être court et percutant dès la première seconde, écrit pour un pouce déjà en mouvement, en tutoiement direct et dans un vocabulaire oral. Un hook qui aurait besoin d'une phrase d'introduction pour se comprendre n'est pas un hook TikTok.`;
 
   const codesObjectifIdees = {
     'faire des vues': 'privilégie des angles à très fort potentiel de curiosité et de partage immédiat, le hook doit créer un choc ou un besoin urgent de voir la suite, la portée prime sur tout le reste.',
@@ -353,7 +346,7 @@ PROFIL DU CRÉATEUR :
 - Niche : ${niche}
 ${audience ? '- Audience : ' + audience : ''}
 ${geo ? '- ZONE GÉOGRAPHIQUE CIBLE : ' + geo : ''}
-${ideaPlatform ? '- Plateforme : ' + ideaPlatform : ''}
+- Plateforme : ${PLATEFORME_SCRIPTURA}
 ${ideaGoal ? '- Objectif : ' + ideaGoal : ''}
 ${ideaTone ? '- Style/angle : ' + ideaTone : ''}
 ${theme ? '- Thème précis à explorer : ' + theme : ''}
@@ -377,7 +370,7 @@ AVANT D'ÉCRIRE LA MOINDRE IDÉE, RAISONNE EN SILENCE, ce raisonnement ne doit J
 
 3. FILTRE ANTI-GÉNÉRIQUE : pour chaque idée envisagée, vérifie-la contre ces questions avant de la retenir, ressemble-t-elle à ce qu'une IA généraliste proposerait spontanément ? Est-elle trop évidente ? Manque-t-elle de surprise ou de curiosité ? Ressemble-t-elle à une idée déjà générée pour ce créateur ? Si la réponse est oui à l'une de ces questions, rejette-la et cherche mieux.
 
-4. TEST DU FIL D'ACTUALITÉ : pour chaque idée retenue, imagine-la apparaître sur le fil ${ideaPlatform || 'TikTok'} de l'audience visée. Susciterait-elle IMMÉDIATEMENT l'envie de cliquer ou de continuer à regarder ? Si non, rejette-la au profit d'une meilleure.
+4. TEST DU FIL D'ACTUALITÉ : pour chaque idée retenue, imagine-la apparaître sur le fil ${PLATEFORME_SCRIPTURA} de l'audience visée. Susciterait-elle IMMÉDIATEMENT l'envie de cliquer ou de continuer à regarder ? Si non, rejette-la au profit d'une meilleure.
 
 5. CLASSEMENT : une fois les meilleures idées retenues, classe-les de la plus forte opportunité à la moins forte pour CE créateur. La première idée de ta réponse doit être celle que tu juges la meilleure.
 
@@ -542,7 +535,6 @@ function useIdeaForScript(index) {
   }
 
   // 5. Plateforme : reporter dans state
-  if (ideaPlatform) state.plateforme = ideaPlatform;
 
   // 6. Ton : reporter si un champ existe dans le mode script
   const tonScript = document.getElementById('ton');
@@ -638,7 +630,6 @@ function showStep(n) {
   // normale, retour depuis l'étape 2, pré-remplissage venant d'ailleurs, ex.
   // creerScriptDepuisViral ou une recommandation d'accueil).
   if (n === 1) {
-    if (typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
     if (typeof marquerChoixEtape1 === 'function') marquerChoixEtape1();
   }
   // Le champ "Ce que tu vends" (étape 2) n'a de sens que pour l'objectif
@@ -655,45 +646,12 @@ function goBack(n) {
 // ── PLATEFORME (menu repliable, étape 2) ──
 // Remplace l'ancienne étape 3 dédiée : pré-remplie sur TikTok, modifiable en
 // un clic, sans bloquer l'avancée instantanée de idée-vague/sujet-précis.
-function togglePlatformPicker() {
-  const wrap = document.getElementById('platformPicker');
-  if (wrap) wrap.classList.toggle('open');
-}
-
-function fermerPlatformPicker() {
-  const wrap = document.getElementById('platformPicker');
-  if (wrap) wrap.classList.remove('open');
-}
-
-function choisirPlateforme(val, el) {
-  state.plateforme = val;
-  document.querySelectorAll('#platformPanel .custom-select-option').forEach(o => o.classList.remove('selected'));
-  if (el) el.classList.add('selected');
-  const iconWrap = document.getElementById('platformTriggerIconWrap');
-  const svg = el ? el.querySelector('svg') : null;
-  if (iconWrap && svg) iconWrap.innerHTML = svg.outerHTML;
-  const label = document.getElementById('platformTriggerLabel');
-  if (label) label.textContent = val;
-  fermerPlatformPicker();
-}
-
-// Remet le bouton/icône du menu plateforme en phase avec state.plateforme,
-// utile quand celui-ci a été renseigné ailleurs qu'en cliquant une option
-// (pré-remplissage, retour arrière, restart…).
-function syncPlatformPickerVisuel() {
-  const label = document.getElementById('platformTriggerLabel');
-  const iconWrap = document.getElementById('platformTriggerIconWrap');
-  if (!label || !iconWrap) return;
-  const val = state.plateforme || 'TikTok';
-  label.textContent = val;
-  document.querySelectorAll('#platformPanel .custom-select-option').forEach(o => o.classList.remove('selected'));
-  const opt = document.querySelector('#platformPanel .custom-select-option[data-val="' + val.replace(/"/g, '\\"') + '"]');
-  if (opt) {
-    opt.classList.add('selected');
-    const svg = opt.querySelector('svg');
-    if (svg) iconWrap.innerHTML = svg.outerHTML;
-  }
-}
+// Le sélecteur de plateforme a été retiré de tous les modes (décision du
+// propriétaire : Scriptura est exclusivement orienté TikTok, voir
+// PLATEFORME_SCRIPTURA). togglePlatformPicker, choisirPlateforme et
+// syncPlatformPickerVisuel n'avaient plus rien à piloter et sont supprimées
+// avec lui : du code qui ne s'exécute plus jamais finit toujours par égarer
+// quelqu'un.
 
 document.addEventListener('click', function (e) {
   const wrap = document.getElementById('platformPicker');
@@ -1552,17 +1510,14 @@ async function generate() {
   // crédibilité"), devait être deviné par l'IA contre des étiquettes
   // courtes qui ne correspondent pas toujours textuellement (aucune ne
   // contient le mot "autorité").
-  const codesPlateformeScript = {
-    'TikTok': 'hooks très courts et immédiats, rythme rapide, tutoiement direct, coupes fréquentes.',
-    'Instagram Reels': 'esthétique soignée, peut installer une micro-narration avant le twist, ton communauté/lifestyle.',
-    'YouTube Shorts': 'hook proche d\'un titre de recherche (curiosité ou promesse claire dès les premiers mots), pensé pour capter au scroll ET à la recherche.',
-    'Facebook': 'ton plus familier et générationnel, formulations qui invitent explicitement au partage et au commentaire.',
-    'LinkedIn': 'registre professionnel, retour d\'expérience ou enseignement concret, jamais putaclic, la crédibilité prime sur le sensationnalisme.',
-    'WhatsApp Status': 'très court et personnel, comme un message adressé à des proches/contacts plutôt qu\'à un public anonyme, ton direct et intime.'
-  };
-  const plateformeInstructionScript = state.plateforme
-    ? `PLATEFORME "${state.plateforme}", RESPECTE SES CODES : ${codesPlateformeScript[state.plateforme] || 'adapte le rythme et le registre aux usages propres à cette plateforme.'}`
-    : `Aucune plateforme précisée : reste généraliste, adapté à un usage vidéo courte multi-plateformes.`;
+  // TIKTOK, RÈGLE DU PRODUIT, plus un choix parmi d'autres (décision du
+  // propriétaire : le sélecteur de plateforme a été retiré de tous les modes,
+  // Scriptura est exclusivement orienté TikTok). La consigne est RENFORCÉE au
+  // passage : tant que la plateforme était une variable, elle s'écrivait comme
+  // un cas parmi cinq ("RESPECTE SES CODES"), donc en restant générale. Une
+  // plateforme certaine permet d'être directif et concret, ce qui vaut mieux
+  // qu'une consigne neutre.
+  const plateformeInstructionScript = `PLATEFORME, RÈGLE ABSOLUE : ce script est destiné à TIKTOK, jamais à une autre plateforme. Écris pour ses codes réels : hook qui frappe dès le premier mot (le spectateur décide de rester en moins d'une seconde, pouce déjà en mouvement), rythme rapide et phrases courtes, tutoiement direct comme si tu parlais à une seule personne, coupes fréquentes plutôt que de longs plans explicatifs, et zéro formule d'introduction du type "aujourd'hui je vais vous expliquer" qui fait scroller instantanément. Le vocabulaire reste celui de l'oral, pas celui d'un article.`;
 
   // L'objectif ne doit pas se limiter au CTA final : l'angle, l'émotion
   // dominante et la structure choisis par le Directeur Éditorial doivent
@@ -3296,7 +3251,6 @@ async function generateStoryboard() {
 function restart() {
   Object.keys(state).forEach(k => state[k] = '');
   state.plateforme = 'TikTok';
-  if (typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
   document.getElementById('niche').value = '';
   document.getElementById('sujet').value = '';
   document.getElementById('audience').value = '';

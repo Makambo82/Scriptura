@@ -10,7 +10,8 @@
 //  formulaire.
 // ═══════════════════════════════════════════════════════════
 
-let sbSeulPlatform = '';
+// TikTok, toujours (voir PLATEFORME_SCRIPTURA, js/generation.js).
+let sbSeulPlatform = 'TikTok';
 
 // ═══════════════════════════════════════════════════════════
 //  DÉTECTION : script déjà découpé et numéroté par l'utilisateur
@@ -61,19 +62,11 @@ function parseScriptNumerote(input) {
   return segments;
 }
 
-function setupStoryboardSeulButtons() {
-  const pfContainer = document.getElementById('sbSeulPlatformGrid');
-  if (!pfContainer) return;
-  const pfBtns = pfContainer.querySelectorAll('.grid-btn');
-  pfBtns.forEach(btn => {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      pfBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      sbSeulPlatform = btn.dataset.val;
-    });
-  });
-}
+// Conservée VIDE et non supprimée : elle est appelée à l'initialisation de
+// l'app (js/app.js) et le seul bouton qu'elle câblait, le choix de
+// plateforme, a été retiré. La retirer d'ici obligerait à la retirer aussi de
+// l'appelant, pour ne rien gagner.
+function setupStoryboardSeulButtons() {}
 
 // Repart d'un formulaire vide pour un nouveau storyboard, appelée à chaque
 // entrée fraîche dans ce module (voir openStoryboardSeul juste en dessous) :
@@ -81,8 +74,7 @@ function setupStoryboardSeulButtons() {
 // restaient silencieusement actifs pour le suivant, même sans rapport avec lui.
 function restartStoryboardSeul() {
   document.getElementById('sbSeulInput').value = '';
-  sbSeulPlatform = '';
-  document.querySelectorAll('#sbSeulPlatformGrid .grid-btn').forEach(b => b.classList.remove('active'));
+  sbSeulPlatform = 'TikTok';
   const errorBox = document.getElementById('sbSeulErrorBox');
   if (errorBox) errorBox.style.display = 'none';
   const formCard = document.getElementById('sbSeulFormCard');

@@ -6,7 +6,8 @@
 // ══════════════════════════════════════
 let storyFormat = '';
 let storyDuree = '';
-let storyPlatform = '';
+// TikTok, toujours (voir PLATEFORME_SCRIPTURA, js/generation.js).
+let storyPlatform = 'TikTok';
 let storyTon = '';
 let currentStory = null;
 let currentStoryText = '';
@@ -38,19 +39,6 @@ function setupStoryButtons() {
   if (durSelectEl) {
     durSelectEl.addEventListener('change', function() { storyDuree = this.value; });
   }
-  // Plateforme
-  const pfContainer = document.getElementById('storyPlatformGrid');
-  if (pfContainer) {
-    const pfBtns = pfContainer.querySelectorAll('.grid-btn');
-    pfBtns.forEach(btn => {
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        pfBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        storyPlatform = btn.dataset.val;
-      });
-    });
-  }
   // Ton, optionnel : menu déroulant (8 choix), l'option vide ("Aucun ton
   // particulier…") tient lieu de désélection, voir storyPrompt pour le
   // comportement quand aucun ton n'est choisi.
@@ -69,7 +57,6 @@ function restartStory() {
   document.getElementById('storyInput').value = '';
   storyFormat = '';
   storyDuree = '';
-  storyPlatform = '';
   storyTon = '';
   document.querySelectorAll('#storyFormatGrid .grid-btn, #storyPlatformGrid .grid-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('storyDureeGrid').value = '';
@@ -480,15 +467,11 @@ ${blocsCandidats}
   // inchangé (toutes ces plateformes partagent le même format vertical
   // court) : seule la légende/CTA/hashtags s'adaptent aux codes propres à
   // chaque plateforme.
-  const codesPlateforme = {
-    'TikTok': 'légende courte et punchy, tutoiement direct, appel à l\'action franc ("commente si...", "partage à quelqu\'un qui..."), hashtags mêlant tendance et niche.',
-    'Instagram Reels': 'légende un peu plus soignée et esthétique, peut installer une micro-accroche narrative, ton communauté/lifestyle, hashtags mêlant larges et niche.',
-    'YouTube': 'légende proche d\'un titre optimisé pour la recherche (curiosité ou promesse claire dès les premiers mots), hashtags moins nombreux mais précis.',
-    'Facebook': 'ton plus familier et générationnel, légende qui invite explicitement au partage et au commentaire, peut être légèrement plus explicative.'
-  };
-  const plateformeInstruction = storyPlatform
-    ? `PLATEFORME, RÈGLE ABSOLUE : ce contenu est destiné à ${storyPlatform}. Le récit lui-même ne change pas de structure, mais la LÉGENDE, les HASHTAGS et l'appel à l'action DOIVENT respecter les codes propres à cette plateforme : ${codesPlateforme[storyPlatform] || 'adapte le registre et les hashtags aux usages de cette plateforme précise.'} Ne produis jamais une légende générique valable pour n'importe quelle plateforme.`
-    : '';
+  // TikTok certain (le sélecteur de plateforme a été retiré de tous les
+  // modes) : la consigne devient inconditionnelle ET plus ferme. Elle n'était
+  // même pas envoyée du tout quand aucune plateforme n'était choisie, donc
+  // légende, hashtags et CTA partaient sans aucun cadre.
+  const plateformeInstruction = `PLATEFORME, RÈGLE ABSOLUE : ce contenu est destiné à TIKTOK, jamais à une autre plateforme. Le récit lui-même ne change pas de structure, mais la LÉGENDE, les HASHTAGS et l'appel à l'action DOIVENT respecter les codes TikTok : légende courte et punchy, tutoiement direct, appel à l'action franc ("commente si...", "partage à quelqu'un qui..."), hashtags mêlant tendance et niche. Ne produis jamais une légende générique valable pour n'importe quelle plateforme, ni une légende qui ressemble à une description YouTube.`;
 
   // Mémoire virale partagée (le récit n'a pas de niche : mélange universel de
   // leviers réels). recupererPatternsViraux vient de js/generation.js (global).

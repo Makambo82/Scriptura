@@ -1213,13 +1213,10 @@ function reopenGeneration(i) {
     if (sbsh) sbsh.style.display = 'block';
     const csb = g.contenu || {};
     document.getElementById('sbSeulInput').value = csb.script || '';
-    if (typeof sbSeulPlatform !== 'undefined') sbSeulPlatform = csb.plateforme || '';
-    const pfContainer = document.getElementById('sbSeulPlatformGrid');
-    if (pfContainer) {
-      pfContainer.querySelectorAll('.grid-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.val === csb.plateforme);
-      });
-    }
+    // La plateforme n'est plus un choix (TikTok partout) : on ne restaure
+    // donc plus celle d'un storyboard ancien, qui rouvrirait un réglage que
+    // le créateur n'a plus aucun moyen de voir ni de modifier.
+    if (typeof sbSeulPlatform !== 'undefined') sbSeulPlatform = 'TikTok';
     // Menus Style + Format : remplis une seule fois à l'ouverture fraîche du
     // module (voir openStoryboardSeul), jamais en rouvrant depuis
     // l'historique, ce chemin-ci les laissait vides tant que "✎ Modifier"

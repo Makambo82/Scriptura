@@ -60,7 +60,6 @@ const etat = () => {
     // Ce qui se replie.
     audience: visible('ideaAudience'),
     geo: visible('ideaGeo'),
-    plateforme: visible('ideaPlatformGrid'),
     ton: visible('ideaTone')
   };
 };
@@ -76,10 +75,10 @@ test('replié par défaut : seuls la niche, l\'objectif et le sujet restent à l
 
     const vu = await page.evaluate(etat);
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(vu.replie, true, 'les quatre optionnels sont repliés au départ');
+    assert.equal(vu.replie, true, 'les optionnels sont repliés au départ');
     assert.equal(vu.aria, 'false');
     assert.ok(vu.niche && vu.objectif && vu.sujet && vu.bouton, 'l\'essentiel reste visible');
-    assert.ok(!vu.audience && !vu.geo && !vu.plateforme && !vu.ton, 'les quatre optionnels sont bien masqués');
+    assert.ok(!vu.audience && !vu.geo && !vu.ton, 'les optionnels sont bien masqués');
 
     // Et ils reviennent d'un appui, sans rien perdre.
     await page.evaluate(() => document.getElementById('ideaAffinerBtn').click());
@@ -87,8 +86,8 @@ test('replié par défaut : seuls la niche, l\'objectif et le sujet restent à l
     const ouvert = await page.evaluate(etat);
     assert.equal(ouvert.replie, false);
     assert.equal(ouvert.aria, 'true');
-    assert.ok(ouvert.audience && ouvert.geo && ouvert.plateforme && ouvert.ton,
-      'les quatre champs sont toujours là, aucune capacité supprimée');
+    assert.ok(ouvert.audience && ouvert.geo && ouvert.ton,
+      'les champs sont toujours là, aucune capacité supprimée');
 
     // Un second appui referme.
     await page.evaluate(() => document.getElementById('ideaAffinerBtn').click());
@@ -205,7 +204,7 @@ test('l\'erreur de zone géographique ouvre le repli au lieu de pointer un champ
   }
 });
 
-test('aucune capacité perdue : les quatre champs repliés atteignent toujours le prompt', async () => {
+test('aucune capacité perdue : les champs repliés atteignent toujours le prompt', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -230,9 +229,6 @@ test('aucune capacité perdue : les quatre champs repliés atteignent toujours l
       document.getElementById('ideaNiche').value = 'Histoire';
       document.getElementById('ideaGeo').value = 'Bénin';
       document.getElementById('ideaAudience').value = 'Diaspora africaine';
-      const pf = document.getElementById('ideaPlatformGrid');
-      pf.value = 'TikTok';
-      pf.dispatchEvent(new Event('change', { bubbles: true }));
       const ton = document.getElementById('ideaTone');
       ton.value = ton.options[1].value;
       ton.dispatchEvent(new Event('change', { bubbles: true }));
@@ -246,9 +242,13 @@ test('aucune capacité perdue : les quatre champs repliés atteignent toujours l
     const p = prompts[0];
     assert.match(p, /Diaspora africaine/, 'l\'audience atteint le prompt');
     assert.match(p, /Bénin/, 'la zone géographique aussi');
-    // Les guillemets du prompt sont échappés dans le JSON des messages.
-    assert.match(p, /PLATEFORME \\?"TikTok/, 'la plateforme aussi');
-    assert.match(p, /RESPECTE SES CODES/, 'avec ses codes de hooks propres à la plateforme');
+    // La plateforme n'est plus un champ : elle est FIGÉE sur TikTok et
+    // affirmée dans le prompt (décision du propriétaire, Scriptura est
+    // exclusivement orienté TikTok). On vérifie donc la règle, plus le champ.
+    assert.match(p, /RÈGLE ABSOLUE : ces idées sont destinées à TIKTOK/,
+      'REGRESSION : sans cette règle, les hooks perdent les codes TikTok au profit d\'un ton générique');
+    assert.doesNotMatch(p, /Aucune plateforme précisée/,
+      'le repli générique n\'a plus lieu d\'être, il produisait des hooks plus faibles');
     assert.match(p, /RESPECT STRICT ET EXCLUSIF DU TON CHOISI/, 'et le ton aussi');
   } finally {
     await navigateur.close();

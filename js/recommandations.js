@@ -46,7 +46,9 @@ function texteProfilPourRecommandation(profil) {
   if (d.objectifs && d.objectifs.length) lignes.push('Objectif(s) : ' + d.objectifs.join(', '));
   if (o.themes_traites && o.themes_traites.length) lignes.push('Sujets déjà traités récemment, à ne jamais répéter à l\'identique : ' + o.themes_traites.slice(0, 10).join(', '));
   if (o.themes_a_eviter && o.themes_a_eviter.length) lignes.push('À éviter pour ce créateur : ' + o.themes_a_eviter.slice(0, 6).join(', '));
-  if (o.plateformes && o.plateformes.length) lignes.push('Plateforme(s) habituelle(s) : ' + o.plateformes.join(', '));
+  // Plus de ligne "Plateforme(s) habituelle(s)" : tout le monde est sur
+  // TikTok, et chaque prompt le dit déjà explicitement. La répéter ici
+  // n'ajoutait que du bruit, payé en tokens à chaque appel.
   if (l.recommandations_permanentes && l.recommandations_permanentes.length) lignes.push('Leçons retenues de ses audits précédents : ' + l.recommandations_permanentes.slice(0, 4).join(' · '));
   if (l.dernier_score_audit != null) lignes.push('Dernier score ADN TikTok mesuré : ' + l.dernier_score_audit + '/100');
   return lignes.join('\n');
@@ -502,7 +504,13 @@ function creerScriptDepuisRecommandation(containerId, index) {
 
   const objectif = (profil && profil.declare.objectifs && profil.declare.objectifs[0]) || '';
   if (objectif) state.objectif = objectif;
-  state.plateforme = (profil && profil.observe.plateformes && profil.observe.plateformes[0]) || 'TikTok';
+  // TIKTOK, TOUJOURS. Cette ligne reposait la première plateforme MÉMORISÉE
+  // du profil. Le sélecteur ayant été retiré de tous les modes, un créateur
+  // dont le profil avait mémorisé LinkedIn aurait continué à recevoir des
+  // scripts en registre professionnel, SANS AUCUN MOYEN DE LE VOIR NI DE LE
+  // CORRIGER. Exactement le défaut de la durée héritée, qui a produit un
+  // script de 48 secondes pendant que le formulaire affichait 2 minutes.
+  state.plateforme = 'TikTok';
 
   if (reco.ton_conseille) {
     const toneSel = document.getElementById('tone');

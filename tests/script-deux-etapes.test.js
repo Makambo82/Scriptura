@@ -2,7 +2,7 @@
 // deux, en fusionnant "Quel est ton objectif ?" et "Avec quoi commences-tu ?".
 //
 // Le diagnostic était juste : la seconde étape ne portait que DEUX cartes et un
-// menu plateforme déjà pré-rempli sur TikTok. Elle ne méritait pas son propre
+// menu plateforme (depuis retiré) déjà pré-rempli sur TikTok. Elle ne méritait pas son propre
 // écran.
 //
 // LE PIÈGE, et c'est lui que ces tests verrouillent : les deux étapes
@@ -14,7 +14,7 @@
 // Le bouton "Continuer" existe quand même, invisible au premier passage. Il ne
 // sert qu'au créateur qui REVIENT sur l'étape (les deux choix sont alors déjà
 // faits, plus rien ne déclencherait l'avance automatique) : sans lui, changer
-// sa seule plateforme obligerait à recliquer un point de départ pour repartir.
+// ses deux choix déjà posés n'aurait plus rien pour repartir.
 //
 // Enfin, le propriétaire proposait des menus déroulants. Écarté pour
 // l'objectif : c'est le choix le plus lourd de conséquences de toute l'app (il
@@ -53,7 +53,12 @@ const etat = () => ({
   objectifSelectionne: document.querySelectorAll('#choixObjectif .choice.selected').length,
   departSelectionne: document.querySelectorAll('#choixDepart .choice.selected').length,
   continuerVisible: document.getElementById('etape1Continuer').offsetParent !== null,
-  plateformeVisible: document.getElementById('platformPicker').offsetParent !== null
+  // Le sélecteur de plateforme a été RETIRÉ de tous les modes (décision du
+  // propriétaire : Scriptura est exclusivement orienté TikTok, la valeur est
+  // figée et affirmée dans les prompts). Il ne doit plus jamais reparaître :
+  // le rendre à nouveau visible serait rendre au créateur un choix que les
+  // prompts n'écoutent plus.
+  plateformeAbsente: !document.getElementById('platformPicker')
 });
 
 test('deux étapes seulement, et les deux questions tiennent sur le premier écran', async () => {
@@ -70,7 +75,8 @@ test('deux étapes seulement, et les deux questions tiennent sur le premier écr
     assert.equal(vu.etapeActive, 'step1');
     assert.equal(vu.objectifsVisibles, 4, 'les 4 objectifs sont là');
     assert.equal(vu.departsVisibles, 2, 'et les 2 points de départ aussi, sur le MÊME écran');
-    assert.equal(vu.plateformeVisible, true, 'la plateforme les rejoint');
+    assert.equal(vu.plateformeAbsente, true,
+      'REGRESSION : le sélecteur de plateforme est revenu, alors que les prompts imposent TikTok et ne liraient plus son choix');
 
     const etapes = await page.evaluate(() => ({
       nombre: document.querySelectorAll('#flow .step').length,
@@ -146,7 +152,7 @@ test('en revenant sur l\'étape 1, les choix restent marqués et « Continuer »
     assert.equal(retour.objectifSelectionne, 1, 'le créateur revoit ce qu\'il avait choisi');
     assert.equal(retour.departSelectionne, 1);
     assert.equal(retour.continuerVisible, true,
-      'REGRESSION : sans ce bouton, changer sa seule plateforme obligerait à recliquer un point de départ pour repartir');
+      'REGRESSION : sans ce bouton, un créateur revenu sur l\'étape avec ses deux choix déjà posés n\'aurait plus rien pour repartir');
 
     // Et ce bouton fait bien repartir.
     await page.evaluate(() => document.getElementById('etape1Continuer').click());

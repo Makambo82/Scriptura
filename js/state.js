@@ -1,8 +1,11 @@
 // ── STATE ──
 let selectedTone = '';
-// plateforme par défaut TikTok : l'étape 2 propose désormais la plateforme
-// pré-remplie sous forme de menu repliable (voir choisirPlateforme,
-// js/generation.js), plus besoin d'un écran dédié pour la choisir.
+// TIKTOK, ET RIEN D'AUTRE (décision du propriétaire) : le sélecteur de
+// plateforme a été retiré de tous les modes, Scriptura est exclusivement
+// orienté TikTok. Le champ est CONSERVÉ dans l'état plutôt que supprimé :
+// il est lu par les prompts, le résumé d'étape et l'historique, et il
+// documente à chaque lecture qu'il s'agit d'une décision produit assumée,
+// pas d'une valeur oubliée. Voir PLATEFORME_SCRIPTURA (js/generation.js).
 const state = { objectif:'', depart:'', plateforme:'TikTok' };
 
 // Contexte de la dernière génération (pour l'ajustement du script)
