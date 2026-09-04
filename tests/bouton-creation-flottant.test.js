@@ -569,3 +569,85 @@ test('le panneau part au doigt, sans jamais attendre le réseau', async () => {
     await arreter();
   }
 });
+
+// Retour propriétaire : "quand on clique sur + et que les autres boutons sont
+// déployés, que l'arrière-plan soit flouté de 40-50%".
+//
+// FAIT AVEC UN ÉLÉMENT DÉDIÉ, jamais avec un `filter` posé sur la page. La
+// raison est structurelle et pas esthétique : `filter` transforme l'élément en
+// bloc conteneur pour ses descendants en position:fixed. Flouter la page
+// aurait donc décroché le bouton de création lui-même, le bouton de
+// navigation et les fenêtres modales de leur ancrage à l'écran. Le voile ne
+// touche rien de la page, le flou se fait au moment du rendu.
+test('le panneau déplié floute l\'arrière-plan, sans jamais toucher la page', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await connecterAbonne(page, { code: 'FLOU' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+    // Depuis l'historique, exactement le cas décrit par le propriétaire.
+    await ouvrirEcran(page, 'historyFlow');
+    await attendreBouton(page, true);
+
+    const lire = () => page.evaluate(() => {
+      const f = document.getElementById('creerFond');
+      if (!f) return null;
+      const cs = getComputedStyle(f);
+      const r = f.getBoundingClientRect();
+      const zi = id => parseInt(getComputedStyle(document.getElementById(id)).zIndex, 10);
+      return {
+        opacite: parseFloat(cs.opacity),
+        visibilite: cs.visibility,
+        flou: cs.backdropFilter || cs.webkitBackdropFilter || '',
+        fond: cs.backgroundColor,
+        couvreTout: Math.round(r.width) === window.innerWidth && Math.round(r.height) === window.innerHeight,
+        z: { fond: zi('creerFond'), panneau: zi('creerPanneau'), bouton: zi('creerBtn') },
+        // Aucun filtre posé sur la page elle-même : c'est ce qui décrocherait
+        // tous les éléments en position:fixed de leur ancrage.
+        pageIntacte: ['historyFlow', 'homePage'].every(id => {
+          const el = document.getElementById(id);
+          return !el || getComputedStyle(el).filter === 'none';
+        })
+      };
+    });
+
+    const ferme = await lire();
+    assert.ok(ferme, 'le voile doit exister dans la page');
+    assert.equal(ferme.visibilite, 'hidden', 'invisible tant que le panneau est replié');
+    assert.equal(ferme.opacite, 0);
+
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+    await page.waitForFunction(() => parseFloat(getComputedStyle(document.getElementById('creerFond')).opacity) > 0.9, null, { timeout: 8000 });
+
+    const ouvert = await lire();
+    assert.equal(ouvert.visibilite, 'visible', 'le voile apparaît avec le panneau');
+    assert.match(ouvert.flou, /blur\((\d+(\.\d+)?)px\)/,
+      'REGRESSION : sans flou, la page derrière concurrence visuellement les boutons du panneau : ' + ouvert.flou);
+    const rayon = parseFloat((ouvert.flou.match(/blur\(([\d.]+)px\)/) || [])[1] || 0);
+    assert.ok(rayon >= 6, 'le flou doit se voir vraiment : ' + rayon + 'px');
+    assert.match(ouvert.fond, /rgba\(/, 'un voile sombre accompagne le flou, pour faire reculer la page');
+    assert.equal(ouvert.couvreTout, true, 'il couvre tout l\'écran, sinon un coin resterait net');
+
+    // L'ordre d'empilement est le coeur du sujet : le voile SOUS le panneau et
+    // SOUS le bouton, sinon ce sont eux qui seraient floutés.
+    assert.ok(ouvert.z.fond < ouvert.z.panneau && ouvert.z.panneau < ouvert.z.bouton,
+      'REGRESSION : le panneau ou son bouton passeraient derrière le voile et seraient floutés : ' + JSON.stringify(ouvert.z));
+    assert.equal(ouvert.pageIntacte, true,
+      'REGRESSION : un filter posé sur la page décrocherait tous les éléments en position:fixed de leur ancrage à l\'écran');
+
+    // Appuyer sur le fond referme, c'est le geste attendu de tout dépliant.
+    await page.evaluate(() => document.getElementById('creerFond').click());
+    await page.waitForFunction(() => !document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+    await page.waitForFunction(() => getComputedStyle(document.getElementById('creerFond')).visibility === 'hidden', null, { timeout: 8000 });
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

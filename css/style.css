@@ -2008,6 +2008,32 @@ body.creer-ouvert #creerBtnBarre{transform:scaleY(0)}
    le quasi-transparent d'origine rendrait le texte illisible. Un fond sombre
    translucide avec flou garde donc la lisibilité TOUT EN laissant deviner ce
    qu'il y a derrière, ce qui est exactement l'effet demandé. */
+/* Voile flouté derrière le panneau déplié (retour propriétaire : "que
+   l'arrière-plan soit flouté de 40-50%"). Posé SOUS le panneau (z-index 198,
+   le panneau est à 199 et le bouton à 200), donc le panneau et son bouton
+   restent nets pendant que la page derrière recule.
+   Le panneau lui-même reste volontairement sans fond : on continue de voir
+   la page entre les boutons, comme demandé à l'origine, mais floutée, ce qui
+   la fait passer du statut de contenu lisible à celui de décor. */
+.creer-fond{
+  position:fixed;inset:0;z-index:198;
+  background:rgba(10,10,12,0.45);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  opacity:0;visibility:hidden;
+  transition:opacity 0.45s cubic-bezier(.22,.8,.2,1), visibility 0.45s;
+}
+body.creer-ouvert .creer-fond{opacity:1;visibility:visible}
+/* Sans backdrop-filter (navigateurs anciens), le voile seul doit suffire à
+   faire reculer la page : on l'assombrit davantage plutôt que de laisser un
+   arrière-plan parfaitement net qui concurrencerait les boutons. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .creer-fond{background:rgba(10,10,12,0.72)}
+}
+@media (prefers-reduced-motion:reduce){ .creer-fond{transition:none} }
+/* Pendant la sélection multiple de l'historique, le bouton de création est
+   masqué : son voile ne doit surtout pas rester seul à l'écran. */
+body.hist-select .creer-fond{display:none !important}
+
 .creer-panneau{
   position:fixed;left:0;right:0;bottom:0;z-index:199;
   padding:0 18px calc(84px + env(safe-area-inset-bottom, 0px));

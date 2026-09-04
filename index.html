@@ -2100,6 +2100,13 @@
      (rectangle arrondi + "+"), instantanément reconnaissable par un créateur,
      mais dans la palette Scriptura : doré et émeraude, jamais le cyan/rose de
      TikTok qui jurerait avec toute l'app. -->
+<!-- Voile flouté SOUS le panneau (retour propriétaire). Un élément dédié
+     plutôt qu'un filter posé sur la page elle-même : `filter` transforme
+     l'élément en bloc conteneur pour ses descendants en position:fixed, ce
+     qui décrocherait le bouton de création, le bouton de navigation et les
+     fenêtres modales de leur ancrage à l'écran. Ici rien de la page n'est
+     touché, le flou se fait au moment du rendu. -->
+<div id="creerFond" class="creer-fond" aria-hidden="true" onclick="fermerPanneauCreation()"></div>
 <div id="creerPanneau" class="creer-panneau" aria-hidden="true"></div>
 <button id="creerBtn" onclick="basculerPanneauCreation()" aria-label="Créer un contenu" aria-expanded="false" aria-controls="creerPanneau" title="Créer un contenu">
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
