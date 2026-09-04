@@ -2038,8 +2038,11 @@ body.creer-ouvert #creerBtnBarre{transform:scaleY(0)}
    Le panneau lui-même reste volontairement sans fond : on continue de voir
    la page entre les boutons, comme demandé à l'origine, mais floutée, ce qui
    la fait passer du statut de contenu lisible à celui de décor. */
+/* Le voile s'arrête SOUS l'en-tête (retour propriétaire : "qu'il occupe
+   toute la page sauf l'en-tête") : la barre de navigation reste nette et
+   utilisable pendant que tout le reste recule. */
 .creer-fond{
-  position:fixed;inset:0;z-index:198;
+  position:fixed;top:var(--nav-h,64px);left:0;right:0;bottom:0;z-index:198;
   background:rgba(10,10,12,0.45);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   opacity:0;visibility:hidden;
@@ -2057,10 +2060,18 @@ body.creer-ouvert .creer-fond{opacity:1;visibility:visible}
    masqué : son voile ne doit surtout pas rester seul à l'écran. */
 body.hist-select .creer-fond{display:none !important}
 
+/* Retour propriétaire, capture à l'appui : plafonné à 76vh, le panneau
+   coupait les boutons en plein milieu de l'écran au défilement, comme s'ils
+   passaient sous quelque chose. Il occupe désormais toute la hauteur SOUS
+   L'EN-TÊTE, dont la hauteur réelle est mesurée en JS (--nav-h, voir
+   majHauteurEntete, js/ui.js) plutôt que codée en dur : elle diffère entre
+   mobile et bureau, et une valeur figée finirait par glisser le panneau sous
+   l'en-tête, exactement le défaut qu'on corrige. */
 .creer-panneau{
-  position:fixed;left:0;right:0;bottom:0;z-index:199;
-  padding:0 18px calc(84px + env(safe-area-inset-bottom, 0px));
-  max-height:76vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  position:fixed;top:var(--nav-h,64px);left:0;right:0;bottom:0;z-index:199;
+  padding:14px 18px calc(84px + env(safe-area-inset-bottom, 0px));
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;
   background:transparent;
   transform:translateY(100%);visibility:hidden;
   transition:transform 0.45s cubic-bezier(.22,.8,.2,1), visibility 0.45s;
@@ -2070,7 +2081,13 @@ body.hist-select .creer-fond{display:none !important}
    (modeCardIn) descend du HAUT vers le bas, alors qu'un dépliant venu du bas
    doit se remplir du BAS vers le haut. Le décalage est posé en JS, dans
    l'ordre inverse (voir ouvrirPanneauCreation, js/ui.js). */
-.creer-panneau .hero-modes{margin-bottom:0}
+/* Les boutons se collent en BAS quand il reste de la place, puisque le
+   panneau se déplie depuis le bas. `margin-top:auto` plutôt que
+   `justify-content:flex-end` : avec ce dernier, un contenu plus haut que le
+   panneau déborde PAR LE HAUT et devient inatteignable au défilement, un
+   défaut connu de flexbox. La marge automatique, elle, retombe à zéro dès
+   que ça déborde. */
+.creer-panneau .hero-modes{margin-bottom:0;margin-top:auto}
 .creer-panneau .hero-mode-btn{
   animation:none;
   background:rgba(22,22,24,0.72);

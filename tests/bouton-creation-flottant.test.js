@@ -651,3 +651,71 @@ test('le panneau déplié floute l\'arrière-plan, sans jamais toucher la page',
     await arreter();
   }
 });
+
+// Retour propriétaire, capture à l'appui : "quand je scrolle les boutons vers
+// le haut ils sont masqués comme s'ils entraient sous quelque chose".
+//
+// CAUSE : le panneau était plafonné à 76vh, donc son bord haut tombait en
+// plein milieu de l'écran, sans rien pour l'expliquer visuellement. Les
+// boutons y disparaissaient au défilement comme sous un bord invisible.
+//
+// Il occupe désormais toute la hauteur SOUS L'EN-TÊTE, dont la hauteur réelle
+// est MESURÉE (--nav-h) et non codée en dur : elle diffère entre mobile et
+// bureau, et une valeur figée finirait par glisser le panneau sous l'en-tête,
+// c'est-à-dire recréer exactement le défaut corrigé.
+test('le panneau occupe toute la page sous l\'en-tête, quelle que soit la taille d\'écran', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    for (const [largeur, hauteur, nom] of [[390, 844, 'téléphone'], [390, 667, 'petit téléphone'], [1280, 800, 'bureau']]) {
+      const page = await navigateur.newPage();
+      const erreursJs = [];
+      page.on('pageerror', e => erreursJs.push(e.message));
+      await page.setViewportSize({ width: largeur, height: hauteur });
+      await ouvrirAccueil(page, baseUrl);
+      await connecterAbonne(page, { code: 'HAUT' + largeur + hauteur + Math.round(Math.random() * 1e5), plan: 'creator' });
+      await page.waitForTimeout(300);
+      await ouvrirEcran(page, 'historyFlow');
+      await attendreBouton(page, true);
+      await page.evaluate(() => document.getElementById('creerBtn').click());
+      await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+      await page.waitForTimeout(600);
+
+      const vu = await page.evaluate(() => {
+        const p = document.getElementById('creerPanneau');
+        const f = document.getElementById('creerFond');
+        const n = document.querySelector('nav');
+        const bp = p.getBoundingClientRect(), bn = n.getBoundingClientRect(), bf = f.getBoundingClientRect();
+        return {
+          navHaut: Math.round(bn.height),
+          variable: getComputedStyle(document.documentElement).getPropertyValue('--nav-h').trim(),
+          panneauHaut: Math.round(bp.top),
+          panneauBas: Math.round(bp.bottom),
+          voileHaut: Math.round(bf.top),
+          basEcran: Math.round(window.innerHeight),
+          // Tout le contenu doit rester ATTEIGNABLE : le piège classique
+          // d'un conteneur en flex-end est un contenu qui déborde par le
+          // haut et qu'aucun défilement ne ramène.
+          scrollMax: p.scrollHeight - p.clientHeight,
+          scrollTop: p.scrollTop
+        };
+      });
+
+      assert.equal(vu.variable, vu.navHaut + 'px',
+        '(' + nom + ') la hauteur d\'en-tête doit être MESURÉE, pas devinée : ' + vu.variable + ' contre ' + vu.navHaut + 'px');
+      assert.equal(vu.panneauHaut, vu.navHaut,
+        'REGRESSION (' + nom + ') : le panneau ne démarre pas juste sous l\'en-tête, les boutons disparaissent sous un bord invisible');
+      assert.equal(vu.panneauBas, vu.basEcran,
+        '(' + nom + ') il descend jusqu\'au bas de l\'écran : ' + vu.panneauBas + ' contre ' + vu.basEcran);
+      assert.equal(vu.voileHaut, vu.navHaut,
+        'REGRESSION (' + nom + ') : le voile flouterait l\'en-tête, que le propriétaire veut garder net et utilisable');
+      assert.ok(vu.scrollTop >= 0 && vu.scrollTop <= Math.max(0, vu.scrollMax),
+        '(' + nom + ') aucun contenu ne doit déborder hors de portée du défilement');
+      assert.deepEqual(erreursJs, [], '(' + nom + ') aucune erreur JS');
+      await page.close();
+    }
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

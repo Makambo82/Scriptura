@@ -623,9 +623,26 @@ function panneauCreationOuvert() {
   return !!p && p.classList.contains('ouvert');
 }
 
+// Hauteur RÉELLE de l'en-tête fixe, publiée en variable CSS. Mesurée plutôt
+// que codée en dur : elle change entre mobile et bureau (padding différent),
+// et une valeur figée finirait par laisser une bande vide ou, pire, par
+// glisser le panneau sous l'en-tête, ce qu'on cherche justement à corriger.
+function majHauteurEntete() {
+  const nav = document.querySelector('nav');
+  if (!nav) return;
+  const h = Math.round(nav.getBoundingClientRect().height);
+  if (h > 0) document.documentElement.style.setProperty('--nav-h', h + 'px');
+}
+window.addEventListener('resize', majHauteurEntete);
+document.addEventListener('DOMContentLoaded', majHauteurEntete);
+
 function ouvrirPanneauCreation() {
   const panneau = document.getElementById('creerPanneau');
   if (!panneau) return;
+  // Relue à chaque ouverture : la barre d'adresse d'un navigateur mobile
+  // apparaît et disparaît au fil du défilement, la hauteur peut donc avoir
+  // changé depuis la dernière mesure.
+  majHauteurEntete();
   // Synchrone, donc le panneau part au doigt : plus aucune attente réseau
   // entre l'appui et le début du dépliage.
   _remplirPanneauCreation(panneau);
