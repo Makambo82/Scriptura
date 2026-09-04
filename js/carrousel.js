@@ -96,6 +96,10 @@ let carrouselFormat = CAR_FORMAT_DEFAUT;
 let carrouselResultat = null;
 let carrouselImages = [];          // [{ apercu, blob } | null], même longueur que les slides
 let carrouselImagesEnCours = false;
+// Slides déjà composées, dans l'ordre (voir peindreApercusCarrousel). Sert au
+// téléchargement immédiat, sans recomposition, pour préserver le geste
+// utilisateur exigé par la feuille de partage native d'iOS.
+let carrouselApercusBlobs = [];
 // Index de la slide dont le fond est en train d'être généré, ou -1. Un simple
 // booléen ne suffisait pas : il fallait savoir SUR QUEL BOUTON poser le
 // spinner, sinon le créateur ne voit rien tourner là où il vient d'appuyer.
@@ -756,6 +760,7 @@ async function genererCarrousel() {
     carrouselResultat = parsed;
     carrouselContexte = ctx;
     carrouselImages = new Array(parsed.slides.length).fill(null);
+    carrouselApercusBlobs = [];
     renderCarrousel();
 
     // L'enregistrement et la lecture du quota ne doivent JAMAIS retarder
@@ -1351,21 +1356,52 @@ function composerSlideCarrousel(i) {
   });
 }
 
-async function telechargerSlideCarrousel(i) {
-  try {
-    const blob = await composerSlideCarrousel(i);
-    const nom = 'carrousel-' + carrouselFormat.replace(':', 'x') + '-slide-' + String(i + 1).padStart(2, '0') + '.png';
-    if (typeof telechargerBlob === 'function') telechargerBlob(blob, nom);
-  } catch (e) {
-    carrouselAfficherErreur('Téléchargement impossible : ' + ((e && e.message) || 'erreur inconnue'));
-  }
+function nomSlideCarrousel(i) {
+  return 'carrousel-' + carrouselFormat.replace(':', 'x') + '-slide-' + String(i + 1).padStart(2, '0') + '.png';
 }
 
-async function telechargerToutesSlidesCarrousel() {
-  if (!carrouselResultat) return;
-  for (let i = 0; i < carrouselResultat.slides.length; i++) {
-    await telechargerSlideCarrousel(i);
+// SYNCHRONE tant que l'aperçu est déjà composé : c'est ce qui préserve le
+// geste utilisateur et ouvre vraiment la feuille de partage native sur
+// iPhone. On ne recompose (avec attente) que si l'aperçu manque, cas où le
+// repli en téléchargement classique est de toute façon acceptable.
+function telechargerSlideCarrousel(i) {
+  const dejaComposee = carrouselApercusBlobs[i];
+  if (dejaComposee) {
+    partagerFichiers(dejaComposee, nomSlideCarrousel(i), 'Slide Scriptura');
+    return;
   }
+  composerSlideCarrousel(i)
+    .then(blob => { carrouselApercusBlobs[i] = blob; partagerFichiers(blob, nomSlideCarrousel(i), 'Slide Scriptura'); })
+    .catch(e => carrouselAfficherErreur('Téléchargement impossible : ' + ((e && e.message) || 'erreur inconnue')));
+}
+
+// TOUTES les slides dans UNE SEULE feuille de partage ("Enregistrer 8
+// images" sur iOS), jamais une feuille par slide : le navigateur bloquerait
+// les suivantes dès la première, et huit feuilles d'affilée seraient de toute
+// façon impraticables.
+function telechargerToutesSlidesCarrousel() {
+  if (!carrouselResultat) return;
+  const total = carrouselResultat.slides.length;
+  const pretes = [];
+  const noms = [];
+  for (let i = 0; i < total; i++) {
+    if (carrouselApercusBlobs[i]) { pretes.push(carrouselApercusBlobs[i]); noms.push(nomSlideCarrousel(i)); }
+  }
+  // Toutes déjà composées : partage immédiat, geste utilisateur intact.
+  if (pretes.length === total) {
+    partagerFichiers(pretes, noms, 'Carrousel Scriptura');
+    return;
+  }
+  // Sinon on complète, en acceptant de perdre le geste : mieux vaut un
+  // téléchargement classique complet qu'un partage partiel.
+  const manquantes = [];
+  for (let i = 0; i < total; i++) manquantes.push(carrouselApercusBlobs[i] || composerSlideCarrousel(i));
+  Promise.all(manquantes)
+    .then(blobs => {
+      blobs.forEach((b, i) => { carrouselApercusBlobs[i] = b; });
+      partagerFichiers(blobs, blobs.map((b, i) => nomSlideCarrousel(i)), 'Carrousel Scriptura');
+    })
+    .catch(e => carrouselAfficherErreur('Téléchargement impossible : ' + ((e && e.message) || 'erreur inconnue')));
 }
 
 // Ce qu'on colle tel quel dans TikTok au moment de publier : la légende, puis
@@ -1397,6 +1433,13 @@ async function peindreApercusCarrousel() {
     if (!hote) continue;
     try {
       const blob = await composerSlideCarrousel(i);
+      // MÉMORISÉE pour le téléchargement : sur iPhone, Safari retire
+      // l'autorisation d'ouvrir la feuille de partage native si une attente
+      // asynchrone a lieu entre le clic et l'appel. Composer la slide AU
+      // MOMENT du clic ferait donc perdre le geste, et le créateur
+      // retomberait sur un téléchargement classique, qui n'atterrit pas dans
+      // sa pellicule. L'aperçu est déjà composé, on garde son fichier.
+      carrouselApercusBlobs[i] = blob;
       const url = URL.createObjectURL(blob);
       const img = new Image();
       img.className = 'car-slide-img';
@@ -1590,6 +1633,9 @@ function renderCarrousel() {
 function changerFormatDepuisResultat(valeur) {
   if (!CAR_FORMATS[valeur]) return;
   carrouselFormat = valeur;
+  // Les slides mémorisées sont à l'ANCIEN format : les garder ferait
+  // télécharger des proportions que le créateur ne voit plus à l'écran.
+  carrouselApercusBlobs = [];
   syncMenuFormatCarrousel();
   renderCarrousel();
 }

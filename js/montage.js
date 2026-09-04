@@ -145,7 +145,10 @@ function base64VersBlob(base64, mimeType) {
   return new Blob([tampon], { type: mimeType });
 }
 
-function telechargerBlob(blob, nomFichier) {
+// Téléchargement CLASSIQUE, sans feuille de partage. Gardé séparément parce
+// qu'il reste le repli de partagerFichiers ci-dessous, et qu'il doit pouvoir
+// être appelé sans risque de récursion.
+function telechargementDirect(blob, nomFichier) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -154,6 +157,57 @@ function telechargerBlob(blob, nomFichier) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Demande du propriétaire : tout bouton "Télécharger" de l'app doit ouvrir la
+// FEUILLE DE PARTAGE NATIVE, celle qui propose "Enregistrer l'image",
+// "Enregistrer dans Fichiers", AirDrop, Messages… C'est le seul chemin qui
+// enregistre vraiment dans la pellicule sur iPhone : un téléchargement
+// classique y atterrit dans les fichiers du navigateur, où beaucoup de
+// créateurs ne le retrouvent jamais.
+//
+// DEUX PIÈGES, tous les deux déjà rencontrés dans cette app (voir
+// partagerVideoMontage, plus bas) :
+//
+// 1. LE GESTE UTILISATEUR. Safari iOS retire l'autorisation de partage natif
+//    si un aller-retour réseau ou une attente asynchrone a lieu entre le clic
+//    et l'appel à navigator.share. Les appelants doivent donc préparer leur
+//    fichier AVANT le clic quand c'est possible.
+// 2. L'ANNULATION. Si le créateur ferme la feuille de partage, l'API lève une
+//    AbortError. Retomber alors sur un téléchargement classique lui
+//    enregistrerait de force le fichier qu'il vient de refuser : on ne fait
+//    donc RIEN, volontairement.
+//
+// Plusieurs fichiers sont partagés EN UNE SEULE FEUILLE ("Enregistrer 8
+// images" sur iOS) plutôt qu'une feuille par fichier, qui serait ingérable et
+// que le navigateur bloquerait de toute façon après la première.
+async function partagerFichiers(blobs, noms, titre) {
+  const liste = Array.isArray(blobs) ? blobs : [blobs];
+  const etiquettes = Array.isArray(noms) ? noms : [noms];
+  const fichiers = liste.map((b, i) => (b instanceof File)
+    ? b
+    : new File([b], etiquettes[i] || etiquettes[0] || 'scriptura', { type: (b && b.type) || 'application/octet-stream' }));
+  if (!fichiers.length) return false;
+
+  if (navigator.canShare && navigator.canShare({ files: fichiers })) {
+    try {
+      await navigator.share({ files: fichiers, title: titre || 'Scriptura' });
+      return true;
+    } catch (e) {
+      // Annulation : le créateur a refusé, on ne lui impose rien.
+      if (e && e.name === 'AbortError') return true;
+      // Autre échec (permission, type refusé…) : on retombe sur le classique.
+    }
+  }
+  fichiers.forEach((f, i) => telechargementDirect(f, etiquettes[i] || f.name));
+  return false;
+}
+
+// Conservé sous son nom d'origine : neuf appels dans l'app le nomment ainsi.
+// Il ouvre désormais la feuille de partage, et retombe sur le téléchargement
+// classique là où elle n'existe pas (ordinateur de bureau, vieux navigateur).
+function telechargerBlob(blob, nomFichier) {
+  return partagerFichiers(blob, nomFichier);
 }
 
 // Récupère la vidéo rendue (proxy same-origin, évite tout souci CORS) et la
