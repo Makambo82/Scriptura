@@ -155,12 +155,38 @@ function estChampEncoreVide(el) {
   return el.selectedIndex === 0 || !el.value;
 }
 
+// Retour terrain (4 septembre 2026) : un script généré avec « 2 minutes »
+// affiché dans le formulaire, mais écrit et calibré pour 1 minute (120 mots,
+// 48 secondes). Cause exacte, et elle valait pour TROIS modes à la fois.
+//
+// Plusieurs choix du formulaire ne vivent pas seulement dans le <select> : ils
+// sont recopiés dans une variable JS par un écouteur 'change' (selectedDuree
+// et selectedTone, js/app.js ; ideaTone, js/generation.js), et c'est CETTE
+// VARIABLE, jamais le champ, que la génération lit. Or poser `el.value` en
+// code ne déclenche aucun 'change'. Le menu maison, lui, intercepte bien le
+// setter pour rafraîchir le bouton affiché (voir initCustomSelect, js/ui.js) :
+// le créateur VOYAIT donc « 2 minutes » sélectionné, pendant que la variable
+// restait vide et que la génération retombait sur sa valeur par défaut.
+//
+// Conséquences réelles, toutes silencieuses : la durée pré-remplie était
+// ignorée (script calibré 1 minute au lieu de la durée affichée), et le ton
+// pré-rempli aussi (le bloc « TON, RÈGLE ABSOLUE » disparaissait purement et
+// simplement du prompt, en Script comme en Idées).
+//
+// On déclenche donc un vrai 'change' : pré-remplir doit se comporter
+// exactement comme si le créateur avait choisi lui-même. Même principe que
+// preSelectionnerGrilleSiVide juste au-dessus, qui passe déjà par un .click()
+// réel plutôt que de bidouiller l'état à la main.
 function preRemplirSiVide(id, valeur) {
   if (!valeur) return;
   const el = document.getElementById(id);
   if (!el || !estChampEncoreVide(el)) return;
   for (const opt of el.options || []) {
-    if (opt.value === valeur || opt.text === valeur) { el.value = opt.value; return; }
+    if (opt.value === valeur || opt.text === valeur) {
+      el.value = opt.value;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
   }
 }
 
