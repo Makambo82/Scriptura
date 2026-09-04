@@ -1253,15 +1253,34 @@
         </select>
       </div>
 
-      <!-- Quatre champs OPTIONNELS repliés par défaut : le code lui-même le dit,
-           chacun a son repli explicite dans le prompt (du type "aucune plateforme
-           précisée, reste généraliste"). Seule la niche est indispensable.
-           Les montrer tous d'emblée donnait un formulaire de sept blocs pour une
-           intention simple.
-           Le panneau s'ouvre TOUT SEUL dès qu'un de ces champs est rempli (mémoire
-           du créateur) ou dès que la zone géographique devient obligatoire pour la
-           niche choisie : jamais un champ requis ou déjà renseigné caché derrière
-           un repli. Voir majAffinerIdees, js/generation.js. -->
+      <div class="ctx-field">
+        <label class="ctx-label">Ton objectif principal</label>
+        <div class="btn-grid" id="ideaGoalGrid">
+          <button type="button" class="grid-btn" data-val="faire des vues">Faire des vues</button>
+          <button type="button" class="grid-btn" data-val="gagner des abonnés">Gagner des abonnés</button>
+          <button type="button" class="grid-btn" data-val="générer des ventes">Générer des ventes</button>
+          <button type="button" class="grid-btn" data-val="renforcer mon expertise">Mon expertise</button>
+        </div>
+      </div>
+
+
+      <div class="ctx-field">
+        <label class="ctx-label">Le sujet que tu veux explorer</label>
+        <textarea class="ctx-textarea" id="ideaTheme" placeholder="Ex : les empires africains, la psychologie de l'argent, les femmes qui ont marqué l'histoire…"></textarea>
+      </div>
+
+      <!-- Quatre champs OPTIONNELS repliés, placés TOUT EN BAS du formulaire :
+           le créateur descend d'abord sa niche, son objectif et son sujet, et ne
+           croise ces réglages qu'une fois l'essentiel posé.
+           Chacun a son repli explicite dans le prompt (du type "aucune plateforme
+           précisée, reste généraliste"), seule la niche est indispensable.
+           Le panneau reste FERMÉ par défaut, sans exception : une ouverture
+           automatique remettait ces champs à l'écran en permanence dès que le
+           profil en avait pré-rempli un, ce qui annulait tout l'intérêt du repli.
+           Le seul filet conservé est réactif : si la zone géographique est requise
+           pour la niche choisie, le bouton le signale, et une tentative de
+           génération sans elle ouvre le panneau et y emmène le créateur.
+           Voir majAffinerIdees et generateIdeas, js/generation.js. -->
       <button type="button" class="affiner-toggle" id="ideaAffinerBtn" aria-expanded="false" aria-controls="ideaAffiner" onclick="basculerAffinerIdees()">
         <span>Affiner : audience, zone, plateforme, ton</span>
         <span class="affiner-chev" aria-hidden="true">▾</span>
@@ -1327,22 +1346,6 @@
           <option value="émotionnel et sensible, qui va chercher le ressenti, l'empathie ou les larmes">Émotionnel</option>
         </select>
       </div>
-      </div>
-
-      <div class="ctx-field">
-        <label class="ctx-label">Ton objectif principal</label>
-        <div class="btn-grid" id="ideaGoalGrid">
-          <button type="button" class="grid-btn" data-val="faire des vues">Faire des vues</button>
-          <button type="button" class="grid-btn" data-val="gagner des abonnés">Gagner des abonnés</button>
-          <button type="button" class="grid-btn" data-val="générer des ventes">Générer des ventes</button>
-          <button type="button" class="grid-btn" data-val="renforcer mon expertise">Mon expertise</button>
-        </div>
-      </div>
-
-
-      <div class="ctx-field">
-        <label class="ctx-label">Le sujet que tu veux explorer</label>
-        <textarea class="ctx-textarea" id="ideaTheme" placeholder="Ex : les empires africains, la psychologie de l'argent, les femmes qui ont marqué l'histoire…"></textarea>
       </div>
 
       <div class="error-box" id="ideaErrorBox"></div>

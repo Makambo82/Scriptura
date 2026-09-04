@@ -60,14 +60,28 @@ function basculerAffinerIdees() {
   const panneau = document.getElementById('ideaAffiner');
   if (panneau) ouvrirAffinerIdees(panneau.hidden);
 }
+// Retour propriétaire : le panneau doit rester FERMÉ, sans exception. Une
+// première version l'ouvrait toute seule quand la zone géographique devenait
+// obligatoire ou quand la mémoire du créateur avait pré-rempli un champ. Sur un
+// usage réel (niche Histoire, ton déjà mémorisé), les deux conditions étaient
+// vraies en permanence : les quatre champs revenaient à l'écran à chaque fois,
+// ce qui annulait tout l'intérêt du repli.
+// Le filet contre le vrai piège (un champ OBLIGATOIRE invisible) reste en
+// place, mais RÉACTIF plutôt que préventif : le bouton signale simplement que
+// la zone géographique est attendue, et une tentative de génération sans elle
+// ouvre le panneau et y emmène le créateur (voir generateIdeas).
 function majAffinerIdees() {
-  const panneau = document.getElementById('ideaAffiner');
-  if (!panneau || !panneau.hidden) return; // déjà ouvert : on ne le referme jamais dans le dos du créateur
+  const btn = document.getElementById('ideaAffinerBtn');
+  if (!btn) return;
+  const libelle = btn.querySelector('span');
+  if (!libelle) return;
   const niche = (document.getElementById('ideaNiche') || {}).value || '';
   const geoRequis = ['Histoire', 'Géopolitique & Actualité', 'Culture & Société', 'Spiritualité & Philosophie', 'Lifestyle'].includes(niche);
-  const dejaRempli = ['ideaAudience', 'ideaGeo', 'ideaPlatformGrid', 'ideaTone']
-    .some(id => { const el = document.getElementById(id); return !!(el && el.value); });
-  if (geoRequis || dejaRempli) ouvrirAffinerIdees(true);
+  const geoVide = !((document.getElementById('ideaGeo') || {}).value || '').trim();
+  libelle.textContent = (geoRequis && geoVide)
+    ? 'Affiner : zone géographique attendue pour cette niche'
+    : 'Affiner : audience, zone, plateforme, ton';
+  btn.classList.toggle('affiner-requis', geoRequis && geoVide);
 }
 
 function updateGeoRequirement() {

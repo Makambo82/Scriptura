@@ -13,14 +13,19 @@
 // de tous les montrer d'emblée : sept blocs pour une intention simple. Ils sont
 // désormais repliés derrière un "Affiner".
 //
-// DEUX PIÈGES que ces tests verrouillent, parce qu'un repli mal fait est pire
-// que pas de repli :
-//  - la ZONE GÉOGRAPHIQUE devient OBLIGATOIRE pour cinq niches et bloque la
-//    génération si elle manque. Cachée, elle produirait un message d'erreur sur
-//    un champ invisible ;
-//  - la mémoire du créateur PRÉ-REMPLIT audience, ton et plateforme. Un choix
-//    déjà posé doit rester visible, sinon le créateur génère sans savoir avec
-//    quoi.
+// PRÉCISION DU PROPRIÉTAIRE APRÈS COUP, et c'est ce que ces tests verrouillent
+// désormais : le panneau doit rester FERMÉ, sans exception, et se trouver TOUT
+// EN BAS du formulaire.
+// Une première version l'ouvrait toute seule quand la zone géographique
+// devenait obligatoire ou quand la mémoire du créateur avait pré-rempli un
+// champ. Sur son usage réel (niche Histoire, ton déjà mémorisé), les deux
+// conditions étaient vraies en permanence : les quatre champs revenaient à
+// l'écran à chaque fois, ce qui annulait tout l'intérêt du repli.
+//
+// Le vrai piège demeure : la ZONE GÉOGRAPHIQUE est OBLIGATOIRE pour cinq niches
+// et bloque la génération si elle manque. Le filet est donc devenu RÉACTIF
+// plutôt que préventif : le bouton signale qu'elle est attendue, et une
+// tentative de génération sans elle ouvre le panneau et y emmène le créateur.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -95,7 +100,7 @@ test('replié par défaut : seuls la niche, l\'objectif et le sujet restent à l
   }
 });
 
-test('une niche qui EXIGE la zone géographique ouvre le repli toute seule', async () => {
+test('une niche qui exige la zone géographique NE force PAS l\'ouverture, elle la signale', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -103,29 +108,31 @@ test('une niche qui EXIGE la zone géographique ouvre le repli toute seule', asy
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
     await ouvrirIdees(page, baseUrl);
-    assert.equal((await page.evaluate(etat)).replie, true, 'replié au départ');
 
-    // "Histoire" rend la zone géographique obligatoire (voir
-    // updateGeoRequirement et la validation de generateIdeas).
     await page.evaluate(() => {
       const sel = document.getElementById('ideaNiche');
-      sel.value = 'Histoire';
+      sel.value = 'Histoire'; // rend la zone géographique obligatoire
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     });
     await page.waitForTimeout(250);
 
-    const vu = await page.evaluate(etat);
+    const vu = await page.evaluate(() => ({
+      replie: document.getElementById('ideaAffiner').hidden,
+      libelle: document.getElementById('ideaAffinerBtn').textContent.replace(/\s+/g, ' ').trim(),
+      marque: document.getElementById('ideaAffinerBtn').classList.contains('affiner-requis')
+    }));
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(vu.replie, false,
-      'REGRESSION : un champ OBLIGATOIRE caché derrière un repli bloquerait la génération sur un champ invisible');
-    assert.equal(vu.geo, true, 'et la zone géographique est bien à l\'écran');
+    assert.equal(vu.replie, true,
+      'REGRESSION : une ouverture automatique remettait les quatre champs à l\'écran en permanence, le repli ne servait plus à rien');
+    assert.match(vu.libelle, /zone géographique attendue/i, 'le bouton le signale au lieu de s\'ouvrir : ' + vu.libelle);
+    assert.equal(vu.marque, true, 'et il est mis en avant visuellement');
   } finally {
     await navigateur.close();
     await arreter();
   }
 });
 
-test('un champ déjà pré-rempli par la mémoire du créateur ouvre le repli', async () => {
+test('un champ pré-rempli par la mémoire du créateur ne rouvre pas le repli', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -138,16 +145,20 @@ test('un champ déjà pré-rempli par la mémoire du créateur ouvre le repli', 
     await page.evaluate(() => {
       preRemplirSiVide('ideaTone', document.getElementById('ideaTone').options[1].value);
       const sel = document.getElementById('ideaNiche');
-      sel.value = 'Business & Entrepreneuriat'; // niche SANS zone obligatoire
+      sel.value = 'Business & Entrepreneuriat';
       sel.dispatchEvent(new Event('change', { bubbles: true }));
     });
     await page.waitForTimeout(250);
 
     const vu = await page.evaluate(etat);
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(vu.replie, false,
-      'REGRESSION : un ton déjà choisi et invisible ferait générer le créateur sans savoir avec quoi');
-    assert.equal(vu.ton, true);
+    assert.equal(vu.replie, true,
+      'REGRESSION : le profil pré-remplit presque toujours quelque chose, une ouverture sur ce critère laissait le panneau ouvert en permanence');
+    assert.ok(!vu.ton, 'le champ reste replié');
+    // Le choix mémorisé n'est pas perdu pour autant, il part bien au prompt
+    // (vérifié par le dernier test de ce fichier).
+    const tonRetenu = await page.evaluate(() => ideaTone);
+    assert.ok(tonRetenu, 'et il est bien pris en compte : ' + tonRetenu);
   } finally {
     await navigateur.close();
     await arreter();
@@ -239,6 +250,35 @@ test('aucune capacité perdue : les quatre champs repliés atteignent toujours l
     assert.match(p, /PLATEFORME \\?"TikTok/, 'la plateforme aussi');
     assert.match(p, /RESPECTE SES CODES/, 'avec ses codes de hooks propres à la plateforme');
     assert.match(p, /RESPECT STRICT ET EXCLUSIF DU TON CHOISI/, 'et le ton aussi');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Précision du propriétaire : « tu dois mettre affiner en bas, complètement en
+// bas ». Le créateur pose d'abord sa niche, son objectif et son sujet, et ne
+// croise ces réglages qu'une fois l'essentiel rempli.
+test('le repli est tout en bas du formulaire, après le sujet', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    await ouvrirIdees(page, baseUrl);
+
+    const ordre = await page.evaluate(() => {
+      const y = id => {
+        const el = document.getElementById(id);
+        return el ? el.getBoundingClientRect().top + window.scrollY : null;
+      };
+      return { niche: y('ideaNiche'), objectif: y('ideaGoalGrid'), sujet: y('ideaTheme'), affiner: y('ideaAffinerBtn'), bouton: y('ideaGenerateBtn') };
+    });
+
+    assert.ok(ordre.niche < ordre.objectif, 'la niche reste en premier');
+    assert.ok(ordre.objectif < ordre.sujet, 'puis l\'objectif');
+    assert.ok(ordre.sujet < ordre.affiner,
+      'REGRESSION : « Affiner » doit venir APRÈS le sujet, pas s\'intercaler au milieu du formulaire');
+    assert.ok(ordre.affiner < ordre.bouton, 'et rester au-dessus du bouton de génération, qui reste la dernière action');
   } finally {
     await navigateur.close();
     await arreter();

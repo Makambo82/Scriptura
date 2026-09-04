@@ -1948,6 +1948,10 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 .affiner-chev{transition:transform 0.25s ease;font-size:0.9rem}
 .affiner-toggle[aria-expanded="true"] .affiner-chev{transform:rotate(180deg)}
 .affiner-toggle[aria-expanded="true"]{border-style:solid;color:var(--gold-light);border-color:rgba(201,168,76,0.45)}
+/* Le panneau reste fermé même quand la zone géographique est obligatoire : le
+   bouton le signale au lieu de s'ouvrir de force et de remettre les quatre
+   champs à l'écran en permanence. */
+.affiner-toggle.affiner-requis{border-style:solid;border-color:var(--gold);color:var(--gold-light)}
 /* [hidden] suffit à masquer ; l'ouverture est animée, jamais un saut sec. */
 @keyframes affinerIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:no-preference){
