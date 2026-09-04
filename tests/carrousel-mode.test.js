@@ -768,10 +768,19 @@ test('dans la tuile, l\'emoji et le titre sont vraiment centrés verticalement',
   }
 });
 
-// Retour propriétaire, capture à l'appui : dans les cartes d'objectif, le
-// libellé et sa description étaient CÔTE À CÔTE. Un objectif un peu long
-// ("Asseoir mon expertise") passait donc sur deux lignes pendant que ses
-// voisins tenaient sur une, et les cartes n'avaient plus la même hauteur.
+// Deux retours du propriétaire, cumulés, sur les cartes d'objectif.
+//
+// 1. Le libellé et sa description étaient CÔTE À CÔTE. Un objectif un peu
+//    long ("Asseoir mon expertise") passait donc sur deux lignes pendant que
+//    ses voisins tenaient sur une, et les cartes n'avaient plus la même
+//    hauteur. La description est passée dessous.
+//
+// 2. Ma correction empilait alors les trois éléments, ICÔNE COMPRISE, qui se
+//    retrouvait seule au-dessus du titre. L'icône doit être SUR LA LIGNE DU
+//    TITRE, et pulser comme celles du hero. Les objectifs du carrousel, qui
+//    n'avaient aucune icône, en ont reçu une, la même que l'objectif
+//    équivalent du mode Script : un même objectif se reconnaît au même
+//    symbole d'un mode à l'autre.
 //
 // La règle .choices-compact est PARTAGÉE avec le mode Script : ce test
 // vérifie donc les DEUX écrans. Une correction qui n'aurait arrangé que le
@@ -794,15 +803,26 @@ test('les libellés d\'objectif tiennent sur une ligne, description dessous', as
       return Array.from(document.querySelectorAll(sel + ' .choice')).map(c => {
         const lab = c.querySelector('.choice-label');
         const desc = c.querySelector('.choice-desc');
+        const icone = c.querySelector('.choice-icon');
+        const svg = icone && icone.querySelector('svg');
         const bl = lab.getBoundingClientRect();
         const bd = desc ? desc.getBoundingClientRect() : null;
+        const bi = icone ? icone.getBoundingClientRect() : null;
         const hauteurLigne = parseFloat(getComputedStyle(lab).lineHeight) || parseFloat(getComputedStyle(lab).fontSize) * 1.3;
         return {
           texte: lab.textContent.trim(),
           lignes: Math.round(bl.height / hauteurLigne),
           // La description commence SOUS le libellé, jamais à côté.
           dessous: bd ? bd.top >= bl.bottom - 2 : true,
-          hauteur: Math.round(c.getBoundingClientRect().height)
+          hauteur: Math.round(c.getBoundingClientRect().height),
+          aIcone: !!svg,
+          // Sur la MÊME LIGNE que le titre : on compare le centre de l'icône
+          // au centre de la PREMIÈRE ligne du libellé, pas à celui du bloc
+          // entier, qui bougerait avec la longueur de la description.
+          ecartLigne: bi ? Math.abs((bi.top + bi.bottom) / 2 - (bl.top + hauteurLigne / 2)) : null,
+          aGauche: bi ? bi.right <= bl.left + 1 : null,
+          pulse: svg ? getComputedStyle(svg).animationName : null,
+          delai: svg ? getComputedStyle(svg).animationDelay : null
         };
       });
     }, [ecran, selecteur]);
@@ -818,7 +838,18 @@ test('les libellés d\'objectif tiennent sur une ligne, description dessous', as
           'REGRESSION (' + nom + ') : "' + c.texte + '" repasse sur ' + c.lignes + ' lignes, le libellé n\'a plus toute la largeur de la carte');
         assert.equal(c.dessous, true,
           'REGRESSION (' + nom + ') : la description de "' + c.texte + '" est revenue à côté du libellé au lieu d\'être dessous');
+        assert.equal(c.aIcone, true, 'chaque objectif de ' + nom + ' porte une icône : ' + c.texte);
+        assert.equal(c.aGauche, true, 'l\'icône est à gauche du titre, pas ailleurs : ' + c.texte);
+        assert.ok(c.ecartLigne <= 4,
+          'REGRESSION (' + nom + ') : l\'icône de "' + c.texte + '" n\'est plus sur la ligne du titre, écart de ' + Math.round(c.ecartLigne) + 'px');
+        assert.equal(c.pulse, 'howIconPulse',
+          'REGRESSION (' + nom + ') : l\'icône de "' + c.texte + '" ne pulse plus : ' + c.pulse);
       });
+      // Décalées en cascade : quatre icônes qui pulsent pile ensemble
+      // clignotent, elles n'attirent pas l'oeil, elles agressent.
+      const delais = Array.from(new Set(cartes.map(c => c.delai)));
+      assert.ok(delais.length > 1,
+        'la pulsation doit être décalée d\'une carte à l\'autre (' + nom + ') : ' + JSON.stringify(delais));
       const hauteurs = Array.from(new Set(cartes.map(c => c.hauteur)));
       assert.equal(hauteurs.length, 1,
         'les quatre cartes de ' + nom + ' doivent avoir la même hauteur, sinon la liste est bancale : ' + JSON.stringify(cartes.map(c => c.texte + ' ' + c.hauteur + 'px')));

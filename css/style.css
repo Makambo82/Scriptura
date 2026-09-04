@@ -1912,13 +1912,36 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
    explicatif aurait rendu ce choix moins éclairé, pas seulement plus court. */
 .choices-compact{display:grid;grid-template-columns:1fr;gap:10px}
 @media(min-width:560px){ .choices-compact{grid-template-columns:1fr 1fr} }
-/* Retour propriétaire, capture à l'appui : le libellé et sa description
-   étaient côte à côte, donc un objectif un peu long ("Asseoir mon
-   expertise") passait sur deux lignes pendant que les autres tenaient sur
-   une. Empilés, chaque libellé récupère toute la largeur de la carte et
-   tient sur une ligne, et les quatre cartes retrouvent la même hauteur. */
-.choices-compact .choice{padding:14px 16px;flex-direction:column;align-items:flex-start;gap:2px}
+/* Deux retours du propriétaire, cumulés ici.
+   1. Le libellé et sa description étaient côte à côte, donc un objectif un
+      peu long ("Asseoir mon expertise") passait sur deux lignes pendant que
+      les autres tenaient sur une. La description passe donc DESSOUS, et
+      chaque libellé récupère toute la largeur de la carte.
+   2. Ma première version les empilait tous les trois, icône comprise, qui se
+      retrouvait seule au-dessus du titre. L'icône revient SUR LA LIGNE DU
+      TITRE : c'est align-items:flex-start plus une hauteur d'icône calée sur
+      la hauteur de ligne du libellé (1.3em) qui l'y maintient, quel que soit
+      le nombre de lignes de la description en dessous. */
+.choices-compact .choice{padding:14px 16px;flex-direction:row;align-items:flex-start;gap:11px}
+.choices-compact .choice-icon{
+  width:auto;flex:none;opacity:1;color:var(--gold);
+  display:flex;align-items:center;height:1.3em;font-size:1.05rem;
+}
+.choices-compact .choice-icon svg{width:1.15em;height:1.15em;display:block}
+.choices-compact .choice-body{flex:1;min-width:0}
 .choices-compact .choice-label{margin-bottom:2px}
+/* Pulsation, comme les icônes des modes du hero et des sections "Comment ça
+   marche" : même keyframe, même rythme, et le même décalage en cascade pour
+   que les quatre n'attirent jamais l'oeil pile au même instant. */
+@media(prefers-reduced-motion:no-preference){
+  .choices-compact .choice-icon svg{animation:howIconPulse 1.7s ease-in-out infinite}
+  .choices-compact > *:nth-child(4n+2) .choice-icon svg{animation-delay:.18s}
+  .choices-compact > *:nth-child(4n+3) .choice-icon svg{animation-delay:.36s}
+  .choices-compact > *:nth-child(4n) .choice-icon svg{animation-delay:.54s}
+}
+/* L'objectif retenu porte son icône en doré clair, comme le reste de la
+   carte sélectionnée. */
+.choices-compact .choice.selected .choice-icon{color:var(--gold-light)}
 .choices-compact .choice-desc{
   font-size:0.82rem;line-height:1.35;opacity:0.62;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
