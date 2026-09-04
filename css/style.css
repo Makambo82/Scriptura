@@ -1912,7 +1912,12 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
    explicatif aurait rendu ce choix moins éclairé, pas seulement plus court. */
 .choices-compact{display:grid;grid-template-columns:1fr;gap:10px}
 @media(min-width:560px){ .choices-compact{grid-template-columns:1fr 1fr} }
-.choices-compact .choice{padding:14px 16px;gap:14px;align-items:center}
+/* Retour propriétaire, capture à l'appui : le libellé et sa description
+   étaient côte à côte, donc un objectif un peu long ("Asseoir mon
+   expertise") passait sur deux lignes pendant que les autres tenaient sur
+   une. Empilés, chaque libellé récupère toute la largeur de la carte et
+   tient sur une ligne, et les quatre cartes retrouvent la même hauteur. */
+.choices-compact .choice{padding:14px 16px;flex-direction:column;align-items:flex-start;gap:2px}
 .choices-compact .choice-label{margin-bottom:2px}
 .choices-compact .choice-desc{
   font-size:0.82rem;line-height:1.35;opacity:0.62;
@@ -3460,7 +3465,7 @@ body.is-admin .outils-montage-home-btn{display:flex}
 
 /* Choix du format, dans le formulaire : quatre cartes compactes plutôt qu'un
    menu, pour que les quatre proportions soient comparables d'un coup d'oeil. */
-.car-format-choix .choice{text-align:center}
+.car-format-choix .choice{text-align:center;align-items:center}
 .car-format-choix .choice .choice-label{font-size:1.05rem;letter-spacing:0.02em}
 
 /* Barre de format sur l'écran de résultat : changer d'avis après coup ne doit

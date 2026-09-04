@@ -687,10 +687,15 @@ test('dans la tuile, l\'emoji et le titre sont vraiment centrés verticalement',
       c.drawImage(bitmap, 0, 0);
       const px = c.getImageData(0, 0, cv.width, cv.height).data;
 
-      // Étendue verticale de ce qui est dessiné dans une bande de colonnes.
-      const etendue = (x1, x2) => {
+      // Étendue verticale de ce qui est dessiné dans une bande de colonnes,
+      // ENTRE deux lignes. Le bornage vertical n'est pas un détail : sans
+      // lui, le balayage attrapait la barre de progression tout en haut et
+      // la pagination tout en bas, et comparait donc deux repères de cadre
+      // au lieu de l'emoji et du titre. Un test qui mesure la mauvaise chose
+      // est pire qu'un test absent, il rassure à tort.
+      const etendue = (x1, x2, y1, y2) => {
         let haut = -1, bas = -1;
-        for (let y = 0; y < cv.height; y++) {
+        for (let y = y1; y < y2; y++) {
           let vu = false;
           for (let x = x1; x < x2; x += 2) {
             const i = (y * cv.width + x) * 4;
@@ -709,24 +714,96 @@ test('dans la tuile, l\'emoji et le titre sont vraiment centrés verticalement',
       const zx = (cv.width - largeur) / 2;
       const tuile = 96 * u;
 
+      // La bande de contenu : sous la barre de progression, au-dessus de la
+      // pagination.
+      const y1 = Math.round(marge + 28 * u + 44 * u);
+      const y2 = Math.round(cv.height - marge - 60 * u);
+
       return {
-        tuile: etendue(Math.round(zx + 6), Math.round(zx + tuile - 6)),
-        titre: etendue(Math.round(zx + tuile + 40), Math.round(zx + largeur - 10)),
+        // Le fond de la tuile est trop sombre pour franchir le seuil : ce
+        // qu'on mesure ici, c'est l'EMOJI lui-même, ce qui tombe encore
+        // mieux, puisque c'est bien lui que le propriétaire a vu de travers.
+        tuile: etendue(Math.round(zx + 6), Math.round(zx + tuile - 6), y1, y2),
+        titre: etendue(Math.round(zx + tuile + 40), Math.round(zx + largeur - 10), y1, y2),
         u
       };
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.ok(vu.tuile, 'la tuile de l\'emoji doit être dessinée');
+    assert.ok(vu.tuile, 'l\'emoji de la tuile doit être dessiné');
     assert.ok(vu.titre, 'le titre doit être dessiné');
     const ecart = Math.abs(vu.tuile.centre - vu.titre.centre);
     assert.ok(ecart <= 10 * vu.u,
       'REGRESSION : le titre n\'est pas centré sur sa tuile, écart de ' + Math.round(ecart) + 'px (tuile centrée en ' +
       Math.round(vu.tuile.centre) + ', titre en ' + Math.round(vu.titre.centre) + ')');
-    // Et l'emoji, lui, doit tenir DANS sa tuile, pas déborder au-dessus ou en
-    // dessous : c'est ce que produit un décalage deviné sur ses métriques.
-    assert.ok(vu.tuile.bas - vu.tuile.haut <= 110 * vu.u,
+    // Et l'emoji doit tenir DANS sa tuile (96px de côté), pas déborder
+    // au-dessus ou en dessous : c'est exactement ce que produit un décalage
+    // deviné sur des métriques qui ne sont pas celles du texte latin.
+    assert.ok(vu.tuile.bas - vu.tuile.haut <= 96 * vu.u,
       'l\'emoji déborde de sa tuile : ' + Math.round(vu.tuile.bas - vu.tuile.haut) + 'px de haut');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Retour propriétaire, capture à l'appui : dans les cartes d'objectif, le
+// libellé et sa description étaient CÔTE À CÔTE. Un objectif un peu long
+// ("Asseoir mon expertise") passait donc sur deux lignes pendant que ses
+// voisins tenaient sur une, et les cartes n'avaient plus la même hauteur.
+//
+// La règle .choices-compact est PARTAGÉE avec le mode Script : ce test
+// vérifie donc les DEUX écrans. Une correction qui n'aurait arrangé que le
+// carrousel aurait laissé le même défaut ailleurs, et une future retouche du
+// Script pourrait défaire celle-ci sans que rien ne le signale.
+test('les libellés d\'objectif tiennent sur une ligne, description dessous', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl);
+
+    const mesurer = (ecran, selecteur) => page.evaluate(([ec, sel]) => {
+      masquerTousLesEcrans();
+      document.getElementById(ec).style.display = 'block';
+      window.scrollTo(0, 0);
+      return Array.from(document.querySelectorAll(sel + ' .choice')).map(c => {
+        const lab = c.querySelector('.choice-label');
+        const desc = c.querySelector('.choice-desc');
+        const bl = lab.getBoundingClientRect();
+        const bd = desc ? desc.getBoundingClientRect() : null;
+        const hauteurLigne = parseFloat(getComputedStyle(lab).lineHeight) || parseFloat(getComputedStyle(lab).fontSize) * 1.3;
+        return {
+          texte: lab.textContent.trim(),
+          lignes: Math.round(bl.height / hauteurLigne),
+          // La description commence SOUS le libellé, jamais à côté.
+          dessous: bd ? bd.top >= bl.bottom - 2 : true,
+          hauteur: Math.round(c.getBoundingClientRect().height)
+        };
+      });
+    }, [ecran, selecteur]);
+
+    for (const [ecran, selecteur, nom] of [
+      ['carrouselFlow', '#carrouselObjectifs', 'carrousel'],
+      ['flow', '#choixObjectif', 'script']
+    ]) {
+      const cartes = await mesurer(ecran, selecteur);
+      assert.equal(cartes.length, 4, 'quatre objectifs sur l\'écran ' + nom);
+      cartes.forEach(c => {
+        assert.equal(c.lignes, 1,
+          'REGRESSION (' + nom + ') : "' + c.texte + '" repasse sur ' + c.lignes + ' lignes, le libellé n\'a plus toute la largeur de la carte');
+        assert.equal(c.dessous, true,
+          'REGRESSION (' + nom + ') : la description de "' + c.texte + '" est revenue à côté du libellé au lieu d\'être dessous');
+      });
+      const hauteurs = Array.from(new Set(cartes.map(c => c.hauteur)));
+      assert.equal(hauteurs.length, 1,
+        'les quatre cartes de ' + nom + ' doivent avoir la même hauteur, sinon la liste est bancale : ' + JSON.stringify(cartes.map(c => c.texte + ' ' + c.hauteur + 'px')));
+    }
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {
     await navigateur.close();
     await arreter();
