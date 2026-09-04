@@ -605,7 +605,13 @@ test('le panneau déplié floute l\'arrière-plan, sans jamais toucher la page',
         visibilite: cs.visibility,
         flou: cs.backdropFilter || cs.webkitBackdropFilter || '',
         fond: cs.backgroundColor,
-        couvreTout: Math.round(r.width) === window.innerWidth && Math.round(r.height) === window.innerHeight,
+        // Le voile couvre tout SAUF L'EN-TÊTE (retour propriétaire : la barre
+        // de navigation doit rester nette et utilisable). Cette assertion
+        // vérifiait "tout l'écran" et datait d'avant cette demande : elle
+        // échouait sur un comportement devenu volontaire.
+        couvreToutSousLEntete: Math.round(r.width) === window.innerWidth
+          && Math.round(r.bottom) === Math.round(window.innerHeight)
+          && Math.round(r.top) === Math.round(document.querySelector('nav').getBoundingClientRect().height),
         z: { fond: zi('creerFond'), panneau: zi('creerPanneau'), bouton: zi('creerBtn') },
         // Aucun filtre posé sur la page elle-même : c'est ce qui décrocherait
         // tous les éléments en position:fixed de leur ancrage.
@@ -632,7 +638,8 @@ test('le panneau déplié floute l\'arrière-plan, sans jamais toucher la page',
     const rayon = parseFloat((ouvert.flou.match(/blur\(([\d.]+)px\)/) || [])[1] || 0);
     assert.ok(rayon >= 6, 'le flou doit se voir vraiment : ' + rayon + 'px');
     assert.match(ouvert.fond, /rgba\(/, 'un voile sombre accompagne le flou, pour faire reculer la page');
-    assert.equal(ouvert.couvreTout, true, 'il couvre tout l\'écran, sinon un coin resterait net');
+    assert.equal(ouvert.couvreToutSousLEntete, true,
+      'il couvre toute la largeur et descend jusqu\'en bas, en s\'arrêtant sous l\'en-tête : sinon un coin resterait net, ou l\'en-tête serait flouté alors qu\'il doit rester utilisable');
 
     // L'ordre d'empilement est le coeur du sujet : le voile SOUS le panneau et
     // SOUS le bouton, sinon ce sont eux qui seraient floutés.

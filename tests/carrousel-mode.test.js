@@ -247,6 +247,7 @@ test('chaque slide affiche sa structure, son nombre de mots et sa consigne visue
     const vu = await page.evaluate(() => {
       const cartes = Array.from(document.querySelectorAll('#carrouselResults .car-slide'));
       const tout = document.getElementById('carrouselResults').innerText;
+      const zoneTexte = document.getElementById('carrouselResults').textContent;
       return {
         nb: cartes.length,
         formulaireMasque: document.getElementById('carrouselForm').style.display === 'none',
@@ -254,8 +255,13 @@ test('chaque slide affiche sa structure, son nombre de mots et sa consigne visue
         consignes: cartes.filter(c => /Visuel\s*:/.test(c.innerText)).length,
         mots: cartes.filter(c => /\d+\s+mots?/.test(c.innerText)).length,
         points: document.querySelectorAll('#carrouselResults .car-slide-points li').length,
-        legende: tout.includes('Tu es dans quelle catégorie ?'),
-        son: tout.includes('nappe calme'),
+        // textContent et non innerText : la légende vit désormais dans une
+        // carte REPLIABLE, donc masquée au départ. innerText ignore ce qui
+        // est masqué, et l'assertion échouait sur un contenu pourtant bien
+        // présent. Ce qu'on veut savoir ici, c'est qu'il est là, pas qu'il
+        // est déjà déplié (ça, c'est le test de la carte repliable).
+        legende: zoneTexte.includes('Tu es dans quelle catégorie ?'),
+        son: zoneTexte.includes('nappe calme'),
         boutonsImage: document.querySelectorAll('#carrouselResults button[onclick^="genererImageCarrousel"]').length
       };
     });
@@ -650,8 +656,17 @@ test('la légende et ses hashtags se copient et se partagent en un geste', async
         actions: boutons.map(b => (b.getAttribute('onclick') || '').split('(')[0]),
         // Le texte réellement copié, tel qu'il partira dans le presse-papier.
         texte: cles[0] ? window._copyStore[cles[0][0]] : null,
-        // Placé APRÈS la légende et les hashtags, pas ailleurs dans la page.
-        apresHashtags: !!document.querySelector('#carrouselResults .ctx-field + .sb-actions-fin, #carrouselResults .ctx-field ~ .sb-actions-fin')
+        // Placés DANS la section Légende, et APRÈS les hashtags : le
+        // sélecteur précédent visait .ctx-field, la structure d'avant le
+        // passage en carte repliable, et ne matchait plus rien.
+        apresHashtags: (() => {
+          const section = document.querySelector('#carrouselResults .out-section');
+          if (!section) return false;
+          const enfants = Array.from(section.children);
+          const iTags = enfants.findIndex(e => e.classList.contains('hashtags'));
+          const iBoutons = enfants.findIndex(e => e.classList.contains('sb-actions-fin'));
+          return iTags >= 0 && iBoutons > iTags;
+        })()
       };
     });
 
