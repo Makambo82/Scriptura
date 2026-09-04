@@ -143,3 +143,108 @@ test('un score non calculé apparaît dans la carte, avec son libellé, sans êt
     await arreter();
   }
 });
+
+// Retour terrain du 4 septembre 2026 : le solde de crédits du compte s'est
+// vidé, et RIEN ne l'a signalé. Le score a cessé d'être calculé pour tout le
+// monde, et le propriétaire ne l'a découvert qu'en enquêtant sur un score
+// bizarre, plusieurs générations plus tard. C'est la panne la plus grave
+// possible (plus une seule génération ne peut aboutir) et c'était la moins
+// visible : noyée parmi les autres échecs, dans un message technique anglais.
+// Elle a désormais sa propre alerte, en tête du Tableau de bord.
+test('solde API épuisé : une alerte dédiée passe devant tout le reste', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    const maintenant = Date.now();
+    const refus = '(400) Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.';
+    const erreursRecentes = [
+      { mode: 'score-script', detail: 'score non calculé : appel au juge impossible : ' + refus, code_acces: 'ABC', cree_le: new Date(maintenant - 30 * 60000).toISOString() },
+      { mode: 'script', detail: refus, code_acces: 'ABC', cree_le: new Date(maintenant - 35 * 60000).toISOString() },
+      { mode: 'ideas', detail: 'délai dépassé (55s)', code_acces: null, cree_le: new Date(maintenant - 2 * 3600000).toISOString() }
+    ];
+    await poserMocksReseau(page, {
+      data: (body) => body.resource === 'admin-stats'
+        ? { codes: [], parModePlan: {}, erreursParMode: { 'score-script': 1, script: 1, ideas: 1 }, erreursTotal: 3, erreursRecentes }
+        : undefined
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      localStorage.setItem('scriptura_is_admin', 'true');
+      localStorage.setItem('scriptura_illimite', 'true');
+    });
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
+    });
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    const vu = await page.evaluate(() => {
+      const cartes = Array.from(document.querySelectorAll('.score-card'));
+      const alerte = cartes.find(c => /Solde API épuisé/.test(c.textContent));
+      const echecs = cartes.find(c => /Échecs de génération/.test(c.textContent));
+      return {
+        presente: !!alerte,
+        texte: alerte ? alerte.innerText.replace(/\s+/g, ' ') : '',
+        avantLesEchecs: !!alerte && !!echecs && (alerte.compareDocumentPosition(echecs) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        enAlerte: !!alerte && alerte.classList.contains('score-card-alerte')
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.ok(vu.presente, 'la panne la plus grave doit avoir sa propre alerte, pas être noyée dans le compte des échecs');
+    assert.ok(vu.avantLesEchecs, 'et passer devant la carte des échecs de génération');
+    assert.ok(vu.enAlerte, 'en rouge, comme les autres alertes urgentes');
+    assert.match(vu.texte, /2 appels/, 'les deux refus de crédit sont comptés, jamais le délai dépassé qui n\'a rien à voir');
+    assert.match(vu.texte, /aucune génération ne peut aboutir/i, 'la conséquence réelle, dite en clair');
+    assert.match(vu.texte, /console\.anthropic\.com/, 'et où aller la régler');
+    // Le message anglais du fournisseur reste dans le détail des échecs, pas
+    // dans l'alerte : ici on veut une phrase actionnable, pas un log.
+    assert.ok(!/credit balance is too low/i.test(vu.texte), 'pas de copie du message technique anglais : ' + vu.texte);
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('l\'alerte de solde s\'efface d\'elle-même une fois l\'incident passé', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const maintenant = Date.now();
+    // Même refus, mais vieux de deux jours : le compte a forcément été
+    // rechargé depuis, une alerte permanente deviendrait un décor qu'on
+    // n'écoute plus.
+    const erreursRecentes = [
+      { mode: 'script', detail: '(400) Your credit balance is too low to access the Anthropic API.', code_acces: 'ABC', cree_le: new Date(maintenant - 48 * 3600000).toISOString() }
+    ];
+    await poserMocksReseau(page, {
+      data: (body) => body.resource === 'admin-stats'
+        ? { codes: [], parModePlan: {}, erreursParMode: { script: 1 }, erreursTotal: 1, erreursRecentes }
+        : undefined
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      localStorage.setItem('scriptura_is_admin', 'true');
+      localStorage.setItem('scriptura_illimite', 'true');
+    });
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
+    });
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    const presente = await page.evaluate(() => Array.from(document.querySelectorAll('.score-card')).some(c => /Solde API épuisé/.test(c.textContent)));
+    assert.equal(presente, false, 'passé 24 heures, l\'incident est réglé et l\'alerte doit avoir disparu');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

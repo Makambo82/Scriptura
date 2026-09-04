@@ -54,7 +54,7 @@ async function chargerTableauDeBord() {
   // abonné" : un problème qui affecte tous les utilisateurs est plus
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
   // absente tant qu'il n'y a rien à signaler).
-  zone.innerHTML = carteErreursAdmin() + cartePassesAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
+  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
   demarrerPollNonAbonnesAdmin();
 
@@ -952,6 +952,46 @@ function estErreurNouvelle(dateStr, seuilIso) {
   if (!dateStr) return false; // pas de date connue : ne pas alarmer à tort
   const d = new Date(dateStr).getTime(), s = new Date(seuilIso).getTime();
   return !isNaN(d) && !isNaN(s) && d > s;
+}
+
+// ── ALERTE « SOLDE API ÉPUISÉ » ──
+// Retour terrain du 4 septembre 2026 : le solde de crédits du compte s'est
+// vidé, et RIEN ne l'a signalé. Le score a cessé d'être calculé pour tout le
+// monde, et le propriétaire ne l'a découvert qu'en enquêtant sur un score
+// bizarre, plusieurs générations plus tard. C'est la panne la plus grave
+// possible (plus une seule génération ne peut aboutir) et c'était la moins
+// visible : noyée parmi les autres échecs, dans un message technique anglais.
+//
+// Elle a désormais sa propre alerte, en TÊTE du Tableau de bord, avant même la
+// carte des échecs. Aucune requête supplémentaire : on relit simplement le
+// détail des échecs déjà chargés, où le refus du fournisseur est journalisé
+// mot pour mot.
+//
+// Limitée aux 24 dernières heures, volontairement : au-delà, l'incident est
+// probablement réglé et l'alerte deviendrait un décor permanent qu'on
+// n'écoute plus. Elle s'efface donc d'elle-même une fois le compte rechargé.
+const MOTS_SOLDE_API = /credit balance|insufficient|billing|quota exceeded/i;
+function carteSoldeApiAdmin() {
+  const lignes = Array.isArray(_erreursRecentes) ? _erreursRecentes : [];
+  const depuis24h = Date.now() - 24 * 3600 * 1000;
+  const touchees = lignes.filter(e => {
+    if (!MOTS_SOLDE_API.test(e.detail || '')) return false;
+    const t = new Date(e.cree_le).getTime();
+    return !isNaN(t) && t >= depuis24h;
+  });
+  if (!touchees.length) return '';
+  const derniere = touchees[0]; // _erreursRecentes est trié du plus récent au plus ancien
+  return `<div class="score-card score-card-alerte">
+    <div class="score-title">⚠ Solde API épuisé</div>
+    <div class="ideas-sub" style="margin-top:10px;line-height:1.6">
+      Le fournisseur a refusé ${escAdmin(touchees.length)} appel${touchees.length > 1 ? 's' : ''} faute de crédits, le plus récent ${escAdmin(tempsRelatifCourt(derniere.cree_le))}.
+      Tant que le compte n'est pas rechargé, <strong>aucune génération ne peut aboutir</strong>, pour personne.
+    </div>
+    <div class="ideas-sub" style="margin-top:10px;line-height:1.6;opacity:0.75">
+      Recharge sur <strong>console.anthropic.com</strong>, section <strong>Plans &amp; Billing</strong>, et active le rechargement automatique pour que ça ne se reproduise pas.
+      Cette alerte disparaît d'elle-même une fois le compte rechargé, dès qu'il n'y a plus de refus dans les 24 dernières heures.
+    </div>
+  </div>`;
 }
 
 // ── CARTE « PASSES DE PERFECTIONNEMENT » ──
