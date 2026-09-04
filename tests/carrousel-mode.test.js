@@ -1098,3 +1098,101 @@ test('le résultat du carrousel reprend la présentation du mode Script', async 
     await arreter();
   }
 });
+
+// Retour propriétaire, capture annotée à l'appui : sur une slide dense, la
+// pastille ("ASTUCE 1 / 5") et le titre juste en dessous se touchaient
+// presque, 12px mesurés dans l'image produite.
+//
+// CAUSE, et elle est plus large que ce seul écart : l'espacement entre blocs
+// suivait l'échelle de réduction appliquée pour faire tenir le contenu. Or
+// quand la mise en page rétrécit, le texte devient plus petit mais le besoin
+// de SÉPARATION ne rétrécit pas dans la même proportion. Sans plancher, une
+// slide dense finissait entièrement collée, et c'est la plus dense qui en
+// avait le plus besoin.
+//
+// Ce défaut ne se voit QUE dans les pixels : on mesure donc l'image produite,
+// pas le code.
+test('sur une slide dense, la pastille et le titre gardent de l\'air', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl);
+
+    const vu = await page.evaluate(async () => {
+      // Une slide VOLONTAIREMENT DENSE : c'est elle qui déclenche la
+      // réduction d'échelle, donc elle qui révèle le défaut. Une slide
+      // aérée passerait sans rien prouver.
+      const dense = {
+        titre: 'T', direction_visuelle: 'sobre',
+        slides: [{
+          gabarit: 'contenu', badge: 'Astuce 1 / 5', emoji: '✨',
+          titre: "Prendre soin de sa peau, c'est d'abord l'hydrater",
+          definition: 'Une peau bien hydratée reflète la lumière et paraît plus vivante et jeune.',
+          points: [
+            { emoji: '💧', titre: "Boire 2 litres d'eau par jour", texte: "L'hydratation vient de l'intérieur. Cela rend ta peau plus souple et radieuse." },
+            { emoji: '🧴', titre: 'Utiliser un sérum puis une crème', texte: 'Sérum pour pénétrer, crème pour sceller. Deux étapes, deux effets démultipliés.' }
+          ],
+          bandeau: 'Une peau déshydratée vieillit. Une peau hydratée rayonne.', visuel: 'v'
+        }],
+        legende: '', hashtags: []
+      };
+      carrouselResultat = normaliserResultatCarrousel(dense);
+      carrouselImages = [null];
+      carrouselFormat = '4:5';
+
+      const blob = await composerSlideCarrousel(0);
+      const bitmap = await createImageBitmap(blob);
+      const cv = document.createElement('canvas');
+      cv.width = bitmap.width; cv.height = bitmap.height;
+      const c = cv.getContext('2d');
+      c.drawImage(bitmap, 0, 0);
+      const px = c.getImageData(0, 0, cv.width, cv.height).data;
+
+      // Colonne de contenu, calculée comme le fait le moteur de composition.
+      const u = Math.min(cv.width / 1080, cv.height / 1350);
+      const marge = 30 * u;
+      const dispoL = cv.width - (marge + 52 * u) * 2;
+      const largeur = Math.min(dispoL, 1180 * u);
+      const zx = (cv.width - largeur) / 2;
+
+      // Bandes de lignes "occupées", puis les trous entre elles.
+      const occupe = [];
+      for (let y = 0; y < cv.height; y++) {
+        let vu = false;
+        for (let x = Math.round(zx) + 4; x < Math.round(zx + largeur) - 4; x += 2) {
+          const i = (y * cv.width + x) * 4;
+          if (px[i] + px[i + 1] + px[i + 2] > 200) { vu = true; break; }
+        }
+        occupe.push(vu);
+      }
+      const bandes = [];
+      let debut = -1;
+      occupe.forEach((o, y) => {
+        if (o && debut < 0) debut = y;
+        if (!o && debut >= 0) { bandes.push([debut, y - 1]); debut = -1; }
+      });
+      const grandes = bandes.filter(b => b[1] - b[0] > 8);
+      // La pastille est la première bande d'au moins 30px de haut (le trait
+      // de la barre de progression, lui, est fin et déjà écarté).
+      const pastille = grandes.find(b => b[1] - b[0] >= 25);
+      const suivante = grandes[grandes.indexOf(pastille) + 1];
+      return {
+        u,
+        ecart: (pastille && suivante) ? suivante[0] - pastille[1] - 1 : null,
+        trouve: !!(pastille && suivante)
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.trouve, true, 'la pastille et le bloc suivant doivent être identifiables dans l\'image');
+    assert.ok(vu.ecart >= 20 * vu.u,
+      'REGRESSION : la pastille et le titre se touchent, ils se lisent comme un seul bloc empilé (' + Math.round(vu.ecart) + 'px, minimum attendu ' + Math.round(20 * vu.u) + 'px)');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

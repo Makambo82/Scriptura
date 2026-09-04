@@ -769,15 +769,27 @@ function carrouselBlocs(slide, accent) {
 // Mesure ET dessine (selon `dessiner`), en renvoyant la hauteur totale. Un
 // seul chemin de code pour les deux passes : impossible que la mesure et le
 // rendu divergent.
-function carrouselDisposer(c, blocs, zone, e, accent, dessiner, yDepart) {
+function carrouselDisposer(c, blocs, zone, e, accent, dessiner, yDepart, u) {
   const L = zone.l;
   let y = yDepart;
-  const espace = 22 * e;
+  // Espacement entre blocs, avec un PLANCHER exprimé en unités de slide.
+  // Retour propriétaire, capture à l'appui : sur une slide dense, la pastille
+  // et le titre se touchaient presque (12px mesurés). CAUSE : l'espacement
+  // suivait l'échelle de réduction appliquée pour faire tenir le contenu.
+  // Or quand la mise en page rétrécit, le texte devient plus petit mais le
+  // besoin de SÉPARATION, lui, ne rétrécit pas dans la même proportion :
+  // sans plancher, une slide dense finit entièrement collée.
+  const uRef = u || e;
+  const espace = Math.max(24 * e, 17 * uRef);
+  // La pastille ANNONCE le titre, mais reste un bloc distinct : elle a besoin
+  // de plus d'air que deux cartes de contenu qui se suivent, sinon les deux
+  // se lisent comme un seul bloc empilé.
+  const espaceApresBadge = Math.max(38 * e, 27 * uRef);
 
   const police = (poids, taille, famille) => { c.font = poids + ' ' + Math.round(taille * e) + 'px ' + famille; };
 
   blocs.forEach((bloc, idx) => {
-    if (idx) y += espace;
+    if (idx) y += (blocs[idx - 1].type === 'badge' ? espaceApresBadge : espace);
 
     if (bloc.type === 'eyebrow') {
       police('600', 26, CAR_SANS);
@@ -962,7 +974,11 @@ function carrouselEchelleQuiTient(c, blocs, zone, accent, hauteurDispo, echelleM
   // signal, c'est-à-dire le pire des défauts possibles ici.
   for (let f = 1; f >= 0.35; f -= 0.03) {
     const e = haut * f;
-    if (carrouselDisposer(c, blocs, zone, e, accent, false, 0) <= hauteurDispo) return e;
+    // `haut` (l'unité de slide) est transmis pour que la MESURE applique
+    // exactement le même plancher d'espacement que le rendu : sans lui, la
+    // hauteur mesurée serait plus petite que la hauteur dessinée, et la
+    // slide déborderait.
+    if (carrouselDisposer(c, blocs, zone, e, accent, false, 0, haut) <= hauteurDispo) return e;
   }
   return haut * 0.35;
 }
@@ -1037,11 +1053,11 @@ function composerSlideCarrousel(i) {
 
       const blocs = carrouselBlocs(slide, accent);
       const e = carrouselEchelleQuiTient(c, blocs, zone, accent, dispo, u);
-      const hauteur = carrouselDisposer(c, blocs, zone, e, accent, false, 0);
+      const hauteur = carrouselDisposer(c, blocs, zone, e, accent, false, 0, u);
       // Centrage vertical, mais jamais au-dessus du haut de la zone : une
       // slide dense reste calée sous la barre de progression.
       const y = Math.max(hautContenu, hautContenu + (dispo - hauteur) / 2);
-      carrouselDisposer(c, blocs, zone, e, accent, true, y);
+      carrouselDisposer(c, blocs, zone, e, accent, true, y, u);
 
       // Pagination discrète en bas, en doré : le lecteur sait toujours où il
       // en est, même si la barre du haut est masquée par l'interface TikTok.
