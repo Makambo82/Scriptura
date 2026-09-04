@@ -20,6 +20,7 @@ const ICO_MODE = {
   ideas:          _icoMode('<path d="M9.5 18.5h5"/><path d="M10.5 21h3"/><path d="M12 3.5c-3.6 0-6 2.7-5.4 6.1.3 1.7 1.4 2.9 2.4 3.9.6.6.9 1.2 1 2h4c.1-.8.4-1.4 1-2 1-1 2.1-2.2 2.4-3.9C18 6.2 15.6 3.5 12 3.5Z"/>'),
   script:         _icoMode('<path d="M7 3.5h6.5L18 8v11.5A1 1 0 0 1 17 20.5H7A1 1 0 0 1 6 19.5v-15A1 1 0 0 1 7 3.5Z"/><path d="M13.5 3.5V8H18"/><path d="M9 12h6"/><path d="M9 15h6"/><path d="M9 18h4"/>'),
   story:          _icoMode('<path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/><path d="M4.5 19.5l3-1.2"/>'),
+  carrousel:      _icoMode('<rect x="7" y="4" width="10" height="16" rx="1.6"/><path d="M4.5 7.5v9"/><path d="M19.5 7.5v9"/>'),
   storyboardSeul: _icoMode('<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 12h17"/><path d="M12 5v14"/>')
 };
 
@@ -32,6 +33,7 @@ const HIST_MODES_FILTRE = [
   { v: 'ideas',  label: ICO_MODE.ideas + ' Idées' },
   { v: 'script', label: ICO_MODE.script + ' Script' },
   { v: 'story',  label: ICO_MODE.story + ' Récit' },
+  { v: 'carrousel', label: ICO_MODE.carrousel + ' Carrousel' },
   { v: 'storyboardSeul', label: ICO_MODE.storyboardSeul + ' Storyboard' }
 ];
 // Normalise pour une recherche insensible à la casse ET aux accents.
@@ -1155,6 +1157,17 @@ function reopenGeneration(i) {
     if (g.contenu.storyboard_genere) {
       reafficherStoryboard(g.contenu.storyboard_genere, true, g.contenu.guide_montage);
     }
+  } else if (g.mode === 'carrousel') {
+    document.getElementById('carrouselFlow').style.display = 'block';
+    // Les images ne sont PAS réenregistrées avec la génération (elles
+    // pèseraient plusieurs mégaoctets par carrousel) : on rouvre le texte,
+    // le score et les consignes visuelles, et le créateur regénère l'image
+    // d'une slide s'il en veut une. Le tableau est donc remis à vide, à la
+    // bonne longueur, jamais laissé à celui du carrousel précédent.
+    carrouselResultat = (g.contenu && g.contenu.resultat) || null;
+    carrouselContexte = (g.contenu && g.contenu.context) || null;
+    carrouselImages = carrouselResultat ? new Array(carrouselResultat.slides.length).fill(null) : [];
+    if (carrouselResultat) { renderCarrousel(); chargerQuotaImagesCarrousel(); }
   } else if (g.mode === 'ideas') {
     document.getElementById('ideasFlow').style.display = 'block';
     renderIdeas(g.contenu.idees, g.contenu.niche || '');

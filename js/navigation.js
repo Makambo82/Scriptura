@@ -13,7 +13,7 @@ let navStack = [];
 // masquerTousLesEcrans() sont désormais la SEULE source de vérité : toute
 // fonction qui ouvre un écran doit appeler masquerTousLesEcrans() plutôt que
 // de refaire sa propre liste.
-const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'montageManuelFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow', 'tendancesFlow'];
+const TOUS_LES_ECRANS = ['homePage', 'flow', 'ideasFlow', 'storyFlow', 'carrouselFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'montageManuelFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow', 'tendancesFlow'];
 function masquerTousLesEcrans() {
   TOUS_LES_ECRANS.forEach(id => {
     const el = document.getElementById(id);
@@ -93,7 +93,11 @@ function currentScreen() {
     }
   }
   // Sinon, l'écran/module visible
-  for (const id of ['flow', 'ideasFlow', 'storyFlow', 'auditFlow', 'diagSommaireFlow', 'viralFlow', 'tiktokOutilsFlow', 'montageManuelFlow', 'fusionFlow', 'serieFlow', 'storyboardSeulFlow', 'historyFlow', 'adminFlow', 'tendancesFlow']) {
+  // Dérivée de TOUS_LES_ECRANS, jamais recopiée : cette liste était un
+  // doublon manuel de la précédente, et un écran ajouté d'un seul côté
+  // devenait invisible pour la pile de navigation (le "← Retour" y sautait
+  // alors à l'accueil au lieu de revenir à l'écran précédent).
+  for (const id of TOUS_LES_ECRANS.filter(e => e !== 'homePage')) {
     const el = document.getElementById(id);
     if (el && el.style.display !== 'none') return id;
   }

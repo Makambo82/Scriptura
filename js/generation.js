@@ -2510,6 +2510,17 @@ const GEN_STEPS = {
     'Hook et ouverture au cordeau…',
     'Contrôle anti-plagiat et finition…'
   ],
+  // Le carrousel n'a NI critique NI réviseur NI contrôle de durée : son score
+  // est entièrement déterministe (voir scoreCarrousel, js/carrousel.js), donc
+  // afficher les étapes du Script ici mentirait au créateur sur ce qui tourne
+  // vraiment, et sur ce que ça lui coûte.
+  carrousel: [
+    'Lecture de ton sujet…',
+    'Choix de l\'angle du carrousel…',
+    'Écriture de la slide d\'accroche…',
+    'Découpage en slides, une idée par slide…',
+    'Consignes visuelles et légende…'
+  ],
   audit: [
     'Lecture des captures…',
     'Extraction des statistiques…',
@@ -2563,7 +2574,8 @@ const GEN_TAGLINE = {
   serie_creation: 'Ton architecte narratif construit ta série',
   serie_episode: 'Ton scénariste écrit ton épisode',
   viral: 'Scriptura décode la recette virale',
-  montageGuide: 'Ton monteur prépare ton CapCut'
+  montageGuide: 'Ton monteur prépare ton CapCut',
+  carrousel: 'Ton stratège compose ton carrousel'
 };
 
 function startGenAnimation(mode) {

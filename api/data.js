@@ -13,7 +13,7 @@
 //  resource=generations | series | profil | admin-stats
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, lireUsageMontageImages, lireUsageAnonyme } from './_lib/acces.js';
+import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme } from './_lib/acces.js';
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -742,6 +742,21 @@ async function handleQuotaMontage(req, res) {
   return res.status(200).json({ ok: true, concerne: true, ...usage });
 }
 
+// ═══ QUOTA CARROUSEL (images), budget SÉPARÉ du montage ═══
+// Le créateur doit voir ce qu'il lui reste AVANT de dépenser, sinon il
+// découvre la limite en pleine génération, par un refus. Même source de
+// vérité que le verrou serveur (usage_serveur via lireUsageImages), jamais
+// un compteur local qu'un rechargement remettrait à zéro.
+async function handleQuotaCarrousel(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Méthode non autorisée' });
+  const code = (req.query && req.query.code) || '';
+  if (!code) return res.status(200).json({ ok: false, concerne: false });
+  const droits = await resoudreDroits(code);
+  const usage = await lireUsageImages(droits, code, 'carrouselImages');
+  if (!usage) return res.status(200).json({ ok: true, concerne: false });
+  return res.status(200).json({ ok: true, concerne: true, ...usage });
+}
+
 // Lecture seule du VRAI compteur de générations gratuites (usage_serveur,
 // IP), pour que l'affichage client (fetchServerQuota, js/api.js) suive la
 // même source que le verrou serveur réel (verifierLimiteAnonyme,
@@ -765,6 +780,7 @@ export default async function handler(req, res) {
 
   if (resource === 'presence') return handlePresence(req, res, body);
   if (resource === 'quotaMontage') return handleQuotaMontage(req, res);
+  if (resource === 'quotaCarrousel') return handleQuotaCarrousel(req, res);
   if (resource === 'quotaGenerationGratuite') return handleQuotaGenerationGratuite(req, res);
 
   // admin-stats vérifie ses droits lui-même (voir handleAdminStats) même

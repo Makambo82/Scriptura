@@ -405,10 +405,26 @@ async function handleImages(req, res, body) {
   const apiKey = process.env.TOGETHER_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (TOGETHER_API_KEY)' } });
 
+  // Deux consommateurs d'images, DEUX BUDGETS SÉPARÉS (décision du
+  // propriétaire) : le montage vidéo et le carrousel. Le coût unitaire est
+  // le même, mais les partager obligerait l'abonné à arbitrer entre deux
+  // fonctions qu'il a déjà payées. Le client dit lequel via `usage` ; toute
+  // valeur inconnue retombe sur le montage, qui était le seul appelant
+  // jusqu'ici, donc aucun appel existant ne change de comportement.
+  const pourCarrousel = body?.usage === 'carrousel';
+  const modeQuota = pourCarrousel ? 'carrouselImages' : 'montageImages';
+
   const droits = await resoudreDroits(body?.code_acces);
   const acces = verifierAccesMontage(droits);
   if (!acces.ok) {
-    return res.status(403).json({ error: { message: 'Montage vidéo réservé aux abonnés Creator et Pro', code: 'ACCES_REFUSE' } });
+    return res.status(403).json({
+      error: {
+        message: pourCarrousel
+          ? 'Génération d\'images du carrousel réservée aux abonnés Creator et Pro'
+          : 'Montage vidéo réservé aux abonnés Creator et Pro',
+        code: 'ACCES_REFUSE'
+      }
+    });
   }
 
   const MAX_PROMPTS = 40;
@@ -418,14 +434,21 @@ async function handleImages(req, res, body) {
   }
 
   // Quota d'images du mois (retour propriétaire : compté en images, pas en
-  // montages, voir LIMITES_MOIS.montageImages) - décompté en un seul appel
-  // atomique pour tout le lot, avant de dépenser un centime chez Together.
-  // Seuls les prompts non vides comptent (les vides ne génèrent rien, voir
-  // plus bas "Prompt vide").
+  // montages, voir LIMITES_MOIS.montageImages / carrouselImages) - décompté
+  // en un seul appel atomique pour tout le lot, avant de dépenser un centime
+  // chez Together. Seuls les prompts non vides comptent (les vides ne
+  // génèrent rien, voir plus bas "Prompt vide").
   const nbAGenerer = prompts.filter(p => p).length;
-  const quota = await verifierQuota(droits, 'montageImages', body?.code_acces, nbAGenerer);
+  const quota = await verifierQuota(droits, modeQuota, body?.code_acces, nbAGenerer);
   if (!quota.ok) {
-    return res.status(403).json({ error: { message: 'Quota d\'images du mois atteint pour ton plan', code: 'QUOTA_ATTEINT' } });
+    return res.status(403).json({
+      error: {
+        message: pourCarrousel
+          ? 'Quota d\'images de carrousel du mois atteint pour ton plan'
+          : 'Quota d\'images du mois atteint pour ton plan',
+        code: 'QUOTA_ATTEINT'
+      }
+    });
   }
 
   const dims = DIMENSIONS_FORMAT[body?.format] || DIMENSIONS_FORMAT['9:16'];

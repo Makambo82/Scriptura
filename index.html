@@ -215,6 +215,13 @@
         <span class="mode-desc">Génère mon script complet</span>
       </span>
     </button>
+    <button class="hero-mode-btn" onclick="demarrerModeDepuisAccueil('carrousel')">
+      <span class="mode-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="4" width="10" height="16" rx="1.6"/><path d="M4.5 7.5v9"/><path d="M19.5 7.5v9"/></svg></span>
+      <span class="mode-body">
+        <span class="mode-label">Fais-moi un carrousel</span>
+        <span class="mode-desc">Des slides à faire défiler, sans tournage ni montage</span>
+      </span>
+    </button>
     <button class="hero-mode-btn" onclick="demarrerModeDepuisAccueil('story')">
       <span class="mode-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20s1-4 3-6l9-9 3 3-9 9c-2 2-6 3-6 3Z"/><path d="M13.5 6.5l3 3"/><path d="M4.5 19.5l3-1.2"/></svg></span>
       <span class="mode-body">
@@ -915,6 +922,140 @@
 </section>
 
 <!-- ══ MODULE SÉRIE ══ -->
+<!-- ═══ MODE CARROUSEL ═══
+     Un SEUL écran, volontairement. Le carrousel est le format le plus léger
+     de l'app (ni durée, ni format de tournage, ni storyboard à filmer) :
+     lui imposer les étapes du mode Script aurait ajouté des écrans sans
+     ajouter une seule décision utile. -->
+<section id="carrouselFlow" style="display:none">
+  <div id="carrouselForm">
+    <div class="step-header">
+      <button class="btn-back" onclick="navBack()">← Retour</button>
+      <h2 class="step-title">Un carrousel<br/><strong>qu'on fait défiler.</strong></h2>
+      <p class="step-sub">Des slides à publier telles quelles, sans tournage ni montage.</p>
+    </div>
+
+    <div class="context-card">
+      <div class="ctx-field">
+        <label class="ctx-label">Ton objectif</label>
+        <div class="choices-compact" id="carrouselObjectifs">
+          <div class="choice selected" onclick="choisirObjectifCarrousel('faire des vues', this)">
+            <span class="choice-label">Faire des vues</span>
+            <span class="choice-desc">La portée avant tout</span>
+          </div>
+          <div class="choice" onclick="choisirObjectifCarrousel('gagner des abonnés', this)">
+            <span class="choice-label">Gagner des abonnés</span>
+            <span class="choice-desc">Donner envie de te suivre</span>
+          </div>
+          <div class="choice" onclick="choisirObjectifCarrousel('asseoir mon expertise', this)">
+            <span class="choice-label">Asseoir mon expertise</span>
+            <span class="choice-desc">Qu'on te prenne au sérieux</span>
+          </div>
+          <div class="choice" onclick="choisirObjectifCarrousel('générer des ventes', this)">
+            <span class="choice-label">Générer des ventes</span>
+            <span class="choice-desc">Amener vers ton offre</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ta niche</label>
+        <select class="ctx-input" id="carrouselNiche">
+          <option value="">Choisis ta niche…</option>
+          <option>Art &amp; Créativité</option>
+          <option>Beauté &amp; Mode</option>
+          <option>Business &amp; Entrepreneuriat</option>
+          <option>Célébrités &amp; People</option>
+          <option>Culture &amp; Société</option>
+          <option>Cuisine &amp; Food</option>
+          <option>Développement personnel</option>
+          <option>Éducation</option>
+          <option>Faits divers &amp; Crime</option>
+          <option>Finance &amp; Argent</option>
+          <option>Géopolitique &amp; Actualité</option>
+          <option>Histoire</option>
+          <option>Immobilier &amp; Investissement</option>
+          <option>Lifestyle</option>
+          <option>Motivation &amp; Mindset</option>
+          <option>Mystères &amp; Paranormal</option>
+          <option>Parentalité &amp; Famille</option>
+          <option>Relation &amp; Amour</option>
+          <option>Religion &amp; Foi</option>
+          <option>Santé &amp; Bien-être</option>
+          <option>Spiritualité &amp; Philosophie</option>
+          <option>Sport &amp; Fitness</option>
+          <option>Technologie &amp; IA</option>
+          <option>Voyage &amp; Découverte</option>
+          <option>Autre</option>
+        </select>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton sujet</label>
+        <textarea class="ctx-textarea" id="carrouselSujet" placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
+      </div>
+
+      <!-- Curseur du nombre de slides, demandé par le propriétaire : une
+           ligne graduée qu'on fait glisser, plutôt qu'un menu déroulant. Le
+           nombre choisi est LA décision structurante du format, il mérite
+           d'être visible et manipulable d'un doigt. -->
+      <div class="ctx-field">
+        <div class="car-slider-top">
+          <label class="ctx-label" for="carrouselSlides">Nombre de slides</label>
+          <span class="car-slider-val" id="carrouselSlidesVal">8 slides</span>
+        </div>
+        <input type="range" class="car-slider" id="carrouselSlides" min="6" max="15" step="1" value="8"
+               oninput="majCurseurSlidesCarrousel()" onchange="majCurseurSlidesCarrousel()"
+               aria-label="Nombre de slides du carrousel"/>
+        <div class="car-slider-bornes"><span>6</span><span>15</span></div>
+        <p class="ctx-note">Entre 6 et 10 slides pour un sujet net, jusqu'à 15 pour une liste ou un pas-à-pas complet.</p>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton &amp; voix (optionnel)</label>
+        <select class="ctx-input" id="carrouselTon">
+          <option value="">Choisis ton &amp; voix…</option>
+          <option value="analytique et froid, comme un documentaire">Analytique</option>
+          <option value="inspirant et chaleureux, qui touche l'émotion">Inspirant</option>
+          <option value="provocateur et direct, qui choque et interpelle">Provocateur</option>
+          <option value="éducatif et pédagogue, qui vulgarise avec clarté">Éducatif</option>
+          <option value="humoristique et décalé, avec légèreté">Humoristique</option>
+          <option value="storytelling narratif, qui raconte une histoire captivante">Storytelling</option>
+          <option value="tutoriel et how-to, qui explique étape par étape">Tutoriel</option>
+          <option value="émotionnel et sensible, qui va chercher le ressenti">Émotionnel</option>
+        </select>
+      </div>
+
+      <div class="ctx-field">
+        <label class="ctx-label">Ton audience (optionnel)</label>
+        <select class="ctx-input" id="carrouselAudience">
+          <option value="">Choisis ton audience…</option>
+          <option>Tout public</option>
+          <option>Adolescents (13-17 ans)</option>
+          <option>Jeunes adultes (18-25 ans)</option>
+          <option>Adultes (25-40 ans)</option>
+          <option>Adultes mûrs (40-60 ans)</option>
+          <option>Entrepreneurs &amp; freelances</option>
+          <option>Créateurs de contenu</option>
+          <option>Étudiants &amp; jeunes diplômés</option>
+          <option>Parents &amp; familles</option>
+          <option>Grand public francophone</option>
+          <option>Public africain francophone</option>
+          <option>Diaspora africaine</option>
+        </select>
+      </div>
+
+      <div class="error-box" id="carrouselErrorBox"></div>
+
+      <button class="btn-generate" id="carrouselGenerateBtn" onclick="genererCarrousel()">
+        <span>Générer mon carrousel</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="carrouselResults" style="display:none"></div>
+</section>
+
 <section id="serieFlow" style="display:none">
   <div class="ideas-container">
     <button class="btn-back" onclick="navBack()">← Retour</button>
@@ -1763,6 +1904,7 @@
 <script src="js/montage-guide.js"></script>
 <script src="js/diagnostic-sommaire.js"></script>
 <script src="js/diagnostic-fusion.js"></script>
+<script src="js/carrousel.js"></script>
 <script src="js/generation.js"></script>
 <script src="js/app.js"></script>
 

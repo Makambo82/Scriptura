@@ -33,8 +33,19 @@ const LIMITES_MOIS = {
   // 20 images Creator = 1€ (~11% des 6 000 FCFA ≈ 9,15€), 60 images Pro =
   // 3€ (~20% des 10 000 FCFA ≈ 15,25€), avant coûts voix off/musique/rendu
   // vidéo (comptés à part).
-  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0, montageImages: 20 },
-  pro:     { creation: 70, audit: 5, diagnosticSommaire: 15, analyseVirale: 10, tendances: 1, montageImages: 60 }
+  // carrouselImages : budget SÉPARÉ du montage, décision du propriétaire. Un
+  // carrousel de 15 slides aurait mangé 75% des 20 images mensuelles d'un
+  // Creator, le laissant arbitrer entre deux fonctions qu'il a déjà payées,
+  // ce qui est le sentiment le plus toxique dans un abonnement. Même coût
+  // unitaire (0,05€/image chez Together) : 15 images Creator = 0,75€ en plus
+  // (au total ~19% des 6 000 FCFA ≈ 9,15€ avec le montage), 40 images Pro =
+  // 2€ (~33% des 10 000 FCFA ≈ 15,25€). Ce plafond est volontairement plus
+  // bas que le nombre de slides maximum (15) multiplié par plusieurs
+  // carrousels : la génération d'images est pensée SLIDE PAR SLIDE, la
+  // plupart des slides d'un carrousel qui performe étant du texte sur fond
+  // uni, pas une illustration.
+  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0, montageImages: 20, carrouselImages: 15 },
+  pro:     { creation: 70, audit: 5, diagnosticSommaire: 15, analyseVirale: 10, tendances: 1, montageImages: 60, carrouselImages: 40 }
 };
 const PLAN_PAR_DEFAUT = 'creator';
 const MAX_FREE = 5;                // création, code jeton/inconnu (à vie)
@@ -303,18 +314,24 @@ async function verifierAccesProOuJeton(droits, code) {
 // (service_role uniquement, cette même table que consommerUsage) connaît le
 // vrai décompte. `code` non normalisé ici : cleUsage() attend le code déjà
 // tel qu'utilisé par verifierQuota (voir handleImages, api/montage-media.js).
-async function lireUsageMontageImages(droits, code) {
+// `mode` : 'montageImages' (défaut, comportement d'origine) ou
+// 'carrouselImages'. Les deux budgets sont volontairement séparés (voir
+// LIMITES_MOIS), donc leur lecture doit l'être aussi : une seule fonction
+// paramétrée plutôt que deux copies qui divergeraient à la première
+// correction.
+async function lireUsageImages(droits, code, mode) {
+  const cle = mode === 'carrouselImages' ? 'carrouselImages' : 'montageImages';
   // plafond:null (pas Infinity, qui ne survivrait pas à la sérialisation
   // JSON de la réponse HTTP - JSON.stringify(Infinity) => null de toute
   // façon) : illimite:true suffit, l'appelant ne doit jamais lire
   // used/plafond dans ce cas.
   if (droits.isAdmin || droits.illimite) return { used: 0, plafond: null, illimite: true };
-  const plafond = droits.plan ? (LIMITES_MOIS[droits.plan] || {}).montageImages : null;
-  if (plafond == null) return null; // pas Creator/Pro : le montage ne le concerne pas
+  const plafond = droits.plan ? (LIMITES_MOIS[droits.plan] || {})[cle] : null;
+  if (plafond == null) return null; // pas Creator/Pro : ce budget ne le concerne pas
   const cfg = config();
   if (!cfg) return { used: 0, plafond, nonConfigure: true };
   try {
-    const ref = cleUsage(code, 'montageImages', false);
+    const ref = cleUsage(code, cle, false);
     const r = await fetch(cfg.url + '/rest/v1/usage_serveur?ref=eq.' + encodeURIComponent(ref) + '&select=used', { headers: entetes(cfg.key) });
     if (!r.ok) return { used: 0, plafond, panne: true };
     const rows = await r.json();
@@ -323,6 +340,12 @@ async function lireUsageMontageImages(droits, code) {
   } catch (e) {
     return { used: 0, plafond, panne: true };
   }
+}
+
+// Conservée sous son nom d'origine : plusieurs appelants (api/data.js) la
+// nomment ainsi, et le montage reste le cas par défaut.
+function lireUsageMontageImages(droits, code) {
+  return lireUsageImages(droits, code, 'montageImages');
 }
 
 // Accès au montage vidéo (voix off, musique, images) : Creator ET Pro,
@@ -355,6 +378,7 @@ export {
   verifierAccesProOuJeton,
   verifierAccesMontage,
   lireUsageMontageImages,
+  lireUsageImages,
   consommerJetonServeur,
   codeAccesRefuse,
   LIMITES_MOIS,

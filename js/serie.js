@@ -1100,9 +1100,12 @@ async function chooseMode(mode) {
     document.getElementById('ideasFlow').style.display = 'block';
   } else if (mode === 'story') {
     document.getElementById('storyFlow').style.display = 'block';
+  } else if (mode === 'carrousel') {
+    document.getElementById('carrouselFlow').style.display = 'block';
+    if (typeof resetCarrouselForm === 'function') resetCarrouselForm();
   }
   // Apparition en fondu + légère montée de l'écran qu'on vient d'ouvrir
-  const ecranDuMode = { audit:'auditFlow', serie:'serieFlow', script:'flow', ideas:'ideasFlow', story:'storyFlow' };
+  const ecranDuMode = { audit:'auditFlow', serie:'serieFlow', script:'flow', ideas:'ideasFlow', story:'storyFlow', carrousel:'carrouselFlow' };
   renderGenCounter();
   updateQuotaJour();
   // On remet la page en haut AVANT d'animer, pour que le fondu soit visible
