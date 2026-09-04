@@ -3432,6 +3432,13 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .car-slider-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
 .car-slider-val{font-size:0.95rem;font-weight:700;color:var(--gold-light);white-space:nowrap}
 .car-slider{
+  /* 16px comme TOUS les champs de l'app : un input sans taille de police
+     déclarée retombe sur les ~13px par défaut du navigateur, sous le seuil
+     anti-zoom que l'app s'impose partout (voir la défense mobile dans
+     js/navigation.js). Un curseur ne déclenche pas le zoom iOS, mais on ne
+     troue pas un filet de sécurité pour une exception : la règle reste
+     valable sans exception, donc elle reste vérifiable sans exception. */
+  font-size:16px;
   -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;
   background:linear-gradient(90deg,var(--gold) 0%,var(--gold) var(--car-part,22%),rgba(255,255,255,0.14) var(--car-part,22%),rgba(255,255,255,0.14) 100%);
   outline:none;cursor:pointer;margin:0;
