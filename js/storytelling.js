@@ -1183,7 +1183,11 @@ function carteScoreRecitHTML(d) {
       </div>`;
   }
   if (d && d.evaluationIndisponible) {
-    // Juge indépendant muet : aucune barre, aucun chiffre fabriqué.
+    // Juge indépendant muet : aucune barre, aucun chiffre fabriqué. En
+    // revanche l'avertissement de DURÉE reste affiché (même correctif que le
+    // mode Script) : il est calculé en code, il ne dépend pas du juge, et
+    // c'est justement quand le score manque qu'il devient le seul repère
+    // objectif du créateur.
     return `
       <div class="score-card sb-appear">
         <div class="score-header">
@@ -1191,6 +1195,7 @@ function carteScoreRecitHTML(d) {
           <div class="score-global"><span class="score-global-max">non calculé</span></div>
         </div>
         <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
+        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
       </div>`;
   }
   return '';

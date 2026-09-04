@@ -2616,6 +2616,12 @@ function carteScoreScriptHTML(d) {
     // Le juge indépendant n'a pas répondu : aucune barre, aucun chiffre
     // fabriqué (voir le commentaire dans generate()). La carte reste, pour que
     // le créateur sache que le score existe et pourquoi il manque ici.
+    // L'avertissement de DURÉE reste affiché lui aussi : il est calculé en
+    // CODE, il ne dépend pas du juge, et c'est justement quand le score
+    // manque qu'il devient le seul repère objectif du créateur. Il manquait
+    // ici alors qu'il figure dans les deux autres états de la carte, un
+    // script hors cible passait donc totalement inaperçu dès que le juge
+    // était muet.
     return `
       <div class="score-card sb-appear">
         <div class="score-header">
@@ -2623,6 +2629,7 @@ function carteScoreScriptHTML(d) {
           <div class="score-global"><span class="score-global-max">non calculé</span></div>
         </div>
         <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
+        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
       </div>`;
   }
   return '';

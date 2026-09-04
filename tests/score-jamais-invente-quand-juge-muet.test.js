@@ -266,3 +266,50 @@ test('Récit : même garde-fou, aucun score inventé quand le juge ne répond pa
     await arreter();
   }
 });
+
+// Retour terrain du 4 septembre 2026, sur un script hors cible affiché SANS
+// aucun avertissement : quand le juge indépendant est muet, la carte de score
+// n'affichait plus que son message d'indisponibilité et laissait tomber
+// l'avertissement de DURÉE, pourtant présent dans les deux autres états de la
+// carte. Or cet avertissement est calculé en CODE, il ne dépend pas du juge,
+// et c'est justement quand le score manque qu'il devient le seul repère
+// objectif du créateur. Un script deux fois trop court passait donc totalement
+// inaperçu dès que le juge échouait, exactement le cumul le plus pénalisant.
+test('Script : juge muet ET script hors cible, les DEUX informations restent affichées', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'DEUXINFOS' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+
+    const rendu = await page.evaluate(() => {
+      const d = {
+        score: null,
+        evaluationIndisponible: 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois.',
+        avertissementDuree: 'Ce script fait 190 mots, plus court que les 270-310 mots visés pour 2 minutes.'
+      };
+      const conteneur = document.createElement('div');
+      conteneur.innerHTML = carteScoreScriptHTML(d);
+      const conteneurRecit = document.createElement('div');
+      conteneurRecit.innerHTML = carteScoreRecitHTML(d);
+      return { script: conteneur.textContent, recit: conteneurRecit.textContent };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.match(rendu.script, /n'a pas répondu/, 'le créateur doit toujours savoir que le score manque');
+    assert.match(rendu.script, /190 mots/,
+      'REGRESSION : l\'avertissement de durée est calculé en code, il ne dépend pas du juge et doit rester visible');
+    assert.match(rendu.script, /270-310 mots visés pour 2 minutes/, 'avec la cible réellement visée');
+    // Le mode Récit avait rigoureusement le même trou.
+    assert.match(rendu.recit, /n'a pas répondu/);
+    assert.match(rendu.recit, /190 mots/, 'REGRESSION : même trou côté Récit');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
