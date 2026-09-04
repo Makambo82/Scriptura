@@ -99,6 +99,16 @@ let carrouselImagesEnCours = false;
 let carrouselQuotaImages = null;   // { used, plafond, illimite } ou null
 let carrouselContexte = null;
 let carrouselObjectif = 'faire des vues';
+// Photo produit ou PDF joint quand l'objectif est "générer des ventes",
+// exactement comme dans le mode Script : { base64, mediaType, nom } ou null.
+let carrouselVenteFichier = null;
+const CARROUSEL_VENTE_IDS = {
+  erreur: 'carrouselVenteFichierError',
+  nom: 'carrouselVenteFichierNom',
+  retirer: 'carrouselVenteFichierRetirerBtn',
+  input: 'carrouselVenteFichierInput'
+};
+const CARROUSEL_OBJECTIF_VENTES = 'générer des ventes';
 
 function carrouselEchapper(txt) {
   return String(txt == null ? '' : txt)
@@ -166,6 +176,7 @@ function resetCarrouselForm() {
   const curseur = document.getElementById('carrouselSlides');
   if (curseur) curseur.value = String(CARROUSEL_SLIDES_DEFAUT);
   majCurseurSlidesCarrousel();
+  syncVenteFieldCarrousel();
   const err = document.getElementById('carrouselErrorBox');
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   const res = document.getElementById('carrouselResults');
@@ -179,6 +190,26 @@ function resetCarrouselForm() {
 // chiffrées reprennent exactement les seuils que le code mesurera ensuite
 // (voir scoreCarrousel) : le modèle connaît la règle sur laquelle il sera
 // évalué, ce qui évite de le noter sur un critère qu'on ne lui a jamais donné.
+// Contexte de vente, injecté seulement quand l'objectif est Ventes. Le
+// fichier joint (photo produit ou PDF) part SÉPARÉMENT, dans le message
+// lui-même (voir genererCarrousel) : Claude le lit nativement, on ne lui en
+// fait donc jamais un résumé de seconde main. Le prompt lui dit simplement
+// qu'il est là et ce qu'il doit en tirer.
+function blocVenteCarrousel(ctx) {
+  if (!ctx.venteDescription && !ctx.venteFichier) return '';
+  const surFichier = ctx.venteFichier
+    ? ' Un fichier est joint à ce message (photo du produit, ou extrait du document fourni) : lis-le et sers-t\'en activement pour poser une offre, un bénéfice et une preuve CONCRETS, jamais génériques.'
+    : '';
+  return `
+CE QUE LE CRÉATEUR VEND : ${ctx.venteDescription || '(voir le fichier joint à ce message)'}${surFichier}
+COMMENT LE CARROUSEL DOIT S'EN SERVIR, sans jamais devenir une publicité :
+- Les slides du milieu apportent de la VALEUR RÉELLE sur le sujet. Un carrousel qui vend dès la slide 2 est abandonné à la slide 2.
+- Une seule slide, vers la fin, fait le lien entre le problème traité et ce que le créateur propose, avec un bénéfice précis tiré de ce qui est décrit ci-dessus.
+- La dernière slide dit où aller (lien en bio, commentaire, message), en toutes lettres.
+- N'invente JAMAIS un prix, une garantie, un résultat chiffré ou un témoignage qui ne figure pas dans ce que le créateur a fourni.
+`;
+}
+
 function promptCarrousel(ctx) {
   const nb = ctx.nbSlides;
   const nbMilieu = Math.max(1, nb - 2);
@@ -191,7 +222,7 @@ CONTEXTE
 - Audience : ${ctx.audience || 'tout public'}
 - Ton : ${ctx.ton || 'naturel et direct'}
 - Nombre de slides demandé : EXACTEMENT ${nb}
-
+${blocVenteCarrousel(ctx)}
 CHAQUE SLIDE EST UNE MISE EN PAGE, PAS UN PARAGRAPHE. Tu remplis des champs
 qui seront disposés par un moteur de rendu : une pastille, un titre, des
 cartes à puces, un bandeau de chute. N'écris jamais de texte long dans un
@@ -318,6 +349,26 @@ function choisirObjectifCarrousel(valeur, el) {
   carrouselObjectif = valeur;
   document.querySelectorAll('#carrouselObjectifs .choice').forEach(c => c.classList.remove('selected'));
   if (el) el.classList.add('selected');
+  syncVenteFieldCarrousel();
+}
+
+// Le bloc "ce que tu vends" n'apparaît que pour l'objectif Ventes. Il ne se
+// VIDE PAS quand on change d'objectif : un créateur qui hésite entre deux
+// objectifs et revient sur Ventes retrouve ce qu'il avait déjà écrit. C'est
+// la lecture au moment de générer (carrouselLireFormulaire) qui décide de
+// l'utiliser ou non, jamais l'affichage.
+function syncVenteFieldCarrousel() {
+  const champ = document.getElementById('carrouselVenteField');
+  if (champ) champ.style.display = (carrouselObjectif === CARROUSEL_OBJECTIF_VENTES) ? '' : 'none';
+}
+
+async function chargerFichierVenteCarrousel(files) {
+  carrouselVenteFichier = await lireFichierVente(files, CARROUSEL_VENTE_IDS);
+}
+
+function retirerFichierVenteCarrousel() {
+  carrouselVenteFichier = null;
+  viderFichierVente(CARROUSEL_VENTE_IDS);
 }
 
 function carrouselLireFormulaire() {
@@ -332,7 +383,12 @@ function carrouselLireFormulaire() {
     ton: val('carrouselTon'),
     objectif: carrouselObjectif || 'faire des vues',
     nbSlides: majCurseurSlidesCarrousel(),
-    format: lireFormatCarrousel()
+    format: lireFormatCarrousel(),
+    // Description ET fichier ne comptent QUE pour l'objectif Ventes : un
+    // texte laissé derrière après un changement d'objectif ne doit jamais
+    // partir en douce dans un prompt qui ne parle pas de vente.
+    venteDescription: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? val('carrouselVenteDescription') : '',
+    venteFichier: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? carrouselVenteFichier : null
   };
 }
 
@@ -418,7 +474,11 @@ async function genererCarrousel() {
       typeof MODEL_CREATIF !== 'undefined' ? MODEL_CREATIF : 'claude-haiku-4-5-20251001',
       6000,
       promptCarrousel(ctx),
-      3, false, 0, 'creation', null, null, 'carrousel'
+      // fichierJoint : la photo produit ou le PDF part dans le message
+      // lui-même, comme dans le mode Script. Sans ce paramètre, le bloc
+      // "ce que tu vends" serait affiché au créateur mais ignoré par la
+      // génération, ce qui est pire que de ne pas l'avoir proposé.
+      3, false, 0, 'creation', ctx.venteFichier || null, null, 'carrousel'
     );
     const parsed = parserCarrousel(texte);
     if (!parsed) throw new Error('Réponse illisible, réessaie.');
@@ -433,7 +493,10 @@ async function genererCarrousel() {
     if (typeof saveGeneration === 'function') {
       saveGeneration('carrousel', parsed.titre || ctx.sujet.slice(0, 60), {
         resultat: parsed,
-        context: { niche: ctx.niche, sujet: ctx.sujet, objectif: ctx.objectif, nbSlides: ctx.nbSlides, ton: ctx.ton, audience: ctx.audience, format: ctx.format },
+        // Le FICHIER n'est jamais enregistré (plusieurs Mo), seulement la
+        // description et le fait qu'un fichier a servi : de quoi comprendre
+        // plus tard pourquoi ce carrousel parlait d'une offre précise.
+        context: { niche: ctx.niche, sujet: ctx.sujet, objectif: ctx.objectif, nbSlides: ctx.nbSlides, ton: ctx.ton, audience: ctx.audience, format: ctx.format, venteDescription: ctx.venteDescription || '', venteFichierJoint: !!ctx.venteFichier },
         score: scoreCarrousel(parsed.slides)
       });
     }

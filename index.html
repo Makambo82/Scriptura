@@ -995,6 +995,25 @@
         <textarea class="ctx-textarea" id="carrouselSujet" placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
       </div>
 
+      <!-- Visible uniquement pour l'objectif "Générer des ventes" (voir
+           syncVenteFieldCarrousel, js/carrousel.js), exactement comme dans le
+           mode Script. La photo produit ou le PDF sont JOINTS AU MESSAGE
+           envoyé au modèle, pas seulement résumés : c'est ce qui permet à
+           l'offre et aux preuves des slides d'être concrètes plutôt que
+           génériques. -->
+      <div class="ctx-field" id="carrouselVenteField" style="display:none">
+        <label class="ctx-label">Ce que tu vends (optionnel)</label>
+        <textarea class="ctx-textarea" id="carrouselVenteDescription" style="min-height:70px" placeholder="Ex : une formation TikTok en ligne, un ebook de recettes, un service de coaching…"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <label class="btn-regenerate" style="display:inline-block" for="carrouselVenteFichierInput">Joindre une photo produit ou un PDF</label>
+          <input type="file" id="carrouselVenteFichierInput" accept="image/*,application/pdf" style="display:none" onchange="chargerFichierVenteCarrousel(this.files)"/>
+          <span id="carrouselVenteFichierNom" style="font-size:0.82rem;color:var(--text-secondary)"></span>
+          <button type="button" class="btn-regenerate" id="carrouselVenteFichierRetirerBtn" style="display:none" onclick="retirerFichierVenteCarrousel()">Retirer</button>
+        </div>
+        <div class="error-box" id="carrouselVenteFichierError" style="display:none;margin-top:8px"></div>
+        <p class="ctx-note">Scriptura peut lire une photo de ton produit ou un PDF court (ebook, brochure, jusqu'à une vingtaine de pages) pour construire une offre et des preuves concrètes dans tes slides, pas seulement génériques.</p>
+      </div>
+
       <!-- Format de publication. 4:5 par défaut : c'est le format des
            carrousels qui performent, celui qui occupe le plus de hauteur
            d'écran sans être rogné dans le fil. Le choix reste modifiable

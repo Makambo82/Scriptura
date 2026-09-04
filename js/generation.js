@@ -727,43 +727,72 @@ function lireFichierEnBase64(file) {
   });
 }
 
-async function chargerFichierVente(files) {
+// Lit la photo produit ou le PDF, le prépare pour l'IA, et tient à jour les
+// trois éléments d'interface qui vont avec (nom du fichier, bouton Retirer,
+// message d'erreur). PARAMÉTRÉE PAR LES IDENTIFIANTS plutôt que recopiée :
+// le mode Carrousel a le même besoin exactement (voir
+// chargerFichierVenteCarrousel, js/carrousel.js), et deux copies de cette
+// logique auraient divergé à la première correction, par exemple sur le
+// plafond de taille du PDF ou sur le message d'erreur.
+// Renvoie { base64, mediaType, nom } ou null, l'appelant garde son propre
+// état.
+async function lireFichierVente(files, ids) {
   const f = files && files[0];
-  const err = document.getElementById('venteFichierError');
-  const nomEl = document.getElementById('venteFichierNom');
-  const retirerBtn = document.getElementById('venteFichierRetirerBtn');
-  err.style.display = 'none';
-  if (!f) return;
+  const err = document.getElementById(ids.erreur);
+  const nomEl = document.getElementById(ids.nom);
+  const retirerBtn = document.getElementById(ids.retirer);
+  const champ = document.getElementById(ids.input);
+  if (err) err.style.display = 'none';
+  if (!f) return null;
+  let resultat = null;
   try {
     if (f.type === 'application/pdf') {
       if (f.size > VENTE_PDF_MAX_OCTETS) {
         throw new Error('PDF trop volumineux (max ~3 Mo, une vingtaine de pages). Garde l\'essentiel : sommaire, page produit, avis.');
       }
       const base64 = await lireFichierEnBase64(f);
-      venteFichier = { base64, mediaType: 'application/pdf', nom: f.name };
+      resultat = { base64, mediaType: 'application/pdf', nom: f.name };
     } else if (f.type.startsWith('image/')) {
       const compresse = await compresserImage(f);
-      venteFichier = { base64: compresse.base64, mediaType: compresse.mediaType, nom: f.name };
+      resultat = { base64: compresse.base64, mediaType: compresse.mediaType, nom: f.name };
     } else {
       throw new Error('Format non pris en charge : joins une image ou un PDF.');
     }
-    nomEl.textContent = venteFichier.nom;
-    retirerBtn.style.display = '';
+    if (nomEl) nomEl.textContent = resultat.nom;
+    if (retirerBtn) retirerBtn.style.display = '';
   } catch (e) {
-    venteFichier = null;
-    nomEl.textContent = '';
-    retirerBtn.style.display = 'none';
-    err.textContent = e.message || 'Impossible de lire ce fichier.';
-    err.style.display = 'block';
+    resultat = null;
+    if (nomEl) nomEl.textContent = '';
+    if (retirerBtn) retirerBtn.style.display = 'none';
+    if (err) { err.textContent = e.message || 'Impossible de lire ce fichier.'; err.style.display = 'block'; }
   }
-  document.getElementById('venteFichierInput').value = '';
+  // Toujours vidé : sans ça, rejoindre DEUX FOIS le même fichier ne
+  // déclencherait pas de second `change`, et le créateur croirait que rien
+  // ne s'est passé.
+  if (champ) champ.value = '';
+  return resultat;
+}
+
+const VENTE_IDS_SCRIPT = { erreur: 'venteFichierError', nom: 'venteFichierNom', retirer: 'venteFichierRetirerBtn', input: 'venteFichierInput' };
+
+async function chargerFichierVente(files) {
+  venteFichier = await lireFichierVente(files, VENTE_IDS_SCRIPT);
+}
+
+// Remet à zéro l'état ET l'interface du bloc "ce que tu vends". Paramétrée
+// comme la lecture, pour la même raison.
+function viderFichierVente(ids) {
+  const nomEl = document.getElementById(ids.nom);
+  const retirerBtn = document.getElementById(ids.retirer);
+  const err = document.getElementById(ids.erreur);
+  if (nomEl) nomEl.textContent = '';
+  if (retirerBtn) retirerBtn.style.display = 'none';
+  if (err) err.style.display = 'none';
 }
 
 function retirerFichierVente() {
   venteFichier = null;
-  document.getElementById('venteFichierNom').textContent = '';
-  document.getElementById('venteFichierRetirerBtn').style.display = 'none';
-  document.getElementById('venteFichierError').style.display = 'none';
+  viderFichierVente(VENTE_IDS_SCRIPT);
 }
 
 // « Analyser une vidéo virale » : à partir d'un lien TikTok collé, récupère
