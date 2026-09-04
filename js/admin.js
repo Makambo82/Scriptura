@@ -54,7 +54,7 @@ async function chargerTableauDeBord() {
   // abonné" : un problème qui affecte tous les utilisateurs est plus
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
   // absente tant qu'il n'y a rien à signaler).
-  zone.innerHTML = carteErreursAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
+  zone.innerHTML = carteErreursAdmin() + cartePassesAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
   demarrerPollNonAbonnesAdmin();
 
@@ -786,6 +786,7 @@ let _codesActifsRecents = new Set();
 let _erreursParMode = {};
 let _erreursTotal = 0;
 let _erreursRecentes = [];
+let _passesGeneration = [];
 // true seulement si le DERNIER chargement a réellement réussi (voir
 // chargerTableauDeBord ci-dessous, retour d'audit) : marquerErreursVues/
 // marquerErreursVuesLe ne doivent jamais s'exécuter après une visite où le
@@ -806,6 +807,7 @@ async function chargerCarteModes() {
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
+    _passesGeneration = Array.isArray(data.passes) ? data.passes : [];
     _erreursChargementReussi = true;
     // Scindé par plan (Fondateur/Pro/Creator/Non-abonné, voir parModePlan,
     // api/data.js) pour voir ce qui pousse réellement à l'upgrade, plutôt
@@ -950,6 +952,48 @@ function estErreurNouvelle(dateStr, seuilIso) {
   if (!dateStr) return false; // pas de date connue : ne pas alarmer à tort
   const d = new Date(dateStr).getTime(), s = new Date(seuilIso).getTime();
   return !isNaN(d) && !isNaN(s) && d > s;
+}
+
+// ── CARTE « PASSES DE PERFECTIONNEMENT » ──
+// Répond par des CHIFFRES à la question de coût : la boucle de correction de
+// durée et la boucle qualité (Critique + Réviseur) gagnent-elles leur prix ?
+// Chacune de ces passes renvoie le texte entier au modèle et le fait
+// réécrire, c'est le vrai poids du pipeline, bien plus que le plafond de
+// jetons de chaque appel (un plafond est réservé, pas facturé).
+// Lecture : une passe qui se déclenche rarement ne coûte presque rien et peut
+// rester ; une passe qui se déclenche presque toujours est un vrai poste de
+// dépense, et il faut alors regarder si elle change quelque chose.
+// Absente tant qu'aucune génération n'a été mesurée (table optionnelle, voir
+// supabase/passes_generation.sql).
+function cartePassesAdmin() {
+  const lignes = Array.isArray(_passesGeneration) ? _passesGeneration : [];
+  if (!lignes.length) return '';
+  const n = lignes.length;
+  const pourcent = (compte) => Math.round((compte / n) * 100);
+  const moyenne = (valeurs) => valeurs.length ? (valeurs.reduce((a, b) => a + b, 0) / valeurs.length) : 0;
+
+  const avecDuree = lignes.filter(l => (l.corrections_duree || 0) > 0);
+  const avecRevision = lignes.filter(l => (l.revisions || 0) > 0);
+  const avecSecondBrouillon = lignes.filter(l => l.second_brouillon);
+  const dansCible = lignes.filter(l => l.dans_cible);
+
+  const ligne = (label, valeur, aide) => `
+    <div class="audit-sujet" style="cursor:default">
+      <span>${escAdmin(label)}${aide ? `<span class="ideas-sub" style="display:block;opacity:0.55;margin-top:2px">${escAdmin(aide)}</span>` : ''}</span>
+      <b style="color:var(--gold);white-space:nowrap">${escAdmin(valeur)}</b>
+    </div>`;
+
+  return `<div class="score-card">
+    <div class="score-title" style="color:var(--gold)">◆ Passes de perfectionnement · 14 jours</div>
+    <div class="ideas-sub" style="margin-top:6px;opacity:0.6">Sur ${n} génération${n > 1 ? 's' : ''} mesurée${n > 1 ? 's' : ''}. Chaque passe est un appel qui fait réécrire le texte entier.</div>
+    <div class="audit-sujets" style="margin-top:14px">
+      ${ligne('Correction de durée déclenchée', pourcent(avecDuree.length) + '%', avecDuree.length ? 'En moyenne ' + moyenne(avecDuree.map(l => l.corrections_duree || 0)).toFixed(1) + ' tour(s) quand elle se déclenche' : 'Jamais déclenchée sur la période')}
+      ${ligne('Réviseur déclenché', pourcent(avecRevision.length) + '%', 'Le Critique a trouvé assez de faiblesses pour faire réécrire')}
+      ${ligne('Second brouillon complet', pourcent(avecSecondBrouillon.length) + '%', 'Premier jet jugé fondamentalement faible, tout réécrit')}
+      ${ligne('Durée finale dans la cible', pourcent(dansCible.length) + '%', 'Après toutes les passes, ce que reçoit vraiment le créateur')}
+    </div>
+    <div class="ideas-sub" style="margin-top:10px;opacity:0.6">Une passe rare coûte peu et peut rester. Une passe quasi systématique est un vrai poste de dépense.</div>
+  </div>`;
 }
 
 function carteErreursAdmin() {

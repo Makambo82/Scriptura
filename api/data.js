@@ -282,6 +282,41 @@ async function handleErreur(req, res, cfg, body) {
   }
 }
 
+// ═══ PASSES DE GÉNÉRATION (mesure, voir passes_generation.sql) ═══
+// Une ligne par génération réussie, pour savoir si la boucle de correction de
+// durée et la boucle qualité (Critique + Réviseur) gagnent vraiment leur coût.
+// Aucune donnée de contenu : uniquement des compteurs. Appel fire-and-forget
+// côté client, donc on dégrade toujours en 200 plutôt que de renvoyer une
+// erreur que personne n'attend.
+async function handlePasses(req, res, cfg, body) {
+  try {
+    const entier = (v, max) => {
+      const n = parseInt(v, 10);
+      if (!Number.isFinite(n) || n < 0) return 0;
+      return Math.min(n, max);
+    };
+    const ligne = {
+      mode: typeof body?.mode === 'string' && body.mode ? body.mode.slice(0, 40) : 'inconnu',
+      code_acces: typeof body?.code === 'string' && body.code ? body.code.slice(0, 60) : null,
+      duree_cible: typeof body?.duree_cible === 'string' ? body.duree_cible.slice(0, 40) : '',
+      mots_final: entier(body?.mots_final, 100000),
+      dans_cible: !!body?.dans_cible,
+      corrections_duree: entier(body?.corrections_duree, 20),
+      critiques: entier(body?.critiques, 20),
+      revisions: entier(body?.revisions, 20),
+      second_brouillon: !!body?.second_brouillon
+    };
+    await fetch(cfg.url + '/rest/v1/passes_generation', {
+      method: 'POST',
+      headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+      body: JSON.stringify(ligne)
+    });
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    return res.status(200).json({ ok: false });
+  }
+}
+
 // ═══ ADMIN STATS (voir l'ancien api/admin-stats.js) ═══
 
 async function handleAdminStats(req, res, cfg, body) {
@@ -617,9 +652,26 @@ async function handleAdminStats(req, res, cfg, body) {
       erreursRecentes = Array.isArray(rowsErrDetail) ? rowsErrDetail : [];
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
+    // Passes de perfectionnement des 14 derniers jours (voir
+    // cartePassesAdmin, js/admin.js, et passes_generation.sql). Fenêtre plus
+    // large que celle des échecs : on cherche une TENDANCE d'usage, pas un
+    // incident, et il faut assez de générations pour que les pourcentages
+    // veuillent dire quelque chose. Table optionnelle, comme le reste de cette
+    // route : absente, la carte ne s'affiche simplement pas.
+    let passes = [];
+    try {
+      const depuis14 = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
+      const rPasses = await fetch(
+        cfg.url + '/rest/v1/passes_generation?select=mode,duree_cible,mots_final,dans_cible,corrections_duree,critiques,revisions,second_brouillon&cree_le=gte.' + encodeURIComponent(depuis14) + '&order=cree_le.desc&limit=500',
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rowsPasses = await rPasses.json().catch(() => []);
+      passes = Array.isArray(rowsPasses) ? rowsPasses : [];
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
     return res.status(200).json({
       total, actifs, creator, pro, parMode, parModePlan, codes: Array.isArray(codes) ? codes : [],
-      codesActifsRecents, erreursParMode, erreursTotal, erreursRecentes
+      codesActifsRecents, erreursParMode, erreursTotal, erreursRecentes, passes
     });
   } catch (e) {
     return res.status(200).json({ indisponible: true });
@@ -736,6 +788,7 @@ export default async function handler(req, res) {
     if (resource === 'series') return await handleSeries(req, res, cfg, body);
     if (resource === 'profil') return await handleProfil(req, res, cfg, body);
     if (resource === 'erreur') return await handleErreur(req, res, cfg, body);
+    if (resource === 'passes') return await handlePasses(req, res, cfg, body);
     return res.status(400).json({ ok: false, error: 'resource inconnue' });
   } catch (e) {
     return res.status(200).json({ ok: false, error: e.message || 'erreur' });

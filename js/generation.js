@@ -1352,6 +1352,15 @@ async function generate() {
   // multiplier les blocs sur les formats longs. On tolère donc jusqu'à 1,5 fois
   // la part moyenne d'un bloc pour la durée choisie, avec un plancher à 25 s
   // (le seuil de plan fixe déjà retenu par l'app).
+  // ── MESURE DES PASSES DE PERFECTIONNEMENT ──
+  // Compteurs purement passifs : ils n'influencent AUCUNE décision du
+  // pipeline, ils se contentent de retenir combien de passes ont réellement
+  // tourné. Envoyés une fois la génération réussie (voir
+  // journaliserPassesGeneration, js/api.js) pour répondre par des chiffres à
+  // la vraie question de coût : la boucle de durée et la boucle qualité
+  // gagnent-elles leur prix ? Aucune donnée de contenu n'est enregistrée.
+  const _mesurePasses = { corrections_duree: 0, critiques: 0, revisions: 0, second_brouillon: false };
+
   const DUREE_BLOC_TOLERANCE = 1.5;
   const DUREE_BLOC_PLANCHER = 25;
   function plafondDureeBloc() {
@@ -1839,6 +1848,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       // repondreMaintenant, vérifié en tête de boucle).
       const MAX_PASSES_QUALITE = 2;
       for (let passe = 0; passe < MAX_PASSES_QUALITE; passe++) {
+        _mesurePasses.critiques++;
         if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
         // ══════════════════════════════════════
         //  PHASE 3, LE CRITIQUE (agent indépendant)
@@ -1905,6 +1915,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // une révision segment par segment ne suffirait pas, on retente une
           // écriture complète plutôt que de rafistoler.
           try {
+            _mesurePasses.second_brouillon = true;
             const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
             const parsed2 = parseAIResponse(writeRaw2);
             if (scriptEstComplet(parsed2)) {
@@ -1955,6 +1966,7 @@ Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème 
 
         if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4);
         try {
+          _mesurePasses.revisions++;
           const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
           const revised = parseAIResponse(reviseRaw);
           if (revised && revised.script) {
@@ -2035,6 +2047,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       // tentative ratée, la boucle retente au tour suivant.
       while ((wordCount < hardMin || wordCount > hardMax) && correctionAttempts < 3 && !repondreMaintenant) {
         correctionAttempts++;
+        _mesurePasses.corrections_duree = correctionAttempts;
         const tooShort = wordCount < hardMin;
         const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
 
@@ -2179,6 +2192,16 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     delete contenuASauver.scoreEnCours;
     const sauvegardeScript = saveGeneration('script', sujet, contenuASauver);
     updateQuotaJour();
+
+    // Mesure (aucun appel IA, aucune donnée de contenu) : voir _mesurePasses.
+    if (typeof journaliserPassesGeneration === 'function') {
+      journaliserPassesGeneration(Object.assign({
+        mode: 'script',
+        duree_cible: selectedDuree || (wt && wt.desc) || '',
+        mots_final: wordCount,
+        dans_cible: !avertissementDuree
+      }, _mesurePasses));
+    }
 
     // Le juge part MAINTENANT, après l'affichage : plus rien ne l'attend.
     if (!repondreMaintenant) {

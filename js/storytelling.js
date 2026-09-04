@@ -621,10 +621,16 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     // même pour un récit déjà correct que le Critique/Réviseur, moins coûteux,
     // aurait suffi à peaufiner. Bornée à 2 passes pour garder un temps de
     // génération raisonnable.
+    // Mesure passive des passes réellement effectuées (voir _mesurePasses,
+    // js/generation.js, même principe et même finalité). N'influence aucune
+    // décision, aucune donnée de contenu.
+    const _mesurePassesRecit = { corrections_duree: 0, critiques: 0, revisions: 0, second_brouillon: false };
+
     const MAX_PASSES_QUALITE_RECIT = 2;
     if (!repondreMaintenant) {
       try {
         for (let passe = 0; passe < MAX_PASSES_QUALITE_RECIT; passe++) {
+          _mesurePassesRecit.critiques++;
           if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
 
           const recitForReview = (parsed.recit || []).map((s, i) => '[segment ' + i + ', ' + (s.segment || '') + '] ' + s.texte).join('\n');
@@ -678,6 +684,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             // faible : une révision segment par segment ne suffirait pas, on
             // retente une écriture complète plutôt que de rafistoler.
             try {
+              _mesurePassesRecit.second_brouillon = true;
               const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
               const parsed2 = parseAIResponse(raw2);
               if (parsed2 && parsed2.recit) {
@@ -716,6 +723,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
           try {
             if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
+            _mesurePassesRecit.revisions++;
             const reviseRaw = await callAI(MODEL_QUALITE_RECIT, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
             const revised = parseAIResponse(reviseRaw);
             if (revised && Array.isArray(revised.recit) && revised.recit.length) {
@@ -819,6 +827,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       // deux fois trop court partait auparavant sans aucun avertissement.
       while ((storyWordCount < hardMinStory || storyWordCount > hardMaxStory) && storyCorrectionAttempts < 3 && !repondreMaintenant) {
         storyCorrectionAttempts++;
+        _mesurePassesRecit.corrections_duree = storyCorrectionAttempts;
         const tropCourt = storyWordCount < hardMinStory;
         const correctionPromptStory = `Tu es le Rédacteur en Chef de Scriptura. Le récit suivant ne respecte PAS la durée demandée et doit être corrigé.
 
@@ -1120,6 +1129,16 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     delete contenuRecitASauver.scoreEnCours;
     const sauvegardeRecit = saveGeneration('story', parsed.titre || input.slice(0, 60), contenuRecitASauver);
     updateQuotaJour();
+
+    // Mesure (aucun appel IA, aucune donnée de contenu) : voir _mesurePassesRecit.
+    if (typeof journaliserPassesGeneration === 'function') {
+      journaliserPassesGeneration(Object.assign({
+        mode: 'story',
+        duree_cible: storyFormat === 'court' ? (storyDuree || '') : 'format long',
+        mots_final: countStoryWords(parsed.recit),
+        dans_cible: !parsed.avertissementDuree
+      }, _mesurePassesRecit));
+    }
 
     // Le juge part MAINTENANT, après l'affichage : plus rien ne l'attend.
     if (!repondreMaintenant) {

@@ -391,6 +391,29 @@ function journaliserEchecEvaluation(mode, detail) {
 }
 
 
+// ── MESURE DES PASSES DE PERFECTIONNEMENT ──
+// Une ligne par génération réussie (voir supabase/passes_generation.sql), pour
+// répondre par des CHIFFRES à la question de coût du propriétaire : la boucle
+// de correction de durée et la boucle qualité (Critique + Réviseur) gagnent-
+// elles vraiment leur prix ? Chacune de ces passes renvoie le texte entier au
+// modèle et le fait réécrire, c'est le vrai poids du pipeline.
+// Aucune donnée de contenu n'est envoyée : ni sujet, ni texte, uniquement des
+// compteurs. Fire-and-forget, jamais attendu, jamais bloquant, et sans effet
+// si la table n'existe pas encore.
+function journaliserPassesGeneration(mesure) {
+  try {
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({
+        resource: 'passes',
+        code: localStorage.getItem('scriptura_code') || null
+      }, mesure || {}))
+    }).catch(() => {});
+  } catch (e) { /* silencieux, une mesure ne doit jamais gêner l'utilisateur */ }
+}
+
+
 const SUPABASE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
 let supabaseClient = null;
