@@ -41,12 +41,36 @@ async function ouvrirAccueil(page, baseUrl) {
   await page.waitForTimeout(400);
 }
 
+// `visible` mesure le RENDU RÉEL, pas la présence de la classe CSS. La
+// première version de ces tests se contentait de classList.contains('visible')
+// : elle serait restée verte même avec une règle CSS cassée laissant le bouton
+// à opacity:0, c'est-à-dire un bouton posé nulle part pour le créateur.
+// Et surtout, PAS offsetParent, le réflexe habituel pour "est-ce affiché" : il
+// vaut TOUJOURS null pour un élément en position:fixed, il ne prouve rien ici.
+// On ajoute donc le test de survol au point central (elementFromPoint) : c'est
+// la seule vérification qui dit qu'un doigt posé sur le bouton l'atteint
+// vraiment, et pas un calque au-dessus.
 const etatBouton = () => {
   const btn = document.getElementById('creerBtn');
   const panneau = document.getElementById('creerPanneau');
+  let rendu = { opacite: 0, visibilite: 'hidden', affichage: 'none', dansEcran: false, cliquable: false };
+  if (btn) {
+    const st = getComputedStyle(btn);
+    const r = btn.getBoundingClientRect();
+    const dessus = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    rendu = {
+      opacite: parseFloat(st.opacity),
+      visibilite: st.visibility,
+      affichage: st.display,
+      dansEcran: r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight,
+      cliquable: !!dessus && (dessus === btn || btn.contains(dessus))
+    };
+  }
   return {
     existe: !!btn,
-    visible: !!btn && btn.classList.contains('visible'),
+    classe: !!btn && btn.classList.contains('visible'),
+    visible: !!btn && rendu.opacite > 0.9 && rendu.visibilite === 'visible' && rendu.affichage !== 'none' && rendu.dansEcran,
+    rendu,
     ouvert: !!panneau && panneau.classList.contains('ouvert'),
     ariaOuvert: btn ? btn.getAttribute('aria-expanded') : null,
     modesDansPanneau: panneau ? panneau.querySelectorAll('.hero-mode-btn').length : 0,
@@ -54,6 +78,33 @@ const etatBouton = () => {
     scrollY: Math.round(window.scrollY)
   };
 };
+
+// L'apparition et la disparition sont des transitions de 0,3s : une simple
+// attente fixe frôle la limite et rend les tests instables. On attend l'état
+// STABILISÉ, ce qui laisse aussi le droit à l'animation de se terminer.
+async function attendreBouton(page, doitEtreVisible) {
+  await page.waitForFunction(attendu => {
+    const b = document.getElementById('creerBtn');
+    if (!b) return false;
+    const st = getComputedStyle(b);
+    const r = b.getBoundingClientRect();
+    const vu = parseFloat(st.opacity) > 0.9 && st.visibility === 'visible' && st.display !== 'none' && r.height > 0;
+    const cache = parseFloat(st.opacity) < 0.05 || st.visibility === 'hidden' || st.display === 'none';
+    return attendu ? vu : cache;
+  }, doitEtreVisible, { timeout: 8000 });
+}
+
+// Ouvre un écran de premier niveau comme le fait l'app, en repassant par
+// masquerTousLesEcrans (source de vérité unique) puis par la mise à jour des
+// boutons flottants.
+async function ouvrirEcran(page, id) {
+  await page.evaluate(i => {
+    masquerTousLesEcrans();
+    document.getElementById(i).style.display = 'block';
+    window.scrollTo(0, 0);
+    updateScrollBtn();
+  }, id);
+}
 
 test('le bouton n\'apparaît qu\'une fois le hero dépassé, jamais par-dessus les modes', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
@@ -68,14 +119,17 @@ test('le bouton n\'apparaît qu\'une fois le hero dépassé, jamais par-dessus l
     const enHaut = await page.evaluate(etatBouton);
     assert.ok(enHaut.existe, 'le bouton doit être présent dans la page');
     assert.equal(enHaut.visible, false, 'inutile tant que le hero est à l\'écran');
+    assert.equal(enHaut.rendu.cliquable, false, 'et il ne doit surtout pas rester cliquable en étant invisible');
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(300);
+    await attendreBouton(page, true);
     const enBas = await page.evaluate(etatBouton);
     assert.equal(enBas.visible, true, 'visible une fois descendu dans la page');
+    assert.equal(enBas.rendu.cliquable, true,
+      'REGRESSION : un bouton présent dans le DOM mais qu\'aucun doigt n\'atteint ne sert à rien : ' + JSON.stringify(enBas.rendu));
 
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(300);
+    await attendreBouton(page, false);
     const revenuEnHaut = await page.evaluate(etatBouton);
     assert.equal(revenuEnHaut.visible, false, 'et il disparaît en remontant, il n\'a plus rien à raccourcir');
 
@@ -222,16 +276,12 @@ test('le bouton reste disponible DANS les modes, pour en changer sans ressortir'
 
     // On entre dans un mode, en haut de l'écran : sur l'accueil le bouton
     // serait caché à cette position, dans un mode il doit être là.
-    await page.evaluate(() => {
-      masquerTousLesEcrans();
-      document.getElementById('flow').style.display = 'block';
-      window.scrollTo(0, 0);
-      updateScrollBtn();
-    });
-    await page.waitForTimeout(250);
+    await ouvrirEcran(page, 'flow');
+    await attendreBouton(page, true);
     const dansLeMode = await page.evaluate(etatBouton);
     assert.equal(dansLeMode.visible, true,
       'REGRESSION : sans lui, changer de mode oblige à ressortir de l\'écran et à remonter jusqu\'aux modes');
+    assert.equal(dansLeMode.rendu.cliquable, true, 'et il est réellement atteignable : ' + JSON.stringify(dansLeMode.rendu));
 
     // Et le panneau s'y déplie normalement, avec tous les modes.
     await page.evaluate(() => document.getElementById('creerBtn').click());
@@ -239,6 +289,93 @@ test('le bouton reste disponible DANS les modes, pour en changer sans ressortir'
     const ouvert = await page.evaluate(etatBouton);
     assert.ok(ouvert.modesDansPanneau >= 6, 'tous les modes sont proposés : ' + ouvert.modesDansPanneau);
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Demande explicite du propriétaire, après coup : "un utilisateur peut être
+// dans l'historique et décider de créer un script. Il est obligé de sortir
+// carrément de l'historique et d'aller appuyer sur le bouton pour voir
+// afficher le héros. Ce n'est pas bon. Pour le fondateur aussi dans le tableau
+// de bord." Ces deux écrans ne sont pas des modes de création, il aurait été
+// facile de les oublier : ce test balaie donc TOUS les écrans de premier
+// niveau de l'app, l'historique et le tableau de bord compris, plutôt que de
+// nommer une liste qui divergera au prochain écran ajouté.
+test('le bouton est là sur tous les écrans, historique et tableau de bord compris', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await connecterAbonne(page, { code: 'PARTOUT' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+
+    const ecrans = await page.evaluate(() => TOUS_LES_ECRANS.filter(id => id !== 'homePage' && document.getElementById(id)));
+    assert.ok(ecrans.includes('historyFlow'), 'l\'historique fait partie du balayage');
+    assert.ok(ecrans.includes('adminFlow'), 'le tableau de bord aussi');
+    assert.ok(ecrans.length >= 10, 'et tous les autres écrans avec : ' + ecrans.length);
+
+    const manquants = [];
+    for (const id of ecrans) {
+      await ouvrirEcran(page, id);
+      try {
+        await attendreBouton(page, true);
+      } catch (e) {
+        manquants.push(id + ' (jamais affiché)');
+        continue;
+      }
+      const vu = await page.evaluate(etatBouton);
+      if (!vu.rendu.cliquable) manquants.push(id + ' ' + JSON.stringify(vu.rendu));
+    }
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(manquants, [],
+      'REGRESSION : sur ces écrans, le créateur doit ressortir complètement pour changer de mode');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Et pas seulement affiché : depuis l'historique, il doit VRAIMENT emmener
+// dans un mode de création, sans laisser le panneau par-dessus.
+test('depuis l\'historique, le panneau emmène directement dans un mode', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await connecterAbonne(page, { code: 'HISTCREE' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+    await ouvrirEcran(page, 'historyFlow');
+    await attendreBouton(page, true);
+
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('#creerPanneau .hero-mode-btn'));
+      const cible = btns.find(b => /Écris-moi un script/.test(b.textContent)) || btns[0];
+      cible.click();
+    });
+    await page.waitForTimeout(700);
+
+    const vu = await page.evaluate(() => ({
+      panneauOuvert: document.getElementById('creerPanneau').classList.contains('ouvert'),
+      historiqueEncoreLa: document.getElementById('historyFlow').style.display !== 'none',
+      modeOuvert: document.getElementById('flow').style.display !== 'none'
+    }));
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.modeOuvert, true, 'le mode Script s\'ouvre bien depuis l\'historique');
+    assert.equal(vu.historiqueEncoreLa, false, 'et l\'historique se referme, il ne reste pas empilé dessous');
+    assert.equal(vu.panneauOuvert, false, 'le panneau ne reste pas déplié par-dessus');
   } finally {
     await navigateur.close();
     await arreter();
@@ -256,19 +393,15 @@ test('mais il disparaît pendant qu\'une génération tourne', async () => {
     await ouvrirAccueil(page, baseUrl);
     await connecterAbonne(page, { code: 'CREERGEN' + Math.round(Math.random() * 1e6), plan: 'creator' });
     await page.waitForTimeout(300);
-    await page.evaluate(() => {
-      masquerTousLesEcrans();
-      document.getElementById('flow').style.display = 'block';
-      updateScrollBtn();
-    });
-    await page.waitForTimeout(200);
+    await ouvrirEcran(page, 'flow');
+    await attendreBouton(page, true);
     assert.equal((await page.evaluate(etatBouton)).visible, true, 'présent avant de lancer');
 
     // Panneau déplié PUIS génération lancée : le pire cas, il doit se refermer.
     await page.evaluate(() => document.getElementById('creerBtn').click());
     await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
     await page.evaluate(() => startGenAnimation('script'));
-    await page.waitForTimeout(300);
+    await attendreBouton(page, false);
 
     const pendant = await page.evaluate(etatBouton);
     assert.equal(pendant.visible, false,
@@ -277,7 +410,7 @@ test('mais il disparaît pendant qu\'une génération tourne', async () => {
 
     // Une fois la génération finie, il revient.
     await page.evaluate(() => stopGenAnimation());
-    await page.waitForTimeout(900);
+    await attendreBouton(page, true);
     assert.equal((await page.evaluate(etatBouton)).visible, true, 'et il revient une fois la génération terminée');
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {
