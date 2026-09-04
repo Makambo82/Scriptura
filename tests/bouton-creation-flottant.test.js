@@ -6,15 +6,19 @@
 // remonter TOUT en haut, PUIS appuyer sur "Commence gratuitement", avant de
 // pouvoir générer quoi que ce soit. Deux étapes pour une intention immédiate.
 //
-// Deux détails ont façonné l'implémentation, et ce sont eux que ces tests
-// verrouillent :
-//  - les modes sont MASQUÉS par défaut (#heroModes en display:none, révélés
-//    par revelerModes()). Un bouton qui se contenterait de remonter en haut
-//    déposerait le visiteur devant un hero sans aucun mode visible : le
-//    raccourci ne raccourcirait rien ;
+// Comportement précisé ensuite par le propriétaire : le bouton n'emmène plus
+// vers le hero, il DÉPLIE un panneau depuis le bas de l'écran, par-dessus la
+// page d'accueil. Fond transparent, pour entrevoir l'accueil entre les
+// boutons. Un second appui replie le panneau, et le "+" devient "−" pendant
+// qu'il est ouvert.
+//
+// Ce que ces tests verrouillent :
+//  - les boutons du panneau sont CLONÉS du hero, jamais recopiés : une seule
+//    source de vérité, et surtout aucun identifiant dupliqué dans la page ;
+//  - le panneau laisse vraiment voir l'accueil derrière lui ;
 //  - le bouton n'a de sens que sur la page d'accueil, hero dépassé. Sur un
 //    écran de génération, un appui malheureux ferait quitter un résultat en
-//    cours, et tant que les modes sont déjà à l'écran il ne sert à rien.
+//    cours ; le panneau doit donc aussi se refermer tout seul dans ce cas.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -29,9 +33,13 @@ async function ouvrirAccueil(page, baseUrl) {
 
 const etatBouton = () => {
   const btn = document.getElementById('creerBtn');
+  const panneau = document.getElementById('creerPanneau');
   return {
     existe: !!btn,
     visible: !!btn && btn.classList.contains('visible'),
+    ouvert: !!panneau && panneau.classList.contains('ouvert'),
+    ariaOuvert: btn ? btn.getAttribute('aria-expanded') : null,
+    modesDansPanneau: panneau ? panneau.querySelectorAll('.hero-mode-btn').length : 0,
     modesAffiches: (document.getElementById('heroModes') || {}).style ? document.getElementById('heroModes').style.display !== 'none' : false,
     scrollY: Math.round(window.scrollY)
   };
@@ -68,7 +76,7 @@ test('le bouton n\'apparaît qu\'une fois le hero dépassé, jamais par-dessus l
   }
 });
 
-test('un appui révèle les modes ET remonte, en une seule fois', async () => {
+test('un appui déplie le panneau, un second le replie, et le + devient −', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -77,34 +85,51 @@ test('un appui révèle les modes ET remonte, en une seule fois', async () => {
     page.on('pageerror', e => erreursJs.push(e.message));
     await page.setViewportSize({ width: 390, height: 844 });
     await ouvrirAccueil(page, baseUrl);
-
-    const avant = await page.evaluate(etatBouton);
-    assert.equal(avant.modesAffiches, false, 'au départ les modes sont bien masqués, c\'est tout l\'enjeu');
-
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(300);
+
+    const avant = await page.evaluate(etatBouton);
+    assert.equal(avant.ouvert, false, 'replié au départ');
+    assert.equal(avant.ariaOuvert, 'false');
+
     await page.evaluate(() => document.getElementById('creerBtn').click());
-    await page.waitForTimeout(500);
-
-    const apres = await page.evaluate(etatBouton);
+    await page.waitForTimeout(700);
+    const ouvert = await page.evaluate(etatBouton);
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(apres.modesAffiches, true,
-      'REGRESSION : sans révéler les modes, le visiteur atterrit sur un hero vide et doit encore appuyer sur "Commence gratuitement"');
-    assert.ok(apres.scrollY < 80, 'et il est bien remonté en haut : ' + apres.scrollY);
+    assert.equal(ouvert.ouvert, true, 'le panneau doit se déplier');
+    assert.equal(ouvert.ariaOuvert, 'true');
+    assert.ok(ouvert.modesDansPanneau >= 6, 'tous les modes du hero doivent s\'y retrouver : ' + ouvert.modesDansPanneau);
 
-    // Les modes sont réellement cliquables, pas juste "display" changé.
-    const modesVisibles = await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('#heroModes .hero-mode-btn'));
-      return btns.filter(b => b.offsetParent !== null).length;
+    // La barre verticale du "+" se rétracte : il devient "−".
+    const barre = await page.evaluate(() => {
+      const el = document.getElementById('creerBtnBarre');
+      const r = el.getBoundingClientRect();
+      return { hauteur: Math.round(r.height), corps: document.body.classList.contains('creer-ouvert') };
     });
-    assert.ok(modesVisibles >= 6, 'les boutons de mode doivent être réellement visibles : ' + modesVisibles);
+    assert.equal(barre.corps, true);
+    assert.ok(barre.hauteur <= 2, 'la barre verticale doit être rétractée, le bouton affiche un "−" : ' + barre.hauteur + 'px');
+
+    // Le panneau reste par-dessus la page d'accueil, sans la remplacer.
+    const accueilToujoursLa = await page.evaluate(() => {
+      const home = document.getElementById('homePage');
+      return !!home && home.style.display !== 'none';
+    });
+    assert.equal(accueilToujoursLa, true, 'la page d\'accueil reste en place derrière le panneau');
+
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForTimeout(700);
+    const referme = await page.evaluate(etatBouton);
+    assert.equal(referme.ouvert, false, 'un second appui replie le panneau');
+    assert.equal(referme.ariaOuvert, 'false');
+    const barreRevenue = await page.evaluate(() => Math.round(document.getElementById('creerBtnBarre').getBoundingClientRect().height));
+    assert.ok(barreRevenue > 5, 'et le "−" redevient un "+" : ' + barreRevenue + 'px');
   } finally {
     await navigateur.close();
     await arreter();
   }
 });
 
-test('un second appui, modes déjà révélés, se contente de remonter', async () => {
+test('le panneau laisse voir l\'accueil derrière lui, et ne duplique aucun identifiant', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -113,18 +138,60 @@ test('un second appui, modes déjà révélés, se contente de remonter', async 
     page.on('pageerror', e => erreursJs.push(e.message));
     await page.setViewportSize({ width: 390, height: 844 });
     await ouvrirAccueil(page, baseUrl);
-
-    await page.evaluate(() => revelerModes());
-    await page.waitForTimeout(400);
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(300);
     await page.evaluate(() => document.getElementById('creerBtn').click());
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(700);
 
-    const apres = await page.evaluate(etatBouton);
+    const vu = await page.evaluate(() => {
+      const panneau = document.getElementById('creerPanneau');
+      const fond = getComputedStyle(panneau).backgroundColor;
+      // Un identifiant présent en double casserait getElementById ailleurs
+      // dans l'app (le badge "Commence ici" vit dans un bouton de mode).
+      const idsDupliques = Array.from(document.querySelectorAll('[id]'))
+        .map(e => e.id)
+        .filter((id, i, tab) => id && tab.indexOf(id) !== i);
+      return { fond, idsDupliques, idsDansPanneau: panneau.querySelectorAll('[id]').length };
+    });
+
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(apres.modesAffiches, true, 'les modes restent révélés');
-    assert.ok(apres.scrollY < 80, 'et on est bien remonté : ' + apres.scrollY);
+    assert.ok(/rgba\(0, 0, 0, 0\)|transparent/.test(vu.fond),
+      'le panneau lui-même n\'a aucun fond, on voit l\'accueil entre les boutons : ' + vu.fond);
+    assert.equal(vu.idsDansPanneau, 0, 'aucun identifiant recopié dans les clones');
+    assert.deepEqual(vu.idsDupliques, [],
+      'REGRESSION : un id en double ferait renvoyer n\'importe lequel des deux par getElementById');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('choisir un mode referme le panneau, il ne reste jamais par-dessus l\'écran suivant', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await connecterAbonne(page, { code: 'PANNEAU' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+
+    await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('#creerPanneau .hero-mode-btn'));
+      const cible = btns.find(b => /Écris-moi un script/.test(b.textContent)) || btns[0];
+      cible.click();
+    });
+    await page.waitForTimeout(700);
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal((await page.evaluate(etatBouton)).ouvert, false,
+      'REGRESSION : le panneau resterait déplié par-dessus l\'écran de génération');
   } finally {
     await navigateur.close();
     await arreter();
@@ -146,6 +213,10 @@ test('le bouton disparaît dès qu\'on quitte l\'accueil pour un écran de gén�
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(300);
     assert.equal((await page.evaluate(etatBouton)).visible, true, 'visible sur l\'accueil, en bas');
+    // Le remplissage du panneau attend une vérification de profil (badge
+    // "Commence ici") : on attend l'état, jamais un délai fixe.
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
 
     // Un écran de génération prend la place de l'accueil.
     await page.evaluate(() => { masquerTousLesEcrans(); document.getElementById('flow').style.display = 'block'; updateScrollBtn(); });
@@ -153,6 +224,7 @@ test('le bouton disparaît dès qu\'on quitte l\'accueil pour un écran de gén�
     const surEcran = await page.evaluate(etatBouton);
     assert.equal(surEcran.visible, false,
       'REGRESSION : sur un écran de génération, un appui malheureux ferait quitter un travail en cours');
+    assert.equal(surEcran.ouvert, false, 'et un panneau resté ouvert doit se refermer avec lui');
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {

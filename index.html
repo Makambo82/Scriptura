@@ -1911,9 +1911,10 @@
      (rectangle arrondi + "+"), instantanément reconnaissable par un créateur,
      mais dans la palette Scriptura : doré et émeraude, jamais le cyan/rose de
      TikTok qui jurerait avec toute l'app. -->
-<button id="creerBtn" onclick="allerAuxModes()" aria-label="Créer un contenu" title="Créer un contenu">
+<div id="creerPanneau" class="creer-panneau" aria-hidden="true"></div>
+<button id="creerBtn" onclick="basculerPanneauCreation()" aria-label="Créer un contenu" aria-expanded="false" aria-controls="creerPanneau" title="Créer un contenu">
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
-    <path d="M12 6v12"/>
+    <path id="creerBtnBarre" d="M12 6v12"/>
     <path d="M6 12h12"/>
   </svg>
 </button>

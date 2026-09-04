@@ -1921,6 +1921,49 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   transform:translateX(-5px);z-index:-1;
 }
 #creerBtn.visible{opacity:1;visibility:visible;transform:translate(-50%,0)}
+/* Le "+" devient "−" quand le panneau est déplié : seule la barre verticale
+   se rétracte, la barre horizontale reste. Plus lisible qu'un changement
+   d'icône sec, et ça dit clairement que le même bouton referme. */
+#creerBtnBarre{transform-box:fill-box;transform-origin:center;transition:transform 0.3s cubic-bezier(.22,.8,.2,1)}
+body.creer-ouvert #creerBtnBarre{transform:scaleY(0)}
+
+/* ── PANNEAU DE CRÉATION (dépliant depuis le bas) ── */
+/* Volontairement SANS fond : le propriétaire veut entrevoir la page d'accueil
+   entre les boutons pendant que le panneau est déplié. Seuls les boutons
+   portent un fond, et il est renforcé ici par rapport au hero (où ils se
+   posent sur un fond maîtrisé) : au-dessus d'un contenu de page quelconque,
+   le quasi-transparent d'origine rendrait le texte illisible. Un fond sombre
+   translucide avec flou garde donc la lisibilité TOUT EN laissant deviner ce
+   qu'il y a derrière, ce qui est exactement l'effet demandé. */
+.creer-panneau{
+  position:fixed;left:0;right:0;bottom:0;z-index:199;
+  padding:0 18px calc(84px + env(safe-area-inset-bottom, 0px));
+  max-height:76vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:transparent;
+  transform:translateY(100%);visibility:hidden;
+  transition:transform 0.45s cubic-bezier(.22,.8,.2,1), visibility 0.45s;
+}
+.creer-panneau.ouvert{transform:translateY(0);visibility:visible}
+/* Les boutons clonés repartent de zéro : l'animation en cascade du hero
+   (modeCardIn) descend du HAUT vers le bas, alors qu'un dépliant venu du bas
+   doit se remplir du BAS vers le haut. Le décalage est posé en JS, dans
+   l'ordre inverse (voir ouvrirPanneauCreation, js/ui.js). */
+.creer-panneau .hero-modes{margin-bottom:0}
+.creer-panneau .hero-mode-btn{
+  animation:none;
+  background:rgba(22,22,24,0.72);
+  border-color:rgba(201,168,76,0.32);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  opacity:0;transform:translateY(26px);
+  transition:opacity 0.38s ease, transform 0.38s cubic-bezier(.22,.8,.2,1),
+             border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+.creer-panneau.ouvert .hero-mode-btn{opacity:1;transform:translateY(0)}
+.creer-panneau .hero-mode-btn:hover{background:rgba(201,168,76,0.16);border-color:var(--gold)}
+@media (prefers-reduced-motion:reduce){
+  .creer-panneau,.creer-panneau .hero-mode-btn,#creerBtnBarre{transition:none}
+  .creer-panneau .hero-mode-btn{opacity:1;transform:none}
+}
 #creerBtn:hover{background:var(--gold-light)}
 #creerBtn:active{transform:translate(-50%,2px)}
 /* Jamais visible pendant la sélection multiple de l'historique, comme le

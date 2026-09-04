@@ -551,16 +551,91 @@ window.addEventListener('resize', updateScrollBtn);
 //  - déplacement INSTANTANÉ, jamais un défilement animé : depuis le pied de
 //    page, une animation fluide traverserait toute la page d'accueil. C'est
 //    d'ailleurs déjà le choix de revelerModes() pour la même raison.
-function allerAuxModes() {
-  const modes = document.getElementById('heroModes');
-  const dejaRevele = modes && modes.style.display !== 'none';
-  if (!dejaRevele && typeof revelerModes === 'function') {
-    revelerModes(); // révèle les modes ET remonte en haut
-    return;
+// Les boutons de mode sont CLONÉS depuis le hero, jamais recopiés à la main :
+// une seule source de vérité, donc un mode ajouté ou renommé dans le hero
+// apparaît automatiquement ici, avec son icône, son libellé, sa description,
+// son badge et son onclick. Les identifiants sont retirés du clone : les
+// garder créerait des doublons d'id dans la page (#auditModeBadge notamment)
+// et getElementById renverrait l'un ou l'autre au hasard.
+async function _remplirPanneauCreation(panneau) {
+  const source = document.getElementById('heroModes');
+  if (!panneau || !source) return;
+  const clone = source.cloneNode(true);
+  clone.removeAttribute('style'); // le hero le garde masqué, pas le panneau
+  // Le badge "Commence ici" ne s'affiche que si l'analyse de compte n'a pas
+  // encore été faite, exactement comme dans le hero (voir revelerModes).
+  const badge = clone.querySelector('#auditModeBadge');
+  if (badge) {
+    let dejaAnalyse = false;
+    try { dejaAnalyse = (typeof aFaitAnalyseCompte === 'function') ? await aFaitAnalyseCompte() : false; } catch (e) {}
+    badge.style.display = dejaAnalyse ? 'none' : '';
   }
-  window.scrollTo({ top: 0, behavior: 'auto' });
-  if (typeof majBoutonCreation === 'function') majBoutonCreation();
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+  // Le dépliant vient du BAS : les boutons se remplissent donc du bas vers le
+  // haut, le dernier en premier. L'inverse de la cascade du hero, qui part du
+  // haut (voir modeCardIn, css/style.css, neutralisée dans le panneau).
+  const btns = Array.from(clone.querySelectorAll('.hero-mode-btn'));
+  btns.forEach((b, i) => { b.style.transitionDelay = ((btns.length - 1 - i) * 0.045) + 's'; });
+
+  panneau.innerHTML = '';
+  panneau.appendChild(clone);
 }
+
+function panneauCreationOuvert() {
+  const p = document.getElementById('creerPanneau');
+  return !!p && p.classList.contains('ouvert');
+}
+
+async function ouvrirPanneauCreation() {
+  const panneau = document.getElementById('creerPanneau');
+  if (!panneau) return;
+  await _remplirPanneauCreation(panneau);
+  panneau.setAttribute('aria-hidden', 'false');
+  // Un tour de boucle avant d'ouvrir : sans ça, le navigateur peut appliquer
+  // l'état final en même temps que l'insertion et sauter l'animation.
+  requestAnimationFrame(() => panneau.classList.add('ouvert'));
+  document.body.classList.add('creer-ouvert');
+  const btn = document.getElementById('creerBtn');
+  if (btn) {
+    btn.setAttribute('aria-expanded', 'true');
+    btn.setAttribute('aria-label', 'Fermer le menu de création');
+    btn.setAttribute('title', 'Fermer');
+  }
+}
+
+function fermerPanneauCreation() {
+  const panneau = document.getElementById('creerPanneau');
+  if (panneau) {
+    panneau.classList.remove('ouvert');
+    panneau.setAttribute('aria-hidden', 'true');
+  }
+  document.body.classList.remove('creer-ouvert');
+  const btn = document.getElementById('creerBtn');
+  if (btn) {
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-label', 'Créer un contenu');
+    btn.setAttribute('title', 'Créer un contenu');
+  }
+}
+
+function basculerPanneauCreation() {
+  if (panneauCreationOuvert()) fermerPanneauCreation();
+  else ouvrirPanneauCreation();
+}
+
+// Choisir un mode emmène ailleurs : le panneau ne doit jamais rester déplié
+// par-dessus l'écran suivant. L'écouteur est posé sur le conteneur (délégation)
+// pour valoir aussi pour les boutons clonés à chaque ouverture.
+document.addEventListener('click', function (e) {
+  const panneau = document.getElementById('creerPanneau');
+  if (!panneau || !panneau.classList.contains('ouvert')) return;
+  if (e.target.closest && e.target.closest('#creerPanneau .hero-mode-btn')) fermerPanneauCreation();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && panneauCreationOuvert()) fermerPanneauCreation();
+});
 
 // Visible UNIQUEMENT sur la page d'accueil, et seulement une fois le hero
 // dépassé : tant que les modes sont à l'écran, un raccourci vers les modes
@@ -574,7 +649,13 @@ function majBoutonCreation() {
   const hero = document.querySelector('.hero');
   // Le hero est-il sorti de l'écran par le haut ?
   const heroDepasse = hero ? (hero.getBoundingClientRect().bottom < 60) : (window.scrollY > 400);
-  btn.classList.toggle('visible', surAccueil && heroDepasse);
+  const doitEtreVisible = surAccueil && heroDepasse;
+  btn.classList.toggle('visible', doitEtreVisible);
+  // Le bouton disparaît (changement d'écran, remontée en haut) : son panneau
+  // n'a plus rien à quoi se rattacher et resterait déplié par-dessus la page.
+  if (!doitEtreVisible && typeof panneauCreationOuvert === 'function' && panneauCreationOuvert()) {
+    fermerPanneauCreation();
+  }
 }
 // Aucun écouteur dédié : updateScrollBtn est déjà branché sur scroll et
 // resize, ET rappelé après chaque changement d'écran (voir ses appels dans
