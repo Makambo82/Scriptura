@@ -1561,7 +1561,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .pricing-jeton button:hover{color:var(--gold)}
 
 /* ── GÉNÉRATEUR D'IDÉES ── */
-#ideasFlow,#storyFlow,#auditFlow,#serieFlow,#storyboardSeulFlow{max-width:680px;margin:0 auto;padding:100px 12px 80px}
+#ideasFlow,#storyFlow,#auditFlow,#serieFlow,#storyboardSeulFlow,#carrouselFlow{max-width:680px;margin:0 auto;padding:100px 12px 80px}
 .ideas-container{}
 .ideas-header{margin-bottom:32px;margin-top:20px}
 .ideas-eyebrow{

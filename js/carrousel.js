@@ -746,12 +746,25 @@ function carrouselDisposer(c, blocs, zone, e, accent, dessiner, yDepart) {
           c.strokeStyle = accent.bord; c.lineWidth = 2 * e; c.stroke();
           c.font = Math.round(52 * e) + 'px ' + CAR_SANS;
           c.textAlign = 'center';
+          // textBaseline 'middle' plutôt qu'un décalage deviné : les emoji
+          // n'ont pas les mêmes métriques que le texte latin, un décalage
+          // calculé sur la taille de police les posait de travers dans leur
+          // tuile (retour propriétaire, capture à l'appui).
+          c.textBaseline = 'middle';
           c.fillStyle = CAR_ENCRE;
-          c.fillText(bloc.emoji, zone.x + tuile / 2, y + tuile / 2 + 19 * e);
+          c.fillText(bloc.emoji, zone.x + tuile / 2, y + tuile / 2);
+          c.textBaseline = 'alphabetic';
           police('700', taille, CAR_SERIF);
         }
         c.textAlign = 'left';
-        let ly = y + (tuile ? tuile / 2 - ((lignes.length - 1) * interligne) / 2 : 0) + taille * 0.78 * e;
+        // Sans tuile, le bloc part du HAUT de la zone : la première ligne
+        // descend d'une hauteur d'ascendante (0,78 de la taille de police).
+        // Avec une tuile, il doit être CENTRÉ sur elle, ce qui donne un
+        // décalage tout différent (0,25) : reprendre 0,78 posait le titre une
+        // trentaine de pixels trop bas, et l'oeil le voyait tout de suite.
+        let ly = tuile
+          ? y + tuile / 2 - ((lignes.length - 1) * interligne) / 2 + taille * 0.25 * e
+          : y + taille * 0.78 * e;
         lignes.forEach(ligne => {
           const largeur = ligne.reduce((acc, j) => acc + c.measureText(j.txt).width, 0);
           let x = bloc.centre ? zone.x + decal + (L - decal - largeur) / 2 : zone.x + decal;
@@ -999,6 +1012,16 @@ async function telechargerToutesSlidesCarrousel() {
   }
 }
 
+// Ce qu'on colle tel quel dans TikTok au moment de publier : la légende, puis
+// les hashtags. Une seule source pour le bouton Copier et pour le bouton
+// Partager, qui ne peuvent donc jamais diverger.
+function legendeCompleteCarrousel() {
+  if (!carrouselResultat) return '';
+  const legende = String(carrouselResultat.legende || '').trim();
+  const tags = (carrouselResultat.hashtags || []).map(h => String(h).toLowerCase()).join(' ');
+  return [legende, tags].filter(Boolean).join('\n\n');
+}
+
 function copierTexteCarrousel() {
   if (!carrouselResultat) return;
   const lignes = carrouselResultat.slides.map(s => 'Slide ' + s.numero + ' : ' + carrouselTexteSlide(s));
@@ -1115,7 +1138,17 @@ function renderCarrousel() {
         <p class="car-bloc-texte">${carrouselEchapper(r.legende || '')}</p>
       </div>
       ${r.hashtags && r.hashtags.length ? `<div class="ctx-field"><label class="ctx-label">Hashtags</label><p class="car-bloc-texte">${carrouselEchapper(r.hashtags.join(' '))}</p></div>` : ''}
-      ${r.son_suggere ? `<div class="ctx-field"><label class="ctx-label">Son suggéré</label><p class="car-bloc-texte">${carrouselEchapper(r.son_suggere)}</p></div>` : ''}
+      <!-- Copier et partager la légende AVEC ses hashtags, en un geste : c'est
+           le bloc qu'on colle tel quel dans TikTok au moment de publier, le
+           couper en deux copies n'aurait aucun sens. Mêmes helpers que partout
+           ailleurs dans l'app (copyText/shareText via storeCopyText, pour ne
+           jamais injecter le texte dans l'attribut onclick, où une apostrophe
+           casserait tout). -->
+      <div class="sb-actions-fin">
+        <button class="icon-btn" title="Copier la légende et les hashtags" onclick="copyText(this, '${storeCopyText(legendeCompleteCarrousel())}')">${typeof ICON_COPY !== 'undefined' ? ICON_COPY : '&#9109;'}</button>
+        <button class="icon-btn" title="Partager la légende et les hashtags" onclick="shareText(this, '${storeCopyText(legendeCompleteCarrousel())}')">${typeof ICON_SHARE !== 'undefined' ? ICON_SHARE : '&#8599;'}</button>
+      </div>
+      ${r.son_suggere ? `<div class="ctx-field" style="margin-top:14px"><label class="ctx-label">Son suggéré</label><p class="car-bloc-texte">${carrouselEchapper(r.son_suggere)}</p></div>` : ''}
     </div>
     <button class="btn-restart" onclick="telechargerToutesSlidesCarrousel()">⬇ Télécharger toutes les slides</button>`;
 

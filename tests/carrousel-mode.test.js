@@ -542,3 +542,193 @@ test('un carrousel de l\'ancienne forme se rouvre sans rien perdre', async () =>
     await arreter();
   }
 });
+
+// Retour propriétaire, capture à l'appui : sur l'écran de résultat, le titre,
+// les boutons, la barre de format et le paragraphe d'analyse collaient aux
+// deux bords de l'écran, et le bouton Retour passait sous l'en-tête fixe.
+// CAUSE EXACTE : #carrouselFlow ne figurait pas dans la règle CSS groupée qui
+// pose ces marges pour TOUS les autres écrans de mode. Le propriétaire a
+// fourni le mode Script comme modèle, c'est donc contre LUI qu'on mesure, et
+// pas contre une valeur recopiée à la main qui divergerait au premier
+// changement de charte.
+test('l\'écran de résultat respecte les mêmes marges que les autres modes', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+    await genererDepuisMock(page);
+
+    const vu = await page.evaluate(() => {
+      const bords = el => {
+        const b = el.getBoundingClientRect();
+        return { gauche: Math.round(b.left), droite: Math.round(window.innerWidth - b.right), haut: Math.round(b.top) };
+      };
+      const zone = document.getElementById('carrouselResults');
+      const mesure = {
+        retour: bords(zone.querySelector('.btn-back')),
+        titre: bords(zone.querySelector('.results-heading')),
+        formats: bords(zone.querySelector('.car-formats-barre')),
+        analyse: bords(zone.querySelector('.ctx-note')),
+        slide: bords(zone.querySelector('.car-slide'))
+      };
+      // La référence : l'écran de résultat du mode Script, désigné par le
+      // propriétaire comme le modèle de marges.
+      masquerTousLesEcrans();
+      document.getElementById('flow').style.display = 'block';
+      document.getElementById('results').style.display = 'block';
+      const ref = bords(document.querySelector('#results .btn-back'));
+      masquerTousLesEcrans();
+      document.getElementById('carrouselFlow').style.display = 'block';
+      return { mesure, refGauche: ref.gauche };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    Object.keys(vu.mesure).forEach(cle => {
+      assert.equal(vu.mesure[cle].gauche, vu.refGauche,
+        'REGRESSION : "' + cle + '" colle au bord gauche au lieu de suivre la marge du mode Script (' + vu.mesure[cle].gauche + ' au lieu de ' + vu.refGauche + ')');
+    });
+    ['formats', 'analyse', 'slide'].forEach(cle => {
+      assert.equal(vu.mesure[cle].droite, vu.refGauche,
+        'et la marge de DROITE aussi, pour "' + cle + '" : ' + vu.mesure[cle].droite);
+    });
+    assert.ok(vu.mesure.retour.haut > 80,
+      'REGRESSION : le bouton Retour passait sous l\'en-tête fixe, il était inatteignable : ' + vu.mesure.retour.haut + 'px du haut');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Demande du propriétaire : copier et partager, en bas de la légende et des
+// hashtags. C'est le bloc qu'on colle tel quel dans TikTok au moment de
+// publier, donc les deux vont ensemble, jamais séparés en deux copies.
+test('la légende et ses hashtags se copient et se partagent en un geste', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+    await genererDepuisMock(page);
+
+    const vu = await page.evaluate(() => {
+      const boutons = Array.from(document.querySelectorAll('#carrouselResults .sb-actions-fin .icon-btn'));
+      const cles = boutons.map(b => (b.getAttribute('onclick') || '').match(/__copykey_\d+/));
+      return {
+        nb: boutons.length,
+        actions: boutons.map(b => (b.getAttribute('onclick') || '').split('(')[0]),
+        // Le texte réellement copié, tel qu'il partira dans le presse-papier.
+        texte: cles[0] ? window._copyStore[cles[0][0]] : null,
+        // Placé APRÈS la légende et les hashtags, pas ailleurs dans la page.
+        apresHashtags: !!document.querySelector('#carrouselResults .ctx-field + .sb-actions-fin, #carrouselResults .ctx-field ~ .sb-actions-fin')
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.nb, 2, 'un bouton Copier et un bouton Partager');
+    assert.deepEqual(vu.actions, ['copyText', 'shareText'],
+      'les helpers déjà utilisés partout ailleurs dans l\'app, pas une copie locale : ' + JSON.stringify(vu.actions));
+    assert.ok(vu.texte, 'le texte à copier doit être enregistré, jamais injecté dans l\'attribut onclick où une apostrophe casserait tout');
+    assert.match(vu.texte, /Tu es dans quelle catégorie/, 'la légende est dedans : ' + vu.texte);
+    assert.match(vu.texte, /#marque/,
+      'REGRESSION : sans les hashtags, il faudrait deux copies pour publier une seule fois');
+    assert.equal(vu.apresHashtags, true, 'les boutons sont bien en bas du bloc légende et hashtags');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Retour propriétaire, capture à l'appui : dans la tuile d'emoji, l'emoji et
+// le titre n'étaient pas centrés verticalement. CAUSE EXACTE : le titre
+// reprenait le décalage prévu pour un bloc partant du HAUT (0,78 de la taille
+// de police) alors qu'il devait être CENTRÉ sur la tuile, ce qui le posait une
+// trentaine de pixels trop bas ; et l'emoji était placé par un décalage
+// deviné, alors que ses métriques n'ont rien à voir avec celles du texte.
+//
+// Ce défaut ne se voit QUE dans les pixels : aucune assertion sur le code
+// n'aurait pu l'attraper. On mesure donc l'image produite.
+test('dans la tuile, l\'emoji et le titre sont vraiment centrés verticalement', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl);
+
+    const vu = await page.evaluate(async () => {
+      // Une slide qui ne porte QUE la tuile et le titre : sans définition ni
+      // points, tout ce qui est visible dans cette bande appartient à l'un ou
+      // à l'autre, la mesure est donc sans ambiguïté.
+      const seule = {
+        titre: 'Test', slides: [{ gabarit: 'contenu', emoji: '💪', titre: 'Bouger ton corps' }],
+        legende: '', hashtags: []
+      };
+      carrouselResultat = normaliserResultatCarrousel(seule);
+      carrouselImages = [null];
+      carrouselFormat = '4:5';
+      const blob = await composerSlideCarrousel(0);
+      const bitmap = await createImageBitmap(blob);
+      const cv = document.createElement('canvas');
+      cv.width = bitmap.width; cv.height = bitmap.height;
+      const c = cv.getContext('2d');
+      c.drawImage(bitmap, 0, 0);
+      const px = c.getImageData(0, 0, cv.width, cv.height).data;
+
+      // Étendue verticale de ce qui est dessiné dans une bande de colonnes.
+      const etendue = (x1, x2) => {
+        let haut = -1, bas = -1;
+        for (let y = 0; y < cv.height; y++) {
+          let vu = false;
+          for (let x = x1; x < x2; x += 2) {
+            const i = (y * cv.width + x) * 4;
+            // Nettement plus clair que le fond sombre de la slide.
+            if (px[i] + px[i + 1] + px[i + 2] > 330) { vu = true; break; }
+          }
+          if (vu) { if (haut < 0) haut = y; bas = y; }
+        }
+        return haut < 0 ? null : { haut, bas, centre: (haut + bas) / 2 };
+      };
+
+      const u = Math.min(cv.width / 1080, cv.height / 1350);
+      const marge = 30 * u;
+      const dispoL = cv.width - (marge + 52 * u) * 2;
+      const largeur = Math.min(dispoL, 1180 * u);
+      const zx = (cv.width - largeur) / 2;
+      const tuile = 96 * u;
+
+      return {
+        tuile: etendue(Math.round(zx + 6), Math.round(zx + tuile - 6)),
+        titre: etendue(Math.round(zx + tuile + 40), Math.round(zx + largeur - 10)),
+        u
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.ok(vu.tuile, 'la tuile de l\'emoji doit être dessinée');
+    assert.ok(vu.titre, 'le titre doit être dessiné');
+    const ecart = Math.abs(vu.tuile.centre - vu.titre.centre);
+    assert.ok(ecart <= 10 * vu.u,
+      'REGRESSION : le titre n\'est pas centré sur sa tuile, écart de ' + Math.round(ecart) + 'px (tuile centrée en ' +
+      Math.round(vu.tuile.centre) + ', titre en ' + Math.round(vu.titre.centre) + ')');
+    // Et l'emoji, lui, doit tenir DANS sa tuile, pas déborder au-dessus ou en
+    // dessous : c'est ce que produit un décalage deviné sur ses métriques.
+    assert.ok(vu.tuile.bas - vu.tuile.haut <= 110 * vu.u,
+      'l\'emoji déborde de sa tuile : ' + Math.round(vu.tuile.bas - vu.tuile.haut) + 'px de haut');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
