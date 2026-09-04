@@ -1004,7 +1004,13 @@
 
       <div class="ctx-field">
         <label class="ctx-label">Ton sujet</label>
-        <textarea class="ctx-textarea" id="carrouselSujet" placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
+        <textarea class="ctx-textarea" id="carrouselSujet" oninput="majMatiereCarrousel()"
+          placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
+        <p class="ctx-note">Quelques mots suffisent. Tu peux aussi <strong>coller un texte que tu as déjà</strong> (un script, des notes, un article) : Scriptura le convertira en slides au lieu d'écrire sur le sujet.</p>
+        <!-- Le basculement en mode conversion doit se VOIR. Sans ce message,
+             le créateur ne saurait ni qu'il a eu lieu, ni qu'il n'a pas eu
+             lieu, et découvrirait l'un ou l'autre dans le résultat. -->
+        <p class="ctx-note car-matiere-note" id="carrouselMatiereNote" style="display:none"></p>
       </div>
 
       <!-- Visible uniquement pour l'objectif "Générer des ventes" (voir
@@ -1042,7 +1048,7 @@
           <span class="car-slider-val" id="carrouselSlidesVal">8 slides</span>
         </div>
         <input type="range" class="car-slider" id="carrouselSlides" min="6" max="15" step="1" value="8"
-               oninput="majCurseurSlidesCarrousel()" onchange="majCurseurSlidesCarrousel()"
+               oninput="reglerSlidesCarrousel()" onchange="reglerSlidesCarrousel()"
                aria-label="Nombre de slides du carrousel"/>
         <div class="car-slider-bornes"><span>6</span><span>15</span></div>
         <p class="ctx-note">Entre 6 et 10 slides pour un sujet net, jusqu'à 15 pour une liste ou un pas-à-pas complet.</p>

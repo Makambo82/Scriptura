@@ -114,6 +114,53 @@ const CARROUSEL_VENTE_IDS = {
 };
 const CARROUSEL_OBJECTIF_VENTES = 'générer des ventes';
 
+// ── MATIÈRE FOURNIE PAR LE CRÉATEUR ──
+// Au-delà de ce seuil, le champ "sujet" ne contient plus un thème à traiter
+// mais un TEXTE À CONVERTIR (un script déjà écrit, un article, des notes).
+// Même seuil que le mode Script (LONG_SEUIL, js/generation.js) : le créateur
+// ne doit pas avoir à deviner deux règles différentes selon l'écran.
+//
+// SANS CETTE DÉTECTION, LE DÉFAUT EST SILENCIEUX : un script collé ici était
+// annoncé au modèle comme "Sujet :", donc traité comme un thème à écrire de
+// zéro. Le résultat était plausible mais à côté de la demande, et rien ne
+// signalait au créateur que son texte avait été ignoré.
+const CAR_SEUIL_MATIERE = 400;
+
+function carrouselEstMatiere(texte) {
+  return String(texte || '').trim().length > CAR_SEUIL_MATIERE;
+}
+
+// Compte les IDÉES d'un texte, pour en déduire un nombre de slides. C'est le
+// CODE qui compte, jamais l'IA : même texte, même proposition, comme pour le
+// score. Une idée = un paragraphe s'il y en a plusieurs, sinon une phrase
+// porteuse. Les fragments trop courts (moins de 5 mots) ne comptent pas :
+// ce sont des titres, des transitions ou des restes de mise en forme.
+function carrouselCompterIdees(texte) {
+  const t = String(texte || '').trim();
+  if (!t) return 0;
+  const parGros = t.split(/\n\s*\n+/).map(x => x.trim()).filter(x => carrouselCompterMots(x) >= 5);
+  if (parGros.length >= 3) return parGros.length;
+  const parLignes = t.split(/\n+/).map(x => x.trim()).filter(x => carrouselCompterMots(x) >= 5);
+  if (parLignes.length >= 3) return parLignes.length;
+  return t.split(/[.!?…]+/).map(x => x.trim()).filter(x => carrouselCompterMots(x) >= 5).length;
+}
+
+// Nombre de slides que la matière porte VRAIMENT : une couverture, une slide
+// par idée, un récap. Si le texte porte 5 idées et que le curseur est resté
+// sur 12, le modèle remplit du vide et le carrousel est dilué par un réglage
+// que le créateur n'a même pas touché.
+function carrouselSlidesPourMatiere(texte) {
+  const idees = carrouselCompterIdees(texte);
+  if (!idees) return null;
+  return Math.min(CARROUSEL_SLIDES_MAX, Math.max(CARROUSEL_SLIDES_MIN, idees + 2));
+}
+
+// Le créateur a-t-il déplacé le curseur lui-même ? Si oui, on ne le corrige
+// JAMAIS : proposer est un service, écraser un choix explicite est une
+// surprise. C'est exactement le défaut de la durée héritée, qui avait produit
+// un script de 48 secondes pendant que le formulaire affichait 2 minutes.
+let carrouselSlidesChoisiParCreateur = false;
+
 function carrouselEchapper(txt) {
   return String(txt == null ? '' : txt)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -142,6 +189,39 @@ function carrouselTexteSlide(s) {
 // La valeur est relue depuis le champ à CHAQUE lecture (jamais depuis la
 // seule variable), pour qu'un glissement ne puisse jamais être perdu si un
 // événement `input` manque à l'appel.
+// Appelée par le curseur lui-même : marque le choix comme explicite, puis
+// met à jour l'affichage.
+function reglerSlidesCarrousel() {
+  carrouselSlidesChoisiParCreateur = true;
+  majCurseurSlidesCarrousel();
+}
+
+// Réagit à la saisie dans le champ sujet : au-delà du seuil, on annonce la
+// conversion et on propose un nombre de slides tiré de la matière.
+function majMatiereCarrousel() {
+  const champ = document.getElementById('carrouselSujet');
+  const note = document.getElementById('carrouselMatiereNote');
+  if (!champ) return;
+  const texte = champ.value || '';
+  const matiere = carrouselEstMatiere(texte);
+  if (!note) return;
+  if (!matiere) { note.style.display = 'none'; note.textContent = ''; return; }
+
+  const suggere = carrouselSlidesPourMatiere(texte);
+  // Proposition, jamais imposition : un curseur déjà déplacé à la main est
+  // laissé tel quel.
+  if (suggere && !carrouselSlidesChoisiParCreateur) {
+    const curseur = document.getElementById('carrouselSlides');
+    if (curseur) { curseur.value = String(suggere); majCurseurSlidesCarrousel(); }
+  }
+  // Le créateur doit SAVOIR que le comportement a changé : sans ce message,
+  // la conversion resterait invisible, dans un sens comme dans l'autre.
+  note.textContent = suggere
+    ? 'Texte détecté : Scriptura va le convertir en carrousel plutôt que d\'écrire sur le sujet. J\'y compte ' + carrouselCompterIdees(texte) + ' idées, soit ' + suggere + ' slides. Tu peux changer.'
+    : 'Texte détecté : Scriptura va le convertir en carrousel plutôt que d\'écrire sur le sujet.';
+  note.style.display = '';
+}
+
 function majCurseurSlidesCarrousel() {
   const curseur = document.getElementById('carrouselSlides');
   const valeur = document.getElementById('carrouselSlidesVal');
@@ -194,6 +274,9 @@ function resetCarrouselForm() {
   syncVenteFieldCarrousel();
   const menuFormat = document.getElementById('carrouselFormat');
   if (menuFormat) { carrouselFormat = CAR_FORMAT_DEFAUT; menuFormat.value = CAR_FORMAT_DEFAUT; }
+  carrouselSlidesChoisiParCreateur = false;
+  const note = document.getElementById('carrouselMatiereNote');
+  if (note) { note.style.display = 'none'; note.textContent = ''; }
   const err = document.getElementById('carrouselErrorBox');
   if (err) { err.style.display = 'none'; err.textContent = ''; }
   const res = document.getElementById('carrouselResults');
@@ -227,6 +310,29 @@ COMMENT LE CARROUSEL DOIT S'EN SERVIR, sans jamais devenir une publicité :
 `;
 }
 
+// Consignes de CONVERSION, quand le créateur a collé une matière (un script
+// déjà écrit, un article, des notes) plutôt qu'un thème.
+//
+// LA LIGNE EST : FIDÉLITÉ SUR LES FAITS, LIBERTÉ SUR LA FORME. C'est le seul
+// arbitrage qui rend la conversion honnête. Une conversion trop fidèle
+// recopie un texte parlé, qui se lit mal et produit un mauvais carrousel. Une
+// conversion trop libre réécrit à la place du créateur, et ce n'est plus son
+// contenu. On interdit donc d'ajouter le moindre fait, et on autorise la
+// réécriture complète de la formulation.
+function blocConversionCarrousel(ctx) {
+  if (!ctx.estMatiere) return '';
+  return `
+TU NE PARS PAS D'UN THÈME : LE CRÉATEUR T'A FOURNI SA PROPRE MATIÈRE, ci-dessus dans le champ "Sujet". Ton travail est de la CONVERTIR en carrousel, pas d'écrire un nouveau contenu sur le même thème.
+RÈGLES DE CONVERSION, dans cet ordre de priorité :
+1. FIDÉLITÉ SUR LES FAITS, ABSOLUE. N'ajoute JAMAIS un chiffre, un nom, une date, un exemple ou une affirmation qui ne soit pas dans la matière fournie. Si elle ne dit rien sur un point, ce point n'existe pas.
+2. LIBERTÉ SUR LA FORME, TOTALE. La matière a probablement été écrite pour être PARLÉE ou lue en continu. Réécris entièrement les formulations pour la LECTURE en slides : phrases courtes, oral supprimé ("tu vois", "bref", "je vais te dire", "comme je disais"), transitions de discours supprimées.
+3. DÉCOUPE AUX FRONTIÈRES D'IDÉES, jamais à intervalle régulier. Une slide = une idée de la matière. Si deux paragraphes disent la même chose, fusionne-les. Si un paragraphe en contient deux, sépare-les.
+4. LE HOOK VIENT DE LA MATIÈRE. Si elle commence déjà par une accroche forte, reprends-la (raccourcie si besoin). Sinon, construis-en une À PARTIR de ce qu'elle contient de plus frappant, sans rien inventer.
+5. L'APPEL À L'ACTION FINAL doit être ÉCRIT, pas parlé. "Commente si tu es d'accord" plutôt que "dis-le-moi en commentaire juste en dessous".
+6. Si la matière ne porte pas assez d'idées pour le nombre de slides demandé, FAIS-EN MOINS plutôt que de remplir avec du vide ou des redites.
+`;
+}
+
 function promptCarrousel(ctx) {
   const nb = ctx.nbSlides;
   const nbMilieu = Math.max(1, nb - 2);
@@ -234,12 +340,12 @@ function promptCarrousel(ctx) {
 
 CONTEXTE
 - Niche : ${ctx.niche || 'non précisée'}
-- Sujet : ${ctx.sujet}
+- ${ctx.estMatiere ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR, à convertir (voir les règles de conversion plus bas)' : 'Sujet'} : ${ctx.sujet}
 - Objectif : ${ctx.objectif || 'faire des vues'}
 - Audience : ${ctx.audience || 'tout public'}
 - Ton : ${ctx.ton || 'naturel et direct'}
-- Nombre de slides demandé : EXACTEMENT ${nb}
-${blocVenteCarrousel(ctx)}
+- Nombre de slides demandé : ${ctx.estMatiere ? `${nb} au maximum (voir la règle 6 : moins vaut mieux que du remplissage)` : `EXACTEMENT ${nb}`}
+${blocConversionCarrousel(ctx)}${blocVenteCarrousel(ctx)}
 CHAQUE SLIDE EST UNE MISE EN PAGE, PAS UN PARAGRAPHE. Tu remplis des champs
 qui seront disposés par un moteur de rendu : une pastille, un titre, des
 cartes à puces, un bandeau de chute. N'écris jamais de texte long dans un
@@ -264,7 +370,7 @@ Chaque slide porte aussi un champ "visuel" : la consigne de l'image de fond, dé
 RÉPONDS UNIQUEMENT EN JSON VALIDE, sans aucun texte avant ni après :
 {"titre":"titre court du carrousel, pour l'historique","analyse":"en 2 phrases, pourquoi cet angle peut fonctionner","direction_visuelle":"la direction artistique commune, en une phrase","slides":[{"numero":1,"gabarit":"couverture","eyebrow":"...","badge":"","emoji":"","titre":"...","titre_accent":"...","definition":"","points":[{"emoji":"🎯","titre":"...","texte":"..."}],"bandeau":"...","visuel":"..."}],"legende":"la légende de la publication, prête à copier, SANS hashtag dedans","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"son_suggere":"le type de son ou de musique, en une phrase (un carrousel sans audio perd une grande partie de sa portée)"}
 
-Le tableau "slides" contient EXACTEMENT ${nb} éléments, numérotés de 1 à ${nb}. La slide 1 est en gabarit "couverture", la slide ${nb} en gabarit "recap", toutes les autres en "contenu". Laisse vides ("" ou []) les champs qui ne servent pas au gabarit choisi.`;
+Le tableau "slides" contient ${ctx.estMatiere ? `AU PLUS ${nb} éléments (moins si la matière n'en porte pas autant), numérotés à partir de 1` : `EXACTEMENT ${nb} éléments, numérotés de 1 à ${nb}`}. La slide 1 est en gabarit "couverture", la slide ${nb} en gabarit "recap", toutes les autres en "contenu". Laisse vides ("" ou []) les champs qui ne servent pas au gabarit choisi.`;
 }
 
 // ═══ SCORE DÉTERMINISTE ═══
@@ -405,7 +511,8 @@ function carrouselLireFormulaire() {
     // texte laissé derrière après un changement d'objectif ne doit jamais
     // partir en douce dans un prompt qui ne parle pas de vente.
     venteDescription: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? val('carrouselVenteDescription') : '',
-    venteFichier: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? carrouselVenteFichier : null
+    venteFichier: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? carrouselVenteFichier : null,
+    estMatiere: carrouselEstMatiere(val('carrouselSujet'))
   };
 }
 

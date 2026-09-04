@@ -3505,6 +3505,15 @@ body.is-admin .outils-montage-home-btn{display:flex}
    dorée, la piste restante sombre. Aucun navigateur ne sait styler cette
    moitié gauche de façon portable, d'où le dégradé recalculé en JS via la
    variable --car-part (voir majCurseurSlidesCarrousel, js/carrousel.js). */
+/* Le message qui annonce la conversion : en émeraude, la couleur des accents
+   "niveau au-dessus" de la charte, jamais en rouge. Ce n'est pas une erreur,
+   c'est Scriptura qui dit ce qu'il a compris. */
+.car-matiere-note{
+  color:var(--emerald-light);background:var(--emerald-pale);
+  border:1px solid var(--emerald-border);border-radius:9px;
+  padding:9px 12px;margin-top:8px;
+}
+
 .car-slider-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
 .car-slider-val{font-size:0.95rem;font-weight:700;color:var(--gold-light);white-space:nowrap}
 .car-slider{
