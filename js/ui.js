@@ -564,19 +564,47 @@ window.addEventListener('resize', updateScrollBtn);
 // son badge et son onclick. Les identifiants sont retirés du clone : les
 // garder créerait des doublons d'id dans la page (#auditModeBadge notamment)
 // et getElementById renverrait l'un ou l'autre au hasard.
-async function _remplirPanneauCreation(panneau) {
+// Réponse mémorisée de aFaitAnalyseCompte() : elle coûte DEUX LECTURES
+// RÉSEAU, et le panneau ne doit jamais attendre après elles (voir plus bas).
+// Mémorisée seulement dans le sens "oui, l'analyse est faite" : ce sens-là ne
+// redevient jamais faux, alors qu'un "non" mémorisé deviendrait faux dès que
+// le créateur lance sa première analyse.
+let _analyseCompteFaite = false;
+
+function _remplirPanneauCreation(panneau) {
   const source = document.getElementById('heroModes');
   if (!panneau || !source) return;
   const clone = source.cloneNode(true);
   clone.removeAttribute('style'); // le hero le garde masqué, pas le panneau
+
   // Le badge "Commence ici" ne s'affiche que si l'analyse de compte n'a pas
   // encore été faite, exactement comme dans le hero (voir revelerModes).
+  //
+  // MAIS CE DÉTAIL NE DOIT JAMAIS RETARDER L'OUVERTURE. Cette vérification
+  // coûte deux lectures réseau, et le panneau les ATTENDAIT : mesuré à
+  // 1231 ms sur une lecture à 1,2 s, et le propriétaire voyait plusieurs
+  // secondes sur son téléphone. Un panneau qui met deux secondes à répondre
+  // à un appui passe pour cassé.
+  //
+  // Le badge part donc MASQUÉ, et n'apparaît qu'une fois la réponse revenue.
+  // Le sens compte : un badge qui apparaît en retard se remarque à peine,
+  // un badge qui disparaît sous les yeux donne l'impression d'un bug.
   const badge = clone.querySelector('#auditModeBadge');
   if (badge) {
-    let dejaAnalyse = false;
-    try { dejaAnalyse = (typeof aFaitAnalyseCompte === 'function') ? await aFaitAnalyseCompte() : false; } catch (e) {}
-    badge.style.display = dejaAnalyse ? 'none' : '';
+    badge.style.display = 'none';
+    if (!_analyseCompteFaite && typeof aFaitAnalyseCompte === 'function') {
+      Promise.resolve()
+        .then(aFaitAnalyseCompte)
+        .then(faite => {
+          if (faite) { _analyseCompteFaite = true; return; }
+          // Le panneau a pu être refermé entre-temps : on ne réveille pas un
+          // badge dans un panneau que le créateur ne regarde plus.
+          if (panneauCreationOuvert() && badge.isConnected) badge.style.display = '';
+        })
+        .catch(() => {});
+    }
   }
+
   clone.removeAttribute('id');
   clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
 
@@ -595,10 +623,12 @@ function panneauCreationOuvert() {
   return !!p && p.classList.contains('ouvert');
 }
 
-async function ouvrirPanneauCreation() {
+function ouvrirPanneauCreation() {
   const panneau = document.getElementById('creerPanneau');
   if (!panneau) return;
-  await _remplirPanneauCreation(panneau);
+  // Synchrone, donc le panneau part au doigt : plus aucune attente réseau
+  // entre l'appui et le début du dépliage.
+  _remplirPanneauCreation(panneau);
   panneau.setAttribute('aria-hidden', 'false');
   // Un tour de boucle avant d'ouvrir : sans ça, le navigateur peut appliquer
   // l'état final en même temps que l'insertion et sauter l'animation.

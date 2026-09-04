@@ -511,3 +511,61 @@ test('les icônes du panneau pulsent comme celles du hero', async () => {
     await arreter();
   }
 });
+
+// Retour propriétaire : "quand je clique sur le bouton +, il se passe quelques
+// secondes avant que les boutons se déploient".
+//
+// CAUSE EXACTE, et elle était invisible en lisant le code trop vite :
+// l'ouverture ATTENDAIT aFaitAnalyseCompte(), qui fait DEUX LECTURES RÉSEAU,
+// uniquement pour décider d'afficher ou non le badge "Commence ici". Mesuré à
+// 1231 ms avec une lecture à 1,2 s, et bien plus sur un téléphone en 3G. Un
+// panneau qui met deux secondes à répondre à un appui passe pour cassé.
+//
+// Le badge part désormais masqué et n'apparaît qu'une fois la réponse revenue.
+// Le sens compte : un badge qui apparaît en retard se remarque à peine, un
+// badge qui disparaît sous les yeux donne l'impression d'un bug.
+test('le panneau part au doigt, sans jamais attendre le réseau', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await poserMocksReseau(page);
+    // Réseau volontairement très lent : c'est la seule façon de distinguer un
+    // panneau qui attend une réponse d'un panneau qui ne l'attend pas.
+    await page.route('**/api/data?**', async (route) => {
+      await new Promise(r => setTimeout(r, 3000));
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, data: [] }) });
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'PANDELAI' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(400);
+    await ouvrirEcran(page, 'flow');
+    await attendreBouton(page, true);
+
+    const vu = await page.evaluate(() => {
+      const t0 = performance.now();
+      document.getElementById('creerBtn').click();
+      // Ce que mesure ce chiffre : la durée du GESTE, du clic jusqu'au retour
+      // de la main au navigateur. Une attente réseau s'y verrait aussitôt.
+      return {
+        dureeHandler: performance.now() - t0,
+        boutonsPrets: document.querySelectorAll('#creerPanneau .hero-mode-btn').length
+      };
+    });
+
+    assert.ok(vu.dureeHandler < 120,
+      'REGRESSION : l\'ouverture attend une réponse réseau, le panneau met des secondes à répondre à l\'appui (' + Math.round(vu.dureeHandler) + ' ms avec un réseau à 3 s)');
+    assert.ok(vu.boutonsPrets >= 6,
+      'et tous les modes sont déjà clonés, pas seulement promis : ' + vu.boutonsPrets);
+
+    // Le panneau s'ouvre bien pour de vrai, largement avant la réponse réseau.
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 2000 });
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
