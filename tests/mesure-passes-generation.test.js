@@ -247,12 +247,15 @@ test('carte du Tableau de bord : les compteurs deviennent des pourcentages exact
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.ok(texte, 'la carte doit s\'afficher dès qu\'il y a des mesures');
     assert.match(texte, /4 générations mesurées/);
-    // Le pourcentage suit son libellé, séparé par la ligne d'aide.
-    assert.match(texte, /Correction de durée déclenchée .*? 50%/, '2 générations sur 4');
+    // Sous le seuil de 10 mesures : des COMPTES BRUTS, jamais des
+    // pourcentages qui se liraient comme une tendance (voir le test suivant).
+    assert.match(texte, /Correction de durée déclenchée .*? 2 sur 4/);
     assert.match(texte, /En moyenne 2\.0 tour\(s\)/, 'moyenne de 1 et 3 tours, calculée sur les seules générations concernées');
-    assert.match(texte, /Réviseur déclenché .*? 25%/, '1 sur 4');
-    assert.match(texte, /Second brouillon complet .*? 25%/, '1 sur 4');
-    assert.match(texte, /Durée finale dans la cible .*? 75%/, '3 sur 4');
+    assert.match(texte, /Réviseur déclenché .*? 1 sur 4/);
+    assert.match(texte, /Second brouillon complet .*? 1 sur 4/);
+    assert.match(texte, /Durée finale dans la cible .*? 3 sur 4/);
+    assert.ok(!/%/.test(texte), 'aucun pourcentage tant que l\'échantillon est trop petit : ' + texte);
+    assert.match(texte, /Trop peu de générations pour conclure/);
   } finally {
     await navigateur.close();
     await arreter();
@@ -284,6 +287,97 @@ test('carte du Tableau de bord : absente tant qu\'aucune génération n\'a été
 
     const presente = await page.evaluate(() => Array.from(document.querySelectorAll('.score-card')).some(x => /Passes de perfectionnement/.test(x.textContent)));
     assert.equal(presente, false, 'aucune carte vide ni pourcentage calculé sur zéro génération');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Retour terrain immédiat après la mise en ligne : sur UNE seule génération
+// mesurée, la carte affichait quatre "100%". Techniquement exact, mais ça se
+// lit comme une tendance alors que ce n'est qu'un seul cas. Une carte censée
+// aider à décider ne doit pas pouvoir induire en erreur son unique lecteur.
+test('carte : sous 10 mesures, des comptes bruts ; au-dessus, les pourcentages', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    // 12 générations : 6 avec correction de durée, donc 50%.
+    const passes = Array.from({ length: 12 }, (_, i) => ({
+      mode: 'script',
+      corrections_duree: i % 2 === 0 ? 1 : 0,
+      critiques: 1, revisions: 0, second_brouillon: false, dans_cible: true
+    }));
+    await poserMocksReseau(page, {
+      data: (body) => body.resource === 'admin-stats'
+        ? { codes: [], parModePlan: {}, erreursParMode: {}, erreursTotal: 0, erreursRecentes: [], passes }
+        : undefined
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      localStorage.setItem('scriptura_is_admin', 'true');
+      localStorage.setItem('scriptura_illimite', 'true');
+    });
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
+    });
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    const texte = await page.evaluate(() => {
+      const c = Array.from(document.querySelectorAll('.score-card')).find(x => /Passes de perfectionnement/.test(x.textContent));
+      return c ? c.innerText.replace(/\s+/g, ' ') : '';
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.match(texte, /Correction de durée déclenchée .*? 50%/, '6 sur 12, l\'échantillon est assez grand pour un pourcentage');
+    assert.ok(!/Trop peu de générations/.test(texte), 'plus d\'avertissement une fois l\'échantillon suffisant');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('carte : une seule mesure ne doit JAMAIS s\'afficher comme un 100%', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    // Exactement le cas rencontré en production : une génération, qui a
+    // déclenché toutes les passes lourdes.
+    const passes = [{ mode: 'script', corrections_duree: 2, critiques: 2, revisions: 1, second_brouillon: true, dans_cible: true }];
+    await poserMocksReseau(page, {
+      data: (body) => body.resource === 'admin-stats'
+        ? { codes: [], parModePlan: {}, erreursParMode: {}, erreursTotal: 0, erreursRecentes: [], passes }
+        : undefined
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+      localStorage.setItem('scriptura_is_admin', 'true');
+      localStorage.setItem('scriptura_illimite', 'true');
+    });
+    await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
+    });
+    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.waitForTimeout(400);
+
+    const texte = await page.evaluate(() => {
+      const c = Array.from(document.querySelectorAll('.score-card')).find(x => /Passes de perfectionnement/.test(x.textContent));
+      return c ? c.innerText.replace(/\s+/g, ' ') : '';
+    });
+
+    assert.ok(!/100%/.test(texte),
+      'REGRESSION : "100%" sur une seule génération se lit comme une tendance alors que c\'est un seul cas : ' + texte);
+    assert.match(texte, /1 sur 1/, 'le compte brut, lui, est honnête');
+    assert.match(texte, /Trop peu de générations pour conclure/, 'et c\'est dit explicitement');
   } finally {
     await navigateur.close();
     await arreter();

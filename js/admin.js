@@ -969,7 +969,17 @@ function cartePassesAdmin() {
   const lignes = Array.isArray(_passesGeneration) ? _passesGeneration : [];
   if (!lignes.length) return '';
   const n = lignes.length;
+  // Retour terrain immédiat : sur UNE seule génération mesurée, la carte
+  // affichait quatre "100%", ce qui se lit comme une tendance alors que ce
+  // n'est qu'un seul cas. Une carte censée aider à décider ne doit pas
+  // pouvoir induire en erreur son unique lecteur. Sous ce seuil, on affiche
+  // donc des COMPTES BRUTS ("1 sur 1") et on dit franchement qu'il est trop
+  // tôt pour conclure ; les pourcentages n'apparaissent qu'une fois qu'ils
+  // veulent dire quelque chose.
+  const ASSEZ_DE_MESURES = 10;
+  const assez = n >= ASSEZ_DE_MESURES;
   const pourcent = (compte) => Math.round((compte / n) * 100);
+  const valeur = (compte) => assez ? (pourcent(compte) + '%') : (compte + ' sur ' + n);
   const moyenne = (valeurs) => valeurs.length ? (valeurs.reduce((a, b) => a + b, 0) / valeurs.length) : 0;
 
   const avecDuree = lignes.filter(l => (l.corrections_duree || 0) > 0);
@@ -987,12 +997,14 @@ function cartePassesAdmin() {
     <div class="score-title" style="color:var(--gold)">◆ Passes de perfectionnement · 14 jours</div>
     <div class="ideas-sub" style="margin-top:6px;opacity:0.6">Sur ${n} génération${n > 1 ? 's' : ''} mesurée${n > 1 ? 's' : ''}. Chaque passe est un appel qui fait réécrire le texte entier.</div>
     <div class="audit-sujets" style="margin-top:14px">
-      ${ligne('Correction de durée déclenchée', pourcent(avecDuree.length) + '%', avecDuree.length ? 'En moyenne ' + moyenne(avecDuree.map(l => l.corrections_duree || 0)).toFixed(1) + ' tour(s) quand elle se déclenche' : 'Jamais déclenchée sur la période')}
-      ${ligne('Réviseur déclenché', pourcent(avecRevision.length) + '%', 'Le Critique a trouvé assez de faiblesses pour faire réécrire')}
-      ${ligne('Second brouillon complet', pourcent(avecSecondBrouillon.length) + '%', 'Premier jet jugé fondamentalement faible, tout réécrit')}
-      ${ligne('Durée finale dans la cible', pourcent(dansCible.length) + '%', 'Après toutes les passes, ce que reçoit vraiment le créateur')}
+      ${ligne('Correction de durée déclenchée', valeur(avecDuree.length), avecDuree.length ? 'En moyenne ' + moyenne(avecDuree.map(l => l.corrections_duree || 0)).toFixed(1) + ' tour(s) quand elle se déclenche' : 'Jamais déclenchée sur la période')}
+      ${ligne('Réviseur déclenché', valeur(avecRevision.length), 'Le Critique a trouvé assez de faiblesses pour faire réécrire')}
+      ${ligne('Second brouillon complet', valeur(avecSecondBrouillon.length), 'Premier jet jugé fondamentalement faible, tout réécrit')}
+      ${ligne('Durée finale dans la cible', valeur(dansCible.length), 'Après toutes les passes, ce que reçoit vraiment le créateur')}
     </div>
-    <div class="ideas-sub" style="margin-top:10px;opacity:0.6">Une passe rare coûte peu et peut rester. Une passe quasi systématique est un vrai poste de dépense.</div>
+    <div class="ideas-sub" style="margin-top:10px;opacity:0.6">${assez
+      ? 'Une passe rare coûte peu et peut rester. Une passe quasi systématique est un vrai poste de dépense.'
+      : 'Trop peu de générations pour conclure quoi que ce soit. Les pourcentages apparaîtront à partir de ' + ASSEZ_DE_MESURES + ' générations mesurées, et il en faudra une trentaine pour décider sereinement.'}</div>
   </div>`;
 }
 
