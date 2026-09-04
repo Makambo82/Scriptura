@@ -2082,10 +2082,11 @@ body.hist-select .creer-fond{display:none !important}
   transition:transform 0.45s cubic-bezier(.22,.8,.2,1), visibility 0.45s;
 }
 .creer-panneau.ouvert{transform:translateY(0);visibility:visible}
-/* Les boutons clonés repartent de zéro : l'animation en cascade du hero
-   (modeCardIn) descend du HAUT vers le bas, alors qu'un dépliant venu du bas
-   doit se remplir du BAS vers le haut. Le décalage est posé en JS, dans
-   l'ordre inverse (voir ouvrirPanneauCreation, js/ui.js). */
+/* Les boutons clonés entrent en cascade alternée gauche/droite, la même que
+   dans le hero (liftInLeft / liftInRight), posée en JS à l'ouverture par
+   animerHeroModes (js/ui.js) à 0,10 s d'intervalle. Rien n'est fixé ici :
+   une opacité 0 ou un `animation:none` en CSS écraserait cette cascade, et
+   c'est exactement ce qui la bloquait avant. */
 /* Les boutons se collent en BAS quand il reste de la place, puisque le
    panneau se déplie depuis le bas. `margin-top:auto` plutôt que
    `justify-content:flex-end` : avec ce dernier, un contenu plus haut que le
@@ -2094,19 +2095,17 @@ body.hist-select .creer-fond{display:none !important}
    que ça déborde. */
 .creer-panneau .hero-modes{margin-bottom:0;margin-top:auto}
 .creer-panneau .hero-mode-btn{
-  animation:none;
   background:rgba(22,22,24,0.72);
   border-color:rgba(201,168,76,0.32);
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  opacity:0;transform:translateY(26px);
-  transition:opacity 0.38s ease, transform 0.38s cubic-bezier(.22,.8,.2,1),
-             border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+  transition:border-color 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
-.creer-panneau.ouvert .hero-mode-btn{opacity:1;transform:translateY(0)}
 .creer-panneau .hero-mode-btn:hover{background:rgba(201,168,76,0.16);border-color:var(--gold)}
 @media (prefers-reduced-motion:reduce){
   .creer-panneau,.creer-panneau .hero-mode-btn,#creerBtnBarre{transition:none}
-  .creer-panneau .hero-mode-btn{opacity:1;transform:none}
+  /* Pas de cascade : les boutons sont simplement là, d'un bloc. animerHeroModes
+     efface aussi l'animation inline dans ce cas (js/ui.js). */
+  .creer-panneau .hero-mode-btn{animation:none !important;opacity:1;transform:none}
 }
 #creerBtn:hover{background:var(--gold-light)}
 #creerBtn:active{transform:translate(-50%,2px)}

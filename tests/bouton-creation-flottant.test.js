@@ -726,3 +726,110 @@ test('le panneau occupe toute la page sous l\'en-tête, quelle que soit la taill
     await arreter();
   }
 });
+
+// Demande du propriétaire, après avoir regardé le dépliement du hero : « Les
+// boutons arrivent en alternance par la gauche et par la droite, en cascade, à
+// 0,08 seconde d'intervalle. Je voudrais que quand on clique sur le bouton +
+// n'importe où dans l'app, les boutons apparaissent comme ça, mais à 0,1
+// seconde d'intervalle. »
+//
+// CE QUI SE PASSAIT AVANT, ET POURQUOI C'ÉTAIT FRAGILE : cet effet arrivait
+// déjà dans le panneau, mais PAR ACCIDENT. animerHeroModes pose l'animation en
+// style INLINE sur les boutons du hero, et le panneau les CLONE, or cloneNode
+// recopie les styles inline. L'effet n'apparaissait donc que si le hero avait
+// été déplié plus tôt dans la même session, avec le pas du hero (0,08 s), et
+// jamais autrement. Un créateur qui ouvre le panneau depuis un mode, sans être
+// passé par « Commencer », n'en voyait rien.
+//
+// Ce test verrouille l'intention, pas l'accident : SANS aucun dépliement
+// préalable du hero, la cascade alternée doit être là, à 0,10 s d'intervalle.
+test('le panneau + déploie ses boutons en cascade alternée, à 0,1 s', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+
+    // Le hero n'est JAMAIS déplié ici : c'est tout l'enjeu. On descend
+    // simplement pour faire apparaître le bouton flottant.
+    const heroDeja = await page.evaluate(() => {
+      const b = document.querySelector('#heroModes .hero-mode-btn');
+      return b ? b.style.animation : '';
+    });
+    assert.equal(heroDeja, '', 'le hero ne doit pas avoir été animé avant ce test');
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(300);
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+
+    const vu = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('#creerPanneau .hero-mode-btn'));
+      return {
+        nb: btns.length,
+        noms: btns.map(b => getComputedStyle(b).animationName),
+        delais: btns.map(b => parseFloat(getComputedStyle(b).animationDelay)),
+        // Le mode de remplissage compte autant que le reste : sans `both`, un
+        // bouton en attente de son tour serait déjà visible, et la cascade ne
+        // se verrait pas.
+        remplissages: Array.from(new Set(btns.map(b => getComputedStyle(b).animationFillMode)))
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.ok(vu.nb >= 6, 'tous les boutons doivent être là : ' + vu.nb);
+
+    vu.noms.forEach((nom, i) => {
+      const attendu = i % 2 === 0 ? 'liftInLeft' : 'liftInRight';
+      assert.equal(nom, attendu,
+        'le bouton ' + i + ' doit entrer par ' + (i % 2 === 0 ? 'la gauche' : 'la droite') +
+        ' : ' + JSON.stringify(vu.noms));
+    });
+
+    vu.delais.forEach((d, i) => {
+      assert.ok(Math.abs(d - i * 0.1) < 0.005,
+        'le bouton ' + i + ' doit démarrer à ' + (i * 0.1).toFixed(2) + ' s, mesuré ' + d +
+        ' : ' + JSON.stringify(vu.delais));
+    });
+
+    assert.deepEqual(vu.remplissages, ['both'],
+      'chaque bouton reste invisible jusqu\'à son tour : ' + JSON.stringify(vu.remplissages));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Corollaire : le hero, lui, GARDE son propre rythme à 0,08 s. Les deux
+// cascades passent par la même fonction, une seule source de vérité, et rien
+// n'oblige la fonction à garder deux rythmes distincts, sauf ce test.
+test('le hero garde son rythme à 0,08 s, distinct de celui du panneau', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await page.evaluate(() => revelerModes());
+    await page.waitForTimeout(120);
+
+    const delais = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('#heroModes .hero-mode-btn'))
+        .map(b => parseFloat(getComputedStyle(b).animationDelay)));
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.ok(delais.length >= 6, 'tous les modes doivent être là : ' + delais.length);
+    delais.forEach((d, i) => {
+      assert.ok(Math.abs(d - i * 0.08) < 0.005,
+        'le mode ' + i + ' doit démarrer à ' + (i * 0.08).toFixed(2) + ' s, mesuré ' + d);
+    });
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

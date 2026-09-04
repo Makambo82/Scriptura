@@ -353,15 +353,28 @@ async function revelerModes() {
 // tant qu'on ne clique pas sur "Commencer". Rejoué à chaque clic (pas
 // seulement la première fois) : le forçage de reflow (offsetWidth) relance
 // l'animation même si revelerModes() a déjà tourné dans cette session.
-function animerHeroModes(modes) {
+// `pas` = intervalle entre deux boutons, en secondes. Le hero garde 0,08 s ;
+// le dépliant du bouton « + » utilise 0,10 s (choix du propriétaire), un peu
+// plus posé parce qu'on y arrive en pleine navigation et pas devant une page
+// d'accueil qu'on découvre. Une seule fonction pour les deux, sinon la
+// cascade finirait par diverger d'un endroit à l'autre de l'app.
+function animerHeroModes(modes, pas) {
   if (!modes) return;
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const btns = modes.querySelectorAll('.hero-mode-btn');
+  // Mouvement réduit : on efface toute animation posée par un appel
+  // précédent (ou héritée d'un clone) et on laisse les boutons en place,
+  // visibles. Sans cet effacement, un clone du hero déjà animé garderait son
+  // animation inline et rejouerait la cascade malgré la préférence système.
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    btns.forEach(btn => { btn.style.animation = ''; });
+    return;
+  }
+  const intervalle = (typeof pas === 'number' && pas >= 0) ? pas : 0.08;
   btns.forEach((btn, i) => {
     const sens = i % 2 === 0 ? 'liftInLeft' : 'liftInRight';
     btn.style.animation = 'none';
     void btn.offsetWidth;
-    btn.style.animation = sens + ' .7s cubic-bezier(.2,.7,.2,1) both ' + (i * 0.08).toFixed(2) + 's';
+    btn.style.animation = sens + ' .7s cubic-bezier(.2,.7,.2,1) both ' + (i * intervalle).toFixed(2) + 's';
   });
 }
 
@@ -608,11 +621,13 @@ function _remplirPanneauCreation(panneau) {
   clone.removeAttribute('id');
   clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
 
-  // Le dépliant vient du BAS : les boutons se remplissent donc du bas vers le
-  // haut, le dernier en premier. L'inverse de la cascade du hero, qui part du
-  // haut (voir modeCardIn, css/style.css, neutralisée dans le panneau).
-  const btns = Array.from(clone.querySelectorAll('.hero-mode-btn'));
-  btns.forEach((b, i) => { b.style.transitionDelay = ((btns.length - 1 - i) * 0.045) + 's'; });
+  // Les boutons entrent en cascade alternée gauche/droite, exactement comme
+  // dans le hero : c'est animerHeroModes qui la pose, depuis
+  // ouvrirPanneauCreation, une fois le panneau réellement ouvert. On efface
+  // ici tout `style.animation` recopié par le clone (cloneNode copie les
+  // styles inline : si le hero avait déjà été animé, ses décalages arrivaient
+  // tels quels dans le panneau) pour repartir d'une base propre.
+  clone.querySelectorAll('.hero-mode-btn').forEach(b => { b.style.animation = ''; });
 
   panneau.innerHTML = '';
   panneau.appendChild(clone);
@@ -649,7 +664,13 @@ function ouvrirPanneauCreation() {
   panneau.setAttribute('aria-hidden', 'false');
   // Un tour de boucle avant d'ouvrir : sans ça, le navigateur peut appliquer
   // l'état final en même temps que l'insertion et sauter l'animation.
-  requestAnimationFrame(() => panneau.classList.add('ouvert'));
+  // La cascade est lancée EN MÊME TEMPS que l'ouverture, pas à l'insertion :
+  // sinon elle se jouerait pendant que le panneau est encore hors écran et le
+  // créateur ne verrait que la fin. 0,10 s d'intervalle (le hero est à 0,08).
+  requestAnimationFrame(() => {
+    panneau.classList.add('ouvert');
+    animerHeroModes(panneau.querySelector('.hero-modes'), 0.1);
+  });
   document.body.classList.add('creer-ouvert');
   const btn = document.getElementById('creerBtn');
   if (btn) {
