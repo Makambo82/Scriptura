@@ -896,6 +896,14 @@ test('le bouton "générer un fond" montre un spinner pendant la génération', 
       });
     });
     await genererDepuisMock(page);
+    // Les aperçus se composent en ARRIÈRE-PLAN, une slide après l'autre. Sans
+    // cette attente, la comparaison "avant / pendant" plus bas porte sur une
+    // cible mouvante : le test passait seul et échouait dès que la machine
+    // était chargée, ce qui est le pire des tests, celui qui accuse à tort.
+    await page.waitForFunction(() => {
+      const v = Array.from(document.querySelectorAll('#carrouselResults .car-slide-visuel'));
+      return v.length > 0 && v.every(x => x.querySelector('img'));
+    }, null, { timeout: 20000 });
 
     const etat = () => page.evaluate(() => {
       const btn = document.getElementById('carGenBtn1');
