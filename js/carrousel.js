@@ -206,7 +206,13 @@ function reglerSlidesCarrousel() {
 
 // Réagit à la saisie dans le champ sujet : au-delà du seuil, on annonce la
 // conversion et on propose un nombre de slides tiré de la matière.
-function majMatiereCarrousel() {
+// `texteACompter` (optionnel) : le texte sur lequel compter les idées, quand
+// il diffère du contenu du champ. Cas réel : une vidéo TikTok arrive sous la
+// forme "description + transcription". La DESCRIPTION est du contexte, elle
+// porte l'angle et aide le modèle, mais elle ne vaut pas une slide. Comptée
+// comme une idée, elle gonflait le nombre de slides d'une unité à chaque
+// conversion depuis un lien, donc une slide de remplissage à chaque fois.
+function majMatiereCarrousel(texteACompter) {
   const champ = document.getElementById('carrouselSujet');
   const note = document.getElementById('carrouselMatiereNote');
   if (!champ) return;
@@ -219,7 +225,8 @@ function majMatiereCarrousel() {
   if (!note) return;
   if (!matiere) { note.style.display = 'none'; note.textContent = ''; return; }
 
-  const suggere = carrouselSlidesPourMatiere(texte);
+  const pourCompter = (typeof texteACompter === 'string' && texteACompter.trim()) ? texteACompter : texte;
+  const suggere = carrouselSlidesPourMatiere(pourCompter);
   // Proposition, jamais imposition : un curseur déjà déplacé à la main est
   // laissé tel quel.
   if (suggere && !carrouselSlidesChoisiParCreateur) {
@@ -229,7 +236,7 @@ function majMatiereCarrousel() {
   // Le créateur doit SAVOIR que le comportement a changé : sans ce message,
   // la conversion resterait invisible, dans un sens comme dans l'autre.
   note.textContent = suggere
-    ? 'Texte détecté : Scriptura va le convertir en carrousel plutôt que d\'écrire sur le sujet. J\'y compte ' + carrouselCompterIdees(texte) + ' idées, soit ' + suggere + ' slides. Tu peux changer.'
+    ? 'Texte détecté : Scriptura va le convertir en carrousel plutôt que d\'écrire sur le sujet. J\'y compte ' + carrouselCompterIdees(pourCompter) + ' idées, soit ' + suggere + ' slides. Tu peux changer.'
     : 'Texte détecté : Scriptura va le convertir en carrousel plutôt que d\'écrire sur le sujet.';
   note.style.display = '';
 }
@@ -656,8 +663,12 @@ async function recupererTranscriptCarrousel() {
       // Une vidéo transcrite EST une matière, même si elle est courte.
       carrouselMatiereImposee = true;
       // Déclenche la détection de matière : le basculement en conversion doit
-      // se voir exactement comme pour un texte collé à la main.
+      // se voir exactement comme pour un texte collé à la main. Puis on
+      // recompte sur la SEULE TRANSCRIPTION : la description qui la précède
+      // est du contexte, pas une idée, et la compter ajoutait une slide de
+      // remplissage à chaque conversion depuis un lien.
       cible.dispatchEvent(new Event('input', { bubbles: true }));
+      majMatiereCarrousel(data.transcript);
       if (noteEl) noteEl.textContent = 'Texte de la vidéo récupéré. Relis-le, ajuste si besoin, puis génère.';
     } else if (data.description) {
       cible.value = data.description;
