@@ -830,3 +830,132 @@ test('les libellés d\'objectif tiennent sur une ligne, description dessous', as
     await arreter();
   }
 });
+
+// Deux retours du propriétaire, capture à l'appui, sur les boutons d'une slide.
+//
+// 1. "Générer un fond" ne donnait AUCUN signe de vie pendant la génération
+//    d'image, qui prend plusieurs secondes. Rien ne distinguait une
+//    génération lancée d'un appui perdu, et le réflexe naturel est alors de
+//    réappuyer, donc de payer deux images pour une.
+//
+// 2. Les caractères ✦ ⬇ ⧉ ↻ étaient rendus comme des EMOJI SYSTÈME : en
+//    couleur, et différemment sur iPhone et sur Android, au milieu de boutons
+//    dorés. Remplacés par les icônes maison (ICO, js/ui.js), qui héritent de
+//    currentColor et rendent pareil partout.
+test('le bouton "générer un fond" montre un spinner pendant la génération', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+
+    // Génération d'image volontairement lente : c'est le seul moyen
+    // d'observer l'état intermédiaire, celui que le créateur voit vraiment.
+    const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    await page.route('**/api/montage-media?action=images', async (route) => {
+      await new Promise(r => setTimeout(r, 2000));
+      route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ images: [{ base64: PNG, mimeType: 'image/png' }], erreurs: [null] })
+      });
+    });
+    await genererDepuisMock(page);
+
+    const etat = () => page.evaluate(() => {
+      const btn = document.getElementById('carGenBtn1');
+      const sp = btn && btn.querySelector('.car-spinner');
+      const apercus = Array.from(document.querySelectorAll('.car-slide-visuel'));
+      return {
+        libelle: btn ? btn.innerText.trim().toLowerCase() : null,
+        spinner: !!sp,
+        animation: sp ? getComputedStyle(sp).animationName : null,
+        desactive: btn ? btn.disabled : null,
+        // Les aperçus déjà composés ne doivent PAS disparaître pendant la
+        // génération : un rendu complet de la zone les remettrait tous sur
+        // "Composition…", ce qui ferait clignoter toute la page.
+        apercus: apercus.filter(v => v.querySelector('img')).length + '/' + apercus.length
+      };
+    });
+
+    const avant = await etat();
+    assert.equal(avant.spinner, false, 'pas de spinner au repos');
+    assert.match(avant.libelle, /générer un fond/);
+
+    page.evaluate(() => genererImageCarrousel(1));
+    await page.waitForFunction(() => {
+      const b = document.getElementById('carGenBtn1');
+      return b && !!b.querySelector('.car-spinner');
+    }, null, { timeout: 8000 });
+
+    const pendant = await etat();
+    assert.equal(pendant.spinner, true,
+      'REGRESSION : sans signe de vie, le créateur réappuie et paie deux images pour une');
+    assert.equal(pendant.animation, 'spin',
+      'et le cercle doit vraiment TOURNER, un rond figé ne dit rien : ' + pendant.animation);
+    assert.equal(pendant.desactive, true, 'le bouton se verrouille pendant la génération');
+    assert.equal(pendant.apercus, avant.apercus,
+      'REGRESSION : les aperçus déjà composés disparaissent pendant la génération, toute la page clignote');
+
+    await page.waitForFunction(() => {
+      const b = document.getElementById('carGenBtn1');
+      return b && !b.querySelector('.car-spinner');
+    }, null, { timeout: 15000 });
+    const apres = await etat();
+    assert.match(apres.libelle, /refaire le fond/,
+      'une fois le fond reçu, le bouton propose de le refaire');
+    assert.equal(apres.desactive, false, 'et redevient utilisable');
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('aucun emoji système dans les boutons : les icônes rendent pareil sur iPhone et Android', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirCarrousel(page, baseUrl, {
+      generate: () => ({ content: [{ text: JSON.stringify(CARROUSEL_IA) }] })
+    });
+    await genererDepuisMock(page);
+
+    const vu = await page.evaluate(() => {
+      const zone = document.getElementById('carrouselResults');
+      const boutons = Array.from(zone.querySelectorAll('button'));
+      return {
+        // Les caractères qui étaient rendus en emoji système.
+        emojis: (zone.innerText.match(/[✦⬇⧉↻]/g) || []),
+        // Chaque bouton d'action porte une icône maison, en SVG.
+        avecIcone: boutons.filter(b => b.querySelector('svg.ico')).length,
+        // Et l'icône hérite bien de la couleur du texte, jamais d'une couleur
+        // en dur : c'est ce qui la fait vivre dans un bouton doré.
+        heriteCouleur: Array.from(zone.querySelectorAll('svg.ico'))
+          .every(s => s.getAttribute('stroke') === 'currentColor'),
+        telechargerAIcone: !!Array.from(boutons)
+          .find(b => /télécharger/i.test(b.textContent) && b.querySelector('svg.ico'))
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(vu.emojis, [],
+      'REGRESSION : ces caractères sont rendus en emoji système, donc en couleur et différemment selon le téléphone : ' + JSON.stringify(vu.emojis));
+    assert.ok(vu.avecIcone >= 4, 'les boutons d\'action portent une icône maison : ' + vu.avecIcone);
+    assert.equal(vu.heriteCouleur, true,
+      'une icône à couleur fixe jurerait dans un bouton doré, elle doit suivre currentColor');
+    assert.equal(vu.telechargerAIcone, true,
+      'le bouton Télécharger porte l\'icône Scriptura, pas la flèche bleue d\'iOS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

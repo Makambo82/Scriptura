@@ -96,6 +96,10 @@ let carrouselFormat = CAR_FORMAT_DEFAUT;
 let carrouselResultat = null;
 let carrouselImages = [];          // [{ apercu, blob } | null], même longueur que les slides
 let carrouselImagesEnCours = false;
+// Index de la slide dont le fond est en train d'être généré, ou -1. Un simple
+// booléen ne suffisait pas : il fallait savoir SUR QUEL BOUTON poser le
+// spinner, sinon le créateur ne voit rien tourner là où il vient d'appuyer.
+let carrouselImageIndexEnCours = -1;
 let carrouselQuotaImages = null;   // { used, plafond, illimite } ou null
 let carrouselContexte = null;
 let carrouselObjectif = 'faire des vues';
@@ -581,7 +585,12 @@ async function genererImageCarrousel(i) {
   }
 
   carrouselImagesEnCours = true;
-  renderCarrousel();
+  carrouselImageIndexEnCours = i;
+  // On met à jour les SEULS boutons, sans reconstruire la zone : un rendu
+  // complet effacerait les aperçus déjà composés (ils repartiraient sur
+  // "Composition…") et ferait retravailler le canvas sur toutes les slides,
+  // à chaque appui, pour rien.
+  majBoutonsImageCarrousel();
   try {
     const rep = await fetch('/api/montage-media?action=images', {
       method: 'POST',
@@ -609,6 +618,8 @@ async function genererImageCarrousel(i) {
     carrouselAfficherErreur('Slide ' + (i + 1) + ' : ' + ((e && e.message) || 'échec de génération.'));
   } finally {
     carrouselImagesEnCours = false;
+    carrouselImageIndexEnCours = -1;
+    // Rendu complet cette fois : le fond reçu doit apparaître sur l'aperçu.
     renderCarrousel();
     majQuotaImagesCarrousel();
   }
@@ -1148,6 +1159,45 @@ function carteScoreCarrouselHTML(s) {
     </div>`;
 }
 
+// Raccourci vers la source unique d'icônes (ICO, js/ui.js). Repli sur une
+// chaîne vide plutôt que sur un emoji : mieux vaut un bouton sans icône
+// qu'un bouton dont l'icône change d'un téléphone à l'autre, ce qui est
+// précisément le défaut qu'on corrige ici.
+function ico(nom) {
+  return (typeof ICO === 'function') ? ICO(nom) : '';
+}
+
+// Libellé d'un bouton "générer un fond", SOURCE UNIQUE pour le rendu complet
+// et pour la mise à jour en place : deux formulations séparées finiraient par
+// diverger, et le bouton afficherait un état faux à mi-parcours.
+function libelleBoutonFondCarrousel(i) {
+  if (carrouselImageIndexEnCours === i) return '<span class="car-spinner"></span> Génération…';
+  return carrouselImages[i] ? ico('refresh') + ' Refaire le fond' : ico('sparkle') + ' Générer un fond';
+}
+
+function libelleBoutonFondsTousCarrousel() {
+  return (carrouselImagesEnCours && carrouselImageIndexEnCours < 0)
+    ? '<span class="car-spinner"></span> Génération…'
+    : ico('sparkle') + ' Générer les fonds';
+}
+
+// Met à jour les boutons de génération de fond sans reconstruire la zone.
+function majBoutonsImageCarrousel() {
+  if (!carrouselResultat) return;
+  const bloque = imagesRestantesCarrousel() === 0;
+  carrouselResultat.slides.forEach((s, i) => {
+    const btn = document.getElementById('carGenBtn' + i);
+    if (!btn) return;
+    btn.innerHTML = libelleBoutonFondCarrousel(i);
+    btn.disabled = carrouselImagesEnCours || bloque;
+  });
+  const tous = document.getElementById('carGenTousBtn');
+  if (tous) {
+    tous.innerHTML = libelleBoutonFondsTousCarrousel();
+    tous.disabled = carrouselImagesEnCours || bloque;
+  }
+}
+
 function renderCarrousel() {
   const zone = document.getElementById('carrouselResults');
   const form = document.getElementById('carrouselForm');
@@ -1182,8 +1232,8 @@ function renderCarrousel() {
           <p class="car-slide-mots">${mots} mot${mots > 1 ? 's' : ''} au total</p>
           <p class="car-slide-visuel-note"><strong>Visuel :</strong> ${carrouselEchapper(s.visuel || 'fond sobre, sans image')}</p>
           <div class="car-slide-actions">
-            <button class="btn-regenerate" onclick="genererImageCarrousel(${i})" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${img ? '↻ Refaire le fond' : '✦ Générer un fond'}</button>
-            <button class="btn-regenerate" onclick="telechargerSlideCarrousel(${i})">⬇ Télécharger</button>
+            <button class="btn-regenerate" id="carGenBtn${i}" onclick="genererImageCarrousel(${i})" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${libelleBoutonFondCarrousel(i)}</button>
+            <button class="btn-regenerate" onclick="telechargerSlideCarrousel(${i})">${ico('download')} Télécharger</button>
           </div>
         </div>
       </div>`;
@@ -1195,8 +1245,8 @@ function renderCarrousel() {
       <div class="results-top-row">
         <div class="results-heading">Ton carrousel est prêt.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-regenerate" onclick="copierTexteCarrousel()">⧉ Copier les textes</button>
-          <button class="btn-regenerate" onclick="genererToutesImagesCarrousel()" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>✦ Générer les fonds</button>
+          <button class="btn-regenerate" onclick="copierTexteCarrousel()">${ico('copy')} Copier les textes</button>
+          <button class="btn-regenerate" id="carGenTousBtn" onclick="genererToutesImagesCarrousel()" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${libelleBoutonFondsTousCarrousel()}</button>
         </div>
       </div>
       <div class="results-meta" id="carrouselQuotaImages">${carrouselEchapper(texteQuotaImagesCarrousel())}</div>
@@ -1226,7 +1276,7 @@ function renderCarrousel() {
       </div>
       ${r.son_suggere ? `<div class="ctx-field" style="margin-top:14px"><label class="ctx-label">Son suggéré</label><p class="car-bloc-texte">${carrouselEchapper(r.son_suggere)}</p></div>` : ''}
     </div>
-    <button class="btn-restart" onclick="telechargerToutesSlidesCarrousel()">⬇ Télécharger toutes les slides</button>`;
+    <button class="btn-restart" onclick="telechargerToutesSlidesCarrousel()">${ico('download')} Télécharger toutes les slides</button>`;
 
   requestAnimationFrame(() => {
     zone.querySelectorAll('.metric-fill[data-width]').forEach(el => {

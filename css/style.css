@@ -3519,6 +3519,26 @@ body.is-admin .outils-montage-home-btn{display:flex}
 .car-slide-visuel-note{margin:0 0 10px;font-size:0.78rem;color:var(--text-secondary);line-height:1.5}
 .car-slide-visuel-note strong{color:var(--gold)}
 .car-slide-actions{display:flex;gap:8px;flex-wrap:wrap}
+/* Les icônes des boutons du carrousel sont des SVG maison (ICO, js/ui.js) et
+   non des caractères ✦ ⬇ ⧉ ↻ : ceux-là étaient rendus comme des EMOJI
+   SYSTÈME, donc en couleur et différemment sur iPhone et sur Android, au
+   milieu de boutons dorés (retour propriétaire, capture à l'appui). */
+.car-slide-actions .ico,.results-top .ico,.btn-restart .ico{margin-right:5px}
+/* Spinner du bouton "Générer un fond" : le créateur doit voir tourner
+   quelque chose LÀ OÙ IL VIENT D'APPUYER, sinon rien ne distingue une
+   génération lancée d'un appui perdu. Aux couleurs du bouton ajouré (fond
+   sombre, contour doré), pas celles de .sb-gen-spinner qui est pensé pour un
+   fond doré plein. */
+.car-spinner{
+  display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-right:6px;
+  border:2px solid rgba(201,168,76,0.28);border-top-color:var(--gold-light);
+  border-radius:50%;animation:spin 0.7s linear infinite;
+}
+@media (prefers-reduced-motion:reduce){
+  /* Jamais figé : sans rotation, le spinner ne dirait plus rien. On ralentit
+     seulement, pour rester lisible sans être agressif. */
+  .car-spinner{animation-duration:1.8s}
+}
 .car-bloc-texte{margin:0;font-size:0.92rem;line-height:1.6;color:var(--text-secondary);white-space:pre-wrap}
 
 @media(max-width:640px){

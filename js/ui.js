@@ -27,6 +27,13 @@ const _ICO_PATHS = {
   trophy: '<path d="M7 5h10v3a5 5 0 0 1-10 0V5Z"/><path d="M7 6H4.5v1.5A2.5 2.5 0 0 0 7 10"/><path d="M17 6h2.5v1.5A2.5 2.5 0 0 1 17 10"/><path d="M12 13v3"/><path d="M8.5 20h7"/><path d="M10 20v-1.2a2 2 0 0 1 4 0V20"/>',
   image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M4 17l4.5-4.5 3.5 3 3-2.5L20.5 17"/>',
   download: '<path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/>',
+  // Ajoutées pour les actions du mode Carrousel (retour propriétaire : les
+  // caractères ✦ ⬇ ⧉ ↻ étaient rendus comme des EMOJI SYSTÈME, donc en
+  // couleur et différemment sur iPhone et sur Android, au milieu de boutons
+  // dorés. Une icône maison hérite de currentColor et rend pareil partout).
+  sparkle: '<path d="M12 3l1.9 5.4L19 10l-5.1 1.6L12 17l-1.9-5.4L5 10l5.1-1.6L12 3Z"/><path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/>',
+  refresh: '<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4h-4"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5"/>',
   folder: '<path d="M4 7a1 1 0 0 1 1-1h4l2 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7Z"/>',
   coins: '<circle cx="8.5" cy="15.5" r="5"/><circle cx="15.5" cy="8.5" r="5"/>',
   heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
