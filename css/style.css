@@ -1901,6 +1901,38 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 
 /* ── BOUTON RETOUR EN HAUT ── */
+/* ── ÉTAPE 1 FUSIONNÉE : GRILLES DE CHOIX COMPACTES ── */
+/* L'objectif et le point de départ partagent maintenant un seul écran. Pour
+   qu'ils y tiennent, les cartes passent en grille (2 colonnes dès qu'il y a la
+   place) et leur description tient sur UNE ligne au lieu de trois.
+   Les descriptions sont conservées à dessein : l'objectif est le choix le plus
+   lourd de conséquences de toute l'app (il change la stratégie de chute, les
+   instructions du corps du script, les contrôles du Critique et jusqu'au
+   critère de notation du CTA). Le réduire à un menu déroulant sans libellé
+   explicatif aurait rendu ce choix moins éclairé, pas seulement plus court. */
+.choices-compact{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:560px){ .choices-compact{grid-template-columns:1fr 1fr} }
+.choices-compact .choice{padding:14px 16px;gap:14px;align-items:center}
+.choices-compact .choice-label{margin-bottom:2px}
+.choices-compact .choice-desc{
+  font-size:0.82rem;line-height:1.35;opacity:0.62;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+/* Un écran qui porte DEUX questions doit montrer laquelle est déjà répondue. */
+.choices-compact .choice.selected{
+  border-color:var(--gold);
+  background:linear-gradient(135deg,rgba(201,168,76,0.14),rgba(201,168,76,0.04));
+  box-shadow:0 0 0 1px rgba(201,168,76,0.25) inset;
+}
+.choices-compact .choice.selected .choice-icon{color:var(--gold-light)}
+/* Titre de la seconde question, plus discret que le titre d'étape : c'est une
+   sous-partie de l'écran, pas une nouvelle étape. */
+.sous-titre-etape{
+  margin:26px 0 12px;
+  font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--gold);
+}
+
 /* ── REPLI « AFFINER » DES CHAMPS OPTIONNELS ── */
 /* Discret par nature : c'est une porte, pas une action. Elle ne doit pas
    entrer en concurrence visuelle avec le bouton de génération. */

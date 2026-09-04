@@ -690,7 +690,7 @@ function creerScriptDepuisViral(source) {
     if (!state.objectif) state.objectif = 'Faire plus de vues et maximiser la portée';
     if (!state.plateforme) state.plateforme = 'TikTok';
   }
-  if (typeof showStep === 'function') showStep(3);
+  if (typeof showStep === 'function') showStep(2);
   if (typeof renderSummary === 'function') renderSummary(); // affiche le champ vidéo virale
   const champ = document.getElementById('viralVideo');
   if (champ) {

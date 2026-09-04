@@ -543,7 +543,7 @@ function useIdeaForScript(index) {
 
   // Comme TOUS les choix sont reportés, on saute directement au récap (étape 3)
   if (state.objectif && state.plateforme) {
-    showStep(3);
+    showStep(2);
     renderSummary();
   } else {
     // Au cas où il manquerait objectif ou plateforme, on va à l'étape 1
@@ -572,26 +572,65 @@ function copyIdea(index, btn) {
 }
 
 // ── NAVIGATION ──
-function choose(key, val, nextStep) {
+// ── ÉTAPE 1 FUSIONNÉE (objectif + point de départ + plateforme) ──
+// Les deux questions tenaient chacune leur propre écran, alors que la seconde
+// n'offrait que deux cartes et un menu plateforme déjà pré-rempli sur TikTok.
+// Elles partagent désormais un seul écran, SANS coûter un geste de plus : une
+// fusion naïve aurait imposé un bouton "Continuer" après les deux choix, soit
+// 3 gestes au lieu des 2 d'avant. L'écran avance donc tout seul dès que les
+// DEUX choix sont posés, ce qui garde les 2 gestes d'origine et supprime un
+// écran.
+// Le bouton "Continuer" existe quand même, mais uniquement pour le créateur
+// qui REVIENT sur cette étape (les deux choix sont alors déjà faits, rien ne
+// déclencherait plus l'avance automatique) : sans lui, changer sa seule
+// plateforme obligerait à recliquer un point de départ pour repartir.
+function choose(key, val) {
   state[key] = val;
-  // "depart" est le dernier choix avant l'étape contexte (résumé objectif +
-  // point de départ + plateforme) : avant, c'était le choix plateforme qui
-  // déclenchait ce récap, cette responsabilité lui revient maintenant.
-  if (key === 'depart') renderSummary();
-  showStep(nextStep + 1);
+  marquerChoixEtape1();
+  if (state.objectif && state.depart) {
+    renderSummary();
+    showStep(2);
+  }
+}
+
+// Rend visible ce qui est déjà choisi : sur un écran qui porte DEUX questions,
+// le créateur doit voir d'un coup d'oeil laquelle il a déjà répondue.
+function marquerChoixEtape1() {
+  const marquer = (idGrille, valeur) => {
+    const grille = document.getElementById(idGrille);
+    if (!grille) return;
+    grille.querySelectorAll('.choice').forEach(c => {
+      const actif = !!valeur && (c.getAttribute('onclick') || '').indexOf("'" + valeur + "'") !== -1;
+      c.classList.toggle('selected', actif);
+    });
+  };
+  marquer('choixObjectif', state.objectif);
+  marquer('choixDepart', state.depart);
+  const btn = document.getElementById('etape1Continuer');
+  if (btn) btn.style.display = (state.objectif && state.depart) ? '' : 'none';
+}
+
+function continuerDepuisEtape1() {
+  if (!state.objectif || !state.depart) return;
+  renderSummary();
+  showStep(2);
 }
 
 function showStep(n) {
   document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
   document.getElementById('step' + n).classList.add('active');
-  // L'étape 2 porte le menu plateforme : le resynchroniser ici couvre tous
-  // les chemins qui l'affichent (avance normale, retour depuis l'étape 3,
-  // pré-remplissage venant d'ailleurs, ex. creerScriptDepuisViral).
-  if (n === 2 && typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
-  // Le champ "Ce que tu vends" (étape 3) n'a de sens que pour l'objectif
+  // L'étape 1 porte désormais le menu plateforme ET les deux grilles de choix :
+  // les resynchroniser ici couvre tous les chemins qui l'affichent (arrivée
+  // normale, retour depuis l'étape 2, pré-remplissage venant d'ailleurs, ex.
+  // creerScriptDepuisViral ou une recommandation d'accueil).
+  if (n === 1) {
+    if (typeof syncPlatformPickerVisuel === 'function') syncPlatformPickerVisuel();
+    if (typeof marquerChoixEtape1 === 'function') marquerChoixEtape1();
+  }
+  // Le champ "Ce que tu vends" (étape 2) n'a de sens que pour l'objectif
   // ventes : le resynchroniser ici couvre tous les chemins qui affichent
-  // cette étape, pas seulement l'avancée normale depuis l'étape 2.
-  if (n === 3 && typeof syncVenteFieldVisibilite === 'function') syncVenteFieldVisibilite();
+  // cette étape, pas seulement l'avancée normale depuis l'étape 1.
+  if (n === 2 && typeof syncVenteFieldVisibilite === 'function') syncVenteFieldVisibilite();
   document.getElementById('flow').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -790,7 +829,7 @@ function modifierCriteresScript() {
   // remasqué, voir showScreen), jamais plus loin en arrière.
   pushNav();
   document.getElementById('results').style.display = 'none';
-  showStep(3);
+  showStep(2);
 }
 
 function renderSummary() {
@@ -2278,7 +2317,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     errorBox.style.display = 'block';
     // Bug corrigé (retour terrain, audit du 2 septembre 2026) : lors d'une
     // RÉGÉNÉRATION, #results est déjà masqué en tête de fonction et errorBox
-    // (dans #step3) n'est plus "active" à cet instant (l'écran résultat a
+    // (dans #step2) n'est plus "active" à cet instant (l'écran résultat a
     // pris le relais) : l'utilisateur se retrouvait devant un écran
     // totalement vide, sans message ni bouton retour visible. On réaffiche
     // le résultat précédent (encore dans le DOM, juste masqué) et on
@@ -2789,7 +2828,7 @@ function renderResults(d, niche, sujet) {
   // Aucune étape (1, 2 ou 3) n'a sa place une fois le résultat affiché, seul
   // le bouton "✎ Modifier" (voir modifierCriteresScript) fait réapparaître
   // l'étape 3. Purement des classes CSS (voir showStep) : rien à restaurer
-  // explicitement, showStep(3) les rétablit normalement. On nettoie les 3,
+  // explicitement, showStep(2) les rétablit normalement. On nettoie les deux,
   // pas seulement l'étape 3 : reopenGeneration (js/historique.js, réouverture
   // d'un script depuis l'historique) appelle renderResults() directement sans
   // jamais passer par showStep(), l'étape 1 gardait alors sa classe "active"

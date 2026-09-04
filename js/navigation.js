@@ -147,7 +147,7 @@ function showScreen(screen) {
     document.getElementById(resultParent[screen]).style.display = 'block';
     document.getElementById(screen).style.display = 'block';
     if (screen === 'results') {
-      const s3 = document.getElementById('step3');
+      const s3 = document.getElementById('step2');
       if (s3) s3.classList.remove('active');
     } else if (screen === 'diagSommaireResults' && typeof toggleDiagSommaireEntree === 'function') {
       // On revient sur le RÉSULTAT du diagnostic sommaire : masquer l'écran de
@@ -180,7 +180,7 @@ function showScreen(screen) {
       if (fc && fc.style.display === 'none') fc.style.display = '';
     }
     if (screen === 'flow' && !document.querySelector('#flow .step.active') && typeof showStep === 'function') {
-      showStep(3);
+      showStep(2);
     }
     // Rafraîchir la liste des générations en y revenant
     if (screen === 'historyFlow' && typeof renderHistory === 'function') renderHistory();
