@@ -257,7 +257,14 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
       const data = await res.json();
       if (!res.ok) {
         const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
-        return { ok: false, recoverable: false, detail: '(' + res.status + ') ' + detail };
+        // Refus DÉFINITIF du fournisseur (400/401/404...) : requête ou compte
+        // refusés, pas une panne passagère. Aucun réessai, aucun autre modèle
+        // n'y changera quoi que ce soit. Retour terrain du 4 septembre 2026 :
+        // un solde de crédits épuisé renvoyait un 400 que le code retentait
+        // 3 fois, puis 3 fois de plus sur l'autre modèle pour le juge du
+        // score, soit 6 allers-retours perdus et autant d'attente inutile
+        // avant d'annoncer un échec connu dès la première réponse.
+        return { ok: false, recoverable: false, fatal: true, detail: '(' + res.status + ') ' + detail };
       }
       raw = data.content?.map(b => b.text || '').join('') || '';
     }
@@ -274,29 +281,38 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
   const usesFallback = (model === MODEL_CREATIF); // on ne bascule que si on visait Sonnet
 
   let lastDetail = '';
+  // Refus définitif rencontré : plus aucune tentative n'a de sens (voir
+  // tryOnce). Sans ce drapeau, un compte refusé ou un solde épuisé déclenchait
+  // la série complète de réessais, à chaque fois pour rien.
+  let echecDefinitif = false;
 
   // Tentative 1, modèle demandé (ex: Sonnet)
   try {
     const r1 = await tryOnce(model);
     if (r1.ok) return r1.raw;
     lastDetail = r1.detail;
+    echecDefinitif = !!r1.fatal;
     if (!r1.recoverable && !usesFallback) throw new Error(lastDetail);
   } catch(e) { lastDetail = e.message; }
 
-  // Petite pause puis Tentative 2, même modèle
-  await new Promise(r => setTimeout(r, 1500));
-  try {
-    const r2 = await tryOnce(model);
-    if (r2.ok) return r2.raw;
-    lastDetail = r2.detail;
-  } catch(e) { lastDetail = e.message; }
+  if (!echecDefinitif) {
+    // Petite pause puis Tentative 2, même modèle
+    await new Promise(r => setTimeout(r, 1500));
+    try {
+      const r2 = await tryOnce(model);
+      if (r2.ok) return r2.raw;
+      lastDetail = r2.detail;
+      echecDefinitif = !!r2.fatal;
+    } catch(e) { lastDetail = e.message; }
+  }
 
   // Tentative 3, bascule automatique sur Haiku (si on visait Sonnet)
-  if (usesFallback) {
+  if (usesFallback && !echecDefinitif) {
     try {
       const r3 = await tryOnce(fallbackModel);
       if (r3.ok) return r3.raw;
       lastDetail = r3.detail;
+      echecDefinitif = !!r3.fatal;
     } catch(e) { lastDetail = e.message; }
   }
 
@@ -323,7 +339,28 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
     } catch (e) { /* silencieux */ }
   }
 
-  throw new Error(lastDetail || 'Service momentanément indisponible, réessaie');
+  // Le détail technique brut part au journal (ci-dessus) et reste attaché à
+  // l'erreur pour tout ce qui en a besoin en interne, mais il ne doit JAMAIS
+  // s'afficher tel quel au créateur : ces messages viennent du fournisseur, en
+  // anglais, et parlent de facturation ou de clé d'API. Retour terrain :
+  // "(400) Your credit balance is too low to access the Anthropic API. Please
+  // go to Plans & Billing to upgrade or purchase credits" se serait affiché
+  // mot pour mot dans le formulaire d'un abonné francophone.
+  const erreur = new Error(messageCreateurDepuisDetail(lastDetail));
+  erreur.detailTechnique = lastDetail || '';
+  erreur.fatal = echecDefinitif;
+  throw erreur;
+}
+
+// Messages d'INFRASTRUCTURE (facturation, clé d'API, limites du fournisseur) :
+// jamais montrés au créateur. Tout le reste passe tel quel, pour ne rien
+// perdre des messages utiles et français déjà en place.
+const MOTS_ERREUR_INFRA = /credit balance|billing|api[_ -]?key|anthropic|insufficient|overloaded|rate.?limit|authentication|unauthorized|invalid[_ -]request/i;
+function messageCreateurDepuisDetail(detail) {
+  const d = String(detail || '');
+  if (!d) return 'Service momentanément indisponible, réessaie';
+  if (MOTS_ERREUR_INFRA.test(d)) return 'Scriptura ne peut pas générer pour le moment. Réessaie dans quelques minutes, et écris-nous si ça persiste.';
+  return d;
 }
 
 

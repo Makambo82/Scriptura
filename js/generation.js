@@ -1081,8 +1081,13 @@ async function calculerScoreScriptEnArrierePlan(parsed, texteFinal, objectif, wo
       // retenterait exactement ce qui vient d'échouer. La seconde tentative
       // passe donc par un modèle réellement différent. L'indépendance du juge
       // reste entière : appel séparé, qui ne reçoit que le texte fini.
-      signauxIA = await evaluerScriptGenere(texteFinal, objectif, MODEL_QUALITE_RECIT);
-      if (!signauxIA) raisonJugeMuet += ' | 2e tentative (autre modèle) : ' + _genRaisonJugeMuet;
+      // SAUF si le refus est définitif (compte refusé, solde épuisé) : là,
+      // aucun modèle ne passera, et insister ne ferait qu'ajouter de l'attente
+      // et un appel de plus pour reproduire le même refus.
+      if (!_genJugeEchecDefinitif) {
+        signauxIA = await evaluerScriptGenere(texteFinal, objectif, MODEL_QUALITE_RECIT);
+        if (!signauxIA) raisonJugeMuet += ' | 2e tentative (autre modèle) : ' + _genRaisonJugeMuet;
+      }
     }
   } catch (e) {
     raisonJugeMuet = raisonJugeMuet || ('erreur inattendue : ' + String((e && e.message) || e).slice(0, 120));
@@ -1133,8 +1138,13 @@ async function calculerScoreScriptEnArrierePlan(parsed, texteFinal, objectif, wo
 // impossible de savoir après coup si l'appel n'était pas passé du tout ou si
 // sa réponse était illisible, donc impossible de corriger la vraie cause.
 let _genRaisonJugeMuet = '';
+// Vrai quand l'échec est DÉFINITIF (compte refusé, solde épuisé...) : aucun
+// réessai, aucun autre modèle n'y changera rien, inutile de payer un second
+// aller-retour pour reproduire le même refus.
+let _genJugeEchecDefinitif = false;
 async function evaluerScriptGenere(texteComplet, objectifPourJuge, modeleJuge) {
   _genRaisonJugeMuet = '';
+  _genJugeEchecDefinitif = false;
   if (!texteComplet || !texteComplet.trim()) {
     _genRaisonJugeMuet = 'texte du script vide';
     return null;
@@ -1186,7 +1196,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     });
     return signaux;
   } catch (e) {
-    _genRaisonJugeMuet = 'appel au juge impossible : ' + String((e && e.message) || 'erreur inconnue').slice(0, 120);
+    // detailTechnique en priorité : le message affiché au créateur est
+    // volontairement neutralisé pour les erreurs d'infrastructure (voir
+    // callAI, js/api.js), mais le journal, lui, doit garder la cause exacte.
+    _genJugeEchecDefinitif = !!(e && e.fatal);
+    _genRaisonJugeMuet = 'appel au juge impossible : ' + String((e && (e.detailTechnique || e.message)) || 'erreur inconnue').slice(0, 140);
     return null;
   }
 }

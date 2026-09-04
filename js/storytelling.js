@@ -175,9 +175,12 @@ async function calculerScoreRecitEnArrierePlan(parsed, texteFinal, motsRecit, wt
     if (!signauxIARecit) {
       raison = _stRaisonJugeMuet;
       // Seconde tentative sur un modèle réellement différent, jamais à
-      // l'identique : les deux modèles de callAI sont le même.
-      signauxIARecit = await evaluerRecitGenere(texteFinal, MODEL_QUALITE_RECIT);
-      if (!signauxIARecit) raison += ' | 2e tentative (autre modèle) : ' + _stRaisonJugeMuet;
+      // l'identique : les deux modèles de callAI sont le même. Sauf refus
+      // définitif (compte refusé, solde épuisé), où aucun modèle ne passera.
+      if (!_stJugeEchecDefinitif) {
+        signauxIARecit = await evaluerRecitGenere(texteFinal, MODEL_QUALITE_RECIT);
+        if (!signauxIARecit) raison += ' | 2e tentative (autre modèle) : ' + _stRaisonJugeMuet;
+      }
     }
   } catch (e) {
     raison = raison || ('erreur inattendue : ' + String((e && e.message) || e).slice(0, 120));
@@ -218,8 +221,12 @@ async function calculerScoreRecitEnArrierePlan(parsed, texteFinal, motsRecit, wt
 // Raison du dernier échec du juge du récit, pour la journaliser (même
 // principe et mêmes motifs que _genRaisonJugeMuet, js/generation.js).
 let _stRaisonJugeMuet = '';
+// Même principe que _genJugeEchecDefinitif (js/generation.js) : un refus
+// définitif ne se retente pas.
+let _stJugeEchecDefinitif = false;
 async function evaluerRecitGenere(texteComplet, modeleJuge) {
   _stRaisonJugeMuet = '';
+  _stJugeEchecDefinitif = false;
   if (!texteComplet || !texteComplet.trim()) {
     _stRaisonJugeMuet = 'texte du récit vide';
     return null;
@@ -277,7 +284,14 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       }
     });
     return signaux;
-  } catch (e) { return null; }
+  } catch (e) {
+    // detailTechnique en priorité : le message montré au créateur est
+    // neutralisé pour les erreurs d'infrastructure (voir callAI, js/api.js),
+    // le journal doit garder la cause exacte.
+    _stJugeEchecDefinitif = !!(e && e.fatal);
+    _stRaisonJugeMuet = 'appel au juge impossible : ' + String((e && (e.detailTechnique || e.message)) || 'erreur inconnue').slice(0, 140);
+    return null;
+  }
 }
 // Même correctif que le mode Script (voir _genNormaliserTexteJuge,
 // js/generation.js, retour terrain sur des scores viral/émotion à 0% causés
