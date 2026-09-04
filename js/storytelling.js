@@ -160,8 +160,15 @@ function scorerRecitGenere(signaux, motsReels, wt) {
 // Juge EXTÉRIEUR et indépendant (voir commentaire d'en-tête ci-dessus),
 // même mécanique que evaluerScriptGenere (js/generation.js) adaptée au
 // vocabulaire du récit. Renvoie null en cas d'échec technique.
-async function evaluerRecitGenere(texteComplet) {
-  if (!texteComplet || !texteComplet.trim()) return null;
+// Raison du dernier échec du juge du récit, pour la journaliser (même
+// principe et mêmes motifs que _genRaisonJugeMuet, js/generation.js).
+let _stRaisonJugeMuet = '';
+async function evaluerRecitGenere(texteComplet, modeleJuge) {
+  _stRaisonJugeMuet = '';
+  if (!texteComplet || !texteComplet.trim()) {
+    _stRaisonJugeMuet = 'texte du récit vide';
+    return null;
+  }
   const prompt = `Tu es un critique EXTÉRIEUR et exigeant, tu n'as PAS écrit ce récit. Voici un récit TikTok déjà terminé. Ta seule mission : juger honnêtement s'il contient VRAIMENT chacune des techniques ci-dessous, et CITER le passage exact qui le prouve (jamais une paraphrase, jamais un extrait qui n'existe pas mot pour mot dans le texte).
 
 RÉCIT :
@@ -184,9 +191,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"rupture_attente":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve_ouverture":"citation qui ouvre la tension","preuve_cloture":"citation plus loin qui la referme"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cloture_complete":{"present":true,"preuve_question":"citation de la triple question miroir","preuve_signature":"citation de la signature métapoétique"},"coherence_factuelle":{"present":true,"preuve":"..."},"non_redondance":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."}}`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+    const raw = await callAI(modeleJuge || MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
     const jug = parseAIResponse(raw);
-    if (!jug) return null;
+    if (!jug) {
+      _stRaisonJugeMuet = 'réponse du juge illisible (aucun JSON exploitable)';
+      return null;
+    }
     const texteNormalise = _genNormaliserTexteJugeRecit(texteComplet);
     const signaux = {};
     GEN_SIGNAUX_JUGES_IA_RECIT.forEach(cle => {
@@ -1011,11 +1021,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // une mesure. Une seconde tentative (l'appel le moins cher du pipeline),
     // puis, à défaut, aucun chiffre inventé.
     let signauxIARecit = null;
+    let raisonJugeMuetRecit = '';
     if (!repondreMaintenant) {
       signauxIARecit = await evaluerRecitGenere(texteFinalRecit);
-      if (!signauxIARecit) signauxIARecit = await evaluerRecitGenere(texteFinalRecit);
+      if (!signauxIARecit) {
+        raisonJugeMuetRecit = _stRaisonJugeMuet;
+        // Seconde tentative sur un modèle RÉELLEMENT différent, jamais à
+        // l'identique (voir le commentaire détaillé dans js/generation.js) :
+        // les deux modèles de callAI sont le même, réessayer tel quel retente
+        // exactement ce qui vient d'échouer.
+        signauxIARecit = await evaluerRecitGenere(texteFinalRecit, MODEL_QUALITE_RECIT);
+        if (!signauxIARecit) raisonJugeMuetRecit += ' | 2e tentative (autre modèle) : ' + _stRaisonJugeMuet;
+      }
     }
     if (!signauxIARecit) {
+      if (!repondreMaintenant && typeof journaliserEchecEvaluation === 'function') {
+        journaliserEchecEvaluation('score-story', raisonJugeMuetRecit);
+      }
       parsed.score = null;
       parsed.evaluationIndisponible = repondreMaintenant
         ? 'Score non calculé : tu as demandé ton brouillon tout de suite, l\'évaluation indépendante n\'a pas eu le temps de tourner. Le récit, lui, est complet.'

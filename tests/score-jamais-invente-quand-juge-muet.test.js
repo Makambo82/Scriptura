@@ -60,12 +60,22 @@ const JUGEMENT_VALIDE = {
 const estAppelJuge = (body) => body.max_tokens === 1200 && /critique EXT/.test(JSON.stringify(body.messages || []));
 
 async function genererScript(page, baseUrl, reponseJuge) {
-  const appelsJuge = { n: 0 };
+  const appelsJuge = { n: 0, modeles: [], journal: [] };
   await poserMocksReseau(page);
+  // Journal d'erreurs : on observe ce qui part vraiment vers /api/data sans
+  // rien changer à son traitement (route.fallback rend la main aux mocks).
+  await page.route('**/api/data**', async (route) => {
+    try {
+      const b = JSON.parse(route.request().postData() || '{}');
+      if (b && b.resource === 'erreur') appelsJuge.journal.push({ mode: b.mode, detail: b.detail });
+    } catch (e) { /* corps non JSON : rien à observer */ }
+    return route.fallback();
+  });
   await page.route('**/api/generate', async (route) => {
     const body = JSON.parse(route.request().postData() || '{}');
     if (estAppelJuge(body)) {
       appelsJuge.n++;
+      appelsJuge.modeles.push(body.model);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: reponseJuge(appelsJuge.n) }] }) });
     }
     if (body.max_tokens === 2000) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(BRIEF) }] }) });
@@ -105,6 +115,11 @@ test('Script : juge indépendant muet deux fois, aucun 50 fabriqué, l\'app le d
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.equal(appels.n, 2, 'le juge doit être retenté une seconde fois avant de renoncer');
+    // Réessayer sur le MÊME modèle retenterait exactement ce qui vient
+    // d'échouer : les deux modèles de callAI sont le même (Haiku) et son repli
+    // automatique ne s'applique pas au juge.
+    assert.notEqual(appels.modeles[1], appels.modeles[0],
+      'la seconde tentative doit passer par un modèle réellement différent : ' + appels.modeles.join(' puis '));
 
     const vu = await page.evaluate(() => {
       const carte = document.querySelector('#outputList .score-card');
@@ -121,6 +136,15 @@ test('Script : juge indépendant muet deux fois, aucun 50 fabriqué, l\'app le d
     assert.deepEqual(vu.chiffres, [], 'aucun score sur 100 ne doit être affiché quand rien n\'a été mesuré');
     assert.match(vu.texte, /non calcul/i, 'le créateur doit lire que le score n\'a pas été calculé');
     assert.match(vu.texte, /n'a pas répondu|n.a pas r.pondu/i, 'et pourquoi');
+
+    // L'échec doit laisser une trace exploitable : sans elle, impossible de
+    // savoir après coup pourquoi un créateur s'est retrouvé sans score.
+    const entree = appels.journal.find(e => e.mode === 'score-script');
+    assert.ok(entree, 'l\'échec du juge doit être journalisé sous son propre mode, jamais sous "script" (ce n\'est pas un échec de génération) : ' + JSON.stringify(appels.journal));
+    assert.match(entree.detail, /illisible/, 'le journal doit dire POURQUOI le juge est resté muet : ' + entree.detail);
+    assert.match(entree.detail, /2e tentative/, 'et couvrir les deux tentatives');
+    assert.ok(!appels.journal.some(e => e.mode === 'script'),
+      'le compteur d\'échecs de génération ne doit pas être pollué : le script a bien été livré');
 
     // Le script, lui, reste complet et intact : un juge muet ne dégrade jamais
     // le contenu livré.
@@ -146,6 +170,8 @@ test('Script : une réponse illisible du juge est rattrapée par la seconde tent
 
     assert.deepEqual(erreursJs, []);
     assert.equal(appels.n, 2, 'la première réponse illisible doit déclencher exactement une seconde tentative');
+    assert.ok(!appels.journal.some(e => String(e.mode).startsWith('score-')),
+      'rien à journaliser quand le juge a fini par répondre : ' + JSON.stringify(appels.journal));
 
     const vu = await page.evaluate(() => {
       const carte = document.querySelector('#outputList .score-card');
@@ -177,8 +203,17 @@ test('Récit : même garde-fou, aucun score inventé quand le juge ne répond pa
       legende: 'L', hashtags: ['#a']
     };
     let appelsJuge = 0;
+    const modelesJuge = [];
+    const journal = [];
 
     await poserMocksReseau(page);
+    await page.route('**/api/data**', async (route) => {
+      try {
+        const b = JSON.parse(route.request().postData() || '{}');
+        if (b && b.resource === 'erreur') journal.push({ mode: b.mode, detail: b.detail });
+      } catch (e) { /* corps non JSON */ }
+      return route.fallback();
+    });
     await page.route('**/api/generate', async (route) => {
       const body = JSON.parse(route.request().postData() || '{}');
       const texteBody = JSON.stringify(body.messages || []);
@@ -189,6 +224,7 @@ test('Récit : même garde-fou, aucun score inventé quand le juge ne répond pa
       // mode Script (1200) et de la complétion des hooks du récit (1200).
       if (body.max_tokens === 1400 && /critique EXT/.test(texteBody)) {
         appelsJuge++;
+        modelesJuge.push(body.model);
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: 'réponse illisible' }] }) });
       }
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: '{}' }] }) });
@@ -209,6 +245,10 @@ test('Récit : même garde-fou, aucun score inventé quand le juge ne répond pa
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.equal(appelsJuge, 2, 'le juge du récit doit lui aussi être retenté une fois');
+    assert.notEqual(modelesJuge[1], modelesJuge[0], 'et sur un modèle réellement différent : ' + modelesJuge.join(' puis '));
+    const entreeRecit = journal.find(e => e.mode === 'score-story');
+    assert.ok(entreeRecit, 'l\'échec doit être journalisé sous son propre mode : ' + JSON.stringify(journal));
+    assert.match(entreeRecit.detail, /illisible/);
 
     const vu = await page.evaluate(() => {
       const carte = document.querySelector('#storyOutput .score-card');

@@ -327,6 +327,33 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
 }
 
 
+// ── JOURNAL DES ÉVALUATIONS DE SCORE QUI N'ABOUTISSENT PAS ──
+// callAI ci-dessus journalise déjà ses échecs DÉFINITIFS (surcharge, délai
+// dépassé, réponse vide). Mais le juge indépendant du score peut échouer
+// autrement, sans la moindre trace : l'appel réussit et c'est sa RÉPONSE qui
+// est inexploitable. Ce cas-là ne laissait rien derrière lui, impossible donc
+// de savoir après coup pourquoi un créateur s'est retrouvé sans score.
+// Volontairement journalisé sous un mode à part ('score-script',
+// 'score-story') et jamais sous 'script'/'story' : ce n'est PAS un échec de
+// génération (le script ou le récit est livré, complet), le compter comme tel
+// polluerait le compteur d'échecs du Tableau de bord. Fire-and-forget, comme
+// le journal de callAI : jamais attendu, jamais bloquant.
+function journaliserEchecEvaluation(mode, detail) {
+  try {
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resource: 'erreur',
+        mode: mode || 'score-inconnu',
+        code: localStorage.getItem('scriptura_code') || null,
+        detail: 'score non calculé : ' + (detail || 'cause inconnue')
+      })
+    }).catch(() => {});
+  } catch (e) { /* silencieux, ce journal ne doit jamais gêner l'utilisateur */ }
+}
+
+
 const SUPABASE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
 let supabaseClient = null;

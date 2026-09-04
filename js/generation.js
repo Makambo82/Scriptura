@@ -1058,8 +1058,18 @@ function scorerScriptGenere(signaux, motsReels, wt) {
 //    critère plutôt que de le contredire, sans réintroduire de biais
 //    d'auto-complaisance : le juge reste libre de constater ou non la boucle,
 //    il vérifie juste la bonne chose.
-async function evaluerScriptGenere(texteComplet, objectifPourJuge) {
-  if (!texteComplet || !texteComplet.trim()) return null;
+// Raison du dernier échec du juge, renseignée par evaluerScriptGenere pour
+// que l'appelant puisse la JOURNALISER (voir journaliserEchecEvaluation,
+// js/api.js). Sans ça, un juge muet ne laissait aucune trace exploitable :
+// impossible de savoir après coup si l'appel n'était pas passé du tout ou si
+// sa réponse était illisible, donc impossible de corriger la vraie cause.
+let _genRaisonJugeMuet = '';
+async function evaluerScriptGenere(texteComplet, objectifPourJuge, modeleJuge) {
+  _genRaisonJugeMuet = '';
+  if (!texteComplet || !texteComplet.trim()) {
+    _genRaisonJugeMuet = 'texte du script vide';
+    return null;
+  }
   const estObjectifVuesPourJuge = objectifPourJuge === 'Faire plus de vues et maximiser la portée';
   const critereCta = estObjectifVuesPourJuge
     ? '"cta_clair" : ce script vise la PORTÉE PURE, pas de CTA parlé attendu ici (stratégie assumée). La chute boucle-t-elle vraiment sur le hook (même mot, même image, même idée), pour un effet de relecture immédiate ? Coche "present":true si cette boucle est réelle, et cite le passage de la chute qui la ferme.'
@@ -1085,9 +1095,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hook_fort":{"present":true,"preuve":"citation exacte ou vide"},"pattern_interrupt":{"present":true,"preuve":"..."},"boucle_ouverte":{"present":true,"preuve_ouverture":"citation qui plante la tension","preuve_cloture":"citation plus loin qui la referme"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cta_clair":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."},"promesse_tenue":{"present":true,"preuve_ouverture":"citation du hook qui ouvre la promesse","preuve_cloture":"citation de la chute qui la referme"}}`;
 
   try {
-    const raw = await callAI(MODEL_RAPIDE, 1200, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+    const raw = await callAI(modeleJuge || MODEL_RAPIDE, 1200, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
     const jug = parseAIResponse(raw);
-    if (!jug) return null;
+    if (!jug) {
+      _genRaisonJugeMuet = 'réponse du juge illisible (aucun JSON exploitable)';
+      return null;
+    }
     const texteNormalise = _genNormaliserTexteJuge(texteComplet);
     const signaux = {};
     GEN_SIGNAUX_JUGES_IA.forEach(cle => {
@@ -1103,7 +1116,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       }
     });
     return signaux;
-  } catch (e) { return null; }
+  } catch (e) {
+    _genRaisonJugeMuet = 'appel au juge impossible : ' + String((e && e.message) || 'erreur inconnue').slice(0, 120);
+    return null;
+  }
 }
 // Retour terrain : des scores "viral"/"émotion" à 0% sur des scripts
 // pourtant solides. Cause trouvée : le rédacteur et le juge sont deux appels
@@ -2032,11 +2048,28 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // pas, on ne fabrique aucun chiffre : le score n'est pas calculé et on le
     // DIT (voir renderResults).
     let signauxIA = null;
+    let raisonJugeMuet = '';
     if (!repondreMaintenant) {
       signauxIA = await evaluerScriptGenere(texteFinalScript, state.objectif);
-      if (!signauxIA) signauxIA = await evaluerScriptGenere(texteFinalScript, state.objectif);
+      if (!signauxIA) {
+        raisonJugeMuet = _genRaisonJugeMuet;
+        // Retour terrain confirmé par le créateur (il n'avait PAS appuyé sur
+        // « Répondre maintenant ») : le juge a bel et bien échoué. Or les deux
+        // modèles de callAI sont le même (Haiku), et son repli automatique ne
+        // s'applique pas ici : réessayer à l'identique retente exactement ce
+        // qui vient d'échouer. La seconde tentative passe donc par un modèle
+        // RÉELLEMENT différent, seul moyen de rattraper une surcharge de Haiku
+        // ou une réponse mal formée qui se reproduirait à l'identique.
+        // L'indépendance du juge est intacte : c'est toujours un appel séparé
+        // qui ne reçoit que le texte fini, jamais le brief ni la stratégie.
+        signauxIA = await evaluerScriptGenere(texteFinalScript, state.objectif, MODEL_QUALITE_RECIT);
+        if (!signauxIA) raisonJugeMuet += ' | 2e tentative (autre modèle) : ' + _genRaisonJugeMuet;
+      }
     }
     if (!signauxIA) {
+      if (!repondreMaintenant && typeof journaliserEchecEvaluation === 'function') {
+        journaliserEchecEvaluation('score-script', raisonJugeMuet);
+      }
       parsed.score = null;
       parsed.evaluationIndisponible = repondreMaintenant
         ? 'Score non calculé : tu as demandé ton brouillon tout de suite, l\'évaluation indépendante n\'a pas eu le temps de tourner. Le script, lui, est complet.'
