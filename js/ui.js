@@ -511,6 +511,7 @@ function majLogoNav() {
 }
 function updateScrollBtn() {
   majLogoNav();
+  majBoutonCreation();
   const btn = document.getElementById('scrollTopBtn');
   if (!btn) return;
   // La page est-elle assez longue pour scroller ?
@@ -535,6 +536,51 @@ function updateScrollBtn() {
 }
 window.addEventListener('scroll', updateScrollBtn);
 window.addEventListener('resize', updateScrollBtn);
+
+// ── BOUTON DE CRÉATION FLOTTANT (accueil uniquement) ──
+// Retour propriétaire : un visiteur descendu bas dans la page d'accueil doit
+// remonter TOUT en haut, puis appuyer sur "Commence gratuitement", avant de
+// pouvoir générer quoi que ce soit. Deux étapes pour une intention immédiate.
+// Ce bouton fait les deux d'un coup, comme le bouton de création de TikTok.
+//
+// Deux détails qui comptent :
+//  - les modes sont MASQUÉS par défaut (#heroModes en display:none, révélés
+//    par revelerModes()). Un bouton qui se contenterait de remonter en haut
+//    déposerait donc le visiteur devant un hero sans aucun mode visible : il
+//    faut révéler ET remonter, sinon le raccourci ne raccourcit rien.
+//  - déplacement INSTANTANÉ, jamais un défilement animé : depuis le pied de
+//    page, une animation fluide traverserait toute la page d'accueil. C'est
+//    d'ailleurs déjà le choix de revelerModes() pour la même raison.
+function allerAuxModes() {
+  const modes = document.getElementById('heroModes');
+  const dejaRevele = modes && modes.style.display !== 'none';
+  if (!dejaRevele && typeof revelerModes === 'function') {
+    revelerModes(); // révèle les modes ET remonte en haut
+    return;
+  }
+  window.scrollTo({ top: 0, behavior: 'auto' });
+  if (typeof majBoutonCreation === 'function') majBoutonCreation();
+}
+
+// Visible UNIQUEMENT sur la page d'accueil, et seulement une fois le hero
+// dépassé : tant que les modes sont à l'écran, un raccourci vers les modes
+// n'aurait aucun sens. Volontairement absent des écrans de génération, où un
+// appui malheureux ferait quitter un résultat en cours.
+function majBoutonCreation() {
+  const btn = document.getElementById('creerBtn');
+  if (!btn) return;
+  const accueil = document.getElementById('homePage');
+  const surAccueil = !!accueil && accueil.style.display !== 'none';
+  const hero = document.querySelector('.hero');
+  // Le hero est-il sorti de l'écran par le haut ?
+  const heroDepasse = hero ? (hero.getBoundingClientRect().bottom < 60) : (window.scrollY > 400);
+  btn.classList.toggle('visible', surAccueil && heroDepasse);
+}
+// Aucun écouteur dédié : updateScrollBtn est déjà branché sur scroll et
+// resize, ET rappelé après chaque changement d'écran (voir ses appels dans
+// js/app.js, js/generation.js, js/storyboard-seul.js). Se greffer dessus
+// garantit que ce bouton se met à jour exactement aux mêmes moments, sans
+// dupliquer d'écouteurs ni oublier un point d'entrée.
 
 // ── MENU LATÉRAL (SIDEBAR) ──
 // L'icône du bouton reflète l'état : panneau gauche plein quand le menu est

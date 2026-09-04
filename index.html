@@ -1903,6 +1903,21 @@
   </div>
 </div>
 
+<!-- BOUTON DE CRÉATION FLOTTANT (accueil uniquement)
+     Raccourci direct vers le choix des modes, pour un visiteur descendu bas
+     dans la page d'accueil : sans lui, il doit remonter tout en haut PUIS
+     appuyer sur "Commence gratuitement" avant de pouvoir générer quoi que ce
+     soit. Silhouette volontairement proche du bouton de création TikTok
+     (rectangle arrondi + "+"), instantanément reconnaissable par un créateur,
+     mais dans la palette Scriptura : doré et émeraude, jamais le cyan/rose de
+     TikTok qui jurerait avec toute l'app. -->
+<button id="creerBtn" onclick="allerAuxModes()" aria-label="Créer un contenu" title="Créer un contenu">
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true">
+    <path d="M12 6v12"/>
+    <path d="M6 12h12"/>
+  </svg>
+</button>
+
 <!-- BOUTON RETOUR EN HAUT -->
 <button id="scrollTopBtn" onclick="scrollSmart()" aria-label="Naviguer haut ou bas" title="Descendre en bas">
   <svg id="scrollTopIcon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

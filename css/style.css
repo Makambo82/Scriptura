@@ -1893,6 +1893,43 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 }
 
 /* ── BOUTON RETOUR EN HAUT ── */
+/* ── BOUTON DE CRÉATION FLOTTANT (accueil uniquement) ── */
+/* Silhouette du bouton de création TikTok (rectangle arrondi large + "+"),
+   reconnue au premier coup d'oeil par un créateur, mais dans la palette
+   Scriptura : fond doré, "+" sombre, et une arête émeraude décalée qui
+   rappelle la double bordure de TikTok sans en reprendre le cyan/rose, qui
+   jureraient avec toute l'app.
+   Centré horizontalement et posé AU-DESSUS de la zone sûre du téléphone
+   (env(safe-area-inset-bottom)) : sur iOS la barre d'adresse de Safari occupe
+   le bas de l'écran, un bouton collé à bottom:0 finirait dessous. */
+#creerBtn{
+  position:fixed;left:50%;z-index:200;
+  bottom:calc(24px + env(safe-area-inset-bottom, 0px));
+  width:56px;height:40px;border-radius:12px;
+  background:var(--gold);color:var(--bg);
+  border:none;cursor:pointer;padding:0;
+  box-shadow:0 6px 20px rgba(0,0,0,0.45);
+  opacity:0;visibility:hidden;
+  transform:translate(-50%,12px);
+  transition:opacity 0.3s, visibility 0.3s, transform 0.3s, background 0.2s;
+  display:flex;align-items:center;justify-content:center;
+}
+/* L'arête émeraude décalée, purement décorative, derrière le bouton. */
+#creerBtn::before{
+  content:'';position:absolute;inset:0;border-radius:12px;
+  background:var(--emerald-light);
+  transform:translateX(-5px);z-index:-1;
+}
+#creerBtn.visible{opacity:1;visibility:visible;transform:translate(-50%,0)}
+#creerBtn:hover{background:var(--gold-light)}
+#creerBtn:active{transform:translate(-50%,2px)}
+/* Jamais visible pendant la sélection multiple de l'historique, comme le
+   bouton de navigation ci-dessous. */
+body.hist-select #creerBtn{display:none !important}
+@media(max-width:600px){
+  #creerBtn{bottom:calc(18px + env(safe-area-inset-bottom, 0px));width:52px;height:38px}
+}
+
 #scrollTopBtn{
   position:fixed;bottom:24px;right:24px;z-index:200;
   width:48px;height:48px;border-radius:50%;
