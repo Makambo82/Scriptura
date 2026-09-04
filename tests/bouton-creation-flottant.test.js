@@ -251,6 +251,9 @@ test('le bouton reste dans la palette Scriptura et au-dessus de la zone sûre du
       const chevauche = !(r.right < scroll.left || r.left > scroll.right || r.bottom < scroll.top || r.top > scroll.bottom);
       return {
         fond: st.backgroundColor,
+        plus: getComputedStyle(document.getElementById('creerBtnBarre')).stroke,
+        bordGauche: st.borderLeftColor, largeurGauche: st.borderLeftWidth,
+        bordDroit: st.borderRightColor, largeurDroite: st.borderRightWidth,
         centre: Math.abs((r.left + r.right) / 2 - window.innerWidth / 2),
         basAuDessusDuBord: window.innerHeight - r.bottom,
         chevauche
@@ -260,6 +263,15 @@ test('le bouton reste dans la palette Scriptura et au-dessus de la zone sûre du
     // Doré Scriptura (#C9A84C), jamais le cyan/rose de TikTok qui jurerait
     // avec le reste de l'app.
     assert.equal(vu.fond, 'rgb(201, 168, 76)', 'fond doré Scriptura : ' + vu.fond);
+    assert.equal(vu.plus, 'rgb(0, 0, 0)', 'le "+" est noir : ' + vu.plus);
+    // Émeraude clair Scriptura (#3E9B75) sur les deux arêtes, jamais le
+    // cyan/rose de TikTok. Les bordures plutôt qu'un pseudo-élément décalé :
+    // le bouton est en position:fixed, donc un z-index:-1 disparaîtrait
+    // derrière son propre fond.
+    assert.equal(vu.bordGauche, 'rgb(62, 155, 117)', 'arête gauche émeraude : ' + vu.bordGauche);
+    assert.equal(vu.bordDroit, 'rgb(62, 155, 117)', 'arête droite émeraude : ' + vu.bordDroit);
+    assert.ok(parseFloat(vu.largeurGauche) >= 3 && parseFloat(vu.largeurDroite) >= 3,
+      'assez épaisses pour se voir : ' + vu.largeurGauche + ' / ' + vu.largeurDroite);
     assert.ok(vu.centre < 2, 'centré horizontalement, écart de ' + vu.centre + 'px');
     assert.ok(vu.basAuDessusDuBord >= 16,
       'décollé du bord bas, sinon il passe sous la barre d\'adresse du navigateur mobile : ' + vu.basAuDessusDuBord + 'px');

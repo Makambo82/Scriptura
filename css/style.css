@@ -1905,20 +1905,23 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 #creerBtn{
   position:fixed;left:50%;z-index:200;
   bottom:calc(24px + env(safe-area-inset-bottom, 0px));
-  width:56px;height:40px;border-radius:12px;
-  background:var(--gold);color:var(--bg);
-  border:none;cursor:pointer;padding:0;
+  width:56px;height:40px;border-radius:12px;box-sizing:border-box;
+  background:var(--gold);color:#000;
+  /* Doré Scriptura, "+" noir, arêtes gauche et droite en émeraude : la
+     silhouette du bouton de création TikTok, dans la palette de la maison.
+     Des BORDURES plutôt que des formes décalées derrière le bouton : celui-ci
+     est en position:fixed, donc il crée son propre contexte d'empilement, et
+     un pseudo-élément en z-index:-1 y disparaîtrait purement et simplement
+     derrière son propre fond. */
+  border:none;
+  border-left:4px solid var(--emerald-light);
+  border-right:4px solid var(--emerald-light);
+  cursor:pointer;padding:0;
   box-shadow:0 6px 20px rgba(0,0,0,0.45);
   opacity:0;visibility:hidden;
   transform:translate(-50%,12px);
   transition:opacity 0.3s, visibility 0.3s, transform 0.3s, background 0.2s;
   display:flex;align-items:center;justify-content:center;
-}
-/* L'arête émeraude décalée, purement décorative, derrière le bouton. */
-#creerBtn::before{
-  content:'';position:absolute;inset:0;border-radius:12px;
-  background:var(--emerald-light);
-  transform:translateX(-5px);z-index:-1;
 }
 #creerBtn.visible{opacity:1;visibility:visible;transform:translate(-50%,0)}
 /* Le "+" devient "−" quand le panneau est déplié : seule la barre verticale
