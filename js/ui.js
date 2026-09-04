@@ -637,10 +637,23 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape' && panneauCreationOuvert()) fermerPanneauCreation();
 });
 
-// Visible UNIQUEMENT sur la page d'accueil, et seulement une fois le hero
-// dépassé : tant que les modes sont à l'écran, un raccourci vers les modes
-// n'aurait aucun sens. Volontairement absent des écrans de génération, où un
-// appui malheureux ferait quitter un résultat en cours.
+// Visible sur la page d'accueil ET dans tous les modes.
+//
+// Sur l'ACCUEIL, seulement une fois le hero dépassé : tant que les modes sont
+// déjà à l'écran, un raccourci vers les modes n'aurait aucun sens.
+//
+// DANS LES MODES, toujours. Retour du propriétaire : quand on entre dans un
+// mode puis qu'on change d'avis, il fallait ressortir de l'écran et remonter
+// jusqu'aux modes pour en choisir un autre. Le bouton supprime tout ce
+// détour. Ma restriction initiale à l'accueil était trop prudente : choisir un
+// mode depuis le panneau passe exactement par le même chemin que depuis
+// l'accueil (chooseMode empile la navigation puis bascule d'écran), donc le
+// "← Retour" reste cohérent, et un résultat déjà affiché n'est jamais perdu,
+// il est enregistré dans l'historique.
+//
+// LA SEULE VRAIE PRÉCAUTION, elle, est conservée : le bouton disparaît pendant
+// qu'une génération tourne. Là, partir ailleurs abandonnerait un travail en
+// cours qui, lui, n'est enregistré nulle part.
 function majBoutonCreation() {
   const btn = document.getElementById('creerBtn');
   if (!btn) return;
@@ -649,7 +662,9 @@ function majBoutonCreation() {
   const hero = document.querySelector('.hero');
   // Le hero est-il sorti de l'écran par le haut ?
   const heroDepasse = hero ? (hero.getBoundingClientRect().bottom < 60) : (window.scrollY > 400);
-  const doitEtreVisible = surAccueil && heroDepasse;
+  const overlay = document.getElementById('genOverlay');
+  const generationEnCours = !!overlay && overlay.classList.contains('active');
+  const doitEtreVisible = !generationEnCours && (surAccueil ? heroDepasse : true);
   btn.classList.toggle('visible', doitEtreVisible);
   // Le bouton disparaît (changement d'écran, remontée en haut) : son panneau
   // n'a plus rien à quoi se rattacher et resterait déplié par-dessus la page.

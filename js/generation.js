@@ -2613,6 +2613,10 @@ function startGenAnimation(mode) {
     ? creerProgressionReelle(setPct, GEN_POIDS[mode], GEN_DUREE[mode])
     : createProgress(setPct, GEN_DUREE[mode] || 45000);
   genProgressCtl.start();
+  // Le bouton de création flottant disparaît pendant la génération : partir
+  // ailleurs abandonnerait un travail en cours, le seul qui ne soit enregistré
+  // nulle part (voir majBoutonCreation, js/ui.js).
+  if (typeof majBoutonCreation === 'function') majBoutonCreation();
 
   // « Répondre maintenant » : nouveau départ = drapeau baissé. Le bouton
   // n'apparaît que sur les modes à plusieurs passes (script, récit).
@@ -2696,6 +2700,8 @@ function stopGenAnimation() {
   setTimeout(() => {
     overlay.classList.remove('active');
     if (genProgressCtl) { genProgressCtl.stop(); genProgressCtl = null; }
+    // La génération est finie : le bouton de création peut revenir.
+    if (typeof majBoutonCreation === 'function') majBoutonCreation();
   }, 400);
 }
 

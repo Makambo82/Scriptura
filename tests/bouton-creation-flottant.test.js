@@ -16,9 +16,19 @@
 //  - les boutons du panneau sont CLONÉS du hero, jamais recopiés : une seule
 //    source de vérité, et surtout aucun identifiant dupliqué dans la page ;
 //  - le panneau laisse vraiment voir l'accueil derrière lui ;
-//  - le bouton n'a de sens que sur la page d'accueil, hero dépassé. Sur un
-//    écran de génération, un appui malheureux ferait quitter un résultat en
-//    cours ; le panneau doit donc aussi se refermer tout seul dans ce cas.
+//  - sur l'ACCUEIL, le bouton n'apparaît qu'une fois le hero dépassé : tant que
+//    les modes sont déjà à l'écran, un raccourci vers les modes n'a aucun sens.
+//
+// ÉLARGISSEMENT DEMANDÉ ENSUITE : le bouton doit être présent DANS TOUS LES
+// MODES. Le besoin est réel : en entrant dans un mode puis en changeant d'avis,
+// il fallait ressortir de l'écran et remonter jusqu'aux modes pour en choisir un
+// autre. Ma restriction initiale à l'accueil était trop prudente, choisir un
+// mode depuis le panneau passe exactement par le même chemin que depuis
+// l'accueil, et un résultat déjà affiché est enregistré dans l'historique.
+//
+// LA SEULE VRAIE PRÉCAUTION EST CONSERVÉE, et testée : le bouton disparaît
+// pendant qu'une génération tourne. Là, partir ailleurs abandonnerait un travail
+// en cours qui, lui, n'est enregistré nulle part.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -198,7 +208,7 @@ test('choisir un mode referme le panneau, il ne reste jamais par-dessus l\'écra
   }
 });
 
-test('le bouton disparaît dès qu\'on quitte l\'accueil pour un écran de génération', async () => {
+test('le bouton reste disponible DANS les modes, pour en changer sans ressortir', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -210,22 +220,65 @@ test('le bouton disparaît dès qu\'on quitte l\'accueil pour un écran de gén�
     await connecterAbonne(page, { code: 'CREERBTN' + Math.round(Math.random() * 1e6), plan: 'creator' });
     await page.waitForTimeout(300);
 
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await page.waitForTimeout(300);
-    assert.equal((await page.evaluate(etatBouton)).visible, true, 'visible sur l\'accueil, en bas');
-    // Le remplissage du panneau attend une vérification de profil (badge
-    // "Commence ici") : on attend l'état, jamais un délai fixe.
+    // On entre dans un mode, en haut de l'écran : sur l'accueil le bouton
+    // serait caché à cette position, dans un mode il doit être là.
+    await page.evaluate(() => {
+      masquerTousLesEcrans();
+      document.getElementById('flow').style.display = 'block';
+      window.scrollTo(0, 0);
+      updateScrollBtn();
+    });
+    await page.waitForTimeout(250);
+    const dansLeMode = await page.evaluate(etatBouton);
+    assert.equal(dansLeMode.visible, true,
+      'REGRESSION : sans lui, changer de mode oblige à ressortir de l\'écran et à remonter jusqu\'aux modes');
+
+    // Et le panneau s'y déplie normalement, avec tous les modes.
     await page.evaluate(() => document.getElementById('creerBtn').click());
     await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+    const ouvert = await page.evaluate(etatBouton);
+    assert.ok(ouvert.modesDansPanneau >= 6, 'tous les modes sont proposés : ' + ouvert.modesDansPanneau);
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
 
-    // Un écran de génération prend la place de l'accueil.
-    await page.evaluate(() => { masquerTousLesEcrans(); document.getElementById('flow').style.display = 'block'; updateScrollBtn(); });
+test('mais il disparaît pendant qu\'une génération tourne', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrirAccueil(page, baseUrl);
+    await connecterAbonne(page, { code: 'CREERGEN' + Math.round(Math.random() * 1e6), plan: 'creator' });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      masquerTousLesEcrans();
+      document.getElementById('flow').style.display = 'block';
+      updateScrollBtn();
+    });
     await page.waitForTimeout(200);
-    const surEcran = await page.evaluate(etatBouton);
-    assert.equal(surEcran.visible, false,
-      'REGRESSION : sur un écran de génération, un appui malheureux ferait quitter un travail en cours');
-    assert.equal(surEcran.ouvert, false, 'et un panneau resté ouvert doit se refermer avec lui');
+    assert.equal((await page.evaluate(etatBouton)).visible, true, 'présent avant de lancer');
 
+    // Panneau déplié PUIS génération lancée : le pire cas, il doit se refermer.
+    await page.evaluate(() => document.getElementById('creerBtn').click());
+    await page.waitForFunction(() => document.getElementById('creerPanneau').classList.contains('ouvert'), null, { timeout: 8000 });
+    await page.evaluate(() => startGenAnimation('script'));
+    await page.waitForTimeout(300);
+
+    const pendant = await page.evaluate(etatBouton);
+    assert.equal(pendant.visible, false,
+      'REGRESSION : partir ailleurs pendant une génération abandonnerait le seul travail qui n\'est enregistré nulle part');
+    assert.equal(pendant.ouvert, false, 'et un panneau resté ouvert doit se refermer avec lui');
+
+    // Une fois la génération finie, il revient.
+    await page.evaluate(() => stopGenAnimation());
+    await page.waitForTimeout(900);
+    assert.equal((await page.evaluate(etatBouton)).visible, true, 'et il revient une fois la génération terminée');
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {
     await navigateur.close();
