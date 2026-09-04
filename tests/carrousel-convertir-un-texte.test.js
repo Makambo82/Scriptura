@@ -244,3 +244,183 @@ test('un curseur déplacé à la main n\'est JAMAIS écrasé par la suggestion',
     await arreter();
   }
 });
+
+// Décision du propriétaire, après discussion sur le grisage des champs : on ne
+// grise rien (la niche sert toujours aux hashtags et à la légende, le nombre
+// de slides devient un plafond et reste une décision éditoriale légitime).
+// C'est le TON qui posait le vrai problème et qui est traité ici.
+//
+// LE DÉFAUT : un texte déjà écrit A DÉJÀ UN TON, celui de son auteur. Retomber
+// sur "naturel et direct" par défaut, ou pire appliquer un "Provocateur" resté
+// d'une génération précédente, fait TRAHIR SA PROPRE VOIX au créateur. C'est
+// en contradiction directe avec la ligne de fidélité de la conversion.
+test('en conversion, le ton de la matière est gardé sauf choix explicite', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    const prompts = [];
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrir(page, baseUrl, {
+      generate: (b) => { prompts.push(JSON.stringify(b.messages || '')); return { content: [{ text: JSON.stringify(REPONSE_IA) }] }; }
+    });
+
+    // Sans ton choisi : la voix du créateur doit être préservée.
+    await saisirSujet(page, SCRIPT_COLLE);
+    await page.evaluate(() => genererCarrousel());
+    await page.waitForTimeout(900);
+    assert.match(prompts[0], /GARDE LE TON DE LA MATIÈRE/,
+      'REGRESSION : un texte déjà écrit a déjà un ton, le remplacer par un registre générique fait trahir sa voix au créateur');
+    assert.doesNotMatch(prompts[0], /Ton : naturel et direct/,
+      'le repli "naturel et direct" n\'a pas de sens sur un texte qui a déjà une voix');
+
+    // Avec un ton choisi : c'est une demande consciente de transposition, on
+    // la respecte. Proposer un défaut est un service, ignorer un choix
+    // explicite est une trahison.
+    prompts.length = 0;
+    await page.evaluate(() => {
+      const t = document.getElementById('carrouselTon');
+      t.value = t.options[3].value;
+      t.dispatchEvent(new Event('change', { bubbles: true }));
+      return genererCarrousel();
+    });
+    await page.waitForTimeout(900);
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.doesNotMatch(prompts[0], /GARDE LE TON DE LA MATIÈRE/,
+      'REGRESSION : un ton explicitement choisi doit être respecté, même en conversion');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Recycler une vidéo déjà publiée : le cas le plus fort de tous. Le créateur a
+// déjà tourné, déjà vérifié que le sujet fonctionne, et il en tire une seconde
+// publication sans retourner devant la caméra. Réutilise la route de
+// transcription déjà en production pour l'analyse virale.
+test('le lien d\'une vidéo TikTok remplit la matière et bascule en conversion', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrir(page, baseUrl);
+    await page.route('**/api/tiktok-video?action=transcription', (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ ok: true, description: 'Mes 3 erreurs de budget', transcript: SCRIPT_COLLE })
+    }));
+
+    await page.evaluate(() => {
+      document.getElementById('carrouselLien').value = 'https://www.tiktok.com/@moi/video/1';
+      return recupererTranscriptCarrousel();
+    });
+    await page.waitForTimeout(900);
+
+    const vu = await page.evaluate(() => ({
+      sujet: document.getElementById('carrouselSujet').value,
+      conversion: document.getElementById('carrouselMatiereNote').style.display !== 'none',
+      slides: document.getElementById('carrouselSlides').value
+    }));
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.match(vu.sujet, /épargner c'est mettre de côté/, 'le texte parlé de la vidéo arrive dans le champ');
+    assert.match(vu.sujet, /Mes 3 erreurs de budget/, 'et la description la précède, elle porte souvent l\'angle');
+    assert.equal(vu.conversion, true,
+      'REGRESSION : sans bascule en conversion, la transcription serait traitée comme un thème et réécrite de zéro');
+    assert.equal(vu.slides, '7', 'le nombre de slides suit la matière récupérée');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// "En faire un carrousel" depuis un script affiché : un sujet, deux
+// publications, sans un seul copier-coller.
+test('un script déjà généré devient un carrousel, même s\'il est court', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrir(page, baseUrl);
+
+    const vu = await page.evaluate(async () => {
+      masquerTousLesEcrans();
+      document.getElementById('flow').style.display = 'block';
+      // Un script de 30 secondes : VOLONTAIREMENT COURT, moins de 400
+      // caractères. C'est le cas qui a révélé le défaut : le seuil de
+      // longueur, simple heuristique pour du texte collé à la main, l'aurait
+      // classé comme un thème à écrire de zéro.
+      currentScript = [
+        { temps: '0-3 sec', texte: 'Tu crois épargner ce qui reste ? C\'est faux.' },
+        { temps: '3-20 sec', texte: 'La première erreur est de payer tout le monde avant toi.' },
+        { temps: '20-30 sec', texte: 'Inverse l\'ordre : épargne d\'abord.' }
+      ];
+      lastGenContext = { niche: 'Finance & Argent', sujet: 'budget' };
+      carrouselDepuisScript();
+      await new Promise(r => setTimeout(r, 300));
+      const champ = document.getElementById('carrouselSujet');
+      return {
+        ecran: document.getElementById('carrouselFlow').style.display !== 'none',
+        longueur: champ.value.length,
+        contient: champ.value.includes('La première erreur est de payer tout le monde avant toi'),
+        conversion: document.getElementById('carrouselMatiereNote').style.display !== 'none',
+        niche: document.getElementById('carrouselNiche').value
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.ecran, true, 'le mode carrousel s\'ouvre');
+    assert.equal(vu.contient, true, 'tous les blocs du script sont repris');
+    assert.ok(vu.longueur < 400,
+      'le script de test est bien SOUS le seuil de longueur, sinon il ne prouverait rien : ' + vu.longueur);
+    assert.equal(vu.conversion, true,
+      'REGRESSION : un script court passerait sous le seuil et serait réécrit de zéro au lieu d\'être converti');
+    assert.equal(vu.niche, 'Finance & Argent',
+      'la niche du script est reprise : elle ne sert plus à écrire, mais elle rend les hashtags et la légende pertinents');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('effacer le champ ramène au mode normal, l\'origine ne colle pas à la session', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    let prompt = '';
+    await page.setViewportSize({ width: 390, height: 844 });
+    await ouvrir(page, baseUrl, {
+      generate: (b) => { prompt = JSON.stringify(b.messages || ''); return { content: [{ text: JSON.stringify(REPONSE_IA) }] }; }
+    });
+
+    // Un script court est injecté (matière imposée), puis le créateur efface
+    // tout et tape un simple sujet.
+    await page.evaluate(async () => {
+      currentScript = [{ temps: '0-3 sec', texte: 'Un script court injecté.' }];
+      lastGenContext = { niche: '', sujet: '' };
+      carrouselDepuisScript();
+      await new Promise(r => setTimeout(r, 300));
+    });
+    await saisirSujet(page, '');
+    await saisirSujet(page, 'les erreurs de budget');
+    await page.evaluate(() => genererCarrousel());
+    await page.waitForTimeout(900);
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.doesNotMatch(prompt, /RÈGLES DE CONVERSION/,
+      'REGRESSION : l\'origine "matière" resterait collée à la session, et un simple sujet tapé ensuite serait traité comme un texte à convertir');
+    assert.match(prompt, /EXACTEMENT/, 'et le nombre de slides redevient ferme');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

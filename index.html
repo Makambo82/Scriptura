@@ -1002,6 +1002,25 @@
         </select>
       </div>
 
+      <!-- Recycler une vidéo déjà publiée : on récupère son texte parlé et on
+           le pose dans le champ ci-dessous, ce qui bascule automatiquement en
+           mode conversion. Même route serveur que l'analyse virale, déjà en
+           production. Le cas est le plus fort de tous : le créateur a déjà
+           tourné, déjà vérifié que le sujet marche, et il en tire une seconde
+           publication sans retourner devant la caméra. -->
+      <div class="ctx-field">
+        <label class="ctx-label">Partir d'une de tes vidéos (optionnel)</label>
+        <div class="ds-field">
+          <span class="ds-at"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></span>
+          <input class="ds-input" id="carrouselLien" placeholder="Colle le lien TikTok d'une de tes vidéos…" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();recupererTranscriptCarrousel();}"/>
+          <button class="ds-go" id="carrouselLienBtn" type="button" aria-label="Récupérer le texte de la vidéo" onclick="recupererTranscriptCarrousel()">
+            <span class="sb-gen-spinner" id="carrouselLienSpinner" style="display:none"></span>
+            <span id="carrouselLienFleche"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block" aria-hidden="true"><path d="M4 12h16"/><path d="M13 6l6 6-6 6"/></svg></span>
+          </button>
+        </div>
+        <p class="ctx-note" id="carrouselLienNote">On récupère le texte parlé de ta vidéo et on le transforme en slides. Tu pourras le relire et l'ajuster avant de générer.</p>
+      </div>
+
       <div class="ctx-field">
         <label class="ctx-label">Ton sujet</label>
         <textarea class="ctx-textarea" id="carrouselSujet" oninput="majMatiereCarrousel()"
@@ -1787,6 +1806,11 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-regenerate" onclick="modifierCriteresScript()">✎ Modifier</button>
           <button class="btn-regenerate" onclick="regenererContenu('script')">↻ Régénérer</button>
+          <!-- Un sujet, deux publications : le script devient un carrousel sans
+               un seul copier-coller. Volontairement absent du mode Récit, qui
+               tient par la tension continue et perdrait tout découpé en slides
+               à lire. -->
+          <button class="btn-regenerate" onclick="carrouselDepuisScript()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:5px"><rect x="7" y="4" width="10" height="16" rx="1.6"/><path d="M4.5 7.5v9"/><path d="M19.5 7.5v9"/></svg>En faire un carrousel</button>
         </div>
       </div>
       <div class="results-meta" id="resultsMeta"></div>

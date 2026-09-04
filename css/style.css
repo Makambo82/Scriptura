@@ -3508,6 +3508,11 @@ body.is-admin .outils-montage-home-btn{display:flex}
 /* Le message qui annonce la conversion : en émeraude, la couleur des accents
    "niveau au-dessus" de la charte, jamais en rouge. Ce n'est pas une erreur,
    c'est Scriptura qui dit ce qu'il a compris. */
+/* .ds-field porte un margin-top de 26px, calibré pour l'écran du diagnostic
+   sommaire où il suit directement un titre. Ici il suit un simple libellé de
+   champ : sans cette remise à zéro, il flotterait loin de son étiquette. */
+#carrouselLien.ds-input, .ctx-field > .ds-field{margin-top:0}
+
 .car-matiere-note{
   color:var(--emerald-light);background:var(--emerald-pale);
   border:1px solid var(--emerald-border);border-radius:9px;

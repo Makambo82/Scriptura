@@ -126,7 +126,15 @@ const CARROUSEL_OBJECTIF_VENTES = 'générer des ventes';
 // signalait au créateur que son texte avait été ignoré.
 const CAR_SEUIL_MATIERE = 400;
 
+// Matière IMPOSÉE, indépendamment de la longueur : quand le texte vient d'un
+// script déjà généré ou d'une vidéo transcrite, on SAIT que c'est une matière
+// à convertir. Le seuil de longueur n'est qu'une heuristique pour du texte
+// collé à la main ; un script de 30 secondes fait moins de 400 caractères et
+// serait sinon traité comme un simple thème, c'est-à-dire réécrit de zéro.
+let carrouselMatiereImposee = false;
+
 function carrouselEstMatiere(texte) {
+  if (carrouselMatiereImposee) return true;
   return String(texte || '').trim().length > CAR_SEUIL_MATIERE;
 }
 
@@ -203,6 +211,10 @@ function majMatiereCarrousel() {
   const note = document.getElementById('carrouselMatiereNote');
   if (!champ) return;
   const texte = champ.value || '';
+  // Champ vidé à la main : le créateur repart de zéro, donc l'origine
+  // "matière" ne vaut plus. Sans ça, un simple sujet tapé après avoir effacé
+  // un script resterait traité comme un texte à convertir.
+  if (!texte.trim()) carrouselMatiereImposee = false;
   const matiere = carrouselEstMatiere(texte);
   if (!note) return;
   if (!matiere) { note.style.display = 'none'; note.textContent = ''; return; }
@@ -275,6 +287,13 @@ function resetCarrouselForm() {
   const menuFormat = document.getElementById('carrouselFormat');
   if (menuFormat) { carrouselFormat = CAR_FORMAT_DEFAUT; menuFormat.value = CAR_FORMAT_DEFAUT; }
   carrouselSlidesChoisiParCreateur = false;
+  carrouselMatiereImposee = false;
+  // Le lien d'une vidéo précédente ne doit jamais rester dans le champ : il
+  // ferait croire que le prochain carrousel en part encore.
+  const lien = document.getElementById('carrouselLien');
+  if (lien) lien.value = '';
+  const noteLien = document.getElementById('carrouselLienNote');
+  if (noteLien) noteLien.textContent = 'On récupère le texte parlé de ta vidéo et on le transforme en slides. Tu pourras le relire et l\'ajuster avant de générer.';
   const note = document.getElementById('carrouselMatiereNote');
   if (note) { note.style.display = 'none'; note.textContent = ''; }
   const err = document.getElementById('carrouselErrorBox');
@@ -343,7 +362,9 @@ CONTEXTE
 - ${ctx.estMatiere ? 'MATIÈRE FOURNIE PAR LE CRÉATEUR, à convertir (voir les règles de conversion plus bas)' : 'Sujet'} : ${ctx.sujet}
 - Objectif : ${ctx.objectif || 'faire des vues'}
 - Audience : ${ctx.audience || 'tout public'}
-- Ton : ${ctx.ton || 'naturel et direct'}
+- Ton : ${ctx.estMatiere
+    ? (ctx.ton || 'GARDE LE TON DE LA MATIÈRE FOURNIE. Le créateur ne t\'a pas demandé de ton particulier, et son texte a déjà le sien : c\'est sa voix, ne la remplace pas par un registre générique.')
+    : (ctx.ton || 'naturel et direct')}
 - Nombre de slides demandé : ${ctx.estMatiere ? `${nb} au maximum (voir la règle 6 : moins vaut mieux que du remplissage)` : `EXACTEMENT ${nb}`}
 ${blocConversionCarrousel(ctx)}${blocVenteCarrousel(ctx)}
 CHAQUE SLIDE EST UNE MISE EN PAGE, PAS UN PARAGRAPHE. Tu remplis des champs
@@ -580,6 +601,120 @@ function parserCarrousel(texte) {
   // La numérotation renvoyée par le modèle n'est jamais reprise telle
   // quelle : un doublon casserait l'association slide/image.
   return normaliserResultatCarrousel(parsed);
+}
+
+// ── RECYCLER UNE VIDÉO DÉJÀ PUBLIÉE ──
+// Colle le lien d'une vidéo TikTok, on récupère son texte parlé et on le met
+// dans le champ sujet, ce qui bascule automatiquement en mode conversion.
+// Réutilise /api/tiktok-video?action=transcription, déjà en production pour
+// l'analyse virale et les outils TikTok : aucune nouvelle route serveur.
+//
+// LE CAS EST LE PLUS FORT DE TOUS : le créateur a déjà tourné, déjà vérifié
+// que le sujet fonctionne, et il en tire une seconde publication sans
+// retourner devant la caméra.
+async function recupererTranscriptCarrousel() {
+  const lienEl = document.getElementById('carrouselLien');
+  const noteEl = document.getElementById('carrouselLienNote');
+  const btn = document.getElementById('carrouselLienBtn');
+  const spin = document.getElementById('carrouselLienSpinner');
+  const fleche = document.getElementById('carrouselLienFleche');
+  const cible = document.getElementById('carrouselSujet');
+  if (!lienEl || !cible) return;
+
+  const url = (lienEl.value || '').trim();
+  if (!url) { lienEl.focus(); return; }
+  if (!/^https?:\/\//i.test(url)) {
+    if (noteEl) noteEl.textContent = 'Colle un lien complet (qui commence par https://).';
+    return;
+  }
+  // Ne JAMAIS écraser un texte déjà saisi sans prévenir : le créateur a pu
+  // coller son script à la main avant de penser au lien.
+  if (cible.value.trim() && !window.confirm('Remplacer le texte déjà présent par celui de la vidéo ?')) return;
+
+  if (btn) btn.disabled = true;
+  if (spin) spin.style.display = 'block';
+  if (fleche) fleche.style.display = 'none';
+  if (noteEl) noteEl.textContent = 'On écoute la vidéo et on la transcrit…';
+
+  const ctrl = new AbortController();
+  const minuteur = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const rep = await fetch('/api/tiktok-video?action=transcription', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+      signal: ctrl.signal
+    });
+    const data = await rep.json();
+    if (!rep.ok) throw new Error((data && data.error && data.error.message) || 'Récupération impossible.');
+
+    if (data.ok && data.transcript) {
+      const desc = (data.description || '').trim();
+      cible.value = (desc && !data.transcript.includes(desc.slice(0, 30)))
+        ? desc + '\n\n' + data.transcript
+        : data.transcript;
+      // Une vidéo transcrite EST une matière, même si elle est courte.
+      carrouselMatiereImposee = true;
+      // Déclenche la détection de matière : le basculement en conversion doit
+      // se voir exactement comme pour un texte collé à la main.
+      cible.dispatchEvent(new Event('input', { bubbles: true }));
+      if (noteEl) noteEl.textContent = 'Texte de la vidéo récupéré. Relis-le, ajuste si besoin, puis génère.';
+    } else if (data.description) {
+      cible.value = data.description;
+      cible.dispatchEvent(new Event('input', { bubbles: true }));
+      if (noteEl) noteEl.textContent = "Cette vidéo n'a pas de sous-titres exploitables. On a mis sa description, complète-la à la main.";
+    } else {
+      if (noteEl) noteEl.textContent = "Cette vidéo n'a pas de sous-titres exploitables. Colle son texte à la main ci-dessous.";
+    }
+  } catch (e) {
+    if (noteEl) {
+      noteEl.textContent = (e.name === 'AbortError')
+        ? 'La récupération a été trop longue. Réessaie, ou colle le texte à la main.'
+        : 'Impossible de lire cette vidéo. Colle son texte à la main ci-dessous.';
+    }
+  } finally {
+    clearTimeout(minuteur);
+    if (btn) btn.disabled = false;
+    if (spin) spin.style.display = 'none';
+    if (fleche) fleche.style.display = '';
+  }
+}
+
+// ── DEPUIS UN SCRIPT DÉJÀ GÉNÉRÉ ──
+// Un sujet, deux publications : le créateur qui vient d'obtenir un script en
+// tire un carrousel sans un seul copier-coller. La matière, l'angle et le
+// hook sont déjà là.
+//
+// Réservé au SCRIPT, jamais au récit : un récit tient par la tension continue
+// et l'immersion, découpé en slides à lire il perd exactement ce qui le rend
+// bon. On l'ajoutera si un essai prouve le contraire.
+function carrouselDepuisScript() {
+  if (typeof currentScript === 'undefined' || !Array.isArray(currentScript) || !currentScript.length) return;
+  const texte = currentScript.map(b => String((b && b.texte) || '').trim()).filter(Boolean).join('\n\n');
+  if (!texte) return;
+
+  chooseMode('carrousel');
+  // Après chooseMode : resetCarrouselForm() vient de vider le formulaire, on
+  // écrit donc APRÈS lui, sinon la matière serait effacée aussitôt posée.
+  setTimeout(() => {
+    const champ = document.getElementById('carrouselSujet');
+    if (!champ) return;
+    champ.value = texte;
+    // Un script EST une matière, quelle que soit sa longueur : un script de
+    // 30 secondes fait moins de 400 caractères et passerait sous le seuil.
+    carrouselMatiereImposee = true;
+    champ.dispatchEvent(new Event('input', { bubbles: true }));
+    // La niche du script est reprise : elle ne sert plus à écrire (la matière
+    // est là), mais elle rend les hashtags et la légende pertinents.
+    const niche = (typeof lastGenContext !== 'undefined' && lastGenContext && lastGenContext.niche) || '';
+    const menuNiche = document.getElementById('carrouselNiche');
+    if (menuNiche && niche) {
+      for (const opt of menuNiche.options) {
+        if (opt.value === niche || opt.text === niche) { menuNiche.value = opt.value; break; }
+      }
+    }
+    champ.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 0);
 }
 
 async function genererCarrousel() {
