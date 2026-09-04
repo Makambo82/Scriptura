@@ -1164,7 +1164,10 @@ function reopenGeneration(i) {
     // le score et les consignes visuelles, et le créateur regénère l'image
     // d'une slide s'il en veut une. Le tableau est donc remis à vide, à la
     // bonne longueur, jamais laissé à celui du carrousel précédent.
-    carrouselResultat = (g.contenu && g.contenu.resultat) || null;
+    // NORMALISÉ, jamais repris tel quel : un carrousel enregistré avant la
+    // refonte de la mise en page n'a qu'un champ `texte` par slide, et se
+    // rouvrait avec des titres vides.
+    carrouselResultat = normaliserResultatCarrousel((g.contenu && g.contenu.resultat) || null);
     carrouselContexte = (g.contenu && g.contenu.context) || null;
     carrouselImages = carrouselResultat ? new Array(carrouselResultat.slides.length).fill(null) : [];
     if (carrouselResultat) { renderCarrousel(); chargerQuotaImagesCarrousel(); }

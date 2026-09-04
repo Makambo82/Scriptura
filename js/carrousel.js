@@ -374,6 +374,21 @@ function normaliserSlideCarrousel(s, i, total) {
   };
 }
 
+// Normalise un résultat COMPLET. Appelée aussi bien après la génération
+// qu'à la réouverture d'un carrousel enregistré : c'est le seul point de
+// passage qui garantit qu'une slide affichée porte toujours les mêmes
+// champs, quelle que soit la version de Scriptura qui l'a produite. Sans
+// cela, un carrousel d'avant la refonte de la mise en page se rouvrait avec
+// des titres vides, en silence.
+function normaliserResultatCarrousel(r) {
+  if (!r || !Array.isArray(r.slides) || !r.slides.length) return null;
+  const utiles = r.slides.filter(s => s && (s.titre || s.texte || (Array.isArray(s.points) && s.points.length)));
+  if (!utiles.length) return null;
+  r.slides = utiles.map((s, i) => normaliserSlideCarrousel(s, i, utiles.length));
+  r.hashtags = Array.isArray(r.hashtags) ? r.hashtags.map(h => String(h || '').trim()).filter(Boolean) : [];
+  return r;
+}
+
 function parserCarrousel(texte) {
   const brut = String(texte || '');
   const debut = brut.indexOf('{');
@@ -382,15 +397,9 @@ function parserCarrousel(texte) {
   let parsed;
   try { parsed = JSON.parse(brut.slice(debut, fin + 1)); }
   catch (e) { return null; }
-  if (!parsed || !Array.isArray(parsed.slides) || !parsed.slides.length) return null;
-
-  const utiles = parsed.slides.filter(s => s && (s.titre || s.texte || (Array.isArray(s.points) && s.points.length)));
-  if (!utiles.length) return null;
-  // La numérotation renvoyée par le modèle n'est jamais reprise telle quelle :
-  // un doublon casserait l'association slide/image.
-  parsed.slides = utiles.map((s, i) => normaliserSlideCarrousel(s, i, utiles.length));
-  parsed.hashtags = Array.isArray(parsed.hashtags) ? parsed.hashtags.map(h => String(h || '').trim()).filter(Boolean) : [];
-  return parsed;
+  // La numérotation renvoyée par le modèle n'est jamais reprise telle
+  // quelle : un doublon casserait l'association slide/image.
+  return normaliserResultatCarrousel(parsed);
 }
 
 async function genererCarrousel() {
