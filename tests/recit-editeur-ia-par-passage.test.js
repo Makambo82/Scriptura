@@ -64,7 +64,14 @@ test('Récit, éditeur IA par passage : reformule UN SEUL segment, sans toucher 
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
 
     const { requetesGenerations } = await genererRecitEtOuvrirResultat(page);
-    assert.equal(requetesGenerations.length, 1, 'la génération initiale du récit doit avoir écrit UNE fois dans l\'historique');
+  // Depuis que le score est calculé APRÈS l'affichage (voir
+  // calculerScoreRecitEnArrierePlan, js/storytelling.js), la génération écrit
+  // aussi un 'patch' pour rattacher le score à sa ligne. Ce que ce test
+  // mesure, c'est le nombre de LIGNES créées ('save'), pas le nombre de
+  // requêtes : une nouvelle ligne consommerait une génération du quota, un
+  // patch non.
+  const lignesCreees = () => requetesGenerations.filter(r => r.action === 'save').length;
+    assert.equal(lignesCreees(), 1, 'la génération initiale du récit doit avoir créé UNE ligne dans l\'historique');
 
     const texteAvant = await page.evaluate(() => ({
       s0: document.getElementById('storySegText0')?.textContent,
@@ -106,7 +113,7 @@ test('Récit, éditeur IA par passage : reformule UN SEUL segment, sans toucher 
     const fulltextApres = await page.evaluate(() => document.getElementById('storyOutput').dataset.fulltext);
     assert.match(fulltextApres, /Segment raccourci\./, 'le texte complet reconstruit doit contenir le nouveau segment');
 
-    assert.equal(requetesGenerations.length, 1, 'la micro-édition ne doit écrire AUCUNE nouvelle génération dans l\'historique');
+    assert.equal(lignesCreees(), 1, 'la micro-édition ne doit créer AUCUNE nouvelle génération dans l\'historique');
   } finally {
     await navigateur.close();
     await arreter();

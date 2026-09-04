@@ -85,7 +85,14 @@ test('éditeur IA par passage : reformule UN SEUL bloc du script, sans toucher a
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
 
     const { requetesGenerations } = await genererScriptEtOuvrirResultat(page);
-    assert.equal(requetesGenerations.length, 1, 'la génération initiale du script doit avoir écrit UNE fois dans l\'historique');
+  // Depuis que le score est calculé APRÈS l'affichage (voir
+  // calculerScoreScriptEnArrierePlan, js/generation.js), la génération écrit
+  // aussi un 'patch' pour rattacher le score à sa ligne. Ce que ce test
+  // mesure, c'est le nombre de LIGNES créées ('save'), pas le nombre de
+  // requêtes : une nouvelle ligne consommerait une génération du quota, un
+  // patch non.
+  const lignesCreees = () => requetesGenerations.filter(r => r.action === 'save').length;
+    assert.equal(lignesCreees(), 1, 'la génération initiale du script doit avoir créé UNE ligne dans l\'historique');
 
     const texteAvant = await page.evaluate(() => ({
       b0: document.getElementById('scriptText0')?.textContent,
@@ -131,7 +138,7 @@ test('éditeur IA par passage : reformule UN SEUL bloc du script, sans toucher a
     // qui en aurait ajouté une). Le gestionnaire "data" posé par
     // genererScriptEtOuvrirResultat reste actif : requetesGenerations n'a pas
     // pu grossir depuis l'assertion précédente sans qu'on le revoie ici.
-    assert.equal(requetesGenerations.length, 1, 'la micro-édition ne doit écrire AUCUNE nouvelle génération dans l\'historique');
+    assert.equal(lignesCreees(), 1, 'la micro-édition ne doit créer AUCUNE nouvelle génération dans l\'historique');
   } finally {
     await navigateur.close();
     await arreter();

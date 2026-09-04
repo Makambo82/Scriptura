@@ -160,6 +160,61 @@ function scorerRecitGenere(signaux, motsReels, wt) {
 // Juge EXTÉRIEUR et indépendant (voir commentaire d'en-tête ci-dessus),
 // même mécanique que evaluerScriptGenere (js/generation.js) adaptée au
 // vocabulaire du récit. Renvoie null en cas d'échec technique.
+// Calcul du score du récit APRÈS son affichage (même principe et mêmes
+// garde-fous que calculerScoreScriptEnArrierePlan, js/generation.js). Rien ici
+// ne modifie le récit. Si le créateur a lancé un autre récit ou rouvert un
+// ancien depuis l'historique entre-temps, currentStory ne pointe plus vers
+// l'objet suivi et on s'arrête sans rien toucher.
+// motsRecit est passé en paramètre plutôt que recalculé ici : countStoryWords
+// vit dans la portée de generateStory, cette fonction-ci est au niveau module.
+async function calculerScoreRecitEnArrierePlan(parsed, texteFinal, motsRecit, wt, sauvegardePromise) {
+  let signauxIARecit = null;
+  let raison = '';
+  try {
+    signauxIARecit = await evaluerRecitGenere(texteFinal);
+    if (!signauxIARecit) {
+      raison = _stRaisonJugeMuet;
+      // Seconde tentative sur un modèle réellement différent, jamais à
+      // l'identique : les deux modèles de callAI sont le même.
+      signauxIARecit = await evaluerRecitGenere(texteFinal, MODEL_QUALITE_RECIT);
+      if (!signauxIARecit) raison += ' | 2e tentative (autre modèle) : ' + _stRaisonJugeMuet;
+    }
+  } catch (e) {
+    raison = raison || ('erreur inattendue : ' + String((e && e.message) || e).slice(0, 120));
+  }
+
+  delete parsed.scoreEnCours;
+  if (signauxIARecit) {
+    // Même filet que côté Script : une exception ici laisserait la carte
+    // bloquée sur "calcul en cours" pour toujours.
+    try {
+      const signauxFinalRecit = Object.assign(
+        { rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinal) },
+        signauxIARecit
+      );
+      parsed.score = scorerRecitGenere(signauxFinalRecit, motsRecit, wt);
+      delete parsed.evaluationIndisponible;
+    } catch (e) {
+      signauxIARecit = null;
+      raison = 'calcul du score impossible : ' + String((e && e.message) || e).slice(0, 120);
+    }
+  }
+  if (!signauxIARecit) {
+    if (typeof journaliserEchecEvaluation === 'function') journaliserEchecEvaluation('score-story', raison);
+    parsed.score = null;
+    parsed.evaluationIndisponible = 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois. Plutôt que d\'afficher une note approximative, Scriptura préfère ne rien inventer. Régénère pour l\'obtenir.';
+  }
+
+  if (currentStory !== parsed) return; // un autre récit est affiché entre-temps
+  if (typeof rafraichirCarteScore === 'function') rafraichirCarteScore('storyOutput', carteScoreRecitHTML(parsed));
+
+  try { await sauvegardePromise; } catch (e) { /* sauvegarde déjà silencieuse */ }
+  if (currentStory !== parsed) return;
+  if (typeof updateGenerationScore === 'function') {
+    updateGenerationScore(parsed.score, parsed.evaluationIndisponible || null);
+  }
+}
+
 // Raison du dernier échec du juge du récit, pour la journaliser (même
 // principe et mêmes motifs que _genRaisonJugeMuet, js/generation.js).
 let _stRaisonJugeMuet = '';
@@ -1020,35 +1075,17 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // absents = crédit neutre de 0,5 partout = un score fabriqué affiché comme
     // une mesure. Une seconde tentative (l'appel le moins cher du pipeline),
     // puis, à défaut, aucun chiffre inventé.
-    let signauxIARecit = null;
-    let raisonJugeMuetRecit = '';
-    if (!repondreMaintenant) {
-      signauxIARecit = await evaluerRecitGenere(texteFinalRecit);
-      if (!signauxIARecit) {
-        raisonJugeMuetRecit = _stRaisonJugeMuet;
-        // Seconde tentative sur un modèle RÉELLEMENT différent, jamais à
-        // l'identique (voir le commentaire détaillé dans js/generation.js) :
-        // les deux modèles de callAI sont le même, réessayer tel quel retente
-        // exactement ce qui vient d'échouer.
-        signauxIARecit = await evaluerRecitGenere(texteFinalRecit, MODEL_QUALITE_RECIT);
-        if (!signauxIARecit) raisonJugeMuetRecit += ' | 2e tentative (autre modèle) : ' + _stRaisonJugeMuet;
-      }
-    }
-    if (!signauxIARecit) {
-      if (!repondreMaintenant && typeof journaliserEchecEvaluation === 'function') {
-        journaliserEchecEvaluation('score-story', raisonJugeMuetRecit);
-      }
-      parsed.score = null;
-      parsed.evaluationIndisponible = repondreMaintenant
-        ? 'Score non calculé : tu as demandé ton brouillon tout de suite, l\'évaluation indépendante n\'a pas eu le temps de tourner. Le récit, lui, est complet.'
-        : 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois. Plutôt que d\'afficher une note approximative, Scriptura préfère ne rien inventer. Régénère pour l\'obtenir.';
+    // ── LE SCORE NE BLOQUE PLUS L'AFFICHAGE DU RÉCIT ──
+    // Même décision produit que pour le mode Script (voir le commentaire
+    // détaillé dans generate(), js/generation.js) : le juge indépendant est le
+    // seul appel qui ne touche pas un mot du récit, il n'a donc aucune raison
+    // de faire patienter le créateur. Méthode de calcul rigoureusement
+    // inchangée, seulement déplacée après l'affichage.
+    parsed.score = null;
+    if (repondreMaintenant) {
+      parsed.evaluationIndisponible = 'Score non calculé : tu as demandé ton brouillon tout de suite, l\'évaluation indépendante n\'a pas eu le temps de tourner. Le récit, lui, est complet.';
     } else {
-      const signauxFinalRecit = Object.assign(
-        { rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinalRecit) },
-        signauxIARecit
-      );
-      parsed.score = scorerRecitGenere(signauxFinalRecit, countStoryWords(parsed.recit), wt);
-      delete parsed.evaluationIndisponible;
+      parsed.scoreEnCours = true;
     }
 
     if (!unlocked && !_regenGratuiteEnCours) {
@@ -1062,8 +1099,18 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     lastStoryContext = { sujet: input, plateforme: storyPlatform };
     renderStory(parsed);
     setTimeout(updateScrollBtn, 300);
-    saveGeneration('story', parsed.titre || input.slice(0, 60), parsed);
+    // scoreEnCours n'est jamais persisté (drapeau d'affichage) : une
+    // réouverture depuis l'historique ne doit pas rester sur un "calcul en
+    // cours" que plus rien n'alimente.
+    const contenuRecitASauver = Object.assign({}, parsed);
+    delete contenuRecitASauver.scoreEnCours;
+    const sauvegardeRecit = saveGeneration('story', parsed.titre || input.slice(0, 60), contenuRecitASauver);
     updateQuotaJour();
+
+    // Le juge part MAINTENANT, après l'affichage : plus rien ne l'attend.
+    if (!repondreMaintenant) {
+      calculerScoreRecitEnArrierePlan(parsed, texteFinalRecit, countStoryWords(parsed.recit), wt, sauvegardeRecit);
+    }
 
     // Mémoire du créateur (tâche de fond, silencieuse).
     mettreAJourProfilCreateur({
@@ -1095,6 +1142,60 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
   }
 }
 
+// Carte de score du récit en TROIS états, même principe et même gabarit que
+// carteScoreScriptHTML (js/generation.js), avec les libellés propres au récit.
+// `scoreEnCours` est un drapeau d'AFFICHAGE, jamais persisté.
+function carteScoreRecitHTML(d) {
+  if (d && d.score) {
+    const s = d.score;
+    const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
+    const globalScore = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+    return `
+      <div class="score-card sb-appear">
+        <div class="score-header">
+          <div class="score-title">◆ Scriptura Score</div>
+          <div class="score-global">
+            <span class="score-global-num">${globalScore}</span>
+            <span class="score-global-max">/ 100</span>
+          </div>
+        </div>
+        <div class="score-metrics">
+          ${metricBar('Potentiel viral', s.viral)}
+          ${metricBar('Force narrative', s.narration)}
+          ${metricBar('Engagement', s.engagement)}
+          ${metricBar('Force émotionnelle', s.emotion)}
+          ${metricBar('Rétention estimée', s.retention)}
+        </div>
+        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+      </div>`;
+  }
+  if (d && d.scoreEnCours) {
+    return `
+      <div class="score-card sb-appear">
+        <div class="score-header">
+          <div class="score-title">◆ Scriptura Score</div>
+          <div class="score-global"><span class="score-global-max">calcul en cours…</span></div>
+        </div>
+        <div class="score-metrics">
+          ${['Potentiel viral', 'Force narrative', 'Engagement', 'Force émotionnelle', 'Rétention estimée'].map(l => metricBarVide(l)).join('')}
+        </div>
+        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+      </div>`;
+  }
+  if (d && d.evaluationIndisponible) {
+    // Juge indépendant muet : aucune barre, aucun chiffre fabriqué.
+    return `
+      <div class="score-card sb-appear">
+        <div class="score-header">
+          <div class="score-title">◆ Scriptura Score</div>
+          <div class="score-global"><span class="score-global-max">non calculé</span></div>
+        </div>
+        <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
+      </div>`;
+  }
+  return '';
+}
+
 function renderStory(d) {
   const out = document.getElementById('storyOutput');
   const fullText = (d.recit || []).map(s => s.texte).join('\n\n');
@@ -1117,42 +1218,8 @@ function renderStory(d) {
   const sbContSt = document.getElementById('storyStoryboardOutput');
   if (sbContSt) sbContSt.innerHTML = '';
 
-  // ── SCRIPTURA SCORE (adapté au récit) ──
-  let scoreHTML = '';
-  if (d.score) {
-    const s = d.score;
-    const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
-    const globalScore = vals.length ? Math.round(vals.reduce((a,b) => a+b, 0) / vals.length) : 0;
-    scoreHTML = `
-      <div class="score-card sb-appear">
-        <div class="score-header">
-          <div class="score-title">◆ Scriptura Score</div>
-          <div class="score-global">
-            <span class="score-global-num">${globalScore}</span>
-            <span class="score-global-max">/ 100</span>
-          </div>
-        </div>
-        <div class="score-metrics">
-          ${metricBar('Potentiel viral', s.viral)}
-          ${metricBar('Force narrative', s.narration)}
-          ${metricBar('Engagement', s.engagement)}
-          ${metricBar('Force émotionnelle', s.emotion)}
-          ${metricBar('Rétention estimée', s.retention)}
-        </div>
-        ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
-      </div>`;
-  } else if (d.evaluationIndisponible) {
-    // Juge indépendant muet : aucune barre, aucun chiffre fabriqué (voir le
-    // commentaire dans la génération du récit plus haut).
-    scoreHTML = `
-      <div class="score-card sb-appear">
-        <div class="score-header">
-          <div class="score-title">◆ Scriptura Score</div>
-          <div class="score-global"><span class="score-global-max">non calculé</span></div>
-        </div>
-        <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
-      </div>`;
-  }
+  // ── SCRIPTURA SCORE (trois états, voir carteScoreRecitHTML) ──
+  const scoreHTML = carteScoreRecitHTML(d);
 
   // Construire les sections (comme le mode script : accordéon avec +)
   const sections = [];

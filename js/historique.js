@@ -92,6 +92,22 @@ async function updateGenerationStoryboard(storyboardData) {
   await _patchGenerationCourante({ storyboard_genere: storyboardData });
 }
 
+// Rattache le score à la génération courante, une fois le juge indépendant
+// revenu (il tourne désormais APRÈS l'affichage, voir
+// calculerScoreScriptEnArrierePlan, js/generation.js). Sans ça, une génération
+// rouverte depuis l'historique aurait perdu son score, puisque la ligne est
+// enregistrée avant que le juge ait répondu.
+async function updateGenerationScore(score, evaluationIndisponible) {
+  await _patchGenerationCourante({
+    score: score || null,
+    evaluationIndisponible: evaluationIndisponible || null,
+    // Toujours remis à false : ce drapeau n'est jamais persisté au moment de
+    // la sauvegarde, mais une ligne réenregistrée entre-temps ne doit en aucun
+    // cas rouvrir sur un "calcul en cours" que plus rien n'alimente.
+    scoreEnCours: false
+  });
+}
+
 // Rattache le guide de montage CapCut à la génération courante (script, récit,
 // storyboard seul), pour qu'il réapparaisse à la réouverture. Même mécanisme
 // que updateGenerationStoryboard. currentGenId est déjà positionné, y compris
