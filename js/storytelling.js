@@ -565,12 +565,22 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     // Réponse tronquée (rare, mais arrive) : une nouvelle tentative silencieuse
     // avant de déranger le créateur avec une erreur qu'il devrait relancer lui-même.
     if (!parsed || !parsed.recit) {
+      // Raison du PREMIER échec relevée avant la relance, même angle mort que
+      // le mode Script (voir journaliserReponseIncomplete, js/api.js) : cet
+      // échec-là n'était journalisé nulle part, puisque l'appel au modèle a
+      // RÉUSSI et que c'est le contrôle de complétude qui rejette ensuite.
+      const raison1 = !raw ? 'réponse vide' : (!parsed ? 'JSON irréparable' : 'champs manquants');
       // Recherche web désactivée sur cette tentative de secours : si le 1er
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le récit plutôt qu'à revérifier des faits,
       // la recherche web ajoute justement le temps qui a fait échouer le 1er essai.
       const rawRetry = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, false, undefined, undefined, undefined, onApercuEcriture, 'story');
       parsed = parseAIResponse(rawRetry);
+      // Journalisé dans les deux cas : une relance qui sauve la mise reste
+      // invisible du créateur mais a coûté un appel et du quota.
+      if (typeof journaliserReponseIncomplete === 'function') {
+        journaliserReponseIncomplete('story', raison1, !!(parsed && parsed.recit));
+      }
     }
     if (!parsed || !parsed.recit) throw new Error('Réponse incomplète, réessaie');
     // Si le créateur a choisi un ton, l'affichage doit toujours correspondre

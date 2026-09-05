@@ -1844,9 +1844,22 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // détecter ICI, au point le moins cher du pipeline (avant tout critique/
     // révision), pour relancer une génération complète tout de suite.
     function scriptEstComplet(p) {
-      if (!p || !Array.isArray(p.script) || !p.script.length || !Array.isArray(p.hooks) || !p.hooks.length) return false;
-      if (wt && wt.min && countScriptWords(p.script) < wt.min * 0.5) return false;
-      return true;
+      return raisonIncompletude(p) === null;
+    }
+    // Même contrôle, mais qui DIT pourquoi il rejette. Sans cette raison, le
+    // journal d'échecs se contenterait de « réponse incomplète » et
+    // n'apprendrait rien : une réponse coupée par le délai, un JSON
+    // irréparable et un texte trop court appellent trois corrections
+    // différentes (plafond de jetons, réparation JSON, consigne de longueur).
+    // Catégories volontairement courtes et fixes, pour que le Tableau de bord
+    // puisse les REGROUPER et les compter (voir journaliserReponseIncomplete,
+    // js/api.js).
+    function raisonIncompletude(p) {
+      if (!p) return 'JSON irréparable';
+      if (!Array.isArray(p.script) || !p.script.length) return 'champs manquants';
+      if (!Array.isArray(p.hooks) || !p.hooks.length) return 'champs manquants';
+      if (wt && wt.min && countScriptWords(p.script) < wt.min * 0.5) return 'texte trop court';
+      return null;
     }
 
     // Le brief (Directeur éditorial) vient de se terminer pour de vrai :
@@ -1866,6 +1879,10 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // si la réparation JSON a dû tronquer avant la fin, on vérifie donc les champs
     // essentiels, pas juste la présence de l'objet.
     if (!scriptEstComplet(parsed)) {
+      // Raison du PREMIER échec relevée avant la relance : c'est elle qui dit
+      // ce qui s'est réellement passé, la relance pouvant ensuite réussir et
+      // tout effacer.
+      const raison1 = writeRaw ? raisonIncompletude(parsed) : 'réponse vide';
       // Recherche web désactivée sur cette tentative de secours : si le 1er
       // essai a échoué (souvent une réponse tronquée par le temps limite), la
       // priorité passe à FINIR le script plutôt qu'à revérifier des faits,
@@ -1873,6 +1890,14 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       const writeRawRetry = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, false, undefined, undefined, undefined, onApercuEcriture, 'script');
       const parsedRetry = parseAIResponse(writeRawRetry);
       if (scriptEstComplet(parsedRetry)) parsed = parsedRetry;
+      // Journalisé DANS LES DEUX CAS (voir journaliserReponseIncomplete,
+      // js/api.js) : une relance qui sauve la mise reste invisible du
+      // créateur, mais a coûté un appel et du quota. C'est justement ce
+      // chiffre qui dira si le problème est marginal ou systématique, avant
+      // qu'il ne devienne visible.
+      if (typeof journaliserReponseIncomplete === 'function') {
+        journaliserReponseIncomplete('script', raison1, scriptEstComplet(parsed));
+      }
     }
     if (!scriptEstComplet(parsed)) throw new Error('Réponse incomplète, réessaie, ce sera plus rapide');
 

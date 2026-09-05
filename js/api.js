@@ -408,6 +408,46 @@ function journaliserEchecEvaluation(mode, detail) {
   } catch (e) { /* silencieux, ce journal ne doit jamais gêner l'utilisateur */ }
 }
 
+// ── RÉPONSES INCOMPLÈTES (angle mort du journal d'échecs) ──
+//
+// Retour propriétaire, après un « Réponse incomplète, réessaie » vu en
+// production : cet échec-là n'apparaissait NULLE PART dans la carte « Échecs
+// de génération ». Le journal de callAI (plus haut) ne couvre que les cas où
+// l'appel au modèle abandonne lui-même : réseau, délai dépassé, réponse vide.
+// Ici, l'appel RÉUSSIT et renvoie du texte ; c'est le contrôle de complétude,
+// côté navigateur, qui le rejette ensuite. Résultat : le fondateur n'avait
+// aucun moyen de savoir si ça arrive une fois par mois ou dix fois par jour
+// chez ses abonnés, alors que chaque tentative consomme du quota.
+//
+// `rattrape` distingue les deux situations, et c'est tout l'intérêt de la
+// mesure :
+//   - false : le créateur a VU l'erreur, la génération est perdue ;
+//   - true  : la relance silencieuse a sauvé la mise, le créateur n'a rien
+//     vu, mais ça a quand même coûté un appel et du quota. C'est ce
+//     chiffre-là qui dira si le problème est marginal ou systématique, bien
+//     avant qu'il ne devienne visible.
+//
+// `raison` doit rester COURTE et catégorielle (« réponse vide », « JSON
+// irréparable », « champs manquants », « texte trop court ») : le tableau de
+// bord regroupe par texte identique, une raison qui contiendrait des détails
+// variables produirait autant de lignes que d'échecs, donc aucun décompte
+// exploitable.
+function journaliserReponseIncomplete(mode, raison, rattrape) {
+  try {
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resource: 'erreur',
+        mode: mode || 'creation',
+        code: localStorage.getItem('scriptura_code') || null,
+        detail: 'réponse incomplète (' + (raison || 'cause inconnue') + ')'
+          + (rattrape ? ' — rattrapée par la relance' : ' — échec définitif')
+      })
+    }).catch(() => {});
+  } catch (e) { /* silencieux, ce journal ne doit jamais gêner l'utilisateur */ }
+}
+
 
 // ── MESURE DES PASSES DE PERFECTIONNEMENT ──
 // Une ligne par génération réussie (voir supabase/passes_generation.sql), pour
