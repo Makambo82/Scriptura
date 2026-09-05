@@ -132,13 +132,45 @@ function ouvrirMontage(plans, boutonEl) {
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
   renderMontageEtat();
   chargerVoixMontage();
-  const panneau = document.getElementById('montageModal');
+  const panneau = panneauMontage();
   if (panneau) {
     const ligneActions = boutonEl && boutonEl.closest('.sb-actions-fin');
     if (ligneActions) ligneActions.insertAdjacentElement('afterend', panneau);
+    // Toujours rattaché quelque part, même sans ligne d'actions : un panneau
+    // resté détaché ne s'afficherait nulle part, exactement le bug corrigé
+    // ci-dessus vu de l'autre côté.
+    else if (!panneau.isConnected) document.body.appendChild(panneau);
     panneau.classList.add('active');
     panneau.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+}
+
+// Le panneau de montage, retrouvé même s'il a été ARRACHÉ du document.
+//
+// VRAI BUG SIGNALÉ (retour propriétaire : « le bouton ne répond pas quand on
+// clique, mais depuis mes générations ça marche »), reproduit et compris :
+// ouvrirMontage DÉPLACE ce panneau juste sous la ligne d'actions du
+// storyboard, pour qu'il se lise comme sa suite. Il ne vit donc plus dans le
+// <body> mais DANS #storyboardContainer. Or la génération suivante vide ce
+// conteneur (`sbCont.innerHTML = ''`, voir renderResults, js/generation.js) :
+// le panneau part avec, définitivement. getElementById renvoie alors null,
+// ouvrirMontage sort en silence, et le bouton paraît mort, sans la moindre
+// erreur en console. C'est exactement le symptôme décrit.
+//
+// La parade tient à une chose : on garde une RÉFÉRENCE au nœud. Vider le
+// conteneur le détache du document mais ne le détruit pas tant que quelque
+// chose le référence, avec son contenu et ses écouteurs intacts. On peut donc
+// le raccrocher, plutôt que d'en fabriquer un deuxième (qui aurait dupliqué
+// tous ses identifiants dans la page).
+//
+// Ce défaut existait avant l'ouverture du montage aux abonnés : seul le
+// fondateur cliquait ce bouton, et il fallait enchaîner deux montages dans la
+// même session pour le déclencher.
+let _panneauMontageRef = null;
+function panneauMontage() {
+  const vivant = document.getElementById('montageModal');
+  if (vivant) { _panneauMontageRef = vivant; return vivant; }
+  return _panneauMontageRef;
 }
 
 // Décode une chaîne base64 (renvoyée par ElevenLabs ou Gemini) en Blob.
