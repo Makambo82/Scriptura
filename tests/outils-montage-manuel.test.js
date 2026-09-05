@@ -2,8 +2,13 @@
 // à côté de "Storyboard d'un script" et "Transcrire ou télécharger une
 // vidéo") : variante du montage vidéo qui ne part pas d'un storyboard
 // généré par l'IA, l'utilisateur uploade ses propres images + sa voix off
-// (fichier existant ou texte à transformer via ElevenLabs). Réservé au
-// fondateur (voir js/montage-manuel.js, css/style.css .outils-montage-home-btn).
+// (fichier existant ou texte à transformer via ElevenLabs). Ouvert à
+// Creator et Pro (voir js/montage-manuel.js, css/style.css
+// .outils-montage-home-btn) depuis que le coût réel du rendu est mesuré
+// (retour propriétaire) ; couverture complète de cette ouverture dans
+// tests/montage-video-ouvert-creator-pro.test.js, ce fichier-ci se
+// contente de vérifier qu'un non-abonné en reste exclu avant de passer
+// au vrai sujet de ces tests, la synchro image/voix.
 //
 // Point central testé ici : la SYNCHRO image/voix (retour direct du
 // propriétaire : « il y aura un problème de synchronisation voix/image »).
@@ -21,28 +26,29 @@ const { demarrerServeur } = require('./helpers/serveur');
 const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
-test('Outils TikTok : "Monter une vidéo" est réservé au fondateur, visible seulement en body.is-admin', async () => {
+test('Outils TikTok : "Monter une vidéo" reste caché à un non-abonné, visible pour un abonné Creator', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
     const page = await navigateur.newPage();
     await poserMocksReseau(page);
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
-    await connecterAbonne(page, { code: 'ABONNETEST', plan: 'creator' });
     await page.waitForTimeout(150);
 
+    const visiblePourVisiteur = await page.evaluate(() => {
+      const btn = document.getElementById('outilsMontageHomeBtn');
+      return btn && getComputedStyle(btn).display !== 'none';
+    });
+    assert.equal(visiblePourVisiteur, false, 'un visiteur non connecté ne doit jamais voir ce bouton, le rendu reste payant');
+
+    await connecterAbonne(page, { code: 'ABONNETEST', plan: 'creator' });
+    await page.waitForTimeout(150);
     const visiblePourAbonne = await page.evaluate(() => {
       const btn = document.getElementById('outilsMontageHomeBtn');
       return btn && getComputedStyle(btn).display !== 'none';
     });
-    assert.equal(visiblePourAbonne, false, 'un abonné non-fondateur ne doit jamais voir ce bouton');
-
-    await page.evaluate(() => document.body.classList.add('is-admin'));
-    const visiblePourAdmin = await page.evaluate(() => {
-      const btn = document.getElementById('outilsMontageHomeBtn');
-      return btn && getComputedStyle(btn).display !== 'none';
-    });
-    assert.equal(visiblePourAdmin, true, 'le fondateur doit voir le bouton "Monter une vidéo"');
+    assert.equal(visiblePourAbonne, true,
+      'REGRESSION : un abonné Creator doit voir "Monter une vidéo" (voir tests/montage-video-ouvert-creator-pro.test.js pour la couverture complète)');
   } finally {
     await navigateur.close();
     await arreter();

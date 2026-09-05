@@ -348,12 +348,14 @@ function lireUsageMontageImages(droits, code) {
   return lireUsageImages(droits, code, 'montageImages');
 }
 
-// Accès au montage vidéo (voix off, musique, images) : Creator ET Pro,
-// différenciés seulement par le quota d'images (voir LIMITES_MOIS,
-// montageImages), pas par l'accès lui-même - contrairement à
+// Accès au montage vidéo (voix off, musique, images, ET rendu final) :
+// Creator ET Pro, différenciés seulement par le quota d'images (voir
+// LIMITES_MOIS, montageImages), pas par l'accès lui-même - contrairement à
 // verifierAccesProOuJeton (réservé Pro/jeton). Le rendu vidéo final
-// (api/montage-render.js) reste séparément réservé au fondateur pour
-// l'instant (coût du service de rendu externe pas encore mesuré/quoté).
+// (api/montage-render.js) suivait autrefois une règle séparée, réservée au
+// fondateur, le temps de mesurer le coût du service de rendu externe : c'est
+// fait (quelques millièmes de dollar par vidéo sur Railway, retour
+// propriétaire), il suit désormais la même règle que le reste du montage.
 function verifierAccesMontage(droits) {
   if (droits.isAdmin || droits.illimite) return { ok: true };
   if (droits.plan === 'creator' || droits.plan === 'pro') return { ok: true };

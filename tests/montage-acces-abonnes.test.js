@@ -3,8 +3,9 @@
 // pouvait l'utiliser. Ouverture aux deux plans, différenciés seulement par un
 // quota MENSUEL D'IMAGES (pas un quota de montages : une vidéo de 10 images
 // et une de 30 n'ont pas le même coût, voir LIMITES_MOIS.montageImages,
-// api/_lib/acces.js). Le rendu vidéo final (api/montage-render.js) reste à
-// part, encore réservé au fondateur (non concerné par ces tests).
+// api/_lib/acces.js). Le rendu vidéo final (api/montage-render.js), lui,
+// suit désormais la même règle (voir tests/montage-render-acces-abonnes.test.js
+// pour ses tests dédiés, non concerné par ce fichier-ci).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 

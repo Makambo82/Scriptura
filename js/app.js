@@ -150,6 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
   forcerLectureVideosExemple();
   if (unlocked) document.body.classList.add('is-unlocked');
   appliquerClasseAdmin();
+  if (typeof appliquerClasseMontage === 'function') appliquerClasseMontage();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
   // Migration : les sessions ouvertes avant la sécurisation des codes
   // admin/illimité (voir api/verify-code.js) sont "unlocked" mais n'ont
@@ -168,6 +169,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (typeof _basculeCompteEnCours !== 'undefined') _basculeCompteEnCours = true;
       verifierStatutServeur(monCode).then(() => {
         appliquerClasseAdmin();
+        if (typeof appliquerClasseMontage === 'function') appliquerClasseMontage();
         if (typeof renderGenCounter === 'function') renderGenCounter();
         if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
       }).finally(() => {

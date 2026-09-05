@@ -2,13 +2,13 @@
 //  MONTAGE MANUEL (carte "Monter une vidéo", accueil → Services annexes)
 //  Outil à part entière (écran #montageManuelFlow dédié, retour direct :
 //  jamais imbriqué dans l'écran Outils TikTok, même s'il en réutilise le
-//  pipeline de rendu) qui ne part PAS d'un storyboard généré par l'IA : le
-//  fondateur uploade directement ses propres images et sa propre voix off
+//  pipeline de rendu) qui ne part PAS d'un storyboard généré par l'IA :
+//  le créateur uploade directement ses propres images et sa propre voix off
 //  (fichier existant OU texte à transformer via ElevenLabs, au choix).
-//  Réservé au fondateur (voir .outils-montage-home-btn, css/style.css,
-//  body.is-admin) : le rendu FFmpeg reste coûteux, même restriction que le
-//  montage depuis le storyboard, re-vérifiée côté serveur par
-//  /api/montage-render (resoudreDroits/isAdmin), jamais fiée au seul CSS.
+//  Ouvert à Creator ET Pro (voir .outils-montage-home-btn, css/style.css,
+//  body.peut-monter-video, ou body.is-admin pour le fondateur), même règle
+//  que le montage depuis le storyboard, re-vérifiée côté serveur par
+//  /api/montage-render (verifierAccesMontage), jamais fiée au seul CSS.
 //  Réutilise volontairement le pipeline déjà en place : /api/montage-render
 //  (proxy vers le service de rendu externe Railway),
 //  /api/montage-media (voix ElevenLabs), et les fonctions de partage/
@@ -515,7 +515,7 @@ async function omGenererVoixOff() {
     // Sous-titres (groupes "2 mots longs ou 3 mots courts", voir
     // api/montage-media.js) : seulement disponibles pour une voix off
     // générée par l'IA (horodatage ElevenLabs), jamais pour un fichier
-    // audio uploadé par le fondateur (source:'upload' plus bas, aucun
+    // audio uploadé par le créateur (source:'upload' plus bas, aucun
     // horodatage possible sans repasser par un service de transcription).
     omAudio = { blob, url: URL.createObjectURL(blob), duree, durations, source: 'ia', captions: Array.isArray(data.captions) ? data.captions : [] };
   } catch (e) {

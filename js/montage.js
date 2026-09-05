@@ -1,7 +1,10 @@
 // ═══════════════════════════════════════════════════════════
 //  MONTAGE VIDÉO, assemblage images + voix off, rendu par FFmpeg
 //  auto-hébergé (voir api/montage-render.js).
-//  Réservé au fondateur (bouton visible uniquement en body.is-admin).
+//  Ouvert à Creator ET Pro (bouton visible en body.peut-monter-video, voir
+//  js/api.js, ou body.is-admin pour le fondateur) : la vérité reste le
+//  serveur (verifierAccesMontage, revérifiée à chaque appel), cette classe
+//  ne sert qu'à ne pas montrer un bouton qui échouerait de toute façon.
 //  Boucle complète : les images sont générées par Together AI (voir
 //  api/montage-images.js) à partir des prompts visuels déjà écrits par
 //  Scriptura pour chaque plan, et la voix off par ElevenLabs (voir
@@ -58,8 +61,9 @@ let montageStyleOverride = '';
 
 // Bouton "Générer la vidéo" inséré à la suite de chaque storyboard généré
 // (Récit, Script, Storyboard seul, Série, génération en direct ET
-// réouverture depuis l'historique). Masqué par CSS pour tout le monde sauf
-// le fondateur (.montage-trigger-btn, voir css/style.css).
+// réouverture depuis l'historique). Masqué par CSS pour un non-abonné ou un
+// jeton seul (.montage-trigger-btn, voir css/style.css) : visible pour
+// Creator, Pro et le fondateur.
 //
 // `plans` est mémorisé dans un registre à clé (comme storeCopyText pour le
 // texte) plutôt que capturé dans une closure : certains appelants (le
@@ -1078,8 +1082,8 @@ async function lancerMontage() {
       // Toujours /api/montage-render (voir en-tête de fichier) : c'est lui
       // qui décide, côté serveur, d'assembler la vidéo lui-même ou de
       // proxier vers le service de rendu externe.
-      // Sous-titres activables/désactivables par le fondateur avant de
-      // lancer le montage (retour propriétaire), voir la case à cocher
+      // Sous-titres activables/désactivables avant de lancer le montage
+      // (retour propriétaire), voir la case à cocher
       // #montageSousTitresCheckbox juste au-dessus du bouton "Lancer le
       // montage" dans le HTML. Cochée par défaut.
       const sousTitresActives = document.getElementById('montageSousTitresCheckbox')?.checked !== false;

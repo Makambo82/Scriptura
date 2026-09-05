@@ -132,14 +132,30 @@ test('/api/montage-render transmet watermark au service externe (retour proprié
   }
 });
 
-test('/api/montage-render refuse un code non-fondateur avant même de songer à un rendu', async () => {
+test('/api/montage-render refuse un code non-abonné avant même de songer à un rendu', async () => {
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE2';
   process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+  // SUPABASE_URL/SERVICE_ROLE_KEY réglées ici (absentes dans les tests
+  // précédents de ce fichier, qui n'en avaient pas besoin avec un code
+  // admin) : sans elles, resoudreDroits dégrade en accès Creator gratuit
+  // pour N'IMPORTE QUEL code (voir api/_lib/acces.js) - un vrai risque en
+  // prod, mais qui aurait aussi rendu ce test faussement vert pour la
+  // mauvaise raison (un code "refusé" par accident de configuration, pas
+  // par une vraie vérification).
+  process.env.SUPABASE_URL = 'https://exemple.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'cle-service-role-test';
 
+  // Deux appels réseau bien distincts derrière ce seul test : la lecture
+  // Supabase de l'abonné (toujours nécessaire pour SAVOIR qu'il faut
+  // refuser), et le proxy vers le service de rendu externe (qui ne doit,
+  // lui, jamais être contacté). `appeleProxy` ne doit noter QUE le second.
   const fetchOriginal = global.fetch;
   let appeleProxy = false;
-  global.fetch = async () => { appeleProxy = true; return { ok: true, json: async () => ({}) }; };
+  global.fetch = async (url) => {
+    if (String(url).includes('service-de-rendu-test.example')) appeleProxy = true;
+    return { ok: true, json: async () => ({}) };
+  };
 
   try {
     const { default: handler } = await import('../api/montage-render.js');
@@ -149,7 +165,7 @@ test('/api/montage-render refuse un code non-fondateur avant même de songer à 
 
     await handler(req, res);
 
-    assert.equal(statusRecu, 403, 'un code non-admin doit être refusé');
+    assert.equal(statusRecu, 403, 'un code inconnu (jamais abonné) doit être refusé');
     assert.equal(jsonRecu.error && jsonRecu.error.code, 'ACCES_REFUSE');
     assert.equal(appeleProxy, false, 'le service externe ne doit jamais être contacté pour une requête refusée');
   } finally {

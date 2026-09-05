@@ -72,6 +72,24 @@ function appliquerClasseAdmin() {
   document.body.classList.toggle('is-admin', estCodeAdmin());
 }
 
+// Autorisation d'obtenir une vidéo montée (rendu final compris) : Creator ET
+// Pro, exactement comme le reste du montage (voir verifierAccesMontage,
+// api/_lib/acces.js), le rendu n'étant qu'une dernière étape du même
+// parcours, plus réservée au fondateur depuis que son coût réel est mesuré
+// (quelques millièmes de dollar par vidéo sur le service Railway). Un
+// jeton/non-abonné n'a jamais eu accès au montage, donc pas davantage au
+// rendu. Cette classe ne sert qu'à ne pas montrer un bouton qui échouerait
+// de toute façon : la vérité reste serveur, revérifiée à chaque appel par
+// /api/montage-media et /api/montage-render.
+function peutMonterVideo() {
+  if (estIllimite() || estCodeAdmin()) return true;
+  return typeof unlocked !== 'undefined' && unlocked
+    && typeof monPalier === 'function' && ['creator', 'pro'].includes(monPalier());
+}
+function appliquerClasseMontage() {
+  document.body.classList.toggle('peut-monter-video', peutMonterVideo());
+}
+
 // ── Niches nécessitant une vérification par recherche web ──
 // Le modèle n'a aucune connaissance des faits postérieurs à son entraînement,
 // et deux familles de niches ont besoin d'une vérification, mais pas de la

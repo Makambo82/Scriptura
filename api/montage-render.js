@@ -6,10 +6,15 @@
 //  ici, côté serveur uniquement (voir plus bas) : l'URL et le jeton ne
 //  doivent jamais vivre dans du JS servi au client.
 //
-//  Réservé au fondateur (bouton visible uniquement en body.is-admin) :
-//  contrairement aux autres routes du montage (voix, musique, images,
-//  déjà ouvertes à Creator/Pro), le coût du service de rendu externe
-//  n'est pas encore mesuré/quoté (retour propriétaire).
+//  Ouvert à Creator ET Pro, comme le reste du montage (voir
+//  verifierAccesMontage, api/_lib/acces.js), depuis que le coût réel du
+//  service de rendu externe est mesuré (retour propriétaire) : sur un
+//  montage réel de 55 s (11 plans, sous-titres, musique, filigrane), 35,4 s
+//  de calcul et un pic de 91 Mo de RAM, soit quelques millièmes de dollar
+//  au tarif Railway (facturé à la seconde de vCPU et de Go-RAM). Le rendu
+//  n'est qu'une dernière étape du même parcours déjà payant, le réserver
+//  plus longtemps au fondateur laissait un abonné préparer ses images et
+//  sa voix off sans jamais pouvoir obtenir la vidéo finale.
 //
 //  Historique : ce fichier assemblait autrefois la vidéo ICI MÊME avec
 //  FFmpeg (auto-hébergé sur Vercel), en repli si MONTAGE_RENDER_URL
@@ -21,7 +26,7 @@
 //  désormais requise pour que le montage fonctionne.
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits } from './_lib/acces.js';
+import { resoudreDroits, verifierAccesMontage, codeAccesRefuse } from './_lib/acces.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -32,11 +37,13 @@ export default async function handler(req, res) {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch (e) { body = {}; }
   }
-  // Réservé au fondateur (voir en-tête de fichier) : jusqu'ici seulement
-  // vérifié côté CSS (body.is-admin), donc contournable par un appel direct.
+  // Même règle d'accès que le reste du montage (voir en-tête de fichier) :
+  // vérifiée ICI, jamais fiée au seul CSS (body.peut-monter-video), qui ne
+  // sert qu'à masquer le bouton, pas à protéger la route.
   const droits = await resoudreDroits(body?.code_acces);
-  if (!droits.isAdmin) {
-    return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  const acces = verifierAccesMontage(droits);
+  if (!acces.ok) {
+    return res.status(403).json({ error: { message: 'Réservé aux abonnés Creator et Pro', code: codeAccesRefuse(droits) } });
   }
 
   const images = Array.isArray(body?.images) ? body.images : [];
