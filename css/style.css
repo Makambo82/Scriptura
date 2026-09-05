@@ -758,18 +758,11 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   background:linear-gradient(90deg,var(--gold),var(--gold-light));
   transition:width 1s ease;
 }
-/* Scriptura Score au vert (seuil partagé avec niveauScoreSur, js/audit.js :
-   70 sur 100) : le chiffre et les cinq barres passent en émeraude. La
-   couleur SUIT le score calculé par le code, elle ne le décide pas, le
-   pilier "scores déterministes" reste intact.
-   L'anneau des diagnostics, lui, était déjà émeraude au-dessus de ce même
-   seuil (paletteScoreAudit) : cette carte-ci était la seule à rester dorée
-   quel que soit le résultat, alors que c'est le score le plus vu de l'app. */
-.score-card.score-reussi .score-global-num{color:var(--emerald-light)}
-.score-card.score-reussi .metric-fill{
-  background:linear-gradient(90deg,var(--emerald),var(--emerald-light));
-}
-.score-card.score-reussi .metric-value{color:var(--emerald-light)}
+/* Le Scriptura Score reste DORÉ quel que soit le résultat. Essayé en
+   émeraude au-dessus du seuil vert, refusé par le propriétaire : « le vert
+   émeraude n'est pas beau » sur ces gros chiffres. La carte reste donc dans
+   l'identité de la maison, et l'émeraude garde les états discrets (pastilles,
+   contours, confirmation de copie). Ne pas retenter sans nouvelle demande. */
 .metric-tournage{
   display:flex;align-items:center;gap:10px;
   margin-top:8px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);
@@ -2499,7 +2492,10 @@ body.is-unlocked .sidebar-logout{display:block}
 .sb-progress-bar-fill.termine{
   background:linear-gradient(90deg, var(--emerald), var(--emerald-light));
 }
-.sb-progress-bar-pct.termine{color:var(--emerald-light)}
+/* Le POURCENTAGE, lui, reste doré : retour du propriétaire, « côté score et
+   pourcentage, remets le doré, le vert émeraude n'est pas beau ». Il n'a pas
+   tort, l'émeraude porte mal les chiffres, elle est faite pour les pastilles,
+   les contours et les fils, pas pour la typographie. */
 
 /* Toute barre de progression (.sb-progress-bar) affiche désormais son
    remplissage ET son pourcentage par défaut (retour direct du propriétaire :

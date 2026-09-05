@@ -13,14 +13,18 @@
 // disputer un même élément, et l'émeraude gagne une vraie place dans le flux
 // quotidien sans devenir de la décoration.
 //
-// Six endroits, du plus vu au moins vu :
+// Cinq endroits retenus, du plus vu au moins vu :
 //   1. une barre de progression qui atteint 100 % ;
 //   2. la confirmation "✓ Copié !" ;
 //   3. la coche de l'option retenue dans les menus maison ;
 //   4. les vignettes de plan dont l'image est prête ;
-//   5. le Scriptura Score au-dessus du seuil vert (SEUIL PARTAGÉ avec
-//      l'anneau des diagnostics, jamais un second seuil parallèle) ;
-//   6. une génération allée jusqu'à la vidéo montée, dans l'historique.
+//   5. une génération allée jusqu'à la vidéo montée, dans l'historique.
+//
+// DEUX ESSAIS REFUSÉS PAR LE PROPRIÉTAIRE, consignés ici pour qu'on ne les
+// refasse pas : le Scriptura Score en émeraude au-dessus du seuil vert, et le
+// pourcentage des barres. « Le vert émeraude n'est pas beau » sur ces
+// chiffres-là. La leçon tient en une phrase : l'émeraude porte les pastilles,
+// les contours et les fils, jamais la typographie chiffrée.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -40,10 +44,14 @@ test('la coche de l\'option retenue est émeraude, pas dorée', () => {
 
 test('les états émeraude existent tous en CSS, et aucun n\'utilise la teinte illisible', () => {
   for (const regle of ['.sb-progress-bar-fill.termine', '.copie-ok',
-    '.audit-thumb.montage-thumb-prete', '.score-card.score-reussi .score-global-num',
-    '.history-montee']) {
+    '.audit-thumb.montage-thumb-prete', '.history-montee']) {
     assert.ok(CSS.includes(regle), 'règle manquante : ' + regle);
   }
+  // Les deux endroits refusés par le propriétaire : ils doivent RESTER dorés.
+  assert.equal(CSS.includes('score-reussi'), false,
+    'le Scriptura Score reste doré quel que soit le résultat (refus explicite)');
+  assert.equal(CSS.includes('.sb-progress-bar-pct.termine'), false,
+    'le pourcentage des barres reste doré (refus explicite)');
   // --emerald (#1F6B4C) ne donne que 2,65:1 sur le fond sombre : il ne peut
   // servir que de FOND derrière du texte clair, jamais de couleur de texte.
   // --emerald-light (#3E9B75) est à 5,0:1, lui passe pour du texte.
@@ -88,8 +96,8 @@ test('une barre qui atteint 100 % passe en émeraude, et repasse si elle redéma
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.deepEqual(vu.enCours, { fill: false, pct: false }, 'à 40 %, rien n\'est accompli, donc rien n\'est vert');
-    assert.deepEqual(vu.fini, { fill: true, pct: true },
-      'REGRESSION : à 100 %, le remplissage ET le pourcentage passent en émeraude');
+    assert.deepEqual(vu.fini, { fill: true, pct: false },
+      'REGRESSION : à 100 %, le FIL passe en émeraude et le POURCENTAGE reste doré (refus explicite du propriétaire)');
     assert.deepEqual(vu.relance, { fill: false, pct: false },
       'REGRESSION : une barre relancée ne doit pas garder le vert de la fois d\'avant');
   } finally {
@@ -98,7 +106,11 @@ test('une barre qui atteint 100 % passe en émeraude, et repasse si elle redéma
   }
 });
 
-test('le Scriptura Score vire à l\'émeraude au SEUIL DÉJÀ EN VIGUEUR, jamais un autre', async () => {
+// Essai livré puis RETIRÉ à la demande du propriétaire : « côté score et
+// pourcentage, remets le doré, le vert émeraude n'est pas beau ». Le test
+// reste, à l'envers : il garde la carte dorée quel que soit le score, pour
+// qu'une bonne intention ne la reverdisse pas dans six mois.
+test('le Scriptura Score reste doré, y compris sur un excellent score', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -110,24 +122,24 @@ test('le Scriptura Score vire à l\'émeraude au SEUIL DÉJÀ EN VIGUEUR, jamais
     await page.waitForTimeout(300);
 
     const vu = await page.evaluate(() => {
-      const carte = (n) => carteScoreScriptHTML({
-        score: { viral: n, hook: n, engagement: n, emotion: n, retention: n }
+      const zone = document.createElement('div');
+      zone.id = 'zoneScoreTest';
+      zone.innerHTML = carteScoreScriptHTML({
+        score: { viral: 92, hook: 90, engagement: 88, emotion: 94, retention: 86 }
       });
+      document.body.appendChild(zone);
       return {
-        faible: /score-reussi/.test(carte(52)),
-        moyen: /score-reussi/.test(carte(69)),
-        bon: /score-reussi/.test(carte(70)),
-        excellent: /score-reussi/.test(carte(88)),
-        // Le seuil ne doit PAS être réécrit ici : c'est celui de l'anneau des
-        // diagnostics, partagé, sinon deux "c'est bon" divergeraient un jour.
-        memeSeuilQueLAnneau: niveauScoreSur(70, 100) === 'niveau-vert'
-          && niveauScoreSur(69, 100) !== 'niveau-vert'
+        couleurNum: getComputedStyle(zone.querySelector('.score-global-num')).color,
+        fondBarre: getComputedStyle(zone.querySelector('.metric-fill')).backgroundImage
       };
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.deepEqual(vu, { faible: false, moyen: false, bon: true, excellent: true, memeSeuilQueLAnneau: true },
-      'le vert doit suivre le score calculé, au seuil partagé de 70 : ' + JSON.stringify(vu));
+    // --gold-light = #E2C87A = rgb(226, 200, 122).
+    assert.equal(vu.couleurNum, 'rgb(226, 200, 122)',
+      'REGRESSION : le chiffre du Scriptura Score doit rester doré : ' + vu.couleurNum);
+    assert.ok(!/62, 155, 117|31, 107, 76/.test(vu.fondBarre),
+      'REGRESSION : les barres du Scriptura Score doivent rester dorées : ' + vu.fondBarre);
   } finally {
     await navigateur.close();
     await arreter();

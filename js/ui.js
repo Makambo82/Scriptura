@@ -840,13 +840,11 @@ function marquerBarreTerminee(fill) {
   // On lit la largeur DEMANDÉE (style en ligne), pas la largeur calculée :
   // pendant la transition CSS, la seconde n'a pas encore atteint 100 %.
   const largeur = parseFloat(fill.style.width);
-  const fini = largeur >= 100;
-  fill.classList.toggle('termine', fini);
-  // Le pourcentage vit à côté de la piste, pas dedans : .sb-progress-bar >
-  // (.sb-progress-bar-track > .sb-progress-bar-fill) + .sb-progress-bar-pct.
-  const barre = fill.parentElement && fill.parentElement.parentElement;
-  const pct = barre && barre.querySelector ? barre.querySelector('.sb-progress-bar-pct') : null;
-  if (pct) pct.classList.toggle('termine', fini);
+  fill.classList.toggle('termine', largeur >= 100);
+  // Le POURCENTAGE affiché à côté n'est volontairement pas touché : il reste
+  // doré. Retour du propriétaire, « côté score et pourcentage, remets le
+  // doré » : l'émeraude porte mal les chiffres, elle est faite pour le fil de
+  // la barre, pas pour la typographie qui l'accompagne.
 }
 
 function surveillerBarresProgression() {
