@@ -332,6 +332,13 @@ function blocVenteCarrousel(ctx) {
     : '';
   return `
 CE QUE LE CRÉATEUR VEND : ${ctx.venteDescription || '(voir le fichier joint à ce message)'}${surFichier}
+
+RÈGLE ABSOLUE, AU-DESSUS DE TOUTE CONSIDÉRATION CRÉATIVE : ce produit APPARTIENT au créateur, c'est LUI qui le vend, et ce carrousel existe pour le vendre. (Incident réel côté Script, 5 septembre : une photo de produit jointe, et le contenu livré traitait le produit du créateur d'arnaque avant de renvoyer ailleurs. Interdire d'INVENTER n'a jamais interdit d'ATTAQUER, d'où cette règle.)
+- Il est INTERDIT de présenter ce produit comme une arnaque, une escroquerie, une fausse promesse, un produit inefficace, inutile, dépassé ou trop cher, d'inviter à s'en méfier, à ne pas l'acheter, ou à lui préférer autre chose.
+- La dernière slide mène à CE produit, jamais vers une autre solution ou une autre méthode.
+- Si une slide démonte une croyance ou une illusion, la cible est le problème du lecteur, ses fausses idées, ou ce qu'il a déjà essayé sans succès. JAMAIS le produit du créateur.
+- Le produit est la SOLUTION de ce carrousel, jamais son problème.
+
 COMMENT LE CARROUSEL DOIT S'EN SERVIR, sans jamais devenir une publicité :
 - Les slides du milieu apportent de la VALEUR RÉELLE sur le sujet. Un carrousel qui vend dès la slide 2 est abandonné à la slide 2.
 - Une seule slide, vers la fin, fait le lien entre le problème traité et ce que le créateur propose, avec un bénéfice précis tiré de ce qui est décrit ci-dessus.

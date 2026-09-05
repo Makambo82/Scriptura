@@ -1594,8 +1594,34 @@ async function generate() {
   // Éditorial, pas sur le fichier brut, pour ne pas répéter son coût.
   const estObjectifVentes = state.objectif === 'Générer des ventes via mon contenu';
   const estObjectifVues = state.objectif === 'Faire plus de vues et maximiser la portée';
+  // LE PRODUIT EST CELUI DU CRÉATEUR, ON LE VEND, ON NE LE DÉMOLIT PAS.
+  //
+  // VRAI INCIDENT (retour propriétaire, capture à l'appui, 5 septembre) : une
+  // photo de gel minceur jointe, objectif Ventes, et le script livré ouvrait
+  // sur « Ce gel viral à 15 euros qui promet des abdos en 3 jours est une
+  // arnaque totale », pour finir en renvoyant vers « le vrai programme qui
+  // marche. Pas de gel. » L'app a transformé le produit du créateur en
+  // coupable de sa propre vidéo.
+  //
+  // La cause n'est pas le modèle, ce sont nos consignes. Deux d'entre elles
+  // le poussaient droit là : les leviers d'angle réclamés au Directeur
+  // (contradiction, révélation, coût caché, risque, secret) trouvent leur
+  // cible la plus facile dans le produit lui-même ; et rien nulle part ne
+  // disait que ce produit est celui du créateur. Interdire d'INVENTER
+  // (déjà en place) n'a jamais interdit d'ATTAQUER.
+  //
+  // Cette règle part donc aux DEUX étages, Directeur et Rédacteur, et elle
+  // est posée comme absolue : c'est la seule façon qu'elle passe devant des
+  // consignes créatives qui, elles, sont très insistantes.
+  const REGLE_PRODUIT_DU_CREATEUR = `
+RÈGLE ABSOLUE, AU-DESSUS DE TOUTE CONSIDÉRATION CRÉATIVE : ce produit APPARTIENT au créateur, c'est LUI qui le vend, et ce script existe pour le vendre.
+- Il est INTERDIT de présenter ce produit comme une arnaque, une escroquerie, une fausse promesse, un attrape-nigaud, un produit inefficace, inutile, dépassé, trop cher, ou de dire qu'il "ne marche pas". Interdit aussi d'inviter à s'en méfier, à ne pas l'acheter, ou à lui préférer quoi que ce soit d'autre.
+- La conclusion et l'appel à l'action mènent à CE produit, jamais vers une autre solution, un autre programme, une autre méthode.
+- Les leviers de tension demandés plus loin (contradiction, révélation, coût caché, risque, croyance démontée) restent les bienvenus, mais leur CIBLE est le problème du spectateur, ses fausses croyances, ou ce qu'il a déjà essayé sans succès. JAMAIS le produit du créateur.
+- Le produit est la SOLUTION de cette histoire, jamais le problème.
+`;
   const venteContexteScript = (estObjectifVentes && (venteDescription || venteFichier))
-    ? `\nCE QUE LE CRÉATEUR VEND : ${venteDescription || '(voir le fichier joint au message)'}${venteFichier ? ' Un fichier joint au message (photo du produit ou extrait du document fourni) donne des détails supplémentaires, utilise-le activement pour construire un angle, une preuve et une offre concrets, pas génériques.' : ''}\n`
+    ? `\nCE QUE LE CRÉATEUR VEND : ${venteDescription || '(voir le fichier joint au message)'}${venteFichier ? ' Un fichier joint au message (photo du produit ou extrait du document fourni) donne des détails supplémentaires, utilise-le activement pour construire un angle, une preuve et une offre concrets, pas génériques.' : ''}\n${REGLE_PRODUIT_DU_CREATEUR}`
     : '';
   const venteFichierPourBrief = (estObjectifVentes && venteFichier) ? venteFichier : undefined;
   // Ce que le RÉDACTEUR doit savoir du produit, et qu'il ne savait pas.
@@ -1624,7 +1650,7 @@ async function generate() {
     if (!produit) return '';
     return `
 CE QUE LE CRÉATEUR VEND, ET QUE CE SCRIPT DOIT SERVIR : ${produit}
-- Le script parle de CE produit et du problème qu'il résout, jamais de la vente en général. Un script qui explique "comment mieux vendre" à la place est hors sujet : le spectateur est le CLIENT, pas un vendeur.
+${REGLE_PRODUIT_DU_CREATEUR}- Le script parle de CE produit et du problème qu'il résout, jamais de la vente en général. Un script qui explique "comment mieux vendre" à la place est hors sujet : le spectateur est le CLIENT, pas un vendeur.
 - N'invente JAMAIS un prix, une garantie, un résultat chiffré, un délai promis, un client ou un témoignage qui ne figure pas ci-dessus. Aucun "Marc a doublé ses ventes", aucun "en 3 jours" que le créateur n'a pas fourni.
 - Une seule promesse : celle que le créateur a réellement décrite, sans la gonfler.
 `;
@@ -1669,7 +1695,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 1. ANALYSE DU SUJET : Quel est l'enjeu réel, la tension cachée, ce qui rend ce sujet émotionnellement puissant ? Quel est l'angle mort que personne n'exploite ? Si le profil du créateur ci-dessus contient des leçons tirées de ses audits précédents, utilise-les activement pour orienter cette analyse.
 
-2. TROIS ANGLES NARRATIFS DIFFÉRENTS : Propose 3 angles VRAIMENT distincts (pas 3 variantes du même). Pour CHAQUE angle, cherche activement au moins un de ces leviers puissants : l'élément inattendu, la contradiction, la révélation, le conflit, la surprise, le paradoxe, le coût caché, le secret, le risque. Un angle qui n'exploite aucun de ces leviers est un angle faible, remplace-le. Par exemple : un angle contre-intuitif, un angle émotionnel/personnel, un angle révélation/coulisses. Chaque angle doit attaquer le sujet différemment.
+2. TROIS ANGLES NARRATIFS DIFFÉRENTS : Propose 3 angles VRAIMENT distincts (pas 3 variantes du même). Pour CHAQUE angle, cherche activement au moins un de ces leviers puissants : l'élément inattendu, la contradiction, la révélation, le conflit, la surprise, le paradoxe, le coût caché, le secret, le risque. Un angle qui n'exploite aucun de ces leviers est un angle faible, remplace-le. Par exemple : un angle contre-intuitif, un angle émotionnel/personnel, un angle révélation/coulisses. Chaque angle doit attaquer le sujet différemment.${venteContexteScript ? ' RAPPEL DE LA RÈGLE ABSOLUE POSÉE PLUS HAUT : les TROIS angles doivent donner envie d\'acheter le produit du créateur. Le levier de tension vise le problème du spectateur, ses fausses croyances ou ce qu\'il a déjà essayé sans succès, jamais ce produit. Un angle qui met le produit en accusation est éliminé d\'office, aussi accrocheur soit-il.' : ''}
 
 3. COMPARAISON ET SÉLECTION : Compare les 3 angles pour ${state.plateforme} et l'objectif "${state.objectif}". L'angle choisi ne doit jamais être simplement "intéressant" : il doit être le PLUS PUISSANT des trois, celui qui a le plus fort potentiel d'arrêt du scroll ET de rétention. Choisis-en UN et justifie en une phrase pourquoi il est le plus fort, pas seulement pourquoi il convient.
 
@@ -1679,7 +1705,7 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 6. ANGLE DE HOOK GAGNANT : Quel type de hook aura le plus d'impact pour cet angle précis ? Appuie-toi sur ta connaissance de la psychologie humaine pour choisir CONSCIEMMENT le levier le plus puissant pour ce sujet précis (nomme-le) parmi : la BOUCLE OUVERTE / CURIOSITY GAP (une information manquante que le spectateur a besoin de combler), le PATTERN INTERRUPT (une forme ou une amorce qui casse ce à quoi on s'attend), l'AVERSION À LA PERTE (ce que le spectateur risque de manquer ou perdre s'il ne regarde pas), la DISSONANCE / CONTRADICTION (deux faits qui ne devraient normalement pas coexister), l'IDENTIFICATION MENACÉE (une menace ou une promesse qui touche directement le spectateur, pas un tiers abstrait), l'ENTRÉE EN PLEINE ACTION / IN MEDIAS RES (commencer au milieu d'une scène ou d'un résultat déjà arrivé, jamais poser calmement le décor avant, un début qui commence après coup retient nettement moins), ou le CHIFFRE/DÉTAIL PRÉCIS DÈS LA PREMIÈRE PHRASE (un chiffre, un montant, une durée exacte plutôt qu'une généralité vague). Le hook ne doit jamais être seulement accrocheur : il doit provoquer une envie IRRÉPRESSIBLE de continuer, en exploitant délibérément ce levier précis, pas au hasard. Teste mentalement la direction envisagée : est-elle prévisible ? Correspond-elle à une formule interdite (${GEN_HOOKS_CLICHES_INTERDITS}) ? Pourrait-elle être prononcée par n'importe quel créateur sur n'importe quel sujet (si oui, encore trop générique, cherche plus spécifique à CE sujet précis) ? Crée-t-elle une vraie tension et une boucle de curiosité ? Si elle échoue à l'un de ces tests, cherche une meilleure direction. Donne la direction ET le levier psychologique choisi (pas encore la formulation finale).
 
-7. STRATÉGIE DE CHUTE : ${estObjectifVues ? 'Pour l\'objectif "Faire plus de vues", pas de CTA parlé : décris comment la chute va boucler sur le hook (quel mot/image/idée du hook elle va reprendre), pour un effet de relecture immédiate.' : 'Quel appel à l\'action final servira le mieux l\'objectif "' + state.objectif + '" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s\'abonner pour une raison précise) ?'}
+7. STRATÉGIE DE CHUTE : ${estObjectifVues ? 'Pour l\'objectif "Faire plus de vues", pas de CTA parlé : décris comment la chute va boucler sur le hook (quel mot/image/idée du hook elle va reprendre), pour un effet de relecture immédiate.' : 'Quel appel à l\'action final servira le mieux l\'objectif "' + state.objectif + '" ? Quelle action précise le spectateur doit-il faire à la fin (acheter, commenter un mot, partager, s\'abonner pour une raison précise) ?' + (venteContexteScript ? ' Cet appel mène au produit du créateur décrit plus haut, jamais vers une autre solution, un autre programme ou une autre méthode.' : '')}
 
 8. ANTI-RÉPÉTITION : Si le profil du créateur ci-dessus mentionne des angles, hooks ou structures déjà utilisés récemment, ton angle et ta structure choisis DOIVENT en être nettement différents. Ne recycle jamais ce qui a déjà été fait pour ce créateur.
 

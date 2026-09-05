@@ -279,7 +279,9 @@ async function analyserProduitCharge(fichier, idNiche, idNote, idAngles, idSujet
 ${liste.join('\n')}
 Si le produit ne correspond clairement à aucune, écris AUCUNE.
 
-2. Propose ${PRODUIT_NB_ANGLES} ANGLES DE VIDÉO différents pour vendre ce produit sur TikTok. Un angle est un sujet de vidéo, formulé comme le créateur l'écrirait lui-même, en une phrase courte et concrète. Ils doivent être VRAIMENT différents les uns des autres (pas trois formulations de la même idée) : par exemple un angle qui part d'un problème vécu, un qui démonte une croyance du marché, un qui montre une démonstration ou un avant/après.
+2. Propose ${PRODUIT_NB_ANGLES} ANGLES DE VIDÉO différents pour VENDRE ce produit sur TikTok. Un angle est un sujet de vidéo, formulé comme le créateur l'écrirait lui-même, en une phrase courte et concrète. Ils doivent être VRAIMENT différents les uns des autres (pas trois formulations de la même idée) : par exemple un angle qui part d'un problème vécu, un qui s'attaque à ce que le client a déjà essayé sans succès, un qui montre une démonstration ou un avant/après.
+
+RÈGLE ABSOLUE : ce produit APPARTIENT au créateur, c'est LUI qui le vend. Les TROIS angles doivent donner envie de l'acheter. Aucun angle ne doit remettre en cause ce produit, ni le présenter comme une arnaque, une déception, une fausse promesse, un produit inutile ou dépassé, ni inviter à s'en méfier ou à lui préférer autre chose. Si tu veux démonter une croyance, une illusion du marché ou une solution décevante, la cible est CE QUE LE CLIENT FAISAIT AVANT ou ce que proposent les AUTRES, jamais le produit du créateur.
 N'invente aucun prix, aucun délai, aucun résultat chiffré, aucun témoignage : tu ne sais rien de plus que ce que montre le fichier.
 
 Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :
