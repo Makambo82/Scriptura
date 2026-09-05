@@ -1,70 +1,90 @@
 // ═══════════════════════════════════════════════════════════
-//  PREUVE SOCIALE, notifications (compteur qui progresse + activité)
+//  PREUVE SOCIALE, uniquement des chiffres VRAIS
+//
+//  Ce module affichait auparavant trois messages entièrement INVENTÉS :
+//    - « 348 créateurs utilisent Scriptura », un compteur qui partait d'une
+//      base codée en dur et montait de +1 à chaque affichage, mémorisé dans
+//      le localStorage DU VISITEUR (donc un chiffre différent par appareil,
+//      qui ne mesurait rien) ;
+//    - « Untel vient de s'abonner », un prénom tiré au hasard dans une liste
+//      d'une centaine de noms écrite dans le code ;
+//    - « Un créateur vient de générer un script il y a 3 min », avec un
+//      délai lui aussi tiré au sort.
+//
+//  Pourquoi c'était le risque le plus sérieux du produit : Scriptura se vend
+//  sur la CRÉDIBILITÉ (des scores calculés par le code, jamais notés par
+//  l'IA, justement pour qu'on puisse les vérifier). Or n'importe qui ouvrant
+//  les outils de développement de son navigateur voyait ces chiffres
+//  fabriqués en trente secondes. Un créateur qui découvre ça ne se dit pas
+//  « la preuve sociale est exagérée », il se dit « les scores aussi sont
+//  peut-être inventés ». Ça contredisait l'argument de vente central.
+//
+//  Désormais : les chiffres viennent des vraies générations enregistrées
+//  (voir handlePreuveSociale, api/data.js), ou RIEN ne s'affiche.
+//
+//  RÈGLE DE FOND, celle qui rend ce module honnête : en dessous des seuils
+//  ci-dessous, on n'affiche PAS. Pas de repli, pas de message de secours,
+//  pas de « rejoins les premiers créateurs ». Une preuve sociale absente ne
+//  coûte qu'une occasion manquée ; une preuve sociale fausse coûte la
+//  confiance, et elle ne revient pas.
 // ═══════════════════════════════════════════════════════════
-// Le compteur part d'une base à une date de référence et progresse
-// régulièrement dans le temps → toujours cohérent, jamais en arrière.
-const SOCIAL_BASE = 348;   // nombre de départ
 
-// Le compteur monte de +1 à chaque apparition de la notif.
-// Il est mémorisé (localStorage) pour continuer à monter d'une visite à l'autre, jamais de recul.
-function socialCount() {
-  let n = parseInt(localStorage.getItem('scriptura_social_count'), 10);
-  if (isNaN(n) || n < SOCIAL_BASE) n = SOCIAL_BASE;
-  return n;
+// Un chiffre trop petit ne prouve rien et se retourne contre le produit :
+// « 2 créateurs cette semaine » est un argument CONTRE l'abonnement. Sous ces
+// seuils, on se tait, et c'est très bien : ça se remettra à parler tout seul
+// quand ce sera vrai, sans qu'on ait à retoucher au code.
+const PREUVE_MIN_CREATEURS = 5;
+const PREUVE_MIN_GENERATIONS = 20;
+
+let _preuveMessages = [];
+let _preuveIndex = 0;
+
+// Construit la liste des messages AFFICHABLES à partir des vrais chiffres.
+// Chaque message n'entre dans la liste que s'il a franchi son seuil : une
+// liste vide veut dire qu'on n'a rien d'honnête à dire, et le module reste
+// alors silencieux pour toute la visite.
+function construirePreuveMessages(donnees) {
+  const messages = [];
+  if (!donnees) return messages;
+  const createurs = parseInt(donnees.creatoursSemaine, 10) || 0;
+  const generations = parseInt(donnees.generationsSemaine, 10) || 0;
+  const nb = (n) => (typeof formaterNombre === 'function' ? formaterNombre(n) : String(n));
+
+  if (createurs >= PREUVE_MIN_CREATEURS) {
+    messages.push('<strong>' + nb(createurs) + '</strong> créateurs ont utilisé Scriptura cette semaine');
+  }
+  if (generations >= PREUVE_MIN_GENERATIONS) {
+    messages.push('<strong>' + nb(generations) + '</strong> contenus générés cette semaine');
+  }
+  return messages;
 }
-function socialIncrement() {
-  const n = socialCount() + 1;
-  localStorage.setItem('scriptura_social_count', n);
-  return n;
-}
 
-// Petit compteur de scripts "aujourd'hui" (cohérent selon l'heure)
-function scriptsAujourdhui() {
-  const maintenant = new Date();
-  const heureFraction = (maintenant.getHours() * 60 + maintenant.getMinutes()) / 1440;
-  return Math.max(3, Math.floor(heureFraction * 180)); // grimpe jusqu'à ~180 en fin de journée
-}
-
-// Prénoms pour l'activité (variété francophone)
-const SOCIAL_PRENOMS = ['Un créateur'];
-const SOCIAL_ACTIONS = ['vient de générer un script', 'vient de créer un récit', 'vient de trouver ses idées'];
-const SOCIAL_NOMS = ["Mamadou", "Ibrahima", "Cheikh", "Ousmane", "Abdoulaye", "Moussa", "Amadou", "Souleymane", "Boubacar", "Kofi", "Kouassi", "Sékou", "Youssouf", "Adama", "Bakary", "Lamine", "Seydou", "Drissa", "Yaya", "Aboubacar", "Tidiane", "Alassane", "Djibril", "Samba", "Modou", "Aminata", "Fatoumata", "Aïssata", "Mariama", "Kadiatou", "Awa", "Ramatoulaye", "Fatou", "Bintou", "Rokia", "Mariam", "Oumou", "Salimata", "Coumba", "Aïcha", "Hawa", "Néné", "Djénéba", "Maïmouna", "Ndèye", "Sokhna", "Yacine", "Khadija", "Astou", "Adja", "Lucas", "Hugo", "Nathan", "Enzo", "Louis", "Gabriel", "Jules", "Adam", "Raphaël", "Arthur", "Théo", "Maxime", "Antoine", "Clément", "Victor", "Alexandre", "Nicolas", "Julien", "Baptiste", "Romain", "Gaël", "Yanis", "Noé", "Timéo", "Ethan", "Emma", "Léa", "Chloé", "Manon", "Camille", "Sarah", "Inès", "Jade", "Louise", "Alice", "Juliette", "Zoé", "Lucie", "Marie", "Clara", "Anaïs", "Justine", "Élise", "Margaux", "Ambre", "Lina", "Nina", "Romane", "Maëlys", "Jeanne"];
-
-let _socialShown = 0;
 function showSocialNotif() {
   const el = document.getElementById('socialNotif');
-  if (!el) return;
-
-  // Alterne 3 types de messages
-  let html;
-  const type = _socialShown % 3;
-  if (type === 0) {
-    // Type 1 : activité récente (créateur, masculin)
-    const qui = SOCIAL_PRENOMS[Math.floor(Math.random() * SOCIAL_PRENOMS.length)];
-    const action = SOCIAL_ACTIONS[Math.floor(Math.random() * SOCIAL_ACTIONS.length)];
-    const ilya = Math.floor(Math.random() * 5) + 1;
-    html = '<span class="social-dot"></span>' + qui + ' ' + action + ' il y a ' + ilya + ' min';
-  } else if (type === 1) {
-    // Type 2 : compteur global
-    html = '<span class="social-dot"></span><strong>' + formaterNombre(socialIncrement()) + '</strong> créateurs utilisent Scriptura';
-  } else {
-    // Type 3 : un prénom vient de s'abonner
-    const nom = SOCIAL_NOMS[Math.floor(Math.random() * SOCIAL_NOMS.length)];
-    html = '<span class="social-dot"></span><strong>' + nom + '</strong> vient de s\'abonner';
-  }
-  _socialShown++;
-
-  el.innerHTML = html;
+  if (!el || !_preuveMessages.length) return;
+  el.innerHTML = '<span class="social-dot"></span>' + _preuveMessages[_preuveIndex % _preuveMessages.length];
+  _preuveIndex++;
   el.classList.add('visible');
-  // Disparaît après 10s, un clic ne l'affecte pas
+  // Disparaît après 10s, un clic ne l'affecte pas.
   setTimeout(() => { el.classList.remove('visible'); }, 10000);
 }
 
-// Lancer la première notif après 8s, puis en boucle toutes les 45s
-function startSocialProof() {
+// Les chiffres sont lus UNE SEULE FOIS par visite, jamais à chaque
+// affichage : ils bougent à l'échelle de la semaine, les rafraîchir toutes
+// les 40 secondes ne changerait rien à ce que voit le visiteur et
+// multiplierait les requêtes pour rien.
+async function startSocialProof() {
+  try {
+    const r = await fetch('/api/data?resource=preuveSociale');
+    _preuveMessages = construirePreuveMessages(await r.json());
+  } catch (e) {
+    _preuveMessages = []; // panne : on se tait, on n'invente pas
+  }
+  // Rien d'honnête à dire : aucun minuteur n'est même armé, la notification
+  // ne s'affichera pas une seule fois de la visite.
+  if (!_preuveMessages.length) return;
   setTimeout(() => {
     showSocialNotif();
-    setInterval(showSocialNotif, 40000); // cycle de 40s (10s visible + 30s de pause)
+    setInterval(showSocialNotif, 40000); // 10s visible + 30s de pause
   }, 5000);
 }
-

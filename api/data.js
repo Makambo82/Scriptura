@@ -695,6 +695,54 @@ async function handleAdminStats(req, res, cfg, body) {
   }
 }
 
+// ═══ PREUVE SOCIALE, MAIS VRAIE (voir js/preuve-sociale.js) ═══
+//
+// Remplace des notifications entièrement INVENTÉES : un compteur qui partait
+// de 348 et montait tout seul dans le localStorage du visiteur, et des
+// « Untel vient de s'abonner » tirés au hasard dans une liste de prénoms
+// codée en dur. Pour un produit dont le premier pilier revendiqué est la
+// crédibilité, c'était le risque le plus direct : n'importe qui ouvrant les
+// outils de son navigateur le voyait en trente secondes.
+//
+// Route PUBLIQUE (la page d'accueil s'affiche sans code) : elle ne renvoie
+// donc QUE des totaux. Jamais un prénom, jamais un code d'accès, jamais une
+// ligne individuelle. Un total ne dit rien sur personne.
+//
+// Comptée par en-tête HTTP (HEAD + count=exact), comme la carte des abonnés
+// du Tableau de bord : Supabase renvoie le nombre sans transférer une seule
+// ligne, donc pas de coût qui grandirait avec le succès.
+//
+// Renvoie des ZÉROS plutôt qu'une erreur en cas de panne : le client sait
+// alors qu'il n'a rien à afficher, et n'affiche rien. Une preuve sociale
+// absente est infiniment moins grave qu'une preuve sociale fausse.
+async function handlePreuveSociale(req, res) {
+  const vide = { creatoursSemaine: 0, generationsSemaine: 0 };
+  const cfg = config();
+  if (!cfg) return res.status(200).json(vide);
+  try {
+    const depuis7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+    const r = await fetch(
+      cfg.url + '/rest/v1/generations?select=code_acces&cree_le=gte.' + encodeURIComponent(depuis7),
+      { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+    );
+    if (!r.ok) return res.status(200).json(vide);
+    const rows = await r.json().catch(() => []);
+    if (!Array.isArray(rows)) return res.status(200).json(vide);
+    // Créateurs DISTINCTS : un seul créateur très actif ne doit pas se
+    // compter pour dix, ce serait retomber exactement dans le travers qu'on
+    // corrige. Les identifiants servent uniquement à dédoublonner ici, et ne
+    // ressortent jamais de cette fonction.
+    const distincts = new Set();
+    rows.forEach(l => { if (l && l.code_acces) distincts.add(String(l.code_acces)); });
+    return res.status(200).json({
+      creatoursSemaine: distincts.size,
+      generationsSemaine: rows.length
+    });
+  } catch (e) {
+    return res.status(200).json(vide);
+  }
+}
+
 // ═══ PRÉSENCE (voir envoyerPresence, js/app.js) ═══
 // Écrit toujours avec la clé publishable (même RLS ouverte que l'ancien
 // appel direct au client, voir supabase/presence.sql), jamais besoin de la
@@ -796,6 +844,7 @@ export default async function handler(req, res) {
   const resource = req.method === 'GET' ? (req.query && req.query.resource) : body.resource;
 
   if (resource === 'presence') return handlePresence(req, res, body);
+  if (resource === 'preuveSociale') return handlePreuveSociale(req, res);
   if (resource === 'quotaMontage') return handleQuotaMontage(req, res);
   if (resource === 'quotaCarrousel') return handleQuotaCarrousel(req, res);
   if (resource === 'quotaGenerationGratuite') return handleQuotaGenerationGratuite(req, res);
