@@ -187,42 +187,125 @@ function nicheChoisieALaMain(champNiche) {
 //
 // Mêmes prudences que partout ailleurs : jamais par-dessus un choix manuel,
 // jamais une valeur absente du menu, et silence complet en cas de doute.
-async function detecterNicheDepuisFichierVente(fichier, idNiche, idNote) {
+// Analyse du PRODUIT CHARGÉ (objectif Ventes) : la niche ET trois angles.
+//
+// Demande du propriétaire, en deux temps. D'abord la niche : quand on joint la
+// photo de son produit ou son PDF, on a déjà donné l'information, l'app ne
+// devrait pas la redemander. Puis les angles, après discussion : le sujet
+// n'est PAS rempli automatiquement, l'app propose trois angles cliquables, le
+// créateur en prend un, le modifie ou les ignore.
+//
+// Pourquoi proposer plutôt que remplir, c'est le cœur de la décision : la
+// niche est une case de rangement, il n'y a qu'une bonne réponse. Le sujet,
+// lui, est l'ANGLE du créateur. Une photo de crème ne dit pas s'il veut
+// raconter sa transformation, démonter les promesses du marché ou faire une
+// démo. Un champ pré-rempli serait accepté par facilité (tous les scripts de
+// vente finiraient par se ressembler) et serait plus pénible à corriger qu'un
+// champ vide, puisqu'il faut effacer avant d'écrire.
+//
+// UN SEUL APPEL pour les deux : la photo est lue une fois, pas deux. C'est
+// aussi pour ça que la réponse est demandée en JSON plutôt qu'en une ligne.
+// Hors quota, comme toute la détection de niche (voir api/generate.js).
+const PRODUIT_NB_ANGLES = 3;
+
+async function analyserProduitCharge(fichier, idNiche, idNote, idAngles, idSujet) {
   const champNiche = document.getElementById(idNiche);
-  if (!fichier || !champNiche || nicheChoisieALaMain(champNiche)) return null;
-  if (typeof callAI !== 'function') return null;
+  if (!fichier || !champNiche || typeof callAI !== 'function') return null;
   assurerOptionsNiche(champNiche);
   const liste = nichesDisponibles(champNiche);
   if (!liste.length) return null;
 
   const prompt = `Un créateur TikTok veut vendre le produit présenté dans le fichier joint à ce message (photo du produit, ou document).
 
-Range CE PRODUIT dans UNE de ces catégories, en recopiant son intitulé EXACTEMENT :
+1. Range CE PRODUIT dans UNE de ces catégories, en recopiant son intitulé EXACTEMENT :
 ${liste.join('\n')}
+Si le produit ne correspond clairement à aucune, écris AUCUNE.
 
-Réponds UNIQUEMENT par l'intitulé choisi, rien d'autre, aucune explication.
-Si le produit ne correspond clairement à aucune catégorie, réponds exactement : AUCUNE`;
+2. Propose ${PRODUIT_NB_ANGLES} ANGLES DE VIDÉO différents pour vendre ce produit sur TikTok. Un angle est un sujet de vidéo, formulé comme le créateur l'écrirait lui-même, en une phrase courte et concrète. Ils doivent être VRAIMENT différents les uns des autres (pas trois formulations de la même idée) : par exemple un angle qui part d'un problème vécu, un qui démonte une croyance du marché, un qui montre une démonstration ou un avant/après.
+N'invente aucun prix, aucun délai, aucun résultat chiffré, aucun témoignage : tu ne sais rien de plus que ce que montre le fichier.
+
+Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :
+{"niche":"l'intitulé exact choisi, ou AUCUNE","angles":["angle 1","angle 2","angle 3"]}`;
+
   try {
-    const reponse = await callAI(MODEL_RAPIDE, 30, prompt, 1, false, 0, 'detectionNiche', fichier, null, 'detectionNiche');
-    if (!reponse) return null;
-    const propre = String(reponse).trim().replace(/^["'\s]+|["'.\s]+$/g, '');
-    if (!propre || /^aucune$/i.test(propre)) return null;
-    const exact = liste.find(n => n.toLowerCase() === propre.toLowerCase())
-      || liste.find(n => nicheNormaliser(n).trim() === nicheNormaliser(propre).trim());
-    if (!exact) return null;
-    // Le créateur a pu choisir sa niche pendant l'appel : on ne réveille
-    // jamais une proposition devenue caduque.
-    if (nicheChoisieALaMain(champNiche)) return null;
-    champNiche.value = exact;
-    const note = document.getElementById(idNote);
-    if (note) {
-      note.textContent = 'Niche détectée depuis ton produit : ' + exact + '. Tu peux la changer.';
-      note.style.display = '';
-    }
-    return exact;
+    const reponse = await callAI(MODEL_RAPIDE, 500, prompt, 1, false, 0, 'detectionNiche', fichier, null, 'detectionNiche');
+    const data = (typeof parseAIResponse === 'function') ? parseAIResponse(reponse) : null;
+    if (!data) return null;
+    appliquerNicheProduit(data.niche, champNiche, idNote, liste);
+    afficherAnglesProduit(data.angles, idAngles, idSujet, idNiche);
+    return data;
   } catch (e) {
     return null; // un confort de formulaire ne signale jamais d'erreur
   }
+}
+
+// Pose la niche déduite du produit, avec les mêmes prudences que partout :
+// jamais par-dessus un choix manuel, jamais une valeur absente du menu (une
+// catégorie inventée par le modèle laisserait le champ vide sans qu'on
+// comprenne pourquoi), et elle DIT d'où elle vient.
+function appliquerNicheProduit(brut, champNiche, idNote, liste) {
+  if (nicheChoisieALaMain(champNiche)) return;
+  const propre = String(brut == null ? '' : brut).trim().replace(/^["'\s]+|["'.\s]+$/g, '');
+  if (!propre || /^aucune$/i.test(propre)) return;
+  const exact = liste.find(n => n.toLowerCase() === propre.toLowerCase())
+    || liste.find(n => nicheNormaliser(n).trim() === nicheNormaliser(propre).trim());
+  if (!exact) return;
+  champNiche.value = exact;
+  // Marque l'origine : la détection par MOTS-CLÉS ne doit pas venir écraser
+  // ça ensuite. Le fichier a vu le vrai produit, un sujet tapé à la va-vite
+  // ("vendre un produit") en sait forcément moins.
+  champNiche.dataset.nicheDepuisProduit = '1';
+  const note = document.getElementById(idNote);
+  if (note) {
+    note.textContent = 'Niche détectée depuis ton produit : ' + exact + '. Tu peux la changer.';
+    note.style.display = '';
+  }
+}
+function nicheVientDuProduit(champNiche) {
+  return !!(champNiche && champNiche.dataset.nicheDepuisProduit === '1');
+}
+
+// Les trois angles, cliquables. Ils REMPLISSENT le champ sujet au clic, ils ne
+// le pré-remplissent jamais tout seuls : le créateur garde la main, et un
+// champ vide reste plus facile à remplir qu'un champ à corriger.
+function afficherAnglesProduit(angles, idAngles, idSujet, idNiche) {
+  const zone = document.getElementById(idAngles);
+  if (!zone) return;
+  const propres = (Array.isArray(angles) ? angles : [])
+    .map(a => String(a == null ? '' : a).trim())
+    .filter(a => a.length > 8 && a.length < 200)
+    .slice(0, PRODUIT_NB_ANGLES);
+  if (!propres.length) { zone.innerHTML = ''; zone.style.display = 'none'; return; }
+
+  const esc = (t) => String(t).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  zone.innerHTML = '<p class="ctx-note" style="margin-bottom:8px">Trois angles tirés de ton produit. Clique pour en prendre un, tu pourras le modifier.</p>'
+    + propres.map((a, i) =>
+      `<button type="button" class="btn-regenerate" style="display:block;width:100%;text-align:left;margin-bottom:8px;text-transform:none;letter-spacing:normal;font-family:inherit;font-size:0.88rem"
+        onclick="choisirAngleProduit(${i}, '${esc(idSujet)}', '${esc(idAngles)}', '${esc(idNiche)}')">${esc(a)}</button>`
+    ).join('');
+  zone.style.display = '';
+  zone._anglesProduit = propres;
+}
+
+// Clic sur un angle : il devient le sujet. On déclenche un événement 'input'
+// pour que tout ce qui écoute le champ sujet réagisse normalement (compteurs,
+// détection de matière du carrousel...), mais la niche déjà déduite du
+// PRODUIT, elle, est protégée : voir nicheVientDuProduit.
+function choisirAngleProduit(index, idSujet, idAngles, idNiche) {
+  const zone = document.getElementById(idAngles);
+  const champSujet = document.getElementById(idSujet);
+  if (!zone || !champSujet || !zone._anglesProduit) return;
+  const angle = zone._anglesProduit[index];
+  if (!angle) return;
+  champSujet.value = angle;
+  champSujet.dispatchEvent(new Event('input', { bubbles: true }));
+  champSujet.focus();
+  // Les propositions ont fait leur travail : les laisser affichées inviterait
+  // à cliquer une deuxième fois et à écraser ce que le créateur vient
+  // éventuellement de retoucher.
+  zone.innerHTML = '';
+  zone.style.display = 'none';
 }
 
 function assurerOptionsNiche(champNiche) {
@@ -297,7 +380,12 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
   });
 
   const appliquer = (niche, parIA) => {
-    if (!niche || nicheChoisieALaMain(champNiche)) return;
+    // La niche déduite du PRODUIT l'emporte sur celle devinée depuis le texte :
+    // le fichier a vu le vrai produit, un sujet tapé à la va-vite ("vendre un
+    // produit") en sait forcément moins. Sans ça, cliquer un angle proposé
+    // remplissait le sujet, ce qui relançait la détection par mots-clés et
+    // écrasait la bonne niche par une moins bonne.
+    if (!niche || nicheChoisieALaMain(champNiche) || nicheVientDuProduit(champNiche)) return;
     assurerOptionsNiche(champNiche);
     if (!nichesDisponibles(champNiche).includes(niche)) return;
     champNiche.value = niche;
@@ -305,7 +393,7 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
   };
 
   champSujet.addEventListener('input', () => {
-    if (nicheChoisieALaMain(champNiche)) return;
+    if (nicheChoisieALaMain(champNiche) || nicheVientDuProduit(champNiche)) return;
     if (minuteurIA) { clearTimeout(minuteurIA); minuteurIA = null; }
     const texte = champSujet.value || '';
 

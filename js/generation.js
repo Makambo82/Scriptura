@@ -743,8 +743,8 @@ async function chargerFichierVente(files) {
 // chargement du fichier doit rester instantané, la niche se posera une
 // seconde plus tard. Jamais par-dessus un choix manuel non plus, c'est
 // detecterNicheDepuisFichierVente qui s'en assure.
-  if (venteFichier && typeof detecterNicheDepuisFichierVente === 'function') {
-    detecterNicheDepuisFichierVente(venteFichier, 'niche', 'nicheAutoNoteScript');
+  if (venteFichier && typeof analyserProduitCharge === 'function') {
+    analyserProduitCharge(venteFichier, 'niche', 'nicheAutoNoteScript', 'anglesProduitScript', 'sujet');
   }
 }
 

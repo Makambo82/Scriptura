@@ -527,8 +527,8 @@ async function chargerFichierVenteCarrousel(files) {
 // chargement du fichier doit rester instantané, la niche se posera une
 // seconde plus tard. Jamais par-dessus un choix manuel non plus, c'est
 // detecterNicheDepuisFichierVente qui s'en assure.
-  if (carrouselVenteFichier && typeof detecterNicheDepuisFichierVente === 'function') {
-    detecterNicheDepuisFichierVente(carrouselVenteFichier, 'carrouselNiche', 'nicheAutoNoteCarrousel');
+  if (carrouselVenteFichier && typeof analyserProduitCharge === 'function') {
+    analyserProduitCharge(carrouselVenteFichier, 'carrouselNiche', 'nicheAutoNoteCarrousel', 'anglesProduitCarrousel', 'carrouselSujet');
   }
 }
 

@@ -25,14 +25,19 @@ const { poserMocksReseau } = require('./helpers/mocks');
 
 // Une vraie image minuscule (PNG 1x1) : le flux de lecture de fichier est
 // exercé pour de bon, pas contourné.
+const ANGLES = [
+  'Le geste que tout le monde fait mal avec ce produit',
+  'Ce que promet le marché, et ce qui se passe vraiment',
+  'Trois jours avec ce produit, filmés sans filtre'
+];
 const PNG_1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
-async function preparer(page, baseUrl, reponseNiche) {
+async function preparer(page, baseUrl, reponse) {
   await poserMocksReseau(page);
   await page.route('**/api/generate', async (route) => {
     return route.fulfill({
       status: 200, contentType: 'application/json',
-      body: JSON.stringify({ content: [{ text: reponseNiche }] })
+      body: JSON.stringify({ content: [{ text: typeof reponse === 'string' ? reponse : JSON.stringify(reponse) }] })
     });
   });
   await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
@@ -56,7 +61,7 @@ test('Script : la niche se déduit du produit chargé', async () => {
     const page = await navigateur.newPage();
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
-    await preparer(page, baseUrl, 'Beauté & Mode');
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
 
     await page.evaluate(CHARGER('chargerFichierVente', 'script'));
     await page.waitForFunction(() => document.getElementById('niche').value === 'Beauté & Mode', null, { timeout: 10000 });
@@ -83,7 +88,7 @@ test('Carrousel : même comportement, le produit chargé suffit', async () => {
     const page = await navigateur.newPage();
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
-    await preparer(page, baseUrl, 'Sport & Fitness');
+    await preparer(page, baseUrl, { niche: 'Sport & Fitness', angles: ANGLES });
 
     await page.evaluate(CHARGER('chargerFichierVenteCarrousel', 'carrousel'));
     await page.waitForFunction(() => document.getElementById('carrouselNiche').value === 'Sport & Fitness', null, { timeout: 10000 });
@@ -102,7 +107,7 @@ test('une niche choisie À LA MAIN n\'est JAMAIS écrasée par le produit charg�
     const page = await navigateur.newPage();
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
-    await preparer(page, baseUrl, 'Beauté & Mode');
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
 
     // Le créateur tranche AVANT de joindre sa photo, exactement comme le
     // propriétaire l'avait fait sur le cas réel.
@@ -134,7 +139,7 @@ test('le chargement du fichier n\'ATTEND pas la détection', async () => {
     // instantané malgré tout.
     await page.route('**/api/generate', async (route) => {
       await new Promise(r => setTimeout(r, 4000));
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: 'Beauté & Mode' }] }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify({ niche: 'Beauté & Mode', angles: ANGLES }) }] }) });
     });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(300);
@@ -164,20 +169,151 @@ test('réponse inutilisable : rien ne se pose, plutôt qu\'une niche fausse', as
     page.on('pageerror', e => erreursJs.push(e.message));
     // Le modèle ne reconnaît pas le produit, ou invente une catégorie qui
     // n'existe pas dans le menu : dans les deux cas, on ne pose RIEN.
-    await preparer(page, baseUrl, 'AUCUNE');
+    await preparer(page, baseUrl, { niche: 'AUCUNE', angles: ANGLES });
     await page.evaluate(CHARGER('chargerFichierVente', 'script'));
     await page.waitForTimeout(2500);
 
     let niche = await page.evaluate(() => document.getElementById('niche').value);
     assert.equal(niche, '', 'sur AUCUNE, le champ doit rester vide');
 
-    await preparer(page, baseUrl, 'Catégorie Inventée Qui N\'Existe Pas');
+    await preparer(page, baseUrl, { niche: 'Catégorie Inventée Qui N\'Existe Pas', angles: ANGLES });
     await page.evaluate(CHARGER('chargerFichierVente', 'script'));
     await page.waitForTimeout(2500);
     niche = await page.evaluate(() => document.getElementById('niche').value);
     assert.equal(niche, '',
       'une valeur absente du menu ne doit jamais être posée : le champ resterait vide sans qu\'on comprenne pourquoi');
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// ── LES TROIS ANGLES ──
+//
+// Décision explicite du propriétaire, après discussion : « l'app te propose
+// trois angles cliquables sous le champ sujet, tirés de ce qu'elle voit. Tu en
+// cliques un, il se met dans le champ, tu le modifies si tu veux. »
+//
+// PROPOSER, jamais PRÉ-REMPLIR, et la nuance est tout le sujet. La niche est
+// une case de rangement, il n'y a qu'une bonne réponse. Le sujet, lui, est
+// l'ANGLE du créateur : une photo de crème ne dit pas s'il veut raconter sa
+// transformation, démonter les promesses du marché ou faire une démo. Un champ
+// pré-rempli serait accepté par facilité (tous les scripts de vente finiraient
+// par se ressembler) et serait plus pénible à corriger qu'un champ vide.
+
+test('les trois angles sont proposés, mais le champ sujet reste VIDE', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
+
+    await page.evaluate(CHARGER('chargerFichierVente', 'script'));
+    await page.waitForFunction(() => {
+      const z = document.getElementById('anglesProduitScript');
+      return z && z.style.display !== 'none' && z.querySelectorAll('button').length === 3;
+    }, null, { timeout: 10000 });
+
+    const vu = await page.evaluate(() => ({
+      sujet: document.getElementById('sujet').value,
+      propositions: Array.from(document.querySelectorAll('#anglesProduitScript button')).map(b => b.textContent)
+    }));
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.sujet, '',
+      'RÈGLE CENTRALE : on propose, on ne remplit pas. Le sujet reste l\'angle du créateur');
+    assert.equal(vu.propositions.length, 3);
+    assert.deepEqual(vu.propositions, ANGLES, 'les angles affichés sont ceux proposés : ' + JSON.stringify(vu.propositions));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('cliquer un angle le met dans le sujet, et les propositions disparaissent', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
+
+    await page.evaluate(CHARGER('chargerFichierVente', 'script'));
+    await page.waitForFunction(() => document.querySelectorAll('#anglesProduitScript button').length === 3, null, { timeout: 10000 });
+    await page.evaluate(() => document.querySelectorAll('#anglesProduitScript button')[1].click());
+    await page.waitForTimeout(300);
+
+    const vu = await page.evaluate(() => ({
+      sujet: document.getElementById('sujet').value,
+      zoneVisible: document.getElementById('anglesProduitScript').style.display !== 'none',
+      niche: document.getElementById('niche').value
+    }));
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.sujet, ANGLES[1], 'l\'angle cliqué devient le sujet');
+    assert.equal(vu.zoneVisible, false,
+      'les propositions disparaissent : les laisser inviterait à écraser ce que le créateur vient de retoucher');
+    // Le piège : remplir le sujet déclenche la détection par mots-clés, qui
+    // aurait écrasé la niche déduite du VRAI produit par une moins bonne.
+    assert.equal(vu.niche, 'Beauté & Mode',
+      'REGRESSION : la niche venue du produit doit survivre au clic sur un angle');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('le créateur reste libre : il peut modifier l\'angle cliqué, ou écrire le sien', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
+    await page.evaluate(CHARGER('chargerFichierVente', 'script'));
+    await page.waitForFunction(() => document.querySelectorAll('#anglesProduitScript button').length === 3, null, { timeout: 10000 });
+
+    const sujet = await page.evaluate(() => {
+      document.querySelectorAll('#anglesProduitScript button')[0].click();
+      const champ = document.getElementById('sujet');
+      champ.value = champ.value + ', vu par un débutant';
+      champ.dispatchEvent(new Event('input', { bubbles: true }));
+      return champ.value;
+    });
+
+    assert.match(sujet, /vu par un débutant/, 'rien ne doit empêcher de retoucher l\'angle repris');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('des angles absents ou inexploitables n\'affichent simplement rien', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    // Le modèle répond sans angles, ou avec des bribes inutilisables.
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ['ok', ''] });
+    await page.evaluate(CHARGER('chargerFichierVente', 'script'));
+    await page.waitForTimeout(2500);
+
+    const vu = await page.evaluate(() => ({
+      zoneVisible: document.getElementById('anglesProduitScript').style.display !== 'none',
+      boutons: document.querySelectorAll('#anglesProduitScript button').length,
+      niche: document.getElementById('niche').value
+    }));
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.boutons, 0, 'aucune proposition douteuse affichée');
+    assert.equal(vu.zoneVisible, false);
+    assert.equal(vu.niche, 'Beauté & Mode',
+      'et la niche, elle, doit quand même se poser : les deux résultats sont indépendants');
   } finally {
     await navigateur.close();
     await arreter();
