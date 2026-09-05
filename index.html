@@ -1236,14 +1236,21 @@
           </div>
           <p class="ctx-note">Sur TikTok, les épisodes de 45 à 60 secondes retiennent mieux que les formats longs, surtout à partir du troisième épisode : c'est ce qui donne envie de regarder le suivant. Les durées plus longues conviennent aux portraits et aux sujets qui demandent du contexte.</p>
         </div>
+        <!-- Curseur du nombre d'épisodes, sur le modèle du carrousel (demande
+             du propriétaire, capture à l'appui) : une ligne graduée qu'on
+             fait glisser plutôt que des pastilles à choix fixe. Reprend la
+             classe .car-slider telle quelle, générique malgré son nom, déjà
+             utilisée par le curseur de slides du carrousel. -->
         <div class="ctx-field">
-          <label class="ctx-label">Combien d'épisodes ?</label>
-          <div class="btn-grid" id="serieNbGrid">
-            <button type="button" class="grid-btn" data-val="3">3 épisodes</button>
-            <button type="button" class="grid-btn active" data-val="5">5 épisodes</button>
-            <button type="button" class="grid-btn" data-val="7">7 épisodes</button>
-            <button type="button" class="grid-btn" data-val="10">10 épisodes</button>
+          <div class="car-slider-top">
+            <label class="ctx-label" for="serieEpisodesSlider">Combien d'épisodes ?</label>
+            <span class="car-slider-val" id="serieEpisodesVal">5 épisodes</span>
           </div>
+          <input type="range" class="car-slider" id="serieEpisodesSlider" min="3" max="10" step="1" value="5"
+                 oninput="reglerEpisodesSerie()" onchange="reglerEpisodesSerie()"
+                 aria-label="Nombre d'épisodes de la série"/>
+          <div class="car-slider-bornes"><span>3</span><span>10</span></div>
+        </div>
         </div>
         <div class="ctx-field">
           <label class="ctx-label">Ton concept de série</label>

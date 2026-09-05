@@ -112,6 +112,29 @@ function nettoyerEtiquettesEpisodeSerie(texte) {
     .trim();
 }
 
+// Curseur du nombre d'épisodes, sur le modèle du curseur de slides du
+// carrousel (voir majCurseurSlidesCarrousel, js/carrousel.js) : même lecture
+// systématique du CHAMP plutôt que de la seule variable, même remplissage
+// coloré recalculé via --car-part (aucun navigateur ne sait styler nativement
+// la partie déjà parcourue d'un input range).
+function majCurseurEpisodesSerie() {
+  const curseur = document.getElementById('serieEpisodesSlider');
+  const valeur = document.getElementById('serieEpisodesVal');
+  if (!curseur) return serieNbEpisodes;
+  let n = parseInt(curseur.value, 10);
+  if (!Number.isFinite(n)) n = 5;
+  n = Math.min(10, Math.max(3, n));
+  serieNbEpisodes = n;
+  if (valeur) valeur.textContent = n + ' épisode' + (n > 1 ? 's' : '');
+  const part = (n - 3) / (10 - 3);
+  curseur.style.setProperty('--car-part', Math.round(part * 100) + '%');
+  return n;
+}
+
+function reglerEpisodesSerie() {
+  majCurseurEpisodesSerie();
+}
+
 // Recopie la liste des niches depuis le mode audit (mêmes options partout)
 function initSerieSelects() {
   const paires = [['auditNiche','serieNiche']];
@@ -174,11 +197,13 @@ function restartCreationSerie() {
   const err = document.getElementById('serieError');
   if (err) err.style.display = 'none';
   // Durée par épisode et nombre d'épisodes reviennent à leur choix par
-  // défaut (45-60 sec, 5 épisodes, déjà .active dans le HTML d'origine).
+  // défaut (45-60 sec, 5 épisodes, déjà .active/valeur par défaut dans le
+  // HTML d'origine).
   serieDuree = '45 à 60 secondes';
-  serieNbEpisodes = 5;
   document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(b => b.classList.toggle('active', b.dataset.val === serieDuree));
-  document.querySelectorAll('#serieNbGrid .grid-btn').forEach(b => b.classList.toggle('active', b.dataset.val === String(serieNbEpisodes)));
+  const curseur = document.getElementById('serieEpisodesSlider');
+  if (curseur) curseur.value = '5';
+  majCurseurEpisodesSerie();
 }
 
 function ouvrirCreationSerie() {

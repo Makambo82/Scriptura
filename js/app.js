@@ -231,15 +231,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target === infosAbOv) fermerInfosAbonne();
     });
   }
-  // Choix du nombre d'épisodes d'une série
-  document.querySelectorAll('#serieNbGrid .grid-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      document.querySelectorAll('#serieNbGrid .grid-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      serieNbEpisodes = parseInt(btn.dataset.val) || 5;
-    });
-  });
+  // Le nombre d'épisodes se règle désormais au curseur (voir
+  // majCurseurEpisodesSerie/reglerEpisodesSerie, js/serie.js), plus par
+  // pastilles : rien à câbler ici, l'input range appelle directement son
+  // gestionnaire en HTML (oninput/onchange).
   // Choix de la durée de chaque épisode
   document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
