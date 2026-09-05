@@ -227,3 +227,46 @@ test('le champ produit est remonté juste sous le sujet, avant la niche', async 
     await arreter();
   }
 });
+
+// Précision du propriétaire : « on va positionner les champs sujet/idée et
+// charger un fichier/image produit au-dessus de niche ». La logique est la
+// même que pour le sujet seul : le créateur donne d'abord SA MATIÈRE (ce
+// qu'il veut dire, ce qu'il vend), et le rangement vient après. D'autant que
+// la niche se déduit maintenant du produit chargé (voir
+// tests/niche-depuis-produit-charge.test.js) : lui demander de la choisir
+// AVANT de joindre sa photo serait exactement l'ordre inverse du bon.
+//
+// Verrouillé pour les DEUX modes qui acceptent un fichier produit : le mode
+// Carrousel avait encore son bloc produit sous la niche.
+test('dans Script ET Carrousel : sujet, puis produit, puis niche', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(300);
+
+    const ordre = await page.evaluate(() => {
+      const avant = (a, b) => !!(document.getElementById(a)
+        .compareDocumentPosition(document.getElementById(b)) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return {
+        scriptSujetProduit: avant('sujet', 'venteField'),
+        scriptProduitNiche: avant('venteField', 'niche'),
+        carrouselSujetProduit: avant('carrouselSujet', 'carrouselVenteField'),
+        carrouselProduitNiche: avant('carrouselVenteField', 'carrouselNiche')
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(ordre, {
+      scriptSujetProduit: true, scriptProduitNiche: true,
+      carrouselSujetProduit: true, carrouselProduitNiche: true
+    }, 'REGRESSION : la matière du créateur doit précéder la niche dans les deux modes : ' + JSON.stringify(ordre));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
