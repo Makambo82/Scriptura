@@ -324,10 +324,25 @@ async function uploaderVersSupabase(cheminLocal, nomFichier) {
   return url + '/storage/v1/object/public/montages/' + chemin;
 }
 
+// Chronométrage et pic de mémoire d'un rendu (retour propriétaire : le coût
+// réel du service, calcul + RAM Railway facturés à la seconde, n'était connu
+// nulle part, seul le déroulé des lots était logué). `process.memoryUsage().rss`
+// donne la mémoire RÉELLEMENT occupée par le processus Node (donc par les
+// ffmpeg qu'il a spawnés, dont la mémoire est comptée dans le même cgroup),
+// pas une estimation : c'est le nombre qui, multiplié par la durée, permet de
+// retrouver le coût Go-RAM-seconde facturé par l'hébergeur. Pris à quelques
+// points de passage plutôt qu'en continu (pas de setInterval à nettoyer, pas
+// de risque de le laisser tourner après une erreur) : suffisant pour un pic
+// approximatif, largement assez précis pour chiffrer un prix.
+function moGo(octets) { return (octets / (1024 * 1024)).toFixed(0) + ' Mo'; }
+
 app.post('/render', async (req, res) => {
   if (MONTAGE_TOKEN && req.headers['x-montage-token'] !== MONTAGE_TOKEN) {
     return res.status(401).json({ error: { message: 'Jeton invalide' } });
   }
+  const debutRendu = Date.now();
+  let picRss = process.memoryUsage().rss;
+  const noterPic = () => { picRss = Math.max(picRss, process.memoryUsage().rss); };
   const images = Array.isArray(req.body?.images) ? req.body.images : [];
   const audioUrl = typeof req.body?.audioUrl === 'string' ? req.body.audioUrl : '';
   if (!images.length || !audioUrl) {
@@ -363,6 +378,7 @@ app.post('/render', async (req, res) => {
       cheminMusique = path.join(dossier, 'musique.mp3');
       await telechargerVers(musicUrl, cheminMusique);
     }
+    noterPic();
 
     // Cale la vidéo sur la durée RÉELLE de l'audio : si la somme des durées de
     // segments est un peu inférieure à l'audio (ex. pauses arrondies, silence
@@ -398,6 +414,7 @@ app.post('/render', async (req, res) => {
       );
       await executerFFmpeg(args);
       cheminsLots.push(cheminLot);
+      noterPic();
       console.log(`[render] lot ${cheminsLots.length}/${Math.ceil(images.length / TAILLE_LOT)} rendu`);
     }
 
@@ -464,6 +481,7 @@ app.post('/render', async (req, res) => {
       '-y', path.join(dossier, 'out.mp4')
     );
     await executerFFmpeg(argsMux);
+    noterPic();
     console.log('[render] rendu FFmpeg terminé'
       + (captions.length ? ' (avec sous-titres)' : '')
       + (cheminMusique ? ' (avec musique de fond)' : '')
@@ -471,10 +489,20 @@ app.post('/render', async (req, res) => {
 
     const nomFichier = 'montage-' + Date.now() + '.mp4';
     const urlPublique = await uploaderVersSupabase(path.join(dossier, 'out.mp4'), nomFichier);
+    noterPic();
     console.log('[render] upload Supabase terminé');
+    // Chiffres de coût (retour propriétaire) : durée totale du traitement et
+    // pic de mémoire réel, à croiser avec le tableau de bord d'usage de
+    // l'hébergeur (vCPU-secondes et Go-RAM-secondes facturés) pour obtenir un
+    // coût par rendu mesuré, pas estimé. Loggé même en succès, pas seulement
+    // en cas d'erreur : c'est justement le cas normal qu'on veut chiffrer.
+    console.log(`[render] terminé en ${((Date.now() - debutRendu) / 1000).toFixed(1)}s, `
+      + `${images.length} plans, vidéo ${dureeTotale.toFixed(1)}s, pic mémoire ${moGo(picRss)}`);
     return res.status(200).json({ url: urlPublique });
   } catch (e) {
-    console.error('[render] erreur :', e.message);
+    noterPic();
+    console.error(`[render] erreur après ${((Date.now() - debutRendu) / 1000).toFixed(1)}s, `
+      + `pic mémoire ${moGo(picRss)} :`, e.message);
     return res.status(500).json({ error: { message: 'Erreur de rendu : ' + (e.message || 'inconnue') } });
   } finally {
     await fs.rm(dossier, { recursive: true, force: true }).catch(() => {});
