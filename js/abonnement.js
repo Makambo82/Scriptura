@@ -51,7 +51,11 @@ function copierCodeInfos(el, code) {
     if (navigator.clipboard) navigator.clipboard.writeText(code);
     const avant = el.textContent;
     el.textContent = 'Copié ✓';
-    setTimeout(function () { el.textContent = avant; }, 1200);
+    // Émeraude le temps du retour (doctrine de la palette, --emerald dans
+    // css/style.css) : sur un code d'accès, savoir que la copie a bien eu
+    // lieu compte plus qu'ailleurs, on va le coller dans un message.
+    el.classList.add('copie-ok');
+    setTimeout(function () { el.textContent = avant; el.classList.remove('copie-ok'); }, 1200);
   } catch (e) { /* silencieux */ }
 }
 

@@ -564,16 +564,20 @@ function copyIdea(index, btn) {
   if (!idea) return;
   const text = idea.titre + '\n\nAngle : ' + idea.angle + '\n\nPourquoi ça marche : ' + idea.pourquoi + '\n\nHook : ' + idea.hook;
   const label = btn.innerHTML;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = label, 2000);
-  }).catch(() => {
+  // .copie-ok : confirmation en émeraude pendant deux secondes (voir la
+  // doctrine de la palette, --emerald dans css/style.css). Le libellé seul
+  // se remarquait à peine sur un bouton déjà doré.
+  const confirmer = () => {
+    btn.textContent = '\u2713 Copi\u00e9 !';
+    btn.classList.add('copie-ok');
+    setTimeout(() => { btn.innerHTML = label; btn.classList.remove('copie-ok'); }, 2000);
+  };
+  navigator.clipboard.writeText(text).then(confirmer).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
     document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
-    btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = label, 2000);
+    confirmer();
   });
 }
 
@@ -2782,8 +2786,14 @@ function carteScoreScriptHTML(d) {
   if (d && d.score) {
     const s = d.score;
     const globalScore = Math.round((s.viral + s.hook + s.engagement + s.emotion) / 4);
+    // Score au vert : la carte passe en émeraude (chiffre + barres). Le seuil
+    // vient de niveauScoreSur (js/audit.js), le MÊME que celui de l'anneau des
+    // diagnostics : une seule définition de "c'est bon" dans toute l'app. La
+    // couleur suit le score calculé, elle ne le décide pas.
+    const classeReussi = (typeof niveauScoreSur === 'function'
+      && niveauScoreSur(globalScore, 100) === 'niveau-vert') ? ' score-reussi' : '';
     return `
-      <div class="score-card sb-appear">
+      <div class="score-card sb-appear${classeReussi}">
         <div class="score-header">
           <div class="score-title">◆ Scriptura Score</div>
           <div class="score-global">
@@ -3144,16 +3154,14 @@ function copySection(id, text) {
   const btn = document.getElementById(id);
   const label = btn.innerHTML;
   const copy = (txt) => {
-    navigator.clipboard.writeText(txt).then(() => {
+    // Émeraude plutôt que doré sur la confirmation : le doré est déjà la
+    // couleur du bouton au repos, la copie ne se voyait donc presque pas.
+    const confirmer = () => {
       btn.textContent = '✓ Copié !';
-      btn.style.borderColor = 'var(--gold)';
-      btn.style.color = 'var(--gold)';
-      setTimeout(() => {
-        btn.innerHTML = label;
-        btn.style.borderColor = '';
-        btn.style.color = '';
-      }, 2000);
-    }).catch(() => {
+      btn.classList.add('copie-ok');
+      setTimeout(() => { btn.innerHTML = label; btn.classList.remove('copie-ok'); }, 2000);
+    };
+    navigator.clipboard.writeText(txt).then(confirmer).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = txt;
       ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
@@ -3161,8 +3169,7 @@ function copySection(id, text) {
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      btn.textContent = '✓ Copié !';
-      setTimeout(() => btn.innerHTML = label, 2000);
+      confirmer();
     });
   };
   copy(text);

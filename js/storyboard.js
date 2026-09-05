@@ -516,9 +516,12 @@ function copyText(btn, text) {
     return;
   }
   const label = btn.innerHTML;
+  // .copie-ok : confirmation en émeraude (doctrine de la palette, --emerald
+  // dans css/style.css), retirée en même temps que le libellé d'origine.
   const done = () => {
     btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = label, 2000);
+    btn.classList.add('copie-ok');
+    setTimeout(() => { btn.innerHTML = label; btn.classList.remove('copie-ok'); }, 2000);
   };
   navigator.clipboard.writeText(realText).then(done).catch(() => {
     const ta = document.createElement('textarea');
@@ -855,15 +858,16 @@ function fractionFlux(bufferLength, maxTokens) {
 function copyStory(btn) {
   const text = document.getElementById('storyOutput').dataset.fulltext || '';
   const label = btn.innerHTML;
-  navigator.clipboard.writeText(text).then(() => {
+  const confirmer = () => {
     btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = label, 2000);
-  }).catch(() => {
+    btn.classList.add('copie-ok');
+    setTimeout(() => { btn.innerHTML = label; btn.classList.remove('copie-ok'); }, 2000);
+  };
+  navigator.clipboard.writeText(text).then(confirmer).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
     document.body.appendChild(ta); ta.select();
     document.execCommand('copy'); document.body.removeChild(ta);
-    btn.textContent = '✓ Copié !';
-    setTimeout(() => btn.innerHTML = label, 2000);
+    confirmer();
   });
 }

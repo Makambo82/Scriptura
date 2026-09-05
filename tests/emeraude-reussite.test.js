@@ -1,0 +1,223 @@
+// Retour du propriétaire : « je trouve que la couleur vert émeraude n'est pas
+// suffisamment présente dans l'app ».
+//
+// Constat en relisant la palette : elle ne l'était pas par accident, mais par
+// règle. Le commentaire de --emerald (css/style.css) la réservait au palier
+// Pro et aux niveaux verts du diagnostic, soit des écrans qu'un créateur voit
+// rarement. Dans le flux quotidien (écrire, générer un storyboard, monter une
+// vidéo), elle était absente.
+//
+// DOCTRINE RETENUE, et c'est elle que ces tests protègent, pas des teintes :
+// le DORÉ dit "Scriptura, et ce que tu peux faire", l'ÉMERAUDE dit "c'est
+// fait, c'est validé, c'est réussi". Les deux ne peuvent donc jamais se
+// disputer un même élément, et l'émeraude gagne une vraie place dans le flux
+// quotidien sans devenir de la décoration.
+//
+// Six endroits, du plus vu au moins vu :
+//   1. une barre de progression qui atteint 100 % ;
+//   2. la confirmation "✓ Copié !" ;
+//   3. la coche de l'option retenue dans les menus maison ;
+//   4. les vignettes de plan dont l'image est prête ;
+//   5. le Scriptura Score au-dessus du seuil vert (SEUIL PARTAGÉ avec
+//      l'anneau des diagnostics, jamais un second seuil parallèle) ;
+//   6. une génération allée jusqu'à la vidéo montée, dans l'historique.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { demarrerServeur } = require('./helpers/serveur');
+const { lancerNavigateur } = require('./helpers/navigateur');
+const { poserMocksReseau } = require('./helpers/mocks');
+
+const CSS = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+
+test('la coche de l\'option retenue est émeraude, pas dorée', () => {
+  const ligne = CSS.split('\n').find(l => l.includes('.custom-select-option .cs-check{'));
+  assert.ok(ligne, 'la règle de la coche doit exister');
+  assert.match(ligne, /--emerald-light/,
+    'une coche marque un choix validé : c\'est de l\'émeraude, pas du doré');
+});
+
+test('les états émeraude existent tous en CSS, et aucun n\'utilise la teinte illisible', () => {
+  for (const regle of ['.sb-progress-bar-fill.termine', '.copie-ok',
+    '.audit-thumb.montage-thumb-prete', '.score-card.score-reussi .score-global-num',
+    '.history-montee']) {
+    assert.ok(CSS.includes(regle), 'règle manquante : ' + regle);
+  }
+  // --emerald (#1F6B4C) ne donne que 2,65:1 sur le fond sombre : il ne peut
+  // servir que de FOND derrière du texte clair, jamais de couleur de texte.
+  // --emerald-light (#3E9B75) est à 5,0:1, lui passe pour du texte.
+  const texteEnEmeraudeSombre = /color:var\(--emerald\)/.test(CSS);
+  assert.equal(texteEnEmeraudeSombre, false,
+    'REGRESSION : --emerald est trop sombre pour du texte (2,65:1), utiliser --emerald-light');
+});
+
+test('une barre qui atteint 100 % passe en émeraude, et repasse si elle redémarre', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(300);
+
+    const vu = await page.evaluate(async () => {
+      const zone = document.createElement('div');
+      zone.innerHTML = '<div class="sb-progress-bar">'
+        + '<div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="tFill"></div></div>'
+        + '<div class="sb-progress-bar-pct" id="tPct">0%</div></div>';
+      document.body.appendChild(zone);
+      const fill = document.getElementById('tFill');
+      const pct = document.getElementById('tPct');
+      const attendre = () => new Promise(r => setTimeout(r, 60));
+      const etat = () => ({ fill: fill.classList.contains('termine'), pct: pct.classList.contains('termine') });
+
+      fill.style.width = '40%'; await attendre();
+      const enCours = etat();
+      fill.style.width = '100%'; await attendre();
+      const fini = etat();
+      // Une barre réutilisée pour une nouvelle génération repart à zéro : elle
+      // ne doit pas rester verte, sinon elle annoncerait un succès qui n'a pas
+      // encore eu lieu.
+      fill.style.width = '0%'; await attendre();
+      const relance = etat();
+      return { enCours, fini, relance };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(vu.enCours, { fill: false, pct: false }, 'à 40 %, rien n\'est accompli, donc rien n\'est vert');
+    assert.deepEqual(vu.fini, { fill: true, pct: true },
+      'REGRESSION : à 100 %, le remplissage ET le pourcentage passent en émeraude');
+    assert.deepEqual(vu.relance, { fill: false, pct: false },
+      'REGRESSION : une barre relancée ne doit pas garder le vert de la fois d\'avant');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('le Scriptura Score vire à l\'émeraude au SEUIL DÉJÀ EN VIGUEUR, jamais un autre', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(300);
+
+    const vu = await page.evaluate(() => {
+      const carte = (n) => carteScoreScriptHTML({
+        score: { viral: n, hook: n, engagement: n, emotion: n, retention: n }
+      });
+      return {
+        faible: /score-reussi/.test(carte(52)),
+        moyen: /score-reussi/.test(carte(69)),
+        bon: /score-reussi/.test(carte(70)),
+        excellent: /score-reussi/.test(carte(88)),
+        // Le seuil ne doit PAS être réécrit ici : c'est celui de l'anneau des
+        // diagnostics, partagé, sinon deux "c'est bon" divergeraient un jour.
+        memeSeuilQueLAnneau: niveauScoreSur(70, 100) === 'niveau-vert'
+          && niveauScoreSur(69, 100) !== 'niveau-vert'
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(vu, { faible: false, moyen: false, bon: true, excellent: true, memeSeuilQueLAnneau: true },
+      'le vert doit suivre le score calculé, au seuil partagé de 70 : ' + JSON.stringify(vu));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('les vignettes dont l\'image est prête portent le contour émeraude, les autres non', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(300);
+
+    const vu = await page.evaluate(() => {
+      venteFichier = { base64: 'ZmF1c3NlLXBob3Rv', mediaType: 'image/png', nom: 'produit.png' };
+      ouvrirMontage([
+        { text: 'Le problème', visuel: 'a', produitReel: false },
+        { text: 'La solution', visuel: 'b', produitReel: true }
+      ], null);
+      return Array.from(document.querySelectorAll('#montageImagesThumbs .audit-thumb'))
+        .map(t => t.classList.contains('montage-thumb-prete'));
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    // Le plan 2 reçoit la vraie photo produit dès l'ouverture (voir
+    // tests/produit-reel-jamais-imite.test.js), le plan 1 attend sa génération.
+    assert.deepEqual(vu, [false, true],
+      'REGRESSION : seul un plan dont l\'image est là porte le contour émeraude : ' + JSON.stringify(vu));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('une génération montée en vidéo le dit dans l\'historique, les autres non', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(300);
+
+    const vu = await page.evaluate(() => {
+      window._historySeriesAll = [];
+      window._historyDataAll = [
+        { id: 'a', mode: 'script', titre: 'Montée jusqu\'au bout', cree_le: new Date().toISOString(),
+          contenu: { montee_video: true } },
+        { id: 'b', mode: 'script', titre: 'Restée au script', cree_le: new Date().toISOString(),
+          contenu: {} }
+      ];
+      dessinerHistorique();
+      return Array.from(document.querySelectorAll('#historyList .history-card'))
+        .map(c => ({ titre: c.querySelector('.history-title').textContent.trim(),
+                     montee: !!c.querySelector('.history-montee') }));
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    const parTitre = Object.fromEntries(vu.map(v => [v.titre, v.montee]));
+    assert.equal(parTitre['Montée jusqu\'au bout'], true,
+      'REGRESSION : aller jusqu\'à la vidéo est l\'aboutissement le plus fort, il doit se voir');
+    assert.equal(parTitre['Restée au script'], false,
+      'et une génération qui n\'est pas allée jusque-là ne doit surtout pas le prétendre');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// La marque de l'historique n'est posée QUE sur un rendu réellement revenu
+// avec une URL : une intention de monter, un échec ou une annulation ne
+// doivent jamais laisser croire à une vidéo qui n'existe pas.
+test('la marque "montée en vidéo" n\'est écrite qu\'après un rendu réussi', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'montage.js'), 'utf8');
+  const i = src.indexOf('updateGenerationMonteeVideo');
+  assert.ok(i > 0, 'l\'appel doit exister dans le flux de montage');
+  const avant = src.slice(0, i);
+  const posDerniereVerif = avant.lastIndexOf('dataRender.url');
+  const posCatch = avant.lastIndexOf('} catch (e) { throw new Error(\'Rendu de la vidéo');
+  assert.ok(posDerniereVerif > 0 && posCatch > 0 && posDerniereVerif < i,
+    'l\'appel doit se trouver après la vérification de l\'URL du rendu');
+  assert.ok(posCatch < i,
+    'REGRESSION : la marque doit être posée APRÈS le bloc qui relance en cas d\'échec du rendu');
+
+  const hist = fs.readFileSync(path.join(__dirname, '..', 'js', 'historique.js'), 'utf8');
+  assert.match(hist, /montee_video: true/, 'le champ persisté doit exister');
+});

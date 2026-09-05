@@ -1176,8 +1176,14 @@ function carteScoreRecitHTML(d) {
     const s = d.score;
     const vals = [s.viral, s.narration, s.engagement, s.emotion, s.retention].filter(v => typeof v === 'number');
     const globalScore = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+    // Score au vert : la carte passe en émeraude (chiffre + barres). Le seuil
+    // vient de niveauScoreSur (js/audit.js), le MÊME que celui de l'anneau des
+    // diagnostics : une seule définition de "c'est bon" dans toute l'app. La
+    // couleur suit le score calculé, elle ne le décide pas.
+    const classeReussi = (typeof niveauScoreSur === 'function'
+      && niveauScoreSur(globalScore, 100) === 'niveau-vert') ? ' score-reussi' : '';
     return `
-      <div class="score-card sb-appear">
+      <div class="score-card sb-appear${classeReussi}">
         <div class="score-header">
           <div class="score-title">◆ Scriptura Score</div>
           <div class="score-global">

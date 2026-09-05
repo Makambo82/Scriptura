@@ -341,7 +341,10 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
   padding:11px 16px;font-family:'Poppins',sans-serif;font-size:0.92rem;color:rgba(255,255,255,0.8);
   cursor:pointer;display:flex;align-items:center;gap:10px;line-height:1.35;
 }
-.custom-select-option .cs-check{width:14px;flex:0 0 auto;color:var(--gold);visibility:hidden}
+/* Coche en émeraude et non en doré : le doré dit "ce que tu peux faire",
+   l'émeraude dit "c'est fait, c'est validé" (voir --emerald en tête de
+   fichier). Une coche qui marque l'option retenue appartient au second. */
+.custom-select-option .cs-check{width:14px;flex:0 0 auto;color:var(--emerald-light);visibility:hidden}
 .custom-select-option.selected{color:var(--gold-light)}
 .custom-select-option.selected .cs-check{visibility:visible}
 .custom-select-option:hover{background:rgba(201,168,76,0.1);color:#fff}
@@ -576,6 +579,16 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
   padding:7px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
 .copy-btn + .share-btn, .sb-copy + .share-btn, .idea-btn-copy + .share-btn{margin-left:8px}
+/* Confirmation de copie, deux secondes. Jusqu'ici seul le libellé changeait
+   ("✓ Copié !"), ce qui se remarquait à peine sur un bouton déjà doré.
+   L'émeraude dit "c'est fait" d'un coup d'œil, sur le geste le plus répété
+   de l'app. !important : plusieurs de ces boutons portent des styles en
+   ligne, et cet état ne dure que le temps du retour. */
+.copie-ok{
+  color:var(--emerald-light) !important;
+  border-color:var(--emerald-border) !important;
+  background:var(--emerald-pale) !important;
+}
 .share-btn{
   display:inline-flex;align-items:center;gap:6px;
   margin-top:14px;
@@ -745,6 +758,18 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   background:linear-gradient(90deg,var(--gold),var(--gold-light));
   transition:width 1s ease;
 }
+/* Scriptura Score au vert (seuil partagé avec niveauScoreSur, js/audit.js :
+   70 sur 100) : le chiffre et les cinq barres passent en émeraude. La
+   couleur SUIT le score calculé par le code, elle ne le décide pas, le
+   pilier "scores déterministes" reste intact.
+   L'anneau des diagnostics, lui, était déjà émeraude au-dessus de ce même
+   seuil (paletteScoreAudit) : cette carte-ci était la seule à rester dorée
+   quel que soit le résultat, alors que c'est le score le plus vu de l'app. */
+.score-card.score-reussi .score-global-num{color:var(--emerald-light)}
+.score-card.score-reussi .metric-fill{
+  background:linear-gradient(90deg,var(--emerald),var(--emerald-light));
+}
+.score-card.score-reussi .metric-value{color:var(--emerald-light)}
 .metric-tournage{
   display:flex;align-items:center;gap:10px;
   margin-top:8px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);
@@ -1748,6 +1773,15 @@ body.hero-focus .hero-focus-rule{display:block}
 .history-mode{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase}
 .history-date{font-size:0.75rem;color:rgba(255,255,255,0.4)}
 .history-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:#fff;line-height:1.4}
+/* Génération allée jusqu'à la vidéo montée : la réussite maximale dans
+   Scriptura, et rien ne la distinguait jusqu'ici. Seule marque émeraude de
+   l'historique, donc lisible d'un coup d'œil dans une liste dorée. */
+.history-montee{
+  display:inline-flex;align-items:center;gap:5px;margin-top:8px;
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--emerald-light);background:var(--emerald-pale);
+  border:1px solid var(--emerald-border);border-radius:20px;padding:3px 9px;
+}
 .history-detail{margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
 .history-content{margin-bottom:14px}
 .hist-line{font-size:0.92rem;line-height:1.6;color:rgba(255,255,255,0.85);margin-bottom:10px}
@@ -2456,6 +2490,16 @@ body.is-unlocked .sidebar-logout{display:block}
   letter-spacing:0.05em;color:var(--gold-light);
   min-width:40px;text-align:right;
 }
+/* 100 % : la barre passe en émeraude. C'est l'endroit le plus vu de l'app,
+   chaque script, chaque storyboard, chaque épisode et chaque montage s'y
+   terminent, et c'est exactement le sens qu'on donne à cette couleur : ce
+   qui est accompli. La classe est posée automatiquement, sans toucher aux
+   douze endroits qui pilotent une barre (voir surveillerBarresProgression,
+   js/ui.js). */
+.sb-progress-bar-fill.termine{
+  background:linear-gradient(90deg, var(--emerald), var(--emerald-light));
+}
+.sb-progress-bar-pct.termine{color:var(--emerald-light)}
 
 /* Toute barre de progression (.sb-progress-bar) affiche désormais son
    remplissage ET son pourcentage par défaut (retour direct du propriétaire :
@@ -2858,6 +2902,11 @@ body.is-unlocked .sidebar-logout{display:block}
   border:1px solid var(--border-soft);
 }
 .audit-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+/* Plan dont l'image est prête, dans le panneau de montage : contour émeraude,
+   comme la pastille de compte (.montage-chip-pret plus bas). D'un coup d'œil
+   sur la bande de vignettes, on voit ce qui est prêt et ce qui manque, sans
+   avoir à lire. */
+.audit-thumb.montage-thumb-prete{border-color:var(--emerald-border)}
 /* Badge de reconnaissance sur la vignette (informatif, jamais bloquant) */
 .thumb-badge{
   position:absolute;left:4px;bottom:4px;font-size:0.72rem;line-height:1;

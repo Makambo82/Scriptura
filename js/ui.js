@@ -813,3 +813,55 @@ function seDeconnecter() {
   location.reload();
 }
 
+
+// ── BARRES DE PROGRESSION : LE 100 % PASSE EN ÉMERAUDE ──
+//
+// Doctrine de la palette (voir --emerald, css/style.css) : le doré dit "ce
+// que tu peux faire", l'émeraude dit "c'est fait". Une barre qui atteint
+// 100 % est le cas le plus fréquent de "c'est fait" dans toute l'app : chaque
+// script, chaque storyboard, chaque épisode de série, chaque voix off, chaque
+// montage s'y termine.
+//
+// POURQUOI UN OBSERVATEUR plutôt que d'ajouter la classe dans le code qui
+// pilote chaque barre : ces barres sont pilotées depuis DOUZE endroits
+// différents (js/generation.js, js/montage.js, js/montage-manuel.js,
+// js/serie.js, js/storyboard.js, js/storyboard-seul.js, js/storytelling.js,
+// js/tiktok-outils.js), chacun avec sa propre variante de "fill.style.width
+// = p + '%'". Les modifier tous, c'était douze occasions de casser une
+// progression qui marche, pour une couleur. Ici, une seule surveillance
+// couvre les douze, y compris les barres qui n'existent pas encore et celles
+// qu'on ajoutera demain.
+//
+// Coût : le filtre ne regarde que l'attribut style, et sort immédiatement si
+// l'élément touché n'est pas un remplissage de barre. Même pratique que
+// l'observateur déjà en place plus haut pour les menus maison.
+function marquerBarreTerminee(fill) {
+  if (!fill || !fill.classList || !fill.classList.contains('sb-progress-bar-fill')) return;
+  // On lit la largeur DEMANDÉE (style en ligne), pas la largeur calculée :
+  // pendant la transition CSS, la seconde n'a pas encore atteint 100 %.
+  const largeur = parseFloat(fill.style.width);
+  const fini = largeur >= 100;
+  fill.classList.toggle('termine', fini);
+  // Le pourcentage vit à côté de la piste, pas dedans : .sb-progress-bar >
+  // (.sb-progress-bar-track > .sb-progress-bar-fill) + .sb-progress-bar-pct.
+  const barre = fill.parentElement && fill.parentElement.parentElement;
+  const pct = barre && barre.querySelector ? barre.querySelector('.sb-progress-bar-pct') : null;
+  if (pct) pct.classList.toggle('termine', fini);
+}
+
+function surveillerBarresProgression() {
+  if (typeof MutationObserver !== 'function') return;
+  const obs = new MutationObserver(function (mutations) {
+    mutations.forEach(function (m) { marquerBarreTerminee(m.target); });
+  });
+  obs.observe(document.body, { attributes: true, attributeFilter: ['style'], subtree: true });
+  // Les barres déjà à 100 % au moment où cette surveillance démarre (rare,
+  // mais une réouverture depuis l'historique peut en produire).
+  document.querySelectorAll('.sb-progress-bar-fill').forEach(marquerBarreTerminee);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', surveillerBarresProgression);
+} else {
+  surveillerBarresProgression();
+}

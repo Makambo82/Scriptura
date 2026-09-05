@@ -940,7 +940,11 @@ function renderMontageEtat() {
   if (zoneImg) {
     zoneImg.innerHTML = montagePlans.map((p, i) => {
       const img = montageImages[i];
-      if (img) return `<div class="audit-thumb">
+      // montage-thumb-prete : contour émeraude sur les plans dont l'image est
+      // là (doctrine de la palette, --emerald dans css/style.css). Même
+      // langage que la pastille de compte .montage-chip-pret : d'un coup
+      // d'œil sur la bande, on voit ce qui est prêt et ce qui manque.
+      if (img) return `<div class="audit-thumb montage-thumb-prete">
         <img src="${img.apercu}" alt="" style="cursor:zoom-in" onclick="agrandirImageMontage(${i})" title="Agrandir">
         <input type="checkbox" class="montage-thumb-select" title="Sélectionner" ${montageImagesSelection.has(i) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectionImage(${i})">
         <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">${ICO('download')}</button>
@@ -1197,6 +1201,13 @@ async function lancerMontage() {
     // (voir prechargerVideoMontage) : le temps que l'utilisateur regarde
     // l'aperçu avant de cliquer suffit largement à finir le téléchargement.
     montageVideoFichierPromiseParUrl.set(dataRender.url, prechargerVideoMontage(dataRender.url));
+    // Marque la génération comme "montée en vidéo", pour que l'historique le
+    // dise (voir .history-montee, css/style.css). C'est l'aboutissement le
+    // plus fort dans Scriptura, et rien ne le distinguait jusqu'ici.
+    // Fire-and-forget, jamais bloquant : un rendu réussi ne doit pas dépendre
+    // de l'enregistrement de son étiquette. Absent en montage manuel
+    // (js/montage-manuel.js), qui ne part d'aucune génération enregistrée.
+    if (typeof updateGenerationMonteeVideo === 'function') updateGenerationMonteeVideo();
     const nbRemplaces = construireImagesEffectives.nbRemplaces || 0;
     const note = nbRemplaces > 0
       ? `<div class="montage-statut" style="margin:0 0 10px">${nbRemplaces} plan(s) sans image (bloqué·s) remplacé·s par l'image voisine. Régénère ces images puis relance le montage pour un rendu complet.</div>`

@@ -118,6 +118,15 @@ async function updateGenerationGuideMontage(guide) {
   await _patchGenerationCourante({ guide_montage: guide });
 }
 
+// Marque la génération courante comme montée en vidéo, pour que l'historique
+// puisse le montrer (voir .history-montee, css/style.css). Appelée quand le
+// rendu revient avec une URL, jamais avant : c'est une réussite constatée,
+// pas une intention. Sans currentGenId (montage manuel, qui ne part d'aucune
+// génération enregistrée), _patchGenerationCourante ne fait simplement rien.
+async function updateGenerationMonteeVideo() {
+  await _patchGenerationCourante({ montee_video: true });
+}
+
 // Sauvegarde une retouche ciblée (segment de script ou hook modifié) sur la
 // génération déjà enregistrée, pour qu'elle reste visible en rouvrant depuis
 // l'historique, même mécanisme que updateGenerationStoryboard ci-dessus.
@@ -735,6 +744,7 @@ function _afficherListeFiltree() {
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-title">${serieEsc(histTitreCourt(g.titre))}</div>
+          ${(g.contenu && g.contenu.montee_video) ? '<div class="history-montee">Montée en vidéo</div>' : ''}
           ${!_selectMode ? '<div class="history-reopen">Appuie pour rouvrir cette génération →</div>' : ''}
         </div>
         ${!_selectMode ? `<div class="history-actions">
