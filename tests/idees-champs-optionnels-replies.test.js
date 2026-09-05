@@ -257,8 +257,15 @@ test('aucune capacité perdue : les champs repliés atteignent toujours le promp
 });
 
 // Précision du propriétaire : « tu dois mettre affiner en bas, complètement en
-// bas ». Le créateur pose d'abord sa niche, son objectif et son sujet, et ne
-// croise ces réglages qu'une fois l'essentiel rempli.
+// bas ». Le créateur pose d'abord l'essentiel, et ne croise ces réglages
+// qu'ensuite. C'est CETTE exigence que ce test protège.
+//
+// L'ordre du haut du formulaire, lui, a changé depuis (demande suivante du
+// propriétaire) : le SUJET passe en premier, et la niche se déduit
+// automatiquement de ce qui vient d'être écrit (voir js/niche-auto.js et
+// tests/niche-auto-detection.test.js). On pense à son sujet, pas à sa case de
+// rangement. Le test est mis à jour pour cette nouvelle intention, sans rien
+// relâcher sur « Affiner », qui reste bien tout en bas.
 test('le repli est tout en bas du formulaire, après le sujet', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
@@ -274,8 +281,9 @@ test('le repli est tout en bas du formulaire, après le sujet', async () => {
       return { niche: y('ideaNiche'), objectif: y('ideaGoalGrid'), sujet: y('ideaTheme'), affiner: y('ideaAffinerBtn'), bouton: y('ideaGenerateBtn') };
     });
 
-    assert.ok(ordre.niche < ordre.objectif, 'la niche reste en premier');
-    assert.ok(ordre.objectif < ordre.sujet, 'puis l\'objectif');
+    assert.ok(ordre.sujet < ordre.niche,
+      'le sujet vient en premier, la niche s\'en déduit (voir js/niche-auto.js)');
+    assert.ok(ordre.niche < ordre.objectif, 'puis la niche, puis l\'objectif');
     assert.ok(ordre.sujet < ordre.affiner,
       'REGRESSION : « Affiner » doit venir APRÈS le sujet, pas s\'intercaler au milieu du formulaire');
     assert.ok(ordre.affiner < ordre.bouton, 'et rester au-dessus du bouton de génération, qui reste la dernière action');

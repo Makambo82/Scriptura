@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260905-2"/>
+<link rel="stylesheet" href="css/style.css?v=20260905-3"/>
 </head>
 <body>
 <script>
@@ -973,6 +973,16 @@
       </div>
 
       <div class="ctx-field">
+        <label class="ctx-label">Ton sujet</label>
+        <textarea class="ctx-textarea" id="carrouselSujet" oninput="majMatiereCarrousel()"
+          placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
+        <p class="ctx-note">Quelques mots suffisent. Tu peux aussi <strong>coller un texte que tu as déjà</strong> (un script, des notes, un article) : Scriptura le convertira en slides au lieu d'écrire sur le sujet.</p>
+        <!-- Le basculement en mode conversion doit se VOIR. Sans ce message,
+             le créateur ne saurait ni qu'il a eu lieu, ni qu'il n'a pas eu
+             lieu, et découvrirait l'un ou l'autre dans le résultat. -->
+        <p class="ctx-note car-matiere-note" id="carrouselMatiereNote" style="display:none"></p>
+      </div>
+      <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="carrouselNiche">
           <option value="">Choisis ta niche…</option>
@@ -1002,6 +1012,7 @@
           <option>Voyage &amp; Découverte</option>
           <option>Autre</option>
         </select>
+        <p class="ctx-note" id="nicheAutoNoteCarrousel" style="display:none"></p>
       </div>
 
       <!-- Recycler une vidéo déjà publiée : on récupère son texte parlé et on
@@ -1023,16 +1034,6 @@
         <p class="ctx-note" id="carrouselLienNote">On récupère le texte parlé de ta vidéo et on le transforme en slides. Tu pourras le relire et l'ajuster avant de générer.</p>
       </div>
 
-      <div class="ctx-field">
-        <label class="ctx-label">Ton sujet</label>
-        <textarea class="ctx-textarea" id="carrouselSujet" oninput="majMatiereCarrousel()"
-          placeholder="Ex : les 7 erreurs qui plombent un budget, ce que personne ne dit sur la location à Cotonou, 5 habitudes du matin qui changent tout…"></textarea>
-        <p class="ctx-note">Quelques mots suffisent. Tu peux aussi <strong>coller un texte que tu as déjà</strong> (un script, des notes, un article) : Scriptura le convertira en slides au lieu d'écrire sur le sujet.</p>
-        <!-- Le basculement en mode conversion doit se VOIR. Sans ce message,
-             le créateur ne saurait ni qu'il a eu lieu, ni qu'il n'a pas eu
-             lieu, et découvrirait l'un ou l'autre dans le résultat. -->
-        <p class="ctx-note car-matiere-note" id="carrouselMatiereNote" style="display:none"></p>
-      </div>
 
       <!-- Visible uniquement pour l'objectif "Générer des ventes" (voir
            syncVenteFieldCarrousel, js/carrousel.js), exactement comme dans le
@@ -1183,8 +1184,14 @@
     <div id="serieCreation" style="display:none">
       <div class="context-card">
         <div class="ctx-field">
+          <label class="ctx-label">Ton concept de série</label>
+          <textarea class="ctx-input" id="serieConcept" rows="3" placeholder="Ex : Les braquages qui ont marqué l'histoire de l'Afrique de l'Ouest"></textarea>
+          <button class="serie-suggest-btn" onclick="proposerConceptsSerie()">Ou laisse Scriptura me proposer des concepts</button>
+        </div>
+        <div class="ctx-field">
           <label class="ctx-label">Ta niche</label>
           <select class="ctx-input" id="serieNiche"></select>
+          <p class="ctx-note" id="nicheAutoNoteSerie" style="display:none"></p>
         </div>
         <div class="ctx-field">
           <label class="ctx-label">Zone géographique <span style="color:rgba(255,255,255,0.4);font-size:0.9em">(optionnel)</span></label>
@@ -1253,11 +1260,6 @@
                  aria-label="Nombre d'épisodes de la série"/>
           <div class="car-slider-bornes"><span>3</span><span>10</span></div>
         </div>
-        </div>
-        <div class="ctx-field">
-          <label class="ctx-label">Ton concept de série</label>
-          <textarea class="ctx-input" id="serieConcept" rows="3" placeholder="Ex : Les braquages qui ont marqué l'histoire de l'Afrique de l'Ouest"></textarea>
-          <button class="serie-suggest-btn" onclick="proposerConceptsSerie()">Ou laisse Scriptura me proposer des concepts</button>
         </div>
       </div>
 
@@ -1430,6 +1432,10 @@
 
     <div class="context-card" id="ideasFormCard">
       <div class="ctx-field">
+        <label class="ctx-label">Le sujet que tu veux explorer</label>
+        <textarea class="ctx-textarea" id="ideaTheme" placeholder="Ex : les empires africains, la psychologie de l'argent, les femmes qui ont marqué l'histoire…"></textarea>
+      </div>
+      <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="ideaNiche">
           <option value="">Choisis ta niche…</option>
@@ -1459,6 +1465,7 @@
           <option>Voyage & Découverte</option>
           <option>Autre</option>
         </select>
+        <p class="ctx-note" id="nicheAutoNoteIdees" style="display:none"></p>
       </div>
 
       <div class="ctx-field">
@@ -1472,10 +1479,6 @@
       </div>
 
 
-      <div class="ctx-field">
-        <label class="ctx-label">Le sujet que tu veux explorer</label>
-        <textarea class="ctx-textarea" id="ideaTheme" placeholder="Ex : les empires africains, la psychologie de l'argent, les femmes qui ont marqué l'histoire…"></textarea>
-      </div>
 
       <!-- Quatre champs OPTIONNELS repliés, placés TOUT EN BAS du formulaire :
            le créateur descend d'abord sa niche, son objectif et son sujet, et ne
@@ -1665,6 +1668,11 @@
 
     <div class="context-card">
       <div class="ctx-field">
+        <label class="ctx-label" id="sujetLabel">Ton sujet ou idée</label>
+        <textarea class="ctx-textarea" id="sujet" placeholder="Ex : pourquoi les gens n'arrivent pas à épargner, les 5 erreurs du débutant en bourse, l'histoire du roi Béhanzin…"></textarea>
+        <p class="ctx-note">Quelques mots suffisent. Tu peux aussi coller un texte long (article, notes, transcription) : Scriptura en tirera le sujet et l'angle.</p>
+      </div>
+      <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="niche">
           <option value="">Choisis ta niche…</option>
@@ -1694,6 +1702,7 @@
           <option>Voyage & Découverte</option>
           <option>Autre</option>
         </select>
+        <p class="ctx-note" id="nicheAutoNoteScript" style="display:none"></p>
       </div>
       <div class="ctx-field" id="viralVideoField" style="display:none">
         <label class="ctx-label" id="viralVideoLabel">Texte de la vidéo virale à analyser</label>
@@ -1711,11 +1720,6 @@
           <textarea class="ctx-textarea" id="viralVideo" placeholder="Colle ici le texte, les sous-titres ou la description de la vidéo virale que tu as vue. Scriptura va décoder sa structure (hook, rythme, narration) et la recréer pour ton sujet." style="min-height:120px;margin-top:10px"></textarea>
           <div id="viralVideoAstuce" style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:6px;line-height:1.5">💡 Astuce : sur TikTok, active les sous-titres et copie le texte. Ou décris simplement ce qui se passe dans la vidéo.</div>
         </details>
-      </div>
-      <div class="ctx-field">
-        <label class="ctx-label" id="sujetLabel">Ton sujet ou idée</label>
-        <textarea class="ctx-textarea" id="sujet" placeholder="Ex : pourquoi les gens n'arrivent pas à épargner, les 5 erreurs du débutant en bourse, l'histoire du roi Béhanzin…"></textarea>
-        <p class="ctx-note">Quelques mots suffisent. Tu peux aussi coller un texte long (article, notes, transcription) : Scriptura en tirera le sujet et l'angle.</p>
       </div>
       <div class="ctx-field">
         <label class="ctx-label">Ton audience (optionnel)</label>
@@ -1872,35 +1876,36 @@
      conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="js/modeles.js?v=20260905-2"></script>
+<script src="js/modeles.js?v=20260905-3"></script>
 
-<script src="js/api.js?v=20260905-2"></script>
-<script src="js/profil.js?v=20260905-2"></script>
-<script src="js/recommandations.js?v=20260905-2"></script>
-<script src="js/historique.js?v=20260905-2"></script>
-<script src="js/abonnement.js?v=20260905-2"></script>
-<script src="js/ui.js?v=20260905-2"></script>
-<script src="js/preuve-sociale.js?v=20260905-2"></script>
-<script src="js/auth.js?v=20260905-2"></script>
-<script src="js/state.js?v=20260905-2"></script>
-<script src="js/audit.js?v=20260905-2"></script>
-<script src="js/admin.js?v=20260905-2"></script>
-<script src="js/serie.js?v=20260905-2"></script>
-<script src="js/navigation.js?v=20260905-2"></script>
-<script src="js/storytelling.js?v=20260905-2"></script>
-<script src="js/storyboard.js?v=20260905-2"></script>
-<script src="js/storyboard-seul.js?v=20260905-2"></script>
-<script src="js/viral.js?v=20260905-2"></script>
-<script src="js/tendances.js?v=20260905-2"></script>
-<script src="js/tiktok-outils.js?v=20260905-2"></script>
-<script src="js/montage.js?v=20260905-2"></script>
-<script src="js/montage-manuel.js?v=20260905-2"></script>
-<script src="js/montage-guide.js?v=20260905-2"></script>
-<script src="js/diagnostic-sommaire.js?v=20260905-2"></script>
-<script src="js/diagnostic-fusion.js?v=20260905-2"></script>
-<script src="js/carrousel.js?v=20260905-2"></script>
-<script src="js/generation.js?v=20260905-2"></script>
-<script src="js/app.js?v=20260905-2"></script>
+<script src="js/api.js?v=20260905-3"></script>
+<script src="js/profil.js?v=20260905-3"></script>
+<script src="js/recommandations.js?v=20260905-3"></script>
+<script src="js/historique.js?v=20260905-3"></script>
+<script src="js/abonnement.js?v=20260905-3"></script>
+<script src="js/ui.js?v=20260905-3"></script>
+<script src="js/preuve-sociale.js?v=20260905-3"></script>
+<script src="js/auth.js?v=20260905-3"></script>
+<script src="js/state.js?v=20260905-3"></script>
+<script src="js/audit.js?v=20260905-3"></script>
+<script src="js/admin.js?v=20260905-3"></script>
+<script src="js/serie.js?v=20260905-3"></script>
+<script src="js/navigation.js?v=20260905-3"></script>
+<script src="js/storytelling.js?v=20260905-3"></script>
+<script src="js/storyboard.js?v=20260905-3"></script>
+<script src="js/storyboard-seul.js?v=20260905-3"></script>
+<script src="js/viral.js?v=20260905-3"></script>
+<script src="js/tendances.js?v=20260905-3"></script>
+<script src="js/tiktok-outils.js?v=20260905-3"></script>
+<script src="js/montage.js?v=20260905-3"></script>
+<script src="js/montage-manuel.js?v=20260905-3"></script>
+<script src="js/montage-guide.js?v=20260905-3"></script>
+<script src="js/diagnostic-sommaire.js?v=20260905-3"></script>
+<script src="js/diagnostic-fusion.js?v=20260905-3"></script>
+<script src="js/carrousel.js?v=20260905-3"></script>
+<script src="js/generation.js?v=20260905-3"></script>
+<script src="js/niche-auto.js?v=20260905-3"></script>
+<script src="js/app.js?v=20260905-3"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">

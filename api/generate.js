@@ -73,6 +73,24 @@ export default async function handler(req, res) {
       verdict = (droits.isAdmin || droits.illimite || droits.plan === 'pro')
         ? { ok: true }
         : { ok: false, raison: 'acces_requis' };
+    } else if (modeDemande === 'detectionNiche') {
+      // Détection de la niche à partir du sujet (voir js/niche-auto.js) :
+      // gratuite et hors quota par conception, exactement comme les
+      // micro-éditions ci-dessous. C'est une aide de FORMULAIRE, remplie
+      // avant même d'avoir généré quoi que ce soit : la facturer reviendrait
+      // à faire payer le créateur pour remplir son propre formulaire, et à
+      // le décourager de s'en servir.
+      //
+      // Elle reste minuscule par construction côté client (modèle rapide,
+      // une trentaine de jetons de réponse, appelée seulement quand les
+      // mots-clés n'ont rien trouvé, jamais deux fois pour le même texte).
+      // Le seul vrai risque est l'abus par un visiteur anonyme, couvert plus
+      // bas par le filet journalier par IP, comme toutes les autres routes.
+      if (droits.anonyme) {
+        verdict = await verifierLimiteAnonyme(req, 'generate', PLAFOND_ANONYME_JOUR);
+      } else {
+        verdict = { ok: true };
+      }
     } else if (modeDemande === 'microEditScript' || modeDemande === 'microEditRecit') {
       // Éditeur IA par passage (Reformuler/Raccourcir/Allonger/Simplifier,
       // voir js/generation.js et js/storytelling.js) : gratuit et hors quota
