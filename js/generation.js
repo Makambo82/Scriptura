@@ -1583,6 +1583,37 @@ async function generate() {
     ? `\nCE QUE LE CRÉATEUR VEND : ${venteDescription || '(voir le fichier joint au message)'}${venteFichier ? ' Un fichier joint au message (photo du produit ou extrait du document fourni) donne des détails supplémentaires, utilise-le activement pour construire un angle, une preuve et une offre concrets, pas génériques.' : ''}\n`
     : '';
   const venteFichierPourBrief = (estObjectifVentes && venteFichier) ? venteFichier : undefined;
+  // Ce que le RÉDACTEUR doit savoir du produit, et qu'il ne savait pas.
+  //
+  // VRAI DÉFAUT SIGNALÉ (retour propriétaire, capture à l'appui : objectif
+  // Ventes, photo d'un produit jointe, sujet « vendre un produit »). Le
+  // script livré ne parlait pas une seconde du produit : il expliquait
+  // comment vendre, avec un témoignage inventé de toutes pièces (« Marc
+  // vendait des formations, les commandes ont doublé »).
+  //
+  // La cause n'était pas le modèle, c'est qu'on ne lui montrait rien. Le
+  // contexte de vente ET le fichier n'allaient QU'AU Directeur Éditorial ;
+  // le Rédacteur, lui, ne recevait que des consignes abstraites (angle,
+  // structure, émotion). Il écrivait donc un script de vente sans savoir ce
+  // qui est vendu, et comblait ce vide en inventant un exemple.
+  //
+  // Le fichier n'est toujours PAS renvoyé au Rédacteur : c'était un choix de
+  // coût délibéré (voir plus haut), et il reste bon. Ce qui change, c'est
+  // que le Directeur doit maintenant écrire noir sur blanc ce qu'il a vu
+  // (champ produit_concret), et que cette description, elle, coûte trois
+  // fois rien à transmettre. On y ajoute l'interdiction d'inventer, qui
+  // n'existait jusqu'ici que côté Directeur, c'est-à-dire pas là où le texte
+  // est réellement écrit.
+  function venteRappelRedacteur(brief) {
+    const produit = (brief && brief.produit_concret) ? String(brief.produit_concret) : (venteDescription || '');
+    if (!produit) return '';
+    return `
+CE QUE LE CRÉATEUR VEND, ET QUE CE SCRIPT DOIT SERVIR : ${produit}
+- Le script parle de CE produit et du problème qu'il résout, jamais de la vente en général. Un script qui explique "comment mieux vendre" à la place est hors sujet : le spectateur est le CLIENT, pas un vendeur.
+- N'invente JAMAIS un prix, une garantie, un résultat chiffré, un délai promis, un client ou un témoignage qui ne figure pas ci-dessus. Aucun "Marc a doublé ses ventes", aucun "en 3 jours" que le créateur n'a pas fourni.
+- Une seule promesse : celle que le créateur a réellement décrite, sans la gonfler.
+`;
+  }
   const objectifInstructionScript = state.objectif
     ? `OBJECTIF DU CRÉATEUR "${state.objectif}", LE CTA FINAL DOIT : ${objectifCtaScript || 'servir précisément cet objectif, formulé exactement comme le créateur l\'a choisi.'}`
     : `Aucun objectif précisé : vise un CTA équilibré entre portée et fidélisation.`;
@@ -1637,8 +1668,11 @@ TON TRAVAIL DE RÉFLEXION (fais-le sérieusement, c'est ce qui fait la différen
 
 8. ANTI-RÉPÉTITION : Si le profil du créateur ci-dessus mentionne des angles, hooks ou structures déjà utilisés récemment, ton angle et ta structure choisis DOIVENT en être nettement différents. Ne recycle jamais ce qui a déjà été fait pour ce créateur.
 
+${venteContexteScript ? `
+9. CE QUE VEND LE CRÉATEUR, EN CLAIR. Tu es le SEUL à voir le fichier joint (photo du produit ou document) : les passes suivantes ne le reverront jamais, pour ne pas en repayer le coût. Tout ce que tu n'écris pas ici est donc PERDU pour le rédacteur, qui écrirait alors un script de vente sans savoir ce qui est vendu. Décris en une ou deux phrases ce que c'est CONCRÈTEMENT (nature du produit, à qui il s'adresse, le bénéfice précis qu'il promet, et les éléments visibles sur le fichier qui peuvent servir de preuve). Uniquement ce que tu VOIS ou ce que le créateur a écrit : aucun prix, aucune garantie, aucun résultat chiffré, aucun témoignage inventé.` : ''}
+
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase : pourquoi c'est le PLUS PUISSANT des 3, pas juste pourquoi il convient","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant, déjà validée contre le test de prévisibilité, avec le levier psychologique choisi nommé explicitement","strategie_retention":"où placer les relances pour tenir jusqu'au bout, avec le(s) levier(s) psychologique(s) exploité(s) nommé(s)","strategie_cta":"l'action précise à demander en fin de script"}`;
+{"analyse_strategique":"l'enjeu réel et l'angle mort en 2 phrases percutantes","angle_choisi":"description de l'angle gagnant sélectionné","pourquoi_cet_angle":"justification en 1 phrase : pourquoi c'est le PLUS PUISSANT des 3, pas juste pourquoi il convient","structure":"la structure narrative choisie et son déroulé","emotion_dominante":"l'émotion clé à déclencher","strategie_hook":"la direction du hook le plus percutant, déjà validée contre le test de prévisibilité, avec le levier psychologique choisi nommé explicitement","strategie_retention":"où placer les relances pour tenir jusqu'au bout, avec le(s) levier(s) psychologique(s) exploité(s) nommé(s)","strategie_cta":"l'action précise à demander en fin de script"${venteContexteScript ? ',"produit_concret":"ce que vend le créateur, en clair, tel que décrit au point 9"' : ''}}`;
 
     const briefRaw = await callAI(MODEL_RAPIDE, 2000, briefPrompt, undefined, rechercheTendancesScriptActive, undefined, undefined, venteFichierPourBrief, undefined, 'script');
     const brief = parseAIResponse(briefRaw) || {};
@@ -1668,7 +1702,7 @@ BRIEF STRATÉGIQUE À SUIVRE :
 - Direction du hook : ${brief.strategie_hook || 'accroche forte'}
 - Stratégie de rétention : ${brief.strategie_retention || 'relances régulières'}
 - Stratégie de CTA : ${brief.strategie_cta || 'appel à l\'action clair adapté à l\'objectif'}
-
+${venteContexteScript ? venteRappelRedacteur(brief) : ''}
 CONTEXTE :
 - Sujet : ${sujetCourt}
 - Niche : ${niche}
