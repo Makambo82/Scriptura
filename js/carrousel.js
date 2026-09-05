@@ -1276,6 +1276,60 @@ function carrouselFond(c, L, H) {
   c.fillRect(0, 0, L, H);
 }
 
+// ── LA VRAIE PHOTO DU PRODUIT, EN FOND DE SLIDE ──
+//
+// Demande du propriétaire : « quand l'utilisateur charge une image produit,
+// l'app doit utiliser cette image sous différents plans, posture, position,
+// dans les images d'arrière-plan du carrousel ». Constat sur son test : le
+// carrousel PARLAIT bien du produit, mais aucune slide ne le MONTRAIT, ses
+// fonds étaient des ambiances générées.
+//
+// CE QU'ON PEUT ET CE QU'ON NE PEUT PAS. On ne peut pas fabriquer son produit
+// « sous un autre angle » : la génération d'images ne reçoit qu'un TEXTE, pas
+// d'image de référence (api/montage-media.js), elle produirait un sosie, et
+// sur un carrousel de vente un sosie est pire que rien. En revanche, une
+// photo se RECADRE : d'un même fichier on tire un plan large, un plan serré
+// et un plan décalé, ce qui donne trois arrière-plans différents avec le VRAI
+// produit, jamais une imitation.
+const CAR_CADRAGES_PRODUIT = [
+  { nom: 'plan large', zoom: 1.0, ax: 0.5, ay: 0.5 },
+  { nom: 'plan serré', zoom: 1.75, ax: 0.5, ay: 0.42 },
+  { nom: 'plan décalé', zoom: 1.35, ax: 0.3, ay: 0.55 }
+];
+
+// Le fichier produit n'est utilisable en fond que si c'est une IMAGE : un PDF
+// (ebook, brochure) apporte du texte au prompt, pas un visuel de vente.
+function photoProduitCarrousel() {
+  const f = carrouselVenteFichier;
+  if (!f || !f.base64 || !/^image\//i.test(f.mediaType || '')) return null;
+  return 'data:' + f.mediaType + ';base64,' + f.base64;
+}
+
+// Quelles slides montrent le produit. Choix déterministe plutôt que confié au
+// modèle : la couverture (on doit voir ce qu'on vend tout de suite), la
+// DERNIÈRE (c'est l'offre, le moment d'acheter), et une du milieu pour ne pas
+// laisser un long ventre mou sans produit. Jamais plus de trois : au-delà, la
+// même photo recadrée trois fois de plus se voit et fait pauvre.
+function slidesProduitCarrousel(total) {
+  const map = new Map();
+  if (!photoProduitCarrousel() || total <= 0) return map;
+  map.set(0, CAR_CADRAGES_PRODUIT[0]);
+  if (total >= 2) map.set(total - 1, CAR_CADRAGES_PRODUIT[1]);
+  if (total >= 4) map.set(Math.floor(total / 2), CAR_CADRAGES_PRODUIT[2]);
+  return map;
+}
+
+// Un fond GÉNÉRÉ (ou choisi) par le créateur pour cette slide passe avant
+// tout : son geste est plus récent et plus intentionnel que notre règle
+// automatique, même principe que le montage vidéo. Cette condition vit ICI,
+// en un seul endroit, pour que la composition, la note affichée et le libellé
+// du bouton ne puissent jamais diverger.
+function cadrageProduitSlide(i) {
+  if (!carrouselResultat || !carrouselResultat.slides) return null;
+  if (carrouselImages[i]) return null;
+  return slidesProduitCarrousel(carrouselResultat.slides.length).get(i) || null;
+}
+
 function composerSlideCarrousel(i) {
   return new Promise((resolve, reject) => {
     if (!carrouselResultat || !carrouselResultat.slides[i]) return reject(new Error('Slide introuvable'));
@@ -1348,24 +1402,41 @@ function composerSlideCarrousel(i) {
 
     const demarrer = () => {
       carrouselFond(c, L, H);
-      const image = carrouselImages[i];
-      if (image && image.apercu) {
+      // cadrageProduitSlide rend déjà null si le créateur a posé son propre
+      // fond sur cette slide : sa photo produit ne l'écrase jamais.
+      const cadrage = cadrageProduitSlide(i);
+      const source = (carrouselImages[i] && carrouselImages[i].apercu) || (cadrage ? photoProduitCarrousel() : null);
+      if (source) {
         const img = new Image();
         img.onload = () => {
-          const ratio = Math.max(L / img.width, H / img.height);
+          const ratio = Math.max(L / img.width, H / img.height) * (cadrage ? cadrage.zoom : 1);
           const il = img.width * ratio, ih = img.height * ratio;
-          c.drawImage(img, (L - il) / 2, (H - ih) / 2, il, ih);
+          // Ancrage : centré pour un fond d'ambiance, décalé selon le cadrage
+          // pour une photo produit, ce qui donne des plans réellement
+          // différents à partir d'un seul fichier.
+          const ax = cadrage ? cadrage.ax : 0.5;
+          const ay = cadrage ? cadrage.ay : 0.5;
+          c.drawImage(img, (L - il) * ax, (H - ih) * ay, il, ih);
           // Voile sombre : la mise en page doit rester lisible quelle que
-          // soit l'image, sans effacer complètement la photo.
+          // soit l'image, sans effacer complètement la photo. NETTEMENT plus
+          // léger en haut sur une slide produit : le but est justement qu'on
+          // VOIE le produit, un voile à 0,72 le noyait. Le bas reste sombre,
+          // c'est là que le texte s'accumule.
           const voile = c.createLinearGradient(0, 0, 0, H);
-          voile.addColorStop(0, 'rgba(10,10,12,0.72)');
-          voile.addColorStop(1, 'rgba(10,10,12,0.88)');
+          if (cadrage) {
+            voile.addColorStop(0, 'rgba(10,10,12,0.42)');
+            voile.addColorStop(0.45, 'rgba(10,10,12,0.66)');
+            voile.addColorStop(1, 'rgba(10,10,12,0.93)');
+          } else {
+            voile.addColorStop(0, 'rgba(10,10,12,0.72)');
+            voile.addColorStop(1, 'rgba(10,10,12,0.88)');
+          }
           c.fillStyle = voile;
           c.fillRect(0, 0, L, H);
           dessiner();
         };
         img.onerror = dessiner;
-        img.src = image.apercu;
+        img.src = source;
       } else {
         dessiner();
       }
@@ -1516,9 +1587,23 @@ function ico(nom) {
 // Libellé d'un bouton "générer un fond", SOURCE UNIQUE pour le rendu complet
 // et pour la mise à jour en place : deux formulations séparées finiraient par
 // diverger, et le bouton afficherait un état faux à mi-parcours.
+// Ce que le créateur lit sous chaque slide. Une slide portant sa vraie photo
+// doit le DIRE : sans ça, il croit à un fond généré, et il clique "Générer un
+// fond" en pensant l'obtenir, alors qu'il remplacerait sa propre photo.
+function noteVisuelSlide(s, i) {
+  const cadrage = cadrageProduitSlide(i);
+  if (cadrage) return 'ta photo produit, ' + cadrage.nom + ' (aucune image générée, aucun quota utilisé)';
+  return s.visuel || 'fond sobre, sans image';
+}
+
 function libelleBoutonFondCarrousel(i) {
   if (carrouselImageIndexEnCours === i) return '<span class="car-spinner"></span> Génération…';
-  return carrouselImages[i] ? ico('refresh') + ' Refaire le fond' : ico('sparkle') + ' Générer un fond';
+  if (carrouselImages[i]) return ico('refresh') + ' Refaire le fond';
+  // Sur une slide qui porte déjà la vraie photo, le bouton doit dire ce qu'il
+  // fait vraiment : il REMPLACE cette photo par une image générée. "Générer
+  // un fond" laisserait croire qu'on ajoute quelque chose.
+  if (cadrageProduitSlide(i)) return ico('sparkle') + ' Remplacer par un fond généré';
+  return ico('sparkle') + ' Générer un fond';
 }
 
 function libelleBoutonFondsTousCarrousel() {
@@ -1563,7 +1648,6 @@ function renderCarrousel() {
     </button>`).join('');
 
   const slidesHtml = r.slides.map((s, i) => {
-    const img = carrouselImages[i];
     const mots = carrouselCompterMots(carrouselTexteSlide(s));
     return `
       <div class="car-slide">
@@ -1576,7 +1660,7 @@ function renderCarrousel() {
           ${s.points && s.points.length ? `<ul class="car-slide-points">${s.points.map(p => `<li><strong>${carrouselEchapper(p.titre)}</strong>${p.texte ? ' ' + carrouselEchapper(p.texte) : ''}</li>`).join('')}</ul>` : ''}
           ${s.bandeau ? `<p class="car-slide-bandeau">${carrouselEchapper(s.bandeau)}</p>` : ''}
           <p class="car-slide-mots">${mots} mot${mots > 1 ? 's' : ''} au total</p>
-          <p class="car-slide-visuel-note"><strong>Visuel :</strong> ${carrouselEchapper(s.visuel || 'fond sobre, sans image')}</p>
+          <p class="car-slide-visuel-note"><strong>Visuel :</strong> ${carrouselEchapper(noteVisuelSlide(s, i))}</p>
           <div class="car-slide-actions">
             <button class="btn-regenerate" id="carGenBtn${i}" onclick="genererImageCarrousel(${i})" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${libelleBoutonFondCarrousel(i)}</button>
             <button class="btn-regenerate" onclick="telechargerSlideCarrousel(${i})">${ico('download')} Télécharger</button>
