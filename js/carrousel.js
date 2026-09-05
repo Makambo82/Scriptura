@@ -846,8 +846,96 @@ function imagesRestantesCarrousel() {
 // pour que la slide soit utilisable : la mise en page est posée par-dessus.
 function construirePromptImageCarrousel(visuel) {
   const direction = (carrouselResultat && carrouselResultat.direction_visuelle) ? ', ' + carrouselResultat.direction_visuelle : '';
-  return String(visuel || '') + direction +
+  // Quand le produit du créateur va être POSÉ dans ce décor (voir
+  // detourerProduitCarrousel), le décor doit lui faire une place. Sans cette
+  // consigne, le modèle remplit tout le cadre et le produit détouré se
+  // retrouve collé sur un mur d'objets : ça se voit tout de suite, et ça
+  // ruine l'effet. On lui demande donc une zone dégagée là où le produit
+  // atterrira, tout en gardant l'interdiction de dessiner un produit.
+  const placeProduit = photoProduitCarrousel()
+    ? '. Compose la scène en laissant une ZONE DÉGAGÉE et peu chargée dans la moitié haute de l\'image (une surface nette, un mur, une table vide, un fond flou) : un objet réel y sera posé ensuite. Ne dessine AUCUN produit, aucun flacon, aucun tube, aucune boîte, aucun emballage, aucune étiquette : cette place doit rester libre.'
+    : '';
+  return String(visuel || '') + direction + placeProduit +
     '. Aucune lettre, aucun mot, aucun texte, aucun chiffre visible dans l\'image. Image d\'ambiance sombre et sobre, qui laisse toute la place à un texte ajouté par-dessus. ' + carrouselFormat;
+}
+
+// Positions du produit dans le décor, une par slide, en tournant : le même
+// objet posé exactement au même endroit sur chaque slide se remarquerait
+// immédiatement. Coordonnées en fraction de la slide (centre du produit) et
+// hauteur cible, elle aussi en fraction.
+const CAR_POSES_PRODUIT = [
+  { nom: 'de face, centré', cx: 0.50, cy: 0.34, h: 0.40, rot: 0 },
+  { nom: 'posé à droite', cx: 0.68, cy: 0.31, h: 0.34, rot: 0.06 },
+  { nom: 'posé à gauche', cx: 0.32, cy: 0.33, h: 0.36, rot: -0.05 },
+  { nom: 'en gros plan', cx: 0.55, cy: 0.30, h: 0.48, rot: -0.02 }
+];
+
+// Compose le décor généré + le produit détouré, et renvoie un data URL.
+// Le produit est posé APRÈS le décor mais AVANT le texte (voir
+// composerSlideCarrousel) : il doit rester net et lumineux, c'est le sujet.
+function composerFondProduitCarrousel(decorDataUrl, produitDataUrl, i, dims) {
+  return new Promise((resolve) => {
+    const pose = CAR_POSES_PRODUIT[i % CAR_POSES_PRODUIT.length];
+    const cv = document.createElement('canvas');
+    cv.width = dims.l; cv.height = dims.h;
+    const c = cv.getContext('2d');
+    const decor = new Image();
+    decor.onload = () => {
+      const r = Math.max(cv.width / decor.width, cv.height / decor.height);
+      c.drawImage(decor, (cv.width - decor.width * r) / 2, (cv.height - decor.height * r) / 2,
+        decor.width * r, decor.height * r);
+      const prod = new Image();
+      prod.onload = () => {
+        const hCible = cv.height * pose.h;
+        const ech = hCible / prod.height;
+        const pl = prod.width * ech, ph = prod.height * ech;
+        c.save();
+        c.translate(cv.width * pose.cx, cv.height * pose.cy);
+        c.rotate(pose.rot);
+        // Ombre portée : sans elle, le produit a l'air collé au-dessus du
+        // décor, pas posé dedans.
+        c.shadowColor = 'rgba(0,0,0,0.55)';
+        c.shadowBlur = Math.round(cv.width * 0.045);
+        c.shadowOffsetY = Math.round(cv.height * 0.012);
+        c.drawImage(prod, -pl / 2, -ph / 2, pl, ph);
+        c.restore();
+        resolve(cv.toDataURL('image/png'));
+      };
+      prod.onerror = () => resolve(decorDataUrl);
+      prod.src = produitDataUrl;
+    };
+    decor.onerror = () => resolve(decorDataUrl);
+    decor.src = decorDataUrl;
+  });
+}
+
+// Un data URL redevient un Blob : la composition produit un data URL, alors
+// que le reste du carrousel attend un Blob (téléchargement). base64VersBlob
+// vit dans js/montage.js, chargé avant celui-ci.
+function dataUrlVersBlob(dataUrl) {
+  const m = /^data:([^;]+);base64,(.*)$/.exec(String(dataUrl || ''));
+  if (!m || typeof base64VersBlob !== 'function') return null;
+  try { return base64VersBlob(m[2], m[1]); } catch (e) { return null; }
+}
+
+// Détoure le produit chargé, une seule fois par fichier : le résultat est
+// gardé en mémoire, on ne recalcule pas à chaque slide.
+let _produitDetoure = { source: null, resultat: null, averti: false };
+function produitDetoureCarrousel() {
+  return new Promise((resolve) => {
+    const src = photoProduitCarrousel();
+    if (!src) return resolve(null);
+    if (_produitDetoure.source === src) return resolve(_produitDetoure.resultat);
+    const img = new Image();
+    img.onload = () => {
+      let r = null;
+      try { r = detourerProduitCarrousel(img); } catch (e) { r = null; }
+      _produitDetoure = { source: src, resultat: r, averti: false };
+      resolve(r);
+    };
+    img.onerror = () => { _produitDetoure = { source: src, resultat: null, averti: false }; resolve(null); };
+    img.src = src;
+  });
 }
 
 async function genererImageCarrousel(i) {
@@ -884,9 +972,31 @@ async function genererImageCarrousel(i) {
     if (!rep.ok || !img) {
       throw new Error((data.erreurs && data.erreurs[0]) || (data.error && data.error.message) || 'Échec de génération de l\'image.');
     }
+    let apercu = 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64;
+    // LE PRODUIT ENTRE EN SCÈNE ICI, et seulement ici : sur le clic du
+    // créateur, jamais tout seul (demande explicite du propriétaire). Le décor
+    // vient d'être généré, on y pose maintenant SA vraie photo détourée, à une
+    // place qui tourne d'une slide à l'autre.
+    let avecProduit = false;
+    const detoure = await produitDetoureCarrousel();
+    if (detoure && detoure.dataUrl) {
+      const fmt = CAR_FORMATS[carrouselFormat] || CAR_FORMATS[CAR_FORMAT_DEFAUT];
+      apercu = await composerFondProduitCarrousel(apercu, detoure.dataUrl, i, fmt);
+      avecProduit = true;
+    } else if (photoProduitCarrousel() && !_produitDetoure.averti) {
+      // Détourage impossible (photo prise dans un décor chargé, pas de fond
+      // uni) : on le DIT au lieu de livrer un produit troué ou cerné d'un
+      // halo. Le décor généré reste utilisable tel quel. UNE SEULE FOIS par
+      // fichier : sur "tout générer", répéter le même avertissement à chaque
+      // slide serait insupportable.
+      _produitDetoure.averti = true;
+      carrouselAfficherErreur('Le décor est généré, mais ton produit n\'a pas pu être détouré : sa photo n\'a pas de fond uni. '
+        + 'Une photo sur fond blanc, carton ou drap donnera un bien meilleur résultat.');
+    }
     carrouselImages[i] = {
-      apercu: 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64,
-      blob: (typeof base64VersBlob === 'function') ? base64VersBlob(img.base64, img.mimeType || 'image/png') : null
+      apercu,
+      avecProduit,
+      blob: (typeof dataUrlVersBlob === 'function') ? dataUrlVersBlob(apercu) : null
     };
     if (carrouselQuotaImages && !carrouselQuotaImages.illimite) {
       carrouselQuotaImages.used = (carrouselQuotaImages.used || 0) + 1;
@@ -1305,30 +1415,113 @@ function photoProduitCarrousel() {
   return 'data:' + f.mediaType + ';base64,' + f.base64;
 }
 
-// Quelles slides montrent le produit. Choix déterministe plutôt que confié au
-// modèle : la couverture (on doit voir ce qu'on vend tout de suite), la
-// DERNIÈRE (c'est l'offre, le moment d'acheter), et une du milieu pour ne pas
-// laisser un long ventre mou sans produit. Jamais plus de trois : au-delà, la
-// même photo recadrée trois fois de plus se voit et fait pauvre.
-function slidesProduitCarrousel(total) {
-  const map = new Map();
-  if (!photoProduitCarrousel() || total <= 0) return map;
-  map.set(0, CAR_CADRAGES_PRODUIT[0]);
-  if (total >= 2) map.set(total - 1, CAR_CADRAGES_PRODUIT[1]);
-  if (total >= 4) map.set(Math.floor(total / 2), CAR_CADRAGES_PRODUIT[2]);
-  return map;
+// ── DÉTOURAGE DU PRODUIT, PUIS MISE EN DÉCOR ──
+//
+// Demande du propriétaire : « l'app doit en arrière-plan faire le produit de
+// l'image sur fond transparent avant de le servir dans différents décors,
+// quand l'utilisateur cliquera sur générer un fond ».
+//
+// POURQUOI ON DÉTOURE NOUS-MÊMES plutôt que de le demander au modèle : la
+// génération d'images ne reçoit qu'un TEXTE, jamais d'image de référence
+// (api/montage-media.js). Elle ne peut donc ni détourer la photo du créateur,
+// ni la redessiner : elle produirait un sosie, avec une étiquette en charabia
+// et un faux logo. Le seul moyen d'avoir SON produit dans un décor, c'est de
+// découper sa vraie photo ici, dans le navigateur, et de la poser sur le
+// décor généré.
+//
+// LA MÉTHODE : remplissage par diffusion depuis les bords. On part de tous
+// les pixels du contour, on avale tout ce qui ressemble à la couleur du fond
+// à une tolérance près, et on rend ces pixels transparents. C'est la méthode
+// qui convient aux photos de produit, presque toujours prises sur un fond
+// uni (blanc studio, carton, drap). Elle est instantanée, gratuite, et ne
+// dépend d'aucun service extérieur.
+//
+// SES LIMITES, ASSUMÉES ET SURVEILLÉES : sur une photo prise dans un décor
+// chargé (le produit sur une table de salle de bain), la diffusion ne trouve
+// pas de fond uni et fait n'importe quoi. On MESURE donc ce qu'on a retiré :
+// trop peu ou presque tout, on refuse de détourer et on le dit, plutôt que de
+// livrer un produit troué ou entouré d'un halo.
+const CAR_DETOURAGE_TOLERANCE = 34;      // écart de couleur admis, sur 255
+const CAR_DETOURAGE_MIN = 0.06;          // moins de 6 % retiré : pas de fond uni
+const CAR_DETOURAGE_MAX = 0.94;          // plus de 94 % : on a mangé le produit
+const CAR_DETOURAGE_TAILLE_MAX = 1100;   // borne le coût du calcul
+
+// Réduit l'image si besoin et rend son contexte 2D, prêt à être analysé.
+function _canvasDepuisImage(img, tailleMax) {
+  const ratio = Math.min(1, tailleMax / Math.max(img.width, img.height));
+  const L = Math.max(1, Math.round(img.width * ratio));
+  const H = Math.max(1, Math.round(img.height * ratio));
+  const cv = document.createElement('canvas');
+  cv.width = L; cv.height = H;
+  cv.getContext('2d').drawImage(img, 0, 0, L, H);
+  return cv;
 }
 
-// Un fond GÉNÉRÉ (ou choisi) par le créateur pour cette slide passe avant
-// tout : son geste est plus récent et plus intentionnel que notre règle
-// automatique, même principe que le montage vidéo. Cette condition vit ICI,
-// en un seul endroit, pour que la composition, la note affichée et le libellé
-// du bouton ne puissent jamais diverger.
-function cadrageProduitSlide(i) {
-  if (!carrouselResultat || !carrouselResultat.slides) return null;
-  if (carrouselImages[i]) return null;
-  return slidesProduitCarrousel(carrouselResultat.slides.length).get(i) || null;
+// Couleur de fond estimée : la MÉDIANE des pixels du contour, jamais la
+// moyenne. Une moyenne se laisse tirer par un coin d'ombre ou un reflet, et
+// on détourerait alors autour d'une couleur qui n'existe nulle part.
+function _couleurFond(data, L, H) {
+  const r = [], v = [], b = [];
+  const pousser = (x, y) => {
+    const k = (y * L + x) * 4;
+    r.push(data[k]); v.push(data[k + 1]); b.push(data[k + 2]);
+  };
+  for (let x = 0; x < L; x++) { pousser(x, 0); pousser(x, H - 1); }
+  for (let y = 0; y < H; y++) { pousser(0, y); pousser(L - 1, y); }
+  const med = (t) => { t.sort((a, b2) => a - b2); return t[Math.floor(t.length / 2)]; };
+  return [med(r), med(v), med(b)];
 }
+
+// Détoure et renvoie { dataUrl, part } où `part` est la fraction de l'image
+// rendue transparente. Renvoie null si le résultat n'est pas exploitable :
+// mieux vaut pas de détourage du tout qu'un produit abîmé.
+function detourerProduitCarrousel(img) {
+  const cv = _canvasDepuisImage(img, CAR_DETOURAGE_TAILLE_MAX);
+  const L = cv.width, H = cv.height;
+  const ctx = cv.getContext('2d');
+  const image = ctx.getImageData(0, 0, L, H);
+  const data = image.data;
+  const fond = _couleurFond(data, L, H);
+  const tol = CAR_DETOURAGE_TOLERANCE;
+
+  const vu = new Uint8Array(L * H);
+  const pile = [];
+  const proche = (k) => Math.abs(data[k] - fond[0]) <= tol
+    && Math.abs(data[k + 1] - fond[1]) <= tol
+    && Math.abs(data[k + 2] - fond[2]) <= tol;
+
+  for (let x = 0; x < L; x++) { pile.push(x); pile.push((H - 1) * L + x); }
+  for (let y = 0; y < H; y++) { pile.push(y * L); pile.push(y * L + L - 1); }
+
+  let retires = 0;
+  while (pile.length) {
+    const p = pile.pop();
+    if (vu[p]) continue;
+    const k = p * 4;
+    if (!proche(k)) continue;
+    vu[p] = 1;
+    data[k + 3] = 0;
+    retires++;
+    const x = p % L, y = (p - x) / L;
+    if (x > 0) pile.push(p - 1);
+    if (x < L - 1) pile.push(p + 1);
+    if (y > 0) pile.push(p - L);
+    if (y < H - 1) pile.push(p + L);
+  }
+
+  const part = retires / (L * H);
+  if (part < CAR_DETOURAGE_MIN || part > CAR_DETOURAGE_MAX) return null;
+  ctx.putImageData(image, 0, 0);
+  return { dataUrl: cv.toDataURL('image/png'), part };
+}
+
+// AUCUNE slide ne porte le produit d'office. Essayé (photo posée
+// automatiquement sur la couverture, l'offre et une slide du milieu), refusé
+// par le propriétaire : « tous les slides doivent être générés avec le fond
+// sombre comme avant, et c'est quand on va cliquer sur générer un fond que
+// l'image va apparaître ». Le produit n'entre donc en scène que sur un geste
+// du créateur, jamais tout seul. Voir composerFondProduitCarrousel plus bas,
+// qui fabrique ce fond au moment du clic.
 
 function composerSlideCarrousel(i) {
   return new Promise((resolve, reject) => {
@@ -1402,30 +1595,21 @@ function composerSlideCarrousel(i) {
 
     const demarrer = () => {
       carrouselFond(c, L, H);
-      // cadrageProduitSlide rend déjà null si le créateur a posé son propre
-      // fond sur cette slide : sa photo produit ne l'écrase jamais.
-      const cadrage = cadrageProduitSlide(i);
-      const source = (carrouselImages[i] && carrouselImages[i].apercu) || (cadrage ? photoProduitCarrousel() : null);
-      if (source) {
+      const image = carrouselImages[i];
+      if (image && image.apercu) {
         const img = new Image();
         img.onload = () => {
-          const ratio = Math.max(L / img.width, H / img.height) * (cadrage ? cadrage.zoom : 1);
+          const ratio = Math.max(L / img.width, H / img.height);
           const il = img.width * ratio, ih = img.height * ratio;
-          // Ancrage : centré pour un fond d'ambiance, décalé selon le cadrage
-          // pour une photo produit, ce qui donne des plans réellement
-          // différents à partir d'un seul fichier.
-          const ax = cadrage ? cadrage.ax : 0.5;
-          const ay = cadrage ? cadrage.ay : 0.5;
-          c.drawImage(img, (L - il) * ax, (H - ih) * ay, il, ih);
+          c.drawImage(img, (L - il) / 2, (H - ih) / 2, il, ih);
           // Voile sombre : la mise en page doit rester lisible quelle que
-          // soit l'image, sans effacer complètement la photo. NETTEMENT plus
-          // léger en haut sur une slide produit : le but est justement qu'on
-          // VOIE le produit, un voile à 0,72 le noyait. Le bas reste sombre,
-          // c'est là que le texte s'accumule.
+          // soit l'image, sans effacer complètement la photo. Allégé quand le
+          // fond porte le produit détouré : le noyer sous 0,72 reviendrait à
+          // le générer pour rien.
           const voile = c.createLinearGradient(0, 0, 0, H);
-          if (cadrage) {
+          if (image.avecProduit) {
             voile.addColorStop(0, 'rgba(10,10,12,0.42)');
-            voile.addColorStop(0.45, 'rgba(10,10,12,0.66)');
+            voile.addColorStop(0.45, 'rgba(10,10,12,0.62)');
             voile.addColorStop(1, 'rgba(10,10,12,0.93)');
           } else {
             voile.addColorStop(0, 'rgba(10,10,12,0.72)');
@@ -1436,7 +1620,7 @@ function composerSlideCarrousel(i) {
           dessiner();
         };
         img.onerror = dessiner;
-        img.src = source;
+        img.src = image.apercu;
       } else {
         dessiner();
       }
@@ -1587,22 +1771,16 @@ function ico(nom) {
 // Libellé d'un bouton "générer un fond", SOURCE UNIQUE pour le rendu complet
 // et pour la mise à jour en place : deux formulations séparées finiraient par
 // diverger, et le bouton afficherait un état faux à mi-parcours.
-// Ce que le créateur lit sous chaque slide. Une slide portant sa vraie photo
-// doit le DIRE : sans ça, il croit à un fond généré, et il clique "Générer un
-// fond" en pensant l'obtenir, alors qu'il remplacerait sa propre photo.
+// Ce que le créateur lit sous chaque slide.
 function noteVisuelSlide(s, i) {
-  const cadrage = cadrageProduitSlide(i);
-  if (cadrage) return 'ta photo produit, ' + cadrage.nom + ' (aucune image générée, aucun quota utilisé)';
+  const img = carrouselImages[i];
+  if (img && img.avecProduit) return 'décor généré, avec TON produit détouré posé dedans';
   return s.visuel || 'fond sobre, sans image';
 }
 
 function libelleBoutonFondCarrousel(i) {
   if (carrouselImageIndexEnCours === i) return '<span class="car-spinner"></span> Génération…';
   if (carrouselImages[i]) return ico('refresh') + ' Refaire le fond';
-  // Sur une slide qui porte déjà la vraie photo, le bouton doit dire ce qu'il
-  // fait vraiment : il REMPLACE cette photo par une image générée. "Générer
-  // un fond" laisserait croire qu'on ajoute quelque chose.
-  if (cadrageProduitSlide(i)) return ico('sparkle') + ' Remplacer par un fond généré';
   return ico('sparkle') + ' Générer un fond';
 }
 
