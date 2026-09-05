@@ -735,6 +735,17 @@ const VENTE_IDS_SCRIPT = { erreur: 'venteFichierError', nom: 'venteFichierNom', 
 
 async function chargerFichierVente(files) {
   venteFichier = await lireFichierVente(files, VENTE_IDS_SCRIPT);
+// Le produit chargé sert AUSSI à deviner la niche (demande du propriétaire) :
+// le créateur vient de donner l'information, l'app n'a pas à la redemander.
+// D'autant que sur l'objectif Ventes, le sujet saisi est souvent très pauvre
+// (« vendre un produit »), donc les mots-clés n'ont rien à analyser : le
+// fichier est la seule vraie matière. Jamais attendu (pas de await) : le
+// chargement du fichier doit rester instantané, la niche se posera une
+// seconde plus tard. Jamais par-dessus un choix manuel non plus, c'est
+// detecterNicheDepuisFichierVente qui s'en assure.
+  if (venteFichier && typeof detecterNicheDepuisFichierVente === 'function') {
+    detecterNicheDepuisFichierVente(venteFichier, 'niche', 'nicheAutoNoteScript');
+  }
 }
 
 // Remet à zéro l'état ET l'interface du bloc "ce que tu vends". Paramétrée

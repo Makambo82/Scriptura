@@ -519,6 +519,17 @@ function syncVenteFieldCarrousel() {
 
 async function chargerFichierVenteCarrousel(files) {
   carrouselVenteFichier = await lireFichierVente(files, CARROUSEL_VENTE_IDS);
+// Le produit chargé sert AUSSI à deviner la niche (demande du propriétaire) :
+// le créateur vient de donner l'information, l'app n'a pas à la redemander.
+// D'autant que sur l'objectif Ventes, le sujet saisi est souvent très pauvre
+// (« vendre un produit »), donc les mots-clés n'ont rien à analyser : le
+// fichier est la seule vraie matière. Jamais attendu (pas de await) : le
+// chargement du fichier doit rester instantané, la niche se posera une
+// seconde plus tard. Jamais par-dessus un choix manuel non plus, c'est
+// detecterNicheDepuisFichierVente qui s'en assure.
+  if (carrouselVenteFichier && typeof detecterNicheDepuisFichierVente === 'function') {
+    detecterNicheDepuisFichierVente(carrouselVenteFichier, 'carrouselNiche', 'nicheAutoNoteCarrousel');
+  }
 }
 
 function retirerFichierVenteCarrousel() {

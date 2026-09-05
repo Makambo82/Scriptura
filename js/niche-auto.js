@@ -161,6 +161,70 @@ function nichesDisponibles(champNiche) {
 // faute d'option correspondante dans un menu encore vide. On remplit donc le
 // menu au même endroit et depuis la même source que le reste de l'app, plutôt
 // que de dupliquer la liste des niches ici.
+// Verrou « le créateur a tranché », porté par LE CHAMP lui-même et non par
+// une variable de fermeture : deux détections différentes doivent le
+// respecter, celle qui lit le sujet tapé et celle qui lit le produit chargé
+// (voir detecterNicheDepuisFichierVente). Une niche choisie à la main ne doit
+// être écrasée par AUCUNE des deux.
+function marquerNicheChoisieALaMain(champNiche) {
+  if (champNiche) champNiche.dataset.nicheChoisieMain = '1';
+}
+function nicheChoisieALaMain(champNiche) {
+  return !!(champNiche && champNiche.dataset.nicheChoisieMain === '1');
+}
+
+// Détection de la niche À PARTIR DU PRODUIT CHARGÉ (objectif Ventes).
+//
+// Demande du propriétaire : quand on joint la photo de son produit ou son PDF,
+// on a déjà donné l'information, l'app ne devrait pas la redemander. C'est
+// d'autant plus vrai que le sujet saisi dans ce cas est souvent très pauvre
+// (« vendre un produit »), donc les mots-clés n'ont rien à se mettre sous la
+// dent : le fichier est la seule vraie matière.
+//
+// Un seul appel, minuscule (une ligne de réponse), hors quota comme la
+// détection depuis le texte. Déclenché à l'instant du chargement, pas pendant
+// la frappe : le créateur vient d'agir, une seconde d'attente y est naturelle.
+//
+// Mêmes prudences que partout ailleurs : jamais par-dessus un choix manuel,
+// jamais une valeur absente du menu, et silence complet en cas de doute.
+async function detecterNicheDepuisFichierVente(fichier, idNiche, idNote) {
+  const champNiche = document.getElementById(idNiche);
+  if (!fichier || !champNiche || nicheChoisieALaMain(champNiche)) return null;
+  if (typeof callAI !== 'function') return null;
+  assurerOptionsNiche(champNiche);
+  const liste = nichesDisponibles(champNiche);
+  if (!liste.length) return null;
+
+  const prompt = `Un créateur TikTok veut vendre le produit présenté dans le fichier joint à ce message (photo du produit, ou document).
+
+Range CE PRODUIT dans UNE de ces catégories, en recopiant son intitulé EXACTEMENT :
+${liste.join('\n')}
+
+Réponds UNIQUEMENT par l'intitulé choisi, rien d'autre, aucune explication.
+Si le produit ne correspond clairement à aucune catégorie, réponds exactement : AUCUNE`;
+  try {
+    const reponse = await callAI(MODEL_RAPIDE, 30, prompt, 1, false, 0, 'detectionNiche', fichier, null, 'detectionNiche');
+    if (!reponse) return null;
+    const propre = String(reponse).trim().replace(/^["'\s]+|["'.\s]+$/g, '');
+    if (!propre || /^aucune$/i.test(propre)) return null;
+    const exact = liste.find(n => n.toLowerCase() === propre.toLowerCase())
+      || liste.find(n => nicheNormaliser(n).trim() === nicheNormaliser(propre).trim());
+    if (!exact) return null;
+    // Le créateur a pu choisir sa niche pendant l'appel : on ne réveille
+    // jamais une proposition devenue caduque.
+    if (nicheChoisieALaMain(champNiche)) return null;
+    champNiche.value = exact;
+    const note = document.getElementById(idNote);
+    if (note) {
+      note.textContent = 'Niche détectée depuis ton produit : ' + exact + '. Tu peux la changer.';
+      note.style.display = '';
+    }
+    return exact;
+  } catch (e) {
+    return null; // un confort de formulaire ne signale jamais d'erreur
+  }
+}
+
 function assurerOptionsNiche(champNiche) {
   if (!champNiche || (champNiche.options && champNiche.options.length)) return;
   const source = document.getElementById('auditNiche');
@@ -214,7 +278,6 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
   const note = document.getElementById(idNote);
   if (!champSujet || !champNiche) return;
 
-  let choisiParCreateur = false;
   let dernierTexteIA = '';
   let minuteurIA = null;
 
@@ -229,12 +292,12 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
   // créateur a tranché, l'app n'a plus rien à proposer. Sans ça, continuer à
   // écrire son sujet effacerait la niche qu'il vient de choisir.
   champNiche.addEventListener('change', () => {
-    choisiParCreateur = true;
+    marquerNicheChoisieALaMain(champNiche);
     if (note) { note.style.display = 'none'; note.textContent = ''; }
   });
 
   const appliquer = (niche, parIA) => {
-    if (!niche || choisiParCreateur) return;
+    if (!niche || nicheChoisieALaMain(champNiche)) return;
     assurerOptionsNiche(champNiche);
     if (!nichesDisponibles(champNiche).includes(niche)) return;
     champNiche.value = niche;
@@ -242,7 +305,7 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
   };
 
   champSujet.addEventListener('input', () => {
-    if (choisiParCreateur) return;
+    if (nicheChoisieALaMain(champNiche)) return;
     if (minuteurIA) { clearTimeout(minuteurIA); minuteurIA = null; }
     const texte = champSujet.value || '';
 
@@ -265,7 +328,7 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
     afficherNote(null);
     minuteurIA = setTimeout(async () => {
       const texteFinal = (champSujet.value || '').trim();
-      if (texteFinal.length < NICHE_MIN_CARACTERES || choisiParCreateur) return;
+      if (texteFinal.length < NICHE_MIN_CARACTERES || nicheChoisieALaMain(champNiche)) return;
       // Jamais deux appels pour le même texte : sans ce garde-fou, corriger
       // une virgule puis revenir en arrière relancerait un appel à chaque
       // fois. C'est ce qui rend l'étage IA vraiment marginal en coût.
@@ -274,7 +337,7 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
       const niche = await detecterNicheParIA(texteFinal, nichesDisponibles(champNiche));
       // Le créateur a pu choisir sa niche ou tout effacer pendant l'appel :
       // on ne réveille jamais une proposition devenue hors sujet.
-      if (!niche || choisiParCreateur) return;
+      if (!niche || nicheChoisieALaMain(champNiche)) return;
       if ((champSujet.value || '').trim() !== texteFinal) return;
       appliquer(niche, true);
     }, NICHE_DELAI_IA_MS);
