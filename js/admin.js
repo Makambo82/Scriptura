@@ -54,7 +54,8 @@ async function chargerTableauDeBord() {
   // abonné" : un problème qui affecte tous les utilisateurs est plus
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
   // absente tant qu'il n'y a rien à signaler).
-  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin() + carteCreerAbonne() + carteExpirationsAdmin()
+  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin() + carteMontagesAdmin()
+    + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
   demarrerPollNonAbonnesAdmin();
 
@@ -787,6 +788,7 @@ let _erreursParMode = {};
 let _erreursTotal = 0;
 let _erreursRecentes = [];
 let _passesGeneration = [];
+let _montagesRendus = [];
 // true seulement si le DERNIER chargement a réellement réussi (voir
 // chargerTableauDeBord ci-dessous, retour d'audit) : marquerErreursVues/
 // marquerErreursVuesLe ne doivent jamais s'exécuter après une visite où le
@@ -808,6 +810,7 @@ async function chargerCarteModes() {
     _erreursTotal = data.erreursTotal || 0;
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
     _passesGeneration = Array.isArray(data.passes) ? data.passes : [];
+    _montagesRendus = Array.isArray(data.montages) ? data.montages : [];
     _erreursChargementReussi = true;
     // Scindé par plan (Fondateur/Pro/Creator/Non-abonné, voir parModePlan,
     // api/data.js) pour voir ce qui pousse réellement à l'upgrade, plutôt
@@ -1045,6 +1048,55 @@ function cartePassesAdmin() {
     <div class="ideas-sub" style="margin-top:10px;opacity:0.6">${assez
       ? 'Une passe rare coûte peu et peut rester. Une passe quasi systématique est un vrai poste de dépense.'
       : 'Trop peu de générations pour conclure quoi que ce soit. Les pourcentages apparaîtront à partir de ' + ASSEZ_DE_MESURES + ' générations mesurées, et il en faudra une trentaine pour décider sereinement.'}</div>
+  </div>`;
+}
+
+// Vidéos réellement montées sur 30 jours (voir supabase/montages_rendus.sql).
+// Le montage vient d'être ouvert aux abonnés : le quota d'IMAGES était déjà
+// compté, mais le nombre de vidéos réellement produites ne l'était nulle
+// part. Sans ce chiffre, impossible de savoir si la fonctionnalité sert
+// vraiment, ni si elle pousse à l'abonnement Pro.
+//
+// Scindée par plan pour la même raison que carteModesAdmin : c'est
+// l'information qui aide à décider, pas le total brut. La durée de rendu
+// moyenne est là pour surveiller que ça ne se dégrade pas à mesure que
+// plusieurs abonnés montent en même temps sur un service à un seul conteneur.
+function carteMontagesAdmin() {
+  const lignes = Array.isArray(_montagesRendus) ? _montagesRendus : [];
+  if (!lignes.length) return '';
+  const n = lignes.length;
+  const somme = (f) => lignes.reduce((s, l) => s + (Number(f(l)) || 0), 0);
+  const parPlan = { pro: 0, creator: 0, fondateur: 0 };
+  lignes.forEach(l => { const p = l.plan; if (parPlan[p] !== undefined) parPlan[p]++; });
+  const minutesVideo = somme(l => l.duree_video_s) / 60;
+  // Moyenne calculée sur les seules lignes RENSEIGNÉES : une ligne sans
+  // mesure (montage enregistré avant l'ajout du chronométrage) tirerait la
+  // moyenne vers zéro et donnerait un chiffre faux.
+  const avecDuree = lignes.filter(l => Number(l.duree_rendu_ms) > 0);
+  const rendueMoyenS = avecDuree.length ? (avecDuree.reduce((s, l) => s + Number(l.duree_rendu_ms), 0) / avecDuree.length / 1000) : 0;
+  const options = {
+    'Sous-titres': lignes.filter(l => l.sous_titres).length,
+    'Musique de fond': lignes.filter(l => l.musique).length,
+    'Filigrane': lignes.filter(l => l.filigrane).length
+  };
+
+  const ligneHTML = (label, valeur, aide) => `
+    <div class="audit-sujet" style="cursor:default">
+      <span>${escAdmin(label)}${aide ? `<span class="ideas-sub" style="display:block;opacity:0.55;margin-top:2px">${escAdmin(aide)}</span>` : ''}</span>
+      <b style="color:var(--gold);white-space:nowrap">${escAdmin(valeur)}</b>
+    </div>`;
+
+  return `<div class="score-card">
+    <div class="score-title" style="color:var(--gold)">◆ Vidéos montées · 30 jours</div>
+    <div class="ideas-sub" style="margin-top:6px;opacity:0.6">${formaterNombre(n)} vidéo${n > 1 ? 's' : ''} assemblée${n > 1 ? 's' : ''}, soit ${minutesVideo.toFixed(1)} minute${minutesVideo >= 2 ? 's' : ''} de vidéo produite.</div>
+    <div class="audit-sujets" style="margin-top:14px">
+      ${ligneHTML('Abonnés Pro', formaterNombre(parPlan.pro), 'Le montage justifie-t-il le palier Pro')}
+      ${ligneHTML('Abonnés Creator', formaterNombre(parPlan.creator), 'Même fonctionnalité, palier moins cher')}
+      ${ligneHTML('Toi (fondateur)', formaterNombre(parPlan.fondateur), 'À retrancher pour lire l\'usage réel des abonnés')}
+      ${ligneHTML('Temps de rendu moyen', rendueMoyenS ? rendueMoyenS.toFixed(0) + ' s' : 'non mesuré', 'Mesuré côté serveur, à surveiller s\'il grimpe')}
+      ${Object.keys(options).map(o => ligneHTML(o, options[o] + ' sur ' + n, '')).join('')}
+    </div>
+    <div class="ideas-sub" style="margin-top:10px;opacity:0.6">Le calcul coûte quelques millièmes de dollar par vidéo (mesuré). Ce qui compte ici n'est donc pas la dépense, mais de savoir si la fonctionnalité sert vraiment, et à quel palier.</div>
   </div>`;
 }
 

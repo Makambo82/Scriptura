@@ -669,9 +669,26 @@ async function handleAdminStats(req, res, cfg, body) {
       passes = Array.isArray(rowsPasses) ? rowsPasses : [];
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
+    // Vidéos réellement montées sur 30 jours (voir carteMontagesAdmin,
+    // js/admin.js, et supabase/montages_rendus.sql). Même fenêtre que
+    // `parMode` : le montage est un usage occasionnel, une semaine ne
+    // dirait rien. Table optionnelle comme le reste de cette route :
+    // absente, la carte ne s'affiche simplement pas.
+    let montages = [];
+    try {
+      const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+      const rMontages = await fetch(
+        cfg.url + '/rest/v1/montages_rendus?select=plan,nb_plans,duree_video_s,duree_rendu_ms,format,sous_titres,musique,filigrane,cree_le&cree_le=gte.'
+        + encodeURIComponent(depuis30) + '&order=cree_le.desc&limit=500',
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rowsMontages = await rMontages.json().catch(() => []);
+      montages = Array.isArray(rowsMontages) ? rowsMontages : [];
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
     return res.status(200).json({
       total, actifs, creator, pro, parMode, parModePlan, codes: Array.isArray(codes) ? codes : [],
-      codesActifsRecents, erreursParMode, erreursTotal, erreursRecentes, passes
+      codesActifsRecents, erreursParMode, erreursTotal, erreursRecentes, passes, montages
     });
   } catch (e) {
     return res.status(200).json({ indisponible: true });

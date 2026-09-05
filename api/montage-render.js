@@ -83,6 +83,7 @@ export default async function handler(req, res) {
     const entetesProxy = { 'Content-Type': 'application/json' };
     if (process.env.MONTAGE_RENDER_TOKEN) entetesProxy['x-montage-token'] = process.env.MONTAGE_RENDER_TOKEN;
     const format = typeof body?.format === 'string' ? body.format : undefined;
+    const debutRendu = Date.now();
     const rProxy = await fetch(process.env.MONTAGE_RENDER_URL.replace(/\/$/, '') + '/render', {
       method: 'POST',
       headers: entetesProxy,
@@ -92,8 +93,49 @@ export default async function handler(req, res) {
     if (!rProxy.ok || !dataProxy.url) {
       return res.status(502).json({ error: { message: (dataProxy.error && dataProxy.error.message) || 'Le service de rendu externe a échoué.' } });
     }
+    // Mesure du rendu, jamais bloquante (voir journaliserMontage) : la vidéo
+    // est déjà prête, rien de ce qui suit ne doit pouvoir la retarder ni la
+    // faire échouer. Lancée sans await, erreurs avalées.
+    journaliserMontage({
+      code_acces: body?.code_acces || null,
+      plan: droits.isAdmin ? 'fondateur' : (droits.plan || null),
+      nb_plans: images.length,
+      duree_video_s: images.reduce((s, img) => s + (Number(img && img.duration) || 0), 0),
+      duree_rendu_ms: Date.now() - debutRendu,
+      format: format || null,
+      sous_titres: captions.length > 0,
+      musique: !!musicUrl,
+      filigrane: watermark
+    });
     return res.status(200).json({ url: dataProxy.url });
   } catch (e) {
     return res.status(502).json({ error: { message: 'Service de rendu externe injoignable : ' + (e.message || 'inconnue') } });
   }
+}
+
+// Enregistre une vidéo montée dans `montages_rendus` (table OPTIONNELLE, voir
+// supabase/montages_rendus.sql), pour la carte "Vidéos montées" du Tableau de
+// bord. Le quota d'images était déjà compté, mais le rendu lui-même ne
+// l'était nulle part : impossible de savoir combien de vidéos sortent
+// réellement de l'app, ni quel plan s'en sert.
+//
+// Tout est avalé en silence, volontairement, et à trois niveaux : Supabase
+// non configuré, table absente, requête en échec. Une mesure n'a AUCUNE
+// raison de casser ou de ralentir la fonctionnalité qu'elle mesure, surtout
+// après un rendu qui vient de coûter une minute d'attente au créateur.
+// Aucune donnée de contenu n'est enregistrée, uniquement des compteurs.
+function journaliserMontage(ligne) {
+  try {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return;
+    fetch(url + '/rest/v1/montages_rendus', {
+      method: 'POST',
+      headers: {
+        apikey: key, Authorization: 'Bearer ' + key,
+        'Content-Type': 'application/json', Prefer: 'return=minimal'
+      },
+      body: JSON.stringify(ligne)
+    }).catch(() => {});
+  } catch (e) { /* jamais bloquant */ }
 }
