@@ -3219,28 +3219,23 @@ body.is-unlocked .sidebar-logout{display:block}
    grille garde une largeur minimale fixe, le débordement glisse au doigt
    plutôt que de comprimer les colonnes jusqu'à en perdre une. */
 .admin-modes-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-/* Le tableau doit TENIR sur un téléphone. Bug signalé par le propriétaire :
-   il regardait son tableau de bord et concluait que ses générations sans
-   code n'étaient pas comptées. Elles l'étaient : la colonne "Non-abonné"
-   était simplement HORS ÉCRAN (grille de 400 px pour 304 px visibles sur un
-   iPhone), et rien n'indiquait qu'il fallait faire glisser. Un tableau de
-   bord qu'on doit deviner ne sert à rien.
-   Colonnes de chiffres élastiques, largeur minimale juste suffisante pour un
-   nombre à trois chiffres, et plus de min-width imposée : tout rentre. Le
-   conteneur scrollable reste en filet de sécurité pour un écran minuscule
-   ou un futur ajout de colonne. */
-.admin-modes-table{display:grid;gap:2px;min-width:0}
+/* Tableau volontairement PLUS LARGE que l'écran, on le fait glisser.
+   Essayé en version compacte qui tenait entière sur un téléphone (colonnes
+   élastiques, en-têtes rétrécis), retiré à la demande du propriétaire :
+   « laisse ça glissable comme ça, c'est le fondateur seul qui y a accès donc
+   il sait qu'il faut glisser ». L'argument est juste, cet écran n'a qu'un
+   seul utilisateur, et des colonnes larges se lisent mieux que des colonnes
+   comprimées. Ne pas "corriger" ce débordement sans nouvelle demande : il
+   est intentionnel. La colonne des noms de mode reste figée à gauche (voir
+   plus bas) pour qu'on sache toujours quelle ligne on lit. */
+.admin-modes-table{display:grid;gap:2px;min-width:400px}
 .admin-modes-header,.admin-modes-row{
-  display:grid;grid-template-columns:minmax(76px,1.5fr) repeat(4, minmax(32px,1fr));align-items:end;gap:4px;
+  display:grid;grid-template-columns:minmax(120px,1fr) repeat(4, 56px);align-items:center;gap:6px;
   padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);
 }
 .admin-modes-header{
-  font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.02em;text-transform:uppercase;
+  font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.08em;text-transform:uppercase;
   color:var(--muted);border-bottom:1px solid var(--border-soft);padding-bottom:10px;
-  /* Les libellés débordaient de leurs colonnes et venaient se poser SUR la
-     colonne des noms de mode (visible sur la capture : "FONDATEUR" à cheval).
-     Ils se coupent maintenant proprement à l'intérieur de leur colonne. */
-  overflow-wrap:anywhere;line-height:1.25;
 }
 .admin-modes-header span,.admin-modes-row span{text-align:right}
 .admin-modes-header span:first-child,.admin-modes-row span:first-child{text-align:left}

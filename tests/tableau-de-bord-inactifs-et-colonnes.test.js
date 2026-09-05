@@ -5,12 +5,12 @@
 //    était JUSTE (une génération anonyme part bien avec un code_acces
 //    anon_..., et tombe bien dans Non-abonné, voir
 //    tests/admin-stats-fondateur-exclu-abonnes.test.js). Le vrai problème
-//    était l'AFFICHAGE : la grille faisait 400 px de large pour 304 px
-//    visibles sur un iPhone, donc la colonne Non-abonné était purement hors
-//    écran, et rien n'indiquait qu'il fallait faire glisser. Les libellés
-//    d'en-tête débordaient en plus de leurs colonnes et venaient se poser sur
-//    la colonne des noms de mode. Un tableau de bord qu'on doit deviner ne
-//    sert à rien : on prend des décisions dessus.
+//    était l'AFFICHAGE : la grille fait 400 px de large pour 304 px visibles
+//    sur un iPhone, donc la colonne Non-abonné est hors écran tant qu'on n'a
+//    pas fait glisser le tableau. Décision du propriétaire après diagnostic :
+//    on GARDE ce défilement (« c'est le fondateur seul qui y a accès donc il
+//    sait qu'il faut glisser »), des colonnes larges se lisant mieux que des
+//    colonnes comprimées. Voir le test ci-dessous, qui verrouille ce choix.
 //
 // 2) « Cet utilisateur est actuellement connecté et le tableau de bord met
 //    qu'il est inactif depuis 14 jours. » Deux causes : « inactif » ne
@@ -39,11 +39,21 @@ async function ouvrirAdmin(page, baseUrl, reponse) {
   await page.waitForTimeout(200);
 }
 
-test('les QUATRE colonnes tiennent à l\'écran d\'un téléphone, Non-abonné comprise', async () => {
+// CHOIX ASSUMÉ DU PROPRIÉTAIRE, à ne pas "corriger" par bonne intention.
+//
+// Première réaction au diagnostic : rendre le tableau assez compact pour
+// tenir entier sur un téléphone. Livré, puis retiré à sa demande : « laisse
+// ça glissable comme ça, c'est le fondateur seul qui y a accès donc il sait
+// qu'il faut glisser. » L'argument tient : cet écran n'a qu'un utilisateur,
+// et des colonnes larges se lisent mieux que des colonnes comprimées.
+//
+// Ce test garde donc le comportement VOULU : le tableau déborde, on le fait
+// glisser, la colonne Non-abonné est atteignable, et la colonne des noms de
+// mode reste figée pour qu'on sache toujours quelle ligne on lit.
+test('le tableau reste glissable, et Non-abonné est atteignable en glissant', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
-    // 360 px : un des écrans les plus étroits encore courants.
     const page = await navigateur.newPage({ viewport: { width: 360, height: 800 } });
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
@@ -71,36 +81,32 @@ test('les QUATRE colonnes tiennent à l\'écran d\'un téléphone, Non-abonné c
     const vu = await page.evaluate(() => {
       const wrap = document.getElementById('zoneModes');
       const scroll = wrap.querySelector('.admin-modes-scroll');
-      const zone = scroll.getBoundingClientRect();
-      const cellules = Array.from(wrap.querySelector('.admin-modes-row').querySelectorAll('span'));
       const entetes = Array.from(wrap.querySelector('.admin-modes-header').querySelectorAll('span'));
+      const cellules = Array.from(wrap.querySelector('.admin-modes-row').querySelectorAll('span'));
+      // On glisse jusqu'au bout, comme le ferait le fondateur au doigt.
+      scroll.scrollLeft = scroll.scrollWidth;
+      const zone = scroll.getBoundingClientRect();
+      const derniere = cellules[cellules.length - 1].getBoundingClientRect();
       return {
-        debordement: scroll.scrollWidth - scroll.clientWidth,
-        // Toutes les cellules de la première ligne, en-tête comprise, doivent
-        // tenir dans la zone visible sans avoir à glisser.
-        toutesDansLEcran: cellules.concat(entetes).every(c => {
-          const r = c.getBoundingClientRect();
-          return r.left >= zone.left - 1 && r.right <= zone.right + 1;
-        }),
-        // Un libellé d'en-tête ne doit jamais dépasser de sa propre colonne :
-        // c'est ce qui faisait apparaître "FONDATEUR" par-dessus la colonne
-        // des noms de mode.
-        debordementEntetes: entetes.map(e => Math.round(e.scrollWidth - e.clientWidth)),
+        glissable: scroll.scrollWidth > scroll.clientWidth,
+        overflowX: getComputedStyle(scroll).overflowX,
         derniereColonne: entetes[entetes.length - 1].textContent.trim(),
-        valeurNonAbonne: cellules[cellules.length - 1].textContent.trim()
+        valeurNonAbonne: cellules[cellules.length - 1].textContent.trim(),
+        nonAbonneVisibleApresGlissement: derniere.left >= zone.left - 1 && derniere.right <= zone.right + 1,
+        nomDeModeFige: getComputedStyle(cellules[0]).position
       };
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.ok(vu.debordement <= 0,
-      'REGRESSION : le tableau débordait de ' + vu.debordement + ' px, la colonne Non-abonné était hors écran');
-    assert.equal(vu.toutesDansLEcran, true,
-      'les cinq colonnes doivent être visibles sans faire glisser quoi que ce soit');
-    assert.ok(vu.debordementEntetes.every(d => d <= 0),
-      'REGRESSION : un libellé d\'en-tête débordait de sa colonne et se posait sur la colonne voisine : '
-      + JSON.stringify(vu.debordementEntetes));
+    assert.equal(vu.glissable, true,
+      'CHOIX ASSUMÉ : le tableau doit rester plus large que l\'écran et se faire glisser');
+    assert.equal(vu.overflowX, 'auto', 'et le conteneur doit permettre de glisser');
     assert.match(vu.derniereColonne, /Non-abonné/);
-    assert.equal(vu.valeurNonAbonne, '7', 'la valeur Non-abonné doit être lisible, pas seulement présente');
+    assert.equal(vu.nonAbonneVisibleApresGlissement, true,
+      'une fois glissé au bout, la colonne Non-abonné doit être entièrement lisible');
+    assert.equal(vu.valeurNonAbonne, '7', 'et sa valeur doit être la bonne');
+    assert.equal(vu.nomDeModeFige, 'sticky',
+      'la colonne des noms de mode reste figée, sinon on perd la ligne qu\'on lit en glissant');
   } finally {
     await navigateur.close();
     await arreter();
