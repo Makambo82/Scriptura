@@ -837,7 +837,8 @@ async function chargerCarteModes() {
       ...Object.keys(parModePlan.fondateur || {}),
       ...Object.keys(parModePlan.pro || {}),
       ...Object.keys(parModePlan.creator || {}),
-      ...Object.keys(parModePlan.nonAbonne || {})
+      ...Object.keys(parModePlan.nonAbonne || {}),
+      ...Object.keys(parModePlan.autre || {})
     ]));
     // Libellé lisible : les clés internes (voir saveGeneration,
     // js/historique.js) sont en camelCase technique, jamais montrées telles
@@ -846,16 +847,23 @@ async function chargerCarteModes() {
     // qui n'existerait pas encore dans cette liste, plutôt que planter.
     const majusculeInitiale = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
     const libelleMode = (m) => MODE_LABELS_ADMIN[m] || majusculeInitiale(m);
+    // Colonne "Autre" : jeton, code désactivé ou expiré, code introuvable
+    // dans `abonnes`. Elle existe pour qu'AUCUNE génération ne disparaisse en
+    // silence, ce qui est exactement ce qui se passait avant (voir
+    // api/data.js, parModePlan.autre). La somme des cinq colonnes vaut donc
+    // toujours le nombre réel de générations de la période.
+    const total = (r) => r.fondateur + r.pro + r.creator + r.nonAbonne + r.autre;
     const lignes = modes
       .map(m => ({
         m,
         fondateur: (parModePlan.fondateur || {})[m] || 0,
         pro: (parModePlan.pro || {})[m] || 0,
         creator: (parModePlan.creator || {})[m] || 0,
-        nonAbonne: (parModePlan.nonAbonne || {})[m] || 0
+        nonAbonne: (parModePlan.nonAbonne || {})[m] || 0,
+        autre: (parModePlan.autre || {})[m] || 0
       }))
-      .sort((a, b) => (b.fondateur + b.pro + b.creator + b.nonAbonne) - (a.fondateur + a.pro + a.creator + a.nonAbonne))
-      .map(r => `<div class="admin-modes-row"><span>${escAdmin(libelleMode(r.m))}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span><span>${r.nonAbonne}</span></div>`)
+      .sort((a, b) => total(b) - total(a))
+      .map(r => `<div class="admin-modes-row"><span>${escAdmin(libelleMode(r.m))}</span><span>${r.fondateur}</span><span>${r.pro}</span><span>${r.creator}</span><span>${r.nonAbonne}</span><span>${r.autre}</span></div>`)
       .join('') || '<div class="ideas-sub">Aucune génération sur cette période.</div>';
     // Enveloppe scrollable (retour propriétaire : la colonne "Non-abonné"
     // sortait de l'écran sans aucun moyen de la voir sur certains
@@ -865,7 +873,7 @@ async function chargerCarteModes() {
       <div class="score-title">GÉNÉRATIONS PAR MODE · 30 JOURS</div>
       <div class="admin-modes-scroll" style="margin-top:14px">
         <div class="admin-modes-table">
-          <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span><span>Non-abonné</span></div>
+          <div class="admin-modes-header"><span></span><span>Fondateur</span><span>Pro</span><span>Creator</span><span>Non-abonné</span><span>Autre</span></div>
           ${lignes}
         </div>
       </div>

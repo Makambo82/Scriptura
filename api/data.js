@@ -565,7 +565,13 @@ async function handleAdminStats(req, res, cfg, body) {
     // tombaient dans le `planParCode[...]` non trouvé juste en dessous,
     // c'est-à-dire nulle part.
     let parMode = {};
-    let parModePlan = { fondateur: {}, pro: {}, creator: {}, nonAbonne: {} };
+    // "autre" ajouté après un bug signalé par le propriétaire : une génération
+    // faite avec un compte Creator n'apparaissait dans AUCUNE colonne. Toute
+    // ligne non attribuée tombait jusque-là dans le vide, en silence, et le
+    // tableau prétendait quand même répertorier tout le monde. Elle a
+    // désormais une colonne, donc la somme des colonnes vaut toujours le
+    // total (verrouillé par un test).
+    let parModePlan = { fondateur: {}, pro: {}, creator: {}, nonAbonne: {}, autre: {} };
     const derniereGenParCode = {};
     try {
       const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
@@ -583,8 +589,26 @@ async function handleAdminStats(req, res, cfg, body) {
       // d'enregistrer scriptura_code). Sans normaliser ici aussi, ces
       // générations disparaissaient silencieusement du tableau, ni Creator/
       // Pro ni Non-abonné.
+      // NORMALISATION DES DEUX CÔTÉS, code ET plan.
+      //
+      // BUG SIGNALÉ PAR LE PROPRIÉTAIRE : « je viens de faire une génération
+      // avec un compte creator et ça n'est pas marqué dans creator ». Le code
+      // était déjà normalisé (correctif précédent, casse mixte dans
+      // `abonnes`), mais PAS LE PLAN : il était recopié brut, puis comparé
+      // strictement à 'creator'/'pro' plus bas. Un plan enregistré "Creator",
+      // "CREATOR" ou "creator " (espace en trop, ligne créée à la main dans
+      // Supabase) ne matchait donc rien, et toutes les générations de cet
+      // abonné disparaissaient du tableau. api/verify-code.js normalise déjà
+      // ce même champ avec .trim().toLowerCase() pour cette raison exacte :
+      // c'est ici qu'on avait oublié de le faire.
+      //
+      // Le trim est ajouté aussi sur le CODE, des deux côtés : un espace
+      // final invisible dans `abonnes` produirait exactement le même
+      // effacement silencieux.
+      const cleCode = (v) => String(v == null ? '' : v).trim().toUpperCase();
+      const clePlan = (v) => String(v == null ? '' : v).trim().toLowerCase();
       const planParCode = {};
-      (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[String(c.code || '').toUpperCase()] = c.plan; });
+      (Array.isArray(codes) ? codes : []).forEach(c => { planParCode[cleCode(c.code)] = clePlan(c.plan); });
       (Array.isArray(rows) ? rows : []).forEach(r => {
         const m = r.mode || 'autre';
         parMode[m] = (parMode[m] || 0) + 1;
@@ -592,22 +616,29 @@ async function handleAdminStats(req, res, cfg, body) {
         // supplémentaire : sert à dire depuis COMBIEN de temps un abonné est
         // inactif, au lieu du "14 j" écrit en dur qui mentait pour tout le
         // monde (voir carteInactifsAdmin, js/admin.js).
-        const cle = String(r.code_acces || '').toUpperCase();
+        const cle = cleCode(r.code_acces);
         if (cle && r.cree_le && (!derniereGenParCode[cle] || r.cree_le > derniereGenParCode[cle])) {
           derniereGenParCode[cle] = r.cree_le;
         }
-        if (codeFondateur && String(r.code_acces || '').toUpperCase() === codeFondateur) {
+        if (codeFondateur && cle === codeFondateur) {
           parModePlan.fondateur[m] = (parModePlan.fondateur[m] || 0) + 1;
           return;
         }
-        if (!r.code_acces || /^anon_/.test(r.code_acces)) {
+        if (!r.code_acces || /^anon_/i.test(String(r.code_acces).trim())) {
           parModePlan.nonAbonne[m] = (parModePlan.nonAbonne[m] || 0) + 1;
           return;
         }
-        const plan = planParCode[String(r.code_acces).toUpperCase()];
+        const plan = planParCode[cle];
         if (plan === 'creator' || plan === 'pro') {
           parModePlan[plan][m] = (parModePlan[plan][m] || 0) + 1;
+          return;
         }
+        // Tout le reste : jeton, code désactivé ou expiré, code introuvable
+        // dans `abonnes`. Ces lignes existent, elles ont été générées par
+        // quelqu'un, elles doivent donc se VOIR. Les laisser tomber dans le
+        // vide, c'est ce qui a fait croire au propriétaire que le tableau ne
+        // comptait pas ses abonnés.
+        parModePlan.autre[m] = (parModePlan.autre[m] || 0) + 1;
       });
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 

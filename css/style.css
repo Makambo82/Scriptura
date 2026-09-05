@@ -3228,9 +3228,9 @@ body.is-unlocked .sidebar-logout{display:block}
    comprimées. Ne pas "corriger" ce débordement sans nouvelle demande : il
    est intentionnel. La colonne des noms de mode reste figée à gauche (voir
    plus bas) pour qu'on sache toujours quelle ligne on lit. */
-.admin-modes-table{display:grid;gap:2px;min-width:400px}
+.admin-modes-table{display:grid;gap:2px;min-width:462px}
 .admin-modes-header,.admin-modes-row{
-  display:grid;grid-template-columns:minmax(120px,1fr) repeat(4, 56px);align-items:center;gap:6px;
+  display:grid;grid-template-columns:minmax(120px,1fr) repeat(5, 56px);align-items:center;gap:6px;
   padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.05);
 }
 .admin-modes-header{

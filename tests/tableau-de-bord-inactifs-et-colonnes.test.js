@@ -90,9 +90,11 @@ test('le tableau reste glissable, et Non-abonné est atteignable en glissant', a
       return {
         glissable: scroll.scrollWidth > scroll.clientWidth,
         overflowX: getComputedStyle(scroll).overflowX,
-        derniereColonne: entetes[entetes.length - 1].textContent.trim(),
-        valeurNonAbonne: cellules[cellules.length - 1].textContent.trim(),
-        nonAbonneVisibleApresGlissement: derniere.left >= zone.left - 1 && derniere.right <= zone.right + 1,
+        entetes: entetes.map(e => e.textContent.trim()),
+        // Non-abonné est l'avant-dernière colonne depuis l'ajout de "Autre"
+        // (voir tests/generations-par-mode-aucune-perdue.test.js).
+        valeurNonAbonne: cellules[cellules.length - 2].textContent.trim(),
+        derniereColonneVisibleApresGlissement: derniere.left >= zone.left - 1 && derniere.right <= zone.right + 1,
         nomDeModeFige: getComputedStyle(cellules[0]).position
       };
     });
@@ -101,10 +103,11 @@ test('le tableau reste glissable, et Non-abonné est atteignable en glissant', a
     assert.equal(vu.glissable, true,
       'CHOIX ASSUMÉ : le tableau doit rester plus large que l\'écran et se faire glisser');
     assert.equal(vu.overflowX, 'auto', 'et le conteneur doit permettre de glisser');
-    assert.match(vu.derniereColonne, /Non-abonné/);
-    assert.equal(vu.nonAbonneVisibleApresGlissement, true,
-      'une fois glissé au bout, la colonne Non-abonné doit être entièrement lisible');
-    assert.equal(vu.valeurNonAbonne, '7', 'et sa valeur doit être la bonne');
+    assert.deepEqual(vu.entetes, ['', 'Fondateur', 'Pro', 'Creator', 'Non-abonné', 'Autre'],
+      'les cinq colonnes de chiffres doivent être là, dans cet ordre : ' + JSON.stringify(vu.entetes));
+    assert.equal(vu.derniereColonneVisibleApresGlissement, true,
+      'une fois glissé au bout, la dernière colonne doit être entièrement lisible');
+    assert.equal(vu.valeurNonAbonne, '7', 'et la valeur Non-abonné doit être la bonne');
     assert.equal(vu.nomDeModeFige, 'sticky',
       'la colonne des noms de mode reste figée, sinon on perd la ligne qu\'on lit en glissant');
   } finally {
