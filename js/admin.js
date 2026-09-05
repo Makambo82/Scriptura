@@ -791,6 +791,10 @@ const MODE_LABELS_ADMIN = {
   'acces-degrade': '⚠ Accès payant accordé sans vérification'
 };
 let _codesActifsRecents = new Set();
+// Dernière activité RÉELLE de chaque abonné (clé en majuscules), croisée
+// côté serveur entre ses générations et la table `presence`. Voir
+// carteInactifsAdmin plus bas : c'est ce qui remplace le "14 j" écrit en dur.
+let _derniereActiviteParCode = {};
 let _erreursParMode = {};
 let _erreursTotal = 0;
 let _erreursRecentes = [];
@@ -813,6 +817,8 @@ async function chargerCarteModes() {
     const data = await r.json();
     if (!r.ok || data.indisponible) throw new Error(data?.error?.message || 'donnée indisponible');
     _codesActifsRecents = new Set(Array.isArray(data.codesActifsRecents) ? data.codesActifsRecents : []);
+    _derniereActiviteParCode = (data.derniereActiviteParCode && typeof data.derniereActiviteParCode === 'object')
+      ? data.derniereActiviteParCode : {};
     _erreursParMode = data.erreursParMode || {};
     _erreursTotal = data.erreursTotal || 0;
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
@@ -880,14 +886,53 @@ async function chargerCarteModes() {
   }
 }
 
-// ── Abonnés inactifs : actifs mais sans génération dans les 14 derniers
-// jours (voir codesActifsRecents ci-dessus). Signal de désabonnement à
-// venir, à recontacter avant qu'ils partent. Absente si rien à signaler.
+// ── Abonnés inactifs : signal de désabonnement à venir, à recontacter avant
+// qu'ils partent. Absente si rien à signaler.
+//
+// DEUX BUGS CORRIGÉS ICI, signalés par le propriétaire avec une capture d'un
+// abonné CONNECTÉ à cet instant, affiché « Inactif depuis 14 j » :
+//
+//  1. « Inactif » ne regardait QUE les générations. Ouvrir l'app, la
+//     parcourir, relire ses anciennes générations : rien de tout ça ne
+//     comptait. On croise désormais générations ET présence
+//     (derniereActiviteParCode, calculé dans api/data.js), donc quelqu'un qui
+//     utilise l'app n'est plus déclaré mort.
+//
+//  2. La durée « 14 j » était écrite EN DUR dans le libellé. La même phrase
+//     pour tout le monde, y compris un abonné inscrit la veille et un abonné
+//     parti depuis six mois. On affiche maintenant la vraie durée, et on dit
+//     franchement « jamais vu » quand on ne sait rien, plutôt que d'inventer
+//     un chiffre. Un tableau de bord qui affiche un nombre faux est pire
+//     qu'un tableau de bord qui n'affiche rien : on prend des décisions
+//     dessus.
+const INACTIF_SEUIL_JOURS = 14;
+
+function joursDepuis(iso) {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  if (!t || Number.isNaN(t)) return null;
+  return Math.floor((Date.now() - t) / (24 * 3600 * 1000));
+}
+
 function carteInactifsAdmin() {
-  const inactifs = _codesAbonnesAdmin.filter(c => c.actif !== false && !_codesActifsRecents.has(c.code));
+  const inactifs = _codesAbonnesAdmin
+    .filter(c => c.actif !== false)
+    .map(c => {
+      // Clé en MAJUSCULES des deux côtés : un code créé à la main en casse
+      // mixte dans `abonnes` (cas réel connu, ex. "Tiktok-F18") ne matchait
+      // sinon jamais son activité, et l'abonné passait pour inactif à tort.
+      const vu = _derniereActiviteParCode[String(c.code || '').toUpperCase()];
+      return Object.assign({}, c, { jours: joursDepuis(vu) });
+    })
+    .filter(c => c.jours === null || c.jours >= INACTIF_SEUIL_JOURS)
+    .sort((a, b) => (b.jours === null ? 1e9 : b.jours) - (a.jours === null ? 1e9 : a.jours));
   if (!inactifs.length) return '';
   const lignes = inactifs
-    .map(c => `<div class="audit-sujet"><span>${escAdmin(c.code)} · ${escAdmin(c.plan || '·')}</span><b style="color:var(--text-secondary);font-weight:400">Inactif depuis 14 j</b></div>`)
+    .map(c => {
+      const texte = c.jours === null
+        ? 'Jamais vu'
+        : 'Vu il y a ' + c.jours + ' j';
+      return `<div class="audit-sujet"><span>${escAdmin(c.code)} · ${escAdmin(c.plan || '·')}</span><b style="color:var(--text-secondary);font-weight:400">${texte}</b></div>`;
+    })
     .join('');
   return `<div class="score-card">
     <div class="score-title">Abonnés inactifs</div>

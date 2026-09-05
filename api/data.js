@@ -566,10 +566,11 @@ async function handleAdminStats(req, res, cfg, body) {
     // c'est-à-dire nulle part.
     let parMode = {};
     let parModePlan = { fondateur: {}, pro: {}, creator: {}, nonAbonne: {} };
+    const derniereGenParCode = {};
     try {
       const depuis30 = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
       const rModes = await fetch(
-        cfg.url + '/rest/v1/generations?select=mode,code_acces&cree_le=gte.' + encodeURIComponent(depuis30),
+        cfg.url + '/rest/v1/generations?select=mode,code_acces,cree_le&cree_le=gte.' + encodeURIComponent(depuis30),
         { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
       );
       const rows = await rModes.json().catch(() => []);
@@ -587,6 +588,14 @@ async function handleAdminStats(req, res, cfg, body) {
       (Array.isArray(rows) ? rows : []).forEach(r => {
         const m = r.mode || 'autre';
         parMode[m] = (parMode[m] || 0) + 1;
+        // Dernière génération par code, tirée de CETTE requête, sans appel
+        // supplémentaire : sert à dire depuis COMBIEN de temps un abonné est
+        // inactif, au lieu du "14 j" écrit en dur qui mentait pour tout le
+        // monde (voir carteInactifsAdmin, js/admin.js).
+        const cle = String(r.code_acces || '').toUpperCase();
+        if (cle && r.cree_le && (!derniereGenParCode[cle] || r.cree_le > derniereGenParCode[cle])) {
+          derniereGenParCode[cle] = r.cree_le;
+        }
         if (codeFondateur && String(r.code_acces || '').toUpperCase() === codeFondateur) {
           parModePlan.fondateur[m] = (parModePlan.fondateur[m] || 0) + 1;
           return;
@@ -617,6 +626,37 @@ async function handleAdminStats(req, res, cfg, body) {
       (Array.isArray(rowsActifs) ? rowsActifs : []).forEach(r => { if (r.code_acces) set.add(r.code_acces); });
       codesActifsRecents = Array.from(set);
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
+    // DERNIÈRE ACTIVITÉ RÉELLE DE CHAQUE ABONNÉ.
+    //
+    // Bug signalé par le propriétaire, capture à l'appui : un abonné
+    // CONNECTÉ à cet instant était affiché « Inactif depuis 14 j ». Deux
+    // causes, toutes les deux corrigées ici et dans carteInactifsAdmin :
+    //  1. « inactif » ne regardait QUE les générations. Ouvrir l'app, la
+    //     parcourir, lire ses anciennes générations : rien de tout ça ne
+    //     comptait. Or la table `presence` sait exactement quand chacun
+    //     était là pour la dernière fois (voir handlePresence plus bas).
+    //  2. la durée « 14 j » était écrite en dur dans le libellé, la même
+    //     pour tout le monde, y compris un abonné inscrit la veille.
+    //
+    // On croise donc les deux sources et on renvoie une VRAIE date par code.
+    // La présence est lue avec la clé publishable, comme son écriture : ce
+    // signal ne doit jamais dépendre de la configuration service_role.
+    const derniereActiviteParCode = Object.assign({}, derniereGenParCode);
+    try {
+      const rPresence = await fetch(
+        PRESENCE_URL + '/rest/v1/presence?select=ref,derniere_activite&abonne=eq.true',
+        { headers: { apikey: PRESENCE_KEY, Authorization: 'Bearer ' + PRESENCE_KEY } }
+      );
+      const rowsPresence = await rPresence.json().catch(() => []);
+      (Array.isArray(rowsPresence) ? rowsPresence : []).forEach(r => {
+        const cle = String(r.ref || '').toUpperCase();
+        if (!cle || !r.derniere_activite) return;
+        if (!derniereActiviteParCode[cle] || r.derniere_activite > derniereActiviteParCode[cle]) {
+          derniereActiviteParCode[cle] = r.derniere_activite;
+        }
+      });
+    } catch (e) { /* la présence est un confort, jamais un bloquant */ }
 
     // Échecs de génération des 7 derniers jours (voir carteErreursAdmin,
     // js/admin.js, et le journal côté client dans callAI, js/api.js).
@@ -688,7 +728,7 @@ async function handleAdminStats(req, res, cfg, body) {
 
     return res.status(200).json({
       total, actifs, creator, pro, parMode, parModePlan, codes: Array.isArray(codes) ? codes : [],
-      codesActifsRecents, erreursParMode, erreursTotal, erreursRecentes, passes, montages
+      codesActifsRecents, derniereActiviteParCode, erreursParMode, erreursTotal, erreursRecentes, passes, montages
     });
   } catch (e) {
     return res.status(200).json({ indisponible: true });
