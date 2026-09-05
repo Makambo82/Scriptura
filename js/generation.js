@@ -3265,13 +3265,17 @@ async function generateStoryboard() {
       if (m) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
     });
 
+    // Produit réel chargé (objectif Ventes) : les visuels générés ne doivent
+    // alors JAMAIS représenter le produit, et les plans censés le montrer
+    // sont marqués pour recevoir la vraie photo au montage (voir
+    // regleProduitReelVisuels, js/storyboard.js).
     await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
       const html = lot.map((p, k) => cartePlan(indexDepart + k, p)).join('');
       grid.insertAdjacentHTML('beforeend', html);
       const fait = Math.min(indexDepart + lot.length, plans.length);
       if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
       prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
-    });
+    }, !!venteFichier);
     await promesseMiniature;
     if (statut) statut.remove();
 

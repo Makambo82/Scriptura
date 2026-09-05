@@ -94,7 +94,7 @@ function montageBoutonHTML(id, plans) {
 // pour le fermer, sur demande expresse.
 function ouvrirMontage(plans, boutonEl) {
   montagePlans = (plans || [])
-    .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '' }))
+    .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '', produitReel: !!p.produitReel }))
     .filter(p => p.text);
   montageImages = new Array(montagePlans.length).fill(null);
   montageImagesSelection = new Set();
@@ -130,6 +130,11 @@ function ouvrirMontage(plans, boutonEl) {
   if (selStyle) { selStyle.innerHTML = stylesVisuelsOptionsHTML(''); selStyle.value = ''; }
   const compteAttendu = document.getElementById('montageCompteAttendu');
   if (compteAttendu) compteAttendu.textContent = montagePlans.length;
+  // La vraie photo du produit est posée AVANT toute génération : le créateur
+  // la voit d'emblée sur les plans concernés, et ces plans-là ne consomment
+  // pas de quota d'images (voir genererImagesMontage, qui saute les plans
+  // déjà pourvus).
+  injecterPhotoProduitMontage();
   renderMontageEtat();
   chargerVoixMontage();
   const panneau = panneauMontage();
@@ -171,6 +176,40 @@ function panneauMontage() {
   const vivant = document.getElementById('montageModal');
   if (vivant) { _panneauMontageRef = vivant; return vivant; }
   return _panneauMontageRef;
+}
+
+// Insère la VRAIE photo du produit sur les plans qui doivent le montrer.
+//
+// Demande du propriétaire : « que le produit exact soit généré lors du
+// montage vidéo, parce que c'est un produit à vendre ». La génération
+// d'images ne reçoit qu'un texte (voir api/montage-media.js) : elle ne peut
+// donc produire qu'un SOSIE du produit, avec un faux logo et une étiquette
+// en charabia. Sur une vidéo de vente, un sosie est pire que rien.
+//
+// La seule façon d'avoir le produit exact, c'est d'utiliser la photo que le
+// créateur a lui-même chargée. Elle remplace l'image générée sur les plans
+// marqués par le storyboard (voir regleProduitReelVisuels, js/storyboard.js),
+// où les prompts ont par ailleurs l'interdiction de représenter le produit :
+// aucun sosie n'apparaît donc nulle part.
+//
+// Ne remplace JAMAIS une image que le créateur a lui-même choisie ou
+// régénérée : son geste est plus récent et plus intentionnel que notre règle.
+function injecterPhotoProduitMontage() {
+  const fichier = (typeof venteFichier !== 'undefined' && venteFichier) ? venteFichier : null;
+  if (!fichier || !fichier.base64) return 0;
+  let poses = 0;
+  montagePlans.forEach((plan, i) => {
+    if (!plan || !plan.produitReel) return;
+    if (montageImages[i] && montageImages[i].verrouilleParCreateur) return;
+    const blob = base64VersBlob(fichier.base64, fichier.mediaType || 'image/png');
+    montageImages[i] = {
+      blob,
+      apercu: 'data:' + (fichier.mediaType || 'image/png') + ';base64,' + fichier.base64,
+      photoProduit: true
+    };
+    poses++;
+  });
+  return poses;
 }
 
 // Décode une chaîne base64 (renvoyée par ElevenLabs ou Gemini) en Blob.
@@ -540,7 +579,11 @@ async function telechargerVoixOffMontage() {
 // montage (sélection, téléchargement, rendu) fonctionne à l'identique.
 function _assignerImageMontage(i, fichier) {
   if (montageImages.length !== montagePlans.length) montageImages = new Array(montagePlans.length).fill(null);
-  montageImages[i] = { blob: fichier, apercu: URL.createObjectURL(fichier) };
+  // verrouilleParCreateur : une image choisie À LA MAIN ne doit jamais être
+  // remplacée par l'insertion automatique de la photo produit (voir
+  // injecterPhotoProduitMontage). Le geste du créateur est plus récent et
+  // plus intentionnel que notre règle.
+  montageImages[i] = { blob: fichier, apercu: URL.createObjectURL(fichier), verrouilleParCreateur: true };
 }
 
 // Bulk : plusieurs fichiers d'un coup, assignés aux plans DANS L'ORDRE (1er
@@ -582,11 +625,20 @@ async function genererImagesMontage() {
   // qu'une requête d'image à la fois sur ce compte).
   montageImagesEnCours = true;
   montageImages = new Array(montagePlans.length).fill(null);
+  // Remise à zéro faite, on REPOSE la vraie photo du produit : sans ça, elle
+  // était effacée ici et le plan repartait en génération, ce qui coûtait du
+  // quota d'images POUR FABRIQUER UN FAUX PRODUIT, exactement ce qu'on veut
+  // éviter. Les plans ainsi pourvus sont ensuite sautés par la boucle.
+  injecterPhotoProduitMontage();
   montageImageIndexEnCours = 0;
   renderMontageEtat();
 
   let echecs = 0;
   for (let i = 0; i < montagePlans.length; i++) {
+    // Plan déjà pourvu par la VRAIE photo du produit : rien à générer, et
+    // surtout aucun quota d'images à dépenser pour en fabriquer une copie
+    // approximative.
+    if (montageImages[i] && montageImages[i].photoProduit) continue;
     montageImageIndexEnCours = i;
     renderMontageEtat();
     try {

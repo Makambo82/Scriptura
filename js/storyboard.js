@@ -307,7 +307,32 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après : {"miniature":"le
 // Génère le prompt visuel de chaque plan {text}, lot par lot. onLot(lot,
 // indexDepart) est appelé après CHAQUE lot avec les plans de ce lot (déjà
 // enrichis de leur .visuel), pour un affichage progressif.
-async function genererVisuelsParLots(plans, plat, onLot) {
+// Produit réel chargé par le créateur (objectif Ventes) : sa vraie photo est
+// disponible, on ne doit donc JAMAIS en faire générer une imitation.
+//
+// Demande du propriétaire : « que le produit soit représenté exactement,
+// parce que c'est un produit à vendre ». La limite est technique et nette :
+// le générateur d'images ne reçoit qu'un TEXTE (voir api/montage-media.js,
+// aucune image de référence). Même avec la description la plus rigoureuse,
+// il produira un produit RESSEMBLANT, jamais le sien : logo faux, texte de
+// l'étiquette en charabia, proportions différentes. Sur une vidéo de vente,
+// un sosie est pire que rien, le client qui reçoit le vrai produit voit la
+// différence.
+//
+// D'où la règle : les images générées ne montrent JAMAIS le produit. Elles
+// filment la scène, le problème, l'émotion, le décor. Le produit, lui,
+// n'apparaît que sur la VRAIE photo du créateur, insérée telle quelle (voir
+// injecterPhotoProduitMontage, js/montage.js). Les plans qui doivent le
+// montrer sont marqués par le modèle, pas devinés.
+function regleProduitReelVisuels(aUnProduit) {
+  if (!aUnProduit) return '';
+  return `
+PRODUIT RÉEL, RÈGLE ABSOLUE : le créateur vend un produit précis et sa VRAIE photo sera insérée dans le montage. Aucun de tes prompts ne doit donc représenter ce produit, ni un emballage, ni un tube, ni un flacon, ni une boîte, ni une étiquette, ni un logo. Une imitation générée serait forcément différente du vrai produit, et ruinerait la vidéo de vente.
+Décris à la place ce qui ENTOURE le produit : la personne, son geste, son émotion, le décor, la lumière, le problème vécu, le résultat ressenti. Un plan peut montrer une main qui se tend, un regard dans un miroir, une salle de bain au petit matin, jamais l'objet lui-même.
+MARQUE les plans où le produit devrait être montré : pour ceux-là, mets "produit": true et écris quand même un prompt de secours SANS le produit (il servira si la photo du créateur est indisponible).`;
+}
+
+async function genererVisuelsParLots(plans, plat, onLot, aUnProduit) {
   for (let i = 0; i < plans.length; i += TAILLE_LOT_VISUELS) {
     const lot = plans.slice(i, i + TAILLE_LOT_VISUELS);
     const listeTextes = lot.map((p, k) => `${k + 1}. "${p.text}"`).join('\n');
@@ -319,9 +344,12 @@ ${listeTextes}
 Pour CHACUN, dans le même ordre, écris un prompt destiné à un générateur d'images (Midjourney, Firefly, Imagen…), d'une richesse exceptionnelle.
 
 ${STRUCTURE_PROMPT_VISUEL}
+${regleProduitReelVisuels(aUnProduit)}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${lot.length} éléments dans le tableau, dans le même ordre que la liste ci-dessus :
-{"visuels":["prompt du texte 1 se terminant par 9:16","prompt du texte 2 se terminant par 9:16"]}`;
+${aUnProduit
+  ? '{"visuels":[{"prompt":"prompt du texte 1 se terminant par 9:16","produit":false},{"prompt":"prompt du texte 2 se terminant par 9:16","produit":true}]}'
+  : '{"visuels":["prompt du texte 1 se terminant par 9:16","prompt du texte 2 se terminant par 9:16"]}'}`;
 
     // callAI a déjà ses propres tentatives internes ; on retente le LOT entier
     // une fois de plus avant d'abandonner, pour ne marquer un plan en échec
@@ -336,9 +364,15 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     }
 
     for (let k = 0; k < lot.length; k++) {
-      lot[k].visuel = visuels[k]
-        ? assainirPromptVisuel(visuels[k], 'Plan ' + (i + k + 1))
+      // Deux formes acceptées : une simple chaîne (cas habituel), ou un objet
+      // {prompt, produit} quand un produit réel est chargé. Tolérer les deux
+      // évite qu'un modèle qui répond à l'ancienne casse tout le storyboard.
+      const brut = visuels[k];
+      const texte = (brut && typeof brut === 'object') ? brut.prompt : brut;
+      lot[k].visuel = texte
+        ? assainirPromptVisuel(texte, 'Plan ' + (i + k + 1))
         : 'Prompt visuel indisponible pour ce plan, clique sur ↻ Régénérer pour réessayer.';
+      lot[k].produitReel = !!(brut && typeof brut === 'object' && brut.produit);
     }
     if (onLot) onLot(lot, i);
   }
