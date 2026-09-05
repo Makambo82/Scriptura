@@ -28,6 +28,17 @@ de moi-même, comme un pro qui possède le produit.
 - **Stack** : HTML/CSS/JS vanilla modulaire, aucun build. `index.html` +
   `js/*.js` (portée globale, chargés par `<script>`) + `css/style.css` +
   `api/*.js` (fonctions serverless Vercel). Clés API toujours côté serveur.
+- **Version anti-cache, à bumper DÈS QUE je touche `js/` ou `css/`** : chaque
+  fichier local est appelé avec `?v=...` dans `index.html`. Sans ça, un
+  navigateur sert un MÉLANGE d'ancien et de nouveau après un déploiement (vrai
+  incident du 5 septembre : js/api.js à jour mais css/style.css périmé, la
+  fonctionnalité livrée restait invisible, et seulement pour certaines
+  sessions). `index.html` étant toujours revalidé (voir `vercel.json`), changer
+  ce numéro force le rechargement de TOUT d'un coup.
+  Commande de bump, à lancer avant de commiter :
+  `sed -i "s|?v=[0-9-]*\"|?v=$(date +%Y%m%d)-1\"|g" index.html` (incrémenter le
+  suffixe si plusieurs livraisons le même jour). Verrouillé par
+  `tests/fichiers-versionnes-anti-cache.test.js`.
 - **Scores toujours déterministes** : le CODE calcule les notes à partir des
   chiffres réels, l'IA ne note jamais (elle rédige les constats). Mêmes données
   ⇒ même score. C'est un pilier de crédibilité, ne jamais y déroger.
