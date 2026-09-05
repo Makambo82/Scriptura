@@ -433,7 +433,14 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 }
 
 /* RESULTS */
-#results{margin-top:56px;display:none}
+/* Aucune marge haute : #results est le SEUL bloc visible de #flow quand il
+   s'affiche (renderResults efface la classe "active" des étapes 1 et 2), donc
+   les 56px d'origine ne séparaient plus de rien, ils creusaient juste un vide
+   entre l'en-tête fixe et le bouton « ← Retour ». Retour propriétaire : le
+   mode Script était très en retrait par rapport au mode Récit. Ce dernier
+   n'a que le padding haut de son écran (#storyFlow, 100px), on s'aligne
+   dessus, le padding de #flow valant lui aussi 100px. */
+#results{margin-top:0;display:none}
 .results-top{
   margin-bottom:32px;padding-bottom:24px;
   border-bottom:1px solid var(--border-soft);
