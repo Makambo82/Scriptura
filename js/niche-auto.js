@@ -173,6 +173,64 @@ function nicheChoisieALaMain(champNiche) {
   return !!(champNiche && champNiche.dataset.nicheChoisieMain === '1');
 }
 
+// … MAIS un événement 'change' n'est PAS la preuve d'un choix.
+//
+// Bug remonté par le propriétaire : « malgré que j'ai chargé l'image et
+// choisi un des trois sujets proposés, la niche n'a pas changé, c'est resté
+// sur la niche pré-remplie ». Cause exacte : l'app envoie elle-même des
+// 'change' sur ce menu, notamment preRemplirSiVide (js/profil.js) qui recopie
+// au chargement la niche principale du profil, et lancerIdeesDepuisAudit
+// (js/audit.js). Le champ se croyait donc « tranché par le créateur » avant
+// même qu'il ait touché quoi que ce soit, et plus aucune détection ne pouvait
+// le corriger, ni celle du sujet tapé ni celle du produit chargé.
+//
+// On exige donc un GESTE réel du créateur DANS la zone de choix de la niche.
+// Pourquoi pas event.isTrusted, qui serait la réponse évidente : nos menus
+// maison (js/ui.js) émettent eux aussi un 'change' fabriqué au clic sur une
+// option, un vrai choix arriverait donc comme un faux. La zone touchée, elle,
+// ne ment pas : le <select> et son habillage (.custom-select / .toggle-group)
+// n'appartiennent qu'à la niche.
+const GESTE_NICHE_FENETRE_MS = 1500;
+
+function zoneChoixNiche(champNiche) {
+  if (!champNiche) return null;
+  return (champNiche.closest && champNiche.closest('.custom-select, .toggle-group'))
+    || champNiche.parentElement;
+}
+
+// Posé une seule fois par champ. En capture, pour être noté même si le menu
+// maison arrête la propagation du clic.
+function surveillerGesteNiche(champNiche) {
+  if (!champNiche || champNiche.dataset.gesteNicheSurveille === '1') return;
+  champNiche.dataset.gesteNicheSurveille = '1';
+  const noter = (e) => {
+    const zone = zoneChoixNiche(champNiche); // relu à chaque fois : l'habillage
+    if (!zone || !e.target) return;          // est construit après coup
+    if (zone.contains(e.target)) champNiche._dernierGesteNiche = Date.now();
+  };
+  document.addEventListener('pointerdown', noter, true);
+  document.addEventListener('keydown', noter, true);
+}
+
+function changementNicheVenuDuCreateur(champNiche) {
+  return (Date.now() - (champNiche._dernierGesteNiche || 0)) < GESTE_NICHE_FENETRE_MS;
+}
+
+// Une niche posée par l'app (profil, retour d'audit) est une COMMODITÉ, pas une
+// décision : la détection a le droit de la remplacer par mieux. Mais elle ne
+// doit pas non plus disparaître toute seule tant que rien de mieux n'est
+// arrivé, sinon on ferait pire qu'avant en effaçant la niche habituelle du
+// créateur dès qu'il tape trois lettres.
+function marquerNichePreRemplie(champNiche) {
+  if (!champNiche) return;
+  champNiche.dataset.nichePreRemplie = '1';
+  champNiche.dataset.nichePreRemplieValeur = champNiche.value || '';
+}
+function nichePreRemplieIntacte(champNiche) {
+  return !!(champNiche && champNiche.dataset.nichePreRemplie === '1'
+    && champNiche.value && champNiche.value === champNiche.dataset.nichePreRemplieValeur);
+}
+
 // Détection de la niche À PARTIR DU PRODUIT CHARGÉ (objectif Ventes).
 //
 // Demande du propriétaire : quand on joint la photo de son produit ou son PDF,
@@ -374,7 +432,13 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
   // Un choix manuel gèle définitivement le champ pour cette saisie : le
   // créateur a tranché, l'app n'a plus rien à proposer. Sans ça, continuer à
   // écrire son sujet effacerait la niche qu'il vient de choisir.
+  //
+  // « Manuel » = un geste réel dans la zone du menu, PAS un simple 'change' :
+  // l'app en envoie aussi (profil pré-rempli, retour d'audit), et ceux-là
+  // gelaient le champ à tort. Voir changementNicheVenuDuCreateur.
+  surveillerGesteNiche(champNiche);
   champNiche.addEventListener('change', () => {
+    if (!changementNicheVenuDuCreateur(champNiche)) { marquerNichePreRemplie(champNiche); return; }
     marquerNicheChoisieALaMain(champNiche);
     if (note) { note.style.display = 'none'; note.textContent = ''; }
   });
@@ -399,9 +463,11 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
 
     // Sujet effacé : on retire aussi la niche PROPOSÉE (jamais une niche
     // choisie à la main, protégée par choisiParCreateur ci-dessus), sinon
-    // elle resterait à orienter une génération sans rapport.
+    // elle resterait à orienter une génération sans rapport. La niche du
+    // PROFIL, elle, reste : elle ne vient pas du sujet, elle ne doit pas
+    // partir avec lui.
     if (texte.trim().length < NICHE_MIN_CARACTERES) {
-      champNiche.value = '';
+      if (!nichePreRemplieIntacte(champNiche)) champNiche.value = '';
       afficherNote(null);
       return;
     }
@@ -411,8 +477,9 @@ function brancherDetectionNiche(idSujet, idNiche, idNote) {
 
     // Rien trouvé : on laisse le champ vide TOUT DE SUITE (plutôt que de
     // garder une niche devinée sur une version précédente du texte), et on
-    // programme l'étage IA à la pause de frappe.
-    champNiche.value = '';
+    // programme l'étage IA à la pause de frappe. Là encore, la niche du
+    // profil n'est pas une devinette : elle reste.
+    if (!nichePreRemplieIntacte(champNiche)) champNiche.value = '';
     afficherNote(null);
     minuteurIA = setTimeout(async () => {
       const texteFinal = (champSujet.value || '').trim();

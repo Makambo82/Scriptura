@@ -133,16 +133,31 @@ test('dans les 4 écrans : le sujet est au-dessus, la niche se remplit, un choix
       taper('serieConcept', "les braquages qui ont marqué l'Afrique de l'Ouest");
       r.detecte.serie = document.getElementById('serieNiche').value;
 
-      // Choix manuel, puis on continue d'écrire un sujet d'une TOUT AUTRE
-      // niche : la niche choisie doit survivre, et la note disparaître.
+      return r;
+    });
+
+    // Choix manuel, puis on continue d'écrire un sujet d'une TOUT AUTRE
+    // niche : la niche choisie doit survivre, et la note disparaître.
+    //
+    // Le geste est simulé pour de vrai (pointerdown sur le menu) et non par un
+    // simple 'change' : depuis le 5 septembre, un 'change' seul ne vaut plus
+    // choix, justement parce que l'app en émet elle-même (voir plus bas, la
+    // niche pré-remplie du profil).
+    await page.dispatchEvent('#niche', 'pointerdown');
+    const apres = await page.evaluate(() => {
       const n = document.getElementById('niche');
       n.value = 'Histoire';
       n.dispatchEvent(new Event('change', { bubbles: true }));
-      taper('sujet', 'recette du poulet DG avec des épices et du piment');
-      r.apresChoixManuel = n.value;
-      r.noteApresChoix = document.getElementById('nicheAutoNoteScript').style.display !== 'none';
-      return r;
+      const s = document.getElementById('sujet');
+      s.value = 'recette du poulet DG avec des épices et du piment';
+      s.dispatchEvent(new Event('input', { bubbles: true }));
+      return {
+        apresChoixManuel: n.value,
+        noteApresChoix: document.getElementById('nicheAutoNoteScript').style.display !== 'none'
+      };
     });
+    vu.apresChoixManuel = apres.apresChoixManuel;
+    vu.noteApresChoix = apres.noteApresChoix;
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.deepEqual(vu.ordre, { script: true, idees: true, carrousel: true, serie: true },
@@ -158,6 +173,66 @@ test('dans les 4 écrans : le sujet est au-dessus, la niche se remplit, un choix
     assert.equal(vu.apresChoixManuel, 'Histoire',
       'REGRESSION : une niche choisie à la main ne doit JAMAIS être écrasée par la suite');
     assert.equal(vu.noteApresChoix, false, 'plus rien à annoncer une fois que le créateur a tranché');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// BUG REMONTÉ PAR LE PROPRIÉTAIRE, 5 septembre : « malgré que j'ai chargé
+// l'image et choisi un des trois sujets proposés, la niche n'a pas changé,
+// c'est resté sur la niche pré-remplie ».
+//
+// Cause exacte, trouvée en suivant les 'change' du menu : l'app en émet
+// elle-même. preRemplirSiVide (js/profil.js) recopie au chargement la niche
+// principale du profil ET déclenche un 'change' pour que les champs liés
+// suivent ; lancerIdeesDepuisAudit (js/audit.js) fait pareil. Le verrou « le
+// créateur a tranché » se posait donc sur un choix que le créateur n'avait
+// jamais fait, et plus RIEN ne pouvait corriger la niche ensuite : ni le
+// sujet tapé, ni le produit chargé.
+//
+// Ce que ce test verrouille, dans les deux sens :
+//   - une niche posée par l'app est une commodité : elle se laisse remplacer
+//     par une détection, et elle NE gèle PAS le champ ;
+//   - mais elle ne disparaît pas toute seule quand le sujet est trop court,
+//     sinon on effacerait la niche habituelle du créateur pour rien.
+test('une niche PRÉ-REMPLIE par l\'app ne gèle pas le champ (elle n\'est pas un choix)', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
+
+    const vu = await page.evaluate(() => {
+      const n = document.getElementById('niche');
+      const s = document.getElementById('sujet');
+      const taper = (t) => { s.value = t; s.dispatchEvent(new Event('input', { bubbles: true })); };
+
+      // Exactement ce que fait preRemplirSiVide au chargement du profil.
+      n.value = 'Histoire';
+      n.dispatchEvent(new Event('change', { bubbles: true }));
+      const r = { apresPreRemplissage: n.value };
+
+      // Sujet encore trop court : la niche du profil doit RESTER.
+      taper('les 5');
+      r.sujetCourt = n.value;
+
+      // Un vrai sujet arrive : la détection doit pouvoir corriger.
+      taper('les 5 erreurs du débutant en bourse');
+      r.apresSujet = n.value;
+      return r;
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.apresPreRemplissage, 'Histoire', 'le pré-remplissage du profil doit bien s\'appliquer');
+    assert.equal(vu.sujetCourt, 'Histoire',
+      'la niche du profil ne vient pas du sujet : elle ne doit pas partir avec lui');
+    assert.equal(vu.apresSujet, 'Finance & Argent',
+      'REGRESSION : le faux "choix manuel" gelait le champ, plus aucune détection ne pouvait le corriger');
   } finally {
     await navigateur.close();
     await arreter();

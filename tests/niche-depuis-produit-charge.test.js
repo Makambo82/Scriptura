@@ -110,7 +110,11 @@ test('une niche choisie À LA MAIN n\'est JAMAIS écrasée par le produit charg�
     await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
 
     // Le créateur tranche AVANT de joindre sa photo, exactement comme le
-    // propriétaire l'avait fait sur le cas réel.
+    // propriétaire l'avait fait sur le cas réel. Le geste est simulé pour de
+    // vrai (pointerdown sur le menu) : depuis le 5 septembre, un 'change' seul
+    // ne vaut plus choix, sinon la niche recopiée du profil gelait le champ et
+    // le produit chargé ne pouvait plus rien corriger.
+    await page.dispatchEvent('#niche', 'pointerdown');
     await page.evaluate(() => {
       const n = document.getElementById('niche');
       n.value = 'Histoire';
@@ -314,6 +318,49 @@ test('des angles absents ou inexploitables n\'affichent simplement rien', async 
     assert.equal(vu.zoneVisible, false);
     assert.equal(vu.niche, 'Beauté & Mode',
       'et la niche, elle, doit quand même se poser : les deux résultats sont indépendants');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// LE CAS RÉEL DU PROPRIÉTAIRE, 5 septembre : « malgré que j'ai chargé l'image
+// et choisi un des trois sujets proposés, la niche n'a pas changé, c'est
+// resté sur la niche pré-remplie ».
+//
+// Il n'avait rien choisi : c'est l'app qui avait recopié la niche principale
+// de son profil (preRemplirSiVide, js/profil.js) en déclenchant un 'change'
+// pour que les champs liés suivent. Ce 'change' passait pour un choix manuel,
+// le verrou tombait, et la détection depuis le produit était refusée en
+// silence, y compris quand la photo disait tout autre chose.
+test('la niche recopiée du PROFIL n\'empêche pas le produit de la corriger', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await preparer(page, baseUrl, { niche: 'Beauté & Mode', angles: ANGLES });
+
+    // Exactement ce que fait preRemplirSiVide au chargement du profil : aucun
+    // geste du créateur, juste l'app qui pose sa niche habituelle.
+    await page.evaluate(() => {
+      const n = document.getElementById('niche');
+      n.value = 'Histoire';
+      n.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await page.evaluate(CHARGER('chargerFichierVente', 'script'));
+    await page.waitForTimeout(2500);
+
+    const vu = await page.evaluate(() => ({
+      niche: document.getElementById('niche').value,
+      note: document.getElementById('nicheAutoNoteScript').textContent
+    }));
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.niche, 'Beauté & Mode',
+      'REGRESSION : la niche du profil bloquait la détection depuis le produit, en silence');
+    assert.match(vu.note, /depuis ton produit/,
+      'et le créateur doit lire d\'où vient cette niche, sinon le changement passe pour un bug');
   } finally {
     await navigateur.close();
     await arreter();
