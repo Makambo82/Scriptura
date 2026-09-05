@@ -781,7 +781,14 @@ function setAdminPlanFilter(v) {
 const MODE_LABELS_ADMIN = {
   ideas: 'Idées', script: 'Script', story: 'Récit', serie: 'Série',
   audit: 'Diagnostic complet', diagnosticSommaire: 'Diagnostic sommaire',
-  storyboardSeul: 'Storyboard seul', tendances: 'Tendances', analyseVirale: 'Analyse vidéo'
+  storyboardSeul: 'Storyboard seul', tendances: 'Tendances', analyseVirale: 'Analyse vidéo',
+  // Pas un mode de génération, mais une ALERTE qui doit se lire d'un coup
+  // d'œil dans la carte des échecs : Supabase absent ou en panne fait
+  // accorder un accès Creator à n'importe quel code, sans vérification (voir
+  // journaliserAccesDegrade, api/_lib/acces.js). Le libellé dit franchement
+  // ce que ça coûte, pour qu'il ne se lise pas comme un incident technique
+  // anodin de plus.
+  'acces-degrade': '⚠ Accès payant accordé sans vérification'
 };
 let _codesActifsRecents = new Set();
 let _erreursParMode = {};

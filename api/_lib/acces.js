@@ -74,6 +74,58 @@ function codesEnv() {
 // Résout les droits RÉELS d'un code_acces, en relisant Supabase soi-même
 // (jamais une valeur envoyée par le client). Sans code : visiteur anonyme,
 // pas de plan (le filet IP est un appel séparé, voir verifierLimiteAnonyme).
+// ── ALERTE : accès payant accordé SANS vérification ──
+//
+// Retour propriétaire. Quand Supabase est absent ou en panne, resoudreDroits
+// se dégrade en accordant un accès Creator à N'IMPORTE QUEL code, y compris
+// inventé (choix assumé : ne jamais enfermer dehors un abonné qui a payé, à
+// cause d'une panne qui n'est pas la sienne). Mais jusqu'ici ça ne laissait
+// qu'un console.error, c'est-à-dire une ligne dans les journaux Vercel que
+// personne ne lit. En production, ça peut donc durer des jours : tout le
+// monde a l'accès payant gratuitement, et rien ne le signale.
+//
+// On le fait donc remonter dans la carte d'alerte du Tableau de bord (même
+// table que les autres incidents, voir supabase/erreurs_generation.sql, sous
+// un mode à part « acces-degrade »). Oui, ça gonfle le compteur d'alertes :
+// c'est VOULU. Une fuite d'accès payant doit être bruyante, et le badge du
+// bouton admin préviendra le fondateur comme pour un échec de génération.
+//
+// DEUX LIMITES ASSUMÉES, parce qu'on journalise une panne avec l'outil qui
+// est justement en panne :
+//  - si la configuration Supabase manque (cas 1), aucune écriture n'est
+//    possible. Ce cas se signale heureusement tout seul : le Tableau de bord
+//    lui-même devient vide (admin-stats a besoin de la même clé) ;
+//  - si Supabase répond mal (cas 2 et 3), l'écriture peut échouer elle
+//    aussi. C'est du best-effort, jamais une garantie.
+//
+// ÉTRANGLEMENT INDISPENSABLE : en dégradation, CHAQUE appel d'API passe ici.
+// Sans limite, une panne d'une heure écrirait des milliers de lignes, noierait
+// la carte et coûterait cher pour ne rien apprendre de plus. Une alerte
+// toutes les 10 minutes par instance suffit largement à voir le problème.
+// Mémoire d'instance : les instances serverless étant réutilisées entre
+// requêtes, ça coupe l'essentiel du volume, sans prétendre à un compteur
+// partagé exact (qui demanderait justement... Supabase).
+const ALERTE_DEGRADE_INTERVALLE_MS = 10 * 60 * 1000;
+let _derniereAlerteDegrade = 0;
+
+function journaliserAccesDegrade(cfg, raison) {
+  try {
+    if (!cfg) return; // rien à quoi écrire, voir limite 1 ci-dessus
+    const maintenant = Date.now();
+    if (maintenant - _derniereAlerteDegrade < ALERTE_DEGRADE_INTERVALLE_MS) return;
+    _derniereAlerteDegrade = maintenant;
+    fetch(cfg.url + '/rest/v1/erreurs_generation', {
+      method: 'POST',
+      headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        mode: 'acces-degrade',
+        code_acces: null, // jamais le code : il n'a pas été vérifié, l'attribuer induirait en erreur
+        detail: 'accès Creator accordé SANS vérification : ' + String(raison || 'cause inconnue').slice(0, 150)
+      })
+    }).catch(() => {});
+  } catch (e) { /* une alerte ne doit jamais casser la requête qu'elle observe */ }
+}
+
 async function resoudreDroits(code) {
   if (!code) return { ok: true, anonyme: true, isAdmin: false, illimite: false, plan: null, jetons: 0 };
 
@@ -106,6 +158,7 @@ async function resoudreDroits(code) {
       // erreur), ce qui plafonnait TOUT abonné réel à 5 générations gratuites
       // à vie au lieu de son quota mensuel réel, à la moindre erreur d'API.
       console.error('[acces] Supabase a répondu ' + r.status + ' sur /rest/v1/abonnes : accès Creator dégradé accordé sans vérification réelle');
+      journaliserAccesDegrade(cfg, 'Supabase a répondu ' + r.status + ' sur /rest/v1/abonnes');
       return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
     }
     const rows = await r.json();
@@ -133,6 +186,7 @@ async function resoudreDroits(code) {
     // Panne réseau/Supabase : ne jamais enfermer un abonné dehors pour ça
     // (même filet que le comportement d'avant cette passe).
     console.error('[acces] panne réseau vers Supabase (' + (e && e.message) + ') : accès Creator dégradé accordé sans vérification réelle');
+    journaliserAccesDegrade(cfg, 'panne réseau vers Supabase (' + (e && e.message) + ')');
     return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
   }
 }
