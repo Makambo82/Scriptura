@@ -1201,6 +1201,54 @@ function degagerHookTropLong(script, suiteVisuel) {
   ].concat(script.slice(1));
 }
 
+// LA CHUTE AUSSI EST UNE DURÉE. La structure des vidéos qui performent tient
+// la chute en 5 à 10 secondes, soit 12 à 25 mots. C'était la DERNIÈRE des
+// quatre promesses de structure encore laissée à la seule parole du modèle :
+// le hook, le plafond par bloc et le total de mots avaient déjà leur filet en
+// code, pas elle. Retour terrain (script « 30 secondes » du propriétaire) :
+// total parfait à 73 mots, hook parfait à 8 mots, mais une chute de 27 mots,
+// soit près de 11 secondes.
+// Même mécanique que degagerHookTropLong, en miroir : on coupe à une
+// frontière de phrase, sans toucher un seul mot, et ce sont les phrases du
+// DÉBUT qui rejoignent le corps, puisque c'est la FIN qui porte la chute.
+const CHUTE_MOTS_MAX = 25;
+
+function degagerChuteTropLongue(script, suiteVisuel) {
+  if (!Array.isArray(script) || script.length < 2) return script;
+  const dernier = script.length - 1;
+  const bloc = script[dernier];
+  const texte = (bloc && typeof bloc.texte === 'string') ? bloc.texte : '';
+  if (!texte || _genCompterMots(texte) <= CHUTE_MOTS_MAX) return script;
+  const phrases = (typeof splitIntoSentences === 'function') ? splitIntoSentences(texte) : [];
+  if (phrases.length < 2) return script;
+
+  // La DERNIÈRE phrase reste toujours dans la chute, même si elle dépasse à
+  // elle seule : c'est elle qui referme, et sur l'objectif « plus de vues »
+  // c'est elle qui boucle sur le hook. On lui ajoute les précédentes tant
+  // qu'on tient sous le plafond, en remontant.
+  const garde = [phrases[phrases.length - 1]];
+  let mots = _genCompterMots(phrases[phrases.length - 1]);
+  for (let i = phrases.length - 2; i >= 0; i--) {
+    const m = _genCompterMots(phrases[i]);
+    if (mots + m > CHUTE_MOTS_MAX) break;
+    garde.unshift(phrases[i]);
+    mots += m;
+  }
+  const avant = phrases.slice(0, phrases.length - garde.length);
+  if (!avant.length) return script;
+
+  const visuelOrigine = (bloc && typeof bloc.visuel === 'string') ? bloc.visuel.trim() : '';
+  const suite = suiteVisuel || 'Change de plan ici, dans la continuité du plan précédent';
+  return script.slice(0, dernier).concat([
+    // Ce qui précédait la chute rejoint le corps, et garde le visuel d'origine.
+    Object.assign({}, bloc, { texte: avant.join(' ') }),
+    Object.assign({}, bloc, {
+      texte: garde.join(' '),
+      visuel: visuelOrigine ? suite + ' : ' + visuelOrigine : suite + '.'
+    })
+  ]);
+}
+
 // Longueur du hook notée mécaniquement, même logique que la durée dans
 // _genScoreRetention : un hook qui coche tous les signaux mais dure six
 // secondes n'arrête pas le scroll, il le provoque.
@@ -2506,6 +2554,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // énorme) et AVANT le recalcul des timestamps, pour que le minutage
     // affiché porte sur le découpage réellement livré.
     parsed.script = degagerHookTropLong(parsed.script, CONSIGNE_SUITE_PLAN(estFaceless));
+
+    // Puis la chute, en miroir : le DERNIER bloc doit tenir en 5-10 secondes.
+    parsed.script = degagerChuteTropLongue(parsed.script, CONSIGNE_SUITE_PLAN(estFaceless));
 
     // Timestamps recalculés en code sur le script FINAL (après l'éventuelle
     // correction de durée ci-dessus), jamais avant : recalculer plus tôt

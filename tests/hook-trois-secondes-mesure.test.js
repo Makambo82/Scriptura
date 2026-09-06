@@ -165,3 +165,89 @@ test('les deux consignes de découpage en code restent rigoureusement identiques
     + 'issu du découpage du hook donneraient alors deux instructions de tournage différentes '
     + 'pour exactement la même situation.');
 });
+
+// LA CHUTE, en miroir du hook. Trouvée en inventoriant les quatre promesses de
+// structure et leur filet en code : le hook, le plafond par bloc et le total
+// de mots en avaient un, la chute non. Elle était la dernière laissée à la
+// seule parole du modèle. Retour terrain (script « 30 secondes » du
+// propriétaire) : total parfait à 73 mots, hook parfait à 8 mots, mais une
+// chute de 27 mots, soit près de 11 secondes pour une règle de 5 à 10.
+test('une chute trop longue est recoupée, et c\'est la FIN qui reste la chute', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(() => {
+      const script = [
+        { temps: '0-3 sec', texte: 'Tu crois économiser.', visuel: 'A' },
+        { temps: '3-20 sec', texte: 'Le devis tombe et tout bascule.', visuel: 'B' },
+        { temps: '20-30 sec', texte: 'Oui, c\'est quelques euros de plus à la pompe et personne ne le dit jamais. Zéro regret en révision quand tout le monde paie la casse. Commande maintenant, lien en bio.', visuel: 'Plan produit' }
+      ];
+      const motsAvant = script.map(s => s.texte).join(' ').split(/\s+/).filter(Boolean).length;
+      const sortie = degagerChuteTropLongue(script, 'Change de plan ici');
+      const motsApres = sortie.map(s => s.texte).join(' ').split(/\s+/).filter(Boolean).length;
+      const dernier = sortie[sortie.length - 1];
+      return {
+        plafond: CHUTE_MOTS_MAX,
+        nbBlocs: sortie.length,
+        chute: dernier.texte,
+        motsChute: dernier.texte.split(/\s+/).filter(Boolean).length,
+        avantDernier: sortie[sortie.length - 2].texte,
+        visuelChute: dernier.visuel,
+        motsAvant: motsAvant,
+        motsApres: motsApres,
+        hookIntact: sortie[0].texte
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(r.nbBlocs, 4, 'la chute trop longue devient deux blocs, les autres intacts');
+    assert.ok(r.motsChute <= r.plafond,
+      'REGRESSION : la chute fait encore ' + r.motsChute + ' mots (plafond ' + r.plafond + ')');
+    assert.ok(/Commande maintenant, lien en bio\.$/.test(r.chute),
+      'REGRESSION : ce n\'est pas la FIN qui est restée la chute. Sur l\'objectif « plus de vues », '
+      + 'c\'est la dernière phrase qui boucle sur le hook : la couper serait casser la boucle.');
+    assert.ok(r.avantDernier.startsWith('Oui, c\'est quelques euros'),
+      'ce qui précédait la chute rejoint le corps, sans être réécrit');
+    assert.equal(r.motsApres, r.motsAvant,
+      'REGRESSION : le découpage a changé le nombre de mots (' + r.motsAvant + ' → ' + r.motsApres + ')');
+    assert.equal(r.hookIntact, 'Tu crois économiser.', 'le hook ne bouge pas');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('une chute déjà courte, ou seule dans le script, n\'est jamais touchée', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const r = await page.evaluate(() => {
+      const courte = [
+        { temps: '0-3 sec', texte: 'Un hook.', visuel: 'A' },
+        { temps: '3-20 sec', texte: 'Commande maintenant, lien en bio.', visuel: 'B' }
+      ];
+      // Une chute longue d'UNE SEULE phrase : rien à couper sans la réécrire.
+      const uneSeulePhrase = [
+        { temps: '0-3 sec', texte: 'Un hook.', visuel: 'A' },
+        { temps: '3-20 sec', texte: 'Commande ta première bouteille maintenant parce que les stocks fondent vraiment vite en ce moment et que personne ne le dit', visuel: 'B' }
+      ];
+      return {
+        courteInchangee: degagerChuteTropLongue(courte, 'x').length === 2,
+        phraseUniqueIntacte: degagerChuteTropLongue(uneSeulePhrase, 'x').length === 2,
+        blocUnique: degagerChuteTropLongue([{ texte: 'Tout seul.' }], 'x').length === 1
+      };
+    });
+    assert.equal(r.courteInchangee, true, 'REGRESSION : une chute conforme est découpée pour rien');
+    assert.equal(r.phraseUniqueIntacte, true,
+      'REGRESSION : une phrase unique est coupée en plein milieu. Mieux vaut la laisser.');
+    assert.equal(r.blocUnique, true, 'un script d\'un seul bloc ne doit pas être touché');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

@@ -70,6 +70,36 @@ test('toute promesse de durée est adossée à une mesure en code', () => {
     + 'de 138-163.');
 });
 
+// Le mode Script promet QUATRE choses de structure, pas une. Le total de mots
+// avait son filet depuis longtemps, le hook et le plafond par bloc l'ont eu
+// ce matin, et la chute était la dernière encore laissée à la seule parole du
+// modèle : un script « 30 secondes » est sorti avec un total parfait (73
+// mots), un hook parfait (8 mots) et une chute de 27 mots, soit près de 11
+// secondes pour une règle de 5 à 10. Ce test empêche qu'une cinquième
+// promesse arrive demain sans son filet.
+test('les quatre promesses de structure du mode Script ont chacune leur filet en code', () => {
+  const src = lire('js/generation.js');
+  const filets = {
+    'hook, 0-3 s': 'degagerHookTropLong',
+    'plafond par bloc du milieu': 'decouperBlocsTropLongs',
+    'chute, 5-10 s': 'degagerChuteTropLongue',
+    'total de mots': 'corrigerDureeScript'
+  };
+  const sans = Object.keys(filets).filter(nom => !src.includes(filets[nom] + '('));
+  assert.deepEqual(sans, [],
+    'REGRESSION : ' + sans.join(', ') + ' n\'a plus de filet en code et repose seulement sur une '
+    + 'consigne de prompt. Toutes les autres promesses de structure en ont un.');
+
+  // Et chaque filet doit être BRANCHÉ dans le pipeline, pas seulement défini :
+  // une fonction jamais appelée est pire qu'absente, elle donne l'illusion
+  // d'une protection.
+  const branches = ['degagerHookTropLong(parsed.script', 'degagerChuteTropLongue(parsed.script',
+    'decouperBlocsTropLongs(parsed.script'];
+  const nonBranches = branches.filter(b => !src.includes(b));
+  assert.deepEqual(nonBranches, [],
+    'REGRESSION : ' + nonBranches.join(', ') + ' est défini mais jamais appelé sur le script livré.');
+});
+
 // ── FAMILLE 3 : une règle CSS sur une balise nue fuit dans les composants ──
 // C'est ce qui a cassé la croix de fermeture du menu : le tiroir utilise un
 // <nav>, il héritait donc du position:fixed de la BARRE DU HAUT et se posait
