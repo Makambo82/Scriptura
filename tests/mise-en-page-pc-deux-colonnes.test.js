@@ -89,6 +89,70 @@ test('sur PC, les blocs de montage se rangent côte à côte ; sur téléphone i
   }
 });
 
+// Second retour du propriétaire, capture à l'appui : « si le nombre de cartes
+// est impair, centrer la dernière en bas des autres, pas sous une carte
+// précise. » Il a raison et c'est un vrai défaut de lecture : une carte
+// solitaire collée dans la colonne de gauche donne l'impression d'appartenir
+// à celle du dessus, alors qu'elle n'a aucun rapport avec elle.
+test('la carte qui reste seule sur son rang se centre, les rangs pleins restent bord à bord', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl, PC);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.evaluate(() => ouvrirMontageManuelAccueil());
+    await page.waitForTimeout(350);
+
+    // On mesure pour deux à cinq cartes : la règle doit tenir quel que soit
+    // leur nombre, sans qu'on ait à la retoucher le jour où une carte
+    // s'ajoute (sous-titres, transitions…).
+    const parNombre = {};
+    for (const cible of [2, 3, 4, 5]) {
+      parNombre[cible] = await page.evaluate((n) => {
+        const wrap = document.querySelector('#montageManuelFlow .ds-wrap');
+        const secs = Array.from(wrap.querySelectorAll(':scope > .montage-section'));
+        const modele = secs[secs.length - 1];
+        while (secs.length > n) secs.pop().remove();
+        while (secs.length < n) {
+          const c = modele.cloneNode(true);
+          wrap.insertBefore(c, wrap.querySelector('.montage-finish'));
+          secs.push(c);
+        }
+        const cadre = wrap.getBoundingClientRect();
+        return {
+          centreConteneur: Math.round(cadre.left + cadre.width / 2),
+          cartes: secs.map(s => {
+            const b = s.getBoundingClientRect();
+            return { gauche: Math.round(b.left), centre: Math.round(b.left + b.width / 2) };
+          })
+        };
+      }, cible);
+    }
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    await page.close();
+
+    [3, 5].forEach(n => {
+      const derniere = parNombre[n].cartes[n - 1];
+      assert.ok(Math.abs(derniere.centre - parNombre[n].centreConteneur) <= 2,
+        'REGRESSION : avec ' + n + ' cartes, la dernière n\'est pas centrée (son centre est à '
+        + derniere.centre + ', celui de la page à ' + parNombre[n].centreConteneur + '). Collée dans la '
+        + 'colonne de gauche, elle a l\'air d\'appartenir à la carte du dessus.');
+    });
+    [2, 4].forEach(n => {
+      const c = parNombre[n].cartes;
+      assert.equal(c[0].gauche, c[n - 2].gauche,
+        'REGRESSION : avec ' + n + ' cartes, les rangs pleins ne sont plus alignés bord à bord. '
+        + 'Le centrage ne doit agir QUE sur la carte qui reste seule.');
+      assert.notEqual(c[n - 1].gauche, c[n - 2].gauche,
+        'avec ' + n + ' cartes, les deux dernières doivent être côte à côte, pas l\'une sous l\'autre');
+    });
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('sur PC, les champs courts des formulaires se rangent par deux, les champs de saisie gardent toute la largeur', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

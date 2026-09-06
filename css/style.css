@@ -3204,22 +3204,43 @@ body.is-unlocked .sidebar-logout{display:block}
    CE QUI RESTE EN COLONNE ÉTROITE, volontairement : les titres et les textes
    d'explication. Une ligne de texte trop longue se lit mal, c'est la règle la
    plus ancienne de la typographie ; élargir la colonne de lecture aurait
-   dégradé l'app au lieu de l'améliorer. D'où la grille où TOUT s'étend sur
-   les deux colonnes par défaut, et où seuls les blocs se rangent en deux. */
+   dégradé l'app au lieu de l'améliorer. D'où la mise en page où TOUT occupe
+   la largeur entière par défaut, et où seuls les blocs se rangent en deux.
+   POURQUOI FLEX ET NON UNE GRILLE : retour du propriétaire, capture à
+   l'appui, « si le nombre de cartes est impair, centrer la dernière en bas
+   des autres, pas sous une carte précise ». Dans une grille, la carte
+   solitaire se colle mécaniquement dans la première colonne, sous celle du
+   dessus : on lit un alignement qui ne veut rien dire. En flex, deux cartes
+   remplissent exactement leur rang (le centrage n'y change donc rien) et
+   celle qui reste seule se centre d'elle-même. Ça marche pour trois cartes
+   comme pour cinq ou sept, sans compter les cartes en CSS, ce qu'aucune
+   règle ne sait faire proprement. */
 @media(min-width:1024px){
   #montageManuelFlow .ds-wrap,
   #montageFlow .ideas-container,
   #flow .ideas-container:has(.montage-section){
     max-width:1040px;
-    display:grid;grid-template-columns:1fr 1fr;
-    gap:0 20px;align-items:start;
+    display:flex;flex-wrap:wrap;align-items:flex-start;
+    gap:0 20px;
   }
   #montageManuelFlow .ds-wrap > *,
   #montageFlow .ideas-container > *,
-  #flow .ideas-container:has(.montage-section) > *{grid-column:1 / -1}
+  #flow .ideas-container:has(.montage-section) > *{flex:0 0 100%;min-width:0}
+  /* calc(50% - 10px) : deux cartes plus l'espace de 20 px font exactement la
+     largeur du rang, donc les rangs pleins restent alignés bord à bord. */
   #montageManuelFlow .ds-wrap > .montage-section,
   #montageFlow .ideas-container > .montage-section,
-  #flow .ideas-container:has(.montage-section) > .montage-section{grid-column:auto}
+  #flow .ideas-container:has(.montage-section) > .montage-section{
+    flex:0 1 calc(50% - 10px);
+    /* Le centrage se joue ICI et pas sur le conteneur : une carte seule sur
+       son rang a de la place libre autour d'elle, les marges automatiques la
+       partagent en deux et la carte se centre. Sur un rang plein il n'y a
+       aucune place libre, donc elles ne font rien et les deux cartes restent
+       bord à bord. Un justify-content sur le conteneur, lui, décalait aussi
+       le bouton « Retour » et les titres, dont la marge négative de zone
+       tactile crée un peu de place libre sur leur propre rang. */
+    margin-left:auto;margin-right:auto;
+  }
   /* Les marges verticales des blocs viennent de margin-top : sur deux
      colonnes, le premier bloc de CHAQUE rang doit garder la même. */
   #montageManuelFlow .ds-wrap > .montage-section,
