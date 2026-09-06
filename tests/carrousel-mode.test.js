@@ -592,9 +592,30 @@ test('l\'écran de résultat respecte les mêmes marges que les autres modes', a
     await genererDepuisMock(page);
 
     const vu = await page.evaluate(() => {
+      // On mesure le bord du CONTENU VISIBLE, pas celui de la boîte. Depuis
+      // que les commandes ont une zone tactile de 44 px (remplissage compensé
+      // par une marge négative de même valeur, voir css/style.css .btn-back),
+      // la BOÎTE du bouton « Retour » déborde de 10 px à gauche alors que
+      // RIEN N'A BOUGÉ à l'écran. Comparer des boîtes faisait donc échouer un
+      // alignement parfaitement correct à l'œil : la référence tombait à 2 px
+      // pendant que le titre restait à 12. Même leçon que l'audit tactile,
+      // dans l'autre sens : une boîte ne dit pas ce que l'utilisateur voit.
       const bords = el => {
         const b = el.getBoundingClientRect();
-        return { gauche: Math.round(b.left), droite: Math.round(window.innerWidth - b.right), haut: Math.round(b.top) };
+        const cs = getComputedStyle(el);
+        // On annule la MARGE NÉGATIVE avant de comparer. Les commandes ont
+        // désormais une zone tactile de 44 px obtenue par un remplissage
+        // compensé par une marge négative de même valeur (voir .btn-back dans
+        // css/style.css) : leur BOÎTE déborde de 10 px à gauche alors que
+        // RIEN N'A BOUGÉ à l'écran. Sans cette correction, la référence
+        // tombait à 2 px pendant que le titre restait à 12, et un alignement
+        // parfaitement correct à l'œil échouait. Une boîte ne dit pas ce que
+        // l'utilisateur voit, c'est la même leçon que l'audit tactile.
+        return {
+          gauche: Math.round(b.left - parseFloat(cs.marginLeft)),
+          droite: Math.round(window.innerWidth - (b.right + parseFloat(cs.marginRight))),
+          haut: Math.round(b.top - parseFloat(cs.marginTop))
+        };
       };
       const zone = document.getElementById('carrouselResults');
       const mesure = {
