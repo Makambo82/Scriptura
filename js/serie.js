@@ -1281,6 +1281,15 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     const hardMinSerie = Math.round(wtSerie.min * 0.9);
     const hardMaxSerie = Math.round(wtSerie.max * 1.1);
 
+    // MEILLEURE VERSION VUE, jamais la dernière. Même défaut que dans les
+    // modes Script et Récit, retrouvé ici en scannant le code : une tentative
+    // de correction écrasait la précédente SANS vérifier qu'elle était
+    // meilleure, donc une tentative ratée pouvait éloigner l'épisode de la
+    // cible et la suivante repartait de cette version dégradée.
+    const ecartCibleSerie = (n) => (n < wtSerie.min ? wtSerie.min - n : (n > wtSerie.max ? n - wtSerie.max : 0));
+    let meilleurEpisode = { script: ep.script, voix: ep.voix_off_propre };
+    let meilleurCountSerie = wordCountSerie;
+
     while ((wordCountSerie < hardMinSerie || wordCountSerie > hardMaxSerie) && correctionAttemptsSerie < 2) {
       correctionAttemptsSerie++;
       const tropCourtSerie = wordCountSerie < hardMinSerie;
@@ -1320,9 +1329,20 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
             : ep.script
         );
         wordCountSerie = countWordsSerie(ep.voix_off_propre);
+        if (ecartCibleSerie(wordCountSerie) < ecartCibleSerie(meilleurCountSerie)) {
+          meilleurEpisode = { script: ep.script, voix: ep.voix_off_propre };
+          meilleurCountSerie = wordCountSerie;
+        }
       } else {
         break; // parsing échoué, on garde la version actuelle
       }
+    }
+
+    // On livre la MEILLEURE version obtenue, jamais simplement la dernière.
+    if (ecartCibleSerie(meilleurCountSerie) < ecartCibleSerie(wordCountSerie)) {
+      ep.script = meilleurEpisode.script;
+      ep.voix_off_propre = meilleurEpisode.voix;
+      wordCountSerie = meilleurCountSerie;
     }
     if (genProgressCtl) genProgressCtl.etapeTerminee(3);
 

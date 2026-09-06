@@ -818,6 +818,18 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       const hardMinStory = Math.round(wt.min * 0.9);
       const hardMaxStory = Math.round(wt.max * 1.1);
 
+      // MEILLEURE VERSION VUE, jamais la dernière. Défaut trouvé d'abord dans
+      // le mode Script (voir corrigerDureeScript, js/generation.js), puis
+      // retrouvé ici à l'identique en scannant le code : une tentative de
+      // correction écrasait la précédente SANS vérifier qu'elle était
+      // meilleure. Une tentative ratée éloignait donc le récit de la cible, et
+      // la suivante repartait de cette version dégradée. Le créateur pouvait
+      // recevoir un récit PLUS mauvais que le premier jet, après avoir payé
+      // trois corrections pour ça.
+      const ecartCibleRecit = (n) => (n < wt.min ? wt.min - n : (n > wt.max ? n - wt.max : 0));
+      let meilleurRecit = parsed.recit;
+      let meilleurCountRecit = storyWordCount;
+
       // 3 tentatives (comme le mode Script, voir js/generation.js) : une
       // simple erreur réseau/parsing sur une seule tentative ne doit plus
       // faire abandonner tout de suite (voir le catch plus bas), un récit
@@ -856,9 +868,21 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // recomptage juste en dessous.
           parsed.recit = nettoyerSegmentsRecit(correctedStory.recit);
           storyWordCount = countStoryWords(parsed.recit);
+          // La tentative suivante repart de CETTE version, mais on retient à
+          // part la meilleure obtenue, au cas où celle-ci se serait éloignée.
+          if (ecartCibleRecit(storyWordCount) < ecartCibleRecit(meilleurCountRecit)) {
+            meilleurRecit = parsed.recit;
+            meilleurCountRecit = storyWordCount;
+          }
         }
         // Correction invalide/vide : on ne casse plus la boucle, le tour
         // suivant retente avec la dernière version connue de parsed.recit.
+      }
+
+      // On livre la MEILLEURE version obtenue, jamais simplement la dernière.
+      if (ecartCibleRecit(meilleurCountRecit) < ecartCibleRecit(storyWordCount)) {
+        parsed.recit = meilleurRecit;
+        storyWordCount = meilleurCountRecit;
       }
     }
 
