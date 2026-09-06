@@ -383,6 +383,46 @@ test('au moins une slide et un plan montrent le produit, même si le modèle oub
   }
 });
 
+// Même famille que la boîte d'erreur invisible du Carrousel : l'app SAIT
+// pourquoi ça a échoué, et ne le dit pas. En lot, le montage ne montrait que
+// « 3 image(s) n'ont pas pu être générées » ; il fallait relancer un plan à
+// la main pour apprendre la raison, alors qu'elle est souvent la seule chose
+// utile (quota épuisé, modération, produit non intégré).
+test('un échec de génération d\'images en lot dit POURQUOI', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage({ viewport: { width: 430, height: 900 } });
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await poserMocksReseau(page);
+    await page.route('**/api/montage-media**', async (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ images: [null], erreurs: ['Quota d\'images du mois atteint pour ton plan'] })
+    }));
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
+
+    const vu = await page.evaluate(async () => {
+      ouvrirMontage([{ text: 'p1', visuel: 'a bathroom 9:16' }, { text: 'p2', visuel: 'a beach 9:16' }], null);
+      await genererImagesMontage();
+      const e = document.getElementById('montageErreur');
+      return { affiche: e.style.display, texte: e.textContent };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.affiche, 'block', 'un échec doit se voir');
+    assert.match(vu.texte, /Quota d'images du mois/,
+      'REGRESSION : la vraie raison de l\'échec est perdue. Le créateur ne voit qu\'un compte d\'images '
+      + 'ratées et doit relancer un plan à la main pour apprendre pourquoi : ' + vu.texte);
+    assert.match(vu.texte, /↻/, 'et il doit savoir comment relancer');
+    assert.ok(!/\.\s*\./.test(vu.texte), 'pas de double ponctuation en recollant les deux phrases : ' + vu.texte);
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

@@ -630,6 +630,7 @@ async function genererImagesMontage() {
   renderMontageEtat();
 
   let echecs = 0;
+  let premiereRaison = '';
   for (let i = 0; i < montagePlans.length; i++) {
     montageImageIndexEnCours = i;
     renderMontageEtat();
@@ -648,12 +649,24 @@ async function genererImagesMontage() {
       montageImages[i] = { blob: base64VersBlob(img.base64, img.mimeType || 'image/png'), apercu: 'data:' + (img.mimeType || 'image/png') + ';base64,' + img.base64 };
     } catch (e) {
       echecs++;
+      // On GARDE la première vraie raison. Sans elle, un lot qui échoue ne
+      // disait que « 3 images n'ont pas pu être générées », et il fallait
+      // relancer un plan à la main pour apprendre pourquoi. Or la raison est
+      // souvent la seule chose utile : quota épuisé, modération, ou produit
+      // non intégré. Même défaut que la boîte d'erreur invisible du
+      // Carrousel, sous une autre forme : l'app sait, et ne dit pas.
+      if (!premiereRaison) premiereRaison = (e && e.message) ? String(e.message) : '';
     }
     renderMontageEtat();
   }
 
   if (echecs > 0 && err) {
-    err.textContent = echecs + ' image(s) n\'ont pas pu être générées (voir ✕ ci-dessus), réessaie-les une par une.';
+    // La raison remontée par le serveur ne finit pas toujours par un point :
+    // on le pose nous-mêmes plutôt que de coller deux phrases l'une à l'autre.
+    const raison = premiereRaison.trim().replace(/[.\s]+$/, '');
+    err.textContent = echecs + (echecs > 1 ? ' images n\'ont' : ' image n\'a') + ' pas pu être générée'
+      + (echecs > 1 ? 's' : '') + (raison ? ' : ' + raison : '') + '. '
+      + (echecs > 1 ? 'Tu peux les relancer une par une avec ↻.' : 'Tu peux la relancer avec ↻.');
     err.style.display = 'block';
   }
   montageImageIndexEnCours = -1;
