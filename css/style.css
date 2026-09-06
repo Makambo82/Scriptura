@@ -427,7 +427,13 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .spinner{width:16px;height:16px;border:2px solid rgba(26,10,14,0.25);border-top-color:var(--bg);border-radius:50%;animation:spin 0.7s linear infinite;display:none;flex-shrink:0}
 
 /* BACK BTN */
+/* Zone tactile agrandie SANS déplacer quoi que ce soit : le remplissage
+   vertical est annulé par une marge négative de même valeur. Mesuré à 61x11
+   lors de l'audit responsive, alors que ce bouton est présent sur presque
+   tous les écrans de l'app. Un « Retour » qu'on rate au pouce est la
+   frustration la plus bête possible. */
 .btn-back{
+  padding:17px 10px;margin:-17px -10px;
   display:inline-flex;align-items:center;gap:8px;
   font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;
   text-transform:uppercase;color:rgba(255,255,255,0.7);
@@ -1579,6 +1585,13 @@ body.hero-focus .hero-focus-rule{display:block}
    de la carte, pour ne jamais masquer les vues affichées en bas. */
 .preuve-galerie-arrow{position:absolute;top:38%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:rgba(10,10,10,0.6);border:1px solid rgba(226,200,122,0.35);color:var(--gold-light);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;padding:0}
 .preuve-galerie-arrow:hover{background:rgba(10,10,10,0.85)}
+/* Le disque reste à 28 px (choix esthétique), mais la zone atteignable au
+   pouce passe à 44 px grâce à un pseudo-élément transparent centré. Rien ne
+   change à l'écran, tout change à l'usage. */
+.preuve-galerie-arrow::after{
+  content:'';position:absolute;top:50%;left:50%;
+  width:44px;height:44px;transform:translate(-50%,-50%);
+}
 .preuve-galerie-arrow-left{left:2px}
 .preuve-galerie-arrow-right{right:2px}
 
@@ -2075,6 +2088,15 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   display:flex;align-items:center;justify-content:center;
 }
 #creerBtn.visible{opacity:1;visibility:visible;transform:translate(-50%,0)}
+/* Zone tactile portée à 44x44 sans toucher au dessin : le bouton mesure
+   56x40 par choix esthétique (la silhouette du bouton de création TikTok),
+   et l'audit responsive a mesuré 38 px réellement atteignables en hauteur.
+   Un pseudo-élément transparent centré comble la différence. C'est l'action
+   principale de l'app, elle ne doit jamais se rater au pouce. */
+#creerBtn::before{
+  content:'';position:absolute;top:50%;left:50%;
+  width:56px;height:46px;transform:translate(-50%,-50%);
+}
 /* Le "+" devient "−" quand le panneau est déplié : seule la barre verticale
    se rétracte, la barre horizontale reste. Plus lisible qu'un changement
    d'icône sec, et ça dit clairement que le même bouton referme. */
@@ -2330,7 +2352,18 @@ body.creer-visible::after{
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
 .sidebar-logo{font-family:'Cinzel',serif;font-weight:500;font-size:1.1rem;letter-spacing:0.16em;color:var(--white)}
 .sidebar-logo em{color:var(--gold);font-style:normal}
-.sidebar-close{background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;padding:4px}
+/* ZONE TACTILE DE 44x44, le minimum recommandé par Apple comme par Material.
+   Mesurée à 23x29 lors de l'audit responsive : c'est le geste le plus
+   fréquent du tiroir, et le plus pénible à viser au pouce quand il rate.
+   Les marges négatives compensent exactement l'agrandissement, donc
+   l'en-tête du tiroir ne bouge pas d'un pixel : c'est la zone de clic qui
+   grandit, pas le dessin. */
+.sidebar-close{
+  background:transparent;border:none;color:rgba(255,255,255,0.5);
+  font-size:1.1rem;cursor:pointer;
+  width:44px;height:44px;margin:-8px -12px -8px 0;
+  display:inline-flex;align-items:center;justify-content:center;padding:0;
+}
 .sidebar-close:hover{color:#fff}
 /* Le menu du tiroir est une balise <nav>, donc il héritait de la règle
    générale `nav{}` (la BARRE DU HAUT du site) : position:fixed en haut à
