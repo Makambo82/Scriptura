@@ -202,17 +202,29 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // l'app, jamais deux qui pourraient diverger.
     const texteNormalise = _genNormaliserTexteJuge(texteComplet);
     const signaux = {};
+    // Même trace que les modes Script et Récit : un signal que le juge DÉCLARE
+    // présent mais dont la citation est introuvable est indiscernable d'un
+    // signal légitimement absent, sans journal. C'est ce qui a obligé à
+    // deviner la cause d'un score anormalement bas côté Script.
+    const refusesMalgrePresentSerie = [];
     SERIE_SIGNAUX_JUGES_IA.forEach(cle => {
       const d = jug[cle];
+      const declare = !!(d && d.present === true);
+      let valide;
       if (SERIE_SIGNAUX_DEUX_CITATIONS.includes(cle)) {
         const ouverture = _genValiderCitation(d && d.preuve_ouverture, texteNormalise);
         const cloture = _genValiderCitation(d && d.preuve_cloture, texteNormalise);
-        signaux[cle] = !!(d && d.present === true && ouverture.valide && cloture.valide && cloture.position > ouverture.position);
+        valide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
       } else {
-        const preuve = _genValiderCitation(d && d.preuve, texteNormalise);
-        signaux[cle] = !!(d && d.present === true && preuve.valide);
+        valide = _genValiderCitation(d && d.preuve, texteNormalise).valide;
       }
+      signaux[cle] = !!(declare && valide);
+      if (declare && !valide) refusesMalgrePresentSerie.push(cle);
     });
+    if (refusesMalgrePresentSerie.length && typeof journaliserEchecEvaluation === 'function') {
+      journaliserEchecEvaluation('citation-refusee-serie',
+        'signaux déclarés présents mais citation introuvable : ' + refusesMalgrePresentSerie.join(', '));
+    }
     return signaux;
   } catch (e) {
     return null;

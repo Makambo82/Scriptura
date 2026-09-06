@@ -146,7 +146,32 @@ test('aucune balise nue stylée n\'impose sa mise en page à un autre élément'
     + 'du menu ouvrait « Mes générations ».');
 });
 
-// ── FAMILLE 4 : ce qui est déterministe doit le rester ──
+// ── FAMILLE 4 : une logique recopiée finit toujours par diverger ──
+// Démonstration vécue : la vérification des citations du juge existait en
+// DEUX copies mot pour mot, une dans le mode Script, une dans le mode Récit,
+// « faute de module partagé entre des fichiers chargés en <script> ». Le
+// correctif sur l'écriture des milliers (« 150.000 » contre « 150 000 ») n'est
+// jamais arrivé dans la copie du Récit : un récit bourré de chiffres perdait
+// donc toujours ses points de « détails concrets », alors que le bug était
+// réputé corrigé. Pire, mon propre scan avait affiché « OUI » pour le Récit,
+// le nom de la copie contenant celui de l'original.
+// Ces fonctions doivent DÉLÉGUER, jamais recopier. Le partage marche sans
+// module : elles sont appelées bien après le chargement de tous les scripts.
+test('la vérification des citations n\'existe qu\'en UN seul exemplaire', () => {
+  const corpsNormalisation = /normalize\('NFC'\)/g;
+  const copies = [];
+  ['js/generation.js', 'js/storytelling.js', 'js/serie.js', 'js/carrousel.js'].forEach(f => {
+    const src = lire(f);
+    const n = (src.match(corpsNormalisation) || []).length;
+    if (n > 0 && f !== 'js/generation.js') copies.push(f + ' (' + n + ')');
+  });
+  assert.deepEqual(copies, [],
+    'REGRESSION : la normalisation des citations est recopiée dans ' + copies.join(', ') + '. '
+    + 'Une copie finit toujours par diverger de l\'original, et un correctif appliqué d\'un côté '
+    + 'manque de l\'autre sans que personne ne le voie.');
+});
+
+// ── FAMILLE 5 : ce qui est déterministe doit le rester ──
 // Pilier du produit (voir CLAUDE.md) : mêmes données, même score, toujours.
 // Un mode qui laisserait l'IA choisir un chiffre casserait la crédibilité de
 // toutes les notes de l'app, pas seulement des siennes.

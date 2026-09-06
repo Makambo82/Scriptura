@@ -248,28 +248,39 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
     const texteNormalise = _genNormaliserTexteJugeRecit(texteComplet);
     const signaux = {};
+    // Même trace que le mode Script : un signal que le juge DÉCLARE présent
+    // mais dont la citation est introuvable est le cas le plus intéressant à
+    // observer, et sans journal il est indiscernable d'un signal légitimement
+    // absent. C'est ce qui a obligé à deviner la cause d'une force
+    // émotionnelle à 0 sur 100, côté Script.
+    const refusesMalgrePresentRecit = [];
     GEN_SIGNAUX_JUGES_IA_RECIT.forEach(cle => {
       const d = jug[cle];
+      const declare = !!(d && d.present === true);
+      let valide;
       if (cle === 'tension_maintenue') {
         const ouverture = _genValiderCitationRecit(d && d.preuve_ouverture, texteNormalise);
         const cloture = _genValiderCitationRecit(d && d.preuve_cloture, texteNormalise);
-        const ordreValide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
-        signaux[cle] = !!(d && d.present === true && ordreValide);
+        valide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
       } else if (cle === 'cloture_complete') {
         const question = _genValiderCitationRecit(d && d.preuve_question, texteNormalise);
         const signature = _genValiderCitationRecit(d && d.preuve_signature, texteNormalise);
         // La triple question précède toujours la signature dans le dernier
         // segment (voir le prompt de rédaction, point 9 puis point 10).
-        const ordreValide = question.valide && signature.valide && signature.position > question.position;
-        signaux[cle] = !!(d && d.present === true && ordreValide);
+        valide = question.valide && signature.valide && signature.position > question.position;
       } else {
         // Passait auparavant par sa propre normalisation en ligne (une 3e
         // copie de la même logique que _genValiderCitationRecit, divergente
         // d'elle) : unifié pour ne dépendre que d'un seul point de correction.
-        const preuve = _genValiderCitationRecit(d && d.preuve, texteNormalise);
-        signaux[cle] = !!(d && d.present === true && preuve.valide);
+        valide = _genValiderCitationRecit(d && d.preuve, texteNormalise).valide;
       }
+      signaux[cle] = !!(declare && valide);
+      if (declare && !valide) refusesMalgrePresentRecit.push(cle);
     });
+    if (refusesMalgrePresentRecit.length && typeof journaliserEchecEvaluation === 'function') {
+      journaliserEchecEvaluation('citation-refusee-recit',
+        'signaux déclarés présents mais citation introuvable : ' + refusesMalgrePresentRecit.join(', '));
+    }
     return signaux;
   } catch (e) {
     // detailTechnique en priorité : le message montré au créateur est
@@ -285,27 +296,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 // par une simple différence d'apostrophe ou d'ellipse entre le rédacteur et
 // le juge, deux appels IA séparés) : dupliqué ici, pas de module partagé
 // entre fichiers chargés en <script> dans ce projet.
+// CES DEUX FONCTIONS DÉLÈGUENT, elles ne dupliquent plus.
+// Elles étaient une COPIE mot pour mot de _genNormaliserTexteJuge et
+// _genValiderCitation (js/generation.js), recopiées faute de module partagé
+// entre des fichiers chargés en <script>. La copie a fait exactement ce que
+// font les copies : elle a divergé. Le correctif sur l'écriture des milliers
+// (« 150.000 » contre « 150 000 »), livré côté Script après un retour du
+// propriétaire, n'est jamais arrivé ici. Un récit bourré de chiffres perdait
+// donc toujours ses points de « détails concrets ».
+// Le partage est possible sans module : ces fonctions sont appelées au
+// MOMENT du jugement, bien après le chargement de tous les scripts, l'ordre
+// des balises <script> n'a donc aucune importance. Les noms sont conservés
+// pour ne toucher à aucun appelant.
 function _genNormaliserTexteJugeRecit(s) {
-  return String(s || '')
-    .normalize('NFC')
-    .toLowerCase()
-    .replace(/[‘’‚′`]/g, "'")
-    .replace(/[«»“”„]/g, '"')
-    .replace(/…/g, '...')
-    .replace(/[–—]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return _genNormaliserTexteJuge(s);
 }
-// Même helper que _genValiderCitation (js/generation.js), dupliqué ici (pas
-// de module partagé entre fichiers chargés en <script> dans ce projet).
 function _genValiderCitationRecit(preuve, texteNormalise) {
-  let p = _genNormaliserTexteJugeRecit(preuve);
-  if (p.length >= 2 && p[0] === '"' && p[p.length - 1] === '"') {
-    p = p.slice(1, -1).trim();
-  }
-  if (p.length < 4) return { valide: false, position: -1 };
-  const position = texteNormalise.indexOf(p);
-  return { valide: position >= 0, position };
+  return _genValiderCitation(preuve, texteNormalise);
 }
 
 async function generateStory() {
