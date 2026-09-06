@@ -314,6 +314,75 @@ test('l\'app dit sur quelles slides et quels plans le produit va apparaître', a
   }
 });
 
+// Constat du propriétaire au deuxième test, celui qui a MARCHÉ : « sur six
+// slides, le produit apparaît seulement sur un seul fond, est-ce que c'est
+// bon ? » L'emplacement était le bon (la slide Solution), mais une seule est
+// peu pour un contenu qui vend : c'est sur la DERNIÈRE, celle qui demande
+// l'action, que le lecteur décide.
+//
+// Le vrai risque, lui, est le ZÉRO : un modèle qui oublie de marquer, et le
+// créateur obtient un carrousel sans son produit alors qu'il a joint sa
+// photo, sans qu'aucun message ne le dise. Une promesse produit ne peut pas
+// reposer sur une consigne de prompt.
+test('au moins une slide et un plan montrent le produit, même si le modèle oublie', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(async () => {
+      const troisSlides = () => ({
+        titre: 'T', direction_visuelle: 'sobre',
+        slides: [
+          { numero: 1, gabarit: 'couverture', titre: 'A', visuel: 'v1' },
+          { numero: 2, gabarit: 'contenu', titre: 'B', visuel: 'v2' },
+          { numero: 3, gabarit: 'recap', titre: 'C', visuel: 'v3' }
+        ]
+      });
+      // Photo chargée, modèle qui n'a marqué AUCUNE slide.
+      carrouselVenteFichier = { base64: 'A', mediaType: 'image/png', produitNom: 'a gel tube' };
+      const rattrape = normaliserResultatCarrousel(troisSlides()).slides.map(s => !!s.produit);
+      // Photo chargée, modèle qui a marqué la slide 2 : on ne redistribue rien.
+      const choisi = troisSlides(); choisi.slides[1].produit = true;
+      const respecte = normaliserResultatCarrousel(choisi).slides.map(s => !!s.produit);
+      // Aucune photo : aucun marquage, sinon on promettrait un produit absent.
+      carrouselVenteFichier = null;
+      const sansPhoto = normaliserResultatCarrousel(troisSlides()).slides.map(s => !!s.produit);
+
+      // Même filet côté storyboard du mode Script.
+      window.callAI = async () => JSON.stringify({ visuels: ['p1 9:16', 'p2 9:16'] });
+      const plansAvec = [{ text: 'a' }, { text: 'b' }];
+      await genererVisuelsParLots(plansAvec, 'TikTok', null, { produitNom: 'a gel tube' });
+      const plansSans = [{ text: 'a' }, { text: 'b' }];
+      await genererVisuelsParLots(plansSans, 'TikTok', null, false);
+      return {
+        rattrape, respecte, sansPhoto,
+        planAvec: plansAvec.map(p => !!p.produit), planSans: plansSans.map(p => !!p.produit)
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(r.rattrape, [false, false, true],
+      'REGRESSION : aucune slide ne montre le produit alors qu\'une photo est chargée. Le créateur a '
+      + 'joint sa photo pour ça, et rien ne lui dirait qu\'elle n\'a servi à rien. Le rattrapage vise la '
+      + 'DERNIÈRE slide, celle qui demande l\'action. Obtenu : ' + JSON.stringify(r.rattrape));
+    assert.deepEqual(r.respecte, [false, true, false],
+      'REGRESSION : le filet écrase le choix du rédacteur. Il rattrape le zéro, il ne redistribue pas.');
+    assert.deepEqual(r.sansPhoto, [false, false, false],
+      'REGRESSION : une slide est marquée sans photo chargée. On promettrait un produit qui ne peut pas '
+      + 'apparaître, et l\'image partirait sans référence.');
+    assert.deepEqual(r.planAvec, [false, true],
+      'REGRESSION : même oubli côté storyboard du mode Script, non rattrapé. Un défaut corrigé d\'un '
+      + 'seul côté finit toujours par ressortir de l\'autre.');
+    assert.deepEqual(r.planSans, [false, false], 'sans produit, aucun plan n\'est marqué');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

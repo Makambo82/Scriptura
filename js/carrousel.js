@@ -410,7 +410,7 @@ Chaque slide porte aussi un champ "visuel" : la consigne de l'image de fond, dé
 PRODUIT RÉEL DU CRÉATEUR : sa VRAIE photo sera transmise au générateur d'images comme image de référence, sur les slides que TU auras marquées. C'est donc son produit exact qui apparaîtra, jamais une imitation.${ctx.produitNom ? `
 CE QU'EST LE PRODUIT, reconnu sur sa photo : ${ctx.produitNom}.` : ''}${(ctx.produitUsages && ctx.produitUsages.length) ? `
 SES SITUATIONS D'USAGE RÉELLES, à reprendre ou à enrichir : ${ctx.produitUsages.join(' / ')}.` : ''}
-- MARQUE 1 à 3 slides, pas plus, en ajoutant "produit": true à côté de leur champ "visuel". Choisis celles où voir le produit sert vraiment la vente : la révélation, l'usage, le résultat. Le produit sur chaque slide ferait une publicité, et on ne fait pas défiler une publicité.
+- MARQUE 2 à 3 slides, pas plus, en ajoutant "produit": true à côté de leur champ "visuel". DEUX SONT OBLIGATOIRES : celle qui présente la SOLUTION (le moment où le produit est révélé) et la DERNIÈRE slide, celle qui demande l'action. C'est sur la dernière que le lecteur décide d'acheter : voir le produit à cet instant précis est ce qui transforme une lecture en commande. Une troisième est possible si une slide montre vraiment le produit à l'usage. Au-delà, le carrousel devient une publicité, et on ne fait pas défiler une publicité.
 - Sur une slide marquée, le visuel montre le produit LÀ OÙ IL VIT VRAIMENT : un bracelet au poignet de quelqu'un, une chemise portée, une pommade appliquée sur la peau ou tenue en main, un objet posé et mis en valeur sur une table. Désigne-le par "the product shown in the reference image", et décris tout le reste : la personne, son geste, la partie du corps concernée, le décor, la lumière. Le produit doit être NET et LISIBLE dans l'image, pas un détail perdu au fond.
 - INTERDICTION ABSOLUE sur ces slides : ne décris jamais l'apparence du produit, ni sa couleur, ni sa forme, ni son emballage, ni son étiquette, ni son logo. La photo de référence porte déjà tout cela ; le décrire ferait dériver le modèle vers un objet inventé.
 - Sur les slides non marquées, le produit n'apparaît pas : la personne, son geste, son émotion, le décor, le problème vécu.` : ''}
@@ -692,7 +692,31 @@ function normaliserResultatCarrousel(r) {
   if (!utiles.length) return null;
   r.slides = utiles.map((s, i) => normaliserSlideCarrousel(s, i, utiles.length));
   r.hashtags = Array.isArray(r.hashtags) ? r.hashtags.map(h => String(h || '').trim()).filter(Boolean) : [];
+  garantirUneSlideProduit(r);
   return r;
+}
+
+// FILET : au moins UNE slide montre le produit quand une photo est là.
+//
+// La consigne demande d'en marquer deux, dont la dernière. Un modèle peut
+// l'oublier, et l'oubli est SILENCIEUX : le créateur a joint sa photo, il a
+// payé son abonnement pour ça, et il obtient un carrousel où son produit
+// n'apparaît jamais, sans qu'aucun message ne le dise. On ne peut pas
+// compter sur une consigne pour une promesse produit.
+//
+// On marque la DERNIÈRE slide, jamais une autre : c'est celle qui demande
+// l'action, donc le moment où le lecteur décide d'acheter. S'il ne doit voir
+// le produit qu'une seule fois, c'est là.
+//
+// Ce filet ne force JAMAIS au-delà : dès qu'une slide est marquée par le
+// rédacteur, on ne touche à rien. Il rattrape le zéro, il ne redistribue pas
+// ses choix.
+function garantirUneSlideProduit(r) {
+  const photo = (carrouselVenteFichier && /^image\//i.test(carrouselVenteFichier.mediaType || ''))
+    ? carrouselVenteFichier : null;
+  if (!photo || !r.slides.length) return;
+  if (r.slides.some(s => s.produit)) return;
+  r.slides[r.slides.length - 1].produit = true;
 }
 
 function parserCarrousel(texte) {

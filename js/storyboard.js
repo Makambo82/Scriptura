@@ -404,6 +404,16 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     }
     if (onLot) onLot(lot, i);
   }
+  // FILET, même raison que côté Carrousel (voir garantirUneSlideProduit,
+  // js/carrousel.js) : la consigne demande 2 à 4 plans montrant le produit,
+  // et un modèle peut tous les oublier. L'oubli serait SILENCIEUX, le
+  // créateur ayant joint sa photo pour ça. On marque alors le DERNIER plan,
+  // celui de la conclusion et de l'appel à l'action : si le produit ne doit
+  // se voir qu'une fois, c'est au moment où le spectateur décide.
+  // Jamais au-delà : dès qu'un plan est marqué, on ne touche à rien.
+  if (aUnProduit && plans.length && !plans.some(p => p.produit)) {
+    plans[plans.length - 1].produit = true;
+  }
   return plans;
 }
 
