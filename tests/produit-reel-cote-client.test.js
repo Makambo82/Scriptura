@@ -235,6 +235,85 @@ test('le nom du produit part avec la photo, des deux côtés', async () => {
   }
 });
 
+// Manque relevé au PREMIER VRAI TEST du propriétaire : le marquage existait
+// bien en mémoire, mais RIEN ne l'affichait. Impossible pour lui de vérifier
+// que sa photo allait servir, impossible de choisir sur quelle slide dépenser
+// une image de son quota. Une fonctionnalité invisible est une fonctionnalité
+// qu'on croit cassée au premier doute.
+test('l\'app dit sur quelles slides et quels plans le produit va apparaître', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(() => {
+      carrouselFormat = '4:5';
+      carrouselQuotaImages = { illimite: true, used: 0, limite: 99 };
+      carrouselVenteFichier = { base64: 'A', mediaType: 'image/png', produitNom: 'a white gel tube' };
+      carrouselResultat = normaliserResultatCarrousel({
+        titre: 'T', direction_visuelle: 'sobre',
+        slides: [
+          { numero: 1, gabarit: 'couverture', titre: 'Sans produit', visuel: 'un homme frustré' },
+          { numero: 2, gabarit: 'contenu', titre: 'Avec produit', visuel: 'the product in a hand', produit: true }
+        ]
+      });
+      carrouselImages = [null, null];
+      renderCarrousel();
+      const avecPhoto = Array.from(document.querySelectorAll('.car-slide-produit')).map(e => e.textContent.trim());
+      carrouselVenteFichier = null;
+      renderCarrousel();
+      const sansPhoto = Array.from(document.querySelectorAll('.car-slide-produit'))
+        .map(e => ({ classe: e.className, texte: e.textContent.trim() }));
+
+      venteFichier = { base64: 'A', mediaType: 'image/jpeg', produitNom: 'a white gel tube' };
+      ouvrirMontage([
+        { text: 'p1', visuel: 'a bathroom 9:16' },
+        { text: 'p2', visuel: 'the product in a hand 9:16', produit: true },
+        { text: 'p3', visuel: 'a beach 9:16' },
+        { text: 'p4', visuel: 'the product on a table 9:16', produit: true }
+      ], null);
+      const note = document.getElementById('montageNoteProduit');
+      const montageAvec = { affiche: note.style.display !== 'none', texte: note.textContent };
+      venteFichier = null;
+      renderMontageEtat();
+      const montageSans = { classe: note.className, texte: note.textContent };
+      ouvrirMontage([{ text: 'p1', visuel: 'a beach 9:16' }], null);
+      const montageAucun = note.style.display;
+      return { avecPhoto, sansPhoto, montageAvec, montageSans, montageAucun };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+
+    assert.equal(r.avecPhoto.length, 1,
+      'REGRESSION : ' + r.avecPhoto.length + ' slide(s) annoncée(s). Une seule est marquée, et une '
+      + 'slide ordinaire ne doit RIEN annoncer.');
+    assert.match(r.avecPhoto[0], /apparaîtra sur cette slide/,
+      'REGRESSION : la slide marquée ne dit plus que le produit y apparaîtra : ' + r.avecPhoto[0]);
+    assert.match(r.avecPhoto[0], /a white gel tube/,
+      'le produit reconnu est nommé, c\'est ce qui permet de vérifier que l\'app a bien vu LE bon objet');
+
+    assert.match(r.sansPhoto[0].classe, /absent/,
+      'REGRESSION : sans photo chargée, le message doit changer de ton, pas promettre la même chose');
+    assert.match(r.sansPhoto[0].texte, /aucune photo/,
+      'REGRESSION : le créateur n\'est plus prévenu que sa photo manque. Il paierait une image pour '
+      + 'découvrir après coup que son produit n\'y est pas.');
+
+    assert.equal(r.montageAvec.affiche, true, 'le panneau de montage annonce les plans concernés');
+    assert.match(r.montageAvec.texte, /les plans 2 et 4/,
+      'REGRESSION : les plans ne sont plus énumérés correctement (« 2 et 4 », jamais « 2, 4 ») : '
+      + r.montageAvec.texte);
+    assert.match(r.montageSans.classe, /absent/, 'même avertissement côté montage quand la photo manque');
+    assert.equal(r.montageAucun, 'none',
+      'REGRESSION : la ligne s\'affiche sur un montage SANS aucun plan produit. Hors objectif Ventes, '
+      + 'rien ne doit apparaître.');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

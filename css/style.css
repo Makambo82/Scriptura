@@ -3996,6 +3996,22 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
 .car-slide-mots{margin:0 0 8px;font-size:0.74rem;color:var(--muted)}
 .car-slide-visuel-note{margin:0 0 10px;font-size:0.78rem;color:var(--text-secondary);line-height:1.5}
 .car-slide-visuel-note strong{color:var(--gold)}
+/* « Ton vrai produit apparaîtra sur cette slide. » En émeraude parce que
+   c'est une BONNE nouvelle, la couleur que Scriptura réserve à ce qui a
+   réussi (même codex que les barres terminées). La variante "absent" passe
+   en doré, ton d'avertissement de l'app : ce n'est pas une erreur, c'est une
+   photo qui manque et qu'il suffit de joindre. */
+.car-slide-produit{
+  margin:-4px 0 10px;font-size:0.78rem;line-height:1.5;
+  color:var(--emerald-light);display:flex;gap:6px;align-items:flex-start;
+}
+.car-slide-produit::before{content:'●';font-size:0.6rem;line-height:1.9;flex-shrink:0}
+.car-slide-produit.absent{color:var(--gold-light)}
+/* Même message, même code couleur, dans le panneau de montage. */
+.montage-note-produit{
+  margin:12px 0 0;font-size:0.8rem;line-height:1.5;color:var(--emerald-light);
+}
+.montage-note-produit.absent{color:var(--gold-light)}
 .car-slide-actions{display:flex;gap:8px;flex-wrap:wrap}
 /* Les icônes des boutons du carrousel sont des SVG maison (ICO, js/ui.js) et
    non des caractères ✦ ⬇ ⧉ ↻ : ceux-là étaient rendus comme des EMOJI

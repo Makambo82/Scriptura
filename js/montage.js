@@ -955,6 +955,37 @@ function renderMontageEtat() {
       </div>`;
     }).join('');
   }
+  // Sur quels plans la vraie photo du produit va servir. Sans cette ligne, le
+  // créateur dépense des images sans savoir lesquelles porteront son produit,
+  // et ne peut pas vérifier que sa photo est bien prise en compte : c'est le
+  // manque relevé au premier vrai test.
+  const noteProduit = document.getElementById('montageNoteProduit');
+  if (noteProduit) {
+    const marques = montagePlans.map((p, i) => (p && p.produit) ? (i + 1) : 0).filter(Boolean);
+    const photo = photoProduitMontage();
+    // « 2, 4 et 6 », jamais « 2, 4, 6 » : une énumération se termine par un
+    // "et" en français, sinon la phrase sonne comme une sortie de machine.
+    const liste = marques.length > 1
+      ? marques.slice(0, -1).join(', ') + ' et ' + marques[marques.length - 1]
+      : String(marques[0] || '');
+    if (!marques.length) {
+      noteProduit.style.display = 'none';
+    } else if (!photo) {
+      noteProduit.textContent = (marques.length > 1 ? 'Les plans ' : 'Le plan ') + liste
+        + ' doi' + (marques.length > 1 ? 'vent' : 't') + ' montrer ton produit, mais aucune photo '
+        + 'n\'est chargée. Joins-la à l\'étape « Ce que tu vends » pour qu\'il apparaisse vraiment.';
+      noteProduit.className = 'montage-note-produit absent';
+      noteProduit.style.display = '';
+    } else {
+      noteProduit.textContent = 'Ton vrai produit'
+        + (photo.produitNom ? ' (' + photo.produitNom + ')' : '')
+        + ' apparaîtra sur ' + (marques.length > 1 ? 'les plans ' : 'le plan ') + liste
+        + ', à partir de ta photo.';
+      noteProduit.className = 'montage-note-produit';
+      noteProduit.style.display = '';
+    }
+  }
+
   const btnGenImg = document.getElementById('montageGenImagesBtn');
   if (btnGenImg) {
     btnGenImg.disabled = montageImagesEnCours;

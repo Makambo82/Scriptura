@@ -1634,6 +1634,32 @@ function noteVisuelSlide(s, i) {
   return s.visuel || 'fond sobre, sans image';
 }
 
+// DIRE AU CRÉATEUR SUR QUELLES SLIDES SON PRODUIT VA APPARAÎTRE.
+//
+// Manque relevé sur le premier vrai test : le marquage des slides existait
+// bien en mémoire, mais rien ne l'affichait. Le créateur ne pouvait donc ni
+// vérifier que sa photo allait servir, ni choisir en connaissance de cause
+// la slide sur laquelle dépenser une image de son quota. Une fonctionnalité
+// invisible est une fonctionnalité qu'on ne sait pas tester, et qu'on croit
+// cassée au premier doute.
+//
+// Le badge dit AUSSI le cas négatif, et c'est le plus utile des deux : quand
+// une slide est marquée mais qu'aucune photo n'est chargée, il explique
+// pourquoi le produit n'apparaîtra pas, au lieu de laisser le créateur
+// découvrir une image sans son produit après l'avoir payée.
+function badgeProduitSlide(s) {
+  if (!s || !s.produit) return '';
+  const photo = (carrouselVenteFichier && /^image\//i.test(carrouselVenteFichier.mediaType || ''))
+    ? carrouselVenteFichier : null;
+  if (!photo) {
+    return '<p class="car-slide-produit absent">Cette slide doit montrer ton produit, mais aucune photo'
+      + ' n\'est chargée : joins-la dans le formulaire pour qu\'il apparaisse vraiment.</p>';
+  }
+  const nom = photo.produitNom ? ' (' + carrouselEchapper(photo.produitNom) + ')' : '';
+  return '<p class="car-slide-produit">Ton vrai produit' + nom + ' apparaîtra sur cette slide,'
+    + ' à partir de ta photo.</p>';
+}
+
 function libelleBoutonFondCarrousel(i) {
   if (carrouselImageIndexEnCours === i) return '<span class="car-spinner"></span> Génération…';
   // Une fois le fond posé, ce MÊME bouton sert à revenir au fond sombre
@@ -1703,6 +1729,7 @@ function renderCarrousel() {
           ${s.bandeau ? `<p class="car-slide-bandeau">${carrouselEchapper(s.bandeau)}</p>` : ''}
           <p class="car-slide-mots">${mots} mot${mots > 1 ? 's' : ''} au total</p>
           <p class="car-slide-visuel-note"><strong>Visuel :</strong> ${carrouselEchapper(noteVisuelSlide(s, i))}</p>
+          ${badgeProduitSlide(s)}
           <div class="car-slide-actions">
             <button class="btn-regenerate" id="carGenBtn${i}" onclick="basculerFondCarrousel(${i})" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${libelleBoutonFondCarrousel(i)}</button>
             <button class="btn-regenerate" onclick="telechargerSlideCarrousel(${i})">${ico('download')} Télécharger</button>
