@@ -17,8 +17,12 @@
 // dépendent), et le fait qu'un hook trop long coûte des points.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 const { demarrerServeur } = require('./helpers/serveur');
 const { lancerNavigateur } = require('./helpers/navigateur');
+
+const SRC_GENERATION = fs.readFileSync(path.join(__dirname, '..', 'js', 'generation.js'), 'utf8');
 
 async function ouvrir(navigateur, baseUrl) {
   const page = await navigateur.newPage();
@@ -135,4 +139,29 @@ test('une phrase unique interminable n\'est pas mutilée, mais elle coûte des p
     await navigateur.close();
     await arreter();
   }
+});
+
+// La consigne de plan donnée à un bloc né d'un découpage en code existe en
+// DEUX exemplaires : dans CONSIGNE_SUITE_PLAN (utilisé par le filet du hook)
+// et en dur dans decouperBlocsTropLongs. Cette duplication est délibérée,
+// decouperBlocsTropLongs devant rester extractible et évaluable seule par
+// tests/script-repartition-blocs-et-promesse-chiffree.test.js, qui la sort de
+// son fichier : la moindre variable extérieure la casserait. Ce test est le
+// prix de cette duplication, il interdit qu'elle dérive.
+test('les deux consignes de découpage en code restent rigoureusement identiques', () => {
+  const partagee = SRC_GENERATION.match(/function CONSIGNE_SUITE_PLAN[\s\S]*?\n}/);
+  const locale = SRC_GENERATION.match(/const suiteVisuel = estFaceless[\s\S]*?;\n/);
+  assert.ok(partagee, 'CONSIGNE_SUITE_PLAN doit exister');
+  assert.ok(locale, 'decouperBlocsTropLongs doit garder sa propre consigne, pour rester autonome');
+
+  const textes = (src) => (src.match(/'([^']*(?:Change de (?:visuel|cadrage))[^']*)'/g) || [])
+    .map(s => s.slice(1, -1));
+  const a = textes(partagee[0]);
+  const b = textes(locale[0]);
+
+  assert.equal(a.length, 2, 'la version partagée doit porter les deux formulations');
+  assert.deepEqual(b, a,
+    'REGRESSION : les deux consignes ont divergé. Un bloc issu du découpage général et un bloc '
+    + 'issu du découpage du hook donneraient alors deux instructions de tournage différentes '
+    + 'pour exactement la même situation.');
 });

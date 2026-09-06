@@ -33,9 +33,16 @@ const SCRIPT_FAKE = {
   score: { viral: 90, hook: 90, engagement: 90, emotion: 90, retention: 90 },
   analyse: 'ok',
   hooks: [{ style: 'x', texte: 'Hook 1' }],
+  // Le PREMIER bloc ne porte volontairement PAS le remplissage : c'est le
+  // hook, et depuis degagerHookTropLong (js/generation.js) un premier bloc
+  // au-delà de 12 mots est recoupé en deux, ce qui décalerait tous les index
+  // suivants et ferait porter ce test sur le mauvais bloc. Le remplissage
+  // nécessaire au contrôle de durée est donc réparti sur les blocs du milieu
+  // et de fin, exactement là où il doit vivre dans un vrai script.
   script: [
-    { temps: '0-3 sec', texte: 'Premier bloc du script, le hook.' + REMPLISSAGE_BLOC, visuel: 'Visuel 1' },
-    { temps: '3-10 sec', texte: 'Deuxième bloc du script, le développement.' + REMPLISSAGE_BLOC, visuel: 'Visuel 2' }
+    { temps: '0-3 sec', texte: 'Premier bloc du script, le hook.', visuel: 'Visuel 1' },
+    { temps: '3-10 sec', texte: 'Deuxième bloc du script, le développement.' + REMPLISSAGE_BLOC, visuel: 'Visuel 2' },
+    { temps: '10-20 sec', texte: 'Troisième bloc du script, la chute.' + REMPLISSAGE_BLOC, visuel: 'Visuel 3' }
   ],
   legende: 'Légende', hashtags: ['#a'], variantes_titre: ['T1']
 };

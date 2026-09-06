@@ -1143,6 +1143,16 @@ const HOOK_SECONDES = 3;
 // plus une accroche, c'est du développement déguisé.
 const HOOK_MOTS_MAX = 12;
 
+// Consigne de visuel pour un bloc né d'un redécoupage en CODE (jamais écrit
+// par l'IA). Le même texte est redéclaré dans decouperBlocsTropLongs, qui
+// doit rester extractible et évaluable seule par ses tests : les deux
+// versions sont verrouillées identiques par une non-régression dédiée.
+function CONSIGNE_SUITE_PLAN(estFaceless) {
+  return estFaceless
+    ? 'Change de visuel ici, dans la continuité du plan précédent'
+    : 'Change de cadrage ici, ou coupe vers un plan d\'illustration, dans la continuité du plan précédent';
+}
+
 function _genCompterMots(texte) {
   return String(texte || '').split(/\s+/).filter(Boolean).length;
 }
@@ -1944,16 +1954,18 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // zéro risque de dégrader le texte. Un bloc d'une seule phrase n'est
     // jamais coupé en plein milieu, on préfère un bloc long à une phrase
     // amputée.
-    // Consigne de visuel pour un bloc né d'un redécoupage en code (jamais
-    // écrit par l'IA) : partagée par les deux filets déterministes, celui des
-    // blocs trop longs et celui du hook trop long.
-    const suiteVisuel = estFaceless
-      ? 'Change de visuel ici, dans la continuité du plan précédent'
-      : 'Change de cadrage ici, ou coupe vers un plan d\'illustration, dans la continuité du plan précédent';
-
     function decouperBlocsTropLongs(script) {
       if (!Array.isArray(script) || !script.length) return script;
       const plafond = plafondDureeBloc();
+      // Volontairement redéclaré ICI plutôt que partagé avec le filet du hook
+      // (voir CONSIGNE_SUITE_PLAN plus haut) : cette fonction est extraite de
+      // son fichier et évaluée seule par tests/script-repartition-blocs-et-
+      // promesse-chiffree.js, elle ne doit dépendre d'aucune variable
+      // extérieure. Les deux textes sont verrouillés identiques par ce même
+      // test, une divergence serait donc attrapée.
+      const suiteVisuel = estFaceless
+        ? 'Change de visuel ici, dans la continuité du plan précédent'
+        : 'Change de cadrage ici, ou coupe vers un plan d\'illustration, dans la continuité du plan précédent';
       const sortie = [];
       script.forEach(bloc => {
         const texte = bloc && typeof bloc.texte === 'string' ? bloc.texte : '';
@@ -2392,7 +2404,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // le découpage général (qui peut déjà avoir allégé un premier bloc
     // énorme) et AVANT le recalcul des timestamps, pour que le minutage
     // affiché porte sur le découpage réellement livré.
-    parsed.script = degagerHookTropLong(parsed.script, suiteVisuel);
+    parsed.script = degagerHookTropLong(parsed.script, CONSIGNE_SUITE_PLAN(estFaceless));
 
     // Timestamps recalculés en code sur le script FINAL (après l'éventuelle
     // correction de durée ci-dessus), jamais avant : recalculer plus tôt
