@@ -2651,7 +2651,10 @@ const GEN_POIDS = {
   serie_creation: [2500],
   // Épisode de série (js/serie.js, genererEpisode) : écriture EN FLUX(3000)
   // + contrôle de durée, jusqu'à 2 tentatives(2500).
-  serie_episode: [3000, 2500],
+  // 0=écriture(3000), 1=contrôle de durée(2500), 2=juge indépendant qui
+  // calcule le score(1400). Sans cette 3e bande, la barre atteignait sa fin
+  // AVANT le juge et le créateur regardait un 100% figé pendant l'appel.
+  serie_episode: [3000, 2500, 1400],
   // Indices alignés EXACTEMENT sur GEN_STEPS.script (7 étapes, ci-dessous) :
   // 0-1=brief, un seul appel(2000, réparti sur les 2 premières étapes
   // textuelles faute de signal séparé), 2=écriture[FLUX RÉEL](16000),
@@ -2765,7 +2768,8 @@ const GEN_STEPS = {
     "Écriture de l'accroche…",
     'Développement du récit…',
     'Pose de la tension finale…',
-    'Calibrage de la durée…'
+    'Calibrage de la durée…',
+    'Évaluation indépendante de l\'épisode…'
   ],
   viral: [
     'Récupération de la vidéo…',

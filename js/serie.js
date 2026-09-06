@@ -61,6 +61,192 @@ const WORD_TARGETS_SERIE = {
   'environ 2 minutes': { min: 270, max: 330 }
 };
 
+// ══════════════════════════════════════════════════════════════
+//  SCORE DÉTERMINISTE DE L'ÉPISODE
+//
+//  POURQUOI. Le mode Série était le seul à n'avoir NI juge NI score : un
+//  épisode sortait sans qu'aucune mesure ne dise s'il tenait debout. C'est
+//  d'autant plus gênant qu'une série vit entièrement sur l'envie de revenir
+//  à l'épisode suivant, donc sur exactement les deux choses qui font la
+//  force d'un script : l'accroche et la rétention.
+//
+//  MÊME DOCTRINE QUE LES AUTRES MODES, sans exception : c'est le CODE qui
+//  calcule les notes, l'IA ne fait que cocher des cases sur un texte fini
+//  qu'elle n'a pas écrit, et chaque case exige une CITATION vérifiée mot
+//  pour mot dans le texte (voir _genValiderCitation, js/generation.js) :
+//  une citation introuvable invalide le signal, même si le juge a coché
+//  "present". Mêmes données ⇒ même score, toujours.
+//
+//  UNE DIMENSION PROPRE À LA SÉRIE, "suite" : un bon épisode isolé qui ne
+//  donne aucune envie de voir le suivant est un échec de série, alors que
+//  ce serait un succès en mode Script. Aucune des dimensions existantes ne
+//  mesurait ça.
+// ══════════════════════════════════════════════════════════════
+const SERIE_SIGNAUX_JUGES_IA = [
+  'accroche_forte', 'pattern_interrupt', 'originalite',
+  'tension_maintenue', 'details_concrets', 'emotion_forte',
+  'cliffhanger_final', 'promesse_episode', 'ton_respecte', 'regle_recurrente_tenue'
+];
+// Signal qui décrit une relation ENTRE deux endroits du texte : une seule
+// citation ne peut structurellement pas le prouver (même raison et même
+// traitement que boucle_ouverte/promesse_tenue en mode Script).
+const SERIE_SIGNAUX_DEUX_CITATIONS = ['tension_maintenue'];
+const SERIE_DIMENSIONS = {
+  hook:     ['accroche_forte', 'pattern_interrupt', 'originalite'],
+  suite:    ['cliffhanger_final', 'promesse_episode'],
+  emotion:  ['emotion_forte', 'details_concrets'],
+  fidelite: ['ton_respecte', 'regle_recurrente_tenue']
+};
+
+// L'accroche d'un épisode n'est pas un bloc numéroté comme en mode Script :
+// c'est sa PREMIÈRE PHRASE. Même plafond que le hook du mode Script
+// (HOOK_MOTS_MAX, js/generation.js), même raison : au-delà de 3 secondes le
+// spectateur a déjà fait défiler.
+function motsAccrocheSerie(texte) {
+  const t = String(texte || '').trim();
+  if (!t) return 0;
+  const phrases = (typeof splitIntoSentences === 'function') ? splitIntoSentences(t) : [t];
+  const premiere = (phrases && phrases.length) ? phrases[0] : t;
+  return String(premiere).split(/\s+/).filter(Boolean).length;
+}
+
+// Signal détecté en CODE, aucune IA : des phrases courtes tiennent le
+// rythme, des phrases longues trahissent un temps mort. Même seuil et même
+// calcul que les modes Script et Récit, pour que les trois notent la même
+// chose de la même façon.
+function _serieDetecterRythmeSoutenu(texte) {
+  const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
+  if (!phrases.length) return false;
+  const mots = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
+  return (mots / phrases.length) <= 12;
+}
+
+// Signal EXPLICITEMENT true/false = 1/0 ; ABSENT (échec technique du juge)
+// = 0,5, crédit neutre plutôt qu'une fausse note basse.
+function _serieScoreDimension(signaux, cles) {
+  if (!signaux || typeof signaux !== 'object') return 50;
+  const total = cles.reduce((s, c) => s + (signaux[c] === true ? 1 : signaux[c] === false ? 0 : 0.5), 0);
+  return Math.round((total / cles.length) * 100);
+}
+
+// RÉTENTION : signaux de tension et de rythme mélangés au VRAI respect de la
+// durée cible (mots comptés en code, jamais estimés), même formule 70/30 que
+// les modes Script et Récit.
+function _serieScoreRetention(signaux, motsReels, wt) {
+  const base = _serieScoreDimension(signaux, ['tension_maintenue', 'rythme_soutenu']);
+  let scoreMots = 100;
+  if (wt && wt.min && wt.max) {
+    if (motsReels < wt.min) scoreMots = Math.max(40, 100 - Math.round((wt.min - motsReels) / wt.min * 100));
+    else if (motsReels > wt.max) scoreMots = Math.max(40, 100 - Math.round((motsReels - wt.max) / wt.max * 100));
+  }
+  return Math.round(base * 0.7 + scoreMots * 0.3);
+}
+
+// motsAccroche est OPTIONNEL : absent (ancien épisode rouvert), la note de
+// l'accroche reste celle des seuls signaux, on n'invente pas une longueur
+// qu'on n'a pas mesurée à l'époque.
+function scorerEpisodeSerie(signaux, motsReels, wt, motsAccroche) {
+  const hookSignaux = _serieScoreDimension(signaux, SERIE_DIMENSIONS.hook);
+  const noteLongueur = (typeof _genScoreLongueurHook === 'function') ? _genScoreLongueurHook(motsAccroche) : 100;
+  return {
+    hook: motsAccroche ? Math.round(hookSignaux * 0.7 + noteLongueur * 0.3) : hookSignaux,
+    retention: _serieScoreRetention(signaux, motsReels, wt),
+    suite: _serieScoreDimension(signaux, SERIE_DIMENSIONS.suite),
+    emotion: _serieScoreDimension(signaux, SERIE_DIMENSIONS.emotion),
+    fidelite: _serieScoreDimension(signaux, SERIE_DIMENSIONS.fidelite)
+  };
+}
+
+// Juge EXTÉRIEUR : il reçoit le texte FINI et rien d'autre, jamais la bible
+// complète ni les consignes d'écriture, pour ne pas rejouer le biais
+// d'auto-complaisance de l'appel qui vient d'écrire.
+// DEUX EXCEPTIONS, minimales et assumées, exactement sur le modèle
+// d'objectifPourJuge (js/generation.js) : le TON choisi et la RÈGLE
+// RÉCURRENTE de la bible. Sans eux, le juge ne peut pas vérifier deux
+// consignes explicites du créateur, il chercherait au hasard. Il reste
+// libre de constater ou non, il vérifie juste la bonne chose.
+// Renvoie null en cas d'échec technique, jamais un score inventé.
+async function evaluerEpisodeSerie(texteComplet, ctx, modeleJuge) {
+  if (!texteComplet || !texteComplet.trim()) return null;
+  const c = ctx || {};
+  const regle = (c.regleRecurrente && String(c.regleRecurrente).trim()) || '';
+  const prompt = `Tu es un critique EXTÉRIEUR et exigeant, tu n'as PAS écrit cet épisode. Voici l'épisode d'une série TikTok, déjà terminé. Ta seule mission : juger honnêtement s'il contient VRAIMENT chacune des techniques ci-dessous, et CITER le passage exact qui le prouve (jamais une paraphrase, jamais un extrait qui n'existe pas mot pour mot dans le texte).
+
+ÉPISODE :
+"""
+${texteComplet}
+"""
+
+Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peux citer un passage RÉEL et PRÉCIS (copié mot pour mot) qui le prouve sans discussion possible.
+- "accroche_forte" : la première phrase arrête-t-elle vraiment le défilement, sans être générique ?
+- "pattern_interrupt" : cette première phrase rompt-elle une attente (chiffre, affirmation contre-intuitive, image inattendue) ?
+- "originalite" : l'angle est-il vraiment original, pas un cliché reconnaissable d'IA ?
+- "tension_maintenue" : une tension plantée tôt et qui tient encore au milieu de l'épisode. Cite le passage qui l'OUVRE ET un passage nettement plus loin où elle est toujours vivante (deux citations, jamais une seule : ça se prouve en comparant deux endroits, pas dans une phrase).
+- "details_concrets" : des images, des faits ou des chiffres précis plutôt que du vague ?
+- "emotion_forte" : une émotion nette et identifiable ?
+- "cliffhanger_final" : la toute fin laisse-t-elle une question ouverte, une menace ou une révélation suspendue ? Une simple conclusion qui referme tout ne compte pas.
+- "promesse_episode" : l'épisode donne-t-il une raison CONCRÈTE de regarder le suivant (ce qui va se passer, ce qui reste à découvrir) ?
+- "ton_respecte" : l'épisode tient-il du début à la fin le ton demandé par le créateur, « ${c.ton || 'non précisé'} », sans dévier vers un autre registre ?
+${regle ? `- "regle_recurrente_tenue" : la signature de la série, « ${regle} », est-elle vraiment présente dans cet épisode ?` : '- "regle_recurrente_tenue" : cette série n\'a pas de signature récurrente déclarée. Coche "present":true et cite la première phrase de l\'épisode.'}
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"pattern_interrupt":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve_ouverture":"citation qui plante la tension","preuve_cloture":"citation plus loin où elle tient encore"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cliffhanger_final":{"present":true,"preuve":"..."},"promesse_episode":{"present":true,"preuve":"..."},"ton_respecte":{"present":true,"preuve":"..."},"regle_recurrente_tenue":{"present":true,"preuve":"..."}}`;
+
+  try {
+    const raw = await callAI(modeleJuge || MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'serie');
+    const jug = parseAIResponse(raw);
+    if (!jug) return null;
+    // Réutilise la vérification de citation du mode Script (js/generation.js) :
+    // même normalisation des apostrophes et guillemets, même exigence d'ordre
+    // pour les signaux à deux citations. Une seule implémentation pour toute
+    // l'app, jamais deux qui pourraient diverger.
+    const texteNormalise = _genNormaliserTexteJuge(texteComplet);
+    const signaux = {};
+    SERIE_SIGNAUX_JUGES_IA.forEach(cle => {
+      const d = jug[cle];
+      if (SERIE_SIGNAUX_DEUX_CITATIONS.includes(cle)) {
+        const ouverture = _genValiderCitation(d && d.preuve_ouverture, texteNormalise);
+        const cloture = _genValiderCitation(d && d.preuve_cloture, texteNormalise);
+        signaux[cle] = !!(d && d.present === true && ouverture.valide && cloture.valide && cloture.position > ouverture.position);
+      } else {
+        const preuve = _genValiderCitation(d && d.preuve, texteNormalise);
+        signaux[cle] = !!(d && d.present === true && preuve.valide);
+      }
+    });
+    return signaux;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Carte de score de l'épisode. Même structure et même vocabulaire visuel que
+// les autres modes (voir carteScoreScriptHTML, js/generation.js) : des cartes
+// différentes d'un mode à l'autre donneraient l'impression que le chiffre ne
+// veut pas dire la même chose.
+function carteScoreEpisodeSerieHTML(ep) {
+  const s = ep && ep.score;
+  if (!s) {
+    if (!ep || !ep.evaluationIndisponible) return '';
+    return `<div class="score-card sb-appear"><div class="score-header">
+        <div class="score-title">◆ Scriptura Score</div></div>
+      <p class="serie-card-concept" style="margin:10px 0 0">${serieEsc(ep.evaluationIndisponible)}</p></div>`;
+  }
+  const global = Math.round((s.hook + s.retention + s.suite + s.emotion) / 4);
+  return `<div class="score-card sb-appear">
+      <div class="score-header">
+        <div class="score-title">◆ Scriptura Score</div>
+        <div class="score-global"><span class="score-global-num">${global}</span><span class="score-global-max">/ 100</span></div>
+      </div>
+      <div class="score-metrics">
+        ${metricBar('Puissance de l\'accroche', s.hook)}
+        ${metricBar('Rétention estimée', s.retention)}
+        ${metricBar('Envie de voir la suite', s.suite)}
+        ${metricBar('Force émotionnelle', s.emotion)}
+        ${metricBar('Fidélité à la série', s.fidelite)}
+      </div>
+    </div>`;
+}
+
 // Filet de sécurité déterministe (pas seulement une consigne de prompt, que
 // l'IA peut ignorer) : retire toute étiquette/minutage qui se serait quand
 // même glissée dans un script d'épisode (VOIX OFF, TEXTE À L'ÉCRAN, ÉCRAN
@@ -491,7 +677,8 @@ async function ouvrirSerie(id) {
           <button class="btn-regenerate sb-regen mini" id="serieEpRegenBtn${ep.num}" onclick="genererEpisode(${ep.num})">↻ Régénérer</button>
         </div>
         <div class="serie-episode-titre">${serieEsc(ep.titre)}</div>
-        ${renderSerieScriptBlocs(scriptStr)}`;
+        ${renderSerieScriptBlocs(scriptStr)}
+        ${carteScoreEpisodeSerieHTML(ep)}`;
       // Directives de tournage (adaptées au style)
       if (directivesStr) {
         html += `<div class="serie-directives">
@@ -1032,6 +1219,33 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     }
     if (genProgressCtl) genProgressCtl.etapeTerminee(1);
 
+    // ── SCORE DÉTERMINISTE DE L'ÉPISODE ──
+    // Un seul appel, le moins cher du pipeline, et il ne touche PAS au texte :
+    // il ne fait que cocher des cases citations à l'appui (voir
+    // evaluerEpisodeSerie plus haut). Calculé ICI, avant la persistance, pour
+    // que le score voyage avec l'épisode et se réaffiche à chaque réouverture
+    // de la série, sans jamais être recalculé (donc sans jamais changer).
+    // Une seconde tentative sur un AUTRE modèle avant d'abandonner : le juge
+    // est trop bon marché pour qu'une réponse illisible coûte son score au
+    // créateur. Et s'il reste muet, on n'invente aucun chiffre, on le DIT.
+    let signauxSerie = null;
+    try {
+      const ctxJuge = { ton: serie.style, regleRecurrente: b.regle_recurrente };
+      signauxSerie = await evaluerEpisodeSerie(ep.voix_off_propre, ctxJuge);
+      if (!signauxSerie) signauxSerie = await evaluerEpisodeSerie(ep.voix_off_propre, ctxJuge, MODEL_QUALITE_RECIT);
+    } catch (e) { /* le score ne bloque jamais la livraison de l'épisode */ }
+
+    if (signauxSerie) {
+      signauxSerie.rythme_soutenu = _serieDetecterRythmeSoutenu(ep.voix_off_propre);
+      ep.score = scorerEpisodeSerie(signauxSerie, wordCountSerie, wtSerie, motsAccrocheSerie(ep.voix_off_propre));
+      delete ep.evaluationIndisponible;
+    } else {
+      ep.score = null;
+      ep.evaluationIndisponible = 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois. Plutôt que d\'afficher une note approximative, Scriptura préfère ne rien inventer. Régénère pour l\'obtenir.';
+      if (typeof journaliserEchecEvaluation === 'function') journaliserEchecEvaluation('score-serie', 'juge muet sur deux modèles');
+    }
+    if (genProgressCtl) genProgressCtl.etapeTerminee(2);
+
     // Enregistre dans l'historique (et compte dans le quota du mois) AVANT
     // de persister l'épisode, pour connaître l'id de la ligne d'historique
     // et le rattacher à CET épisode précis (historyId). saveGeneration
@@ -1054,6 +1268,10 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
 
     const episodeFinal = {
       num: num, titre: ep.titre || ('Épisode ' + num), script: ep.script, voix_off_propre: ep.voix_off_propre || ep.script,
+      // Le score voyage avec l'épisode : il est mesuré une fois, jamais
+      // recalculé à la réouverture, donc il ne peut pas changer tout seul.
+      score: ep.score || null,
+      evaluationIndisponible: ep.evaluationIndisponible || null,
       historyId: currentGenId || (ancienEp && ancienEp.historyId) || null
     };
     let nouveaux, patch;
