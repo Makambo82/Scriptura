@@ -1373,18 +1373,35 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     }
     const texteNormalise = _genNormaliserTexteJuge(texteComplet);
     const signaux = {};
+    // Signaux que le juge a DÉCLARÉS présents mais dont la citation n'a pas
+    // été retrouvée dans le texte. C'est le cas le plus intéressant à
+    // observer : le juge pense avoir vu la technique, et c'est notre
+    // vérification qui la refuse. Sans cette trace, un signal injustement
+    // refusé est indiscernable d'un signal légitimement absent, et on en est
+    // réduit à deviner (c'est exactement ce qui est arrivé sur un script où
+    // "détails concrets" tombait à faux alors que le texte était bourré de
+    // chiffres, à cause de l'écriture des milliers).
+    const refusesMalgrePresent = [];
     GEN_SIGNAUX_JUGES_IA.forEach(cle => {
       const d = jug[cle];
+      const declare = !!(d && d.present === true);
+      let valide;
       if (GEN_SIGNAUX_DEUX_CITATIONS.includes(cle)) {
         const ouverture = _genValiderCitation(d && d.preuve_ouverture, texteNormalise);
         const cloture = _genValiderCitation(d && d.preuve_cloture, texteNormalise);
-        const ordreValide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
-        signaux[cle] = !!(d && d.present === true && ordreValide);
+        valide = ouverture.valide && cloture.valide && cloture.position > ouverture.position;
       } else {
-        const preuve = _genValiderCitation(d && d.preuve, texteNormalise);
-        signaux[cle] = !!(d && d.present === true && preuve.valide);
+        valide = _genValiderCitation(d && d.preuve, texteNormalise).valide;
       }
+      signaux[cle] = !!(declare && valide);
+      if (declare && !valide) refusesMalgrePresent.push(cle);
     });
+    // UNE seule entrée par génération, et uniquement quand il y a quelque
+    // chose à voir : ce journal ne doit jamais devenir du bruit.
+    if (refusesMalgrePresent.length && typeof journaliserEchecEvaluation === 'function') {
+      journaliserEchecEvaluation('citation-refusee-script',
+        'signaux déclarés présents mais citation introuvable : ' + refusesMalgrePresent.join(', '));
+    }
     return signaux;
   } catch (e) {
     // detailTechnique en priorité : le message affiché au créateur est
@@ -1413,6 +1430,17 @@ function _genNormaliserTexteJuge(s) {
     .replace(/…/g, '...')                          // ellipse unicode -> trois points
     .replace(/[–—]/g, '-')                    // tirets moyen/long -> tiret simple
     .replace(/\s+/g, ' ')
+    // SÉPARATEURS DE MILLIERS. Retour terrain (script Bardahl) : un script
+    // bourré de chiffres précis ("150.000 km", "800 euros", "90 degrés")
+    // ressortait avec "détails concrets" à FAUX, donc une force émotionnelle
+    // à 0 sur 100. Le juge avait raison sur le fond, mais sa citation était
+    // rejetée : rien ne garantit qu'il recopie "150.000" plutôt que
+    // "150 000" ou "150000", et le français écrit les trois. On les ramène
+    // donc à la même forme des DEUX côtés, avant comparaison.
+    // Volontairement limité au motif d'un séparateur de milliers (un espace,
+    // un point ou une virgule suivi d'EXACTEMENT trois chiffres) : une
+    // décimale comme "5,5" ou "0.7" n'est jamais touchée.
+    .replace(/(\d)[ .,](?=\d{3}(?!\d))/g, '$1')
     .trim();
 }
 // Vérifie qu'une citation existe mot pour mot (variantes typographiques et
