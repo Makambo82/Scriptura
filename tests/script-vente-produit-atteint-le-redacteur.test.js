@@ -256,8 +256,16 @@ test('le bloc produit ouvre l\'écran, avec son « OU » entre le texte et le fi
 // proposés viennent nourrir le champ sujet : demander le sujet avant la photo
 // serait exactement l'ordre inverse du bon.
 //
+// LES ANGLES SONT PASSÉS AU-DESSUS DU SUJET, retour du propriétaire, et c'est
+// l'ordre du geste réel : on joint son produit, l'app répond par trois angles,
+// on en choisit un, il tombe dans le champ juste en dessous. Sous le sujet,
+// ils arrivaient APRÈS le champ qu'ils servent à remplir, donc après que le
+// créateur a déjà commencé à écrire le sien, ou est passé à la suite sans les
+// voir. Cette version du test verrouille le NOUVEL ordre : produit, angles,
+// sujet, niche.
+//
 // Verrouillé pour les DEUX modes qui acceptent un fichier produit.
-test('dans Script ET Carrousel : produit, puis sujet, puis niche', async () => {
+test('dans Script ET Carrousel : produit, puis angles, puis sujet, puis niche', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -274,10 +282,12 @@ test('dans Script ET Carrousel : produit, puis sujet, puis niche', async () => {
       return {
         scriptProduitSujet: avant('venteField', 'sujet'),
         scriptSujetNiche: avant('sujet', 'niche'),
-        scriptAnglesSousSujet: avant('sujet', 'anglesProduitScript'),
+        scriptProduitAngles: avant('venteField', 'anglesProduitScript'),
+        scriptAnglesSujet: avant('anglesProduitScript', 'sujet'),
         carrouselProduitSujet: avant('carrouselVenteField', 'carrouselSujet'),
         carrouselSujetNiche: avant('carrouselSujet', 'carrouselNiche'),
-        carrouselAnglesSousSujet: avant('carrouselSujet', 'anglesProduitCarrousel'),
+        carrouselProduitAngles: avant('carrouselVenteField', 'anglesProduitCarrousel'),
+        carrouselAnglesSujet: avant('anglesProduitCarrousel', 'carrouselSujet'),
         ouScript: !!document.querySelector('#venteField .ou-separateur'),
         ouCarrousel: !!document.querySelector('#carrouselVenteField .ou-separateur')
       };
@@ -285,10 +295,13 @@ test('dans Script ET Carrousel : produit, puis sujet, puis niche', async () => {
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.deepEqual(ordre, {
-      scriptProduitSujet: true, scriptSujetNiche: true, scriptAnglesSousSujet: true,
-      carrouselProduitSujet: true, carrouselSujetNiche: true, carrouselAnglesSousSujet: true,
+      scriptProduitSujet: true, scriptSujetNiche: true,
+      scriptProduitAngles: true, scriptAnglesSujet: true,
+      carrouselProduitSujet: true, carrouselSujetNiche: true,
+      carrouselProduitAngles: true, carrouselAnglesSujet: true,
       ouScript: true, ouCarrousel: true
-    }, 'REGRESSION : produit, puis sujet (avec ses angles juste dessous), puis niche, dans les deux modes : ' + JSON.stringify(ordre));
+    }, 'REGRESSION : l\'ordre doit rester produit, puis les trois angles qu\'il inspire, puis le '
+     + 'champ sujet qu\'un clic remplit, puis la niche, dans les deux modes : ' + JSON.stringify(ordre));
   } finally {
     await navigateur.close();
     await arreter();

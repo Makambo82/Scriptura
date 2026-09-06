@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260906-14"/>
+<link rel="stylesheet" href="css/style.css?v=20260906-15"/>
 </head>
 <body>
 <script>
@@ -996,6 +996,18 @@
         <div class="error-box" id="carrouselVenteFichierError" style="display:none;margin-top:8px"></div>
         <p class="ctx-note">Scriptura peut lire une photo de ton produit ou un PDF court (ebook, brochure, jusqu'à une vingtaine de pages) pour construire une offre et des preuves concrètes dans tes slides, pas seulement génériques.</p>
       </div>
+      <!-- Trois angles proposés à partir du produit chargé (objectif Ventes,
+           voir analyserProduitCharge, js/niche-auto.js). Vide et masqué tant
+           qu'aucun produit n'est joint : on PROPOSE, on ne pré-remplit jamais
+           le sujet, qui reste l'angle du créateur.
+           PLACÉ ENTRE LE PRODUIT ET LE SUJET, retour du propriétaire, et
+           c'est l'ordre du geste réel : on joint son produit, l'app répond
+           par trois angles, on en choisit un, il tombe dans le champ juste
+           en dessous. Sous le sujet, les angles arrivaient APRÈS le champ
+           qu'ils servent à remplir, donc après que le créateur a déjà
+           commencé à écrire le sien, ou est passé à la suite sans les voir
+           (mesuré : sur un iPhone 14 ils tombent alors sous le pli). -->
+      <div id="anglesProduitCarrousel" style="display:none"></div>
       <div class="ctx-field">
         <label class="ctx-label">Ton sujet</label>
         <textarea class="ctx-textarea" id="carrouselSujet" oninput="majMatiereCarrousel()"
@@ -1006,11 +1018,6 @@
              lieu, et découvrirait l'un ou l'autre dans le résultat. -->
         <p class="ctx-note car-matiere-note" id="carrouselMatiereNote" style="display:none"></p>
       </div>
-      <!-- Trois angles proposés à partir du produit chargé (objectif Ventes,
-           voir analyserProduitCharge, js/niche-auto.js). Vide et masqué tant
-           qu'aucun produit n'est joint : on PROPOSE, on ne pré-remplit jamais
-           le sujet, qui reste l'angle du créateur. -->
-      <div id="anglesProduitCarrousel" style="display:none"></div>
       <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="carrouselNiche">
@@ -1702,17 +1709,23 @@
         <div class="error-box" id="venteFichierError" style="display:none;margin-top:8px"></div>
         <p class="ctx-note">Scriptura peut lire une photo de ton produit ou un PDF court (ebook, brochure, jusqu'à une vingtaine de pages) pour construire un angle et une offre plus précis, pas seulement génériques.</p>
       </div>
+      <!-- Trois angles proposés à partir du produit chargé (objectif Ventes,
+           voir analyserProduitCharge, js/niche-auto.js). Vide et masqué tant
+           qu'aucun produit n'est joint : on PROPOSE, on ne pré-remplit jamais
+           le sujet, qui reste l'angle du créateur.
+           PLACÉ ENTRE LE PRODUIT ET LE SUJET, retour du propriétaire, et
+           c'est l'ordre du geste réel : on joint son produit, l'app répond
+           par trois angles, on en choisit un, il tombe dans le champ juste
+           en dessous. Sous le sujet, les angles arrivaient APRÈS le champ
+           qu'ils servent à remplir, donc après que le créateur a déjà
+           commencé à écrire le sien, ou est passé à la suite sans les voir
+           (mesuré : sur un iPhone 14 ils tombent alors sous le pli). -->
+      <div id="anglesProduitScript" style="display:none"></div>
       <div class="ctx-field">
         <label class="ctx-label" id="sujetLabel">Ton sujet ou idée</label>
         <textarea class="ctx-textarea" id="sujet" placeholder="Ex : pourquoi les gens n'arrivent pas à épargner, les 5 erreurs du débutant en bourse, l'histoire du roi Béhanzin…"></textarea>
         <p class="ctx-note">Quelques mots suffisent. Tu peux aussi coller un texte long (article, notes, transcription) : Scriptura en tirera le sujet et l'angle.</p>
       </div>
-      <!-- Trois angles proposés à partir du produit chargé (objectif Ventes,
-           voir analyserProduitCharge, js/niche-auto.js). Vide et masqué tant
-           qu'aucun produit n'est joint : on PROPOSE, on ne pré-remplit jamais
-           le sujet, qui reste l'angle du créateur. Juste sous le champ sujet,
-           parce que c'est LUI qu'un clic remplit. -->
-      <div id="anglesProduitScript" style="display:none"></div>
       <div class="ctx-field">
         <label class="ctx-label">Ta niche</label>
         <select class="ctx-input" id="niche">
@@ -1905,36 +1918,36 @@
      conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="js/modeles.js?v=20260906-14"></script>
+<script src="js/modeles.js?v=20260906-15"></script>
 
-<script src="js/api.js?v=20260906-14"></script>
-<script src="js/profil.js?v=20260906-14"></script>
-<script src="js/recommandations.js?v=20260906-14"></script>
-<script src="js/historique.js?v=20260906-14"></script>
-<script src="js/abonnement.js?v=20260906-14"></script>
-<script src="js/ui.js?v=20260906-14"></script>
-<script src="js/preuve-sociale.js?v=20260906-14"></script>
-<script src="js/auth.js?v=20260906-14"></script>
-<script src="js/state.js?v=20260906-14"></script>
-<script src="js/audit.js?v=20260906-14"></script>
-<script src="js/admin.js?v=20260906-14"></script>
-<script src="js/serie.js?v=20260906-14"></script>
-<script src="js/navigation.js?v=20260906-14"></script>
-<script src="js/storytelling.js?v=20260906-14"></script>
-<script src="js/storyboard.js?v=20260906-14"></script>
-<script src="js/storyboard-seul.js?v=20260906-14"></script>
-<script src="js/viral.js?v=20260906-14"></script>
-<script src="js/tendances.js?v=20260906-14"></script>
-<script src="js/tiktok-outils.js?v=20260906-14"></script>
-<script src="js/montage.js?v=20260906-14"></script>
-<script src="js/montage-manuel.js?v=20260906-14"></script>
-<script src="js/montage-guide.js?v=20260906-14"></script>
-<script src="js/diagnostic-sommaire.js?v=20260906-14"></script>
-<script src="js/diagnostic-fusion.js?v=20260906-14"></script>
-<script src="js/carrousel.js?v=20260906-14"></script>
-<script src="js/generation.js?v=20260906-14"></script>
-<script src="js/niche-auto.js?v=20260906-14"></script>
-<script src="js/app.js?v=20260906-14"></script>
+<script src="js/api.js?v=20260906-15"></script>
+<script src="js/profil.js?v=20260906-15"></script>
+<script src="js/recommandations.js?v=20260906-15"></script>
+<script src="js/historique.js?v=20260906-15"></script>
+<script src="js/abonnement.js?v=20260906-15"></script>
+<script src="js/ui.js?v=20260906-15"></script>
+<script src="js/preuve-sociale.js?v=20260906-15"></script>
+<script src="js/auth.js?v=20260906-15"></script>
+<script src="js/state.js?v=20260906-15"></script>
+<script src="js/audit.js?v=20260906-15"></script>
+<script src="js/admin.js?v=20260906-15"></script>
+<script src="js/serie.js?v=20260906-15"></script>
+<script src="js/navigation.js?v=20260906-15"></script>
+<script src="js/storytelling.js?v=20260906-15"></script>
+<script src="js/storyboard.js?v=20260906-15"></script>
+<script src="js/storyboard-seul.js?v=20260906-15"></script>
+<script src="js/viral.js?v=20260906-15"></script>
+<script src="js/tendances.js?v=20260906-15"></script>
+<script src="js/tiktok-outils.js?v=20260906-15"></script>
+<script src="js/montage.js?v=20260906-15"></script>
+<script src="js/montage-manuel.js?v=20260906-15"></script>
+<script src="js/montage-guide.js?v=20260906-15"></script>
+<script src="js/diagnostic-sommaire.js?v=20260906-15"></script>
+<script src="js/diagnostic-fusion.js?v=20260906-15"></script>
+<script src="js/carrousel.js?v=20260906-15"></script>
+<script src="js/generation.js?v=20260906-15"></script>
+<script src="js/niche-auto.js?v=20260906-15"></script>
+<script src="js/app.js?v=20260906-15"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">

@@ -276,6 +276,12 @@ body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
   background:linear-gradient(90deg,transparent,var(--gold),transparent);
 }
 .ctx-field{display:flex;flex-direction:column;gap:8px;margin-bottom:24px}
+/* Les trois angles tirés du produit vivent ENTRE le bloc produit et le champ
+   sujet (retour du propriétaire). Ils héritent des 24 px du bloc au-dessus et
+   gardent volontairement MOINS d'air en dessous : la proximité dit à quoi ils
+   servent, c'est le champ juste sous eux qu'un clic remplit. Assez d'air
+   quand même pour ne pas coller au libellé « Ton sujet ». */
+#anglesProduitScript,#anglesProduitCarrousel{margin-bottom:14px}
 .ctx-label{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.2em;
   text-transform:uppercase;color:var(--gold-light);opacity:1;
