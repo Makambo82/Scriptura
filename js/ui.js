@@ -890,6 +890,19 @@ function marquerBarreTerminee(fill) {
   // pendant la transition CSS, la seconde n'a pas encore atteint 100 %.
   const largeur = parseFloat(fill.style.width);
   fill.classList.toggle('termine', largeur >= 100);
+  // Depuis que la barre défile au lieu de se remplir, c'est la PISTE qui
+  // porte la couleur de fin : le remplissage, lui, n'est plus affiché. Les
+  // treize appelants continuent de lui écrire une largeur, et c'est toujours
+  // elle qui fait foi, donc rien à changer de leur côté.
+  const piste = fill.parentElement;
+  if (piste && piste.classList && piste.classList.contains('sb-progress-bar-track')) {
+    piste.classList.toggle('termine', largeur >= 100);
+  }
+  // Et sur la barre entière, pour que l'ANNEAU du cercle s'arrête lui aussi :
+  // un anneau qui tourne encore à côté d'une barre verte dirait le contraire
+  // de ce qui vient de se passer.
+  const barre = fill.closest && fill.closest('.sb-progress-bar');
+  if (barre) barre.classList.toggle('termine', largeur >= 100);
   // Le POURCENTAGE affiché à côté n'est volontairement pas touché : il reste
   // doré. Retour du propriétaire, « côté score et pourcentage, remets le
   // doré » : l'émeraude porte mal les chiffres, elle est faite pour le fil de

@@ -43,7 +43,12 @@ test('la coche de l\'option retenue est émeraude, pas dorée', () => {
 });
 
 test('les états émeraude existent tous en CSS, et aucun n\'utilise la teinte illisible', () => {
-  for (const regle of ['.sb-progress-bar-fill.termine', '.copie-ok',
+  // .sb-progress-bar-track.termine et non plus .sb-progress-bar-fill.termine :
+  // depuis que la barre DÉFILE au lieu de se remplir (le remplissage n'est
+  // plus affiché), c'est la PISTE qui porte la couleur de fin. L'intention est
+  // inchangée, une barre terminée passe en émeraude, seul l'élément qui la
+  // porte a bougé.
+  for (const regle of ['.sb-progress-bar-track.termine', '.copie-ok',
     '.audit-thumb.montage-thumb-prete', '.history-montee']) {
     assert.ok(CSS.includes(regle), 'règle manquante : ' + regle);
   }
@@ -55,7 +60,13 @@ test('les états émeraude existent tous en CSS, et aucun n\'utilise la teinte i
   // --emerald (#1F6B4C) ne donne que 2,65:1 sur le fond sombre : il ne peut
   // servir que de FOND derrière du texte clair, jamais de couleur de texte.
   // --emerald-light (#3E9B75) est à 5,0:1, lui passe pour du texte.
-  const texteEnEmeraudeSombre = /color:var\(--emerald\)/.test(CSS);
+  // Le début de propriété est exigé (`;`, `{` ou un espace juste avant) :
+  // sans ça, "background-color:var(--emerald)" déclencherait l'alerte, alors
+  // que c'est précisément l'usage AUTORISÉ par la règle ci-dessus, l'émeraude
+  // en fond derrière autre chose (la barre terminée, par exemple). L'ancienne
+  // version cherchait la sous-chaîne nue et se serait donc trompée sur le
+  // premier fond émeraude venu.
+  const texteEnEmeraudeSombre = /(^|[;{\s])color:var\(--emerald\)/m.test(CSS);
   assert.equal(texteEnEmeraudeSombre, false,
     'REGRESSION : --emerald est trop sombre pour du texte (2,65:1), utiliser --emerald-light');
 });

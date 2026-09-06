@@ -2609,7 +2609,7 @@ body.is-unlocked .sidebar-logout{display:block}
    Placé en premier enfant DANS .sb-progress-bar : apparaît/disparaît avec
    la barre elle-même, sans toggle JS séparé à maintenir. */
 .wait-badge{
-  position:relative;width:32px;height:32px;flex:0 0 auto;
+  position:relative;width:38px;height:38px;flex:0 0 auto;
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(circle,rgba(201,168,76,0.16),transparent 70%);
 }
@@ -2617,34 +2617,69 @@ body.is-unlocked .sidebar-logout{display:block}
   content:'';position:absolute;inset:0;border-radius:50%;
   border:2px solid transparent;border-top-color:var(--gold);border-right-color:var(--gold-light);
 }
-.wait-badge svg{position:relative;width:14px;height:14px;filter:drop-shadow(0 0 5px rgba(201,168,76,0.5))}
 @media(prefers-reduced-motion:no-preference){
   .wait-badge::before{animation:dsLoadingSpin 1.4s linear infinite}
-  .wait-badge svg{animation:dsLoadingPulse 1.6s ease-in-out infinite}
 }
-.sb-progress-bar-track{
-  flex:1;height:8px;border-radius:999px;
-  background:rgba(255,255,255,0.1);overflow:hidden;
-}
-.sb-progress-bar-fill{
-  height:100%;width:0%;border-radius:999px;
-  background:linear-gradient(90deg, var(--gold), var(--gold-light));
-  transition:width 0.25s ease-out;
-}
+/* LE POURCENTAGE VIT DANS LE CERCLE QUI TOURNE (demande du propriétaire, il
+   remplace l'éclair qui s'y trouvait). Le chiffre, lui, ne tourne PAS : il
+   est posé au centre, seul l'anneau tourne autour. Un chiffre en rotation
+   serait illisible, et c'est justement la seule information de progression
+   qui reste depuis que la barre est devenue indéterminée. */
 .sb-progress-bar-pct{
-  font-family:'Cinzel',serif;font-size:0.7rem;font-weight:500;
-  letter-spacing:0.05em;color:var(--gold-light);
-  min-width:40px;text-align:right;
+  font-family:'Cinzel',serif;font-size:0.6rem;font-weight:500;
+  letter-spacing:0.02em;color:var(--gold-light);
+  line-height:1;text-align:center;
 }
+/* LA BARRE DÉFILE INDÉFINIMENT au lieu de se remplir (demande du
+   propriétaire) : des rayures obliques dorées qui glissent en continu, le
+   motif du ruban de chantier. Elle dit « ça travaille », pas « on en est
+   là » : c'est le pourcentage dans le cercle qui porte l'avancement.
+   6 px de haut, volontairement plus fin que le modèle fourni, pour rester
+   une barre de progression et pas un bandeau. */
+.sb-progress-bar-track{
+  flex:1;height:6px;border-radius:999px;
+  background:rgba(255,255,255,0.08);overflow:hidden;
+  background-image:repeating-linear-gradient(
+    -45deg,
+    var(--gold) 0 9px,
+    rgba(255,255,255,0.06) 9px 18px);
+  background-size:25.46px 25.46px; /* 18px x racine de 2 : le pas exact du motif à 45°, sinon le défilement saute à chaque boucle */
+}
+@media(prefers-reduced-motion:no-preference){
+  .sb-progress-bar-track{animation:rubanDefile 0.9s linear infinite}
+}
+@keyframes rubanDefile{
+  from{background-position:0 0}
+  to{background-position:25.46px 0}
+}
+/* Le remplissage n'a plus rien à remplir, mais l'élément RESTE dans le DOM :
+   les treize endroits qui pilotent une barre continuent de lui écrire une
+   largeur, et c'est cette largeur que lit marquerBarreTerminee (js/ui.js)
+   pour savoir qu'on est à 100 %. Le supprimer aurait voulu dire toucher
+   treize appelants pour rien. */
+.sb-progress-bar-fill{display:none}
 /* 100 % : la barre passe en émeraude. C'est l'endroit le plus vu de l'app,
    chaque script, chaque storyboard, chaque épisode et chaque montage s'y
    terminent, et c'est exactement le sens qu'on donne à cette couleur : ce
    qui est accompli. La classe est posée automatiquement, sans toucher aux
    douze endroits qui pilotent une barre (voir surveillerBarresProgression,
    js/ui.js). */
-.sb-progress-bar-fill.termine{
-  background:linear-gradient(90deg, var(--emerald), var(--emerald-light));
+/* 100 % : le ruban s'arrête et passe en émeraude. C'est l'endroit le plus vu
+   de l'app, chaque script, chaque storyboard, chaque épisode et chaque montage
+   s'y terminent, et c'est exactement le sens qu'on donne à cette couleur : ce
+   qui est accompli. Une barre qui continuerait de défiler après la fin dirait
+   le contraire de ce qui vient de se passer.
+   La classe est posée sur la PISTE par marquerBarreTerminee (js/ui.js), à
+   partir de la largeur que les treize appelants écrivent toujours dans le
+   remplissage devenu invisible. */
+.sb-progress-bar-track.termine{
+  animation:none;
+  background-image:none;
+  background-color:var(--emerald);
 }
+/* L'anneau se fige en même temps, même raison. */
+.sb-progress-bar.termine .wait-badge::before{animation:none}
+
 /* Le POURCENTAGE, lui, reste doré : retour du propriétaire, « côté score et
    pourcentage, remets le doré, le vert émeraude n'est pas beau ». Il n'a pas
    tort, l'émeraude porte mal les chiffres, elle est faite pour les pastilles,

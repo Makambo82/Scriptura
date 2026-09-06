@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260906-15"/>
+<link rel="stylesheet" href="css/style.css?v=20260906-16"/>
 </head>
 <body>
 <script>
@@ -810,9 +810,8 @@
       </div>
 
       <div class="sb-progress-bar" id="outilsProgBar" style="display:none">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="wait-badge"><span class="sb-progress-bar-pct" id="outilsProgPct">0%</span></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="outilsProgFill"></div></div>
-        <div class="sb-progress-bar-pct" id="outilsProgPct">0%</div>
       </div>
     </div>
 
@@ -921,9 +920,8 @@
            "Démarrer le montage". -->
       <div class="montage-statut" id="omStatut" style="display:none;margin-top:16px">Envoi des fichiers…</div>
       <div class="sb-progress-bar" id="omMontageProgBar" style="display:none;margin-top:16px">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="wait-badge"><span class="sb-progress-bar-pct" id="omMontageProgPct">0%</span></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMontageProgFill"></div></div>
-        <div class="sb-progress-bar-pct" id="omMontageProgPct">0%</div>
       </div>
       <div id="omResultat" style="margin-top:16px"></div>
 
@@ -1422,9 +1420,8 @@
            formulaire est masqué dès que la génération démarre, donc la barre
            doit vivre dans la zone de résultats pour rester visible. -->
       <div class="sb-progress-bar" id="sbProgBar3" style="display:none">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="wait-badge"><span class="sb-progress-bar-pct" id="sbProgPct3">0%</span></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="sbProgFill3"></div></div>
-        <div class="sb-progress-bar-pct" id="sbProgPct3">0%</div>
       </div>
       <div class="out-card sb-appear open">
         <div class="out-header" onclick="toggleCard(this.parentElement)">
@@ -1918,36 +1915,36 @@
      conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="js/modeles.js?v=20260906-15"></script>
+<script src="js/modeles.js?v=20260906-16"></script>
 
-<script src="js/api.js?v=20260906-15"></script>
-<script src="js/profil.js?v=20260906-15"></script>
-<script src="js/recommandations.js?v=20260906-15"></script>
-<script src="js/historique.js?v=20260906-15"></script>
-<script src="js/abonnement.js?v=20260906-15"></script>
-<script src="js/ui.js?v=20260906-15"></script>
-<script src="js/preuve-sociale.js?v=20260906-15"></script>
-<script src="js/auth.js?v=20260906-15"></script>
-<script src="js/state.js?v=20260906-15"></script>
-<script src="js/audit.js?v=20260906-15"></script>
-<script src="js/admin.js?v=20260906-15"></script>
-<script src="js/serie.js?v=20260906-15"></script>
-<script src="js/navigation.js?v=20260906-15"></script>
-<script src="js/storytelling.js?v=20260906-15"></script>
-<script src="js/storyboard.js?v=20260906-15"></script>
-<script src="js/storyboard-seul.js?v=20260906-15"></script>
-<script src="js/viral.js?v=20260906-15"></script>
-<script src="js/tendances.js?v=20260906-15"></script>
-<script src="js/tiktok-outils.js?v=20260906-15"></script>
-<script src="js/montage.js?v=20260906-15"></script>
-<script src="js/montage-manuel.js?v=20260906-15"></script>
-<script src="js/montage-guide.js?v=20260906-15"></script>
-<script src="js/diagnostic-sommaire.js?v=20260906-15"></script>
-<script src="js/diagnostic-fusion.js?v=20260906-15"></script>
-<script src="js/carrousel.js?v=20260906-15"></script>
-<script src="js/generation.js?v=20260906-15"></script>
-<script src="js/niche-auto.js?v=20260906-15"></script>
-<script src="js/app.js?v=20260906-15"></script>
+<script src="js/api.js?v=20260906-16"></script>
+<script src="js/profil.js?v=20260906-16"></script>
+<script src="js/recommandations.js?v=20260906-16"></script>
+<script src="js/historique.js?v=20260906-16"></script>
+<script src="js/abonnement.js?v=20260906-16"></script>
+<script src="js/ui.js?v=20260906-16"></script>
+<script src="js/preuve-sociale.js?v=20260906-16"></script>
+<script src="js/auth.js?v=20260906-16"></script>
+<script src="js/state.js?v=20260906-16"></script>
+<script src="js/audit.js?v=20260906-16"></script>
+<script src="js/admin.js?v=20260906-16"></script>
+<script src="js/serie.js?v=20260906-16"></script>
+<script src="js/navigation.js?v=20260906-16"></script>
+<script src="js/storytelling.js?v=20260906-16"></script>
+<script src="js/storyboard.js?v=20260906-16"></script>
+<script src="js/storyboard-seul.js?v=20260906-16"></script>
+<script src="js/viral.js?v=20260906-16"></script>
+<script src="js/tendances.js?v=20260906-16"></script>
+<script src="js/tiktok-outils.js?v=20260906-16"></script>
+<script src="js/montage.js?v=20260906-16"></script>
+<script src="js/montage-manuel.js?v=20260906-16"></script>
+<script src="js/montage-guide.js?v=20260906-16"></script>
+<script src="js/diagnostic-sommaire.js?v=20260906-16"></script>
+<script src="js/diagnostic-fusion.js?v=20260906-16"></script>
+<script src="js/carrousel.js?v=20260906-16"></script>
+<script src="js/generation.js?v=20260906-16"></script>
+<script src="js/niche-auto.js?v=20260906-16"></script>
+<script src="js/app.js?v=20260906-16"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">
@@ -1993,9 +1990,8 @@
     </div>
     <div class="gen-live-preview" id="genLivePreview"></div>
     <div class="sb-progress-bar" style="margin-top:34px">
-      <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+      <div class="wait-badge"><span class="sb-progress-bar-pct" id="genProgressPct">0%</span></div>
       <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="genProgressFill"></div></div>
-      <div class="sb-progress-bar-pct" id="genProgressPct">0%</div>
     </div>
     <div class="gen-skip-zone">
       <button class="gen-skip-btn" id="genSkipBtn" onclick="demanderReponseImmediate()" style="display:none">Répondre maintenant</button>
@@ -2187,9 +2183,8 @@
         </select>
       </div>
       <div class="sb-progress-bar" id="montageImagesLoader" style="display:none;max-width:none;margin-top:14px">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="wait-badge"><span class="sb-progress-bar-pct" id="montageImagesLoaderPct">0%</span></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageImagesLoaderFill"></div></div>
-        <div class="sb-progress-bar-pct" id="montageImagesLoaderPct">0%</div>
       </div>
       <div class="audit-thumbs" id="montageImagesThumbs" style="margin-top:14px"></div>
     </div>
@@ -2283,9 +2278,8 @@
            au-dessus du bouton qui a déclenché le montage. -->
       <div class="montage-statut" id="montageStatut" style="display:none;margin-top:16px">Envoi des fichiers…</div>
       <div class="sb-progress-bar" id="montageProgBar" style="display:none;margin-top:16px">
-        <div class="wait-badge" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg></div>
+        <div class="wait-badge"><span class="sb-progress-bar-pct" id="montageProgPct">0%</span></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageProgFill"></div></div>
-        <div class="sb-progress-bar-pct" id="montageProgPct">0%</div>
       </div>
       <div id="montageResultat" style="margin-top:16px"></div>
 
