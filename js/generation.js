@@ -2325,6 +2325,49 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     const hardMin = Math.round(wt.min * 0.9);
     const hardMax = Math.round(wt.max * 1.1);
 
+    // Distance à la FOURCHETTE cible (0 = dedans). Sert à comparer deux
+    // versions entre elles : sans ça, on ne peut pas savoir laquelle est la
+    // meilleure, seulement laquelle est la dernière.
+    function ecartCibleDuree(n) {
+      if (n < wt.min) return wt.min - n;
+      if (n > wt.max) return n - wt.max;
+      return 0;
+    }
+
+    // PLAN DE CORRECTION CALCULÉ EN CODE, bloc par bloc.
+    // Retour terrain (script Bardahl, 117 mots livrés pour une cible de
+    // 138-163) : l'ancien prompt de correction se contentait de dire « atteins
+    // 138 à 163 mots au total, compte tes mots ». Il demandait donc au modèle
+    // l'exercice qu'il rate le plus, compter, et sur quatre blocs à la fois,
+    // alors que le CODE connaît déjà le compte exact de chaque bloc et sait
+    // exactement combien de mots il manque. On lui donne désormais des cibles
+    // par bloc, en chiffres : il n'a plus qu'à développer un bloc précis d'un
+    // nombre de mots précis, à partir d'un compte qu'il n'a pas eu à établir.
+    function planDureeParBloc(script) {
+      const compte = (script || []).map(b => String((b && b.texte) || '').split(/\s+/).filter(Boolean).length);
+      const n = compte.length;
+      const plafondMots = Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE);
+      const cibleTotale = Math.round((wt.min + wt.max) / 2);
+      if (n < 3) return { compte: compte, lignes: '', plafondMots: plafondMots };
+      // Le hook et la chute gardent leur budget propre : c'est la structure
+      // même des vidéos qui performent, on n'allonge jamais l'un pour combler
+      // un manque, ce serait recréer le défaut qu'on vient de corriger.
+      const budgetHook = Math.min(Math.max(compte[0], 7), HOOK_MOTS_MAX);
+      const budgetChute = Math.min(Math.max(compte[n - 1], 12), 25);
+      const nbMilieu = n - 2;
+      const restant = cibleTotale - budgetHook - budgetChute;
+      const parMilieu = Math.max(1, Math.min(plafondMots, Math.round(restant / nbMilieu)));
+      const lignes = compte.map((m, i) => {
+        if (i === 0) return '- Bloc ' + i + ' (le hook) : ' + m + ' mots. GARDE-LE TEL QUEL.';
+        if (i === n - 1) return '- Bloc ' + i + ' (la chute) : ' + m + ' mots. GARDE-LA TELLE QUELLE.';
+        const delta = parMilieu - m;
+        if (delta === 0) return '- Bloc ' + i + ' : ' + m + ' mots, il est déjà à sa cible.';
+        return '- Bloc ' + i + ' : ' + m + ' mots aujourd\'hui, vise ' + parMilieu + ' mots ('
+          + (delta > 0 ? 'ajoute environ ' + delta + ' mots' : 'retire environ ' + (-delta) + ' mots') + ').';
+      }).join('\n');
+      return { compte: compte, lignes: lignes, plafondMots: plafondMots };
+    }
+
     async function corrigerDureeScript() {
       // Nettoyage AVANT tout comptage : sinon un "[0-3 sec]" ou un "VOIX OFF :"
       // parasite gonfle artificiellement le nombre de mots et fausse aussi bien
@@ -2332,6 +2375,16 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       parsed.script = nettoyerBlocsScript(parsed.script);
       let wordCount = countScriptWords(parsed.script);
       let correctionAttempts = 0;
+
+      // MEILLEURE VERSION VUE, jamais la dernière. Deuxième défaut trouvé sur
+      // le même script : une tentative de correction écrasait la version
+      // précédente SANS jamais vérifier qu'elle était meilleure. Une tentative
+      // ratée pouvait donc éloigner le script de la cible, et la suivante
+      // repartait de cette version dégradée. Dans le pire des cas, le créateur
+      // recevait un script PLUS mauvais que le premier jet, après avoir payé
+      // trois corrections pour ça.
+      let meilleurScript = parsed.script;
+      let meilleurCount = wordCount;
 
       // 3 tentatives (au lieu de 2) : retour terrain, un script "2 minutes"
       // livré à 95 mots sans aucun avertissement. Avant ce correctif, une
@@ -2344,6 +2397,8 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
         correctionAttempts++;
         _mesurePasses.corrections_duree = correctionAttempts;
         const tooShort = wordCount < hardMin;
+        const plan = planDureeParBloc(parsed.script);
+        const manque = tooShort ? (wt.min - wordCount) : (wordCount - wt.max);
         const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
 
 TEXTE RÉELLEMENT PARLÉ DU SCRIPT ACTUEL (${wordCount} mots, c'est LUI seul qui détermine la durée de la vidéo) :
@@ -2352,8 +2407,13 @@ ${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
 PROBLÈME : Ce script fait ${wordCount} mots PARLÉS. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots parlés (le texte à l'écran décrit dans les visuels ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
 ${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Ajoute du contenu de valeur, développe les idées, ajoute des détails percutants, SANS remplissage inutile. Garde le même sujet, le même angle, le même ton.' : 'Le script est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
 
+${plan.lignes ? `LE COMPTE EXACT DE CHAQUE BLOC, MESURÉ (ne le recompte pas, il est juste) :
+${plan.lignes}
+
+Il ${tooShort ? 'MANQUE' : 'y a'} exactement ${manque} mot${manque > 1 ? 's' : ''} ${tooShort ? 'à ajouter' : 'de trop'}. Applique les cibles ci-dessus bloc par bloc : c'est la seule chose à faire, et elle suffit à atteindre la durée.
+` : ''}
 RÈGLES :
-- Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total. Compte tes mots avant de répondre.
+- Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total.
 - Garde ${wt.blocs} blocs, un hook fort au début, ${estObjectifVues ? 'une chute qui boucle sur le hook à la fin (pas de CTA parlé)' : 'un CTA clair à la fin'}
 - RÉPARTITION DU TEMPS (structure standard des vidéos qui performent) : le PREMIER bloc est le hook et tient en 0-3 secondes, soit 7 à 10 MOTS maximum, jamais plus. Le DERNIER bloc tient en 5-10 secondes, soit 12 à 25 mots. Tout l'allongement ou le raccourcissement se joue donc sur les blocs du MILIEU, jamais en gonflant le hook.
 - AUCUN bloc ne dépasse ${Math.round(plafondDureeBloc())} secondes de parole, soit environ ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots. Les blocs du milieu se répartissent le temps de façon équilibrée : si tu dois allonger, répartis sur plusieurs blocs plutôt que d'en gonfler un seul.
@@ -2375,9 +2435,22 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // étiquette parasite, et son texte sert directement au recomptage.
           parsed.script = nettoyerBlocsScript(correctedScript.script);
           wordCount = countScriptWords(parsed.script);
+          // La tentative suivante repart de CETTE version (elle a vu la
+          // consigne la plus récente), mais on retient à part la meilleure
+          // obtenue jusqu'ici, au cas où celle-ci se serait éloignée.
+          if (ecartCibleDuree(wordCount) < ecartCibleDuree(meilleurCount)) {
+            meilleurScript = parsed.script;
+            meilleurCount = wordCount;
+          }
         }
         // Correction invalide/vide : on ne casse plus la boucle, le tour
         // suivant retente avec la dernière version connue de parsed.script.
+      }
+
+      // On livre la MEILLEURE version obtenue, jamais simplement la dernière.
+      if (ecartCibleDuree(meilleurCount) < ecartCibleDuree(wordCount)) {
+        parsed.script = meilleurScript;
+        wordCount = meilleurCount;
       }
       return wordCount;
     }
