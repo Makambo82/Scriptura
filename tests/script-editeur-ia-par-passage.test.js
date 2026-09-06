@@ -172,10 +172,26 @@ test('éditeur IA par passage : le plafond anti-abus par script est respecté', 
 
     // 21 clics sur "Reformuler" du bloc 0 : le plafond (20) doit stopper les
     // appels IA au 21e, avec un message d'erreur clair plutôt qu'un appel de plus.
+    //
+    // ON ATTEND QUE LE BOUTON REDEVIENNE ACTIF, on ne compte pas sur un délai
+    // fixe. Pendant qu'une retouche est en vol, la barre d'outils est
+    // désactivée (voir microEditerBloc, js/generation.js) : sur une machine
+    // lente, un clic tombait sur un bouton encore désactivé et était donc
+    // avalé. Il ne restait alors que 20 clics effectifs, le plafond n'était
+    // jamais atteint, et le test échouait sur un message d'erreur vide, en
+    // accusant le produit d'un défaut qui n'existe pas. Vu rouge en CI
+    // (run 514) alors que tout passait en local, symptôme typique.
+    const attendreBoutonPret = () => page.waitForFunction(
+      () => {
+        const b = document.querySelectorAll('#scriptEditToolbar0 .script-edit-btn')[0];
+        return !!b && !b.disabled;
+      }, null, { timeout: 10000 });
+
     for (let i = 0; i < 21; i++) {
+      await attendreBoutonPret();
       await page.evaluate(() => document.querySelectorAll('#scriptEditToolbar0 .script-edit-btn')[0].click());
-      await page.waitForTimeout(120);
     }
+    await attendreBoutonPret();
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
 
