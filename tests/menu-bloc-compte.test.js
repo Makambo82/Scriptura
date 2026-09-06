@@ -114,27 +114,54 @@ test('un abonné voit son offre, et son code MASQUÉ', async () => {
   }
 });
 
-test('le geste révèle le code, et la fermeture le remasque', async () => {
+// Retour du propriétaire : « quand le code apparaît, si on reclique sur le
+// petit œil le code doit se masquer ». C'est juste, un œil est un
+// interrupteur : s'il n'agit que dans un sens, on affiche son code sans
+// pouvoir le refermer autrement qu'en quittant le menu.
+test('l\'œil est un interrupteur : il affiche, puis il remasque', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
     const page = await ouvrir(navigateur, baseUrl, true);
 
+    const lire = () => page.evaluate(() => {
+      const el = document.getElementById('sidebarCompteCode');
+      return {
+        code: document.getElementById('sidebarCompteCodeTxt').textContent.trim(),
+        icone: document.getElementById('sidebarCompteCodeIcone').innerHTML,
+        titre: el.getAttribute('title') || '',
+        infosOuvertes: document.getElementById('infosAbonneOverlay').classList.contains('active')
+      };
+    });
+
+    const ferme = await lire();
     await page.click('#sidebarCompteCode');
     await page.waitForTimeout(300);
-    const revele = await page.evaluate(() => ({
-      code: document.getElementById('sidebarCompteCodeTxt').textContent.trim(),
-      iconeGardee: !!document.querySelector('#sidebarCompteCode svg'),
-      // Le clic ne doit PAS remonter au bloc : sinon la fenêtre d'infos
-      // s'ouvrirait par-dessus le menu à chaque révélation.
-      infosOuvertes: document.getElementById('infosAbonneOverlay').classList.contains('active')
-    }));
+    const revele = await lire();
 
-    assert.equal(revele.code, CODE, 'le geste doit afficher le code complet');
-    assert.equal(revele.iconeGardee, true,
-      'REGRESSION : révéler le code efface l\'icône (le texte a écrasé le SVG)');
+    assert.equal(revele.code, CODE, 'le premier appui doit afficher le code complet');
+    assert.ok(revele.icone.includes('<svg'),
+      'REGRESSION : afficher le code efface l\'icône (le texte a écrasé le SVG)');
+    assert.notEqual(revele.icone, ferme.icone,
+      'REGRESSION : l\'icône ne change pas. Elle doit dire ce que fera le prochain appui.');
+    assert.match(revele.titre, /masquer/i, 'l\'infobulle doit annoncer le masquage');
     assert.equal(revele.infosOuvertes, false,
       'REGRESSION : le clic remonte au bloc et ouvre la fenêtre d\'infos par-dessus');
+
+    // Le deuxième appui doit refermer, c'est tout l'objet de la demande.
+    await page.click('#sidebarCompteCode');
+    await page.waitForTimeout(300);
+    const rereferme = await lire();
+    assert.ok(rereferme.code.includes('•'),
+      'REGRESSION : un deuxième appui sur l\'œil ne remasque pas le code (« '
+      + rereferme.code +' »). L\'œil doit fonctionner dans les deux sens.');
+    assert.equal(rereferme.icone, ferme.icone, 'l\'icône doit revenir à son état de départ');
+    assert.match(rereferme.titre, /afficher/i, 'l\'infobulle doit redevenir celle de l\'affichage');
+
+    // Et un troisième appui rouvre : la bascule n'est pas à usage unique.
+    await page.click('#sidebarCompteCode');
+    await page.waitForTimeout(300);
+    assert.equal((await lire()).code, CODE, 'REGRESSION : la bascule ne fonctionne qu\'une fois');
 
     await page.evaluate(() => { closeSidebar(); });
     await page.waitForTimeout(300);

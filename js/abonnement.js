@@ -90,20 +90,50 @@ const OEIL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
   + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
   + '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'
   + '<circle cx="12" cy="12" r="2.6"/></svg>';
+// Œil barré quand le code est affiché : le dessin doit dire ce que fera le
+// PROCHAIN appui (masquer), pas répéter l'état courant. Sans ça, l'icône
+// reste identique dans les deux sens et rien n'indique qu'on peut refermer.
+const OEIL_BARRE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"'
+  + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'
+  + '<circle cx="12" cy="12" r="2.6"/><path d="M4 20 20 4"/></svg>';
 
-// Révèle le code ET le copie : on ne le regarde presque jamais pour le
-// plaisir, on le regarde pour le coller quelque part. stopPropagation est
-// indispensable, sans lui le clic remonterait au bloc et ouvrirait la
-// fenêtre d'infos par-dessus.
-function revelerCodeSidebar(ev) {
-  if (ev) ev.stopPropagation();
+// Applique l'état voulu (affiché ou masqué) au même endroit, pour que les
+// trois chemins qui y touchent (premier affichage, bascule, fermeture du
+// menu) ne puissent pas diverger.
+function appliquerEtatCodeSidebar(revele) {
   const el = document.getElementById('sidebarCompteCode');
   const txt = document.getElementById('sidebarCompteCodeTxt');
-  if (!el || !txt) return;
+  const ico = document.getElementById('sidebarCompteCodeIcone');
+  if (!el || !txt || !ico) return '';
   const code = el.getAttribute('data-code') || '';
-  if (!code) return;
-  txt.textContent = code;
-  el.setAttribute('data-revele', '1');
+  txt.textContent = revele ? code : masquerCodeAcces(code);
+  ico.innerHTML = revele ? OEIL_BARRE_SVG : OEIL_SVG;
+  el.setAttribute('title', revele ? 'Toucher pour masquer ton code' : 'Toucher pour afficher et copier ton code');
+  if (revele) el.setAttribute('data-revele', '1');
+  else el.removeAttribute('data-revele');
+  return code;
+}
+
+// L'œil est un INTERRUPTEUR : un appui affiche, l'appui suivant remasque.
+// À l'affichage on copie aussi, on ne regarde presque jamais son code pour
+// le plaisir, on le regarde pour le coller quelque part. stopPropagation est
+// indispensable, sans lui le clic remonterait au bloc et ouvrirait la
+// fenêtre d'infos par-dessus.
+function basculerCodeSidebar(ev) {
+  if (ev) ev.stopPropagation();
+  const el = document.getElementById('sidebarCompteCode');
+  if (!el || !(el.getAttribute('data-code') || '')) return;
+
+  if (el.getAttribute('data-revele') === '1') {
+    // On coupe aussi le vert de la copie : il annonce « c'est copié, le voilà »,
+    // il n'a plus de sens sur un code qu'on vient de refermer.
+    el.classList.remove('copie-ok');
+    appliquerEtatCodeSidebar(false);
+    return;
+  }
+
+  const code = appliquerEtatCodeSidebar(true);
   try { if (navigator.clipboard) navigator.clipboard.writeText(code); } catch (e) { /* silencieux */ }
   el.classList.add('copie-ok');
   setTimeout(function () { el.classList.remove('copie-ok'); }, 1200);
@@ -114,10 +144,8 @@ function revelerCodeSidebar(ev) {
 // masquage ne protège plus rien dès la deuxième fois.
 function remasquerCodeSidebar() {
   const el = document.getElementById('sidebarCompteCode');
-  const txt = document.getElementById('sidebarCompteCodeTxt');
-  if (!el || !txt || el.getAttribute('data-revele') !== '1') return;
-  txt.textContent = masquerCodeAcces(el.getAttribute('data-code') || '');
-  el.removeAttribute('data-revele');
+  if (!el || el.getAttribute('data-revele') !== '1') return;
+  appliquerEtatCodeSidebar(false);
 }
 
 function majBlocCompteSidebar() {
@@ -142,16 +170,17 @@ function majBlocCompteSidebar() {
   // bloc ne lui apprendrait rien.
   if (code && (illimite || unlocked)) {
     ligne2.className = '';
+    // Le texte et l'icône vivent chacun dans leur span : sans ça, afficher le
+    // code écraserait l'icône, et l'inverse.
     ligne2.innerHTML = '<span class="sc-code" id="sidebarCompteCode" tabindex="0"'
-      + ' title="Toucher pour afficher et copier ton code"'
-      + ' onclick="revelerCodeSidebar(event)">'
-      + '<span id="sidebarCompteCodeTxt"></span>' + OEIL_SVG + '</span>';
-    const el = document.getElementById('sidebarCompteCode');
-    // textContent, jamais innerHTML : le code vient de la saisie libre de
-    // l'utilisateur (même précaution que ligneCodeInfos ci-dessus). Le texte
-    // vit dans son propre span pour que le révéler n'efface pas l'icône.
-    el.setAttribute('data-code', code);
-    document.getElementById('sidebarCompteCodeTxt').textContent = masquerCodeAcces(code);
+      + ' onclick="basculerCodeSidebar(event)">'
+      + '<span id="sidebarCompteCodeTxt"></span>'
+      + '<span id="sidebarCompteCodeIcone" class="sc-code-ico"></span></span>';
+    // data-code, puis appliquerEtatCodeSidebar remplit le texte : il passe par
+    // textContent, jamais innerHTML, le code venant de la saisie libre de
+    // l'utilisateur (même précaution que ligneCodeInfos ci-dessus).
+    document.getElementById('sidebarCompteCode').setAttribute('data-code', code);
+    appliquerEtatCodeSidebar(false);
   } else {
     // On dit ce qui RESTE, pas ce qui est consommé : c'est ce qu'il vient
     // vérifier. Et ça tient sur une ligne, un compte rendu en deux lignes

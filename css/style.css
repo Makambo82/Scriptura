@@ -2323,6 +2323,7 @@ body.creer-visible::after{
   background:none;border:none;padding:0;cursor:pointer;
 }
 .sc-code:hover{color:rgba(255,255,255,0.78)}
+.sc-code-ico{display:inline-flex;align-items:center;flex:none}
 .sc-code svg{width:14px;height:14px;flex:none;color:rgba(212,175,90,0.7)}
 .sc-libre{color:rgba(255,255,255,0.52);font-size:0.78rem}
 .sidebar-item{
