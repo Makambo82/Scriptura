@@ -471,7 +471,12 @@ function initScrollReveal() {
         observer.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+    // Marge basse en pourcentage (et non 40 px) : avec 40 px, un bloc se
+    // déclenchait alors qu'il touchait à peine le bord bas de l'écran, donc
+    // l'animation était déjà finie quand l'oeil arrivait dessus, ce qui la
+    // rendait invisible. En reculant le déclencheur à 14 % de la hauteur
+    // d'écran, le mouvement se joue DANS l'écran, là où on le regarde.
+  }, { threshold: 0.12, rootMargin: '0px 0px -14% 0px' });
   els.forEach(el => observer.observe(el));
 }
 

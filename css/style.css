@@ -190,8 +190,10 @@ body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
 
 /* TICKER, un mot à la fois, entre en glissant d'un côté, tient 2s, ressort
    de l'autre, alterne gauche/droite à chaque mot (voir initTicker, js/ui.js).
-   Distance de glissement (36px) alignée sur .reveal-left/.reveal-right, même
-   langage visuel que le reste de la page d'accueil. */
+   Distance de glissement (36px) alignée sur liftInLeft/liftInRight (hero,
+   panneau « Créer »), même langage visuel que le reste de la page d'accueil.
+   Les blocs révélés au défilement, eux, vont plus loin (revealLeft/Right) :
+   ils arrivent du bord de l'écran, pas d'un endroit déjà regardé. */
 .ticker-wrap{overflow:hidden;padding:14px 0;margin-top:72px}
 .ticker-carousel{display:flex;align-items:center;justify-content:center;min-height:1.2em}
 .ticker-word{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.7);white-space:nowrap}
@@ -1350,6 +1352,15 @@ body.hero-focus .hero-focus-rule{display:block}
 @keyframes liftIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 @keyframes liftInLeft{from{opacity:0;transform:translateX(-36px)}to{opacity:1;transform:none}}
 @keyframes liftInRight{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+/* Course propre à la révélation au défilement, volontairement plus ample que
+   liftIn* (18px / 36px) réservé au hero et au panneau « Créer » : sur ces
+   petits éléments déjà à l'écran, une course courte suffit, alors qu'un bloc
+   qui arrive du bas de l'écran a besoin d'un vrai déplacement pour que l'oeil
+   voie qu'il ENTRE, et pas qu'il était déjà là. Le léger passage d'échelle
+   (0.94 → 1) donne la sensation d'un bloc qui « se pose ». */
+@keyframes revealUp{from{opacity:0;transform:translateY(44px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes revealLeft{from{opacity:0;transform:translateX(-72px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes revealRight{from{opacity:0;transform:translateX(72px) scale(.94)}to{opacity:1;transform:none}}
 /* Révélation au défilement (page d'accueil) : .reveal/.reveal-left/.reveal-right
    posés dans le HTML, la classe .visible ajoutée par initScrollReveal()
    (js/ui.js, IntersectionObserver) dès qu'un bloc entre dans l'écran. Utilise
@@ -1362,16 +1373,18 @@ body.hero-focus .hero-focus-rule{display:block}
    affiche tout immédiatement plutôt que de laisser des blocs invisibles. */
 @media(prefers-reduced-motion:no-preference){
   .reveal,.reveal-left,.reveal-right{opacity:0}
-  .reveal.visible{animation:liftIn .7s cubic-bezier(.2,.7,.2,1) both}
-  .reveal-left.visible{animation:liftInLeft .7s cubic-bezier(.2,.7,.2,1) both}
-  .reveal-right.visible{animation:liftInRight .7s cubic-bezier(.2,.7,.2,1) both}
-  .reveal-d1.visible{animation-delay:.08s}
-  .reveal-d2.visible{animation-delay:.16s}
-  .reveal-d3.visible{animation-delay:.24s}
-  .reveal-d4.visible{animation-delay:.32s}
-  .reveal-d5.visible{animation-delay:.4s}
-  .reveal-d6.visible{animation-delay:.48s}
-  .reveal-d7.visible{animation-delay:.56s}
+  .reveal.visible{animation:revealUp .8s cubic-bezier(.16,.84,.24,1) both}
+  .reveal-left.visible{animation:revealLeft .8s cubic-bezier(.16,.84,.24,1) both}
+  .reveal-right.visible{animation:revealRight .8s cubic-bezier(.16,.84,.24,1) both}
+  /* Cascade à 0,11 s (au lieu de 0,08 s) : en dessous, des blocs voisins
+     arrivent quasi ensemble et la cascade ne se lit plus. */
+  .reveal-d1.visible{animation-delay:.11s}
+  .reveal-d2.visible{animation-delay:.22s}
+  .reveal-d3.visible{animation-delay:.33s}
+  .reveal-d4.visible{animation-delay:.44s}
+  .reveal-d5.visible{animation-delay:.55s}
+  .reveal-d6.visible{animation-delay:.66s}
+  .reveal-d7.visible{animation-delay:.77s}
 }
 /* Entrée du hero au chargement (mot par mot pour le titre, cascade pour le
    reste) : purement CSS avec animation-delay en ligne, aucune dépendance au
