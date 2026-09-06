@@ -2630,7 +2630,7 @@ const GEN_DUREE = {
   ideas: 12000,
   audit: 18000,
   serie_creation: 30000,
-  serie_episode: 30000,
+  serie_episode: 48000,
   viral: 42000,
   montageGuide: 20000
 };
@@ -2651,10 +2651,11 @@ const GEN_POIDS = {
   serie_creation: [2500],
   // Épisode de série (js/serie.js, genererEpisode) : écriture EN FLUX(3000)
   // + contrôle de durée, jusqu'à 2 tentatives(2500).
-  // 0=écriture(3000), 1=contrôle de durée(2500), 2=juge indépendant qui
-  // calcule le score(1400). Sans cette 3e bande, la barre atteignait sa fin
-  // AVANT le juge et le créateur regardait un 100% figé pendant l'appel.
-  serie_episode: [3000, 2500, 1400],
+  // 0=écriture(3000), 1=critique indépendant(2000), 2=révision ciblée(3200),
+  // 3=contrôle de durée(2500), 4=juge qui calcule le score(1400). Chaque
+  // appel a SA bande : sans ça, la barre atteignait sa fin avant les derniers
+  // appels et le créateur regardait un 100% figé pendant qu'ils tournaient.
+  serie_episode: [3000, 2000, 3200, 2500, 1400],
   // Indices alignés EXACTEMENT sur GEN_STEPS.script (7 étapes, ci-dessous) :
   // 0-1=brief, un seul appel(2000, réparti sur les 2 premières étapes
   // textuelles faute de signal séparé), 2=écriture[FLUX RÉEL](16000),
@@ -2768,6 +2769,8 @@ const GEN_STEPS = {
     "Écriture de l'accroche…",
     'Développement du récit…',
     'Pose de la tension finale…',
+    'Relecture critique de l\'épisode…',
+    'Correction des points faibles…',
     'Calibrage de la durée…',
     'Évaluation indépendante de l\'épisode…'
   ],

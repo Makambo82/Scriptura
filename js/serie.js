@@ -1166,8 +1166,116 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     function countWordsSerie(texte) {
       return (typeof texte === 'string' ? texte : '').split(/\s+/).filter(Boolean).length;
     }
-    // Écriture terminée pour de vrai : jalon réel avant le contrôle de durée.
+    // Longueur AVANT la révision : le Réviseur doit corriger le fond sans
+    // déplacer la durée, c'est le contrôle de durée qui s'en charge après.
+    const wordCountSerieAvantRevision = countWordsSerie(ep.voix_off_propre);
+    // Écriture terminée pour de vrai : jalon réel avant la critique.
     if (genProgressCtl) genProgressCtl.etapeTerminee(0);
+
+    // ══════════════════════════════════════
+    //  LE CRITIQUE, agent INDÉPENDANT (seconde moitié de l'angle mort du
+    //  mode Série). Il n'a pas écrit l'épisode et ne reçoit pas les consignes
+    //  d'écriture, seulement le texte fini et les quelques éléments de la
+    //  bible qu'il doit vérifier. Son test principal est le seul qui compte
+    //  vraiment pour une série : POURQUOI le spectateur ne regarderait-il pas
+    //  l'épisode suivant. Une passe unique, jamais une boucle : au-delà, le
+    //  coût par épisode ne serait plus tenable pour ce que ça apporte.
+    //  Placé AVANT le contrôle de durée, comme en mode Script : la révision
+    //  peut changer la longueur, c'est donc la durée qui doit avoir le
+    //  dernier mot, jamais l'inverse.
+    // ══════════════════════════════════════
+    let critiqueSerie = null;
+    try {
+      const critiquePromptSerie = `Tu es un critique EXTÉRIEUR et sévère de séries TikTok. Tu n'as PAS écrit cet épisode.
+
+CE QUE CET ÉPISODE DOIT TENIR :
+- Ton exigé par le créateur, du début à la fin : « ${serie.style} »
+- Signature récurrente de la série : ${b.regle_recurrente || 'aucune'}
+- Fonction narrative de cet épisode : ${plan.fonction || 'faire avancer l\'histoire'}
+- Tension à laisser en suspens à la fin : ${plan.tension_finale || 'une question qui appelle l\'épisode suivant'}
+- Épisode ${num} sur ${total}${num === total ? ' (le DERNIER : il doit refermer l\'arc, pas relancer)' : ''}
+- Épisodes déjà publiés, à ne jamais redire :
+${precedents}
+
+ÉPISODE À JUGER :
+"""
+${ep.voix_off_propre}
+"""
+
+TON TRAVAIL, EN TROIS TEMPS :
+
+1. LE TEST LE PLUS IMPORTANT, l'abandon de la SÉRIE : cherche toutes les raisons concrètes pour lesquelles ce spectateur, après cet épisode, ne reviendrait PAS voir le suivant (fin qui referme tout au lieu de suspendre, tension annoncée jamais tenue, épisode qui n'avance pas l'histoire, redite d'un épisode déjà publié, promesse molle du type « la suite bientôt » qui ne dit rien de concret). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as trouvé aucune raison valable.
+${num === total ? '' : `2. LE TEST DE L'ABANDON EN COURS D'ÉPISODE : cherche les raisons de faire défiler AVANT la fin de cet épisode (accroche lente, passage à vide, prévisibilité, longueur inutile).
+`}3. LES DEUX CONSIGNES EXPLICITES DU CRÉATEUR, à vérifier séparément :
+   - le TON « ${serie.style} » est-il tenu du début à la fin, sans dévier même partiellement vers un autre registre ?
+   - la signature récurrente ${b.regle_recurrente ? '« ' + b.regle_recurrente + ' »' : '(aucune déclarée, réponds true)'} est-elle vraiment présente ?
+Toute réponse négative ou mitigée est une faiblesse, au même titre que celles ci-dessus.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"verdict":"excellent" ou "à améliorer","raisons_d_abandon":["raison concrète 1"],"faiblesses":["faiblesse précise"],"ton_tenu":true,"signature_presente":true,"instructions_revision":"instructions précises et actionnables, ce qu'il faut changer et où"}`;
+
+      const critiqueRawSerie = await callAI(MODEL_RAPIDE, 2000, critiquePromptSerie, undefined, false, undefined, undefined, undefined, undefined, 'serie');
+      critiqueSerie = serieParseJSON(critiqueRawSerie);
+    } catch (e) { /* un critique en échec ne bloque jamais la livraison */ }
+    if (genProgressCtl) genProgressCtl.etapeTerminee(1);
+
+    // Le Critique décide, jamais l'auto-évaluation du rédacteur.
+    const critiqueSerieIndiqueProbleme = (c) => !!c && (
+      c.verdict === 'à améliorer'
+      || (Array.isArray(c.raisons_d_abandon) && c.raisons_d_abandon.length > 0)
+      || (Array.isArray(c.faiblesses) && c.faiblesses.length > 0)
+      || c.ton_tenu === false || c.signature_presente === false
+    );
+
+    if (critiqueSerieIndiqueProbleme(critiqueSerie)) {
+      try {
+        const listeSerie = (t) => (Array.isArray(t) ? t : []).map(x => '- ' + x).join('\n');
+        const revisePromptSerie = `Tu es le Réviseur en Chef de Scriptura. Un critique indépendant a évalué l'épisode ci-dessous. Corrige UNIQUEMENT ce qu'il signale, et ne touche à rien d'autre : ce qui n'est pas signalé fonctionne, ne l'abîme pas.
+
+ÉPISODE ACTUEL :
+"""
+${ep.voix_off_propre}
+"""
+
+RAISONS DE NE PAS REGARDER L'ÉPISODE SUIVANT (à faire disparaître en priorité) :
+${listeSerie(critiqueSerie.raisons_d_abandon) || '- aucune signalée'}
+
+AUTRES FAIBLESSES :
+${listeSerie(critiqueSerie.faiblesses) || '- aucune signalée'}
+
+INSTRUCTIONS DU CRITIQUE :
+${critiqueSerie.instructions_revision || 'applique les points ci-dessus'}
+${critiqueSerie.ton_tenu === false ? `\nLE TON N'EST PAS TENU : réécris les passages fautifs pour rester intégralement dans le ton « ${serie.style} ». C'est une consigne explicite du créateur, pas une suggestion.` : ''}${critiqueSerie.signature_presente === false && b.regle_recurrente ? `\nLA SIGNATURE DE LA SÉRIE MANQUE : fais réellement apparaître « ${b.regle_recurrente} » dans l'épisode, sans le plaquer artificiellement.` : ''}
+
+RÈGLES ABSOLUES DE LA RÉVISION :
+- Garde le même titre, la même histoire, le même format (${formatSerie}) et le ton « ${serie.style} ».
+- Garde une longueur COMPARABLE (environ ${wordCountSerieAvantRevision} mots) : ce n'est pas ici qu'on rallonge ou qu'on raccourcit.
+- Garde la structure en paragraphes courts (2 à 5 phrases), séparés par UNE LIGNE VIDE.
+- AUCUNE étiquette ni minutage (jamais « VOIX OFF », « TEXTE À L'ÉCRAN », « ÉCRAN NOIR », « PLAN », ni horodatage entre crochets).
+${num === total ? '- C\'est le DERNIER épisode : il referme l\'arc, il ne relance rien.' : '- La fin doit laisser une tension nette et une raison CONCRÈTE de regarder l\'épisode suivant, jamais un « la suite bientôt » creux.'}
+
+Réponds UNIQUEMENT en JSON, sans texte autour :
+{"script":"l'épisode complet révisé","voix_off_propre":"strictement identique à script"}`;
+
+        // 3200 et non 3000 : chaque appel du mode Série porte un budget de
+        // tokens qui lui est propre (écriture 3000, critique 2000, révision
+        // 3200, durée 2500, juge 1400). Deux appels au même budget seraient
+        // indistinguables, aussi bien dans les mocks de test que dans les
+        // mesures de coût.
+        const reviseRawSerie = await callAI(MODEL_CREATIF, 3200, revisePromptSerie, undefined, false, undefined, undefined, undefined, undefined, 'serie');
+        const reviseSerie = serieParseJSON(reviseRawSerie);
+        if (reviseSerie && typeof reviseSerie.script === 'string' && reviseSerie.script.trim()) {
+          ep.script = nettoyerEtiquettesEpisodeSerie(reviseSerie.script);
+          ep.voix_off_propre = nettoyerEtiquettesEpisodeSerie(
+            (typeof reviseSerie.voix_off_propre === 'string' && reviseSerie.voix_off_propre.trim())
+              ? reviseSerie.voix_off_propre
+              : ep.script
+          );
+        }
+      } catch (e) { /* révision en échec : on garde la version d'avant, jamais rien de cassé */ }
+    }
+    if (genProgressCtl) genProgressCtl.etapeTerminee(2);
+
     const wtSerie = WORD_TARGETS_SERIE[b.duree_episode] || WORD_TARGETS_SERIE['45 à 60 secondes'];
     let wordCountSerie = countWordsSerie(ep.voix_off_propre);
     let correctionAttemptsSerie = 0;
@@ -1217,7 +1325,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
         break; // parsing échoué, on garde la version actuelle
       }
     }
-    if (genProgressCtl) genProgressCtl.etapeTerminee(1);
+    if (genProgressCtl) genProgressCtl.etapeTerminee(3);
 
     // ── SCORE DÉTERMINISTE DE L'ÉPISODE ──
     // Un seul appel, le moins cher du pipeline, et il ne touche PAS au texte :
@@ -1244,7 +1352,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
       ep.evaluationIndisponible = 'Score non calculé : l\'évaluation indépendante n\'a pas répondu cette fois. Plutôt que d\'afficher une note approximative, Scriptura préfère ne rien inventer. Régénère pour l\'obtenir.';
       if (typeof journaliserEchecEvaluation === 'function') journaliserEchecEvaluation('score-serie', 'juge muet sur deux modèles');
     }
-    if (genProgressCtl) genProgressCtl.etapeTerminee(2);
+    if (genProgressCtl) genProgressCtl.etapeTerminee(4);
 
     // Enregistre dans l'historique (et compte dans le quota du mois) AVANT
     // de persister l'épisode, pour connaître l'id de la ligne d'historique
