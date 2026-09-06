@@ -310,8 +310,7 @@ function resetCarrouselForm() {
   if (noteLien) noteLien.textContent = 'On récupère le texte parlé de ta vidéo et on le transforme en slides. Tu pourras le relire et l\'ajuster avant de générer.';
   const note = document.getElementById('carrouselMatiereNote');
   if (note) { note.style.display = 'none'; note.textContent = ''; }
-  const err = document.getElementById('carrouselErrorBox');
-  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  carrouselEffacerErreur();
   const res = document.getElementById('carrouselResults');
   if (res) res.style.display = 'none';
   const form = document.getElementById('carrouselForm');
@@ -589,11 +588,59 @@ function carrouselLireFormulaire() {
   };
 }
 
+// Écrit l'erreur DANS L'ÉCRAN QUE LE CRÉATEUR A SOUS LES YEUX.
+//
+// La boîte du formulaire ne convient qu'au formulaire : dès que les résultats
+// s'affichent, le formulaire est masqué (voir renderCarrousel) et tout ce
+// qu'on y écrit disparaît avec lui. C'est ce qui rendait muet un échec de
+// génération de fond, et même un quota d'images épuisé : le créateur cliquait,
+// rien ne bougeait, et rien ne lui disait pourquoi.
+// Le message est GARDÉ EN MÉMOIRE, pas seulement posé dans le DOM : un échec
+// de génération est presque toujours suivi d'un renderCarrousel (dans le
+// `finally`), qui reconstruit toute la zone et effacerait le message une
+// milliseconde après son affichage. C'est le même piège que celui qui rendait
+// l'erreur invisible, en plus discret.
+let _carrouselErreur = '';
+let _carrouselErreurASignaler = false;
+
 function carrouselAfficherErreur(message) {
-  const err = document.getElementById('carrouselErrorBox');
+  _carrouselErreur = String(message || '');
+  _carrouselErreurASignaler = true;
+  peindreErreurCarrousel();
+}
+
+function carrouselEffacerErreur() {
+  _carrouselErreur = '';
+  _carrouselErreurASignaler = false;
+  ['carrouselErrorBox', 'carrouselErrorBoxResultats'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e) { e.textContent = ''; e.style.display = 'none'; }
+  });
+}
+
+// Pose le message dans l'écran que le créateur a SOUS LES YEUX. La boîte du
+// formulaire ne convient qu'au formulaire : dès que les résultats s'affichent,
+// le formulaire est masqué (voir renderCarrousel) et tout ce qu'on y écrit
+// disparaît avec lui. C'est ce qui rendait muet un échec de génération de
+// fond, et même un quota d'images épuisé : le créateur cliquait, rien ne
+// bougeait, rien ne lui disait pourquoi.
+function peindreErreurCarrousel() {
+  const resultats = document.getElementById('carrouselResults');
+  const surResultats = !!(resultats && resultats.style.display !== 'none');
+  const err = (surResultats ? document.getElementById('carrouselErrorBoxResultats') : null)
+    || document.getElementById('carrouselErrorBox');
   if (!err) return;
-  err.textContent = message;
-  err.style.display = 'block';
+  err.textContent = _carrouselErreur;
+  err.style.display = _carrouselErreur ? 'block' : 'none';
+  // Un message hors écran ne vaut pas mieux qu'un message invisible : les
+  // slides sont longues, et l'appui vient souvent d'un bouton situé bien plus
+  // bas que le haut de la page. On ne le fait qu'UNE fois par message, sinon
+  // chaque rendu ramènerait le créateur en arrière pendant qu'il fait défiler.
+  if (_carrouselErreur && _carrouselErreurASignaler && surResultats
+      && typeof err.scrollIntoView === 'function') {
+    _carrouselErreurASignaler = false;
+    err.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 }
 
 // Normalise une slide venue du modèle. Tolère l'ancienne forme (un simple
@@ -780,8 +827,7 @@ function carrouselDepuisScript() {
 }
 
 async function genererCarrousel() {
-  const err = document.getElementById('carrouselErrorBox');
-  if (err) err.style.display = 'none';
+  carrouselEffacerErreur();
 
   const ctx = carrouselLireFormulaire();
   if (!ctx.sujet) {
@@ -939,6 +985,9 @@ async function genererImageCarrousel(i) {
   if (carrouselImagesEnCours || !carrouselResultat) return;
   const slide = carrouselResultat.slides[i];
   if (!slide) return;
+  // Nouvelle tentative : on repart d'un écran propre, sinon l'erreur de la
+  // fois d'avant reste affichée sous une génération qui vient de réussir.
+  carrouselEffacerErreur();
 
   const restant = imagesRestantesCarrousel();
   if (restant === 0) {
@@ -1750,6 +1799,16 @@ function renderCarrousel() {
       </div>
       <div class="results-meta" id="carrouselQuotaImages">${carrouselEchapper(texteQuotaImagesCarrousel())}</div>
     </div>
+    <!-- LA BOÎTE D'ERREUR DE L'ÉCRAN DE RÉSULTAT.
+         Bug trouvé sur le premier vrai test du propriétaire : « quand j'ai
+         généré un fond, le bouton devait passer à Rétablir, mais non ».
+         La génération échouait, et PERSONNE ne le disait. La seule boîte
+         d'erreur du mode vit dans le formulaire (#carrouselErrorBox), que
+         cet écran-ci masque : tout message écrit dedans partait dans un
+         élément invisible. Un appui sur "Générer un fond" pouvait donc
+         échouer en silence, quota épuisé compris, et le créateur n'avait
+         qu'un bouton qui ne changeait pas. -->
+    <div class="error-box" id="carrouselErrorBoxResultats" style="display:none;margin-bottom:14px"></div>
     <div class="car-formats-barre">
       <span class="car-formats-label">Format</span>
       <div class="car-formats">${formatsHtml}</div>
@@ -1797,6 +1856,10 @@ function renderCarrousel() {
       el.style.width = el.getAttribute('data-width') + '%';
     });
   });
+  // La zone vient d'être reconstruite : le message d'erreur en cours doit y
+  // être reposé, sinon un échec suivi de son rendu (le cas le plus courant,
+  // le `finally` d'une génération) s'effacerait aussitôt affiché.
+  peindreErreurCarrousel();
   peindreApercusCarrousel();
 }
 
