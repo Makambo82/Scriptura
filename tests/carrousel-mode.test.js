@@ -262,7 +262,7 @@ test('chaque slide affiche sa structure, son nombre de mots et sa consigne visue
         // est déjà déplié (ça, c'est le test de la carte repliable).
         legende: zoneTexte.includes('Tu es dans quelle catégorie ?'),
         son: zoneTexte.includes('nappe calme'),
-        boutonsImage: document.querySelectorAll('#carrouselResults button[onclick^="genererImageCarrousel"]').length
+        boutonsImage: document.querySelectorAll('#carrouselResults button[onclick^="basculerFondCarrousel"]').length
       };
     });
 
@@ -963,8 +963,12 @@ test('le bouton "générer un fond" montre un spinner pendant la génération', 
       return b && !b.querySelector('.car-spinner');
     }, null, { timeout: 15000 });
     const apres = await etat();
-    assert.match(apres.libelle, /refaire le fond/,
-      'une fois le fond reçu, le bouton propose de le refaire');
+    // Le libellé d'après-génération a changé à la demande du propriétaire :
+    // ce n'est plus "Refaire le fond" (qui dépensait une image de plus quand
+    // on voulait simplement annuler) mais "Rétablir", qui ramène la slide sur
+    // le fond sombre. Voir tests/carrousel-produit-detoure-dans-decor.test.js.
+    assert.match(apres.libelle, /rétablir/,
+      'une fois le fond reçu, le bouton propose de revenir au fond sombre');
     assert.equal(apres.desactive, false, 'et redevient utilisable');
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {

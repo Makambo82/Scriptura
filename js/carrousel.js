@@ -95,6 +95,9 @@ let carrouselNbSlides = CARROUSEL_SLIDES_DEFAUT;
 let carrouselFormat = CAR_FORMAT_DEFAUT;
 let carrouselResultat = null;
 let carrouselImages = [];          // [{ apercu, blob } | null], même longueur que les slides
+// Fonds écartés par "Rétablir", gardés pour être remis sans repayer une
+// image (voir basculerFondCarrousel).
+let _fondsEcartes = {};
 let carrouselImagesEnCours = false;
 // Slides déjà composées, dans l'ordre (voir peindreApercusCarrousel). Sert au
 // téléchargement immédiat, sans recomposition, pour préserver le geste
@@ -779,6 +782,9 @@ async function genererCarrousel() {
     carrouselResultat = parsed;
     carrouselContexte = ctx;
     carrouselImages = new Array(parsed.slides.length).fill(null);
+    // Nouveau carrousel : les fonds écartés du précédent n'ont plus rien à y
+    // faire, ils réapparaîtraient sur des slides sans rapport.
+    _fondsEcartes = {};
     carrouselApercusBlobs = [];
     renderCarrousel();
 
@@ -936,6 +942,34 @@ function produitDetoureCarrousel() {
     img.onerror = () => { _produitDetoure = { source: src, resultat: null, averti: false }; resolve(null); };
     img.src = src;
   });
+}
+
+// LE BOUTON FAIT LES DEUX, selon l'état de la slide : générer le fond quand
+// il n'y en a pas, revenir au fond sombre quand il y en a un. Demande du
+// propriétaire : « si un utilisateur génère un fond mais voudrait revenir sur
+// le fond initial (noir), il peut cliquer sur le bouton qui lui a servi à
+// générer le fond ».
+//
+// Rétablir ne coûte RIEN et ne rend rien : l'image a été générée et payée.
+// C'est pour ça qu'on la garde en mémoire au lieu de la jeter (voir
+// _fondsEcartes, déclaré avec les autres états en tête de fichier) : si le
+// créateur change encore d'avis, il la retrouve sans repayer, et le bouton
+// le lui dit.
+function basculerFondCarrousel(i) {
+  if (carrouselImagesEnCours) return;
+  if (carrouselImages[i]) {
+    _fondsEcartes[i] = carrouselImages[i];
+    carrouselImages[i] = null;
+    renderCarrousel();
+    return;
+  }
+  if (_fondsEcartes[i]) {
+    carrouselImages[i] = _fondsEcartes[i];
+    delete _fondsEcartes[i];
+    renderCarrousel();
+    return;
+  }
+  genererImageCarrousel(i);
 }
 
 async function genererImageCarrousel(i) {
@@ -1441,7 +1475,10 @@ function photoProduitCarrousel() {
 // pas de fond uni et fait n'importe quoi. On MESURE donc ce qu'on a retiré :
 // trop peu ou presque tout, on refuse de détourer et on le dit, plutôt que de
 // livrer un produit troué ou entouré d'un halo.
-const CAR_DETOURAGE_TOLERANCE = 34;      // écart de couleur admis, sur 255
+const CAR_DETOURAGE_TOLERANCE = 26;      // en dessous : fond pur, transparent
+const CAR_DETOURAGE_TOLERANCE_BORD = 78; // entre les deux : bord, transparence progressive
+const CAR_OMBRE_ECART_TEINTE = 0.045;    // une ombre garde la teinte du fond
+const CAR_OMBRE_MIN_CLARTE = 0.42;       // en dessous, ce n'est plus une ombre mais un objet
 const CAR_DETOURAGE_MIN = 0.06;          // moins de 6 % retiré : pas de fond uni
 const CAR_DETOURAGE_MAX = 0.94;          // plus de 94 % : on a mangé le produit
 const CAR_DETOURAGE_TAILLE_MAX = 1100;   // borne le coût du calcul
@@ -1482,14 +1519,47 @@ function detourerProduitCarrousel(img) {
   const image = ctx.getImageData(0, 0, L, H);
   const data = image.data;
   const fond = _couleurFond(data, L, H);
-  const tol = CAR_DETOURAGE_TOLERANCE;
+
+  // Distance de couleur au fond, et distance de TEINTE seule. La seconde sert
+  // aux OMBRES : une ombre portée, c'est le fond en plus sombre, même teinte.
+  // Le premier détourage les gardait, et le produit arrivait avec une flaque
+  // grise collée sous lui. C'est l'un des deux défauts que le propriétaire a
+  // vus tout de suite.
+  const dist = (k) => Math.max(
+    Math.abs(data[k] - fond[0]),
+    Math.abs(data[k + 1] - fond[1]),
+    Math.abs(data[k + 2] - fond[2])
+  );
+  const sommeFond = Math.max(1, fond[0] + fond[1] + fond[2]);
+  const estOmbreDuFond = (k) => {
+    const somme = data[k] + data[k + 1] + data[k + 2];
+    if (somme > sommeFond) return false;              // plus clair que le fond
+    if (somme < sommeFond * CAR_OMBRE_MIN_CLARTE) return false; // trop sombre pour une ombre
+    // Même teinte : les proportions R/V/B doivent coller, seule la
+    // luminosité change.
+    const e = Math.max(
+      Math.abs(data[k] / somme - fond[0] / sommeFond),
+      Math.abs(data[k + 1] / somme - fond[1] / sommeFond),
+      Math.abs(data[k + 2] / somme - fond[2] / sommeFond)
+    );
+    return e <= CAR_OMBRE_ECART_TEINTE;
+  };
+
+  // DEUX SEUILS (hystérésis), et c'est ce qui change tout. Le premier
+  // détourage n'en avait qu'un : un pixel était fond ou produit, sans milieu.
+  // Or le bord d'un objet photographié est un MÉLANGE des deux (lissage de
+  // l'appareil), donc juste au-dessus du seuil : il restait opaque et
+  // dessinait un liseré blanc tout autour du produit. C'est le défaut le plus
+  // visible une fois posé sur un décor sombre.
+  //
+  // Désormais : sous T1 c'est du fond pur (transparent), entre T1 et T2 c'est
+  // du BORD (transparence proportionnelle, ce qui adoucit le contour), au
+  // delà c'est le produit.
+  const T1 = CAR_DETOURAGE_TOLERANCE;
+  const T2 = CAR_DETOURAGE_TOLERANCE_BORD;
 
   const vu = new Uint8Array(L * H);
   const pile = [];
-  const proche = (k) => Math.abs(data[k] - fond[0]) <= tol
-    && Math.abs(data[k + 1] - fond[1]) <= tol
-    && Math.abs(data[k + 2] - fond[2]) <= tol;
-
   for (let x = 0; x < L; x++) { pile.push(x); pile.push((H - 1) * L + x); }
   for (let y = 0; y < H; y++) { pile.push(y * L); pile.push(y * L + L - 1); }
 
@@ -1498,10 +1568,15 @@ function detourerProduitCarrousel(img) {
     const p = pile.pop();
     if (vu[p]) continue;
     const k = p * 4;
-    if (!proche(k)) continue;
+    const d = dist(k);
+    let alpha;
+    if (d <= T1 || estOmbreDuFond(k)) alpha = 0;
+    else if (d < T2) alpha = Math.round(255 * (d - T1) / (T2 - T1));
+    else continue; // vrai produit : on s'arrête, la diffusion ne le traverse pas
     vu[p] = 1;
-    data[k + 3] = 0;
-    retires++;
+    data[k + 3] = Math.min(data[k + 3], alpha);
+    if (alpha === 0) retires++;
+    else retires += 0.5; // un bord compte pour moitié dans la mesure
     const x = p % L, y = (p - x) / L;
     if (x > 0) pile.push(p - 1);
     if (x < L - 1) pile.push(p + 1);
@@ -1511,6 +1586,23 @@ function detourerProduitCarrousel(img) {
 
   const part = retires / (L * H);
   if (part < CAR_DETOURAGE_MIN || part > CAR_DETOURAGE_MAX) return null;
+
+  // DÉCONTAMINATION. Un pixel de bord reste teinté de la couleur du fond :
+  // sur une photo prise sur blanc, tout le contour du produit garde un voile
+  // blanc, qui se voit d'autant plus que le décor est sombre. On retire donc
+  // la part de fond que porte ce pixel, proportionnellement à sa
+  // transparence, ce qui rend au bord sa vraie couleur.
+  for (let p = 0; p < L * H; p++) {
+    const k = p * 4;
+    const a = data[k + 3];
+    if (a === 0 || a === 255) continue;
+    const f = a / 255;
+    for (let ch = 0; ch < 3; ch++) {
+      const v = (data[k + ch] - fond[ch] * (1 - f)) / f;
+      data[k + ch] = Math.max(0, Math.min(255, Math.round(v)));
+    }
+  }
+
   ctx.putImageData(image, 0, 0);
   return { dataUrl: cv.toDataURL('image/png'), part };
 }
@@ -1780,7 +1872,15 @@ function noteVisuelSlide(s, i) {
 
 function libelleBoutonFondCarrousel(i) {
   if (carrouselImageIndexEnCours === i) return '<span class="car-spinner"></span> Génération…';
-  if (carrouselImages[i]) return ico('refresh') + ' Refaire le fond';
+  // Une fois le fond posé, ce MÊME bouton sert à revenir au fond sombre
+  // d'origine (demande du propriétaire). Il ne dit donc plus "Refaire le
+  // fond" : refaire dépensait une image de plus, ce qui n'est pas ce que
+  // cherche quelqu'un qui veut simplement annuler.
+  if (carrouselImages[i]) return ico('refresh') + ' Rétablir';
+  // Fond écarté puis regretté : on le remet SANS repayer, et le bouton le
+  // dit. Proposer "Générer un fond" ici ferait dépenser une image de plus
+  // pour récupérer quelque chose qu'on a déjà.
+  if (_fondsEcartes[i]) return ico('image') + ' Remettre le fond';
   return ico('sparkle') + ' Générer un fond';
 }
 
@@ -1840,7 +1940,7 @@ function renderCarrousel() {
           <p class="car-slide-mots">${mots} mot${mots > 1 ? 's' : ''} au total</p>
           <p class="car-slide-visuel-note"><strong>Visuel :</strong> ${carrouselEchapper(noteVisuelSlide(s, i))}</p>
           <div class="car-slide-actions">
-            <button class="btn-regenerate" id="carGenBtn${i}" onclick="genererImageCarrousel(${i})" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${libelleBoutonFondCarrousel(i)}</button>
+            <button class="btn-regenerate" id="carGenBtn${i}" onclick="basculerFondCarrousel(${i})" ${carrouselImagesEnCours || bloque ? 'disabled' : ''}>${libelleBoutonFondCarrousel(i)}</button>
             <button class="btn-regenerate" onclick="telechargerSlideCarrousel(${i})">${ico('download')} Télécharger</button>
           </div>
         </div>

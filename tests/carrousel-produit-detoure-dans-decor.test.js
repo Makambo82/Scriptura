@@ -33,19 +33,41 @@ async function ouvrir(navigateur, baseUrl, surMontageMedia) {
 // Fabrique une photo produit dans la page : un objet coloré sur fond UNI
 // (le cas réel d'une photo e-commerce), ou sur un fond bruité (le cas qui
 // doit être refusé).
+// Une photo de test RÉALISTE, et c'est important : la première version de ce
+// test utilisait un rectangle net sur un blanc parfait, ce qu'aucune photo
+// n'est. Le détourage passait donc le test tout en produisant, sur une vraie
+// photo, un liseré blanc et une flaque d'ombre. Ici : fond légèrement dégradé
+// (vignettage studio), OMBRE PORTÉE douce, et bords LISSÉS par des courbes.
 const FABRIQUER = `
   (fondUni) => {
-    const cv = document.createElement('canvas'); cv.width = 400; cv.height = 400;
+    const cv = document.createElement('canvas'); cv.width = 600; cv.height = 600;
     const g = cv.getContext('2d');
-    if (fondUni) { g.fillStyle = '#ffffff'; g.fillRect(0, 0, 400, 400); }
-    else {
-      for (let x = 0; x < 400; x += 4) for (let y = 0; y < 400; y += 4) {
+    if (fondUni) {
+      const grd = g.createRadialGradient(300, 260, 60, 300, 300, 430);
+      grd.addColorStop(0, '#ffffff'); grd.addColorStop(1, '#eceae6');
+      g.fillStyle = grd; g.fillRect(0, 0, 600, 600);
+      g.save(); g.filter = 'blur(16px)';
+      g.fillStyle = 'rgba(120,118,112,0.55)';
+      g.beginPath(); g.ellipse(300, 470, 130, 26, 0, 0, Math.PI * 2); g.fill();
+      g.restore();
+    } else {
+      for (let x = 0; x < 600; x += 4) for (let y = 0; y < 600; y += 4) {
         g.fillStyle = 'rgb(' + ((x * 7) % 256) + ',' + ((y * 11) % 256) + ',' + ((x + y) % 256) + ')';
         g.fillRect(x, y, 4, 4);
       }
     }
-    g.fillStyle = '#1f6b4c'; g.fillRect(140, 80, 120, 240);
-    g.fillStyle = '#c9a84c'; g.fillRect(140, 170, 120, 60);
+    g.beginPath();
+    g.moveTo(230, 460); g.lineTo(230, 200);
+    g.quadraticCurveTo(230, 150, 300, 150);
+    g.quadraticCurveTo(370, 150, 370, 200);
+    g.lineTo(370, 460);
+    g.quadraticCurveTo(370, 480, 300, 480);
+    g.quadraticCurveTo(230, 480, 230, 460);
+    g.closePath();
+    const gp = g.createLinearGradient(230, 0, 370, 0);
+    gp.addColorStop(0, '#134534'); gp.addColorStop(0.5, '#2a8a63'); gp.addColorStop(1, '#0f3527');
+    g.fillStyle = gp; g.fill();
+    g.fillStyle = '#c9a84c'; g.fillRect(232, 290, 136, 76);
     return cv.toDataURL('image/png');
   }
 `;
@@ -70,23 +92,46 @@ test('un produit photographié sur fond uni est détouré, un fond chargé est R
       // Sur le résultat détouré : les coins doivent être transparents et le
       // centre (le produit) parfaitement opaque. Sans ça, "détouré" ne
       // voudrait rien dire.
-      let coin = null, centre = null;
+      let mesures = null;
       if (uni) {
         const im = await charger(uni.dataUrl);
         const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
         const g = cv.getContext('2d'); g.drawImage(im, 0, 0);
-        coin = g.getImageData(2, 2, 1, 1).data[3];
-        centre = g.getImageData(Math.round(im.width / 2), Math.round(im.height / 2), 1, 1).data[3];
+        const d = g.getImageData(0, 0, im.width, im.height).data;
+        const e = im.width / 600;
+        const alpha = (x, y) => d[((Math.round(y * e) * im.width) + Math.round(x * e)) * 4 + 3];
+        // Halo : des pixels restés opaques ET très clairs, alors que le
+        // produit est vert sombre et doré. C'est la signature du liseré blanc.
+        let halo = 0, opaques = 0;
+        for (let k = 0; k < d.length; k += 4) {
+          if (d[k + 3] > 200) { opaques++; if (d[k] > 215 && d[k + 1] > 215 && d[k + 2] > 210) halo++; }
+        }
+        mesures = {
+          coin: alpha(5, 5),
+          ombreGauche: alpha(190, 472),
+          ombreDroite: alpha(410, 472),
+          produit: alpha(300, 250),
+          etiquette: alpha(300, 330),
+          haloPourMille: Math.round((halo / Math.max(1, opaques)) * 1000)
+        };
       }
-      return { uni: uni ? Math.round(uni.part * 100) : null, charge, coin, centre };
+      return { uni: uni ? Math.round(uni.part * 100) : null, charge, mesures };
     }, FABRIQUER);
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.ok(vu.uni !== null, 'une photo sur fond blanc uni doit être détourée');
     assert.ok(vu.uni > 50 && vu.uni < 94,
       'la part retirée doit rester plausible (' + vu.uni + '%) : trop peu, le fond reste ; trop, on mange le produit');
-    assert.equal(vu.coin, 0, 'REGRESSION : le fond doit être VRAIMENT transparent, pas juste éclairci');
-    assert.equal(vu.centre, 255, 'REGRESSION : le produit lui-même doit rester intact et opaque');
+    const m = vu.mesures;
+    assert.equal(m.coin, 0, 'REGRESSION : le fond doit être VRAIMENT transparent, pas juste éclairci');
+    assert.equal(m.produit, 255, 'REGRESSION : le produit lui-même doit rester intact et opaque');
+    assert.equal(m.etiquette, 255, 'l\'étiquette aussi : c\'est elle qu\'on vend');
+    assert.equal(m.ombreGauche, 0,
+      'REGRESSION : l\'ombre portée restait collée sous le produit, comme une flaque grise');
+    assert.equal(m.ombreDroite, 0, 'des deux côtés');
+    assert.equal(m.haloPourMille, 0,
+      'REGRESSION : le liseré blanc du contour (' + m.haloPourMille + '‰ des pixels opaques) se voit '
+      + 'd\'autant plus que le décor est sombre');
     assert.equal(vu.charge, null,
       'REGRESSION : sur une photo sans fond uni, mieux vaut refuser que livrer un produit troué ou cerné d\'un halo');
   } finally {
@@ -240,6 +285,92 @@ test('sans produit chargé, le prompt du décor n\'est pas alourdi', async () =>
     assert.ok(!/ZONE DÉGAGÉE/.test(vu),
       'sans produit, aucune place à réserver, et rien à ajouter au prompt : ' + vu);
     assert.match(vu, /Aucune lettre/, 'les consignes d\'origine restent');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Demande du propriétaire : « si un utilisateur génère un fond mais voudrait
+// revenir sur le fond initial (noir), il peut cliquer sur le bouton qui lui a
+// servi à générer le fond. Après génération du fond, ce bouton doit être
+// désormais "Rétablir". »
+//
+// Le bouton "Refaire le fond" qu'il remplace était un piège : quelqu'un qui
+// veut simplement annuler cliquait dessus et dépensait une image de plus.
+//
+// Un fond écarté n'est pas jeté : il a été généré et payé. On le garde, et le
+// bouton propose de le REMETTRE sans repayer. Sans ça, changer deux fois
+// d'avis coûterait deux images pour le même visuel.
+test('après génération, le bouton rétablit le fond sombre, et sait le remettre gratuitement', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    let decorB64 = null;
+    let appels = 0;
+    const p = await ouvrir(navigateur, baseUrl, async (route) => {
+      appels++;
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ images: [{ base64: decorB64, mimeType: 'image/png' }], erreurs: [null] })
+      });
+    });
+    const erreursJs = [];
+    p.on('pageerror', e => erreursJs.push(e.message));
+
+    decorB64 = await p.evaluate(() => {
+      const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1350;
+      const g = cv.getContext('2d'); g.fillStyle = '#101828'; g.fillRect(0, 0, 1080, 1350);
+      return cv.toDataURL('image/png').split(',')[1];
+    });
+
+    const vu = await p.evaluate(async (src) => {
+      const fabriquer = eval(src);
+      carrouselFormat = '4:5';
+      carrouselQuotaImages = { illimite: true, used: 0, limite: 999 };
+      carrouselVenteFichier = { base64: fabriquer(true).split(',')[1], mediaType: 'image/png', nom: 'p.png' };
+      carrouselResultat = { titre: 'T', direction_visuelle: 'sobre', slides: [{
+        numero: 1, gabarit: 'points', titre: 'T', visuel: 'une ambiance',
+        points: [{ emoji: '🎯', titre: 'P', texte: 'x' }]
+      }] };
+      carrouselImages = [null];
+      const etiquette = () => libelleBoutonFondCarrousel(0).replace(/<[^>]+>/g, '').trim();
+
+      const avant = etiquette();
+      await genererImageCarrousel(0);
+      const apresGeneration = { bouton: etiquette(), aUnFond: !!carrouselImages[0] };
+      const fondGenere = carrouselImages[0].apercu;
+
+      basculerFondCarrousel(0);
+      const apresRetablir = { bouton: etiquette(), aUnFond: !!carrouselImages[0] };
+
+      basculerFondCarrousel(0);
+      const apresRemise = {
+        bouton: etiquette(),
+        aUnFond: !!carrouselImages[0],
+        memeImage: carrouselImages[0] && carrouselImages[0].apercu === fondGenere
+      };
+      return { avant, apresGeneration, apresRetablir, apresRemise };
+    }, FABRIQUER);
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.match(vu.avant, /Générer un fond/, 'au départ, le bouton génère');
+    assert.equal(vu.apresGeneration.aUnFond, true);
+    assert.match(vu.apresGeneration.bouton, /^Rétablir$/,
+      'REGRESSION : après génération le bouton doit dire "Rétablir", pas "Refaire le fond" '
+      + '(refaire dépensait une image de plus) : ' + vu.apresGeneration.bouton);
+
+    assert.equal(vu.apresRetablir.aUnFond, false,
+      'REGRESSION : "Rétablir" doit vraiment ramener la slide sur le fond sombre');
+    assert.match(vu.apresRetablir.bouton, /Remettre le fond/,
+      'le fond écarté est gardé : proposer "Générer un fond" ferait repayer ce qu\'on a déjà : '
+      + vu.apresRetablir.bouton);
+
+    assert.equal(vu.apresRemise.aUnFond, true, '"Remettre le fond" doit le remettre');
+    assert.equal(vu.apresRemise.memeImage, true, 'et remettre EXACTEMENT le même, pas un nouveau');
+    assert.equal(appels, 1,
+      'REGRESSION : aller-retour sur le fond ne doit coûter QU\'UNE seule image générée, pas trois ('
+      + appels + ')');
   } finally {
     await navigateur.close();
     await arreter();
