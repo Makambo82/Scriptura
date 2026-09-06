@@ -2827,6 +2827,12 @@ body.is-unlocked .sidebar-logout{display:block}
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   margin-top:14px;
 }
+/* Doré, pas émeraude : ici ce n'est pas une bonne nouvelle mais un geste à ne
+   pas oublier. L'émeraude reste réservée à ce qui a réussi (voir
+   .car-slide-produit et la doctrine de la palette). */
+.genimg-produit-note{
+  margin:8px 0 0;font-size:0.76rem;line-height:1.5;color:var(--gold-light);
+}
 .genimg-inline-label{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;
   text-transform:uppercase;color:var(--gold-light);

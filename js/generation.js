@@ -3552,7 +3552,7 @@ async function generateStoryboard() {
         <div class="sb-dit">"${auditEsc(p.text || '')}"</div>
         <div class="sb-visual-label">🎬 Prompt visuel</div>
         <div class="sb-visual">${auditEsc(p.visuel || '')}</div>
-        ${blocGenImage(storeCopyText(p.visuel || ''))}
+        ${blocGenImage(storeCopyText(p.visuel || ''), p.produit)}
       </div>`;
 
   // Le conteneur (bouton, spinner, barre de progression compris) est remplacé

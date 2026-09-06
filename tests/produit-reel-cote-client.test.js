@@ -423,6 +423,45 @@ test('un échec de génération d\'images en lot dit POURQUOI', async () => {
   }
 });
 
+// Trou repéré sur le storyboard du mode Script. Les plans qui montrent le
+// produit disent « the product shown in the reference image » : juste quand
+// l'app génère l'image, elle joint la photo. Mais les deux boutons ChatGPT et
+// Gemini copient ce même prompt vers des applications qui n'ont AUCUNE photo.
+// Sans avertissement, le créateur colle un prompt qui parle d'une image de
+// référence absente, et le modèle invente un produit : le sosie qu'on refuse
+// depuis le début, arrivé par la porte de derrière.
+test('les boutons ChatGPT et Gemini préviennent qu\'il faut joindre la photo', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(() => ({
+      avecProduit: blocGenImage('k', true),
+      sansProduit: blocGenImage('k', false),
+      sansArgument: blocGenImage('k')
+    }));
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.match(r.avecProduit, /joins ta photo/i,
+      'REGRESSION : un plan qui montre le produit n\'avertit plus qu\'il faut joindre la photo dans '
+      + 'ChatGPT ou Gemini. Le prompt y parle d\'une image de référence qui n\'y sera pas, et le modèle '
+      + 'inventera un produit.');
+    assert.match(r.avecProduit, /Générer la vidéo/,
+      'et il doit dire où l\'app le fait toute seule, sinon l\'avertissement décourage sans proposer mieux');
+    assert.ok(!/joins ta photo/i.test(r.sansProduit) && !/joins ta photo/i.test(r.sansArgument),
+      'REGRESSION : l\'avertissement s\'affiche sur des plans ordinaires. Il n\'aurait aucun sens, et il '
+      + 'apparaîtrait dans les modes Récit, Série et Storyboard seul, qui n\'ont jamais de produit.');
+    assert.equal((r.avecProduit.match(/genimg-logo-btn/g) || []).length, 2,
+      'les deux boutons restent en place, on ajoute une note, on ne remplace rien');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

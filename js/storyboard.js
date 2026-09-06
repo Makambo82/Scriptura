@@ -457,7 +457,7 @@ async function generateStoryStoryboard() {
         <div class="sb-dit">"${auditEsc(p.text || '')}"</div>
         <div class="sb-visual-label">${ICO('image')} Prompt visuel</div>
         <div class="sb-visual">${auditEsc(p.visuel || '')}</div>
-        ${blocGenImage(storeCopyText(p.visuel || ''))}
+        ${blocGenImage(storeCopyText(p.visuel || ''), p.produit)}
       </div>`;
 
   // Déclaré AVANT le try (bug corrigé, retour terrain, audit du 2 septembre
@@ -642,12 +642,24 @@ const LOGO_GEMINI = `<svg viewBox="0 0 24 24" width="26" height="26"><defs><line
 
 // Génère le bloc "Générer l'image : [logo ChatGPT] [logo Gemini]" pour un prompt donné.
 // promptKey est une clé du registre _copyStore (via storeCopyText).
-function blocGenImage(promptKey) {
+function blocGenImage(promptKey, montreProduit) {
+  // TROU REPÉRÉ SUR LE STORYBOARD DU MODE SCRIPT. Les plans qui montrent le
+  // produit disent, dans leur prompt, « the product shown in the reference
+  // image ». C'est juste quand l'image est générée PAR L'APP : elle joint la
+  // photo elle-même. Mais ces deux boutons-là copient le prompt et ouvrent
+  // ChatGPT ou Gemini, qui n'ont AUCUNE photo. Sans le dire, le créateur
+  // colle un prompt qui parle d'une image de référence absente, et le modèle
+  // invente un produit : le sosie qu'on refuse depuis le début, arrivé par la
+  // porte de derrière.
+  const note = montreProduit
+    ? `<p class="genimg-produit-note">Ce plan montre ton vrai produit. Ici, joins ta photo au message
+       ChatGPT ou Gemini, sinon il en inventera un. Avec « Générer la vidéo », l'app l'envoie toute seule.</p>`
+    : '';
   return `<div class="genimg-inline">
     <span class="genimg-inline-label">Générer l'image :</span>
     <button class="genimg-logo-btn" title="Ouvrir dans ChatGPT" onclick="genImageDirect('chatgpt', '${promptKey}')">${LOGO_CHATGPT}</button>
     <button class="genimg-logo-btn" title="Ouvrir dans Gemini" onclick="genImageDirect('gemini', '${promptKey}')">${LOGO_GEMINI}</button>
-  </div>`;
+  </div>${note}`;
 }
 
 // Clic direct sur un logo : copie le prompt + ouvre l'app choisie (sans boîte de dialogue)
