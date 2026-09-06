@@ -158,18 +158,21 @@ test('les vignettes dont l\'image est prête portent le contour émeraude, les a
     await page.waitForTimeout(300);
 
     const vu = await page.evaluate(() => {
-      venteFichier = { base64: 'ZmF1c3NlLXBob3Rv', mediaType: 'image/png', nom: 'produit.png' };
       ouvrirMontage([
-        { text: 'Le problème', visuel: 'a', produitReel: false },
-        { text: 'La solution', visuel: 'b', produitReel: true }
+        { text: 'Le problème', visuel: 'a' },
+        { text: 'La solution', visuel: 'b' }
       ], null);
+      // Une image posée à la main sur le second plan : c'est désormais le seul
+      // chemin par lequel un plan peut être pourvu sans génération (l'insertion
+      // automatique de la photo produit a été retirée à la demande du
+      // propriétaire, voir js/montage.js).
+      _assignerImageMontage(1, new File([Uint8Array.from([1, 2, 3])], 'a-moi.png', { type: 'image/png' }));
+      renderMontageEtat();
       return Array.from(document.querySelectorAll('#montageImagesThumbs .audit-thumb'))
         .map(t => t.classList.contains('montage-thumb-prete'));
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    // Le plan 2 reçoit la vraie photo produit dès l'ouverture (voir
-    // tests/produit-reel-jamais-imite.test.js), le plan 1 attend sa génération.
     assert.deepEqual(vu, [false, true],
       'REGRESSION : seul un plan dont l\'image est là porte le contour émeraude : ' + JSON.stringify(vu));
   } finally {
