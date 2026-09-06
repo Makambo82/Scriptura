@@ -2637,20 +2637,29 @@ body.is-unlocked .sidebar-logout{display:block}
    6 px de haut, volontairement plus fin que le modèle fourni, pour rester
    une barre de progression et pas un bandeau. */
 .sb-progress-bar-track{
-  flex:1;height:6px;border-radius:999px;
+  flex:1;height:12px;border-radius:999px;
   background:rgba(255,255,255,0.08);overflow:hidden;
+  /* HAUTEUR : 12 px, choisie par le propriétaire après comparaison de cinq
+     rendus. Première version à 6 px, jugés trop fins. Le modèle qu'il a
+     fourni fait 24 px (mesuré dans son image), donc 12 px reste bien « moins
+     large que le modèle », comme demandé, sans redevenir un fil.
+     RAYURES À LA PROPORTION EXACTE DU MODÈLE : la rayure dorée y fait
+     horizontalement la hauteur de la barre (24 px sur 24 px de haut). À 12 px
+     de haut, la rayure perpendiculaire vaut donc 12/racine(2) = 8,49 px, et
+     le motif se répète tous les 2 x 12 = 24 px horizontaux. La première
+     version avait des rayures deux fois trop larges pour cette proportion. */
   background-image:repeating-linear-gradient(
     -45deg,
-    var(--gold) 0 9px,
-    rgba(255,255,255,0.06) 9px 18px);
-  background-size:25.46px 25.46px; /* 18px x racine de 2 : le pas exact du motif à 45°, sinon le défilement saute à chaque boucle */
+    var(--gold) 0 8.49px,
+    rgba(255,255,255,0.06) 8.49px 16.97px);
+  background-size:24px 24px;
 }
 @media(prefers-reduced-motion:no-preference){
   .sb-progress-bar-track{animation:rubanDefile 0.9s linear infinite}
 }
 @keyframes rubanDefile{
   from{background-position:0 0}
-  to{background-position:25.46px 0}
+  to{background-position:24px 0}
 }
 /* Le remplissage n'a plus rien à remplir, mais l'élément RESTE dans le DOM :
    les treize endroits qui pilotent une barre continuent de lui écrire une

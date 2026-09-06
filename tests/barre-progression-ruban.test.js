@@ -97,9 +97,14 @@ test('le ruban défile vraiment, et le chiffre reste lisible au centre', async (
       'REGRESSION : le motif ne bouge pas réellement (positions lues : ' + vu.positions.join(', ')
       + '). Une animation déclarée mais immobile ne dit rien au créateur.');
     assert.equal(vu.animAnneau, 'dsLoadingSpin', 'l\'anneau autour du chiffre doit tourner');
-    assert.ok(vu.hauteurPiste > 0 && vu.hauteurPiste <= 8,
-      'REGRESSION : la barre fait ' + vu.hauteurPiste + ' px de haut. Le propriétaire l\'a demandée '
-      + 'plus fine que le modèle : au-delà, ce n\'est plus une barre de progression mais un bandeau.');
+    // Fourchette, pas une valeur unique : la hauteur exacte est un réglage de
+    // goût (6 px d'abord, jugés trop fins, puis 12). Ce qui doit rester vrai,
+    // c'est qu'elle se voit ET qu'elle reste nettement plus fine que les 24 px
+    // du modèle fourni, mesurés dans l'image du propriétaire.
+    assert.ok(vu.hauteurPiste >= 8 && vu.hauteurPiste <= 14,
+      'REGRESSION : la barre fait ' + vu.hauteurPiste + ' px de haut. En dessous de 8 px elle est trop '
+      + 'fine pour qu\'on lise les rayures, au-delà de 14 px ce n\'est plus une barre de progression '
+      + 'mais un bandeau (le modèle fourni faisait 24 px).');
     assert.equal(vu.pctDedans, true,
       'REGRESSION : le pourcentage déborde du cercle au lieu d\'être posé en son centre');
     assert.equal(vu.pctVisible, true, 'le pourcentage doit rester lisible : c\'est la SEULE information '
