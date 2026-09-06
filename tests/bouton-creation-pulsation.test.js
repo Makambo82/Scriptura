@@ -121,7 +121,59 @@ test('devenu « − », il se fige, puis repulse quand on referme', async () => 
   }
 });
 
-test('l\'appui reste perceptible malgré l\'animation infinie', async () => {
+// Choix du propriétaire après comparaison des deux rendus : la pulsation
+// appelle pendant trois cycles, puis le bouton se pose. Une pulsation sans
+// fin cesse d'être une invitation pour devenir du décor, et sur l'accueil
+// elle cohabiterait en permanence avec la flèche qui bondit.
+test('la pulsation s\'arrête d\'elle-même après trois cycles, et repart quand le bouton revient', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+
+    const cadence = await page.evaluate(() => {
+      const a = document.getElementById('creerBtn').getAnimations()[0];
+      const t = a && a.effect.getTiming();
+      return { duree: t && t.duration, cycles: t && t.iterations };
+    });
+    assert.equal(cadence.cycles, 3, 'REGRESSION : la pulsation n\'est plus bornée à trois cycles');
+
+    // On avance le temps de l'animation plutôt que d'attendre 8 secondes en
+    // vrai : même résultat, sans allonger la suite pour rien.
+    await page.evaluate(() => {
+      const a = document.getElementById('creerBtn').getAnimations()[0];
+      a.currentTime = 2.6 * 3 * 1000 + 200;
+    });
+    await page.waitForTimeout(200);
+    const apres = await page.evaluate(() => {
+      const b = document.getElementById('creerBtn');
+      const a = b.getAnimations()[0];
+      const r = b.getBoundingClientRect();
+      return { etat: a && a.playState, largeur: Math.round(r.width * 10) / 10 };
+    });
+    const auRepos = await mesurer(page, 8);
+
+    assert.equal(apres.etat, 'finished', 'REGRESSION : la pulsation tourne encore après trois cycles');
+    assert.equal(auRepos.amplitude, 0,
+      'REGRESSION : le bouton bouge encore une fois la pulsation terminée (' + auRepos.amplitude + ' px)');
+
+    // Elle doit REPARTIR quand le bouton réapparaît, sinon l'invitation ne
+    // vaudrait que pour les huit premières secondes de toute la session.
+    await page.evaluate(() => basculerPanneauCreation());
+    await page.waitForTimeout(500);
+    await page.evaluate(() => fermerPanneauCreation());
+    await page.waitForTimeout(400);
+    const relance = await mesurer(page, 10);
+    assert.ok(relance.amplitude >= 1.5,
+      'REGRESSION : la pulsation ne repart pas quand le bouton réapparaît (' + relance.amplitude.toFixed(1)
+      + ' px). L\'invitation ne vaudrait alors que pour les toutes premières secondes de la session.');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('l\'appui reste perceptible malgré l\'animation', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {

@@ -2088,8 +2088,21 @@ body.creer-ouvert #creerBtnBarre{transform:scaleY(0)}
   0%,100%{transform:translate(-50%,0) scale(1);box-shadow:0 6px 20px rgba(0,0,0,0.45)}
   50%{transform:translate(-50%,0) scale(1.06);box-shadow:0 6px 20px rgba(0,0,0,0.45),0 0 0 7px rgba(212,175,90,0.13)}
 }
+/* TROIS CYCLES, PAS L'INFINI. Choix du propriétaire après comparaison des
+   deux rendus, et il tombe juste : une pulsation sans fin cesse d'être une
+   invitation pour devenir du décor, on ne la voit plus au bout d'une minute.
+   Et sur l'accueil elle cohabite avec la flèche qui bondit, donc deux dorés
+   en mouvement se disputent l'œil en permanence. Trois cycles appellent
+   pendant les 7,8 premières secondes, puis le bouton se pose.
+   Elle REPART toute seule à chaque fois que le bouton réapparaît (fermeture
+   du panneau, retour à l'accueil, sortie d'une génération) : le sélecteur
+   cesse de s'appliquer puis se réapplique, ce qui relance l'animation. Le
+   créateur retrouve donc l'invitation à chaque nouveau moment où elle a du
+   sens, sans jamais la subir en continu.
+   `both` garde l'état final : le bouton se repose exactement à sa taille
+   normale, jamais figé au milieu d'un battement. */
 @media(prefers-reduced-motion:no-preference){
-  body:not(.creer-ouvert) #creerBtn.visible{animation:creerPulse 2.6s ease-in-out infinite}
+  body:not(.creer-ouvert) #creerBtn.visible{animation:creerPulse 2.6s ease-in-out 3 both}
 }
 
 /* ── PANNEAU DE CRÉATION (dépliant depuis le bas) ── */
