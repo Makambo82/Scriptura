@@ -3191,6 +3191,66 @@ body.is-unlocked .sidebar-logout{display:block}
   border-radius:12px;padding:20px;position:relative;
 }
 .montage-section:first-of-type{margin-top:28px}
+
+/* ══ SUR PC, LES BLOCS SE METTENT CÔTE À CÔTE ══
+   Retour du propriétaire, capture d'un portable à l'appui : « au lieu que ce
+   soit empilé, le mettre sur la même ligne ». Il a raison. L'app est écrite
+   pour le téléphone, donc en colonne étroite, et sur un écran de 1366 px
+   cette colonne de 560 px laisse 400 px de vide de chaque côté pendant qu'on
+   fait défiler trois blocs qui tiendraient largement sur deux rangs.
+   Les blocs de montage (Images, Voix off, Musique, Sous-titres…) sont
+   INDÉPENDANTS les uns des autres : rien n'oblige à les lire dans l'ordre,
+   ils peuvent donc vivre côte à côte sans perdre leur sens.
+   CE QUI RESTE EN COLONNE ÉTROITE, volontairement : les titres et les textes
+   d'explication. Une ligne de texte trop longue se lit mal, c'est la règle la
+   plus ancienne de la typographie ; élargir la colonne de lecture aurait
+   dégradé l'app au lieu de l'améliorer. D'où la grille où TOUT s'étend sur
+   les deux colonnes par défaut, et où seuls les blocs se rangent en deux. */
+@media(min-width:1024px){
+  #montageManuelFlow .ds-wrap,
+  #montageFlow .ideas-container,
+  #flow .ideas-container:has(.montage-section){
+    max-width:1040px;
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:0 20px;align-items:start;
+  }
+  #montageManuelFlow .ds-wrap > *,
+  #montageFlow .ideas-container > *,
+  #flow .ideas-container:has(.montage-section) > *{grid-column:1 / -1}
+  #montageManuelFlow .ds-wrap > .montage-section,
+  #montageFlow .ideas-container > .montage-section,
+  #flow .ideas-container:has(.montage-section) > .montage-section{grid-column:auto}
+  /* Les marges verticales des blocs viennent de margin-top : sur deux
+     colonnes, le premier bloc de CHAQUE rang doit garder la même. */
+  #montageManuelFlow .ds-wrap > .montage-section,
+  #flow .ideas-container:has(.montage-section) > .montage-section{margin-top:20px}
+  /* Le bloc de fin (options, barre de progression, « Démarrer le montage »)
+     s'étend sur les deux colonnes, mais il ne DOIT pas s'étirer sur 1040 px :
+     un interrupteur avec son libellé à un bout et sa bascule à l'autre se lit
+     mal, et un bouton d'action large comme l'écran ne se vise pas mieux. On
+     le recentre à la largeur d'origine. */
+  #montageManuelFlow .montage-finish,
+  #montageFlow .montage-finish{max-width:620px;margin-left:auto;margin-right:auto}
+
+  /* ── LE MÊME PRINCIPE DANS TOUS LES FORMULAIRES ──
+     « Et je crois qu'il doit en être pareil au niveau de toute l'app. »
+     Les cartes de contexte (script, récit, série, carrousel, idées,
+     storyboard, analyse) empilent jusqu'à sept champs dont cinq listes
+     déroulantes courtes : niche, audience, format, ton, durée. Sur un
+     portable, ça fait défiler pour rien.
+     LA RÈGLE EST CHOISIE SUR LA NATURE DU CHAMP, pas sur son rang : un
+     champ à liste déroulante tient dans une demi-largeur (330 px, presque
+     l'écran d'un téléphone), un champ où l'on ÉCRIT garde toute la
+     largeur. C'est ce qui fait qu'un nouveau champ ajouté demain se range
+     tout seul du bon côté, sans qu'on ait à y penser.
+     La carte ne s'élargit pas : on range mieux les 684 px déjà là plutôt
+     que d'étirer la colonne de lecture des résultats. */
+  .context-card{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;align-items:start}
+  .context-card > *{grid-column:1 / -1}
+  .context-card > .ctx-field:has(select, input[type=text]):not(:has(textarea)):not(:has(.ds-field)):not(:has(button:not(.custom-select-trigger):not(.grid-btn))){
+    grid-column:auto;
+  }
+}
 /* PAS de overflow:hidden sur .montage-section (retour propriétaire, capture
    à l'appui) : le menu déroulant maison (.custom-select-panel, voir plus
    bas) se positionne en absolu par rapport à la carte et doit pouvoir
