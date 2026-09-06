@@ -407,11 +407,15 @@ LES RÈGLES QUI DÉCIDENT SI LE CARROUSEL EST LU JUSQU'AU BOUT
 6. Le bandeau fait ${CAR_MOTS_BANDEAU_MAX} mots maximum. C'est une phrase qui frappe, pas un résumé.
 
 LE VISUEL, séparément
-Chaque slide porte aussi un champ "visuel" : la consigne de l'image de fond, décrite pour un générateur d'images. Décris une scène, une ambiance, une lumière. JAMAIS de texte ni de lettres (le texte est posé par-dessus par le moteur de rendu). Garde une direction artistique COHÉRENTE d'une slide à l'autre.${ctx.venteFichier ? `
-PRODUIT RÉEL, RÈGLE ABSOLUE : le créateur vend un produit précis et sa VRAIE photo est disponible. Aucun de tes visuels ne doit donc représenter ce produit, ni un emballage, ni un tube, ni un flacon, ni une boîte, ni une étiquette, ni un logo : une image générée en produirait une imitation, forcément différente de la sienne, ce qui ruinerait un carrousel de vente. Décris seulement ce qui ENTOURE le produit : la personne, son geste, son émotion, le décor, la lumière, le problème vécu. Le produit lui-même sera montré par la vraie photo du créateur.` : ''}
+Chaque slide porte aussi un champ "visuel" : la consigne de l'image de fond, décrite pour un générateur d'images. Décris une scène, une ambiance, une lumière. JAMAIS de texte ni de lettres (le texte est posé par-dessus par le moteur de rendu). Garde une direction artistique COHÉRENTE d'une slide à l'autre.${ctx.venteFichierEstImage ? `
+PRODUIT RÉEL DU CRÉATEUR : sa VRAIE photo sera transmise au générateur d'images comme image de référence, sur les slides que TU auras marquées. C'est donc son produit exact qui apparaîtra, jamais une imitation.
+- MARQUE 1 à 3 slides, pas plus, en ajoutant "produit": true à côté de leur champ "visuel". Choisis celles où voir le produit sert vraiment la vente : la révélation, l'usage, le résultat. Le produit sur chaque slide ferait une publicité, et on ne fait pas défiler une publicité.
+- Sur une slide marquée, le visuel montre le produit EN USAGE : une main qui le tient, une personne qui le porte, qui l'applique. Désigne-le par "the product shown in the reference image", et décris tout le reste : la personne, son geste, le décor, la lumière.
+- INTERDICTION ABSOLUE sur ces slides : ne décris jamais l'apparence du produit, ni sa couleur, ni sa forme, ni son emballage, ni son étiquette, ni son logo. La photo de référence porte déjà tout cela ; le décrire ferait dériver le modèle vers un objet inventé.
+- Sur les slides non marquées, le produit n'apparaît pas : la personne, son geste, son émotion, le décor, le problème vécu.` : ''}
 
 RÉPONDS UNIQUEMENT EN JSON VALIDE, sans aucun texte avant ni après :
-{"titre":"titre court du carrousel, pour l'historique","analyse":"en 2 phrases, pourquoi cet angle peut fonctionner","direction_visuelle":"la direction artistique commune, en une phrase","slides":[{"numero":1,"gabarit":"couverture","eyebrow":"...","badge":"","emoji":"","titre":"...","titre_accent":"...","definition":"","points":[{"emoji":"🎯","titre":"...","texte":"..."}],"bandeau":"...","visuel":"..."}],"legende":"la légende de la publication, prête à copier, SANS hashtag dedans","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"son_suggere":"le type de son ou de musique, en une phrase (un carrousel sans audio perd une grande partie de sa portée)"}
+{"titre":"titre court du carrousel, pour l'historique","analyse":"en 2 phrases, pourquoi cet angle peut fonctionner","direction_visuelle":"la direction artistique commune, en une phrase","slides":[{"numero":1,"gabarit":"couverture","eyebrow":"...","badge":"","emoji":"","titre":"...","titre_accent":"...","definition":"","points":[{"emoji":"🎯","titre":"...","texte":"..."}],"bandeau":"...","visuel":"...","produit":false}],"legende":"la légende de la publication, prête à copier, SANS hashtag dedans","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5"],"son_suggere":"le type de son ou de musique, en une phrase (un carrousel sans audio perd une grande partie de sa portée)"}
 
 Le tableau "slides" contient ${ctx.estMatiere ? `AU PLUS ${nb} éléments (moins si la matière n'en porte pas autant), numérotés à partir de 1` : `EXACTEMENT ${nb} éléments, numérotés de 1 à ${nb}`}. La slide 1 est en gabarit "couverture", la slide ${nb} en gabarit "recap", toutes les autres en "contenu". Laisse vides ("" ou []) les champs qui ne servent pas au gabarit choisi.`;
 }
@@ -566,6 +570,13 @@ function carrouselLireFormulaire() {
     // partir en douce dans un prompt qui ne parle pas de vente.
     venteDescription: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? val('carrouselVenteDescription') : '',
     venteFichier: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES ? carrouselVenteFichier : null,
+    // Une PHOTO, pas un PDF : seule une image peut servir de référence au
+    // générateur d'images. Une brochure jointe nourrit très bien l'écriture,
+    // mais marquer des slides « montre le produit » sans photo à envoyer
+    // ferait inventer un objet au modèle (voir photoProduitPourVisuels,
+    // js/generation.js, même garde côté Script).
+    venteFichierEstImage: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES
+      && !!carrouselVenteFichier && /^image\//i.test(carrouselVenteFichier.mediaType || ''),
     estMatiere: carrouselEstMatiere(val('carrouselSujet'))
   };
 }
@@ -604,7 +615,13 @@ function normaliserSlideCarrousel(s, i, total) {
         texte: String(p.texte || '').trim()
       })),
     bandeau: String(s.bandeau || '').trim(),
-    visuel: String(s.visuel || '').trim()
+    visuel: String(s.visuel || '').trim(),
+    // Slide qui doit montrer le VRAI produit du créateur, marquée par le
+    // rédacteur (voir blocVenteCarrousel). C'est ce marquage qui décide
+    // d'envoyer sa photo en référence au générateur d'images. Conservé ici
+    // parce que cette fonction est le SEUL point de passage des slides :
+    // l'oublier le ferait disparaître entre la réponse de l'IA et l'écran.
+    produit: !!s.produit
   };
 }
 
@@ -884,6 +901,32 @@ function basculerFondCarrousel(i) {
   genererImageCarrousel(i);
 }
 
+// Le corps d'appel pour générer un fond de slide. Sans slide marquée, ou
+// sans photo de produit, il est exactement celui d'avant : rien ne change
+// hors objectif Ventes.
+//
+// La photo vient de carrouselVenteFichier, chargé au moment du formulaire.
+// Elle n'est PAS enregistrée avec le carrousel : un carrousel rouvert depuis
+// l'historique ne la retrouve donc pas, et ses slides marquées repartiraient
+// sans référence. D'où la même garde qu'ailleurs, on n'envoie le marquage
+// que si la photo est réellement là.
+function corpsImageCarrousel(prompts, slidesAssociees) {
+  const corps = {
+    prompts,
+    format: carrouselFormat,
+    usage: 'carrousel',
+    code_acces: localStorage.getItem('scriptura_code') || null
+  };
+  const photo = (carrouselVenteFichier && /^image\//i.test(carrouselVenteFichier.mediaType || ''))
+    ? carrouselVenteFichier : null;
+  const avecProduit = slidesAssociees.map(s => !!(s && s.produit));
+  if (photo && avecProduit.some(Boolean)) {
+    corps.produit = { base64: photo.base64, mediaType: photo.mediaType };
+    corps.avecProduit = avecProduit;
+  }
+  return corps;
+}
+
 async function genererImageCarrousel(i) {
   if (carrouselImagesEnCours || !carrouselResultat) return;
   const slide = carrouselResultat.slides[i];
@@ -906,12 +949,9 @@ async function genererImageCarrousel(i) {
     const rep = await fetch('/api/montage-media?action=images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        prompts: [construirePromptImageCarrousel(slide.visuel || slide.titre)],
-        format: carrouselFormat,
-        usage: 'carrousel',
-        code_acces: localStorage.getItem('scriptura_code') || null
-      })
+      body: JSON.stringify(corpsImageCarrousel(
+        [construirePromptImageCarrousel(slide.visuel || slide.titre)], [slide]
+      ))
     });
     const data = await rep.json();
     const img = data.images && data.images[0];

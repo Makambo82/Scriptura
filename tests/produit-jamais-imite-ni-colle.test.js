@@ -19,19 +19,25 @@
 //    un, et le rectangle brut de la photo s'est retrouvé collé sur le décor,
 //    par-dessus le texte des slides.
 //
-// LA LIMITE DE FOND n'a pas bougé : la génération d'images ne reçoit qu'un
-// TEXTE, aucune image de référence (api/montage-media.js). Elle ne peut donc
-// ni détourer une photo, ni la redessiner. « Un homme tenant CE produit »
-// demanderait un modèle image-vers-image, que Scriptura n'a pas.
+// CE QUI A CHANGÉ DEPUIS, ET QUI EST LE CŒUR DU SUJET. La phrase qui tenait
+// tout ce fichier, « la génération d'images ne reçoit qu'un TEXTE, aucune
+// image de référence », décrivait NOTRE CODE, pas l'état de l'art. Elle est
+// tombée : la photo du produit part désormais au modèle EN RÉFÉRENCE, et
+// c'est lui qui redessine la scène autour du vrai produit (voir
+// api/montage-media.js et tests/produit-reel-dans-les-images.test.js).
+// « Un homme tenant CE produit » demandait un modèle image-vers-image :
+// on en a un.
 //
-// CE QUI RESTE, ET QUI VAUT PAR SOI-MÊME : l'interdiction de DESSINER une
-// imitation du produit. Une image générée en produirait un sosie, logo faux
-// et étiquette en charabia ; sur un contenu de vente, un sosie est pire que
-// rien, le client qui reçoit le vrai produit voit la différence.
-//
-// Ces tests verrouillent les deux moitiés de la décision :
-//   - aucune photo produit n'est plus collée dans un visuel, nulle part ;
-//   - aucune image générée n'a le droit de représenter le produit.
+// CE QUI RESTE VRAI, ET QUE CE FICHIER CONTINUE DE VERROUILLER :
+//   - ON NE COLLE TOUJOURS RIEN. Le détourage a raté deux fois et reste une
+//     mauvaise route ; aucun code ne doit remettre un rectangle de photo
+//     par-dessus un décor généré.
+//   - ON NE DÉCRIT TOUJOURS PAS LE PRODUIT EN TEXTE. C'est la même raison
+//     qu'avant, retournée : décrire sa couleur, sa forme ou son logo entre
+//     en concurrence avec la photo de référence et fait dériver le modèle
+//     vers un objet inventé. Un sosie reste pire que rien.
+// Seule la conclusion a changé : au lieu d'interdire le produit partout, on
+// désigne les plans qui le montrent et on envoie la vraie photo.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -47,25 +53,40 @@ const SRC_STORYBOARD = lire('storyboard.js');
 const regleProduit = eval('(' + SRC_STORYBOARD.match(/function regleProduitReelVisuels[\s\S]*?\n}/)[0]
   .replace('function regleProduitReelVisuels', 'function') + ')');
 
-test('la règle anti-imitation existe toujours, et SEULEMENT si un produit est chargé', () => {
+test('l\'interdiction de DÉCRIRE le produit tient toujours, et SEULEMENT si un produit est chargé', () => {
   assert.equal(regleProduit(false), '', 'sans produit, aucune consigne ne doit alourdir le prompt');
   const avec = regleProduit(true);
-  assert.match(avec, /ne doit le représenter/, avec.slice(0, 160));
-  assert.match(avec, /emballage/, 'les formes concrètes du produit doivent être nommées, pas seulement "le produit"');
-  assert.match(avec, /logo/, 'le logo est justement ce qu\'une imitation rate toujours');
-  assert.match(avec, /un sosie est pire que rien/,
-    'la raison doit rester écrite dans le prompt : c\'est elle qui tient devant des consignes créatives insistantes');
+  // C'est la règle qui décide de la fidélité du produit livré. La photo de
+  // référence porte déjà la couleur, la forme, l'étiquette et le logo : les
+  // décrire en plus met le texte en concurrence avec l'image et fait dériver
+  // le modèle vers un objet inventé, exactement le sosie qu'on refuse depuis
+  // le premier jour.
+  assert.match(avec, /ne décris (JAMAIS|jamais) l'apparence du produit/i,
+    'REGRESSION : plus rien n\'interdit de décrire le produit. ' + avec.slice(0, 200));
+  ['couleur', 'forme', 'étiquette', 'logo'].forEach(mot => {
+    assert.ok(avec.includes(mot),
+      'REGRESSION : "' + mot + '" n\'est plus nommé dans l\'interdiction. Une interdiction abstraite '
+      + '("ne décris pas le produit") ne tient pas devant un modèle qui veut bien faire : il faut '
+      + 'nommer ce qu\'il ne doit pas écrire.');
+  });
+  assert.match(avec, /objet inventé/,
+    'la RAISON doit rester écrite dans le prompt : c\'est elle qui tient devant des consignes '
+    + 'créatives insistantes, une règle sans raison se fait contourner');
 });
 
-test('le storyboard ne demande PLUS de marquer des plans pour la photo produit', () => {
+test('le storyboard demande de marquer les plans qui montrent le vrai produit', () => {
   const avec = regleProduit(true);
-  assert.ok(!/"produit": true/.test(avec),
-    'REGRESSION : ce marquage servait à insérer la vraie photo, retirée à la demande du propriétaire');
-  assert.ok(!/prompt de secours/.test(avec),
-    'plus de prompt de secours à demander : il n\'existe plus de prompt principal contenant le produit');
-  // Le format de réponse redevient une simple liste de chaînes.
-  assert.ok(!/"produit":false/.test(SRC_STORYBOARD),
-    'le gabarit JSON ne doit plus proposer la forme {prompt, produit}');
+  assert.match(avec, /"produit"\s*:\s*true/,
+    'REGRESSION : le marquage des plans a disparu. Sans lui, la photo du créateur ne part sur AUCUNE '
+    + 'image, et on retombe sur des vidéos de vente qui ne montrent jamais le produit vendu.');
+  assert.match(avec, /reference image/i,
+    'le prompt doit désigner le produit comme celui de l\'image de référence, sinon le modèle ne fait '
+    + 'aucun lien entre la photo jointe et l\'objet demandé');
+  // Le nombre de plans marqués est plafonné : c'est ce qui sépare une vidéo
+  // qui vend d'une publicité qu'on fait défiler.
+  assert.match(avec, /2 à 4 plans/,
+    'REGRESSION : plus aucun plafond au nombre de plans montrant le produit. Le produit sur chaque '
+    + 'image transforme la vidéo en publicité, et chaque référence coûte plus cher.');
 });
 
 test('plus AUCUN code ne colle la photo produit dans un visuel', () => {

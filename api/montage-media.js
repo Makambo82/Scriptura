@@ -354,6 +354,43 @@ const TENTATIVES_MAX = 3;
 // code à chaque essai : change TOGETHER_IMAGE_MODEL sur Vercel, redéploie
 // juste la variable, génère de vraies images sur le site pour comparer.
 const MODELE = process.env.TOGETHER_IMAGE_MODEL || 'openai/gpt-image-2';
+
+// ══ LA VRAIE PHOTO DU PRODUIT, DONNÉE AU MODÈLE EN RÉFÉRENCE ══
+//
+// C'est LA fonctionnalité qui manquait à l'objectif « Générer des ventes »,
+// et le propriétaire l'a dit sans détour : « ça me fait très mal qu'on n'ait
+// pas pu faire ça ». Un créateur qui vend une montre veut une image où on
+// PORTE sa montre ; une pommade, une main qui tient SON tube. C'est ce que
+// tout le monde fait ailleurs en donnant la photo à ChatGPT ou Gemini.
+//
+// POURQUOI ÇA MARCHE MAINTENANT, alors que ça avait été abandonné. L'ancienne
+// tentative essayait de DÉTOURER la photo et de la COLLER dans un décor
+// généré : deux essais ratés côté Carrousel, et la décision « si l'app ne
+// peut pas détourer parfaitement, on laisse tomber ». Le détourage n'a jamais
+// été la bonne route. Ici, on ne découpe rien : la photo part au modèle
+// d'images COMME RÉFÉRENCE, et c'est lui qui redessine toute la scène autour
+// du vrai produit. GPT Image 2, déjà notre modèle par défaut, accepte
+// jusqu'à 16 images de référence et est explicitement fait pour la cohérence
+// produit. Le commentaire qui disait « le générateur ne reçoit qu'un TEXTE »
+// décrivait notre code, pas l'état de l'art.
+//
+// DEUX FORMES DE PARAMÈTRE, essayées dans l'ordre. Selon les modèles,
+// Together attend `reference_images` (un tableau, forme multi-images) ou
+// `image_url` (une seule image). On tente la première, et on ne passe à la
+// suivante QUE si l'API refuse explicitement le paramètre. Le nom peut être
+// figé sans redéployer de code (TOGETHER_IMAGE_REF_PARAM), même convention
+// que TOGETHER_IMAGE_MODEL au-dessus.
+const PARAMS_REFERENCE = (process.env.TOGETHER_IMAGE_REF_PARAM || 'reference_images,image_url')
+  .split(',').map(s => s.trim()).filter(Boolean);
+// Un modèle dédié peut être choisi pour les seules images à produit (par
+// exemple un modèle d'édition), sans toucher aux images ordinaires.
+const MODELE_PRODUIT = process.env.TOGETHER_IMAGE_PRODUCT_MODEL || MODELE;
+// ~4 Mo de base64, soit environ 3 Mo de photo : au-delà, c'est la requête
+// entière qui casse côté Vercel, avec une erreur incompréhensible pour le
+// créateur. Le client compresse déjà ses photos (voir compresserImage,
+// js/generation.js), ce plafond n'est qu'un garde-fou.
+const REFERENCE_MAX_CARACTERES = 4 * 1024 * 1024;
+
 const DIMENSIONS_FORMAT = {
   '9:16': { w: 1024, h: 1536 },
   '16:9': { w: 1536, h: 1024 },
@@ -371,14 +408,32 @@ function estBlocageNSFW(message) {
   return /nsfw|not safe|safety|flagged|content policy|may contain|moderat/i.test(String(message));
 }
 
-async function genererUneImage(apiKey, prompt, dims) {
+// L'API a-t-elle refusé LE PARAMÈTRE de référence lui-même (nom inconnu de ce
+// modèle), plutôt que la demande ? C'est la seule erreur qui justifie de
+// réessayer avec l'autre forme : sur toute autre erreur, insister ne ferait
+// que rejouer le même échec en le facturant.
+function estParametreRefuse(message) {
+  const m = String(message);
+  return /reference_image|image_url/i.test(m)
+    && /unknown|unrecogni|unsupported|not supported|not permitted|invalid|extra|unexpected/i.test(m);
+}
+
+async function genererAvecForme(apiKey, prompt, dims, reference, nomParam) {
   let promptCourant = prompt;
   let dejaSecurise = false;
   for (let tentative = 1; tentative <= TENTATIVES_MAX; tentative++) {
+    const corps = {
+      model: reference ? MODELE_PRODUIT : MODELE,
+      prompt: promptCourant, width: dims.w, height: dims.h, response_format: 'base64'
+    };
+    if (reference) {
+      if (nomParam === 'reference_images') corps.reference_images = [reference];
+      else corps[nomParam] = reference;
+    }
     const rep = await fetch('https://api.together.xyz/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODELE, prompt: promptCourant, width: dims.w, height: dims.h, response_format: 'base64' })
+      body: JSON.stringify(corps)
     });
     const data = await rep.json();
     if (rep.ok) {
@@ -388,6 +443,11 @@ async function genererUneImage(apiKey, prompt, dims) {
       return { base64: b64, mimeType: 'image/png' };
     }
     const message = data?.error?.message || data?.error || 'Échec de génération (statut ' + rep.status + ')';
+    if (reference && estParametreRefuse(message)) {
+      const e = new Error(message);
+      e.parametreRefuse = true;
+      throw e;
+    }
     if (estBlocageNSFW(message) && !dejaSecurise && tentative < TENTATIVES_MAX) {
       promptCourant = versionSure(prompt);
       dejaSecurise = true;
@@ -397,6 +457,26 @@ async function genererUneImage(apiKey, prompt, dims) {
     if (limiteDebit && tentative < TENTATIVES_MAX) { await attendre(1500 * tentative); continue; }
     throw new Error(message);
   }
+}
+
+async function genererUneImage(apiKey, prompt, dims, reference) {
+  const formes = reference ? PARAMS_REFERENCE : [null];
+  let derniere = null;
+  for (const forme of formes) {
+    try {
+      return await genererAvecForme(apiKey, prompt, dims, reference, forme);
+    } catch (e) {
+      derniere = e;
+      if (!e.parametreRefuse) throw e;
+    }
+  }
+  // AUCUN REPLI SANS LE PRODUIT, volontairement. Le prompt de ces plans-là
+  // demande le vrai produit en main ou porté : le générer sans la photo
+  // donnerait un SOSIE, avec un faux logo et une étiquette en charabia.
+  // Le propriétaire l'a tranché une fois pour toutes : sur un contenu qui
+  // vend, un sosie est pire que rien. On échoue donc franchement, en
+  // remontant le message de l'API, plutôt que de livrer un faux produit.
+  throw derniere || new Error('Échec de génération avec la photo du produit');
 }
 
 async function handleImages(req, res, body) {
@@ -453,6 +533,23 @@ async function handleImages(req, res, body) {
 
   const dims = DIMENSIONS_FORMAT[body?.format] || DIMENSIONS_FORMAT['9:16'];
 
+  // La photo du produit, et la liste des plans qui doivent le montrer. Seuls
+  // les plans marqués la reçoivent : montrer le produit sur CHAQUE image en
+  // ferait une publicité, et coûterait plus cher sans rien apporter.
+  // UNE IMAGE, JAMAIS UN PDF : le créateur peut joindre une brochure pour
+  // nourrir l'écriture, mais on ne donne au générateur d'images que ce qui
+  // en est vraiment une.
+  const produit = body?.produit;
+  const mediaProduit = String(produit?.mediaType || '');
+  let referenceProduit = null;
+  if (produit && typeof produit.base64 === 'string' && produit.base64 && /^image\//i.test(mediaProduit)) {
+    if (produit.base64.length > REFERENCE_MAX_CARACTERES) {
+      return res.status(400).json({ error: { message: 'Photo du produit trop lourde (max ~3 Mo). Reprends-la ou allège-la, elle doit juste montrer le produit.' } });
+    }
+    referenceProduit = 'data:' + mediaProduit + ';base64,' + produit.base64;
+  }
+  const avecProduit = Array.isArray(body?.avecProduit) ? body.avecProduit : [];
+
   const resultats = new Array(prompts.length).fill(null);
   const erreurs = new Array(prompts.length).fill(null);
 
@@ -461,8 +558,13 @@ async function handleImages(req, res, body) {
     while (curseur < prompts.length) {
       const i = curseur++;
       if (!prompts[i]) { erreurs[i] = 'Prompt vide'; continue; }
-      try { resultats[i] = await genererUneImage(apiKey, prompts[i], dims); }
-      catch (e) { erreurs[i] = e.message || 'Erreur inconnue'; }
+      const reference = (referenceProduit && avecProduit[i]) ? referenceProduit : null;
+      try { resultats[i] = await genererUneImage(apiKey, prompts[i], dims, reference); }
+      catch (e) {
+        erreurs[i] = reference
+          ? 'Ton produit n\'a pas pu être intégré à cette image : ' + (e.message || 'erreur inconnue')
+          : (e.message || 'Erreur inconnue');
+      }
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCE_MAX, prompts.length) }, travailleur));

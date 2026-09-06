@@ -675,6 +675,18 @@ document.addEventListener('keydown', function (e) {
 let venteFichier = null; // { base64, mediaType, nom } | null
 const VENTE_PDF_MAX_OCTETS = 3 * 1024 * 1024; // ~3 Mo bruts, une vingtaine de pages d'un PDF texte
 
+// La photo du produit RÉELLEMENT utilisable comme référence pour générer une
+// image : une IMAGE, jamais un PDF. Le créateur peut joindre une brochure ou
+// un ebook, ça nourrit très bien l'écriture du script, mais ça ne se met pas
+// dans la main d'un modèle. Sans ce filtre, un PDF joint marquerait des plans
+// « montre le produit » sans qu'aucune photo ne parte : le générateur
+// inventerait alors un objet, exactement le sosie qu'on refuse.
+// Portée globale (fichiers chargés en <script>) : lue par le montage
+// (js/montage.js) au moment de générer les images.
+function photoProduitPourVisuels() {
+  return (venteFichier && /^image\//i.test(venteFichier.mediaType || '')) ? venteFichier : null;
+}
+
 function syncVenteFieldVisibilite() {
   const champ = document.getElementById('venteField');
   if (champ) champ.style.display = (state.objectif === 'Générer des ventes via mon contenu') ? '' : 'none';
@@ -3585,17 +3597,17 @@ async function generateStoryboard() {
       if (m) grid.insertAdjacentHTML('afterbegin', carteMiniature(m));
     });
 
-    // Produit réel chargé (objectif Ventes) : les visuels générés ne doivent
-    // alors JAMAIS représenter le produit, et les plans censés le montrer
-    // sont marqués pour recevoir la vraie photo au montage (voir
-    // regleProduitReelVisuels, js/storyboard.js).
+    // Produit réel chargé (objectif Ventes) : les plans qui doivent le
+    // montrer sont marqués, et leur image sera générée AVEC la vraie photo
+    // en référence (voir regleProduitReelVisuels, js/storyboard.js, et
+    // api/montage-media.js pour l'envoi de la référence).
     await genererVisuelsParLots(plans, plat, (lot, indexDepart) => {
       const html = lot.map((p, k) => cartePlan(indexDepart + k, p)).join('');
       grid.insertAdjacentHTML('beforeend', html);
       const fait = Math.min(indexDepart + lot.length, plans.length);
       if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
       prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
-    }, !!venteFichier);
+    }, !!photoProduitPourVisuels());
     await promesseMiniature;
     if (statut) statut.remove();
 

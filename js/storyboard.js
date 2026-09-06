@@ -307,32 +307,42 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après : {"miniature":"le
 // Génère le prompt visuel de chaque plan {text}, lot par lot. onLot(lot,
 // indexDepart) est appelé après CHAQUE lot avec les plans de ce lot (déjà
 // enrichis de leur .visuel), pour un affichage progressif.
-// Produit réel chargé par le créateur (objectif Ventes) : sa vraie photo est
-// disponible, on ne doit donc JAMAIS en faire générer une imitation.
+// Produit réel chargé par le créateur (objectif Ventes) : sa vraie photo part
+// désormais AU GÉNÉRATEUR D'IMAGES, en référence.
 //
-// Demande du propriétaire : « que le produit soit représenté exactement,
-// parce que c'est un produit à vendre ». La limite est technique et nette :
-// le générateur d'images ne reçoit qu'un TEXTE (voir api/montage-media.js,
-// aucune image de référence). Même avec la description la plus rigoureuse,
-// il produira un produit RESSEMBLANT, jamais le sien : logo faux, texte de
-// l'étiquette en charabia, proportions différentes. Sur une vidéo de vente,
-// un sosie est pire que rien, le client qui reçoit le vrai produit voit la
-// différence.
+// L'HISTOIRE, parce qu'elle explique la forme de cette règle. Le propriétaire
+// demandait depuis longtemps « que le produit soit représenté exactement,
+// parce que c'est un produit à vendre ». On avait répondu non, deux fois,
+// pour une raison qui était vraie à ce moment-là : notre code n'envoyait
+// qu'un TEXTE au générateur, qui ne pouvait donc produire qu'un SOSIE, faux
+// logo et étiquette en charabia. La tentative suivante, DÉTOURER la photo
+// pour la coller dans un décor généré, a raté deux fois côté Carrousel, d'où
+// l'abandon : « si l'app ne peut pas détourer parfaitement, on laisse tomber ».
 //
-// D'où la règle : les images générées ne montrent JAMAIS le produit. Elles
-// filment la scène, le problème, l'émotion, le décor.
+// Le détourage n'était pas la bonne route, et la limite du texte seul était
+// celle de NOTRE CODE, pas de l'état de l'art. On ne découpe plus rien : la
+// photo est passée au modèle d'images comme référence, et c'est lui qui
+// redessine la scène autour du vrai produit (voir api/montage-media.js).
 //
-// L'INSERTION DE LA VRAIE PHOTO A ÉTÉ RETIRÉE, décision du propriétaire après
-// deux essais ratés côté Carrousel : « si l'app ne peut pas parfaitement
-// détourer le produit et le mettre dans des décors, on laisse tomber cette
-// partie ». Le marquage des plans ("produit": true) n'a donc plus d'objet et
-// a disparu du prompt. Seule l'interdiction de dessiner une imitation reste,
-// et elle vaut par elle-même.
+// D'où l'inversion complète de cette règle : au lieu d'interdire le produit
+// partout, on demande au directeur artistique de MARQUER les plans qui
+// doivent le montrer, et d'écrire ces plans-là comme une scène d'usage.
+//
+// LE POINT QUI FAIT TOUTE LA DIFFÉRENCE : sur ces plans, il ne faut SURTOUT
+// PAS décrire à quoi ressemble le produit. La photo porte déjà sa forme, sa
+// couleur, son logo, son étiquette. Une description entrerait en concurrence
+// avec elle et ferait dériver le modèle vers un objet inventé, c'est-à-dire
+// exactement le sosie qu'on cherche à éviter depuis le début.
 function regleProduitReelVisuels(aUnProduit) {
   if (!aUnProduit) return '';
   return `
-PRODUIT RÉEL, RÈGLE ABSOLUE : le créateur vend un produit précis. Aucun de tes prompts ne doit le représenter, ni un emballage, ni un tube, ni un flacon, ni une boîte, ni une étiquette, ni un logo. Une imitation générée serait forcément différente du vrai produit, et ruinerait la vidéo de vente : sur un contenu qui vend, un sosie est pire que rien.
-Décris à la place ce qui ENTOURE le produit : la personne, son geste, son émotion, le décor, la lumière, le problème vécu, le résultat ressenti. Un plan peut montrer une main qui se tend, un regard dans un miroir, une salle de bain au petit matin, jamais l'objet lui-même.`;
+PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit précis, et sa VRAIE PHOTO sera transmise au générateur d'images comme image de référence, sur les plans que TU auras marqués. C'est donc son produit exact qui apparaîtra, pas une imitation.
+1. MARQUE 2 à 4 plans, pas plus, qui montrent le produit EN USAGE RÉEL : une main qui le tient, une personne qui le porte, qui l'applique, qui s'en sert. Choisis les moments où le voir sert vraiment la vente (la révélation, l'usage, le résultat). Le produit sur CHAQUE plan transformerait la vidéo en publicité et ferait décrocher le spectateur.
+2. Sur un plan marqué, écris "the product shown in the reference image" pour le désigner, et décris TOUT LE RESTE : la personne (peau, âge, mains, vêtements), son geste précis, le décor, la lumière, le cadrage.
+3. INTERDICTION ABSOLUE sur ces plans : ne décris JAMAIS l'apparence du produit, ni sa couleur, ni sa forme, ni sa matière, ni son emballage, ni son étiquette, ni son logo, ni le moindre texte écrit dessus. L'image de référence porte déjà tout cela. Le décrire ferait dériver le modèle vers un objet inventé, et le créateur recevrait un faux produit.
+4. Sur tous les plans NON marqués, le produit n'apparaît pas du tout : filme la scène, le problème, l'émotion, le décor, le résultat ressenti.
+
+FORMAT DE RÉPONSE POUR CES PLANS : un plan marqué s'écrit {"prompt":"le prompt en anglais se terminant par 9:16","produit":true} au lieu d'une simple chaîne. Les autres plans restent des chaînes.`;
 }
 
 async function genererVisuelsParLots(plans, plat, onLot, aUnProduit) {
@@ -365,15 +375,21 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     }
 
     for (let k = 0; k < lot.length; k++) {
-      // Deux formes tolérées : une simple chaîne (la seule demandée
-      // désormais), ou un objet {prompt, ...}. On garde la seconde : un
-      // storyboard enregistré avant le retrait de l'insertion produit, rouvert
-      // depuis l'historique, ne doit pas se retrouver sans visuels.
+      // Deux formes tolérées : une simple chaîne (les plans ordinaires), ou
+      // un objet {prompt, produit} pour les plans qui montrent le vrai
+      // produit du créateur (voir regleProduitReelVisuels). La forme objet
+      // sert aussi de compatibilité : un storyboard enregistré à l'époque de
+      // l'ancienne insertion produit, rouvert depuis l'historique, garde ses
+      // visuels au lieu de se retrouver vide.
       const brut = visuels[k];
       const texte = (brut && typeof brut === 'object') ? brut.prompt : brut;
       lot[k].visuel = texte
         ? assainirPromptVisuel(texte, 'Plan ' + (i + k + 1))
         : 'Prompt visuel indisponible pour ce plan, clique sur ↻ Régénérer pour réessayer.';
+      // Le marquage ne vaut que si on a VRAIMENT une photo à envoyer : sans
+      // elle, un plan marqué demanderait « le produit de l'image de
+      // référence » sans référence, donc un objet inventé.
+      lot[k].produit = !!(aUnProduit && texte && brut && typeof brut === 'object' && brut.produit);
     }
     if (onLot) onLot(lot, i);
   }

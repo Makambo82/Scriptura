@@ -94,7 +94,7 @@ function montageBoutonHTML(id, plans) {
 // pour le fermer, sur demande expresse.
 function ouvrirMontage(plans, boutonEl) {
   montagePlans = (plans || [])
-    .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '' }))
+    .map(p => ({ text: p.text || p.texte || p.texte_dit || '', visuel: p.visuel || p.prompt_visuel || '', produit: !!p.produit }))
     .filter(p => p.text);
   montageImages = new Array(montagePlans.length).fill(null);
   montageImagesSelection = new Set();
@@ -177,27 +177,39 @@ function panneauMontage() {
   return _panneauMontageRef;
 }
 
-// Insère la VRAIE photo du produit sur les plans qui doivent le montrer.
+// LE VRAI PRODUIT DU CRÉATEUR, DANS LES IMAGES GÉNÉRÉES.
 //
-// Demande du propriétaire : « que le produit exact soit généré lors du
-// L'INSERTION DE LA VRAIE PHOTO PRODUIT A ÉTÉ RETIRÉE.
+// Ce qui avait été abandonné, c'était le COLLAGE : détourer la photo et la
+// poser dans un décor généré, deux essais ratés côté Carrousel, d'où « si
+// l'app ne peut pas détourer parfaitement, on laisse tomber ». On ne découpe
+// plus rien. La photo part au générateur d'images comme RÉFÉRENCE, sur les
+// seuls plans que le directeur artistique a marqués (voir
+// regleProduitReelVisuels, js/storyboard.js), et le modèle redessine toute
+// la scène autour du vrai produit : une main qui le tient, une personne qui
+// le porte. Le transport et le repli sont dans api/montage-media.js.
 //
-// Décision du propriétaire, après deux essais ratés côté Carrousel : « si
-// l'app ne peut pas parfaitement détourer le produit et le mettre dans des
-// décors, comme un homme le tenant en main, on laisse tomber cette partie ».
-// Il a demandé de la retirer aussi du storyboard du mode Script.
-//
-// Ce qui RESTE, et qui vaut par soi-même : les prompts visuels ont toujours
-// l'interdiction de représenter le produit (voir regleProduitReelVisuels,
-// js/storyboard.js). La génération d'images ne reçoit qu'un texte, elle ne
-// peut donc en produire qu'un SOSIE, avec un faux logo et une étiquette en
-// charabia. Sur un contenu de vente, un sosie est pire que rien. Les visuels
-// filment donc la scène, le geste, l'émotion, jamais l'objet.
-//
-// Le créateur garde évidemment la main : il peut charger SA photo sur
-// n'importe quel plan avec le bouton de chargement d'image (voir
-// _assignerImageMontage), ce qui reste le seul moyen fiable de montrer le
-// vrai produit.
+// Le créateur garde évidemment la main : il peut toujours charger SA propre
+// photo sur n'importe quel plan (voir _assignerImageMontage).
+function photoProduitMontage() {
+  return (typeof photoProduitPourVisuels === 'function') ? photoProduitPourVisuels() : null;
+}
+
+// Le corps d'appel commun aux deux générations d'images (le lot complet et la
+// régénération d'un plan) : sans plan marqué, ou sans photo, il est
+// exactement celui d'avant, donc rien ne change hors objectif Ventes.
+function corpsImagesMontage(prompts, format, plansAssocies) {
+  const corps = {
+    prompts, format,
+    code_acces: localStorage.getItem('scriptura_code') || null
+  };
+  const photo = photoProduitMontage();
+  const avecProduit = plansAssocies.map(p => !!(p && p.produit));
+  if (photo && avecProduit.some(Boolean)) {
+    corps.produit = { base64: photo.base64, mediaType: photo.mediaType };
+    corps.avecProduit = avecProduit;
+  }
+  return corps;
+}
 
 // Décode une chaîne base64 (renvoyée par ElevenLabs ou Gemini) en Blob.
 function base64VersBlob(base64, mimeType) {
@@ -623,7 +635,9 @@ async function genererImagesMontage() {
       const rep = await fetch('/api/montage-media?action=images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompts: [construirePromptImageMontage(promptBrut)], format: ratioDuPrompt(promptBrut), code_acces: localStorage.getItem('scriptura_code') || null })
+        body: JSON.stringify(corpsImagesMontage(
+          [construirePromptImageMontage(promptBrut)], ratioDuPrompt(promptBrut), [montagePlans[i]]
+        ))
       });
       const data = await rep.json();
       const img = data.images && data.images[0];
@@ -657,7 +671,9 @@ async function regenererImageMontage(i) {
     const rep = await fetch('/api/montage-media?action=images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompts: [construirePromptImageMontage(promptBrut)], format: ratioDuPrompt(promptBrut), code_acces: localStorage.getItem('scriptura_code') || null })
+      body: JSON.stringify(corpsImagesMontage(
+        [construirePromptImageMontage(promptBrut)], ratioDuPrompt(promptBrut), [plan]
+      ))
     });
     const data = await rep.json();
     const img = data.images && data.images[0];
