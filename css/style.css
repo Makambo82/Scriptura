@@ -2150,6 +2150,30 @@ body.hist-select #creerBtn{display:none !important}
   #creerBtn{bottom:calc(18px + env(safe-area-inset-bottom, 0px));width:52px;height:38px}
 }
 
+/* FONDU BAS, sous les boutons flottants.
+   Un bouton fixe survole forcément le contenu, à toutes les positions de
+   défilement : sur l'accueil au repos, le « + » tombait pile sur la carte du
+   compteur de générations et la tranchait (4 px sur iPhone 14, 11 px sur un
+   Android compact, mesuré en navigateur). Deux autres pistes ont été
+   essayées et écartées : remonter le compteur (le bouton se posait alors sur
+   le TEXTE du sous-titre, 38 px, donc pire), et resserrer les espaces du hero
+   (mieux, mais 8 px restants sur petit écran pour un rythme abîmé).
+   Retenu : on ne déplace RIEN, le bas de l'écran s'assombrit en dégradé. Le
+   contenu s'y efface au lieu d'être coupé net, les boutons ont une base
+   lisible, et ça se lit comme un choix plutôt qu'un accident. C'est le motif
+   standard sur mobile.
+   Uniquement quand le bouton de création est visible : ailleurs, rien à
+   protéger, et assombrir le bas de chaque écran pour rien serait une
+   régression. pointer-events:none, il ne doit jamais intercepter un geste.
+   z-index 150 : au-dessus du contenu, sous les boutons (200), sous le
+   panneau de création (199) et sous toutes les fenêtres modales (300+). */
+body.creer-visible::after{
+  content:'';position:fixed;left:0;right:0;bottom:0;z-index:150;
+  height:calc(132px + env(safe-area-inset-bottom, 0px));
+  pointer-events:none;
+  background:linear-gradient(to bottom,
+    rgba(28,28,30,0) 0%, rgba(28,28,30,0.62) 42%, rgba(28,28,30,0.94) 100%);
+}
 #scrollTopBtn{
   position:fixed;bottom:24px;right:24px;z-index:200;
   width:48px;height:48px;border-radius:50%;

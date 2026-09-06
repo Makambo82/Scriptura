@@ -16,8 +16,11 @@
 //  - les boutons du panneau sont CLONÉS du hero, jamais recopiés : une seule
 //    source de vérité, et surtout aucun identifiant dupliqué dans la page ;
 //  - le panneau laisse vraiment voir l'accueil derrière lui ;
-//  - sur l'ACCUEIL, le bouton n'apparaît qu'une fois le hero dépassé : tant que
-//    les modes sont déjà à l'écran, un raccourci vers les modes n'a aucun sens.
+//  - sur l'ACCUEIL, le bouton s'efface pendant que les modes du hero sont à
+//    l'écran : un raccourci vers les modes n'a aucun sens quand les modes sont
+//    déjà là. Il est visible PARTOUT AILLEURS, y compris à l'arrivée : voir
+//    tests/bouton-creation-des-l-arrivee.test.js pour le pourquoi et les
+//    mesures (le bouton du hero est lui-même hors écran à l'ouverture).
 //
 // ÉLARGISSEMENT DEMANDÉ ENSUITE : le bouton doit être présent DANS TOUS LES
 // MODES. Le besoin est réel : en entrant dans un mode puis en changeant d'avis,
@@ -106,7 +109,13 @@ async function ouvrirEcran(page, id) {
   }, id);
 }
 
-test('le bouton n\'apparaît qu\'une fois le hero dépassé, jamais par-dessus les modes', async () => {
+// RÈGLE ÉLARGIE le 6 septembre, à la demande du propriétaire : « un
+// utilisateur déjà habitué à l'app voudra commencer à créer sans avoir à
+// scroller, ça crée de la friction ». Le bouton est donc là DÈS L'ARRIVÉE.
+// L'intention d'origine survit, resserrée : il ne s'efface que pendant que les
+// modes du héro sont réellement à l'écran. Détail et mesures dans
+// tests/bouton-creation-des-l-arrivee.test.js.
+test('le bouton est là dès l\'arrivée, et s\'efface seulement par-dessus les modes', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -116,22 +125,36 @@ test('le bouton n\'apparaît qu\'une fois le hero dépassé, jamais par-dessus l
     await page.setViewportSize({ width: 390, height: 844 });
     await ouvrirAccueil(page, baseUrl);
 
+    // On attend l'état RENDU plutôt qu'un délai fixe : le bouton entre avec une
+    // transition de 0,3 s, et un simple sleep rendrait ce test capricieux.
+    await attendreBouton(page, true);
     const enHaut = await page.evaluate(etatBouton);
     assert.ok(enHaut.existe, 'le bouton doit être présent dans la page');
-    assert.equal(enHaut.visible, false, 'inutile tant que le hero est à l\'écran');
-    assert.equal(enHaut.rendu.cliquable, false, 'et il ne doit surtout pas rester cliquable en étant invisible');
+    assert.equal(enHaut.visible, true,
+      'REGRESSION : le créateur habitué doit pouvoir créer sans scroller');
+    assert.equal(enHaut.rendu.cliquable, true,
+      'REGRESSION : un bouton présent dans le DOM mais qu\'aucun doigt n\'atteint ne sert à rien : ' + JSON.stringify(enHaut.rendu));
 
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await attendreBouton(page, true);
     const enBas = await page.evaluate(etatBouton);
-    assert.equal(enBas.visible, true, 'visible une fois descendu dans la page');
-    assert.equal(enBas.rendu.cliquable, true,
-      'REGRESSION : un bouton présent dans le DOM mais qu\'aucun doigt n\'atteint ne sert à rien : ' + JSON.stringify(enBas.rendu));
+    assert.equal(enBas.visible, true, 'et il reste disponible en descendant dans la page');
 
-    await page.evaluate(() => window.scrollTo(0, 0));
+    // Les modes du héro dépliés : LÀ, et seulement là, le raccourci n'a plus
+    // rien à raccourcir et recouvrirait ce qu'il propose.
+    await page.evaluate(() => { window.scrollTo(0, 0); return revelerModes(); });
     await attendreBouton(page, false);
-    const revenuEnHaut = await page.evaluate(etatBouton);
-    assert.equal(revenuEnHaut.visible, false, 'et il disparaît en remontant, il n\'a plus rien à raccourcir');
+    // attendreBouton se contente de l'opacité, qui tombe AVANT la visibilité
+    // (transition de 0,3 s sur les deux). Tant que visibility vaut encore
+    // 'visible', un doigt atteint toujours un bouton pourtant invisible :
+    // c'est exactement ce que la ligne suivante vérifie, il faut donc attendre
+    // l'état réellement stabilisé.
+    await page.waitForFunction(
+      () => getComputedStyle(document.getElementById('creerBtn')).visibility === 'hidden',
+      null, { timeout: 5000 });
+    const surLesModes = await page.evaluate(etatBouton);
+    assert.equal(surLesModes.visible, false, 'inutile quand les modes sont déjà à l\'écran');
+    assert.equal(surLesModes.rendu.cliquable, false, 'et il ne doit surtout pas rester cliquable en étant invisible');
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
   } finally {

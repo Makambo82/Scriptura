@@ -141,10 +141,12 @@ test('la durée pré-remplie pilote réellement la cible de mots de la générat
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
     assert.ok(promptsEcriture.length, 'le prompt d\'écriture doit avoir été envoyé');
-    // Cible "2 minutes" = 270-310 mots (voir wordTargets, js/generation.js).
-    assert.match(promptsEcriture[0], /270 et 310 mots/,
+    // Cible "2 minutes" = 280-320 mots (voir wordTargets, js/generation.js).
+    // Recentrée le 6 septembre : le milieu de l'ancienne 270-310 valait 116
+    // secondes, pas 120 (voir tests/duree-cibles-centrees.test.js).
+    assert.match(promptsEcriture[0], /280 et 320 mots/,
       'REGRESSION : le script doit être commandé pour la durée AFFICHÉE au créateur, jamais pour la durée par défaut');
-    assert.ok(!/130 et 155 mots/.test(promptsEcriture[0]),
+    assert.ok(!/138 et 163 mots/.test(promptsEcriture[0]),
       'la cible "1 minute" par défaut ne doit plus apparaître quand 2 minutes est pré-rempli');
   } finally {
     await navigateur.close();

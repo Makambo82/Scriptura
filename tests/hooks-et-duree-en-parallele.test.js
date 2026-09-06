@@ -26,24 +26,28 @@ test('Script : la complétion des hooks et le contrôle de durée s\'exécutent 
 
     const BRIEF = { analyse_strategique: 'A', angle_choisi: 'X', structure: 'S', emotion_dominante: 'E', strategie_hook: 'H', strategie_retention: 'R', strategie_cta: 'C' };
     const CRITIQUE_OK = { verdict: 'excellent', viralite: { hook: 18, curiosite: 18, rythme: 18, progression: 18, transitions: 18, revelation: 18, memorisation: 18 } };
-    // 5 blocs de 18 mots parlés = 90 mots : sous hardMin (117, pour la cible
-    // "1 minute" par défaut) donc déclenche la correction de durée, mais
-    // au-dessus du seuil de complétude (65 = 50% de 130) pour ne PAS
-    // déclencher un nouveau brouillon complet à la place. Seulement 2 hooks
-    // (sur 5) pour déclencher aussi la complétion des hooks.
+    // 6 blocs de 13 mots parlés = 78 mots. Deux bornes à respecter, toutes
+    // deux recalculées après le recentrage des cibles de durée du 6 septembre
+    // (« 1 minute » = 138-163 mots, voir js/generation.js) :
+    //   - sous hardMin (124 = 138 x 0,9), donc la correction de durée part ;
+    //   - au-dessus du seuil de complétude (69 = 50 % de 138), sinon c'est un
+    //     nouveau brouillon complet qui part à la place, et ce test n'observe
+    //     plus ce qu'il croit observer.
+    // Seulement 2 hooks (sur 5) pour déclencher aussi la complétion des hooks.
     const SCRIPT_INCOMPLET = {
       analyse: 'ok',
       hooks: [{ style: 'x', texte: 'Hook 1' }, { style: 'x', texte: 'Hook 2' }],
-      script: Array.from({ length: 5 }, (_, i) => ({
+      script: Array.from({ length: 6 }, (_, i) => ({
         temps: '0-3 sec', texte: 'Phrase numéro ' + i + ' avec plusieurs mots pour peser dans le compte total ici.', visuel: 'V' + i
       })),
       legende: 'L', hashtags: ['#a'], variantes_titre: ['T']
     };
     const HOOKS_MANQUANTS = { hooks: [{ style: 'y', texte: 'Hook 3' }, { style: 'y', texte: 'Hook 4' }, { style: 'y', texte: 'Hook 5' }] };
-    // 8 blocs de 18 mots = 144 mots, dans la cible 130-155 : la boucle de
-    // correction de durée s'arrête après cette seule tentative.
+    // 9 blocs de 15 mots = 135 mots, dans la fenêtre acceptée (124-179 pour
+    // « 1 minute ») : la boucle de correction de durée s'arrête après cette
+    // seule tentative, ce que le test compte.
     const SCRIPT_CORRIGE = {
-      script: Array.from({ length: 8 }, (_, i) => ({
+      script: Array.from({ length: 9 }, (_, i) => ({
         temps: '0-3 sec', texte: 'Phrase corrigée numéro ' + i + ' avec plusieurs mots pour peser correctement dans le compte total ici.', visuel: 'V' + i
       }))
     };
@@ -126,7 +130,7 @@ test('Script : la complétion des hooks et le contrôle de durée s\'exécutent 
     // parallélisation, les deux corrections ayant bien leur effet.
     const resultat = await page.evaluate(() => ({ nbHooks: currentHooks.length, nbBlocs: currentScript.length }));
     assert.equal(resultat.nbHooks, 5, 'les 3 hooks manquants doivent avoir été ajoutés aux 2 déjà présents : ' + resultat.nbHooks);
-    assert.equal(resultat.nbBlocs, 8, 'le script corrigé (8 blocs) doit avoir remplacé le script incomplet (5 blocs) : ' + resultat.nbBlocs);
+    assert.equal(resultat.nbBlocs, 9, 'le script corrigé (9 blocs) doit avoir remplacé le script incomplet (6 blocs) : ' + resultat.nbBlocs);
   } finally {
     await navigateur.close();
     await arreter();

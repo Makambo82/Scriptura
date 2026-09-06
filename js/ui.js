@@ -330,6 +330,12 @@ async function revelerModes() {
   animerHeroModes(modes);
   document.body.classList.add('hero-focus');
   window.scrollTo({ top: 0, behavior: 'auto' });
+  // Les modes viennent d'apparaître : le bouton flottant n'a plus lieu d'être
+  // tant qu'ils sont à l'écran (voir majBoutonCreation). Appel explicite, car
+  // rien ne le déclencherait ici : on était déjà en haut de page, donc aucun
+  // événement de défilement ne part, et le bouton resterait affiché
+  // par-dessus les modes qu'il est censé raccourcir.
+  if (typeof majBoutonCreation === 'function') majBoutonCreation();
 
   // L'invitation "Commence par analyser ton compte" et le badge "Commence
   // ici" (voir aFaitAnalyseCompte, js/recommandations.js) ne s'affichent
@@ -734,13 +740,37 @@ function majBoutonCreation() {
   if (!btn) return;
   const accueil = document.getElementById('homePage');
   const surAccueil = !!accueil && accueil.style.display !== 'none';
-  const hero = document.querySelector('.hero');
-  // Le hero est-il sorti de l'écran par le haut ?
-  const heroDepasse = hero ? (hero.getBoundingClientRect().bottom < 60) : (window.scrollY > 400);
+  // RÈGLE RESSERRÉE. Avant : sur l'accueil, le bouton n'apparaissait qu'une
+  // fois le hero ENTIÈREMENT dépassé. Retour du propriétaire : « un
+  // utilisateur déjà habitué à l'app veut commencer à créer sans avoir à
+  // scroller pour tomber sur le bouton, ça crée de la friction ». Il a
+  // raison, et c'était pire que ça : mesuré en navigateur, le bouton
+  // "Commence gratuitement" du hero est lui-même HORS ÉCRAN à l'arrivée sur
+  // un iPhone 14 comme sur un Android compact. Un créateur qui ouvrait
+  // l'app n'avait donc AUCUN point d'entrée visible vers la création.
+  //
+  // L'intention d'origine reste valable, mais elle était trop large : ne pas
+  // proposer un raccourci vers les modes quand les modes sont DÉJÀ à
+  // l'écran. On teste donc exactement ça, et rien de plus.
+  const modes = document.getElementById('heroModes');
+  const modesDeplies = !!modes && modes.style.display !== 'none';
+  let modesALEcran = false;
+  if (modesDeplies) {
+    const r = modes.getBoundingClientRect();
+    modesALEcran = r.bottom > 80 && r.top < window.innerHeight - 60;
+  }
   const overlay = document.getElementById('genOverlay');
   const generationEnCours = !!overlay && overlay.classList.contains('active');
-  const doitEtreVisible = !generationEnCours && (surAccueil ? heroDepasse : true);
+  const doitEtreVisible = !generationEnCours && (surAccueil ? !modesALEcran : true);
   btn.classList.toggle('visible', doitEtreVisible);
+  // Fondu bas (voir body.creer-visible::after, css/style.css). Un bouton fixe
+  // survole forcément le contenu : sur l'accueil au repos, il tombait pile
+  // sur la carte du compteur de générations et la tranchait. Déplacer les
+  // éléments s'est révélé pire (le bouton se posait alors sur le texte du
+  // sous-titre), donc on ne déplace rien : le bas de l'écran s'assombrit en
+  // dégradé, le contenu s'y efface au lieu d'être coupé net, et les boutons
+  // flottants ont une base lisible. Posé UNIQUEMENT quand le bouton est là.
+  document.body.classList.toggle('creer-visible', doitEtreVisible);
   // Le bouton disparaît (changement d'écran, remontée en haut) : son panneau
   // n'a plus rien à quoi se rattacher et resterait déplié par-dessus la page.
   if (!doitEtreVisible && typeof panneauCreationOuvert === 'function' && panneauCreationOuvert()) {
