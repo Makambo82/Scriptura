@@ -2287,7 +2287,44 @@ body.creer-visible::after{
 .sidebar-logo em{color:var(--gold);font-style:normal}
 .sidebar-close{background:transparent;border:none;color:rgba(255,255,255,0.5);font-size:1.1rem;cursor:pointer;padding:4px}
 .sidebar-close:hover{color:#fff}
-.sidebar-nav{display:flex;flex-direction:column;gap:6px;flex:1}
+/* Le menu du tiroir est une balise <nav>, donc il héritait de la règle
+   générale `nav{}` (la BARRE DU HAUT du site) : position:fixed en haut à
+   gauche de l'écran, fond opaque, bordure basse et 36 px de marge. La liste
+   se posait ainsi PAR-DESSUS l'en-tête du tiroir : le logo et la croix de
+   fermeture disparaissaient dessous, et un doigt au centre de la croix
+   atteignait « Mes générations » au lieu de fermer le menu. On annule donc
+   explicitement tout ce que cette règle apporte, jamais implicitement. */
+.sidebar-nav{
+  display:flex;flex-direction:column;gap:6px;flex:1;
+  position:static;justify-content:flex-start;padding:0;
+  background:none;backdrop-filter:none;border-bottom:none;
+}
+/* BLOC COMPTE du tiroir : offre + code, juste sous le logo. Il ne calcule
+   rien lui-même, il ouvre la fenêtre d'infos existante (ouvrirInfosAbonne)
+   qui détient déjà les quotas, la validité et le décompte. Le menu dit QUI
+   tu es, la fenêtre dit OÙ tu en es, aucune logique n'est dupliquée. */
+.sidebar-compte{
+  display:flex;flex-direction:column;align-items:flex-start;gap:7px;
+  width:100%;text-align:left;cursor:pointer;color:inherit;
+  background:rgba(212,175,90,0.07);
+  border:1px solid rgba(212,175,90,0.22);
+  border-radius:10px;padding:13px 14px;margin-bottom:18px;
+  font-family:'Poppins',sans-serif;
+}
+.sidebar-compte:hover{background:rgba(212,175,90,0.11)}
+.sc-offre{display:flex;align-items:center;gap:7px;color:var(--gold-light);font-size:0.92rem;font-weight:500}
+.sc-etoile{font-size:0.78rem;color:var(--gold)}
+/* Le code garde une chasse fixe : masqué ou révélé, la ligne ne change pas
+   de largeur, donc le bloc ne sursaute pas au moment de l'affichage. */
+.sc-code{
+  display:inline-flex;align-items:center;gap:8px;
+  color:rgba(255,255,255,0.52);font-size:0.78rem;letter-spacing:0.14em;
+  font-family:'SFMono-Regular',Menlo,Consolas,monospace;
+  background:none;border:none;padding:0;cursor:pointer;
+}
+.sc-code:hover{color:rgba(255,255,255,0.78)}
+.sc-code svg{width:14px;height:14px;flex:none;color:rgba(212,175,90,0.7)}
+.sc-libre{color:rgba(255,255,255,0.52);font-size:0.78rem}
 .sidebar-item{
   display:flex;align-items:center;justify-content:flex-start;gap:12px;
   background:transparent;border:none;text-align:left;

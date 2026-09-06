@@ -807,6 +807,10 @@ function majMenuToggleIcon(ouvert) {
   if (btn) btn.setAttribute('aria-label', ouvert ? 'Fermer le menu' : 'Ouvrir le menu');
 }
 function openSidebar() {
+  // Filet de sécurité : renderGenCounter rafraîchit déjà le bloc compte à
+  // chaque changement de statut, mais le menu peut s'ouvrir sur un écran qui
+  // n'a pas de compteur, et on ne veut jamais y lire un plan périmé.
+  if (typeof majBlocCompteSidebar === 'function') majBlocCompteSidebar();
   document.getElementById('sidebar').classList.add('active');
   document.getElementById('sidebarOverlay').classList.add('active');
   majMenuToggleIcon(true);
@@ -814,6 +818,9 @@ function openSidebar() {
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('active');
   document.getElementById('sidebarOverlay').classList.remove('active');
+  // Un code révélé ne survit pas à la fermeture : sinon il resterait en clair
+  // à la prochaine ouverture et le masquage ne protégerait plus rien.
+  if (typeof remasquerCodeSidebar === 'function') remasquerCodeSidebar();
   majMenuToggleIcon(false);
 }
 function toggleSidebar() {

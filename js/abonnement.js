@@ -64,6 +64,108 @@ function copierCodeInfos(el, code) {
 // `concerne:false` pour un non-abonné (le montage ne le concerne pas), en
 // cas de panne, ou si aucun code n'est enregistré - jamais bloquant pour le
 // reste du panneau (voir ouvrirInfosAbonne, appelé en Promise.all).
+// ══════════════════════════════════════
+//  BLOC COMPTE DU MENU LATÉRAL
+//  Tout ceci existait déjà dans la fenêtre d'infos (ouvrirInfosAbonne), mais
+//  on n'y accédait qu'en cliquant le bandeau du compteur, sans que rien ne
+//  dise qu'il était cliquable. Le bloc rend visible ce qui était là, et
+//  n'ajoute aucun calcul : il ouvre cette même fenêtre pour le détail.
+// ══════════════════════════════════════
+
+// Le code d'accès est la CLÉ du compte, il n'y a pas de mot de passe
+// derrière. Un menu s'ouvre souvent devant quelqu'un (démonstration, partage
+// d'écran, capture envoyée au support), donc il s'affiche masqué et ne se
+// révèle que sur un geste délibéré. On garde le début et la fin : de quoi
+// reconnaître SON code sans le livrer à qui regarde l'écran.
+function masquerCodeAcces(code) {
+  const c = String(code || '').trim();
+  if (!c) return '';
+  if (c.length <= 4) return c.charAt(0) + '•'.repeat(Math.max(3, c.length - 1));
+  const debut = c.length >= 8 ? 3 : 2;
+  const fin = 2;
+  return c.slice(0, debut) + '•'.repeat(Math.max(3, c.length - debut - fin)) + c.slice(-fin);
+}
+
+const OEIL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"'
+  + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'
+  + '<circle cx="12" cy="12" r="2.6"/></svg>';
+
+// Révèle le code ET le copie : on ne le regarde presque jamais pour le
+// plaisir, on le regarde pour le coller quelque part. stopPropagation est
+// indispensable, sans lui le clic remonterait au bloc et ouvrirait la
+// fenêtre d'infos par-dessus.
+function revelerCodeSidebar(ev) {
+  if (ev) ev.stopPropagation();
+  const el = document.getElementById('sidebarCompteCode');
+  const txt = document.getElementById('sidebarCompteCodeTxt');
+  if (!el || !txt) return;
+  const code = el.getAttribute('data-code') || '';
+  if (!code) return;
+  txt.textContent = code;
+  el.setAttribute('data-revele', '1');
+  try { if (navigator.clipboard) navigator.clipboard.writeText(code); } catch (e) { /* silencieux */ }
+  el.classList.add('copie-ok');
+  setTimeout(function () { el.classList.remove('copie-ok'); }, 1200);
+}
+
+// Remet le code sous ses points. Appelé à la fermeture du menu : un code
+// révélé ne doit pas rester en clair pour la prochaine ouverture, sinon le
+// masquage ne protège plus rien dès la deuxième fois.
+function remasquerCodeSidebar() {
+  const el = document.getElementById('sidebarCompteCode');
+  const txt = document.getElementById('sidebarCompteCodeTxt');
+  if (!el || !txt || el.getAttribute('data-revele') !== '1') return;
+  txt.textContent = masquerCodeAcces(el.getAttribute('data-code') || '');
+  el.removeAttribute('data-revele');
+}
+
+function majBlocCompteSidebar() {
+  const bloc = document.getElementById('sidebarCompte');
+  const offreEl = document.getElementById('sidebarCompteOffre');
+  const ligne2 = document.getElementById('sidebarCompteLigne2');
+  if (!bloc || !offreEl || !ligne2) return;
+
+  const illimite = (typeof estIllimite === 'function') && estIllimite();
+  const code = (localStorage.getItem('scriptura_code') || '').trim();
+
+  let offre;
+  if (illimite) offre = 'Accès complet';
+  else if (unlocked) {
+    const palier = (typeof monPalier === 'function') ? monPalier() : 'creator';
+    offre = (palier === 'pro') ? 'Plan Pro' : 'Plan Creator';
+  } else offre = 'Plan gratuit';
+  offreEl.textContent = ' ' + offre;
+
+  // Deuxième ligne : le code pour un compte identifié, sinon le décompte
+  // gratuit. Un non-abonné n'a pas de code, la ligne resterait vide et le
+  // bloc ne lui apprendrait rien.
+  if (code && (illimite || unlocked)) {
+    ligne2.className = '';
+    ligne2.innerHTML = '<span class="sc-code" id="sidebarCompteCode" tabindex="0"'
+      + ' title="Toucher pour afficher et copier ton code"'
+      + ' onclick="revelerCodeSidebar(event)">'
+      + '<span id="sidebarCompteCodeTxt"></span>' + OEIL_SVG + '</span>';
+    const el = document.getElementById('sidebarCompteCode');
+    // textContent, jamais innerHTML : le code vient de la saisie libre de
+    // l'utilisateur (même précaution que ligneCodeInfos ci-dessus). Le texte
+    // vit dans son propre span pour que le révéler n'efface pas l'icône.
+    el.setAttribute('data-code', code);
+    document.getElementById('sidebarCompteCodeTxt').textContent = masquerCodeAcces(code);
+  } else {
+    // On dit ce qui RESTE, pas ce qui est consommé : c'est ce qu'il vient
+    // vérifier. Et ça tient sur une ligne, un compte rendu en deux lignes
+    // dans un bloc de menu se lit mal.
+    ligne2.className = 'sc-libre';
+    const reste = Math.max(0, MAX_FREE - usedGen);
+    ligne2.textContent = reste > 0
+      ? reste + ' génération' + (reste > 1 ? 's' : '') + ' gratuite' + (reste > 1 ? 's' : '') + ' restante' + (reste > 1 ? 's' : '')
+      : 'Générations gratuites épuisées';
+  }
+
+  bloc.style.display = 'flex';
+}
+
 async function fetchQuotaMontage() {
   const code = localStorage.getItem('scriptura_code') || '';
   if (!code) return { concerne: false };
@@ -281,6 +383,9 @@ function renderGenCounter() {
   // Le libellé du bouton d'accueil dépend du statut abonné : on le met à jour ici,
   // là où on connaît déjà `unlocked`.
   if (typeof majHeroCta === 'function') majHeroCta();
+  // Même raison pour le bloc compte du menu : c'est ici que le statut et le
+  // décompte viennent de changer, donc ici qu'il faut le rafraîchir.
+  majBlocCompteSidebar();
   // Liste de tous les conteneurs de compteur (les 3 modes)
   const counters = [
     { counter: document.getElementById('genCounter'), dots: document.getElementById('genCounterDots'), num: document.getElementById('usedNum') },
