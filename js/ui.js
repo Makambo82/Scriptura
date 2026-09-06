@@ -558,6 +558,13 @@ function updateScrollBtn() {
   // navigateurs (le rendu de "↓" variait entre Safari iOS et Chrome).
   const icone = document.getElementById('scrollTopIcon');
   if (icone) icone.style.transform = (_scrollDir === 'down') ? '' : 'rotate(180deg)';
+  // Petits bonds SEULEMENT vers le bas : la flèche invite alors à découvrir ce
+  // qu'il y a plus loin. Vers le haut elle se fige, elle ne propose plus rien
+  // (voir le commentaire de .invite, css/style.css). La classe porte sur le
+  // bouton, jamais sur l'icône : celle-ci reçoit déjà une rotation en ligne
+  // pour le sens « haut », et mélanger les deux transforms les ferait
+  // s'écraser l'une l'autre.
+  btn.classList.toggle('invite', _scrollDir === 'down');
   btn.setAttribute('title', (_scrollDir === 'down') ? 'Descendre en bas' : 'Remonter en haut');
 }
 window.addEventListener('scroll', updateScrollBtn);

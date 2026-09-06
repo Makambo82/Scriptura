@@ -2174,18 +2174,51 @@ body.creer-visible::after{
   background:linear-gradient(to bottom,
     rgba(28,28,30,0) 0%, rgba(28,28,30,0.62) 42%, rgba(28,28,30,0.94) 100%);
 }
+/* FLÈCHE NUE, décision du propriétaire après comparaison de trois rendus.
+   Elle était un disque doré plein, du même poids visuel que le bouton de
+   création : deux ors pleins côte à côte, et l'œil ne savait plus lequel
+   portait l'action. Material ne prévoit qu'UNE action principale par écran,
+   c'est le « + ». La flèche redevient donc ce qu'elle est, une aide à la
+   navigation : un simple dessin doré, sans disque ni contour.
+   L'OMBRE PORTÉE n'est pas décorative. Sans fond à elle, la flèche passe
+   par-dessus le contenu, et sur la galerie de vidéos de l'accueil elle
+   atterrissait sur un visage et devenait introuvable (vérifié en navigateur
+   avant de trancher). L'ombre la détache du clair comme du sombre.
+   LA ZONE TACTILE RESTE À 44x44, transparente autour du dessin : seul le
+   dessin rétrécit. En dessous, on passerait sous le minimum recommandé par
+   Apple comme par Material, et la flèche deviendrait pénible à viser au
+   pouce. Ne pas « nettoyer » ces dimensions en les alignant sur l'icône. */
 #scrollTopBtn{
   position:fixed;bottom:24px;right:24px;z-index:200;
-  width:48px;height:48px;border-radius:50%;
-  background:var(--gold);color:var(--bg);
+  width:44px;height:44px;border-radius:50%;
+  background:transparent;color:var(--gold);
   border:none;cursor:pointer;font-size:1.3rem;line-height:1;
-  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,0.85));
   opacity:0;visibility:hidden;transform:translateY(10px);
   transition:opacity 0.3s, visibility 0.3s, transform 0.3s;
   display:flex;align-items:center;justify-content:center;
 }
 #scrollTopBtn.visible{opacity:1;visibility:visible;transform:translateY(0)}
-#scrollTopBtn:hover{background:var(--gold-light)}
+#scrollTopBtn:hover{color:var(--gold-light)}
+#scrollTopIcon{width:24px;height:24px}
+/* PETITS BONDS, uniquement quand elle pointe VERS LE BAS.
+   Demande du propriétaire, et elle tombe juste : c'est le moment où la flèche
+   sert de signifiant contre le faux fond (un héro plein écran fait croire que
+   la page s'arrête là, voir l'illusion de complétude du NN/g), et le
+   mouvement est précisément ce qui attire l'œil vers le bas.
+   FIGÉE DÈS QU'ELLE POINTE VERS LE HAUT, et ce n'est pas un détail de goût :
+   le NN/g demande explicitement qu'un bouton de retour en haut reste immobile
+   une fois affiché, un élément qui bouge captant l'attention en continu. Là,
+   la flèche n'invite plus à rien, elle rend juste un service.
+   La rotation à 180° du sens « haut » est posée en ligne par le JS : les deux
+   ne coexistent jamais, donc l'animation ne l'écrase pas. */
+@keyframes flecheInvite{
+  0%, 100%{transform:translateY(0)}
+  50%{transform:translateY(5px)}
+}
+@media(prefers-reduced-motion:no-preference){
+  #scrollTopBtn.invite #scrollTopIcon{animation:flecheInvite 1.9s ease-in-out infinite}
+}
 @media(max-width:600px){
   #scrollTopBtn{bottom:18px;right:18px;width:44px;height:44px;font-size:1.2rem}
 }
