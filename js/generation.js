@@ -1126,10 +1126,93 @@ function _genScoreRetention(signaux, motsReels, wt) {
   }
   return Math.round(base * 0.7 + scoreMots * 0.3);
 }
-function scorerScriptGenere(signaux, motsReels, wt) {
+// ══════════════════════════════════════
+//  LE HOOK EST UNE DURÉE, PAS SEULEMENT UNE PHRASE
+//  La structure des vidéos qui performent tient le hook en 0-3 secondes.
+//  Jusqu'ici cette règle n'existait QUE dans les prompts : on demandait au
+//  modèle de compter ses propres mots. Or compter des mots est précisément
+//  ce qu'un modèle de langage fait mal, et il n'y avait aucun filet derrière.
+//  Le TOTAL du script, lui, a toujours été vérifié en code, avec une boucle
+//  de correction. Le hook, c'est-à-dire la partie qui décide si la vidéo est
+//  regardée, était la seule promesse de durée laissée à la parole de l'IA.
+//  Elle est mesurée ici, comme le reste.
+// ══════════════════════════════════════
+const HOOK_SECONDES = 3;
+// Plafond dur : 3 s à ~2,5 mots/s font 7 à 8 mots, on retient 12, la
+// tolérance déjà annoncée aux modèles dans les prompts. Au-delà, ce n'est
+// plus une accroche, c'est du développement déguisé.
+const HOOK_MOTS_MAX = 12;
+
+function _genCompterMots(texte) {
+  return String(texte || '').split(/\s+/).filter(Boolean).length;
+}
+function motsDuHook(script) {
+  return (Array.isArray(script) && script.length) ? _genCompterMots(script[0] && script[0].texte) : 0;
+}
+
+// Ramène le premier bloc sous le plafond SANS toucher un seul mot : on coupe
+// à une frontière de phrase et le reste devient le bloc suivant. Aucun mot
+// ajouté, retiré ni réécrit, donc le compte de mots, l'avertissement de durée
+// et le score restent exacts, et deux fois le même script donnent deux fois
+// le même découpage (même principe que decouperBlocsTropLongs).
+// Quand le hook est UNE seule phrase trop longue, il n'y a rien à couper : on
+// laisse tel quel plutôt que de mutiler une phrase au hasard, le score le
+// sanctionne et le créateur est prévenu.
+function degagerHookTropLong(script, suiteVisuel) {
+  if (!Array.isArray(script) || !script.length) return script;
+  const bloc = script[0];
+  const texte = (bloc && typeof bloc.texte === 'string') ? bloc.texte : '';
+  if (!texte || _genCompterMots(texte) <= HOOK_MOTS_MAX) return script;
+  const phrases = (typeof splitIntoSentences === 'function') ? splitIntoSentences(texte) : [];
+  if (phrases.length < 2) return script;
+
+  // La PREMIÈRE phrase reste toujours dans le hook, même si elle dépasse à
+  // elle seule : c'est elle qui porte l'accroche. On y ajoute les suivantes
+  // tant qu'on tient sous le plafond.
+  const garde = [phrases[0]];
+  let mots = _genCompterMots(phrases[0]);
+  for (let i = 1; i < phrases.length; i++) {
+    const m = _genCompterMots(phrases[i]);
+    if (mots + m > HOOK_MOTS_MAX) break;
+    garde.push(phrases[i]);
+    mots += m;
+  }
+  const reste = phrases.slice(garde.length);
+  if (!reste.length) return script;
+
+  const visuelOrigine = (bloc && typeof bloc.visuel === 'string') ? bloc.visuel.trim() : '';
+  const suite = suiteVisuel || 'Change de plan ici, dans la continuité du plan précédent';
+  return [
+    Object.assign({}, bloc, { texte: garde.join(' ') }),
+    Object.assign({}, bloc, {
+      texte: reste.join(' '),
+      visuel: visuelOrigine ? suite + ' : ' + visuelOrigine : suite + '.'
+    })
+  ].concat(script.slice(1));
+}
+
+// Longueur du hook notée mécaniquement, même logique que la durée dans
+// _genScoreRetention : un hook qui coche tous les signaux mais dure six
+// secondes n'arrête pas le scroll, il le provoque.
+function _genScoreLongueurHook(motsHook) {
+  if (!motsHook) return 50;
+  const parSeconde = (typeof MOTS_PAR_SEC_PARLE === 'number') ? MOTS_PAR_SEC_PARLE : 2.5;
+  const cible = Math.round(HOOK_SECONDES * parSeconde);
+  if (motsHook <= cible) return 100;
+  if (motsHook <= HOOK_MOTS_MAX) return 85;
+  return Math.max(40, 100 - Math.round((motsHook - HOOK_MOTS_MAX) / HOOK_MOTS_MAX * 100));
+}
+
+// motsHook est OPTIONNEL : absent (score recalculé sur un ancien script
+// d'historique, par exemple), la note du hook reste celle des seuls signaux,
+// plutôt qu'une longueur inventée.
+function scorerScriptGenere(signaux, motsReels, wt, motsHook) {
+  const hookSignaux = _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.hook);
   return {
     viral: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.viral),
-    hook: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.hook),
+    hook: motsHook
+      ? Math.round(hookSignaux * 0.7 + _genScoreLongueurHook(motsHook) * 0.3)
+      : hookSignaux,
     engagement: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.engagement),
     emotion: _genScoreDimension(signaux, GEN_DIMENSIONS_SCRIPT.emotion),
     retention: _genScoreRetention(signaux, motsReels, wt)
@@ -1204,7 +1287,7 @@ async function calculerScoreScriptEnArrierePlan(parsed, texteFinal, objectif, wo
         },
         signauxIA
       );
-      parsed.score = scorerScriptGenere(signauxFinal, wordCount, wt);
+      parsed.score = scorerScriptGenere(signauxFinal, wordCount, wt, motsDuHook(parsed.script));
       delete parsed.evaluationIndisponible;
     } catch (e) {
       signauxIA = null;
@@ -1776,7 +1859,7 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
    Un script de ${wt.desc} qui fait moins de ${wt.min} mots est un ÉCHEC TOTAL. Vise le milieu de la fourchette (environ ${Math.round((wt.min + wt.max) / 2)} mots).
 
 2. RÉPARTITION DU TEMPS ENTRE LES BLOCS (structure standard des vidéos qui performent, à respecter strictement) : hook (0-3 secondes) → corps → CTA/chute (5-10 dernières secondes).
-   - Le PREMIER bloc EST le hook : il doit tenir en 0 à 3 SECONDES, soit 7 à 10 MOTS, une seule respiration. Un premier bloc de 25-30 mots n'est plus un hook, c'est déjà du développement : à ce moment-là le spectateur a scrollé depuis longtemps. C'est la contrainte la plus violée et la plus coûteuse, ne la traite pas comme une suggestion.
+   - Le PREMIER bloc EST le hook : il doit tenir en 0 à 3 SECONDES, soit 7 à 10 MOTS, une seule respiration. Un premier bloc de 25-30 mots n'est plus un hook, c'est déjà du développement : à ce moment-là le spectateur a scrollé depuis longtemps. C'est la contrainte la plus violée et la plus coûteuse, ne la traite pas comme une suggestion. Elle est VÉRIFIÉE MÉCANIQUEMENT après ta réponse : au-delà de ${HOOK_MOTS_MAX} mots, le premier bloc est recoupé automatiquement à la première frontière de phrase, ce qui déplacera ta suite dans un autre bloc. Écris donc un hook qui tient seul dès la première phrase.
    - Le DERNIER bloc (CTA ou chute) tient en 5 à 10 secondes, soit 12 à 25 mots.
    - Les blocs du milieu se partagent tout le reste de la durée cible, de façon ÉQUILIBRÉE. AUCUN bloc, du premier au dernier, ne dépasse ${Math.round(plafondDureeBloc())} SECONDES de parole, soit environ ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} MOTS. Un bloc qui concentre à lui seul la moitié du script est un échec de découpage, même si le total de mots est juste : le créateur n'a plus aucun repère de rythme, et une seule direction de tournage doit alors couvrir près d'une minute d'antenne. Quand un passage dépasse ce plafond, coupe-le en deux blocs à une frontière naturelle (changement d'idée, bascule, révélation).
    Repère de conversion, le même que celui utilisé pour vérifier ton script : environ 2,5 mots par seconde de parole.
@@ -1861,12 +1944,16 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // zéro risque de dégrader le texte. Un bloc d'une seule phrase n'est
     // jamais coupé en plein milieu, on préfère un bloc long à une phrase
     // amputée.
+    // Consigne de visuel pour un bloc né d'un redécoupage en code (jamais
+    // écrit par l'IA) : partagée par les deux filets déterministes, celui des
+    // blocs trop longs et celui du hook trop long.
+    const suiteVisuel = estFaceless
+      ? 'Change de visuel ici, dans la continuité du plan précédent'
+      : 'Change de cadrage ici, ou coupe vers un plan d\'illustration, dans la continuité du plan précédent';
+
     function decouperBlocsTropLongs(script) {
       if (!Array.isArray(script) || !script.length) return script;
       const plafond = plafondDureeBloc();
-      const suiteVisuel = estFaceless
-        ? 'Change de visuel ici, dans la continuité du plan précédent'
-        : 'Change de cadrage ici, ou coupe vers un plan d\'illustration, dans la continuité du plan précédent';
       const sortie = [];
       script.forEach(bloc => {
         const texte = bloc && typeof bloc.texte === 'string' ? bloc.texte : '';
@@ -2301,6 +2388,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // final réellement affiché au créateur.
     parsed.script = decouperBlocsTropLongs(parsed.script);
 
+    // Puis le hook : le premier bloc doit tenir en 0-3 secondes. Placé APRÈS
+    // le découpage général (qui peut déjà avoir allégé un premier bloc
+    // énorme) et AVANT le recalcul des timestamps, pour que le minutage
+    // affiché porte sur le découpage réellement livré.
+    parsed.script = degagerHookTropLong(parsed.script, suiteVisuel);
+
     // Timestamps recalculés en code sur le script FINAL (après l'éventuelle
     // correction de durée ci-dessus), jamais avant : recalculer plus tôt
     // referait le travail à chaque tentative de correction pour rien.
@@ -2311,11 +2404,21 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // le créateur doit le savoir plutôt que de découvrir en silence un
     // script deux fois plus court que la durée choisie. Jamais bloquant,
     // juste honnête (voir affichage dans renderResults).
-    const avertissementDuree = (wordCount < hardMin || wordCount > hardMax)
+    let avertissementDuree = (wordCount < hardMin || wordCount > hardMax)
       ? (wordCount < hardMin
           ? `Ce script fait ${wordCount} mots, plus court que les ${wt.min}-${wt.max} mots visés pour ${wt.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`
           : `Ce script fait ${wordCount} mots, plus long que les ${wt.min}-${wt.max} mots visés pour ${wt.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`)
       : '';
+
+    // Hook encore trop long après le découpage : c'est le cas d'une phrase
+    // unique interminable, qu'on ne peut pas couper sans la réécrire. On le
+    // DIT plutôt que de le laisser passer en silence : c'est la première
+    // seconde de la vidéo, celle qui décide si elle est regardée.
+    const motsHookFinal = motsDuHook(parsed.script);
+    if (motsHookFinal > HOOK_MOTS_MAX) {
+      const phraseHook = `Ton accroche fait ${motsHookFinal} mots, soit plus de ${HOOK_SECONDES} secondes. Au-delà, le spectateur a déjà fait défiler. Raccourcis la première phrase, ou régénère.`;
+      avertissementDuree = avertissementDuree ? avertissementDuree + ' ' + phraseHook : phraseHook;
+    }
 
     // Score déterministe (voir scorerScriptGenere plus haut) : calculé ICI à
     // partir de signaux, jamais d'un chiffre choisi par l'IA. deuxieme_personne/
@@ -2395,7 +2498,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         mode: 'script',
         duree_cible: selectedDuree || (wt && wt.desc) || '',
         mots_final: wordCount,
-        dans_cible: !avertissementDuree
+        // Lu sur le compte de mots, JAMAIS sur avertissementDuree : depuis
+        // que ce message peut aussi porter l'alerte de hook trop long, s'y
+        // fier ferait passer pour "hors cible" un script dont le total est
+        // parfait. Le hook a sa propre mesure juste en dessous.
+        dans_cible: !(wordCount < hardMin || wordCount > hardMax)
       }, _mesurePasses));
     }
 
