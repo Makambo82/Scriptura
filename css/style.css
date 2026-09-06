@@ -2075,6 +2075,23 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
 #creerBtnBarre{transform-box:fill-box;transform-origin:center;transition:transform 0.3s cubic-bezier(.22,.8,.2,1)}
 body.creer-ouvert #creerBtnBarre{transform:scaleY(0)}
 
+/* PULSATION, tant que le bouton montre un "+".
+   Demande du propriétaire, et elle suit exactement la règle déjà posée pour
+   la flèche de défilement : ce qui BOUGE invite. Un "+" invite à ouvrir. Un
+   "−" ne propose plus que de refermer ce qu'on vient d'ouvrir, donc il se
+   fige : continuer à pulser pendant que le panneau est déplié attirerait
+   l'œil sur le bouton au lieu des modes qu'il vient d'afficher.
+   Le transform des images-clés REPREND translate(-50%,0) : ce bouton est
+   centré PAR son transform, une animation qui l'oublierait le ferait sauter
+   à droite de l'écran pendant toute la pulsation. */
+@keyframes creerPulse{
+  0%,100%{transform:translate(-50%,0) scale(1);box-shadow:0 6px 20px rgba(0,0,0,0.45)}
+  50%{transform:translate(-50%,0) scale(1.06);box-shadow:0 6px 20px rgba(0,0,0,0.45),0 0 0 7px rgba(212,175,90,0.13)}
+}
+@media(prefers-reduced-motion:no-preference){
+  body:not(.creer-ouvert) #creerBtn.visible{animation:creerPulse 2.6s ease-in-out infinite}
+}
+
 /* ── PANNEAU DE CRÉATION (dépliant depuis le bas) ── */
 /* Volontairement SANS fond : le propriétaire veut entrevoir la page d'accueil
    entre les boutons pendant que le panneau est déplié. Seuls les boutons
@@ -2155,7 +2172,10 @@ body.hist-select .creer-fond{display:none !important}
   .creer-panneau .hero-mode-btn{animation:none !important;opacity:1;transform:none}
 }
 #creerBtn:hover{background:var(--gold-light)}
-#creerBtn:active{transform:translate(-50%,2px)}
+/* Le retour tactile à l'appui doit rester perceptible : sans couper
+   l'animation ici, la pulsation (infinie, donc prioritaire sur le transform
+   d'une simple pseudo-classe) écraserait l'enfoncement du bouton. */
+#creerBtn:active{transform:translate(-50%,2px);animation:none}
 /* Jamais visible pendant la sélection multiple de l'historique, comme le
    bouton de navigation ci-dessous. */
 body.hist-select #creerBtn{display:none !important}
@@ -2231,6 +2251,12 @@ body.creer-visible::after{
 }
 @media(prefers-reduced-motion:no-preference){
   #scrollTopBtn.invite #scrollTopIcon{animation:flecheInvite 1.9s ease-in-out infinite}
+  /* Panneau de création déplié : la flèche flotte AU-DESSUS de lui (même
+     plan que le bouton) et continuait d'y bondir. Or à cet instant elle
+     n'invite plus à rien, les modes sont déjà là, et elle ne ferait que
+     disputer l'attention aux boutons qu'on vient d'afficher. Même règle que
+     le bouton de création juste en dessous : ce qui n'invite plus se fige. */
+  body.creer-ouvert #scrollTopBtn.invite #scrollTopIcon{animation:none}
 }
 @media(max-width:600px){
   #scrollTopBtn{bottom:18px;right:18px;width:44px;height:44px;font-size:1.2rem}
