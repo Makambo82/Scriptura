@@ -339,12 +339,16 @@ async function generateStory() {
   document.getElementById('storyResults').style.display = 'none';
 
   // Cibles de mots pour le format court
+  // Mêmes cibles que le mode Script, recentrées sur la durée exacte : le
+  // milieu de chaque fourchette vaut la durée demandée à 2,5 mots par seconde
+  // (voir le commentaire détaillé dans js/generation.js). Les anciennes
+  // valeurs visaient 57 secondes pour une minute demandée.
   const wordTargets = {
-    '30 secondes': { min: 60, max: 78 },
-    '1 minute': { min: 130, max: 155 },
-    '2 minutes': { min: 270, max: 310 },
-    '3 minutes': { min: 410, max: 460 },
-    '5 minutes': { min: 680, max: 780 }
+    '30 secondes': { min: 66, max: 84 },
+    '1 minute': { min: 138, max: 163 },
+    '2 minutes': { min: 280, max: 320 },
+    '3 minutes': { min: 425, max: 475 },
+    '5 minutes': { min: 700, max: 800 }
   };
   const wt = wordTargets[storyDuree] || null;
 

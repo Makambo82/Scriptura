@@ -48,9 +48,15 @@ function instructionGenreSerie(genre) {
 // Cibles de mots par durée d'épisode (~2,5 mots/seconde, cohérent avec la
 // consigne déjà donnée dans le prompt d'écriture), permet une vérification
 // programmatique après génération, comme pour les modes Script et Storytelling.
+// Les durées d'épisode étant déjà annoncées comme des FOURCHETTES, la cible
+// en mots est simplement cette fourchette convertie à 2,5 mots par seconde,
+// bornes comprises. Deux bornes basses traînaient une seconde de retard
+// (110 mots = 44 s pour un épisode annoncé « 45 à 60 secondes ») : corrigé
+// avec le recentrage des modes Script et Récit, pour que les trois modes
+// promettent exactement la même chose.
 const WORD_TARGETS_SERIE = {
-  '30 à 45 secondes': { min: 75, max: 115 },
-  '45 à 60 secondes': { min: 110, max: 150 },
+  '30 à 45 secondes': { min: 75, max: 113 },
+  '45 à 60 secondes': { min: 113, max: 150 },
   '60 à 90 secondes': { min: 150, max: 225 },
   'environ 2 minutes': { min: 270, max: 330 }
 };

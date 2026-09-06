@@ -1422,12 +1422,28 @@ async function generate() {
   document.getElementById('results').style.display = 'none';
 
   // Calcul de la cible de mots selon la durée
+  // CIBLES DE MOTS, RECENTRÉES SUR LA DURÉE EXACTE (retour du propriétaire :
+  // « pour la durée des scripts, récits et séries, je remarque qu'il y a
+  // toujours un écart »).
+  //
+  // Les anciennes fourchettes étaient centrées SOUS la durée demandée : à 2,5
+  // mots par seconde (MOTS_PAR_SEC_PARLE, js/storyboard.js), le milieu de
+  // 130-155 vaut 57 secondes, pas 60. Sur 30 secondes l'écart montait à 8 %.
+  // Comme un modèle à qui on donne une fourchette atterrit presque toujours
+  // vers le bas, les deux biais s'additionnaient et l'écart allait TOUJOURS
+  // dans le même sens : trop court.
+  //
+  // Chaque fourchette a donc désormais pour MILIEU le nombre de mots qui fait
+  // exactement la durée choisie. La largeur ne change pas, la tolérance de
+  // correction non plus : ce recentrage ne déclenche aucune passe IA
+  // supplémentaire, il demande simplement le bon nombre.
+  //   30 s → 75 mots · 1 min → 150 · 2 min → 300 · 3 min → 450 · 5 min → 750
   const wordTargets = {
-    '30 secondes': { min: 60, max: 78, blocs: '3', desc: '30 secondes' },
-    '1 minute':    { min: 130, max: 155, blocs: '4', desc: '1 minute' },
-    '2 minutes':   { min: 270, max: 310, blocs: '5', desc: '2 minutes' },
-    '3 minutes':   { min: 410, max: 460, blocs: '6', desc: '3 minutes' },
-    '5 minutes':   { min: 680, max: 780, blocs: '7-8', desc: '5 minutes' }
+    '30 secondes': { min: 66, max: 84, blocs: '3', desc: '30 secondes' },
+    '1 minute':    { min: 138, max: 163, blocs: '4', desc: '1 minute' },
+    '2 minutes':   { min: 280, max: 320, blocs: '5', desc: '2 minutes' },
+    '3 minutes':   { min: 425, max: 475, blocs: '6', desc: '3 minutes' },
+    '5 minutes':   { min: 700, max: 800, blocs: '7-8', desc: '5 minutes' }
   };
   const wt = wordTargets[selectedDuree] || wordTargets['1 minute'];
 
