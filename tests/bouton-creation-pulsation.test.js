@@ -40,11 +40,32 @@ const mesurer = async (page, n) => {
   };
 };
 
+// LA PULSATION SE DÉSIGNE PAR SON NOM, jamais par son rang.
+// getAnimations() renvoie AUSSI les transitions CSS : au moment où le bouton
+// reçoit sa classe .visible, sa transition d'apparition est en tête de liste,
+// et [0] désignait donc une transition d'une seule itération. Le test
+// annonçait alors « la pulsation n'est plus bornée à trois cycles » alors que
+// le CSS était intact, uniquement quand la machine était chargée. Un rouge qui
+// ment coûte plus cher qu'un test lent.
+const PULSATION = `window.pulsationCreerBtn = () =>
+  document.getElementById('creerBtn').getAnimations().find(a => a.animationName === 'creerPulse');`;
+
 async function ouvrir(navigateur, baseUrl) {
   const page = await navigateur.newPage({ viewport: { width: 390, height: 844 } });
   await poserMocksReseau(page);
   await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(800);
+  // On ATTEND que le bouton porte vraiment sa pulsation, au lieu de parier
+  // sur un délai fixe. Sous charge (la suite complète fait tourner plusieurs
+  // navigateurs à la fois), 800 ms ne suffisaient pas toujours : le bouton
+  // n'avait pas encore sa classe .visible, getAnimations() renvoyait un
+  // tableau vide, et le test échouait en annonçant une pulsation « plus
+  // bornée à trois cycles » alors que le CSS était intact. Un rouge qui ne
+  // dit pas la vérité coûte plus cher qu'un test lent.
+  await page.waitForFunction(() => {
+    const b = document.getElementById('creerBtn');
+    return !!(b && b.getAnimations().some(a => a.animationName === 'creerPulse'));
+  }, null, { timeout: 15000 });
+  await page.evaluate(PULSATION);
   return page;
 }
 
@@ -132,7 +153,7 @@ test('la pulsation s\'arrête d\'elle-même après trois cycles, et repart quand
     const page = await ouvrir(navigateur, baseUrl);
 
     const cadence = await page.evaluate(() => {
-      const a = document.getElementById('creerBtn').getAnimations()[0];
+      const a = pulsationCreerBtn();
       const t = a && a.effect.getTiming();
       return { duree: t && t.duration, cycles: t && t.iterations };
     });
@@ -141,13 +162,12 @@ test('la pulsation s\'arrête d\'elle-même après trois cycles, et repart quand
     // On avance le temps de l'animation plutôt que d'attendre 8 secondes en
     // vrai : même résultat, sans allonger la suite pour rien.
     await page.evaluate(() => {
-      const a = document.getElementById('creerBtn').getAnimations()[0];
-      a.currentTime = 2.6 * 3 * 1000 + 200;
+      pulsationCreerBtn().currentTime = 2.6 * 3 * 1000 + 200;
     });
     await page.waitForTimeout(200);
     const apres = await page.evaluate(() => {
       const b = document.getElementById('creerBtn');
-      const a = b.getAnimations()[0];
+      const a = pulsationCreerBtn();
       const r = b.getBoundingClientRect();
       return { etat: a && a.playState, largeur: Math.round(r.width * 10) / 10 };
     });
