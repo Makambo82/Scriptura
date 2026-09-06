@@ -284,19 +284,55 @@ Si le produit ne correspond clairement à aucune, écris AUCUNE.
 RÈGLE ABSOLUE : ce produit APPARTIENT au créateur, c'est LUI qui le vend. Les TROIS angles doivent donner envie de l'acheter. Aucun angle ne doit remettre en cause ce produit, ni le présenter comme une arnaque, une déception, une fausse promesse, un produit inutile ou dépassé, ni inviter à s'en méfier ou à lui préférer autre chose. Si tu veux démonter une croyance, une illusion du marché ou une solution décevante, la cible est CE QUE LE CLIENT FAISAIT AVANT ou ce que proposent les AUTRES, jamais le produit du créateur.
 N'invente aucun prix, aucun délai, aucun résultat chiffré, aucun témoignage : tu ne sais rien de plus que ce que montre le fichier.
 
+3. IDENTIFIE LE PRODUIT SUR LA PHOTO, pour qu'un générateur d'images sache lequel garder. La photo peut être encombrée (un plan de travail, un sol d'atelier, plusieurs objets) : dis lequel est le produit à vendre.
+- "produit_visuel" : le produit NOMMÉ EN ANGLAIS, 2 à 6 mots, juste ce qu'il faut pour le reconnaître au milieu d'autres objets. Sa nature et, si c'est utile pour le distinguer, sa couleur ou sa matière. Exemples : "a brown leather bracelet", "a white cotton shirt", "a small white cream tube". N'écris JAMAIS ce qui est marqué dessus, ni le nom de la marque, ni le texte de l'étiquette : la photo le porte déjà, et le réécrire ferait dériver l'image.
+- "usages" : 2 à 4 situations d'utilisation RÉELLE de ce produit, en anglais, très concrètes, telles qu'on les filmerait. Un bijou se porte, un vêtement s'enfile, une crème s'applique, un outil se tient en main. Exemples : "worn on a woman's wrist", "worn by a man walking in the street", "held in a hand", "being applied on skin", "laid on a wooden table next to its box".
+Si le fichier joint n'est PAS une photo de produit (un document, un ebook, une brochure), laisse "produit_visuel" vide et "usages" vide.
+
 Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :
-{"niche":"l'intitulé exact choisi, ou AUCUNE","angles":["angle 1","angle 2","angle 3"]}`;
+{"niche":"l'intitulé exact choisi, ou AUCUNE","angles":["angle 1","angle 2","angle 3"],"produit_visuel":"","usages":[]}`;
 
   try {
-    const reponse = await callAI(MODEL_RAPIDE, 500, prompt, 1, false, 0, 'detectionNiche', fichier, null, 'detectionNiche');
+    const reponse = await callAI(MODEL_RAPIDE, 700, prompt, 1, false, 0, 'detectionNiche', fichier, null, 'detectionNiche');
     const data = (typeof parseAIResponse === 'function') ? parseAIResponse(reponse) : null;
     if (!data) return null;
     appliquerNicheProduit(data.niche, champNiche, idNote, liste);
     afficherAnglesProduit(data.angles, idAngles, idSujet, idNiche);
+    // L'identification visuelle est POSÉE SUR LE FICHIER LUI-MÊME, pas dans
+    // une variable à part : partout où la photo circule (script, storyboard,
+    // montage, carrousel), son identification la suit forcément. Une variable
+    // séparée finirait par se désynchroniser le jour où le créateur change de
+    // photo, et on enverrait le nom de l'ancien produit avec la nouvelle.
+    poserIdentificationProduit(fichier, data);
     return data;
   } catch (e) {
     return null; // un confort de formulaire ne signale jamais d'erreur
   }
+}
+
+// Attache au fichier ce que l'IA a reconnu sur la photo : le nom du produit
+// et ses situations d'usage réelles.
+//
+// C'EST LA RÉPONSE AU « SANS DÉTOURER » DU PROPRIÉTAIRE. Sa photo peut être
+// prise n'importe où, sur un sol d'atelier, avec des outils autour. On ne
+// découpe rien : on NOMME le produit, et ce nom part avec la photo au
+// générateur d'images, qui sait alors quel objet garder et quoi ignorer
+// (voir consigneProduitReference, api/montage-media.js). C'est ce que ferait
+// un humain en pointant l'objet du doigt.
+//
+// Les usages, eux, servent au rédacteur : ils lui donnent les scènes justes
+// pour CE produit (un bracelet se porte au poignet, une pommade s'applique),
+// au lieu de le laisser inventer une mise en scène générique.
+function poserIdentificationProduit(fichier, data) {
+  if (!fichier) return;
+  const nom = String((data && data.produit_visuel) || '').trim().slice(0, 120);
+  const usages = Array.isArray(data && data.usages)
+    ? data.usages.map(u => String(u || '').trim()).filter(Boolean).slice(0, 4)
+    : [];
+  // Un document (ebook, brochure) laisse ces deux champs vides : rien à
+  // montrer en usage, et surtout rien à nommer au générateur d'images.
+  fichier.produitNom = nom;
+  fichier.produitUsages = usages;
 }
 
 // Pose la niche déduite du produit, avec les mêmes prudences que partout :

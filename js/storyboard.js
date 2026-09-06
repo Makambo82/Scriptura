@@ -333,14 +333,25 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après : {"miniature":"le
 // couleur, son logo, son étiquette. Une description entrerait en concurrence
 // avec elle et ferait dériver le modèle vers un objet inventé, c'est-à-dire
 // exactement le sosie qu'on cherche à éviter depuis le début.
-function regleProduitReelVisuels(aUnProduit) {
-  if (!aUnProduit) return '';
+function regleProduitReelVisuels(produit) {
+  if (!produit) return '';
+  // Le produit tel que l'app l'a reconnu sur la photo (voir
+  // poserIdentificationProduit, js/niche-auto.js). Absent si la détection a
+  // échoué : la règle reste alors entièrement valable, elle parle du
+  // « produit » sans le nommer.
+  const nom = (produit && produit.produitNom) ? String(produit.produitNom) : '';
+  const usages = (produit && Array.isArray(produit.produitUsages)) ? produit.produitUsages : [];
+  const quoi = nom ? `\nCE QU'EST LE PRODUIT, reconnu sur sa photo : ${nom}.` : '';
+  const scenes = usages.length
+    ? `\nSES SITUATIONS D'USAGE RÉELLES, à reprendre telles quelles ou à enrichir : ${usages.join(' / ')}.`
+    : '';
   return `
-PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit précis, et sa VRAIE PHOTO sera transmise au générateur d'images comme image de référence, sur les plans que TU auras marqués. C'est donc son produit exact qui apparaîtra, pas une imitation.
-1. MARQUE 2 à 4 plans, pas plus, qui montrent le produit EN USAGE RÉEL : une main qui le tient, une personne qui le porte, qui l'applique, qui s'en sert. Choisis les moments où le voir sert vraiment la vente (la révélation, l'usage, le résultat). Le produit sur CHAQUE plan transformerait la vidéo en publicité et ferait décrocher le spectateur.
-2. Sur un plan marqué, écris "the product shown in the reference image" pour le désigner, et décris TOUT LE RESTE : la personne (peau, âge, mains, vêtements), son geste précis, le décor, la lumière, le cadrage.
-3. INTERDICTION ABSOLUE sur ces plans : ne décris JAMAIS l'apparence du produit, ni sa couleur, ni sa forme, ni sa matière, ni son emballage, ni son étiquette, ni son logo, ni le moindre texte écrit dessus. L'image de référence porte déjà tout cela. Le décrire ferait dériver le modèle vers un objet inventé, et le créateur recevrait un faux produit.
-4. Sur tous les plans NON marqués, le produit n'apparaît pas du tout : filme la scène, le problème, l'émotion, le décor, le résultat ressenti.
+PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit précis, et sa VRAIE PHOTO sera transmise au générateur d'images comme image de référence, sur les plans que TU auras marqués. C'est donc son produit exact qui apparaîtra, pas une imitation.${quoi}${scenes}
+1. MARQUE 2 à 4 plans, pas plus, qui montrent le produit EN USAGE RÉEL, c'est-à-dire là où il vit vraiment : un bracelet AU POIGNET de quelqu'un, une chemise PORTÉE par un homme ou une femme, une pommade APPLIQUÉE sur la peau ou tenue en main pendant qu'on l'applique, un outil tenu en main pendant qu'on s'en sert. Un plan peut aussi le montrer posé, mis en valeur comme un bel objet, sur une table, à côté de son emballage. Choisis les moments où le voir sert vraiment la vente : la révélation, l'usage, le résultat.
+2. PAS PLUS DE 4 : le produit sur CHAQUE plan transformerait la vidéo en publicité, et une publicité, on la fait défiler.
+3. Sur un plan marqué, désigne-le par "the product shown in the reference image" et décris TOUT LE RESTE avec la même richesse que d'habitude : la personne (couleur de peau, âge, mains, vêtements), son geste précis, la partie du corps concernée, le décor, la lumière, le cadrage. Le produit doit occuper une place NETTE et LISIBLE dans le cadre, pas un détail perdu au fond.
+4. INTERDICTION ABSOLUE sur ces plans : ne décris JAMAIS l'apparence du produit, ni sa couleur, ni sa forme, ni sa matière, ni son emballage, ni son étiquette, ni son logo, ni le moindre texte écrit dessus. L'image de référence porte déjà tout cela. Le décrire ferait dériver le modèle vers un objet inventé, et le créateur recevrait un faux produit.
+5. Sur tous les plans NON marqués, le produit n'apparaît pas du tout : filme la scène, le problème, l'émotion, le décor, le résultat ressenti.
 
 FORMAT DE RÉPONSE POUR CES PLANS : un plan marqué s'écrit {"prompt":"le prompt en anglais se terminant par 9:16","produit":true} au lieu d'une simple chaîne. Les autres plans restent des chaînes.`;
 }

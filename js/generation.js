@@ -3607,7 +3607,7 @@ async function generateStoryboard() {
       const fait = Math.min(indexDepart + lot.length, plans.length);
       if (statut) statut.textContent = `Scriptura crée le storyboard… ${fait}/${plans.length} plans`;
       prog.etapeTerminee(Math.floor(indexDepart / TAILLE_LOT_VISUELS));
-    }, !!photoProduitPourVisuels());
+    }, photoProduitPourVisuels());
     await promesseMiniature;
     if (statut) statut.remove();
 

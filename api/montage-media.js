@@ -408,6 +408,41 @@ function estBlocageNSFW(message) {
   return /nsfw|not safe|safety|flagged|content policy|may contain|moderat/i.test(String(message));
 }
 
+// ══ LA CONSIGNE QUI FAIT LE TRAVAIL DU DÉTOURAGE, SANS DÉTOURER ══
+//
+// Retour du propriétaire, et c'est le point qui manquait : « l'utilisateur
+// peut charger une photo de son produit qui n'est pas sur fond blanc, ni
+// noir, ni transparent. C'est à toi de savoir détecter le produit à vendre
+// et de le mettre dans ses conditions réelles d'utilisation, sans détourer. »
+//
+// Il a raison, et c'est exactement le piège d'une image de référence : sa
+// photo est prise sur un sol d'atelier, avec des outils autour. Sans rien
+// dire, le modèle peut très bien reproduire l'atelier avec, ou hésiter sur
+// ce qui EST le produit au milieu de tout ça.
+//
+// Le découpage se fait donc dans la TÊTE DU MODÈLE, pas au pixel : on lui dit
+// que seul le produit compte, que le fond de la photo n'existe pas, et on lui
+// NOMME le produit (« a brown leather bracelet »), ce qui suffit à le
+// désigner dans une photo encombrée. C'est ce qu'un humain ferait en
+// pointant l'objet du doigt : aucun ciseau, juste une consigne.
+//
+// POSÉE ICI, ET PAS DANS LE PROMPT ÉCRIT PAR L'IA, volontairement : le
+// serveur est le seul endroit qui SAIT quelles images portent une référence.
+// Une consigne confiée au rédacteur serait oubliée un jour sur un plan, et
+// ce plan-là sortirait avec le sol de l'atelier en fond, sans que rien ne le
+// signale.
+function consigneProduitReference(nomProduit) {
+  const nom = String(nomProduit || '').trim();
+  return ' IMPORTANT, REFERENCE IMAGE: the attached reference image shows the exact real product to feature'
+    + (nom ? ', which is ' + nom : '')
+    + '. Reproduce THAT product exactly as it appears in the reference: same shape, same proportions, same '
+    + 'colours, same materials, same markings, same logo and same text on it. Do not redesign it, do not '
+    + 'stylise it, do not invent any label. Use ONLY the product itself from the reference image: its '
+    + 'background, the surface it sits on, the lighting around it and any other object visible in it are '
+    + 'irrelevant and must NOT appear in the generated image. Rebuild the entire scene described above '
+    + 'around that product, showing it naturally in real use.';
+}
+
 // L'API a-t-elle refusé LE PARAMÈTRE de référence lui-même (nom inconnu de ce
 // modèle), plutôt que la demande ? C'est la seule erreur qui justifie de
 // réessayer avec l'autre forme : sur toute autre erreur, insister ne ferait
@@ -459,12 +494,23 @@ async function genererAvecForme(apiKey, prompt, dims, reference, nomParam) {
   }
 }
 
-async function genererUneImage(apiKey, prompt, dims, reference) {
+// La consigne s'insère AVANT le format final (" 9:16"), qui doit rester le
+// tout dernier élément du prompt : c'est là que les générateurs le lisent, et
+// versionSure() plus haut compte aussi dessus pour reconstruire un prompt
+// adouci après un blocage de modération.
+function promptAvecProduit(prompt, nomProduit) {
+  const ratio = (String(prompt).match(/\s(\d{1,2}:\d{1,2})\s*$/) || [])[1];
+  const sansRatio = ratio ? String(prompt).replace(/\s\d{1,2}:\d{1,2}\s*$/, '') : String(prompt);
+  return sansRatio + consigneProduitReference(nomProduit) + (ratio ? ' ' + ratio : '');
+}
+
+async function genererUneImage(apiKey, prompt, dims, reference, nomProduit) {
+  const promptFinal = reference ? promptAvecProduit(prompt, nomProduit) : prompt;
   const formes = reference ? PARAMS_REFERENCE : [null];
   let derniere = null;
   for (const forme of formes) {
     try {
-      return await genererAvecForme(apiKey, prompt, dims, reference, forme);
+      return await genererAvecForme(apiKey, promptFinal, dims, reference, forme);
     } catch (e) {
       derniere = e;
       if (!e.parametreRefuse) throw e;
@@ -549,6 +595,12 @@ async function handleImages(req, res, body) {
     referenceProduit = 'data:' + mediaProduit + ';base64,' + produit.base64;
   }
   const avecProduit = Array.isArray(body?.avecProduit) ? body.avecProduit : [];
+  // Le NOM du produit, tel que l'app l'a détecté sur la photo (voir
+  // analyserProduitCharge, js/niche-auto.js) : c'est lui qui permet au modèle
+  // de reconnaître l'objet à garder au milieu d'une photo encombrée. Facultatif,
+  // parce qu'une détection peut échouer : la consigne reste alors valable, elle
+  // désigne simplement « le produit » sans le nommer.
+  const nomProduit = String(produit?.nom || '').trim().slice(0, 120);
 
   const resultats = new Array(prompts.length).fill(null);
   const erreurs = new Array(prompts.length).fill(null);
@@ -559,7 +611,7 @@ async function handleImages(req, res, body) {
       const i = curseur++;
       if (!prompts[i]) { erreurs[i] = 'Prompt vide'; continue; }
       const reference = (referenceProduit && avecProduit[i]) ? referenceProduit : null;
-      try { resultats[i] = await genererUneImage(apiKey, prompts[i], dims, reference); }
+      try { resultats[i] = await genererUneImage(apiKey, prompts[i], dims, reference, nomProduit); }
       catch (e) {
         erreurs[i] = reference
           ? 'Ton produit n\'a pas pu être intégré à cette image : ' + (e.message || 'erreur inconnue')

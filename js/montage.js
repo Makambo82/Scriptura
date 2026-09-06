@@ -205,7 +205,10 @@ function corpsImagesMontage(prompts, format, plansAssocies) {
   const photo = photoProduitMontage();
   const avecProduit = plansAssocies.map(p => !!(p && p.produit));
   if (photo && avecProduit.some(Boolean)) {
-    corps.produit = { base64: photo.base64, mediaType: photo.mediaType };
+    // Le nom détecté part avec la photo : c'est lui qui désigne le produit au
+    // milieu d'un fond encombré (voir poserIdentificationProduit,
+    // js/niche-auto.js). Facultatif, la détection peut avoir échoué.
+    corps.produit = { base64: photo.base64, mediaType: photo.mediaType, nom: photo.produitNom || '' };
     corps.avecProduit = avecProduit;
   }
   return corps;

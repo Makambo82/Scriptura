@@ -127,6 +127,114 @@ test('le carrousel suit exactement la même règle', async () => {
   }
 });
 
+// « L'utilisateur peut charger une photo de son produit qui n'est pas sur
+// fond blanc, ni noir, ni transparent. C'est à toi de savoir détecter le
+// produit à vendre. » La détection est faite par l'IA qui regarde déjà la
+// photo pour deviner la niche : aucun appel de plus, aucun coût de plus. Ce
+// qu'elle reconnaît est ATTACHÉ AU FICHIER, pour que l'identification suive
+// la photo partout où elle circule.
+test('ce que l\'IA reconnaît sur la photo reste attaché à la photo', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(() => {
+      const photo = { base64: 'AAAA', mediaType: 'image/jpeg', nom: 'bracelet.jpg' };
+      poserIdentificationProduit(photo, {
+        niche: 'Beauté & Mode',
+        produit_visuel: 'a brown leather bracelet',
+        usages: ["worn on a woman's wrist", 'laid on a wooden table', '', null, 'held in a hand', 'un cinquième']
+      });
+      // Un document : rien à montrer en usage, donc rien à nommer.
+      const doc = { base64: 'JVBER', mediaType: 'application/pdf', nom: 'ebook.pdf' };
+      poserIdentificationProduit(doc, { niche: 'Business & Entrepreneuriat', produit_visuel: '', usages: [] });
+      // Une réponse abîmée ne doit jamais casser le chargement du fichier.
+      const cassee = { base64: 'BBBB', mediaType: 'image/png', nom: 'x.png' };
+      poserIdentificationProduit(cassee, { niche: 'Autre' });
+      return {
+        nom: photo.produitNom, usages: photo.produitUsages,
+        docNom: doc.produitNom, docUsages: doc.produitUsages,
+        casseeNom: cassee.produitNom, casseeUsages: cassee.produitUsages
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(r.nom, 'a brown leather bracelet',
+      'REGRESSION : le produit reconnu ne suit plus la photo. Sans son nom, le générateur d\'images ne '
+      + 'sait pas quel objet garder dans une photo prise sur un sol d\'atelier.');
+    assert.equal(r.usages.length, 4,
+      'REGRESSION : ' + r.usages.length + ' usages retenus. Il en faut au plus 4, et jamais de valeur '
+      + 'vide : une consigne vide dans une liste fait écrire une scène bancale au rédacteur.');
+    assert.ok(r.usages.every(u => u && u.trim()), 'aucune situation vide ne passe : ' + JSON.stringify(r.usages));
+    assert.equal(r.docNom, '', 'un ebook n\'a pas de produit à montrer en usage');
+    assert.deepEqual(r.docUsages, []);
+    assert.equal(r.casseeNom, '',
+      'REGRESSION : une réponse sans les champs attendus doit laisser l\'identification vide, pas casser');
+    assert.deepEqual(r.casseeUsages, []);
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('le rédacteur reçoit le produit nommé et ses vraies situations d\'usage', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const r = await page.evaluate(() => ({
+      sans: regleProduitReelVisuels(null),
+      nu: regleProduitReelVisuels(true),
+      identifie: regleProduitReelVisuels({
+        produitNom: 'a white cotton shirt',
+        produitUsages: ['worn by a man walking in the street', 'held on a hanger']
+      })
+    }));
+
+    assert.equal(r.sans, '', 'sans produit, aucune consigne n\'alourdit le prompt');
+    assert.ok(r.nu.includes('MARQUE 2 à 4 plans'),
+      'sans identification, la règle reste entièrement valable : elle parle du produit sans le nommer');
+    assert.ok(!/CE QU'EST LE PRODUIT/.test(r.nu),
+      'REGRESSION : une ligne « ce qu\'est le produit » part vide au rédacteur');
+    assert.match(r.identifie, /a white cotton shirt/,
+      'REGRESSION : le produit reconnu n\'arrive plus au rédacteur, qui écrira une mise en scène '
+      + 'générique au lieu d\'une chemise portée');
+    assert.match(r.identifie, /worn by a man walking in the street/,
+      'REGRESSION : les situations d\'usage réelles n\'arrivent plus au rédacteur. C\'est ce qui fait la '
+      + 'différence entre « une chemise » et « une chemise portée par un homme dans la rue ».');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('le nom du produit part avec la photo, des deux côtés', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const r = await page.evaluate(() => {
+      venteFichier = { base64: 'P', mediaType: 'image/jpeg', produitNom: 'a small white cream tube' };
+      const montage = corpsImagesMontage(['p'], '9:16', [{ produit: true }]);
+      carrouselVenteFichier = { base64: 'C', mediaType: 'image/png', produitNom: 'a brown leather bracelet' };
+      const carrousel = corpsImageCarrousel(['p'], [{ produit: true }]);
+      venteFichier = null; carrouselVenteFichier = null;
+      return { montage: montage.produit.nom, carrousel: carrousel.produit.nom };
+    });
+    assert.equal(r.montage, 'a small white cream tube',
+      'REGRESSION : le montage envoie la photo sans le nom du produit');
+    assert.equal(r.carrousel, 'a brown leather bracelet',
+      'REGRESSION : le carrousel envoie la photo sans le nom du produit. Une garde qui n\'existe que '
+      + 'd\'un côté finit toujours par manquer de l\'autre.');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

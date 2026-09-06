@@ -408,9 +408,11 @@ LES RÈGLES QUI DÉCIDENT SI LE CARROUSEL EST LU JUSQU'AU BOUT
 
 LE VISUEL, séparément
 Chaque slide porte aussi un champ "visuel" : la consigne de l'image de fond, décrite pour un générateur d'images. Décris une scène, une ambiance, une lumière. JAMAIS de texte ni de lettres (le texte est posé par-dessus par le moteur de rendu). Garde une direction artistique COHÉRENTE d'une slide à l'autre.${ctx.venteFichierEstImage ? `
-PRODUIT RÉEL DU CRÉATEUR : sa VRAIE photo sera transmise au générateur d'images comme image de référence, sur les slides que TU auras marquées. C'est donc son produit exact qui apparaîtra, jamais une imitation.
+PRODUIT RÉEL DU CRÉATEUR : sa VRAIE photo sera transmise au générateur d'images comme image de référence, sur les slides que TU auras marquées. C'est donc son produit exact qui apparaîtra, jamais une imitation.${ctx.produitNom ? `
+CE QU'EST LE PRODUIT, reconnu sur sa photo : ${ctx.produitNom}.` : ''}${(ctx.produitUsages && ctx.produitUsages.length) ? `
+SES SITUATIONS D'USAGE RÉELLES, à reprendre ou à enrichir : ${ctx.produitUsages.join(' / ')}.` : ''}
 - MARQUE 1 à 3 slides, pas plus, en ajoutant "produit": true à côté de leur champ "visuel". Choisis celles où voir le produit sert vraiment la vente : la révélation, l'usage, le résultat. Le produit sur chaque slide ferait une publicité, et on ne fait pas défiler une publicité.
-- Sur une slide marquée, le visuel montre le produit EN USAGE : une main qui le tient, une personne qui le porte, qui l'applique. Désigne-le par "the product shown in the reference image", et décris tout le reste : la personne, son geste, le décor, la lumière.
+- Sur une slide marquée, le visuel montre le produit LÀ OÙ IL VIT VRAIMENT : un bracelet au poignet de quelqu'un, une chemise portée, une pommade appliquée sur la peau ou tenue en main, un objet posé et mis en valeur sur une table. Désigne-le par "the product shown in the reference image", et décris tout le reste : la personne, son geste, la partie du corps concernée, le décor, la lumière. Le produit doit être NET et LISIBLE dans l'image, pas un détail perdu au fond.
 - INTERDICTION ABSOLUE sur ces slides : ne décris jamais l'apparence du produit, ni sa couleur, ni sa forme, ni son emballage, ni son étiquette, ni son logo. La photo de référence porte déjà tout cela ; le décrire ferait dériver le modèle vers un objet inventé.
 - Sur les slides non marquées, le produit n'apparaît pas : la personne, son geste, son émotion, le décor, le problème vécu.` : ''}
 
@@ -577,6 +579,12 @@ function carrouselLireFormulaire() {
     // js/generation.js, même garde côté Script).
     venteFichierEstImage: carrouselObjectif === CARROUSEL_OBJECTIF_VENTES
       && !!carrouselVenteFichier && /^image\//i.test(carrouselVenteFichier.mediaType || ''),
+    // Ce que l'app a reconnu sur la photo (voir poserIdentificationProduit,
+    // js/niche-auto.js) : le nom sert à désigner le produit dans une photo
+    // encombrée, les usages à écrire des scènes justes pour CE produit-là
+    // plutôt qu'une mise en scène générique.
+    produitNom: (carrouselVenteFichier && carrouselVenteFichier.produitNom) || '',
+    produitUsages: (carrouselVenteFichier && carrouselVenteFichier.produitUsages) || [],
     estMatiere: carrouselEstMatiere(val('carrouselSujet'))
   };
 }
@@ -921,7 +929,7 @@ function corpsImageCarrousel(prompts, slidesAssociees) {
     ? carrouselVenteFichier : null;
   const avecProduit = slidesAssociees.map(s => !!(s && s.produit));
   if (photo && avecProduit.some(Boolean)) {
-    corps.produit = { base64: photo.base64, mediaType: photo.mediaType };
+    corps.produit = { base64: photo.base64, mediaType: photo.mediaType, nom: photo.produitNom || '' };
     corps.avecProduit = avecProduit;
   }
   return corps;

@@ -111,6 +111,86 @@ test('la photo du produit part au générateur, et SEULEMENT sur les plans marqu
   }
 });
 
+// Deuxième retour du propriétaire, et c'est LE point qui manquait : « un
+// utilisateur peut charger la photo de son produit qui n'est pas sur fond
+// blanc, ni noir, ni transparent. C'est à toi de savoir détecter le produit à
+// vendre et de le mettre dans ses conditions réelles d'utilisation, sans
+// détourer. »
+//
+// Sa vraie photo est prise sur un sol d'atelier, avec des outils autour. Une
+// image de référence livrée sans consigne, c'est le risque que le modèle
+// reproduise l'atelier avec, ou qu'il hésite sur ce qui EST le produit. Le
+// découpage se fait donc dans la tête du modèle : on lui dit que seul le
+// produit compte, et on le lui NOMME. Aucun ciseau, juste une consigne.
+test('la consigne dit au modèle d\'ignorer le fond de la photo et de garder le seul produit', async () => {
+  const restaurer = poserEnv();
+  const appels = poserFetchMock(() => OK_IMAGE);
+  try {
+    await appeler({
+      prompts: ['a woman walking in a sunlit street 9:16'],
+      format: '9:16', code_acces: 'ADMIN-TEST',
+      produit: { ...PHOTO, nom: 'a brown leather bracelet' },
+      avecProduit: [true]
+    });
+
+    const envoye = appels[0].prompt;
+    assert.match(envoye, /a brown leather bracelet/,
+      'REGRESSION : le produit détecté n\'est plus nommé au modèle. C\'est ce nom qui lui permet de '
+      + 'reconnaître l\'objet à garder au milieu d\'une photo encombrée : ' + envoye);
+    assert.match(envoye, /ONLY the product/i,
+      'REGRESSION : plus rien ne dit de ne garder QUE le produit. Sans ça, le fond de la photo du '
+      + 'créateur (un sol d\'atelier, une table encombrée) peut se retrouver dans l\'image livrée.');
+    assert.match(envoye, /background[\s\S]*must NOT appear/i,
+      'REGRESSION : la consigne n\'exclut plus explicitement le fond de la photo de référence');
+    assert.match(envoye, /same colours[\s\S]*same logo/i,
+      'REGRESSION : la fidélité exacte du produit n\'est plus exigée. C\'est toute la raison d\'être '
+      + 'de la référence : le client qui reçoit le vrai produit doit voir le même.');
+    assert.ok(/\s9:16$/.test(envoye),
+      'REGRESSION : le format n\'est plus le dernier élément du prompt. Les générateurs le lisent à la '
+      + 'fin ; ailleurs, il est ignoré et l\'image sort au mauvais cadrage. Reçu : ' + envoye.slice(-60));
+  } finally {
+    restaurer();
+  }
+});
+
+test('sans nom détecté, la consigne reste valable et ne dit pas n\'importe quoi', async () => {
+  const restaurer = poserEnv();
+  const appels = poserFetchMock(() => OK_IMAGE);
+  try {
+    // La détection peut échouer (photo illisible, réponse invalide). La
+    // référence garde tout son sens : elle désigne « le produit », sans nom.
+    await appeler({
+      prompts: ['a hand on a table 9:16'], format: '9:16', code_acces: 'ADMIN-TEST',
+      produit: PHOTO, avecProduit: [true]
+    });
+    const envoye = appels[0].prompt;
+    assert.match(envoye, /ONLY the product/i, 'la consigne d\'ignorer le fond reste, elle vaut sans nom');
+    assert.ok(!/which is\s*\./.test(envoye) && !/which is\s*,/.test(envoye),
+      'REGRESSION : une phrase tronquée part au modèle quand le nom manque : ' + envoye);
+  } finally {
+    restaurer();
+  }
+});
+
+test('la consigne produit ne pollue JAMAIS une image ordinaire', async () => {
+  const restaurer = poserEnv();
+  const appels = poserFetchMock(() => OK_IMAGE);
+  try {
+    await appeler({
+      prompts: ['a storm over the ocean 9:16', 'a hand holding it 9:16'],
+      format: '9:16', code_acces: 'ADMIN-TEST',
+      produit: { ...PHOTO, nom: 'a white cream tube' },
+      avecProduit: [false, true]
+    });
+    assert.ok(!/REFERENCE IMAGE/i.test(appels[0].prompt),
+      'REGRESSION : un plan sans produit reçoit la consigne de référence. Elle parlerait d\'une image '
+      + 'de référence qui n\'est pas jointe, et le modèle inventerait un produit pour lui obéir.');
+    assert.match(appels[1].prompt, /REFERENCE IMAGE/i, 'le plan marqué, lui, la reçoit bien');
+  } finally {
+    restaurer();
+  }
+});
+
 test('sans plan marqué, l\'appel est exactement celui d\'avant', async () => {
   const restaurer = poserEnv();
   const appels = poserFetchMock(() => OK_IMAGE);
