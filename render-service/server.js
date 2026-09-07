@@ -44,6 +44,61 @@ const DIMENSIONS_VIDEO = {
 const FPS = parseInt(process.env.MONTAGE_FPS || '25', 10);           // 25 = Ken Burns fluide
 const DUREE_TRANSITION = parseFloat(process.env.MONTAGE_TRANSITION || '0.5');
 const ZMAX = 1.20;
+// ── SUR-ÉCHANTILLONNAGE AVANT zoompan (correction des animations saccadées) ──
+//
+// Retour d'un vrai utilisateur, qui l'a dit dans une vidéo publique : « les
+// zooms sont saccadés ». Il avait raison, et c'était pire que ça en avait
+// l'air. Mesuré ici, à la résolution réellement produite (720x1280) :
+//   plan de  5 s : 51 % des images ne bougeaient pas du tout
+//   plan de  8 s : 70 %
+//   plan de 12 s : 80 %
+//
+// LA CAUSE : zoompan arrondit x, y et la taille de la fenêtre à des pixels
+// ENTIERS. L'image lui arrivait déjà à la résolution de sortie, or sur un plan
+// de 5 s la fenêtre ne se déplace que de 120 px en 125 images, soit moins d'un
+// pixel par image. L'arrondi transforme ce glissement en marches d'escalier :
+// l'image reste figée deux ou trois images, puis saute d'un pixel. C'est
+// exactement ce que l'œil lit comme une saccade.
+//
+// LE REMÈDE : donner à zoompan une image plus GRANDE que sa sortie. L'arrondi
+// se fait alors sur des pixels plus petits que ceux de la vidéo finale, et le
+// mouvement redevient continu une fois redescendu à 720x1280.
+//
+// LE FACTEUR EST ADAPTATIF, et il doit l'être : le besoin dépend de la durée
+// du plan, parce qu'un plan long étale la même course sur plus d'images. Un
+// facteur fixe serait soit insuffisant sur les plans longs, soit ruineux sur
+// les courts. Mesures (images figées) :
+//                   2x     3x     4x
+//   plan de  5 s     3 %    0 %    0 %
+//   plan de  8 s    40 %    9 %    0 %
+//   plan de 12 s    60 %    -     20 %
+//
+// CE QUE ÇA COÛTE, et c'est le vrai arbitrage (lot de 3 plans de 6,5 s) :
+//   1x (avant)  4,1 s   318 Mo
+//   2x          8,7 s   321 Mo
+//   3x         16,3 s   462 Mo
+//   4x         27,6 s   568 Mo
+//   6x         52,8 s  1345 Mo   ← écarté, ce conteneur a déjà connu l'OOM
+// Le rendu devient donc 3 à 7 fois plus lent. C'est le prix d'une animation
+// qui ne saccade plus, et il est assumé : une vidéo saccadée ne se publie pas.
+//
+// PLAFOND ABAISSABLE SANS REDÉPLOYER (MONTAGE_SUPERSAMPLE_MAX) : si
+// l'hébergeur manque de mémoire, descendre à 3 garde l'essentiel du gain sur
+// les plans courts, qui sont les plus nombreux.
+const SUREC_MIN = 2;
+const SUREC_MAX = parseInt(process.env.MONTAGE_SUPERSAMPLE_MAX || '4', 10);
+// Déplacement visé par image, en pixels de l'image sur-échantillonnée. En
+// dessous de 2, l'arrondi entier redevient visible ; au-dessus, on paie sans
+// que l'œil y gagne quoi que ce soit.
+const SUREC_PIXELS_CIBLE = parseFloat(process.env.MONTAGE_SUPERSAMPLE_CIBLE || '2');
+
+function facteurSurEchantillonnage(D, W) {
+  // Course totale de la fenêtre sur le plan entier, en pixels de sortie.
+  const course = W * (1 - 1 / ZMAX);
+  if (!(course > 0) || !(D > 1)) return SUREC_MIN;
+  const requis = Math.ceil((SUREC_PIXELS_CIBLE * D) / course);
+  return Math.max(SUREC_MIN, Math.min(SUREC_MAX, requis));
+}
 // Étalonnage (retour propriétaire, "en tant que pro CapCut, quelles
 // améliorations") : légère remontée de contraste et de saturation
 // appliquée à CHAQUE plan - sans ça, des images générées par IA paraissent
@@ -145,9 +200,15 @@ function construireGrapheLot(durees, decalage, W, H) {
   for (let i = 0; i < n; i++) {
     const D = Math.max(1, Math.round(longueurs[i] * FPS));
     const kb = kenBurns(decalage + i, D);
+    // L'image entre dans zoompan PLUS GRANDE que la sortie (voir
+    // facteurSurEchantillonnage) : c'est ce qui rend le mouvement continu.
+    // zoompan la ramène lui-même à W x H via son s=, donc rien ne change en
+    // aval, ni la taille, ni les transitions, ni les durées.
+    const F = facteurSurEchantillonnage(D, W);
+    const SW = W * F, SH = H * F;
     parts.push(
-      `[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
-      `crop=${W}:${H},setsar=1,fps=${FPS},` +
+      `[${i}:v]scale=${SW}:${SH}:force_original_aspect_ratio=increase,` +
+      `crop=${SW}:${SH},setsar=1,fps=${FPS},` +
       `zoompan=z='${kb.z}':x='${kb.x}':y='${kb.y}':d=${D}:s=${W}x${H}:fps=${FPS},` +
       `eq=contrast=${GRADE_CONTRASTE}:saturation=${GRADE_SATURATION}[v${i}]`
     );
@@ -519,7 +580,7 @@ if (require.main === module) {
 
 module.exports = {
   construireASS, versHorodatageASS, echapperTexteASS, mettreEnValeurChiffres,
-  construireGrapheLot, resoudreVolumeMusique,
+  construireGrapheLot, resoudreVolumeMusique, facteurSurEchantillonnage,
   MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
   GRADE_CONTRASTE, GRADE_SATURATION
 };
