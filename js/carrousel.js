@@ -714,7 +714,28 @@ function normaliserResultatCarrousel(r) {
 function garantirUneSlideProduit(r) {
   const photo = (carrouselVenteFichier && /^image\//i.test(carrouselVenteFichier.mediaType || ''))
     ? carrouselVenteFichier : null;
-  if (!photo || !r.slides.length) return;
+  if (!r.slides.length) return;
+
+  // LE VISUEL FAIT FOI, AUTANT QUE LE MARQUAGE (même défaut trouvé côté
+  // storyboard) : une slide qui écrit « the product shown in the reference
+  // image » sans porter le drapeau partirait SANS la photo, et le modèle
+  // inventerait un produit pour obéir à une référence absente.
+  const parleDeLaReference = (s) => /reference image|image de r[ée]f[ée]rence/i.test(s.visuel || '');
+  if (photo) r.slides.forEach(s => { if (parleDeLaReference(s)) s.produit = true; });
+
+  if (!photo) {
+    // Sans photo, ni marquage ni mention fantôme : la consigne désignerait
+    // une image qui n'existe pas.
+    r.slides.forEach(s => {
+      s.produit = false;
+      if (parleDeLaReference(s)) {
+        s.visuel = String(s.visuel)
+          .replace(/\bthe product shown in the reference image\b/gi, 'the product')
+          .replace(/\ble produit de l'image de r[ée]f[ée]rence\b/gi, 'le produit');
+      }
+    });
+    return;
+  }
   if (r.slides.some(s => s.produit)) return;
   r.slides[r.slides.length - 1].produit = true;
 }

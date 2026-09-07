@@ -462,6 +462,74 @@ test('les boutons ChatGPT et Gemini préviennent qu\'il faut joindre la photo', 
   }
 });
 
+// DÉFAUT TROUVÉ SUR UN VRAI STORYBOARD DU PROPRIÉTAIRE (16 plans, huile
+// moteur) : un plan écrivait « the product shown in the reference image »
+// SANS porter le drapeau "produit". Le modèle avait rédigé la scène et oublié
+// le marquage. Conséquence silencieuse, et exactement le sosie qu'on refuse :
+// aucune photo n'aurait été envoyée pour ce plan, et le générateur, sommé de
+// montrer « le produit de l'image de référence » sans référence, en aurait
+// inventé un. Le prompt doit donc faire foi autant que le drapeau.
+test('un prompt qui parle de la photo de référence la reçoit, drapeau ou pas', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(async () => {
+      // Le modèle rédige la scène produit sur le plan 2, mais ne marque rien.
+      // Le plan qui parle de la référence est au MILIEU, jamais le dernier :
+      // sinon le filet du dernier plan le marquerait de toute façon et ce
+      // test passerait même sans le correctif qu'il est censé verrouiller.
+      window.callAI = async () => JSON.stringify({ visuels: [
+        'a quiet workshop at dawn 9:16',
+        'a canister on a shelf, the product shown in the reference image 9:16',
+        'a car driving away at sunset 9:16'
+      ]});
+      const avecPhoto = [{ text: 'a' }, { text: 'b' }, { text: 'c' }];
+      await genererVisuelsParLots(avecPhoto, 'TikTok', null, { produitNom: 'an engine oil canister' });
+
+      // Sans photo, la mention devient une consigne fantôme : elle doit
+      // disparaître du prompt, et surtout ne marquer aucun plan.
+      const sansPhoto = [{ text: 'a' }, { text: 'b' }, { text: 'c' }];
+      await genererVisuelsParLots(sansPhoto, 'TikTok', null, false);
+
+      // Même règle côté carrousel.
+      carrouselVenteFichier = { base64: 'A', mediaType: 'image/png', produitNom: 'an engine oil canister' };
+      const carrou = normaliserResultatCarrousel({ titre: 'T', direction_visuelle: 's', slides: [
+        { numero: 1, gabarit: 'couverture', titre: 'A', visuel: 'a garage 9:16' },
+        { numero: 2, gabarit: 'contenu', titre: 'B', visuel: 'pouring the product shown in the reference image 9:16' },
+        { numero: 3, gabarit: 'recap', titre: 'C', visuel: 'a road 9:16' }
+      ]}).slides.map(s => !!s.produit);
+      carrouselVenteFichier = null;
+      return {
+        avecPhoto: avecPhoto.map(p => !!p.produit),
+        sansPhoto: sansPhoto.map(p => !!p.produit),
+        promptNettoye: sansPhoto[1].visuel,
+        carrou
+      };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.deepEqual(r.avecPhoto, [false, true, false],
+      'REGRESSION : un plan dont le prompt réclame « le produit de l\'image de référence » part sans la '
+      + 'photo. Le générateur inventerait un produit pour obéir à une référence absente, et personne ne '
+      + 'le verrait. Obtenu : ' + JSON.stringify(r.avecPhoto));
+    assert.deepEqual(r.sansPhoto, [false, false, false],
+      'REGRESSION : sans photo chargée, un plan est quand même marqué. Il n\'y a rien à envoyer.');
+    assert.ok(!/reference image/i.test(r.promptNettoye),
+      'REGRESSION : sans photo, le prompt garde une mention d\'image de référence qui n\'existe pas. '
+      + 'C\'est une consigne fantôme, le modèle inventera un produit pour y répondre : ' + r.promptNettoye);
+    assert.deepEqual(r.carrou, [false, true, false],
+      'REGRESSION : côté carrousel, la même slide part sans sa photo. Un défaut corrigé d\'un seul côté '
+      + 'finit toujours par ressortir de l\'autre. Obtenu : ' + JSON.stringify(r.carrou));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

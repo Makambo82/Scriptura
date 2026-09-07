@@ -349,7 +349,9 @@ function regleProduitReelVisuels(produit) {
 PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit précis, et sa VRAIE PHOTO sera transmise au générateur d'images comme image de référence, sur les plans que TU auras marqués. C'est donc son produit exact qui apparaîtra, pas une imitation.${quoi}${scenes}
 1. MARQUE 2 à 4 plans, pas plus, qui montrent le produit EN USAGE RÉEL, c'est-à-dire là où il vit vraiment : un bracelet AU POIGNET de quelqu'un, une chemise PORTÉE par un homme ou une femme, une pommade APPLIQUÉE sur la peau ou tenue en main pendant qu'on l'applique, un outil tenu en main pendant qu'on s'en sert. Un plan peut aussi le montrer posé, mis en valeur comme un bel objet, sur une table, à côté de son emballage. Choisis les moments où le voir sert vraiment la vente : la révélation, l'usage, le résultat.
 2. PAS PLUS DE 4 : le produit sur CHAQUE plan transformerait la vidéo en publicité, et une publicité, on la fait défiler.
-3. Sur un plan marqué, désigne-le par "the product shown in the reference image" et décris TOUT LE RESTE avec la même richesse que d'habitude : la personne (couleur de peau, âge, mains, vêtements), son geste précis, la partie du corps concernée, le décor, la lumière, le cadrage. Le produit doit occuper une place NETTE et LISIBLE dans le cadre, pas un détail perdu au fond.
+3. Sur un plan marqué, désigne-le par "the product shown in the reference image" et décris TOUT LE RESTE avec la même richesse que d'habitude : la personne (couleur de peau, âge, mains, vêtements), son geste précis, la partie du corps concernée, le décor, la lumière, le cadrage.
+   LE PRODUIT EST AU PREMIER PLAN, NET, ET PARFAITEMENT LISIBLE. Il est tenu, porté, appliqué, versé, utilisé. INTERDIT de l'écrire "in the background", "partially visible", "on a shelf", "in the soft-focus background" ou "blurred" : un produit flou au fond ne se reconnaît pas, donc il ne vend pas, et l'image aura coûté pour rien. Si le flou d'arrière-plan (depth of field) est mentionné, le produit doit être du côté NET.
+   N'écris "the product shown in the reference image" QUE sur les plans que tu marques. Sur un plan non marqué, cette phrase désignerait une photo qui ne sera pas envoyée.
 4. INTERDICTION ABSOLUE sur ces plans : ne décris JAMAIS l'apparence du produit, ni sa couleur, ni sa forme, ni sa matière, ni son emballage, ni son étiquette, ni son logo, ni le moindre texte écrit dessus. L'image de référence porte déjà tout cela. Le décrire ferait dériver le modèle vers un objet inventé, et le créateur recevrait un faux produit.
 5. Sur tous les plans NON marqués, le produit n'apparaît pas du tout : filme la scène, le problème, l'émotion, le décor, le résultat ressenti.
 
@@ -397,10 +399,31 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       lot[k].visuel = texte
         ? assainirPromptVisuel(texte, 'Plan ' + (i + k + 1))
         : 'Prompt visuel indisponible pour ce plan, clique sur ↻ Régénérer pour réessayer.';
+      // LE PROMPT FAIT FOI, AUTANT QUE LE MARQUAGE.
+      //
+      // Défaut trouvé sur un vrai storyboard du propriétaire (16 plans, huile
+      // moteur) : un plan écrivait « the product shown in the reference
+      // image » SANS être marqué. Le modèle avait rédigé la scène produit et
+      // oublié le drapeau. Conséquence, silencieuse et exactement le sosie
+      // qu'on refuse : aucune photo n'aurait été envoyée pour ce plan, et le
+      // générateur, sommé de montrer « le produit de l'image de référence »
+      // sans référence, en aurait inventé un.
+      // Un prompt qui PARLE de la photo la reçoit donc, drapeau ou pas.
+      const parleDeLaReference = /reference image|image de r[ée]f[ée]rence/i.test(texte || '');
+      const marqueParLeModele = !!(brut && typeof brut === 'object' && brut.produit);
       // Le marquage ne vaut que si on a VRAIMENT une photo à envoyer : sans
       // elle, un plan marqué demanderait « le produit de l'image de
       // référence » sans référence, donc un objet inventé.
-      lot[k].produit = !!(aUnProduit && texte && brut && typeof brut === 'object' && brut.produit);
+      lot[k].produit = !!(aUnProduit && texte && (marqueParLeModele || parleDeLaReference));
+      // Le miroir : sans photo, la mention n'a plus de sens et devient une
+      // consigne fantôme. On la retire du prompt plutôt que de la laisser
+      // désigner une image qui n'existe pas.
+      if (!aUnProduit && parleDeLaReference) {
+        lot[k].visuel = lot[k].visuel
+          .replace(/\bthe product shown in the reference image\b/gi, 'the product')
+          .replace(/\bthe product from the reference image\b/gi, 'the product')
+          .replace(/,?\s*the product shown in the reference image\b/gi, '');
+      }
     }
     if (onLot) onLot(lot, i);
   }
