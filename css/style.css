@@ -415,8 +415,13 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .btn-generate{
   width:100%;padding:17px;
   background:var(--gold);color:var(--bg);
-  font-family:'Cinzel',serif;font-weight:500;font-size:0.78rem;
-  letter-spacing:0.18em;text-transform:uppercase;
+  /* La FAMILLE vient du bloc groupé en fin de fichier (voir « POLICE DES
+     BOUTONS »). L'espacement, lui, est propre à ce bouton : 0.18em avait été
+     réglé pour Cinzel, dont les capitales sont étroites. Celles de Poppins
+     sont bien plus larges, et au même espacement le texte touchait les bords
+     du bouton. 0.12em lui rend son air. */
+  font-weight:600;font-size:0.78rem;
+  letter-spacing:0.12em;text-transform:uppercase;
   border:none;border-radius:999px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;gap:10px;
   transition:all 0.25s;
@@ -435,8 +440,13 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .btn-back{
   padding:17px 10px;margin:-17px -10px;
   display:inline-flex;align-items:center;gap:8px;
-  font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;
-  text-transform:uppercase;color:rgba(255,255,255,0.7);
+  /* LE SEUL BOUTON QUI PASSE EN MINUSCULES, et c'est voulu. En majuscules
+     espacées, « ← RETOUR » pesait autant qu'une action principale alors que
+     c'est un simple lien de navigation. En minuscules il redevient discret,
+     ce qu'il doit être. Décision prise sur capture comparative, avec le
+     propriétaire. La famille vient du bloc groupé en fin de fichier. */
+  font-size:0.78rem;font-weight:500;letter-spacing:0.02em;
+  text-transform:none;color:rgba(255,255,255,0.7);
   background:transparent;border:none;cursor:pointer;
   margin-bottom:32px;transition:color 0.2s;
 }
@@ -4114,4 +4124,46 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
   /* En colonne, l'aperçu reprend toute la largeur et garde sa proportion
      réelle : c'est là qu'on juge vraiment une slide, autant la voir grand. */
   .car-slide-visuel{flex:none;width:100%;max-width:300px;margin:0 auto}
+}
+
+/* ═══════════════════════════════════════════════════════════
+   POLICE DES BOUTONS
+   ═══════════════════════════════════════════════════════════
+   Retour du propriétaire, capture comparative à l'appui : « Cinzel n'est pas
+   bien visible, ça ne se lit pas bien ». Il a raison, et c'est mesurable à
+   l'œil : les empattements de Cinzel s'épaississent aux extrémités, et sur le
+   fond doré clair du bouton principal, avec un texte foncé, les lettres se
+   brouillent. On déchiffrait le bouton au lieu de le lire.
+
+   CE QUI CHANGE : la FAMILLE, rien d'autre. Les majuscules, l'espacement et
+   le doré restent. Trois variantes ont été comparées en image avant de
+   trancher (Cinzel, Poppins minuscules, Poppins majuscules) : les majuscules
+   l'emportent parce qu'elles gardent le registre de l'app, celui des libellés
+   « TON & VOIX » ou « DURÉE DE LA VIDÉO ». Poppins en minuscules était très
+   lisible mais faisait perdre au bouton son autorité d'action principale.
+
+   UN SEUL BLOC POUR TOUS, plutôt que 25 règles modifiées une à une : c'est la
+   seule façon de pouvoir revenir en arrière d'un geste si l'essai ne tient pas
+   à l'usage, et d'éviter qu'un bouton oublié reste en Cinzel au milieu des
+   autres. Chaque bouton garde en revanche SA taille et SON espacement, réglés
+   au cas par cas dans sa propre règle : les uniformiser ici écraserait des
+   choix délibérés.
+
+   CE QUI N'EST PAS TOUCHÉ, et c'est important : le logo, les libellés de
+   section, les tags, les titres et les intitulés de plan restent en Cinzel.
+   C'est là que vit l'identité de Scriptura. Seuls les boutons changent, parce
+   qu'un bouton doit d'abord se lire. */
+.btn-generate, .btn-back, .copy-btn, .share-btn, .btn-restart, .gen-skip-btn,
+.rappel-btn, .plan-btn, .modal-btn, .footer-wa-btn, .sb-generate-btn,
+.btn-regenerate, .btn-actualiser, .idea-btn-script, .idea-btn-copy,
+.idea-btn-share, .btn-storyboard, .nav-history-btn, .hist-tool-btn,
+.modal-btn-ghost, .action-btn, .affiner-toggle, .genimg-btn, .aw-nav button,
+.btn-montage-primary,
+/* Ajouté APRÈS coup : ce bouton-là ne portait aucun nom en « btn », il est
+   donc passé à travers l'inventaire fait à la main, et c'est le test qui
+   balaie tous les boutons visibles de l'écran qui l'a rattrapé. C'est
+   précisément le bouton le plus en vue de l'app pour un non-abonné : il
+   serait resté en Cinzel, seul, juste à côté de tous les autres. */
+.nav-subscribe-cta {
+  font-family:'Poppins',sans-serif;
 }
