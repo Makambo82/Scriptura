@@ -359,6 +359,65 @@ async function handleAdminStats(req, res, cfg, body) {
   // bouton (qui ne l'affiche que pour les codes déjà désactivés) ; 0 ligne
   // supprimée dans ce cas, jamais une erreur qui laisserait croire à une
   // suppression partielle.
+  // ── RENOUVELLEMENT D'UN ABONNEMENT ──
+  // Tant que le paiement passe par WhatsApp et Mobile Money, le fondateur
+  // encaisse à la main : il lui restait à rouvrir Supabase pour repousser la
+  // date, ce qui veut dire quitter l'app, chercher la bonne ligne, et taper
+  // une date au bon format. Sur un téléphone, personne ne le fait deux fois.
+  //
+  // À PARTIR DE QUELLE DATE, et c'est LA question de ce bloc :
+  //   * abonnement encore valide → on repart de SA date de fin. Renouveler
+  //     trois jours avant l'échéance ne doit pas faire perdre ces trois jours
+  //     déjà payés.
+  //   * abonnement déjà expiré → on repart d'AUJOURD'HUI. Repartir d'une date
+  //     passée offrirait un mois déjà écoulé, donc quelques jours seulement.
+  // Autrement dit : max(aujourd'hui, expire_le) + 30 jours.
+  //
+  // RÉACTIVE le code au passage : renouveler un abonné désactivé sans le
+  // réactiver donnerait une date valide sur un compte qui refuse encore
+  // l'accès, et le fondateur ne comprendrait pas pourquoi son abonné à jour
+  // reste bloqué.
+  //
+  // JAMAIS SUR UN CODE JETON : un jeton n'est pas un abonnement, il n'a pas
+  // de date de fin (expire_le null à la création). Repousser une date sur lui
+  // n'aurait aucun effet et laisserait croire qu'un renouvellement a eu lieu.
+  if (body?.action === 'renouveler-abonne') {
+    const cible = String(body?.code || '').trim();
+    if (!cible) return res.status(400).json({ error: { message: 'Code manquant' } });
+    const mois = Math.min(Math.max(parseInt(body?.mois, 10) || 1, 1), 12);
+    try {
+      // ilike, même raison que toggle-actif : un code stocké en casse mixte
+      // ne matche jamais un eq.MAJUSCULE et la mise à jour échouerait en
+      // silence, en laissant l'écran annoncer un renouvellement fantôme.
+      const rLire = await fetch(
+        cfg.url + '/rest/v1/abonnes?code=ilike.' + encodeURIComponent(cible) + '&select=code,plan,expire_le',
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rows = await rLire.json().catch(() => []);
+      const ligne = Array.isArray(rows) ? rows[0] : null;
+      if (!ligne) return res.status(200).json({ ok: false, erreur: 'code_introuvable' });
+      if (String(ligne.plan || '').toLowerCase() === 'jeton') {
+        return res.status(200).json({ ok: false, erreur: 'plan_jeton' });
+      }
+
+      const auj = new Date(); auj.setHours(0, 0, 0, 0);
+      const finActuelle = ligne.expire_le ? new Date(ligne.expire_le + 'T00:00:00') : null;
+      const depart = (finActuelle && !isNaN(finActuelle.getTime()) && finActuelle > auj) ? finActuelle : auj;
+      const nouvelle = new Date(depart.getTime() + mois * 30 * 24 * 3600 * 1000);
+      const expireLe = nouvelle.toISOString().split('T')[0];
+
+      const rMaj = await fetch(cfg.url + '/rest/v1/abonnes?code=ilike.' + encodeURIComponent(cible), {
+        method: 'PATCH',
+        headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+        body: JSON.stringify({ expire_le: expireLe, actif: true })
+      });
+      if (!rMaj.ok) throw new Error('maj échouée (' + rMaj.status + ')');
+      return res.status(200).json({ ok: true, code: ligne.code, expireLe, mois, plan: ligne.plan });
+    } catch (e) {
+      return res.status(200).json({ indisponible: true });
+    }
+  }
+
   if (body?.action === 'supprimer-abonne') {
     // ilike, même raison que toggle-actif ci-dessus : un code stocké en
     // casse mixte (ex. "Tiktok-F18") ne matche jamais un eq.MAJUSCULE, donc

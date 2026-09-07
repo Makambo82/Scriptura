@@ -657,9 +657,100 @@ async function toggleGenerationsParCode(code, i) {
       .sort((a, b) => b[1] - a[1])
       .map(([m, n]) => `<div class="audit-sujet"><span>${escAdmin(m)}</span><b>${n}</b></div>`)
       .join('') || '<div class="ideas-sub">Aucune génération pour ce code.</div>';
-    el.innerHTML = '<div class="ideas-sub" style="margin-bottom:4px;opacity:0.7">Générations par mode (tous les temps)</div>' + lignes;
+    el.innerHTML = '<div class="ideas-sub" style="margin-bottom:4px;opacity:0.7">Générations par mode (tous les temps)</div>'
+      + lignes + blocRenouvellementAdmin(code);
   } catch (e) {
-    el.innerHTML = '<div class="ideas-sub">Donnée indisponible.</div>';
+    // La liste des générations peut échouer sans que le renouvellement, lui,
+    // devienne impossible : ce sont deux appels indépendants. Le priver du
+    // bouton parce qu'un compteur n'a pas répondu l'obligerait à rouvrir
+    // Supabase pour encaisser un paiement déjà reçu.
+    el.innerHTML = '<div class="ideas-sub">Générations indisponibles.</div>' + blocRenouvellementAdmin(code);
+  }
+}
+
+// ── RENOUVELER UN ABONNEMENT, DEPUIS LE TÉLÉPHONE ──
+// Demande du propriétaire, et elle vient d'un constat très concret : tant que
+// le paiement passe par WhatsApp et Mobile Money, c'est LUI qui encaisse, et
+// il lui restait à rouvrir Supabase pour repousser la date à la main. Sur un
+// téléphone, ça veut dire quitter l'app, trouver la bonne ligne et taper une
+// date au bon format. Personne ne le fait deux fois.
+//
+// Posé sous les générations du code, exactement là où il l'a demandé : c'est
+// l'endroit où il regarde déjà si l'abonné se sert de l'app, donc l'endroit
+// où il décide de le renouveler ou pas.
+//
+// AUCUN BOUTON POUR LES CODES JETON : un jeton n'est pas un abonnement, il
+// n'a pas de date de fin. Afficher « Renouveler » dessus laisserait croire
+// qu'un renouvellement est possible, et le serveur le refuserait.
+function blocRenouvellementAdmin(code) {
+  const fiche = (Array.isArray(_codesAbonnesAdmin) ? _codesAbonnesAdmin : [])
+    .find(c => c && String(c.code).toUpperCase() === String(code).toUpperCase());
+  const plan = String((fiche && fiche.plan) || '').toLowerCase();
+  if (plan === 'jeton') return '';
+
+  const codeJs = String(code).replace(/'/g, "\\'");
+  // L'échéance actuelle est rappelée SOUS le bouton : c'est elle qui dit si
+  // le renouvellement va prolonger un abonnement encore valide ou en relancer
+  // un expiré, et les deux ne donnent pas la même date d'arrivée.
+  const jours = (fiche && fiche.expire_le) ? joursRestantsAvantExpiration(fiche.expire_le) : null;
+  let etat;
+  // ZÉRO VEUT DIRE EXPIRÉ, pas « encore un jour » : joursRestantsAvantExpiration
+  // arrondit au jour supérieur sur une échéance fixée à 23:59:59, donc une
+  // échéance du jour même rend 1, et 0 signifie déjà passée. Un `< 0` aurait
+  // annoncé « encore 0 jour » sur un abonnement fini, et surtout aurait promis
+  // que le mois s'ajoute à une date que le serveur, lui, ignore déjà.
+  if (!fiche || !fiche.expire_le) etat = 'Aucune échéance enregistrée pour ce code.';
+  else if (jours == null) etat = 'Échéance : ' + escAdmin(String(fiche.expire_le));
+  else if (jours <= 0) {
+    etat = (jours === 0 ? 'Expiré' : 'Expiré depuis ' + Math.abs(jours) + ' jour' + (Math.abs(jours) > 1 ? 's' : ''))
+      + ' · le mois repartira d\'aujourd\'hui';
+  } else etat = 'Encore ' + jours + ' jour' + (jours > 1 ? 's' : '') + ' · le mois s\'ajoutera à cette échéance';
+
+  return `
+    <div style="margin-top:12px;border-top:1px solid var(--border-soft);padding-top:12px">
+      <button type="button" class="btn-generate" style="width:100%" onclick="renouvelerAbonneAdmin('${codeJs}', this)">Renouveler 1 mois</button>
+      <div class="ideas-sub" style="margin-top:6px;opacity:0.6;text-align:center">${etat}</div>
+    </div>`;
+}
+
+async function renouvelerAbonneAdmin(code, btn) {
+  // Une confirmation, comme pour la suppression : ce bouton se trouve juste
+  // sous une liste qu'on fait défiler au doigt, et il engage un mois d'accès.
+  if (!confirm('Renouveler l\'abonnement de « ' + code +' » pour 1 mois ?\n\nÀ ne faire qu\'une fois le paiement reçu.')) return;
+  const libelleAvant = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Renouvellement…'; }
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        resource: 'admin-stats', action: 'renouveler-abonne',
+        code_acces: localStorage.getItem('scriptura_code') || null, code, mois: 1
+      })
+    });
+    const data = await r.json();
+    if (!r.ok || data.indisponible || !data.ok) {
+      if (btn) { btn.disabled = false; btn.textContent = libelleAvant; }
+      if (typeof toastRegen === 'function') {
+        toastRegen(data && data.erreur === 'plan_jeton'
+          ? 'Un code jeton ne s\'abonne pas, il se recharge en jetons.'
+          : (data && data.erreur === 'code_introuvable' ? 'Ce code est introuvable.' : 'Renouvellement impossible, réessaie.'));
+      }
+      return;
+    }
+    // La liste locale est mise à jour AVANT le rendu : sans ça, la ligne
+    // continuerait d'afficher l'ancienne échéance et la carte « expire
+    // bientôt » garderait un abonné qui vient d'être renouvelé, jusqu'au
+    // prochain rechargement complet du tableau de bord.
+    const fiche = (Array.isArray(_codesAbonnesAdmin) ? _codesAbonnesAdmin : [])
+      .find(c => c && String(c.code).toUpperCase() === String(code).toUpperCase());
+    if (fiche) { fiche.expire_le = data.expireLe; fiche.actif = true; }
+    if (typeof toastRegen === 'function') toastRegen('Renouvelé jusqu\'au ' + data.expireLe + '.');
+    renderAdminListe();
+    majEnteteAbonnesAdmin();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = libelleAvant; }
+    if (typeof toastRegen === 'function') toastRegen('Renouvellement impossible, réessaie.');
   }
 }
 
