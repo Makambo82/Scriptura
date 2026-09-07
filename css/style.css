@@ -3942,6 +3942,16 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
    Série, voir initSliderChoix js/ui.js). Le <select> reste dans le DOM pour
    que tout le code existant continue de le lire, mais il ne doit plus rien
    dessiner : même mise à l'écart que .custom-select select plus haut. */
+/* Rappel posé sous le score : les boutons d'édition par passage existent, et
+   c'est par eux que la durée se rattrape (voir rappelEditionParPassageHTML,
+   js/ui.js). Doré comme l'avertissement de durée juste au-dessus, dont il est
+   la suite logique : l'un dit le problème, l'autre dit quoi faire. Pas
+   d'émeraude ici, ce n'est pas une réussite, c'est un mode d'emploi. */
+.rappel-edition{
+  margin-top:10px;padding:11px 14px;border-radius:8px;
+  background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.22);
+  font-size:0.8rem;line-height:1.55;color:var(--gold-light);
+}
 .choix-slider{position:relative}
 .choix-slider select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
 

@@ -3135,6 +3135,7 @@ function carteScoreScriptHTML(d) {
           ${metricBar('Rétention estimée', s.retention)}
         </div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+        ${rappelEditionParPassageHTML('script')}
       </div>`;
   }
   if (d && d.scoreEnCours) {
@@ -3151,6 +3152,7 @@ function carteScoreScriptHTML(d) {
           ${['Potentiel viral', 'Puissance du hook', 'Engagement', 'Force émotionnelle', 'Rétention estimée'].map(l => metricBarVide(l)).join('')}
         </div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+        ${rappelEditionParPassageHTML('script')}
       </div>`;
   }
   if (d && d.evaluationIndisponible) {
@@ -3171,6 +3173,7 @@ function carteScoreScriptHTML(d) {
         </div>
         <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+        ${rappelEditionParPassageHTML('script')}
       </div>`;
   }
   return '';

@@ -1228,6 +1228,7 @@ function carteScoreRecitHTML(d) {
           ${metricBar('Rétention estimée', s.retention)}
         </div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+        ${rappelEditionParPassageHTML('recit')}
       </div>`;
   }
   if (d && d.scoreEnCours) {
@@ -1241,6 +1242,7 @@ function carteScoreRecitHTML(d) {
           ${['Potentiel viral', 'Force narrative', 'Engagement', 'Force émotionnelle', 'Rétention estimée'].map(l => metricBarVide(l)).join('')}
         </div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+        ${rappelEditionParPassageHTML('recit')}
       </div>`;
   }
   if (d && d.evaluationIndisponible) {
@@ -1257,6 +1259,7 @@ function carteScoreRecitHTML(d) {
         </div>
         <div class="duree-avertissement">${auditEsc(d.evaluationIndisponible)}</div>
         ${d.avertissementDuree ? `<div class="duree-avertissement">⏱ ${auditEsc(d.avertissementDuree)}</div>` : ''}
+        ${rappelEditionParPassageHTML('recit')}
       </div>`;
   }
   return '';

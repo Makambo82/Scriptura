@@ -423,6 +423,32 @@ function initSliderChoix(select) {
   marquerChoisi(false);
 }
 
+// ── LE RAPPEL SOUS LE SCORE : LA DURÉE SE RATTRAPE PASSAGE PAR PASSAGE ──
+//
+// Demande du propriétaire, et c'est la bonne réponse au problème de durée :
+// « juste en bas du score, mettre une information très importante : si le
+// créateur trouve certaines parties trop courtes, il peut utiliser les
+// boutons en bas de chaque partie pour rallonger, raccourcir ou reformuler ».
+//
+// Ces quatre boutons EXISTENT depuis longtemps sous chaque passage du script
+// et de chaque segment de récit, mais rien ne les annonce : on les découvre
+// par hasard, ou jamais. Or ils sont exactement l'outil qui manque quand la
+// durée ne tombe pas juste. L'app corrige déjà le TOTAL toute seule (jusqu'à
+// trois passes, voir corrigerDureeScript / corrigerDureeRecit) ; ce que le
+// code ne saura jamais faire, c'est décider QUEL passage mérite d'être
+// allongé. Ça, seul le créateur le sait, et il lui faut savoir qu'il peut.
+//
+// Posé sous le score, donc juste après l'avertissement de durée quand il y en
+// a un : c'est le moment exact où le créateur se demande quoi faire.
+function rappelEditionParPassageHTML(quoi) {
+  const nom = quoi === 'recit' ? 'segment' : 'passage';
+  return '<div class="rappel-edition">'
+    + 'Un ' + nom + ' te paraît trop court ou trop long ? Sous chaque ' + nom + ', quatre boutons '
+    + 'te laissent l\'allonger, le raccourcir, le reformuler ou le simplifier. '
+    + 'La durée se rattrape ' + nom + ' par ' + nom + ', sans tout régénérer.'
+    + '</div>';
+}
+
 // Les champs qui forment une échelle, donc un curseur. Liste explicite et non
 // balayage automatique : la plupart des <select> de l'app sont de vrais choix
 // sans ordre (niche, ton, audience), pour lesquels un curseur n'aurait aucun
