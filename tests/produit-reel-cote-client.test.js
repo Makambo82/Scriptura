@@ -530,6 +530,97 @@ test('un prompt qui parle de la photo de référence la reçoit, drapeau ou pas'
   }
 });
 
+// Décision du propriétaire, après discussion, née d'un constat juste de sa
+// part : « sur un script de 16 plans, le produit n'apparaît que sur deux,
+// est-ce bon ? » Un compte fixe ne tenait pas la route : sur une minute il
+// tombait juste, sur trois minutes le produit se serait vu une fois toutes
+// les 45 secondes.
+//
+// COMPTÉ EN PLANS, PAS EN MINUTES : une minute peut faire 12 plans lents ou
+// 20 plans rapides, et ce que le spectateur ressent est le nombre de plans
+// entre deux apparitions, jamais un total de secondes.
+test('le nombre de plans produit monte avec la longueur, et reste plafonné', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(() => ({
+      plans: [1, 5, 8, 10, 16, 25, 45, 80].map(n => [n, nbPlansProduitCible(n)]),
+      slides: [6, 8, 10, 12, 15].map(n => [n, nbSlidesProduitCible(n)])
+    }));
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    const parPlans = Object.fromEntries(r.plans);
+    assert.equal(parPlans[16], 3,
+      'REGRESSION : le script de 16 plans du propriétaire doit passer à 3 plans produit, pas '
+      + parPlans[16] + '. C\'est le cas qui a lancé toute cette règle.');
+    assert.equal(parPlans[10], 2, 'un script court reste à 2');
+    assert.equal(parPlans[5], 2,
+      'REGRESSION : plancher à 2. Un seul plan produit, et le spectateur peut le manquer.');
+    assert.equal(parPlans[1], 2, 'même un storyboard minuscule garde le plancher, il sera juste tronqué');
+    assert.equal(parPlans[25], 5, 'un script long monte jusqu\'au plafond');
+    assert.equal(parPlans[45], 5,
+      'REGRESSION : plafond à 5 franchi (' + parPlans[45] + '). Au-delà on n\'ajoute plus de moments, '
+      + 'on répète : la vidéo devient une publicité, et une publicité on la fait défiler.');
+    assert.equal(parPlans[80], 5, 'le plafond tient même sur un très long contenu');
+
+    const parSlides = Object.fromEntries(r.slides);
+    assert.equal(parSlides[6], 2, 'un carrousel court : 2 slides, dont la solution et la dernière');
+    assert.equal(parSlides[15], 3, 'un carrousel long monte, sans dépasser le plafond');
+    assert.ok(Object.values(parSlides).every(v => v >= 2 && v <= 4),
+      'REGRESSION : le carrousel sort de la fourchette 2 à 4. Il se lit d\'une traite, le produit y '
+      + 'revient beaucoup plus vite à l\'œil que dans une vidéo qui dure : ' + JSON.stringify(parSlides));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Les visuels sont écrits par LOTS de 15 plans. Une consigne « marque 3
+// plans » posée telle quelle dans chaque lot se multiplierait par le nombre
+// de lots : un script de 40 plans en recevrait 9. Le compte doit être calculé
+// une fois sur tout le storyboard, puis réparti.
+test('le compte de plans produit ne se multiplie pas par le nombre de lots', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const r = await page.evaluate(async () => {
+      // 32 plans, donc trois lots (15 + 15 + 2). Cible attendue : 5, plafond.
+      const quotas = [];
+      window.callAI = async (modele, max, prompt) => {
+        const m = prompt.match(/DANS CE LOT, marque EXACTEMENT (\d+) plan/);
+        const rien = /DANS CE LOT, ne marque AUCUN plan/.test(prompt);
+        quotas.push(rien ? 0 : (m ? Number(m[1]) : null));
+        const n = (prompt.match(/EXACTEMENT (\d+) éléments/) || [])[1];
+        return JSON.stringify({ visuels: Array.from({ length: Number(n) }, () => 'un plan 9:16') });
+      };
+      const plans = Array.from({ length: 32 }, (_, i) => ({ text: 'plan ' + i }));
+      await genererVisuelsParLots(plans, 'TikTok', null, { produitNom: 'a gel tube' });
+      return { quotas, cible: nbPlansProduitCible(32) };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(r.quotas.length, 3, 'trois lots pour 32 plans (15 + 15 + 2)');
+    const total = r.quotas.reduce((a, b) => a + b, 0);
+    assert.equal(total, r.cible,
+      'REGRESSION : les lots demandent ' + total + ' plans produit au total alors que la cible est '
+      + r.cible + '. Une consigne posée telle quelle dans chaque lot se multiplie par leur nombre : '
+      + JSON.stringify(r.quotas));
+    assert.ok(r.quotas[r.quotas.length - 1] > 0 || total === r.cible,
+      'le dernier lot ramasse ce qui reste, sinon un arrondi laisserait le compte incomplet');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('un storyboard sans produit ne marque jamais un plan', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

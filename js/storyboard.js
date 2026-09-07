@@ -333,7 +333,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après : {"miniature":"le
 // couleur, son logo, son étiquette. Une description entrerait en concurrence
 // avec elle et ferait dériver le modèle vers un objet inventé, c'est-à-dire
 // exactement le sosie qu'on cherche à éviter depuis le début.
-function regleProduitReelVisuels(produit) {
+function regleProduitReelVisuels(produit, infosLot) {
   if (!produit) return '';
   // Le produit tel que l'app l'a reconnu sur la photo (voir
   // poserIdentificationProduit, js/niche-auto.js). Absent si la détection a
@@ -345,10 +345,24 @@ function regleProduitReelVisuels(produit) {
   const scenes = usages.length
     ? `\nSES SITUATIONS D'USAGE RÉELLES, à reprendre telles quelles ou à enrichir : ${usages.join(' / ')}.`
     : '';
+  // COMBIEN DE PLANS, ET DANS CE LOT-CI. Les visuels sont écrits par lots de
+  // 15 plans (voir genererVisuelsParLots) : une consigne « marque 3 plans »
+  // se répéterait à chaque lot et un script de 40 plans en recevrait 9. Le
+  // compte total est donc calculé UNE FOIS sur tout le storyboard, puis
+  // réparti lot par lot, et c'est ce quota-là qui arrive ici.
+  const lot = (infosLot && typeof infosLot.quota === 'number') ? infosLot : null;
+  const combien = lot
+    ? (lot.quota > 0
+      ? `\n1. DANS CE LOT, marque EXACTEMENT ${lot.quota} plan${lot.quota > 1 ? 's' : ''}${lot.total ? ` (le storyboard entier en compte ${lot.total} au total, réparti sur plusieurs lots)` : ''}.`
+      : '\n1. DANS CE LOT, ne marque AUCUN plan : le compte du storyboard est déjà atteint sur les lots précédents. Écris des prompts sans le produit.')
+    : '\n1. MARQUE 2 à 4 plans, pas plus.';
+  const obligatoires = lot && lot.quota > 0
+    ? `\n2. DEUX MOMENTS PASSENT AVANT TOUT LE RESTE, si ce lot les contient : LA RÉVÉLATION, le plan où l'on découvre enfin la solution au problème, et LE DERNIER PLAN du script, celui qui demande l'action. C'est là que le spectateur décide d'acheter : voir le produit à cet instant précis est ce qui transforme une vue en commande.${lot.dernierIci ? ' CE LOT CONTIENT LE DERNIER PLAN DU SCRIPT : marque-le.' : ''}`
+    : '';
   return `
-PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit précis, et sa VRAIE PHOTO sera transmise au générateur d'images comme image de référence, sur les plans que TU auras marqués. C'est donc son produit exact qui apparaîtra, pas une imitation.${quoi}${scenes}
-1. MARQUE 2 à 4 plans, pas plus, qui montrent le produit EN USAGE RÉEL, c'est-à-dire là où il vit vraiment : un bracelet AU POIGNET de quelqu'un, une chemise PORTÉE par un homme ou une femme, une pommade APPLIQUÉE sur la peau ou tenue en main pendant qu'on l'applique, un outil tenu en main pendant qu'on s'en sert. Un plan peut aussi le montrer posé, mis en valeur comme un bel objet, sur une table, à côté de son emballage. Choisis les moments où le voir sert vraiment la vente : la révélation, l'usage, le résultat.
-2. PAS PLUS DE 4 : le produit sur CHAQUE plan transformerait la vidéo en publicité, et une publicité, on la fait défiler.
+PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit précis, et sa VRAIE PHOTO sera transmise au générateur d'images comme image de référence, sur les plans que TU auras marqués. C'est donc son produit exact qui apparaîtra, pas une imitation.${quoi}${scenes}${combien}${obligatoires}
+Ces plans montrent le produit EN USAGE RÉEL, là où il vit vraiment : un bracelet AU POIGNET de quelqu'un, une chemise PORTÉE par un homme ou une femme, une pommade APPLIQUÉE sur la peau ou tenue en main pendant qu'on l'applique, un outil tenu en main pendant qu'on s'en sert, une huile VERSÉE dans un moteur. Un plan peut aussi le montrer posé, mis en valeur comme un bel objet, sur une table, à côté de son emballage.
+Jamais plus que le compte demandé : le produit sur CHAQUE plan transformerait la vidéo en publicité, et une publicité, on la fait défiler.
 3. Sur un plan marqué, désigne-le par "the product shown in the reference image" et décris TOUT LE RESTE avec la même richesse que d'habitude : la personne (couleur de peau, âge, mains, vêtements), son geste précis, la partie du corps concernée, le décor, la lumière, le cadrage.
    LE PRODUIT EST AU PREMIER PLAN, NET, ET PARFAITEMENT LISIBLE. Il est tenu, porté, appliqué, versé, utilisé. INTERDIT de l'écrire "in the background", "partially visible", "on a shelf", "in the soft-focus background" ou "blurred" : un produit flou au fond ne se reconnaît pas, donc il ne vend pas, et l'image aura coûté pour rien. Si le flou d'arrière-plan (depth of field) est mentionné, le produit doit être du côté NET.
    N'écris "the product shown in the reference image" QUE sur les plans que tu marques. Sur un plan non marqué, cette phrase désignerait une photo qui ne sera pas envoyée.
@@ -358,9 +372,48 @@ PRODUIT RÉEL DU CRÉATEUR, RÈGLE MAJEURE : le créateur vend un produit préci
 FORMAT DE RÉPONSE POUR CES PLANS : un plan marqué s'écrit {"prompt":"le prompt en anglais se terminant par 9:16","produit":true} au lieu d'une simple chaîne. Les autres plans restent des chaînes.`;
 }
 
+// COMBIEN DE PLANS MONTRENT LE PRODUIT, selon la longueur du script.
+//
+// Choix du propriétaire, après discussion, sur un constat juste de sa part :
+// « sur un script de 16 plans, le produit n'apparaît que sur deux, est-ce
+// bon ? » Un compte fixe ne tenait pas la route. Sur une minute il tombait
+// juste, sur trois minutes le produit se serait vu une fois toutes les
+// 45 secondes.
+//
+// COMPTÉ EN PLANS, PAS EN MINUTES, et c'est plus juste que ça n'en a l'air :
+// une minute peut faire 12 plans lents ou 20 plans rapides. Ce que le
+// spectateur ressent, c'est le nombre de plans qui passent entre deux
+// apparitions, jamais un total de secondes.
+//
+// PLAFOND À CINQ, volontairement. Au-delà on n'ajoute plus de moments, on
+// répète : la vidéo devient une publicité, et une publicité on la fait
+// défiler. Chaque plan produit est aussi une image de plus sur le quota du
+// mois, et une occasion de plus d'être mal écrit.
+function nbPlansProduitCible(nbPlans) {
+  return Math.min(5, Math.max(2, Math.round(nbPlans / 5)));
+}
+
 async function genererVisuelsParLots(plans, plat, onLot, aUnProduit) {
+  // Le compte est calculé UNE FOIS sur tout le storyboard, puis réparti entre
+  // les lots. Posé dans chaque lot tel quel, il se serait multiplié par le
+  // nombre de lots.
+  const cibleProduit = aUnProduit ? nbPlansProduitCible(plans.length) : 0;
+  let resteAMarquer = cibleProduit;
+
   for (let i = 0; i < plans.length; i += TAILLE_LOT_VISUELS) {
     const lot = plans.slice(i, i + TAILLE_LOT_VISUELS);
+    const dernierLot = (i + lot.length) >= plans.length;
+    // Réparti au prorata des plans restants, et le dernier lot ramasse tout
+    // ce qui n'a pas été placé : sans ça, un arrondi pourrait laisser le
+    // compte incomplet et surtout le dernier plan non marqué.
+    const restePlans = plans.length - i;
+    const quotaLot = !cibleProduit ? 0
+      : (dernierLot ? resteAMarquer
+        : Math.min(resteAMarquer, Math.round(resteAMarquer * lot.length / restePlans)));
+    resteAMarquer -= quotaLot;
+    const infosLot = cibleProduit
+      ? { quota: quotaLot, total: cibleProduit, dernierIci: dernierLot }
+      : null;
     const listeTextes = lot.map((p, k) => `${k + 1}. "${p.text}"`).join('\n');
     const prompt = `Tu es un directeur artistique expert en création d'images fixes pour ${plat}.
 
@@ -370,7 +423,7 @@ ${listeTextes}
 Pour CHACUN, dans le même ordre, écris un prompt destiné à un générateur d'images (Midjourney, Firefly, Imagen…), d'une richesse exceptionnelle.
 
 ${STRUCTURE_PROMPT_VISUEL}
-${regleProduitReelVisuels(aUnProduit)}
+${regleProduitReelVisuels(aUnProduit, infosLot)}
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT ${lot.length} éléments dans le tableau, dans le même ordre que la liste ci-dessus :
 {"visuels":["prompt du texte 1 se terminant par 9:16","prompt du texte 2 se terminant par 9:16"]}`;

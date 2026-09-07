@@ -327,6 +327,16 @@ function resetCarrouselForm() {
 // lui-même (voir genererCarrousel) : Claude le lit nativement, on ne lui en
 // fait donc jamais un résumé de seconde main. Le prompt lui dit simplement
 // qu'il est là et ce qu'il doit en tirer.
+// Combien de slides montrent le produit, selon la longueur du carrousel.
+// Même règle que le storyboard (voir nbPlansProduitCible, js/storyboard.js),
+// une seule logique à retenir : une slide toutes les 5, jamais moins de 2.
+// Le plafond est à 4 et non 5 : un carrousel se lit d'une traite, de 6 à 15
+// slides, donc le produit y revient beaucoup plus vite à l'œil que dans une
+// vidéo qui dure.
+function nbSlidesProduitCible(nbSlides) {
+  return Math.min(4, Math.max(2, Math.round(nbSlides / 5)));
+}
+
 function blocVenteCarrousel(ctx) {
   if (!ctx.venteDescription && !ctx.venteFichier) return '';
   const surFichier = ctx.venteFichier
@@ -410,7 +420,7 @@ Chaque slide porte aussi un champ "visuel" : la consigne de l'image de fond, dé
 PRODUIT RÉEL DU CRÉATEUR : sa VRAIE photo sera transmise au générateur d'images comme image de référence, sur les slides que TU auras marquées. C'est donc son produit exact qui apparaîtra, jamais une imitation.${ctx.produitNom ? `
 CE QU'EST LE PRODUIT, reconnu sur sa photo : ${ctx.produitNom}.` : ''}${(ctx.produitUsages && ctx.produitUsages.length) ? `
 SES SITUATIONS D'USAGE RÉELLES, à reprendre ou à enrichir : ${ctx.produitUsages.join(' / ')}.` : ''}
-- MARQUE 2 à 3 slides, pas plus, en ajoutant "produit": true à côté de leur champ "visuel". DEUX SONT OBLIGATOIRES : celle qui présente la SOLUTION (le moment où le produit est révélé) et la DERNIÈRE slide, celle qui demande l'action. C'est sur la dernière que le lecteur décide d'acheter : voir le produit à cet instant précis est ce qui transforme une lecture en commande. Une troisième est possible si une slide montre vraiment le produit à l'usage. Au-delà, le carrousel devient une publicité, et on ne fait pas défiler une publicité.
+- MARQUE EXACTEMENT ${nbSlidesProduitCible(nb)} slides, en ajoutant "produit": true à côté de leur champ "visuel". DEUX SONT OBLIGATOIRES : celle qui présente la SOLUTION (le moment où le produit est révélé) et la DERNIÈRE slide, celle qui demande l'action. C'est sur la dernière que le lecteur décide d'acheter : voir le produit à cet instant précis est ce qui transforme une lecture en commande. Les autres vont sur les slides qui montrent vraiment le produit à l'usage. Jamais plus : au-delà, le carrousel devient une publicité, et on ne fait pas défiler une publicité.
 - Sur une slide marquée, le visuel montre le produit LÀ OÙ IL VIT VRAIMENT : un bracelet au poignet de quelqu'un, une chemise portée, une pommade appliquée sur la peau ou tenue en main, un objet posé et mis en valeur sur une table. Désigne-le par "the product shown in the reference image", et décris tout le reste : la personne, son geste, la partie du corps concernée, le décor, la lumière. Le produit doit être NET et LISIBLE dans l'image, pas un détail perdu au fond.
 - INTERDICTION ABSOLUE sur ces slides : ne décris jamais l'apparence du produit, ni sa couleur, ni sa forme, ni son emballage, ni son étiquette, ni son logo. La photo de référence porte déjà tout cela ; le décrire ferait dériver le modèle vers un objet inventé.
 - Sur les slides non marquées, le produit n'apparaît pas : la personne, son geste, son émotion, le décor, le problème vécu.` : ''}
