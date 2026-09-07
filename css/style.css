@@ -2357,6 +2357,27 @@ body.creer-visible::after{
   display:flex;align-items:center;justify-content:center;transition:all 0.2s;
 }
 .menu-toggle:hover{border-color:var(--gold);background:rgba(201,168,76,0.08)}
+/* ── RACCOURCI « MES GÉNÉRATIONS » DANS LA BARRE DU HAUT ──
+   Demande du propriétaire. C'est l'écran que les abonnés rouvrent le plus
+   souvent, et il était à deux gestes : ouvrir le tiroir, puis viser la
+   première entrée. Le voilà à un seul.
+   SANS CADRE, volontairement, contrairement à .menu-toggle juste à côté :
+   deux boutons encadrés côte à côte se disputent l'attention, et le tiroir
+   doit rester le repère principal de la barre. Le cadre marque le bouton
+   qui ouvre TOUT le reste ; ce raccourci-là n'ouvre qu'un écran.
+   MÊME GABARIT (42px) malgré l'absence de cadre : c'est la cible tactile qui
+   doit être identique, pas la décoration. Un bouton visuellement plus léger
+   mais plus petit à toucher serait raté sur téléphone.
+   Masqué par défaut, montré par body.is-unlocked (voir js/app.js) : un
+   non-abonné n'a rien à y retrouver, et un porteur de jeton n'est pas
+   abonné. Même mécanique que .nav-subscribe-btn, en miroir. */
+.nav-generations-btn{
+  display:none;background:transparent;border:none;padding:0;
+  color:var(--gold-light);width:42px;height:42px;border-radius:10px;
+  cursor:pointer;align-items:center;justify-content:center;transition:all 0.2s;
+}
+body.is-unlocked .nav-generations-btn{display:flex}
+.nav-generations-btn:hover{background:rgba(201,168,76,0.08);color:var(--gold)}
 .sidebar-overlay{
   position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.6);
   opacity:0;visibility:hidden;transition:opacity 0.3s, visibility 0.3s;
