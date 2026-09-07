@@ -92,7 +92,23 @@ function setStoryLoading(on) {
 // evaluerRecitGenere), qui ne voit QUE le texte fini, jamais le contexte de
 // rédaction, et doit CITER le passage exact qui justifie chaque case
 // cochée (citation introuvable mot pour mot = signal invalidé).
-const GEN_SIGNAUX_JUGES_IA_RECIT = ['accroche_forte', 'rupture_attente', 'tension_maintenue', 'details_concrets', 'emotion_forte', 'cloture_complete', 'coherence_factuelle', 'non_redondance', 'originalite'];
+// « non_redondance » N'EST PLUS DANS CETTE LISTE : il se mesure désormais en
+// code (voir _genDetecterNonRedondanceRecit), parce qu'aucune citation ne
+// pouvait le prouver et qu'il tombait donc à faux presque à chaque fois.
+const GEN_SIGNAUX_JUGES_IA_RECIT = ['accroche_forte', 'rupture_attente', 'tension_maintenue', 'details_concrets', 'emotion_forte', 'cloture_complete', 'coherence_factuelle', 'originalite'];
+// ── SIGNAL À POLARITÉ INVERSÉE ──
+// On ne prouve pas une absence. « aucune contradiction de date ou de chiffre »
+// ne se cite pas : il n'existe aucune phrase dont la présence démontre qu'il
+// n'y a de contradiction NULLE PART. Le juge citait donc n'importe quoi, la
+// vérification mécanique le rejetait, et le signal tombait à faux 5 fois sur 6
+// sur les récits du propriétaire, plafonnant sa note de Narration à 67 quelle
+// que soit la qualité réelle du texte.
+//
+// La charge de la preuve est donc retournée sur le DÉFAUT, qui lui se prouve :
+// une contradiction se démontre en citant les DEUX passages qui se
+// contredisent. Tant que le juge n'en produit pas, le récit est cohérent, et
+// c'est le bon défaut : un texte est présumé cohérent, pas suspect.
+const GEN_SIGNAUX_POLARITE_INVERSEE_RECIT = ['coherence_factuelle'];
 // Même correctif que le mode Script (voir GEN_SIGNAUX_DEUX_CITATIONS,
 // js/generation.js, retour terrain sur un score 25/100 à tort) : ces deux
 // signaux ne se prouvent jamais par une seule citation.
@@ -110,6 +126,100 @@ const GEN_DIMENSIONS_RECIT = {
 // Même détecteur mécanique que le mode Script (voir _genDetecterRythmeSoutenu,
 // js/generation.js), dupliqué ici (pas de module partagé entre fichiers
 // chargés en <script> dans ce projet).
+// ── NORMALISATION DES MOTS, UN SEUL ENDROIT ──
+// Trois usages dans ce fichier partageaient la même ligne de nettoyage,
+// recopiée : le détecteur de plagiat du hook, celui de la clôture, et
+// maintenant la mesure de redondance. Une quatrième copie était le moment de
+// s'arrêter : une logique recopiée finit toujours par diverger, et ici la
+// divergence serait invisible (un accent traité d'un côté, pas de l'autre,
+// et deux verdicts contradictoires sur le même texte).
+function _genMotsNormalisesRecit(s) {
+  return String(s || '').toLowerCase()
+    .replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g, ' ')
+    .split(/\s+/).filter(Boolean);
+}
+
+// Reprise de mots MOT POUR MOT sur N termes consécutifs : signal fiable de
+// copie, même partielle. Était défini DEUX FOIS à l'identique plus bas
+// (hook et clôture), les deux appellent maintenant ici.
+function partageDesMotsRecit(texte, reference, n) {
+  const motsTexte = _genMotsNormalisesRecit(texte);
+  const motsRef = _genMotsNormalisesRecit(reference);
+  const N = n || 7;
+  const refNGrams = new Set();
+  for (let i = 0; i <= motsRef.length - N; i++) refNGrams.add(motsRef.slice(i, i + N).join(' '));
+  for (let i = 0; i <= motsTexte.length - N; i++) {
+    if (refNGrams.has(motsTexte.slice(i, i + N).join(' '))) return true;
+  }
+  return false;
+}
+
+// ── REDONDANCE ENTRE SEGMENTS CONSÉCUTIFS, MESURÉE EN CODE ──
+// "non_redondance" demandait au juge de PROUVER PAR UNE CITATION qu'aucun
+// segment ne reformule le précédent. C'est impossible par construction :
+// citer un segment ne dira jamais rien des huit autres. Le signal tombait
+// donc à faux presque à chaque fois, et coûtait un tiers de la note
+// d'Engagement à des récits qui ne piétinaient pas du tout.
+//
+// Une redondance, elle, se MESURE : c'est la part des mots distinctifs d'un
+// segment qu'on retrouve dans son voisin immédiat. Sorti de l'IA pour de bon,
+// exactement comme rythme_soutenu et deuxieme_personne l'ont été avant lui.
+//
+// Mots trop courants exclus : deux segments qui racontent la même histoire
+// partagent forcément le nom du personnage, le lieu et les mots-outils. C'est
+// de la continuité, pas de la redondance, et les compter ferait crier au
+// piétinement sur un récit parfaitement construit.
+const _RECIT_MOTS_COURANTS = new Set(['dans', 'pour', 'avec', 'sans', 'sous', 'plus', 'moins', 'tout',
+  'tous', 'toute', 'toutes', 'cette', 'ces', 'leur', 'leurs', 'elle', 'elles', 'nous', 'vous', 'mais',
+  'donc', 'alors', 'quand', 'comme', 'être', 'avoir', 'fait', 'faire', 'était', 'etait', 'étaient',
+  'sont', 'cela', 'ceux', 'celle', 'même', 'meme', 'entre', 'après', 'apres', 'avant', 'depuis',
+  'jusqu', 'encore', 'aussi', 'très', 'tres', 'bien', 'peut', 'deux', 'trois', 'plus']);
+
+function _genMotsDistinctifsRecit(texte) {
+  return new Set(_genMotsNormalisesRecit(texte)
+    .filter(m => m.length >= 4 && !_RECIT_MOTS_COURANTS.has(m)));
+}
+
+// Seuil HAUT et volontairement conservateur : au moindre doute le récit garde
+// son point. On ne veut attraper que le piétinement flagrant, jamais punir un
+// récit qui revient légitimement sur ce qu'il vient de poser. Le défaut de ce
+// signal était de trop punir, le corriger en punissant autrement serait raté.
+const _RECIT_SEUIL_REDONDANCE = 0.6;
+const _RECIT_MOTS_MIN_REDONDANCE = 4;
+
+function _genDetecterNonRedondanceRecit(segments) {
+  const liste = Array.isArray(segments) ? segments : [];
+  for (let i = 1; i < liste.length; i++) {
+    const a = _genMotsDistinctifsRecit(liste[i - 1] && liste[i - 1].texte);
+    const b = _genMotsDistinctifsRecit(liste[i] && liste[i].texte);
+    // Segments trop courts pour conclure quoi que ce soit : deux phrases de
+    // trois mots partagent vite « tout » leur vocabulaire sans rien répéter.
+    if (a.size < _RECIT_MOTS_MIN_REDONDANCE || b.size < _RECIT_MOTS_MIN_REDONDANCE) continue;
+    let communs = 0;
+    b.forEach(m => { if (a.has(m)) communs++; });
+    if (communs / Math.min(a.size, b.size) >= _RECIT_SEUIL_REDONDANCE) return false;
+  }
+  return true;
+}
+
+// Verdict de cohérence factuelle, POSÉ À UN SEUL ENDROIT. Sorti de la boucle
+// de jugement pour être appelable tel quel par les tests : une vérification
+// rejouée à l'identique dans un test ne vérifie que sa propre copie, et
+// resterait verte le jour où la vraie mécanique change.
+//
+// Rend TRUE (récit cohérent) sauf si le juge DÉMONTRE une contradiction :
+// il l'annonce, et les deux passages qui s'opposent se retrouvent mot pour
+// mot, à deux endroits DIFFÉRENTS du texte. Un juge muet, vide, ou qui
+// accuse sans citations retrouvables ne coûte rien : une accusation non
+// étayée ne doit jamais peser sur une note.
+function _genJugerCoherenceFactuelleRecit(d, texteNormalise) {
+  const a = _genValiderCitationRecit(d && d.preuve_contradiction_a, texteNormalise);
+  const b = _genValiderCitationRecit(d && d.preuve_contradiction_b, texteNormalise);
+  const prouvee = !!(d && d.contradiction === true)
+    && a.valide && b.valide && a.position !== b.position;
+  return !prouvee;
+}
+
 function _genDetecterRythmeSoutenuRecit(texte) {
   const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
   if (!phrases.length) return false;
@@ -178,8 +288,16 @@ async function calculerScoreRecitEnArrierePlan(parsed, texteFinal, motsRecit, wt
     // Même filet que côté Script : une exception ici laisserait la carte
     // bloquée sur "calcul en cours" pour toujours.
     try {
+      // Les signaux MESURÉS EN CODE d'abord, ceux du juge par-dessus. Ordre
+      // sans conséquence tant qu'aucune clé n'est dans les deux : c'est
+      // précisément pour ça que non_redondance a été RETIRÉ de
+      // GEN_SIGNAUX_JUGES_IA_RECIT, et pas seulement doublé ici. S'il y
+      // restait, la réponse du juge écraserait la mesure sans un bruit.
       const signauxFinalRecit = Object.assign(
-        { rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinal) },
+        {
+          rythme_soutenu: _genDetecterRythmeSoutenuRecit(texteFinal),
+          non_redondance: _genDetecterNonRedondanceRecit(parsed.recit)
+        },
         signauxIARecit
       );
       parsed.score = scorerRecitGenere(signauxFinalRecit, motsRecit, wt);
@@ -232,12 +350,11 @@ Pour CHAQUE technique, juge sévèrement : ne coche "present":true QUE si tu peu
 - "details_concrets" : au moins un détail précis (nom/lieu/date/chiffre) ailleurs que dans le seul hook ?
 - "emotion_forte" : un impact émotionnel réel et identifiable ?
 - "cloture_complete" : le dernier segment contient-il vraiment les DEUX éléments obligatoires ? Cite la triple question miroir ET la signature métapoétique séparément (deux citations, jamais une seule : une seule citation ne peut pas prouver que les DEUX sont présentes).
-- "coherence_factuelle" : aucune contradiction de date/heure/chiffre entre le hook et le reste du récit ?
-- "non_redondance" : aucun segment consécutif ne reformule simplement le précédent ?
-- "originalite" : l'angle est-il vraiment original, pas un cliché reconnaissable ?
+- "coherence_factuelle" : ATTENTION, CELUI-CI SE REMPLIT À L'ENVERS DES AUTRES. On ne te demande pas de prouver que le récit est cohérent (personne ne peut citer un passage qui prouve qu'il n'y a de contradiction nulle part). On te demande le contraire : Y A-T-IL une contradiction de date, d'heure ou de chiffre entre deux endroits du récit ? Si tu n'en trouves aucune, mets "contradiction":false et laisse les deux citations vides. Si tu en trouves une, mets "contradiction":true et cite les DEUX passages qui se contredisent, mot pour mot, séparément.
+- "originalite" : cite le passage PRÉCIS qui porte l'angle original de ce récit, celui qu'on ne trouverait pas dans un traitement banal du même sujet. Si tu ne peux désigner aucun passage de ce genre, l'angle n'est pas original : mets "present":false.
 
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"rupture_attente":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve_ouverture":"citation qui ouvre la tension","preuve_cloture":"citation plus loin qui la referme"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cloture_complete":{"present":true,"preuve_question":"citation de la triple question miroir","preuve_signature":"citation de la signature métapoétique"},"coherence_factuelle":{"present":true,"preuve":"..."},"non_redondance":{"present":true,"preuve":"..."},"originalite":{"present":true,"preuve":"..."}}`;
+{"accroche_forte":{"present":true,"preuve":"citation exacte ou vide"},"rupture_attente":{"present":true,"preuve":"..."},"tension_maintenue":{"present":true,"preuve_ouverture":"citation qui ouvre la tension","preuve_cloture":"citation plus loin qui la referme"},"details_concrets":{"present":true,"preuve":"..."},"emotion_forte":{"present":true,"preuve":"..."},"cloture_complete":{"present":true,"preuve_question":"citation de la triple question miroir","preuve_signature":"citation de la signature métapoétique"},"coherence_factuelle":{"contradiction":false,"preuve_contradiction_a":"","preuve_contradiction_b":""},"originalite":{"present":true,"preuve":"citation du passage qui porte l'angle original"}}`;
 
   try {
     const raw = await callAI(modeleJuge || MODEL_RAPIDE, 1400, prompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
@@ -256,6 +373,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const refusesMalgrePresentRecit = [];
     GEN_SIGNAUX_JUGES_IA_RECIT.forEach(cle => {
       const d = jug[cle];
+
+      // ── POLARITÉ INVERSÉE : c'est le DÉFAUT qui doit être prouvé ──
+      // Le récit est présumé cohérent. Il ne perd son point que si le juge
+      // DÉMONTRE une contradiction, en citant les deux passages qui
+      // s'opposent, tous deux retrouvés mot pour mot et à deux endroits
+      // différents du texte. Une contradiction annoncée sans citations
+      // valables ne coûte rien : c'est une accusation non étayée, et une
+      // accusation non étayée ne doit pas peser sur une note.
+      //
+      // Ce signal ne peut donc plus être "refusé malgré présent" : il ne
+      // figure jamais dans refusesMalgrePresentRecit, et c'est voulu, sinon
+      // le journal se remplirait de refus qui ne coûtent plus rien.
+      if (GEN_SIGNAUX_POLARITE_INVERSEE_RECIT.indexOf(cle) !== -1) {
+        signaux[cle] = _genJugerCoherenceFactuelleRecit(d, texteNormalise);
+        return;
+      }
+
       const declare = !!(d && d.present === true);
       let valide;
       if (cle === 'tension_maintenue') {
@@ -943,17 +1077,13 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // Même détecteur mécanique de plagiat que la clôture plus bas (déclaré
     // ici, function hoisted, disponible partout dans ce bloc try malgré
     // l'ordre d'apparition dans le fichier).
+    // Déléguée au détecteur partagé (voir partageDesMotsRecit, en haut du
+    // fichier) : ces deux copies étaient identiques au caractère près.
+    // DÉCLARATION DE FONCTION, jamais une const : les deux sont appelées
+    // AVANT leur ligne d'apparition, en comptant sur le hoisting, et le
+    // commentaire d'origine le disait explicitement.
     function partageDesMotsAvecModeleHook(texte, reference, n) {
-      const normaliser = (s) => (s || '').toLowerCase().replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-      const motsTexte = normaliser(texte);
-      const motsRef = normaliser(reference);
-      const N = n || 7;
-      const refNGrams = new Set();
-      for (let i = 0; i <= motsRef.length - N; i++) refNGrams.add(motsRef.slice(i, i + N).join(' '));
-      for (let i = 0; i <= motsTexte.length - N; i++) {
-        if (refNGrams.has(motsTexte.slice(i, i + N).join(' '))) return true;
-      }
-      return false;
+      return partageDesMotsRecit(texte, reference, n);
     }
     if (!repondreMaintenant && Array.isArray(parsed.recit) && parsed.recit.length >= 1) {
       const segHook = parsed.recit[0];
@@ -1027,17 +1157,13 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // longueur. Utilisé ci-dessous pour vérifier qu'une clôture "déjà
     // conforme structurellement" n'est pas simplement... le texte du modèle
     // recopié (qui, par définition, suit sa propre structure à la perfection).
+    // Déléguée au détecteur partagé (voir partageDesMotsRecit, en haut du
+    // fichier) : ces deux copies étaient identiques au caractère près.
+    // DÉCLARATION DE FONCTION, jamais une const : les deux sont appelées
+    // AVANT leur ligne d'apparition, en comptant sur le hoisting, et le
+    // commentaire d'origine le disait explicitement.
     function partageDesMotsAvecModele(texte, reference, n) {
-      const normaliser = (s) => (s || '').toLowerCase().replace(/[^a-zàâäéèêëïîôöùûüç0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
-      const motsTexte = normaliser(texte);
-      const motsRef = normaliser(reference);
-      const N = n || 7;
-      const refNGrams = new Set();
-      for (let i = 0; i <= motsRef.length - N; i++) refNGrams.add(motsRef.slice(i, i + N).join(' '));
-      for (let i = 0; i <= motsTexte.length - N; i++) {
-        if (refNGrams.has(motsTexte.slice(i, i + N).join(' '))) return true;
-      }
-      return false;
+      return partageDesMotsRecit(texte, reference, n);
     }
 
     if (!repondreMaintenant && structureModeleRef && Array.isArray(parsed.recit) && parsed.recit.length) {
