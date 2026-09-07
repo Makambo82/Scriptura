@@ -1372,7 +1372,7 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     try {
       const ctxJuge = { ton: serie.style, regleRecurrente: b.regle_recurrente };
       signauxSerie = await evaluerEpisodeSerie(ep.voix_off_propre, ctxJuge);
-      if (!signauxSerie) signauxSerie = await evaluerEpisodeSerie(ep.voix_off_propre, ctxJuge, MODEL_QUALITE_RECIT);
+      if (!signauxSerie) signauxSerie = await evaluerEpisodeSerie(ep.voix_off_propre, ctxJuge, MODEL_JUGE_SECOURS);
     } catch (e) { /* le score ne bloque jamais la livraison de l'épisode */ }
 
     if (signauxSerie) {

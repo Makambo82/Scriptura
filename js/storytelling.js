@@ -165,7 +165,7 @@ async function calculerScoreRecitEnArrierePlan(parsed, texteFinal, motsRecit, wt
       // l'identique : les deux modèles de callAI sont le même. Sauf refus
       // définitif (compte refusé, solde épuisé), où aucun modèle ne passera.
       if (!_stJugeEchecDefinitif) {
-        signauxIARecit = await evaluerRecitGenere(texteFinal, MODEL_QUALITE_RECIT);
+        signauxIARecit = await evaluerRecitGenere(texteFinal, MODEL_JUGE_SECOURS);
         if (!signauxIARecit) raison += ' | 2e tentative (autre modèle) : ' + _stRaisonJugeMuet;
       }
     }
@@ -341,6 +341,13 @@ async function generateStory() {
   }
   // Limite journalière pour les abonnés (anti-abus)
   if (!(await peutGenerer('storyErrorBox'))) return;
+
+  // Essai à l'aveugle du modèle de critique/révision (voir js/api.js) : tiré
+  // ICI, UNE seule fois, et donc valable pour les deux passes du même récit.
+  // Un tirage par appel donnerait un récit critiqué par un modèle et révisé
+  // par l'autre : plus rien de comparable. Hors essai, la fonction remet le
+  // tirage à zéro et tout se comporte exactement comme avant.
+  tirerModeleQualiteRecit();
 
   setStoryLoading(true);
   document.getElementById('storyResults').style.display = 'none';
@@ -658,7 +665,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
 
           if (typeof avancerEtapeGen === 'function') avancerEtapeGen(2); // phase : critique éditorial
-          const critiqueRaw = await callAI(MODEL_QUALITE_RECIT, 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+          const critiqueRaw = await callAI(modeleQualiteRecit(), 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
           const critique = parseAIResponse(critiqueRaw);
           if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
 
@@ -728,7 +735,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           try {
             if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
             _mesurePassesRecit.revisions++;
-            const reviseRaw = await callAI(MODEL_QUALITE_RECIT, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+            const reviseRaw = await callAI(modeleQualiteRecit(), 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
             const revised = parseAIResponse(reviseRaw);
             if (revised && Array.isArray(revised.recit) && revised.recit.length) {
               parsed.recit = revised.recit;
@@ -1156,6 +1163,10 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     const contenuRecitASauver = Object.assign({}, parsed);
     delete contenuRecitASauver.scoreEnCours;
     const sauvegardeRecit = saveGeneration('story', parsed.titre || input.slice(0, 60), contenuRecitASauver);
+    // Essai à l'aveugle : le titre est noté EN LOCAL avec le modèle tiré, pour
+    // pouvoir relier après coup un récit lu à celui qui l'a révisé. Aucun
+    // effet hors essai, et rien ne part au serveur.
+    noterTirageEssaiRecit(parsed.titre || input.slice(0, 60));
     updateQuotaJour();
 
     // Mesure (aucun appel IA, aucune donnée de contenu) : voir _mesurePassesRecit.

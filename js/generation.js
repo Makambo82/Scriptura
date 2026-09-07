@@ -1390,7 +1390,7 @@ async function calculerScoreScriptEnArrierePlan(parsed, texteFinal, objectif, wo
       // aucun modèle ne passera, et insister ne ferait qu'ajouter de l'attente
       // et un appel de plus pour reproduire le même refus.
       if (!_genJugeEchecDefinitif) {
-        signauxIA = await evaluerScriptGenere(texteFinal, objectif, MODEL_QUALITE_RECIT);
+        signauxIA = await evaluerScriptGenere(texteFinal, objectif, MODEL_JUGE_SECOURS);
         if (!signauxIA) raisonJugeMuet += ' | 2e tentative (autre modèle) : ' + _genRaisonJugeMuet;
       }
     }

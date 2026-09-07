@@ -12,7 +12,130 @@ const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : t
 // "arrête vraiment le scroll" et réécrire les segments faibles est un
 // jugement créatif fin, pas mécanique : Haiku jugeant Haiku était complaisant.
 // Sonnet pour ces deux appels ciblés seulement (même logique que MODEL_AUDIT).
+// NE SERT QU'À ÇA : la critique et la révision du récit (js/storytelling.js).
 const MODEL_QUALITE_RECIT = "claude-sonnet-4-6";
+// SECONDE TENTATIVE DU JUGE, dans les trois modes qui en ont un (script,
+// récit, série). Rien à voir avec la qualité du récit ci-dessus, malgré la
+// même valeur aujourd'hui.
+//
+// CES DEUX RÔLES PARTAGEAIENT UNE SEULE CONSTANTE, et c'était un piège. Le
+// juge principal tourne sur Haiku ; quand il rend une réponse illisible, on
+// le relance sur un modèle RÉELLEMENT différent, c'est toute la raison d'être
+// de cette seconde tentative. Basculer "la constante du récit" sur Haiku pour
+// en réduire le coût aurait donc fait retomber le juge de secours sur le même
+// modèle que le juge principal, c'est-à-dire supprimé en silence la seule
+// chose qui rendait cette relance utile, dans TROIS modes à la fois, dont le
+// score qui est le pilier de crédibilité de l'app. Deux rôles, deux
+// constantes, même si elles se ressemblent aujourd'hui.
+const MODEL_JUGE_SECOURS = "claude-sonnet-4-6";
+
+// ═══════════════════════════════════════════════════════════
+//  ESSAI À L'AVEUGLE DU MODÈLE DE QUALITÉ DU RÉCIT (temporaire)
+// ═══════════════════════════════════════════════════════════
+// Question posée : la critique et la révision du récit, aujourd'hui sur
+// Sonnet (trois fois le prix de Haiku, en entrée comme en sortie, et sur les
+// deux passes les plus lourdes du mode), valent-elles vraiment leur prix ?
+// Elle ne se tranche pas au calcul, seulement à l'œil.
+//
+// POURQUOI À L'AVEUGLE, plutôt que basculer la constante puis comparer :
+// celui qui règle le modèle sait lequel il vient de choisir, et lit le
+// résultat en le sachant. C'est exactement le biais qui fait conclure "oui,
+// Sonnet est meilleur" sur trois récits qui ne prouvent rien. Ici le tirage
+// est fait par le code, au hasard, et RIEN à l'écran ne le dit.
+//
+// TIRÉ UNE SEULE FOIS PAR RÉCIT, jamais par appel : la critique et la
+// révision d'un MÊME récit doivent tomber sur le MÊME modèle, sinon le récit
+// livré est un mélange des deux et on ne compare plus rien du tout.
+//
+// LE JUGE NE BOUGE PAS, dans aucun des deux bras : il note les deux avec la
+// même sévérité, ce qui donne un second signal, chiffré celui-là, à côté de
+// la lecture. Un écart de score net dans un sens conforterait la lecture ;
+// aucun écart, avec une lecture qui ne départage pas non plus, tranche.
+//
+// RÉSERVÉ À L'ADMIN, DANS LES DEUX SENS : un compte non-admin ne peut pas
+// l'armer, et un essai resté armé n'a aucun effet pour lui. Un créateur qui
+// paie ne doit jamais servir de cobaye sans le savoir.
+const CLE_ESSAI_RECIT = 'scriptura_essai_modele_recit';
+const CLE_ESSAI_RECIT_TIRAGES = 'scriptura_essai_modele_recit_tirages';
+const MODELES_ESSAI_RECIT = ['claude-sonnet-4-6', 'claude-haiku-4-5-20251001'];
+let _modeleRecitTire = null;
+
+function essaiModeleRecitArme() {
+  try {
+    return localStorage.getItem(CLE_ESSAI_RECIT) === '1' && estCodeAdmin();
+  } catch (e) { return false; }
+}
+
+// Appelée UNE fois au début d'une génération de récit (voir generateStory).
+function tirerModeleQualiteRecit() {
+  _modeleRecitTire = essaiModeleRecitArme()
+    ? MODELES_ESSAI_RECIT[Math.floor(Math.random() * MODELES_ESSAI_RECIT.length)]
+    : null;
+  return _modeleRecitTire;
+}
+
+// Le modèle réellement utilisé par la critique et la révision du récit :
+// celui de l'essai s'il y en a un, sinon le modèle normal. Hors essai, le
+// comportement est rigoureusement celui d'avant.
+function modeleQualiteRecit() {
+  return _modeleRecitTire || MODEL_QUALITE_RECIT;
+}
+
+// Noté au moment de la sauvegarde, avec le titre : c'est ce qui permettra de
+// relier un récit lu à l'aveugle au modèle qui l'a révisé, une fois que le
+// créateur a fini de les noter. Rien n'est envoyé au serveur.
+function noterTirageEssaiRecit(titre) {
+  if (!_modeleRecitTire) return;
+  try {
+    const liste = JSON.parse(localStorage.getItem(CLE_ESSAI_RECIT_TIRAGES) || '[]');
+    liste.push({
+      titre: String(titre || '').slice(0, 120),
+      modele: _modeleRecitTire,
+      date: new Date().toISOString()
+    });
+    localStorage.setItem(CLE_ESSAI_RECIT_TIRAGES, JSON.stringify(liste.slice(-50)));
+  } catch (e) { /* un essai ne doit JAMAIS empêcher une génération d'aboutir */ }
+}
+
+function armerEssaiModeleRecit() {
+  if (!estCodeAdmin()) {
+    console.warn('Essai réservé au compte admin.');
+    return false;
+  }
+  try { localStorage.setItem(CLE_ESSAI_RECIT, '1'); } catch (e) { return false; }
+  console.log('Essai armé. Génère tes récits normalement, rien ne changera à l\'écran. '
+    + 'Note-les, PUIS appelle revelerEssaiModeleRecit().');
+  return true;
+}
+
+function desarmerEssaiModeleRecit() {
+  try { localStorage.removeItem(CLE_ESSAI_RECIT); } catch (e) {}
+  _modeleRecitTire = null;
+  console.log('Essai désarmé. Critique et révision du récit repassent sur ' + MODEL_QUALITE_RECIT + '.');
+}
+
+function revelerEssaiModeleRecit() {
+  let liste = [];
+  try { liste = JSON.parse(localStorage.getItem(CLE_ESSAI_RECIT_TIRAGES) || '[]'); } catch (e) {}
+  if (!liste.length) {
+    console.log('Aucun récit généré pendant l\'essai.');
+    return [];
+  }
+  const nom = (m) => m === 'claude-sonnet-4-6' ? 'Sonnet' : 'Haiku';
+  console.table(liste.map(t => ({
+    'Récit': t.titre,
+    'Révisé par': nom(t.modele),
+    'Quand': String(t.date).slice(0, 16).replace('T', ' ')
+  })));
+  const sonnet = liste.filter(t => t.modele === 'claude-sonnet-4-6').length;
+  console.log(liste.length + ' récit(s) : ' + sonnet + ' Sonnet, ' + (liste.length - sonnet) + ' Haiku.');
+  return liste;
+}
+
+function effacerEssaiModeleRecit() {
+  try { localStorage.removeItem(CLE_ESSAI_RECIT_TIRAGES); } catch (e) {}
+  console.log('Tirages effacés.');
+}
 
 // false = moteur allégé et rapide (2 agents). true = moteur complet (4 agents,
 // avec critique sévère + réécriture ciblée + contrôle anti-générique, voir
