@@ -163,3 +163,103 @@ test('à l\'aveugle : tiré une fois, stable pour tout le récit, et muet à l\'
     await arreter();
   }
 });
+
+// Le propriétaire travaille sur iPhone : il n'y a pas de console de navigateur
+// sur un téléphone. Un essai pilotable seulement au clavier n'aide personne,
+// et la première version l'était. La carte du panneau admin est donc le vrai
+// point d'entrée, pas un confort.
+test('l\'essai se pilote au doigt, et ne trahit rien avant qu\'on le demande', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage({ viewport: { width: 390, height: 844 } });
+    await poserMocksReseau(page);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
+
+    const vu = await page.evaluate(() => {
+      const out = {};
+      localStorage.setItem('scriptura_is_admin', 'true');
+      localStorage.removeItem('scriptura_essai_modele_recit');
+      localStorage.removeItem('scriptura_essai_modele_recit_tirages');
+      _essaiRecitRevele = false;
+
+      const hote = document.createElement('div');
+      hote.id = 'adminEssaiRecit';
+      document.body.appendChild(hote);
+      const peindre = () => { hote.innerHTML = carteEssaiRecitAdmin(); };
+      const bouton = (motif) => Array.from(hote.querySelectorAll('button'))
+        .find(b => motif.test(b.textContent));
+
+      // ── On arme AU DOIGT, pas au clavier ──
+      peindre();
+      out.libelleDepart = (bouton(/Armer|Arrêter/) || {}).textContent || '';
+      bouton(/Armer/).click();
+      out.armeApresAppui = essaiModeleRecitArme();
+      out.libelleArme = (bouton(/Armer|Arrêter/) || {}).textContent || '';
+
+      // ── Deux récits mesurés, avec des titres reconnaissables ──
+      tirerModeleQualiteRecit(); noterTirageEssaiRecit('LE PREMIER RECIT');
+      tirerModeleQualiteRecit(); noterTirageEssaiRecit('LE SECOND RECIT');
+      peindre();
+      const avant = hote.innerHTML;
+      out.titresAvant = avant.includes('LE PREMIER RECIT') || avant.includes('LE SECOND RECIT');
+      out.compteAffiche = /2 récits mesurés/.test(hote.textContent);
+      out.revelerActif = !bouton(/Révéler/).disabled;
+
+      // ── Révélation, sur appui délibéré ──
+      bouton(/Révéler/).click();
+      const apres = hote.innerHTML;
+      out.titresApres = apres.includes('LE PREMIER RECIT') && apres.includes('LE SECOND RECIT');
+      out.modelesApres = /Sonnet|Haiku/.test(hote.textContent);
+
+      // ── Remise à zéro ──
+      bouton(/Effacer/).click();
+      out.apresEffacement = lireTiragesEssaiRecit().length;
+      out.titresApresEffacement = hote.innerHTML.includes('LE PREMIER RECIT');
+
+      // ── Et on arrête au doigt aussi ──
+      bouton(/Arrêter/).click();
+      out.desarmeApresAppui = essaiModeleRecitArme();
+
+      hote.remove();
+      return out;
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+
+    assert.match(vu.libelleDepart, /Armer/, 'au départ, la carte propose d\'armer');
+    assert.equal(vu.armeApresAppui, true,
+      'REGRESSION : le bouton n\'arme plus l\'essai. Sur iPhone il n\'y a pas de console : '
+      + 'si ce bouton ne marche pas, l\'essai est inutilisable pour son seul utilisateur.');
+    assert.match(vu.libelleArme, /Arrêter/,
+      'REGRESSION : le bouton ne dit pas ce que fera le prochain appui.');
+
+    assert.equal(vu.titresAvant, false,
+      'REGRESSION : les titres des récits apparaissent AVANT la révélation. C\'est par eux qu\'on '
+      + 'relie un récit à son modèle : les montrer d\'entrée supprime la seule chose qui rend cet '
+      + 'essai honnête.');
+    assert.equal(vu.compteAffiche, true,
+      'le NOMBRE de récits mesurés doit se voir sans rien trahir : c\'est ce qui dit quand s\'arrêter');
+    assert.equal(vu.revelerActif, true, 'avec des tirages, la révélation doit être possible');
+
+    assert.equal(vu.titresApres, true,
+      'REGRESSION : après appui sur Révéler, les récits ne sont toujours pas listés. L\'essai ne peut '
+      + 'plus être dépouillé, donc il ne sert à rien.');
+    assert.equal(vu.modelesApres, true, 'et chaque récit doit porter le modèle qui l\'a révisé');
+
+    assert.equal(vu.apresEffacement, 0, 'l\'effacement doit vraiment vider les tirages');
+    assert.equal(vu.titresApresEffacement, false,
+      'REGRESSION : la carte affiche encore les anciens récits après effacement. Un second essai '
+      + 'serait dépouillé avec les résultats du premier.');
+
+    assert.equal(vu.desarmeApresAppui, false,
+      'REGRESSION : le bouton n\'arrête plus l\'essai. Il resterait armé indéfiniment, et chaque '
+      + 'récit continuerait de partir sur un modèle tiré au sort.');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

@@ -54,7 +54,8 @@ async function chargerTableauDeBord() {
   // abonné" : un problème qui affecte tous les utilisateurs est plus
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
   // absente tant qu'il n'y a rien à signaler).
-  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin() + carteMontagesAdmin()
+  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin()
+    + '<div id="adminEssaiRecit">' + carteEssaiRecitAdmin() + '</div>' + carteMontagesAdmin()
     + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
   demarrerPollNonAbonnesAdmin();
@@ -1121,6 +1122,94 @@ function cartePassesAdmin() {
 // l'information qui aide à décider, pas le total brut. La durée de rendu
 // moyenne est là pour surveiller que ça ne se dégrade pas à mesure que
 // plusieurs abonnés montent en même temps sur un service à un seul conteneur.
+// ── CARTE « ESSAI À L'AVEUGLE DU MODÈLE DU RÉCIT » ──
+// Le dispositif lui-même vit dans js/api.js. Cette carte n'est que sa
+// télécommande, et elle existe pour une raison très concrète : le propriétaire
+// travaille sur iPhone, où il n'y a pas de console de navigateur. Un outil
+// d'aide à la décision qui ne s'ouvre qu'au clavier n'aide personne.
+//
+// CE QUI EST MONTRÉ AVANT LA RÉVÉLATION : uniquement le NOMBRE de récits
+// mesurés, jamais lequel a été révisé par quoi. Afficher le détail d'entrée
+// de jeu supprimerait la seule chose qui rend cet essai honnête. Le
+// rapprochement ne s'affiche qu'après un appui délibéré, et la carte prévient
+// que c'est sans retour.
+let _essaiRecitRevele = false;
+
+function carteEssaiRecitAdmin() {
+  const arme = typeof essaiModeleRecitArme === 'function' && essaiModeleRecitArme();
+  const tirages = typeof lireTiragesEssaiRecit === 'function' ? lireTiragesEssaiRecit() : [];
+  const n = tirages.length;
+  const nom = (m) => m === 'claude-sonnet-4-6' ? 'Sonnet' : 'Haiku';
+
+  // Assez de matière pour que l'écart veuille dire quelque chose. En dessous,
+  // un seul récit qui sort du lot est du hasard, pas un signal, et c'est
+  // exactement l'erreur que cet essai est censé éviter.
+  const ASSEZ = 6;
+
+  let corps;
+  if (_essaiRecitRevele && n) {
+    const sonnet = tirages.filter(t => t.modele === 'claude-sonnet-4-6').length;
+    corps = `<div class="audit-sujets" style="margin-top:12px">${tirages.map(t => `
+      <div class="audit-sujet" style="cursor:default">
+        <span>${escAdmin(t.titre)}<span class="ideas-sub" style="display:block;opacity:0.55;margin-top:2px">${escAdmin(String(t.date).slice(0, 16).replace('T', ' '))}</span></span>
+        <b style="color:${t.modele === 'claude-sonnet-4-6' ? 'var(--gold)' : 'var(--emerald, #10b981)'};white-space:nowrap">${escAdmin(nom(t.modele))}</b>
+      </div>`).join('')}</div>
+      <div class="ideas-sub" style="margin-top:10px;opacity:0.7">${sonnet} révisé${sonnet > 1 ? 's' : ''} par Sonnet, ${n - sonnet} par Haiku.</div>
+      <div class="ideas-sub" style="margin-top:6px;opacity:0.6">Si tes préférées sont réparties dans les deux colonnes, Haiku suffit et tu peux arrêter de payer Sonnet sur ces deux passes. Si elles sont presque toutes du même côté, garde ce modèle.</div>`;
+  } else {
+    corps = `<div class="ideas-sub" style="margin-top:12px;opacity:0.75">
+      ${n === 0
+        ? (arme ? 'Essai armé. Génère tes récits normalement, rien ne changera à l\'écran.' : 'Essai à l\'arrêt. Les récits partent sur le modèle habituel.')
+        : n + ' récit' + (n > 1 ? 's' : '') + ' mesuré' + (n > 1 ? 's' : '') + '. '
+          + (n < ASSEZ
+            ? 'Il en faut au moins ' + ASSEZ + ' pour que l\'écart veuille dire quelque chose : en dessous, un récit qui sort du lot est du hasard.'
+            : 'De quoi conclure. Note-les AVANT de révéler.')}
+    </div>`;
+  }
+
+  return `<div class="score-card">
+    <div class="score-title" style="color:var(--gold)">◆ Essai à l'aveugle · modèle du récit</div>
+    <div class="ideas-sub" style="margin-top:6px;opacity:0.6">La critique et la révision du récit tournent sur Sonnet, trois fois le prix de Haiku. Le code tire au sort à chaque récit, sans rien afficher, pour que tu juges sans savoir.</div>
+    ${corps}
+    <div class="btn-grid" style="margin-top:14px">
+      <button type="button" class="grid-btn${arme ? ' active' : ''}" onclick="basculerEssaiRecitAdmin()">${arme ? 'Arrêter l\'essai' : 'Armer l\'essai'}</button>
+      <button type="button" class="grid-btn"${n && !_essaiRecitRevele ? '' : ' disabled style="opacity:0.4"'} onclick="revelerEssaiRecitAdmin()">Révéler</button>
+    </div>
+    ${n ? `<button type="button" class="btn-back" style="margin-top:10px;width:100%" onclick="effacerEssaiRecitAdmin()">Effacer et repartir de zéro</button>` : ''}
+  </div>`;
+}
+
+function basculerEssaiRecitAdmin() {
+  if (typeof essaiModeleRecitArme === 'function' && essaiModeleRecitArme()) {
+    desarmerEssaiModeleRecit();
+  } else {
+    armerEssaiModeleRecit();
+  }
+  rafraichirEssaiRecitAdmin();
+}
+
+// Volontairement irréversible pour la session : une fois le rapprochement vu,
+// on ne peut plus juger à l'aveugle, et proposer de « re-masquer » ferait
+// croire le contraire.
+function revelerEssaiRecitAdmin() {
+  _essaiRecitRevele = true;
+  rafraichirEssaiRecitAdmin();
+}
+
+function effacerEssaiRecitAdmin() {
+  effacerEssaiModeleRecit();
+  _essaiRecitRevele = false;
+  rafraichirEssaiRecitAdmin();
+}
+
+// Redessine la seule carte concernée, jamais tout le tableau de bord : le
+// rechargement complet relance des requêtes Supabase pour rien et ferait
+// sauter la position de lecture.
+function rafraichirEssaiRecitAdmin() {
+  const carte = document.getElementById('adminEssaiRecit');
+  if (carte) carte.innerHTML = carteEssaiRecitAdmin();
+}
+
 function carteMontagesAdmin() {
   const lignes = Array.isArray(_montagesRendus) ? _montagesRendus : [];
   if (!lignes.length) return '';

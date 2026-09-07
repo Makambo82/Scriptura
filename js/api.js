@@ -114,9 +114,18 @@ function desarmerEssaiModeleRecit() {
   console.log('Essai désarmé. Critique et révision du récit repassent sur ' + MODEL_QUALITE_RECIT + '.');
 }
 
+// Lecture unique des tirages, partagée par la console et par la carte du
+// panneau admin. Deux lectures recopiées auraient fini par diverger, et l'une
+// des deux aurait affiché autre chose que l'autre pour le même essai.
+function lireTiragesEssaiRecit() {
+  try {
+    const liste = JSON.parse(localStorage.getItem(CLE_ESSAI_RECIT_TIRAGES) || '[]');
+    return Array.isArray(liste) ? liste : [];
+  } catch (e) { return []; }
+}
+
 function revelerEssaiModeleRecit() {
-  let liste = [];
-  try { liste = JSON.parse(localStorage.getItem(CLE_ESSAI_RECIT_TIRAGES) || '[]'); } catch (e) {}
+  const liste = lireTiragesEssaiRecit();
   if (!liste.length) {
     console.log('Aucun récit généré pendant l\'essai.');
     return [];
