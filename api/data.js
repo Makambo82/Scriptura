@@ -757,9 +757,42 @@ async function handleAdminStats(req, res, cfg, body) {
       montages = Array.isArray(rowsMontages) ? rowsMontages : [];
     } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
 
+    // ── CONSOMMATION RÉELLE D'IMAGES DU MOIS ──
+    // Le quota d'images est un PLAFOND, pas une prévision. Décider de le
+    // baisser (ou de remonter un prix) sans savoir ce qui est réellement
+    // consommé, c'est arbitrer à l'aveugle : si un Pro génère 12 images sur
+    // les 100 auxquelles il a droit, son coût réel est huit fois plus bas que
+    // le pire cas, et raboter son quota ne ferait que l'agacer sans rien
+    // économiser.
+    //
+    // Lu dans usage_serveur, la seule source qui compte vraiment (les tables
+    // ouvertes au client ne peuvent pas servir de base à une décision de
+    // tarif). Le format de `ref` est posé par cleUsage, api/_lib/acces.js :
+    // usage_<CODE>_<mode>_<AAAA-MM>. Il est décodé ICI, côté serveur, parce
+    // que c'est le serveur qui l'a construit : laisser le navigateur le
+    // parser serait recopier la même convention à un deuxième endroit, et
+    // les deux finiraient par diverger.
+    let imagesUsage = [];
+    try {
+      const d = new Date();
+      const moisCourant = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      const rUsage = await fetch(
+        cfg.url + '/rest/v1/usage_serveur?select=ref,used&ref=like.' + encodeURIComponent('%Images_' + moisCourant) + '&limit=1000',
+        { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
+      );
+      const rowsUsage = await rUsage.json().catch(() => []);
+      const motif = new RegExp('^usage_(.+)_(montageImages|carrouselImages)_' + moisCourant + '$');
+      imagesUsage = (Array.isArray(rowsUsage) ? rowsUsage : []).reduce((acc, r) => {
+        const m = motif.exec(String(r && r.ref || ''));
+        if (m && r.used > 0) acc.push({ code: m[1], mode: m[2], used: r.used });
+        return acc;
+      }, []);
+    } catch (e) { /* section optionnelle, ne bloque pas le reste des stats */ }
+
     return res.status(200).json({
       total, actifs, creator, pro, parMode, parModePlan, codes: Array.isArray(codes) ? codes : [],
-      codesActifsRecents, derniereActiviteParCode, erreursParMode, erreursTotal, erreursRecentes, passes, montages
+      codesActifsRecents, derniereActiviteParCode, erreursParMode, erreursTotal, erreursRecentes, passes, montages,
+      imagesUsage
     });
   } catch (e) {
     return res.status(200).json({ indisponible: true });

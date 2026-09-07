@@ -275,7 +275,12 @@ async function verifierQuota(droits, mode, code, quantite) {
   const plafond = aUnPlanReconnu ? limitePlan : (mode === 'creation' ? MAX_FREE : (MODES_GRATUIT_UNIQUE[mode] || 0));
   const ref = cleUsage(code, mode, !aUnPlanReconnu);
   const consomme = await consommerUsage(cfg, ref, plafond, quantite);
-  if (consomme === true) return { ok: true };
+  // `consomme: true` UNIQUEMENT sur ce chemin : c'est le seul où le compteur a
+  // réellement bougé. Admin, illimité, anonyme, clé service absente et panne
+  // SQL renvoient tous ok sans rien décompter, et un remboursement sur l'un
+  // de ces cas rendrait du quota qui n'a jamais été pris (voir
+  // rembourserUsage ci-dessous, et son appelant api/montage-media.js).
+  if (consomme === true) return { ok: true, consomme: true };
   if (consomme === null) return { ok: true }; // fonction SQL pas encore installée ou panne : dégradation
 
   if (MODES_JETON[mode] && droits.jetons > 0) {
@@ -284,6 +289,28 @@ async function verifierQuota(droits, mode, code, quantite) {
     if (viaJeton === null) return { ok: true }; // même dégradation
   }
   return { ok: false, raison: 'quota' };
+}
+
+// Rend `quantite` slots au compteur du mois, sur la MÊME référence que celle
+// que verifierQuota vient de débiter (cleUsage, plus haut) : sans ça les deux
+// ne parleraient pas du même compteur et le remboursement irait dans le vide.
+//
+// À N'APPELER QUE SI verifierQuota a répondu `consomme: true`. Sur tous les
+// autres chemins (admin, illimité, anonyme, clé service absente, panne SQL)
+// rien n'a été débité, et rembourser fabriquerait du quota.
+//
+// Best-effort et jamais bloquant, comme le reste de ce fichier : un
+// remboursement raté coûte quelques images de quota au créateur, une
+// exception non rattrapée lui coûterait les images qu'il vient d'attendre.
+async function rembourserUsage(droits, mode, code, quantite) {
+  const n = parseInt(quantite, 10);
+  if (!(n > 0)) return false;
+  if (!droits || droits.isAdmin || droits.illimite || droits.anonyme) return false;
+  const cfg = config();
+  if (!cfg) return false;
+  const aUnPlanReconnu = droits.plan ? (LIMITES_MOIS[droits.plan] || {})[mode] != null : false;
+  const ref = cleUsage(code, mode, !aUnPlanReconnu);
+  return (await appelerRpc(cfg, 'rembourser_usage', { p_ref: ref, p_montant: n })) === true;
 }
 
 // ── Filet best-effort pour les appels VRAIMENT anonymes (aucun code) ──
@@ -429,6 +456,7 @@ function codeAccesRefuse(droits) {
 export {
   resoudreDroits,
   verifierQuota,
+  rembourserUsage,
   verifierLimiteAnonyme,
   lireUsageAnonyme,
   verifierAccesProOuJeton,

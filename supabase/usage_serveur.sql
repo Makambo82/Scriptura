@@ -76,3 +76,35 @@ begin
   return v_restant is not null;
 end;
 $$;
+
+-- Rend `p_montant` slots déjà consommés sur `p_ref`. Sert au quota d'images :
+-- il est réservé pour TOUT le lot AVANT de générer (une seule opération
+-- atomique, voir consommer_usage), donc les images qui échouent restaient
+-- décomptées à un créateur qui ne les a jamais reçues. Concrètement, un lot
+-- de 8 fonds dont 3 échouent lui coûtait 8 images pour 5 livrées.
+--
+-- DEUX GARDE-FOUS, et ils comptent tous les deux :
+--   * JAMAIS de création de ligne (update seul, pas d'upsert) : un
+--     remboursement sur une référence qui n'a jamais rien consommé n'a aucun
+--     sens et poserait un compteur négatif à la place.
+--   * JAMAIS en dessous de zéro (greatest) : deux remboursements du même lot,
+--     par exemple sur un renvoi de requête, ne peuvent pas fabriquer du quota
+--     qui n'a jamais existé.
+-- Renvoie true si une ligne a bien été mise à jour.
+create or replace function rembourser_usage(p_ref text, p_montant int default 1)
+returns boolean
+language plpgsql
+as $$
+declare
+  v_used int;
+begin
+  if p_montant is null or p_montant <= 0 then
+    return false;
+  end if;
+  update usage_serveur
+  set used = greatest(0, used - p_montant), maj_le = now()
+  where ref = p_ref
+  returning used into v_used;
+  return v_used is not null;
+end;
+$$;

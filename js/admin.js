@@ -55,7 +55,8 @@ async function chargerTableauDeBord() {
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
   // absente tant qu'il n'y a rien à signaler).
   zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin()
-    + '<div id="adminEssaiRecit">' + carteEssaiRecitAdmin() + '</div>' + carteMontagesAdmin()
+    + '<div id="adminEssaiRecit">' + carteEssaiRecitAdmin() + '</div>'
+    + carteImagesConsommeesAdmin() + carteMontagesAdmin()
     + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
   demarrerPollNonAbonnesAdmin();
@@ -801,6 +802,7 @@ let _erreursTotal = 0;
 let _erreursRecentes = [];
 let _passesGeneration = [];
 let _montagesRendus = [];
+let _imagesUsage = [];
 // true seulement si le DERNIER chargement a réellement réussi (voir
 // chargerTableauDeBord ci-dessous, retour d'audit) : marquerErreursVues/
 // marquerErreursVuesLe ne doivent jamais s'exécuter après une visite où le
@@ -825,6 +827,7 @@ async function chargerCarteModes() {
     _erreursRecentes = Array.isArray(data.erreursRecentes) ? data.erreursRecentes : [];
     _passesGeneration = Array.isArray(data.passes) ? data.passes : [];
     _montagesRendus = Array.isArray(data.montages) ? data.montages : [];
+    _imagesUsage = Array.isArray(data.imagesUsage) ? data.imagesUsage : [];
     _erreursChargementReussi = true;
     // Scindé par plan (Fondateur/Pro/Creator/Non-abonné, voir parModePlan,
     // api/data.js) pour voir ce qui pousse réellement à l'upgrade, plutôt
@@ -1122,6 +1125,89 @@ function cartePassesAdmin() {
 // l'information qui aide à décider, pas le total brut. La durée de rendu
 // moyenne est là pour surveiller que ça ne se dégrade pas à mesure que
 // plusieurs abonnés montent en même temps sur un service à un seul conteneur.
+// ── CARTE « IMAGES RÉELLEMENT CONSOMMÉES · CE MOIS » ──
+// Répond par des chiffres à la seule question qui compte avant de toucher au
+// quota d'images ou au prix du Pro : le plafond est-il seulement approché ?
+//
+// L'image est le poste variable le plus cher de l'app (0,05 €, soit à peu
+// près le prix d'un script entier avec toutes ses passes). Au PLAFOND, les
+// 100 images d'un Pro pèsent 5,00 € sur 15,25 € encaissés, soit un tiers du
+// prix de l'abonnement. Mais un plafond n'est pas une prévision : si un Pro
+// en consomme douze, son coût réel est huit fois plus bas, et raboter son
+// quota ne ferait que l'agacer sans rien économiser.
+//
+// LA MOYENNE NE SUFFIT PAS, ET C'EST LE PIÈGE de ce genre de tableau : le
+// risque n'est pas dans la moyenne, il est dans la QUEUE. Dix abonnés à 5
+// images et un seul à 100, ça fait une moyenne rassurante de 13 et un compte
+// qui coûte à lui seul plus que ce qu'il rapporte. Le maximum observé est
+// donc affiché à côté de la moyenne, et c'est lui qu'il faut regarder.
+const COUT_IMAGE_EUR = 0.05;
+
+function carteImagesConsommeesAdmin() {
+  const lignes = Array.isArray(_imagesUsage) ? _imagesUsage : [];
+  if (!lignes.length) return '';
+
+  // Le plan vient de la liste des abonnés déjà chargée (voir
+  // _codesAbonnesAdmin) : le serveur renvoie le code, jamais le plan, pour ne
+  // pas refaire une jointure qui existe déjà côté client.
+  const planDuCode = {};
+  (Array.isArray(_codesAbonnesAdmin) ? _codesAbonnesAdmin : []).forEach(c => {
+    if (c && c.code) planDuCode[String(c.code).toUpperCase()] = String(c.plan || '').toLowerCase();
+  });
+
+  // Total par CODE, montage et carrousel confondus : c'est ce que coûte
+  // vraiment un abonné, il ne paie pas deux abonnements.
+  const parCode = {};
+  lignes.forEach(l => {
+    const code = String(l.code || '').toUpperCase();
+    parCode[code] = (parCode[code] || 0) + (parseInt(l.used, 10) || 0);
+  });
+
+  const plafondDe = (plan) => plan === 'pro' ? 100 : 35;   // montage + carrousel
+  const prixDe = (plan) => plan === 'pro' ? 15.25 : 9.15;  // 10 000 / 6 000 FCFA
+
+  const groupes = { pro: [], creator: [] };
+  Object.keys(parCode).forEach(code => {
+    const plan = planDuCode[code];
+    if (plan === 'pro' || plan === 'creator') groupes[plan].push(parCode[code]);
+  });
+
+  const bloc = (plan, titre) => {
+    const vals = groupes[plan];
+    if (!vals.length) return '';
+    const total = vals.reduce((a, b) => a + b, 0);
+    const moyenne = total / vals.length;
+    const max = Math.max.apply(null, vals);
+    const plafond = plafondDe(plan);
+    const prix = prixDe(plan);
+    const pct = (n) => Math.round((n / plafond) * 100);
+    const euros = (n) => (n * COUT_IMAGE_EUR).toFixed(2).replace('.', ',') + ' €';
+    // Part du prix de l'abonnement que mange le plus gros consommateur : le
+    // seul chiffre qui dise s'il existe déjà un abonné à perte.
+    const partMax = Math.round((max * COUT_IMAGE_EUR / prix) * 100);
+    return `
+      <div class="ideas-sub" style="margin-top:14px;opacity:0.85;font-weight:600">${escAdmin(titre)} · ${vals.length} abonné${vals.length > 1 ? 's' : ''} qui a généré</div>
+      ${ligneImageAdmin('En moyenne', moyenne.toFixed(1) + ' images', pct(moyenne) + '% du plafond de ' + plafond + ', soit ' + euros(moyenne))}
+      ${ligneImageAdmin('Le plus gros consommateur', max + ' images', pct(max) + '% du plafond, ' + euros(max) + ', soit ' + partMax + '% de son abonnement')}`;
+  };
+
+  return `<div class="score-card">
+    <div class="score-title" style="color:var(--gold)">◆ Images consommées · ce mois</div>
+    <div class="ideas-sub" style="margin-top:6px;opacity:0.6">Montage et carrousel confondus, par abonné. Une image coûte ${String(COUT_IMAGE_EUR).replace('.', ',')} €, à peu près le prix d'un script entier avec toutes ses passes.</div>
+    ${bloc('pro', 'Pro')}
+    ${bloc('creator', 'Creator')}
+    <div class="ideas-sub" style="margin-top:12px;opacity:0.6">Regarde le plus gros consommateur avant la moyenne : le risque n'est jamais dans la moyenne, il est dans celui qui va au bout de son quota. Tant que personne n'approche le plafond, le baisser n'économise rien et se voit tout de suite.</div>
+  </div>`;
+}
+
+function ligneImageAdmin(label, valeur, aide) {
+  return `
+    <div class="audit-sujet" style="cursor:default">
+      <span>${escAdmin(label)}${aide ? `<span class="ideas-sub" style="display:block;opacity:0.55;margin-top:2px">${escAdmin(aide)}</span>` : ''}</span>
+      <b style="color:var(--gold);white-space:nowrap">${escAdmin(valeur)}</b>
+    </div>`;
+}
+
 // ── CARTE « ESSAI À L'AVEUGLE DU MODÈLE DU RÉCIT » ──
 // Le dispositif lui-même vit dans js/api.js. Cette carte n'est que sa
 // télécommande, et elle existe pour une raison très concrète : le propriétaire

@@ -10,7 +10,7 @@
 //  action=download | voices | tts | images
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, verifierAccesMontage, verifierQuota } from './_lib/acces.js';
+import { resoudreDroits, verifierAccesMontage, verifierQuota, rembourserUsage } from './_lib/acces.js';
 
 // ═══ DOWNLOAD (voir l'ancien api/montage-download.js) ═══
 
@@ -620,6 +620,28 @@ async function handleImages(req, res, body) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCE_MAX, prompts.length) }, travailleur));
+
+  // ── REMBOURSEMENT DES IMAGES QUI N'ONT PAS ABOUTI ──
+  // Le quota est réservé pour TOUT le lot avant de générer (voir plus haut) :
+  // c'est la seule façon de le faire de façon atomique, et il faut bien
+  // décider avant de dépenser chez Together. Mais sans ce remboursement, un
+  // lot de 8 fonds dont 3 échouent décomptait 8 images à un créateur qui n'en
+  // a reçu que 5. Il payait de son quota mensuel des images qu'il n'a jamais
+  // eues, et il n'avait aucun moyen de le savoir ni de les récupérer.
+  //
+  // ON NE REMBOURSE QUE CE QUI A ÉTÉ DÉBITÉ : les prompts vides n'ont jamais
+  // été réservés (nbAGenerer les exclut déjà), ils ne sont donc pas comptés
+  // ici non plus, sinon chaque prompt vide fabriquerait du quota.
+  //
+  // Et seulement si le compteur a réellement bougé (`quota.consomme`) : un
+  // admin, un compte illimité ou une panne SQL passent le quota sans rien
+  // débiter, leur "rembourser" reviendrait à créer du quota de nulle part.
+  const nbEchecsFactures = prompts.reduce(
+    (n, p, i) => n + ((p && !resultats[i]) ? 1 : 0), 0
+  );
+  if (nbEchecsFactures > 0 && quota.consomme) {
+    await rembourserUsage(droits, modeQuota, body?.code_acces, nbEchecsFactures);
+  }
 
   return res.status(200).json({ images: resultats, erreurs });
 }
