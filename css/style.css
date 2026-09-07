@@ -992,6 +992,16 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .infos-ligne:last-child{border-bottom:none}
 .infos-label{font-size:0.9rem;color:var(--muted)}
 .infos-val{font-size:0.95rem;color:var(--gold-light);font-weight:600;text-align:right}
+/* Le code masqué de la fiche d'abonnement emprunte la MÉCANIQUE du tiroir
+   (.sc-code : disposition en ligne, œil, curseur de clic) mais garde
+   l'apparence de sa fiche, doré et lisible. Sans ces trois lignes, il
+   hériterait du petit gris du menu latéral, écrit plus bas dans la feuille,
+   et détonnerait au milieu des autres valeurs. */
+.infos-val.sc-code{
+  color:var(--gold-light);font-size:0.95rem;font-weight:600;
+  letter-spacing:0.06em;justify-content:flex-end;
+}
+.infos-val.sc-code:hover{color:var(--gold)}
 
 /* ── FENÊTRE DE CHOIX DES PLANS ── */
 .plans-overlay{

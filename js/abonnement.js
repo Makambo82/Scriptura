@@ -36,13 +36,31 @@ function ligneCodeInfos() {
   if (!code) return '';
   // Le code vient de la saisie libre de l'utilisateur (voir syncHistory,
   // js/historique.js), jamais validée côté serveur avant d'être stockée :
-  // auditEsc() échappe aussi bien le texte affiché que la valeur glissée
-  // dans l'attribut onclick (elle-même déjà échappée pour rester une chaîne
-  // JS valide entre apostrophes).
-  const codeEchappe = auditEsc(code.replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+  // auditEsc() échappe la valeur posée dans l'attribut data-code.
+  // MASQUÉ ICI AUSSI, exactement comme dans le tiroir (retour du
+  // propriétaire). Cette fiche s'ouvre depuis la bande d'accueil, donc
+  // souvent devant quelqu'un ou sur une capture envoyée au support : le code
+  // d'accès est la CLÉ du compte, il n'y a pas de mot de passe derrière.
+  // Le texte est posé par appliquerEtatCodeSidebar en textContent, jamais en
+  // innerHTML : le code vient de la saisie libre de l'utilisateur.
   return '<div class="infos-ligne"><span class="infos-label">Ton code</span>'
-    + '<span class="infos-val" style="cursor:pointer;user-select:all" title="Toucher pour copier"'
-    + ' onclick="copierCodeInfos(this, \'' + codeEchappe + '\')">' + auditEsc(code) + ' ⧉</span></div>';
+    + '<span class="infos-val sc-code" id="infosCode" tabindex="0" data-code="' + auditEsc(code) + '"'
+    + ' onclick="basculerCodeInfos(event)">'
+    + '<span class="sc-code-txt"></span><span class="sc-code-ico"></span></span></div>';
+}
+
+// Le même interrupteur que dans le tiroir, sur la fiche d'abonnement : un
+// appui affiche et copie, l'appui suivant remasque. Délègue entièrement, il
+// n'y a qu'UNE mécanique de masquage dans l'app.
+function basculerCodeInfos(ev) {
+  basculerCodeSidebar(ev, 'infosCode');
+}
+
+// Appelée juste après l'insertion du HTML de la fiche : c'est elle qui pose le
+// code sous ses points et l'œil qui va avec. Sans cet appel, la ligne
+// resterait vide, le texte n'étant jamais écrit dans le HTML lui-même.
+function initCodeInfos() {
+  appliquerEtatCodeSidebar(false, 'infosCode');
 }
 
 // Copie le code dans le presse-papier, avec un retour visuel bref.
@@ -98,13 +116,21 @@ const OEIL_BARRE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
   + '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'
   + '<circle cx="12" cy="12" r="2.6"/><path d="M4 20 20 4"/></svg>';
 
-// Applique l'état voulu (affiché ou masqué) au même endroit, pour que les
-// trois chemins qui y touchent (premier affichage, bascule, fermeture du
-// menu) ne puissent pas diverger.
-function appliquerEtatCodeSidebar(revele) {
-  const el = document.getElementById('sidebarCompteCode');
-  const txt = document.getElementById('sidebarCompteCodeTxt');
-  const ico = document.getElementById('sidebarCompteCodeIcone');
+// Applique l'état voulu (affiché ou masqué) au même endroit, pour que TOUS les
+// chemins qui y touchent (premier affichage, bascule, fermeture du menu) ne
+// puissent pas diverger.
+//
+// Le code est masqué à DEUX endroits désormais : le tiroir latéral, et la
+// fiche « Ton accès Scriptura » ouverte depuis la bande d'accueil (retour du
+// propriétaire : « au niveau du code en haut, qu'on masque le code, que ce
+// soit comme dans la barre latérale »). Une seconde copie de cette mécanique
+// aurait divergé au premier ajustement, exactement comme la vérification des
+// citations l'avait fait entre Script et Récit. Elle est donc PARAMÉTRÉE par
+// l'élément, jamais recopiée.
+function appliquerEtatCodeSidebar(revele, racineId) {
+  const el = document.getElementById(racineId || 'sidebarCompteCode');
+  const txt = el && el.querySelector('.sc-code-txt');
+  const ico = el && el.querySelector('.sc-code-ico');
   if (!el || !txt || !ico) return '';
   const code = el.getAttribute('data-code') || '';
   txt.textContent = revele ? code : masquerCodeAcces(code);
@@ -120,20 +146,20 @@ function appliquerEtatCodeSidebar(revele) {
 // le plaisir, on le regarde pour le coller quelque part. stopPropagation est
 // indispensable, sans lui le clic remonterait au bloc et ouvrirait la
 // fenêtre d'infos par-dessus.
-function basculerCodeSidebar(ev) {
+function basculerCodeSidebar(ev, racineId) {
   if (ev) ev.stopPropagation();
-  const el = document.getElementById('sidebarCompteCode');
+  const el = document.getElementById(racineId || 'sidebarCompteCode');
   if (!el || !(el.getAttribute('data-code') || '')) return;
 
   if (el.getAttribute('data-revele') === '1') {
     // On coupe aussi le vert de la copie : il annonce « c'est copié, le voilà »,
     // il n'a plus de sens sur un code qu'on vient de refermer.
     el.classList.remove('copie-ok');
-    appliquerEtatCodeSidebar(false);
+    appliquerEtatCodeSidebar(false, racineId);
     return;
   }
 
-  const code = appliquerEtatCodeSidebar(true);
+  const code = appliquerEtatCodeSidebar(true, racineId);
   try { if (navigator.clipboard) navigator.clipboard.writeText(code); } catch (e) { /* silencieux */ }
   el.classList.add('copie-ok');
   setTimeout(function () { el.classList.remove('copie-ok'); }, 1200);
@@ -174,7 +200,7 @@ function majBlocCompteSidebar() {
     // code écraserait l'icône, et l'inverse.
     ligne2.innerHTML = '<span class="sc-code" id="sidebarCompteCode" tabindex="0"'
       + ' onclick="basculerCodeSidebar(event)">'
-      + '<span id="sidebarCompteCodeTxt"></span>'
+      + '<span id="sidebarCompteCodeTxt" class="sc-code-txt"></span>'
       + '<span id="sidebarCompteCodeIcone" class="sc-code-ico"></span></span>';
     // data-code, puis appliquerEtatCodeSidebar remplit le texte : il passe par
     // textContent, jamais innerHTML, le code venant de la saisie libre de
@@ -230,6 +256,7 @@ async function ouvrirInfosAbonne() {
     html += `<div class="infos-ligne"><span class="infos-label">Série</span><span class="infos-val">Illimitée</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Montage vidéo (images)</span><span class="infos-val">Illimité</span></div>`;
     corps.innerHTML = html;
+    initCodeInfos();
     return;
   }
 
@@ -243,6 +270,7 @@ async function ouvrirInfosAbonne() {
     html += `<div class="infos-ligne"><span class="infos-label">Générations gratuites</span><span class="infos-val">${formaterNombre(usedGen)} / ${formaterNombre(MAX_FREE)} · ${formaterNombre(resteGratuit)} restantes</span></div>`;
     html += `<div class="infos-ligne"><span class="infos-label">Jetons</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
     corps.innerHTML = html;
+    initCodeInfos();
     return;
   }
 
@@ -318,6 +346,7 @@ async function ouvrirInfosAbonne() {
   html += `<div class="infos-ligne"><span class="infos-label">Jetons</span><span class="infos-val">${formaterNombre(jetons)} jeton${jetons > 1 ? 's' : ''}</span></div>`;
 
   corps.innerHTML = html;
+  initCodeInfos();
 }
 
 function fermerInfosAbonne() {
