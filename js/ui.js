@@ -366,18 +366,33 @@ function initSliderChoix(select) {
     else delete select.dataset.choisi;
   }
 
+  // LE REMPLISSAGE DORÉ SE CALCULE, il ne suit pas tout seul. Aucun navigateur
+  // ne sait colorer nativement la partie déjà parcourue d'un input range :
+  // c'est un dégradé posé sur le fond, coupé à --car-part (voir .car-slider,
+  // css/style.css). Sans ce recalcul, la pastille avance et la barre reste
+  // derrière, exactement le défaut relevé par le propriétaire sur son iPhone,
+  // curseur sur « 2 min » et barre arrêtée au quart. Même mécanique que les
+  // curseurs du carrousel et de la série.
+  function majRemplissage(idx) {
+    const part = options.length > 1 ? idx / (options.length - 1) : 1;
+    range.style.setProperty('--car-part', Math.round(part * 100) + '%');
+  }
+
   function majDepuisSelect() {
     let idx = options.findIndex(o => o.value === select.value);
     if (idx < 0) { idx = parDefaut; poser(options[idx].value); marquerChoisi(false); }
     range.value = String(idx);
     valeur.textContent = libelle(options[idx]);
+    majRemplissage(idx);
   }
 
   range.addEventListener('input', function () {
-    const o = options[Number(range.value)] || options[parDefaut];
+    const idx = Number(range.value);
+    const o = options[idx] || options[parDefaut];
     poser(o.value);
     marquerChoisi(true);
     valeur.textContent = libelle(o);
+    majRemplissage(idx);
     // 'change' relayé À LA MAIN : tout le reste de l'app écoute le <select>,
     // et un range qui bouge ne déclenche évidemment rien dessus.
     select.dispatchEvent(new Event('change', { bubbles: true }));

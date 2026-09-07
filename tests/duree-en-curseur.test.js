@@ -149,6 +149,52 @@ test('glisser le curseur pilote VRAIMENT la génération, pas seulement l\'affic
   }
 });
 
+// Défaut vu par le propriétaire sur son iPhone, capture à l'appui : le
+// curseur était posé sur « 2 min », mais la barre dorée s'arrêtait au quart.
+// Aucun navigateur ne sait colorer nativement la partie déjà parcourue d'un
+// input range : c'est un dégradé coupé à --car-part, une variable que le CODE
+// doit recalculer à chaque mouvement. Sans ça, la pastille avance et la barre
+// reste derrière, et le créateur voit un réglage qui se contredit lui-même.
+test('la barre dorée suit la pastille, à chaque position', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrir(navigateur, baseUrl);
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+
+    const vu = await page.evaluate(() => {
+      const range = document.getElementById('dureeGridSlider');
+      const part = () => range.style.getPropertyValue('--car-part');
+      const glisser = (p) => {
+        range.value = String(p);
+        range.dispatchEvent(new Event('input', { bubbles: true }));
+        return part();
+      };
+      const auChargement = part();
+      const positions = [0, 1, 2, 3, 4].map(glisser);
+      // Une remise à zéro replace la pastille : la barre doit suivre là aussi.
+      document.getElementById('dureeGrid').value = '';
+      return { auChargement, positions, apresRemiseAZero: part() };
+    });
+
+    assert.deepEqual(erreursJs, [], 'aucune erreur JS');
+    assert.equal(vu.auChargement, '25%',
+      'REGRESSION : au chargement, la barre ne correspond pas à la position de départ (deuxième cran '
+      + 'sur cinq) mais à « ' + vu.auChargement + ' ». C\'est le défaut vu sur iPhone : le curseur affiche '
+      + 'une durée, la barre en montre une autre.');
+    assert.deepEqual(vu.positions, ['0%', '25%', '50%', '75%', '100%'],
+      'REGRESSION : la barre ne suit plus la pastille sur toute l\'échelle. Mesuré : '
+      + JSON.stringify(vu.positions));
+    assert.equal(vu.apresRemiseAZero, '25%',
+      'REGRESSION : après une remise à zéro, la pastille revient au défaut mais la barre reste où elle '
+      + 'était (' + vu.apresRemiseAZero + ')');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('« pas encore choisi » survit à la disparition de l\'option vide', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
