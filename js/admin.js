@@ -1151,7 +1151,7 @@ function carteEssaiRecitAdmin() {
     const sonnet = tirages.filter(t => t.modele === 'claude-sonnet-4-6').length;
     corps = `<div class="audit-sujets" style="margin-top:12px">${tirages.map(t => `
       <div class="audit-sujet" style="cursor:default">
-        <span>${escAdmin(t.titre)}<span class="ideas-sub" style="display:block;opacity:0.55;margin-top:2px">${escAdmin(String(t.date).slice(0, 16).replace('T', ' '))}</span></span>
+        <span>${escAdmin(t.titre)}<span class="ideas-sub" style="display:block;opacity:0.55;margin-top:2px">${escAdmin(tempsRelatifCourt(t.date))}</span></span>
         <b style="color:${t.modele === 'claude-sonnet-4-6' ? 'var(--gold)' : 'var(--emerald, #10b981)'};white-space:nowrap">${escAdmin(nom(t.modele))}</b>
       </div>`).join('')}</div>
       <div class="ideas-sub" style="margin-top:10px;opacity:0.7">${sonnet} révisé${sonnet > 1 ? 's' : ''} par Sonnet, ${n - sonnet} par Haiku.</div>

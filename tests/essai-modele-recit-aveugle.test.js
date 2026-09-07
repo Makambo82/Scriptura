@@ -215,6 +215,14 @@ test('l\'essai se pilote au doigt, et ne trahit rien avant qu\'on le demande', a
       out.titresApres = apres.includes('LE PREMIER RECIT') && apres.includes('LE SECOND RECIT');
       out.modelesApres = /Sonnet|Haiku/.test(hote.textContent);
 
+      // ── L'HEURE EST CELLE DU CRÉATEUR, pas celle de Greenwich ──
+      // Vu sur ses captures : la carte annonçait des récits à 11:28, générés
+      // à 12:28 chez lui. toISOString() rend de l'UTC, et le reste du panneau
+      // parle en relatif ("il y a 34 min"). Deux horloges dans le même écran,
+      // c'est celle qui ment qu'on croit.
+      out.dateAffichee = (hote.textContent.match(/(il y a [^·\n]+|à l'instant)/) || [])[0] || '';
+      out.dateBrute = /\d{4}-\d{2}-\d{2}/.test(hote.textContent);
+
       // ── Remise à zéro ──
       bouton(/Effacer/).click();
       out.apresEffacement = lireTiragesEssaiRecit().length;
@@ -249,6 +257,14 @@ test('l\'essai se pilote au doigt, et ne trahit rien avant qu\'on le demande', a
       'REGRESSION : après appui sur Révéler, les récits ne sont toujours pas listés. L\'essai ne peut '
       + 'plus être dépouillé, donc il ne sert à rien.');
     assert.equal(vu.modelesApres, true, 'et chaque récit doit porter le modèle qui l\'a révisé');
+
+    assert.equal(vu.dateBrute, false,
+      'REGRESSION : la carte affiche une date brute (2026-09-07 11:28). Elle vient de toISOString(), '
+      + 'donc en UTC, alors que le créateur lit son heure locale : il a vu « 11:28 » pour des récits '
+      + 'générés à 12:28 chez lui, et rien ne lui disait pourquoi.');
+    assert.match(vu.dateAffichee, /il y a|à l'instant/,
+      'REGRESSION : la carte ne parle plus en relatif comme le reste du panneau. Deux horloges dans le '
+      + 'même écran, c\'est celle qui ment qu\'on croit. Vu : ' + JSON.stringify(vu.dateAffichee));
 
     assert.equal(vu.apresEffacement, 0, 'l\'effacement doit vraiment vider les tirages');
     assert.equal(vu.titresApresEffacement, false,
