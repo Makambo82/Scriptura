@@ -1001,6 +1001,106 @@ const DS_DIM_META = {
   viralite:           { icone: ICO('bolt'), label: 'Viralité', max: 10 }
 };
 
+// ── LE PAS SUIVANT, APRÈS LE DIAGNOSTIC ──
+// Retour terrain d'un vrai créateur, et c'est le plus instructif reçu jusqu'ici.
+// Il a fait le diagnostic gratuit, il a été convaincu ("c'est très
+// professionnel"), et la question qu'il a posée juste après était : « y a-t-il
+// d'autres réglages ? Paramétrer mon TikTok, le VPN... ? »
+//
+// Autrement dit : il sait maintenant CE QUI ne va pas, et il ne sait toujours
+// pas QUOI FAIRE. Alors il devine, et il devine mal.
+//
+// CE QUI EXISTAIT DÉJÀ EN FIN DE DIAGNOSTIC, et pourquoi ça ne suffisait pas :
+// une idée en teaser avec un bandeau d'abonnement, un bouton « Débloquer
+// l'analyse détaillée », et « Analyser un autre compte ». Trois suites, dont
+// deux mènent à payer et la troisième à recommencer. AUCUNE ne disait « voilà
+// comment on corrige ce qu'on vient de te montrer, vas-y, c'est gratuit ».
+// On nomme son problème, puis on lui présente un prix. C'est exactement le
+// moment où il est parti chercher un VPN.
+//
+// Ce bloc-là est donc GRATUIT et ACTIONNABLE, et il est posé AVANT les deux
+// murs payants : un créateur doit pouvoir sentir Scriptura réparer quelque
+// chose avant qu'on lui demande un franc.
+//
+// AUCUN APPEL IA : tout vient de la dimension la plus faible, déjà calculée
+// par le code. Le pas suivant coûte donc zéro, ce qui compte quand il est
+// servi à des visiteurs gratuits.
+const DS_PAS_SUIVANT = {
+  engagement: {
+    constat: 'Les gens voient tes vidéos mais ne réagissent pas.',
+    cause: 'Ça se joue presque toujours sur l\'accroche et sur la chute : sans raison de commenter ou de partager, une vidéo correcte reste sans réaction.',
+    libelle: 'Écrire un script avec une vraie accroche',
+    action: 'chooseMode(\'script\')'
+  },
+  vues_moyennes: {
+    constat: 'TikTok montre peu tes vidéos.',
+    cause: 'Le sujet et les trois premières secondes décident presque tout : si personne ne reste, l\'algorithme arrête de pousser.',
+    libelle: 'Trouver des sujets qui marchent dans ta niche',
+    action: 'demarrerIdeesDepuisSommaire()'
+  },
+  regularite: {
+    constat: 'Tu publies trop rarement pour prendre un rythme.',
+    cause: 'Ce n\'est presque jamais un manque d\'idées, c\'est un manque de temps. C\'est exactement là que Scriptura fait gagner des heures.',
+    libelle: 'Sortir un script en quelques minutes',
+    action: 'chooseMode(\'script\')'
+  },
+  croissance_abonnes: {
+    constat: 'On regarde tes vidéos, mais on ne s\'abonne pas.',
+    cause: 'Il manque une raison de revenir : une fin qui donne envie de la suite plutôt qu\'une vidéo qui se referme sur elle-même.',
+    libelle: 'Écrire un script qui donne envie de te suivre',
+    action: 'chooseMode(\'script\')'
+  },
+  viralite: {
+    constat: 'Aucune de tes vidéos ne sort vraiment du lot.',
+    cause: 'C\'est le signe d\'accroches qui se ressemblent toutes. Il en faut plusieurs, très différentes, pour qu\'une finisse par accrocher.',
+    libelle: 'Tester plusieurs accroches sur un sujet',
+    action: 'chooseMode(\'script\')'
+  }
+};
+
+// Dimension la plus faible, EN PART DE SON MAXIMUM et jamais en points bruts :
+// l'Engagement vaut 30 points et la Viralité 10, comparer 12 et 6 directement
+// désignerait toujours les dimensions à petit barème comme le point faible.
+// À égalité, l'ordre de DS_DIM_META tranche, donc toujours le même verdict
+// pour les mêmes chiffres, comme tout le reste du score.
+function dsDimensionLaPlusFaible(d) {
+  let pire = null;
+  Object.keys(DS_DIM_META).forEach(cle => {
+    const dim = d && d[cle];
+    const meta = DS_DIM_META[cle];
+    if (!dim || dim.disponible === false || typeof dim.score !== 'number' || Number.isNaN(dim.score)) return;
+    const part = Math.max(0, Math.min(meta.max, dim.score)) / meta.max;
+    if (!pire || part < pire.part) pire = { cle: cle, part: part };
+  });
+  return pire;
+}
+
+// Au-dessus de ce seuil, la dimension la plus faible reste BONNE : annoncer
+// « voilà ton point faible » à quelqu'un qui tourne à 85% serait faux, et un
+// diagnostic qui invente un défaut perd exactement la crédibilité qu'il vient
+// de gagner. Le pas suivant existe quand même, il change juste de ton.
+const DS_SEUIL_POINT_FAIBLE = 0.75;
+
+function dsPasSuivantHTML(d) {
+  const pire = dsDimensionLaPlusFaible(d);
+  if (!pire) return '';   // aucune dimension mesurable : rien d'honnête à dire
+  const pas = DS_PAS_SUIVANT[pire.cle];
+  if (!pas) return '';
+  const faible = pire.part < DS_SEUIL_POINT_FAIBLE;
+  const titre = faible ? 'Et maintenant, par quoi commencer' : 'Pour aller plus loin';
+  const texte = faible
+    ? '<strong>' + diagSommaireEsc(pas.constat) + '</strong> ' + diagSommaireEsc(pas.cause)
+    : 'Ton compte est déjà solide partout. Le point le plus perfectible reste '
+      + '<strong>' + diagSommaireEsc(DS_DIM_META[pire.cle].label.toLowerCase()) + '</strong>, '
+      + 'et c\'est là qu\'il reste le plus à gagner.';
+  return `
+    <div class="ds-alt ds-pas-suivant">
+      <div class="audit-section-label" style="margin-bottom:10px">${ICO('bolt')} ${titre}</div>
+      <p style="margin:0 0 14px">${texte}</p>
+      <button class="btn-generate" onclick="${pas.action}">${diagSommaireEsc(pas.libelle)} →</button>
+    </div>`;
+}
+
 // Raisons d'indisponibilité STRUCTURELLE (jamais une estimation inventée à la
 // place) : vues moyennes/régularité/viralité ont besoin des données par vidéo
 // qu'aucun profil public n'expose ; croissance abonnés a besoin d'un
@@ -1385,6 +1485,7 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
     ${conceptsHtml}
     ${leviersHtml}
     ${faille}
+    ${moi ? dsPasSuivantHTML(d) : ''}
     ${actionsFinHtml}
     ${opportuniteHtml}
 
