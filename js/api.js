@@ -8,12 +8,26 @@
 const MODEL_CREATIF = "claude-haiku-4-5-20251001";    // Haiku partout (rapide et fiable)
 const MODEL_RAPIDE  = "claude-haiku-4-5-20251001";    // Directeur, idées, storyboards (vitesse)
 const MODEL_AUDIT   = "claude-sonnet-4-6";            // Sonnet pour l'audit : tâche complexe, qualité premium
-// Le premier jet du récit reste sur Haiku (rapide), mais juger si un hook
-// "arrête vraiment le scroll" et réécrire les segments faibles est un
-// jugement créatif fin, pas mécanique : Haiku jugeant Haiku était complaisant.
-// Sonnet pour ces deux appels ciblés seulement (même logique que MODEL_AUDIT).
-// NE SERT QU'À ÇA : la critique et la révision du récit (js/storytelling.js).
-const MODEL_QUALITE_RECIT = "claude-sonnet-4-6";
+// Critique et révision du récit. NE SERT QU'À ÇA (js/storytelling.js).
+//
+// A TOURNÉ SUR SONNET, ET NE TOURNE PLUS. L'hypothèse était que juger si un
+// hook "arrête vraiment le scroll" demandait mieux que Haiku, et surtout que
+// "Haiku jugeant Haiku" serait complaisant. Elle n'a jamais été vérifiée,
+// seulement supposée, et elle coûtait trois fois le prix sur les DEUX passes
+// les plus lourdes du mode.
+//
+// ELLE A ÉTÉ TESTÉE À L'AVEUGLE (voir l'essai plus bas) : six récits, modèle
+// tiré au sort par le code, rien à l'écran pour le dire, propriétaire qui
+// classe avant de savoir. Ses préférés étaient des Haiku. Ça ne prouve pas
+// que Haiku écrit mieux, et ce n'était pas la question : la question était de
+// savoir si Sonnet valait son prix ICI, et c'est à l'option chère de faire
+// ses preuves. Elle ne les a pas faites.
+//
+// Ce qu'il faut savoir pour revenir en arrière un jour : six récits, dont
+// seulement deux révisés par Sonnet, c'est peu. Si la qualité des récits
+// devient un sujet, l'essai est toujours en place et se relance d'un bouton
+// depuis le panneau admin, cette fois avec plus de matière.
+const MODEL_QUALITE_RECIT = "claude-haiku-4-5-20251001";
 // SECONDE TENTATIVE DU JUGE, dans les trois modes qui en ont un (script,
 // récit, série). Rien à voir avec la qualité du récit ci-dessus, malgré la
 // même valeur aujourd'hui.

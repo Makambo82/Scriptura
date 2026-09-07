@@ -49,6 +49,39 @@ test('les deux rôles ne partagent plus une seule constante de modèle', () => {
     'REGRESSION : la seconde tentative du juge du récit ne passe plus par sa propre constante.');
 });
 
+// Le garde-fou qui compte maintenant que la critique du récit est repassée sur
+// Haiku : les deux constantes portaient la même valeur, elles ne la portent
+// plus, et le prochain qui verra deux lignes presque identiques sera tenté de
+// les unifier. Ce test ne fige AUCUNE valeur, il fige la seule chose qui
+// compte vraiment : le juge de secours n'a de sens que s'il diffère du juge
+// principal. Les deux peuvent changer de modèle, jamais devenir le même.
+test('le juge de secours reste un modèle DIFFÉRENT du juge principal', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(400);
+    const vu = await page.evaluate(() => ({
+      principal: MODEL_RAPIDE,
+      secours: MODEL_JUGE_SECOURS,
+      recit: MODEL_QUALITE_RECIT
+    }));
+    assert.notEqual(vu.secours, vu.principal,
+      'REGRESSION : le juge de secours tourne sur le MÊME modèle que le juge principal (' + vu.principal
+      + '). Sa seule raison d\'être est de réessayer sur un modèle réellement différent : à l\'identique, '
+      + 'il retente exactement ce qui vient d\'échouer, et le créateur reste sans score pour rien. Vrai '
+      + 'dans les TROIS modes qui en ont un, script et série compris.');
+    assert.equal(vu.recit, vu.principal,
+      'la critique du récit tourne sur le modèle courant depuis l\'essai à l\'aveugle ; si ce choix est '
+      + 'un jour révisé, ce test est le bon endroit pour le dire, pas un endroit à contourner');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
 test('la critique ET la révision passent par la même fonction, jamais par la constante', () => {
   const st = lire('storytelling.js');
   const critique = /callAI\(modeleQualiteRecit\(\), 2500,/.test(st);
