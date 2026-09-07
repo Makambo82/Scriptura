@@ -1172,6 +1172,60 @@ function motsDuHook(script) {
   return (Array.isArray(script) && script.length) ? _genCompterMots(script[0] && script[0].texte) : 0;
 }
 
+// ── LA CIBLE DE DURÉE DE LA DERNIÈRE GÉNÉRATION, GARDÉE POUR APRÈS ──
+// L'avertissement de durée est calculé pendant la génération, à un moment où
+// la cible (wordTargets) est sous la main. Mais le script peut CHANGER après
+// coup : le créateur remplace son accroche par une alternative (voir
+// utiliserHookAlternatifScript). L'avertissement affiché deviendrait alors
+// faux, et il est posé à l'endroit le plus lu de l'écran, juste sous le
+// score. On garde donc de quoi le recalculer, plutôt que de laisser mentir.
+let _dureeCibleScript = null; // { min, max, desc, hardMin, hardMax } | null
+
+// Le texte de l'avertissement, en UN seul endroit. Écrit deux fois (une à la
+// génération, une au recalcul), il aurait divergé au premier changement de
+// formulation, et le créateur aurait vu deux messages différents pour la même
+// situation selon le chemin emprunté.
+function avertissementDureeScript(script, nbMots) {
+  const c = _dureeCibleScript;
+  if (!c || !Array.isArray(script) || !script.length) return '';
+  const mots = (typeof nbMots === 'number')
+    ? nbMots
+    : script.map(s => (s && s.texte) || '').join(' ').split(/\s+/).filter(Boolean).length;
+  let phrase = '';
+  if (mots < c.hardMin) {
+    phrase = `Ce script fait ${mots} mots, plus court que les ${c.min}-${c.max} mots visés pour ${c.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`;
+  } else if (mots > c.hardMax) {
+    phrase = `Ce script fait ${mots} mots, plus long que les ${c.min}-${c.max} mots visés pour ${c.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`;
+  }
+  // Hook encore trop long après le découpage : c'est le cas d'une phrase
+  // unique interminable, qu'on ne peut pas couper sans la réécrire. On le DIT
+  // plutôt que de le laisser passer en silence : c'est la première seconde de
+  // la vidéo, celle qui décide si elle est regardée.
+  const motsHook = motsDuHook(script);
+  if (motsHook > HOOK_MOTS_MAX) {
+    const phraseHook = `Ton accroche fait ${motsHook} mots, soit plus de ${HOOK_SECONDES} secondes. Au-delà, le spectateur a déjà fait défiler. Raccourcis la première phrase, ou régénère.`;
+    phrase = phrase ? phrase + ' ' + phraseHook : phraseHook;
+  }
+  return phrase;
+}
+
+// Minutage de chaque bloc, déduit du TEXTE réel et non d'un pari de l'IA.
+// Remontée au niveau global (elle vivait dans generate()) parce qu'un
+// remplacement d'accroche change la longueur du premier bloc, donc décale
+// tous les blocs suivants : sans recalcul, la timeline afficherait le
+// découpage de l'accroche précédente.
+function recalculerTempsBlocs(script) {
+  if (!Array.isArray(script)) return script;
+  let curseur = 0;
+  return script.map(bloc => {
+    const duree = Math.max(DUREE_MIN, dureeParleeDe(bloc && bloc.texte));
+    const debut = Math.round(curseur);
+    curseur += duree;
+    const fin = Math.max(debut + 1, Math.round(curseur));
+    return Object.assign({}, bloc, { temps: debut + '-' + fin + ' sec' });
+  });
+}
+
 // Ramène le premier bloc sous le plafond SANS toucher un seul mot : on coupe
 // à une frontière de phrase et le reste devient le bloc suivant. Aucun mot
 // ajouté, retiré ni réécrit, donc le compte de mots, l'avertissement de durée
@@ -2023,17 +2077,8 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
     // durée : un script parfaitement calibré affiche donc une timeline qui
     // tombe bien sur la durée choisie par le créateur. Cumulatif : chaque
     // bloc démarre pile où le précédent s'arrête, comme un vrai minutage.
-    function recalculerTempsBlocs(script) {
-      if (!Array.isArray(script)) return script;
-      let curseur = 0;
-      return script.map(bloc => {
-        const duree = Math.max(DUREE_MIN, dureeParleeDe(bloc && bloc.texte));
-        const debut = Math.round(curseur);
-        curseur += duree;
-        const fin = Math.max(debut + 1, Math.round(curseur));
-        return Object.assign({}, bloc, { temps: debut + '-' + fin + ' sec' });
-      });
-    }
+    // recalculerTempsBlocs vit désormais au niveau global (voir plus haut) :
+    // un remplacement d'accroche doit pouvoir le rappeler après coup.
 
     // Découpe en CODE (aucune IA, aucun mot ajouté, retiré ou modifié) tout
     // bloc qui dépasse le plafond, aux frontières de PHRASES et en parts
@@ -2580,21 +2625,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
     // le créateur doit le savoir plutôt que de découvrir en silence un
     // script deux fois plus court que la durée choisie. Jamais bloquant,
     // juste honnête (voir affichage dans renderResults).
-    let avertissementDuree = (wordCount < hardMin || wordCount > hardMax)
-      ? (wordCount < hardMin
-          ? `Ce script fait ${wordCount} mots, plus court que les ${wt.min}-${wt.max} mots visés pour ${wt.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`
-          : `Ce script fait ${wordCount} mots, plus long que les ${wt.min}-${wt.max} mots visés pour ${wt.desc}. Tu peux le régénérer pour retenter d'atteindre la durée choisie.`)
-      : '';
-
-    // Hook encore trop long après le découpage : c'est le cas d'une phrase
-    // unique interminable, qu'on ne peut pas couper sans la réécrire. On le
-    // DIT plutôt que de le laisser passer en silence : c'est la première
-    // seconde de la vidéo, celle qui décide si elle est regardée.
+    // La cible est mémorisée AVANT de composer l'avertissement : c'est elle
+    // qui permettra de le recalculer si le créateur remplace son accroche par
+    // une alternative après coup (voir utiliserHookAlternatifScript).
+    _dureeCibleScript = { min: wt.min, max: wt.max, desc: wt.desc, hardMin: hardMin, hardMax: hardMax };
     const motsHookFinal = motsDuHook(parsed.script);
-    if (motsHookFinal > HOOK_MOTS_MAX) {
-      const phraseHook = `Ton accroche fait ${motsHookFinal} mots, soit plus de ${HOOK_SECONDES} secondes. Au-delà, le spectateur a déjà fait défiler. Raccourcis la première phrase, ou régénère.`;
-      avertissementDuree = avertissementDuree ? avertissementDuree + ' ' + phraseHook : phraseHook;
-    }
+    let avertissementDuree = avertissementDureeScript(parsed.script, wordCount);
 
     // Score déterministe (voir scorerScriptGenere plus haut) : calculé ICI à
     // partir de signaux, jamais d'un chiffre choisi par l'IA. deuxieme_personne/
@@ -3299,8 +3335,12 @@ function renderResults(d, niche, sujet) {
           <div class="hook-item" data-idx="${i}">
             <span class="hook-style">${auditEsc(h.style)}</span>
             <span id="hookText${i}">${auditEsc(h.texte)}</span>
+            <div class="hook-actions">
+              <button type="button" class="script-edit-btn" onclick="utiliserHookAlternatifScript(${i},this)">Utiliser ce hook</button>
+            </div>
           </div>`).join('')}
         </div>
+        <div class="hook-echange-note" id="hookEchangeNote" style="display:none"></div>
       </div>`
     },
     {
@@ -3472,6 +3512,76 @@ Réponds UNIQUEMENT avec le nouveau texte de ce passage, rien avant, rien après
   } finally {
     boutons.forEach(b => b.disabled = false);
     if (btn) btn.textContent = labelOriginal;
+  }
+}
+
+// ── « UTILISER CE HOOK » : L'ALTERNATIVE PREND LA PLACE DE L'ACCROCHE ──
+//
+// Demande du propriétaire : « si le hook du script ne convient pas et qu'un
+// hook des alternatives lui convient, il peut demander à l'app d'utiliser ce
+// hook, et l'app remplace automatiquement ». L'app proposait cinq accroches
+// et laissait le créateur les recopier à la main dans son script.
+//
+// C'EST UN ÉCHANGE, PAS UN REMPLACEMENT, et c'est ce qui rend le geste sans
+// risque : l'ancienne accroche prend la place de celle qu'on vient d'utiliser
+// dans la liste. Rien n'est perdu, la liste garde ses cinq propositions, et un
+// second appui sur le même bouton remet exactement l'état précédent. Aucun
+// bouton « annuler » à inventer, aucun état caché à mémoriser.
+//
+// AUCUN APPEL IA : les deux textes existent déjà. Le geste est donc instantané
+// et gratuit, et il ne consomme rien du quota de retouches.
+function utiliserHookAlternatifScript(i, btn) {
+  if (!Array.isArray(currentScript) || !currentScript.length) return;
+  if (!Array.isArray(currentHooks) || !currentHooks[i]) return;
+  const nouveau = String(currentHooks[i].texte || '').trim();
+  const ancien = String(currentScript[0].texte || '').trim();
+  if (!nouveau || nouveau === ancien) return;
+
+  currentScript[0] = Object.assign({}, currentScript[0], { texte: nouveau });
+  currentHooks[i] = Object.assign({}, currentHooks[i], { texte: ancien });
+  // Le minutage de TOUS les blocs se décale : une accroche plus longue ou
+  // plus courte déplace tout ce qui suit.
+  currentScript = recalculerTempsBlocs(currentScript);
+
+  const blocEl = document.getElementById('scriptText0');
+  if (blocEl) blocEl.textContent = nouveau;
+  const hookEl = document.getElementById('hookText' + i);
+  if (hookEl) hookEl.textContent = ancien;
+  // copyTexts[2] = section « Script complet » : sans reconstruction, Copier et
+  // Partager renverraient l'ancienne accroche (même raison que la micro-
+  // édition par passage, voir microEditerBlocScript).
+  if (Array.isArray(copyTexts) && copyTexts.length > 2) {
+    copyTexts[2] = currentScript.map(s => '[' + s.temps + ']\n' + s.texte).join('\n\n');
+  }
+
+  // L'AVERTISSEMENT DE DURÉE EST RECALCULÉ, sinon il ment. Il est posé juste
+  // sous le score, à l'endroit le plus lu de l'écran : laisser « ton accroche
+  // fait 13 mots » après avoir justement raccourci l'accroche serait pire que
+  // ne rien afficher.
+  const avert = avertissementDureeScript(currentScript);
+  document.querySelectorAll('#results .duree-avertissement').forEach(el => {
+    // Seul l'avertissement de DURÉE est concerné, jamais celui du juge absent
+    // (même classe, mais il ne parle pas de mots).
+    if (!/⏱/.test(el.textContent)) return;
+    if (avert) { el.textContent = '⏱ ' + avert; el.style.display = ''; }
+    else el.style.display = 'none';
+  });
+
+  const note = document.getElementById('hookEchangeNote');
+  if (note) {
+    // On DIT que le score n'a pas bougé. Il vient d'un juge indépendant qui a
+    // lu le script précédent : le recalculer demanderait un appel IA que le
+    // créateur n'a pas demandé, et afficher l'ancien sans rien dire
+    // laisserait croire qu'il vaut pour la nouvelle accroche.
+    note.textContent = 'Accroche remplacée dans ton script. L\'ancienne a pris sa place ici, '
+      + 'un second appui la remet. Le Scriptura Score, lui, a été calculé sur l\'accroche précédente : '
+      + 'régénère le score seulement si tu veux le remettre à jour.';
+    note.style.display = '';
+  }
+  if (btn) {
+    const libelle = btn.textContent;
+    btn.textContent = '✓ Utilisé';
+    setTimeout(() => { btn.textContent = libelle; }, 1600);
   }
 }
 

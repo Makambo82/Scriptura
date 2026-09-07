@@ -569,6 +569,18 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
   color:var(--gold);opacity:0.5;display:block;margin-bottom:5px;
   text-transform:uppercase;
 }
+/* « Utiliser ce hook » : le bouton reprend exactement l'habillage des
+   retouches par passage (.script-edit-btn), c'est le même geste pour le
+   créateur, une petite action discrète sous un texte. */
+.hook-actions{margin-top:10px}
+/* Ce que l'échange vient de faire, dit noir sur blanc, y compris ce qu'il n'a
+   PAS fait (le score n'est pas recalculé). Doré : une information à lire, pas
+   une réussite ni une erreur. */
+.hook-echange-note{
+  margin-top:12px;padding:11px 14px;border-radius:8px;
+  background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.22);
+  font-size:0.78rem;line-height:1.55;color:var(--gold-light);
+}
 .hashtags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .ht{
   font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.06em;

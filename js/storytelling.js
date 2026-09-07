@@ -1314,7 +1314,11 @@ function renderStory(d) {
           <div class="hook-item" data-idx="${i}">
             <div class="hook-style">${auditEsc(h.style || ('Hook ' + (i+1)))}</div>
             <div class="hook-text" id="storyHookText${i}">${auditEsc(h.texte || '')}</div>
+            <div class="hook-actions">
+              <button type="button" class="script-edit-btn" onclick="utiliserHookAlternatifRecit(${i},this)">Utiliser cette accroche</button>
+            </div>
           </div>`).join('')}</div>
+        <div class="hook-echange-note" id="storyHookEchangeNote" style="display:none"></div>
         <div class="sb-actions-fin"><button class="icon-btn" title="Copier" onclick="copyText(this, texteHooksStory())">${ICON_COPY}</button><button class="icon-btn" title="Partager" onclick="shareText(this, texteHooksStory())">${ICON_SHARE}</button></div>
       </div>`
     });
@@ -1429,6 +1433,56 @@ function texteHooksStory() {
 // ── Éditeur IA par passage, porté du mode Script (voir microEditerBlocScript,
 // js/generation.js) : même logique, adaptée aux segments du récit
 // (currentStory.recit au lieu de currentScript). ──
+// « Utiliser cette accroche » : exactement le même geste que côté Script (voir
+// utiliserHookAlternatifScript, js/generation.js), sur le premier segment du
+// récit, qui EST son accroche. Même échange réversible, même absence d'appel
+// IA, même honnêteté sur le score qui ne se recalcule pas.
+//
+// Le minutage n'est pas recalculé ici, contrairement au Script : les segments
+// d'un récit ne portent pas de bornes de temps, c'est le storyboard qui les
+// déduit du texte au moment où on le génère.
+function utiliserHookAlternatifRecit(i, btn) {
+  if (!currentStory || !Array.isArray(currentStory.recit) || !currentStory.recit.length) return;
+  if (!Array.isArray(currentStory.hooks) || !currentStory.hooks[i]) return;
+  const nouveau = String(currentStory.hooks[i].texte || '').trim();
+  const ancien = String(currentStory.recit[0].texte || '').trim();
+  if (!nouveau || nouveau === ancien) return;
+
+  currentStory.recit[0] = Object.assign({}, currentStory.recit[0], { texte: nouveau });
+  currentStory.hooks[i] = Object.assign({}, currentStory.hooks[i], { texte: ancien });
+
+  // Même rendu que la retouche par passage : les sauts de ligne d'un segment
+  // sont affichés, pas avalés (voir microEditerSegmentRecit).
+  const segEl = document.getElementById('storySegText0');
+  if (segEl) segEl.innerHTML = auditEsc(nouveau).replace(/\n/g, '<br/>');
+  const hookEl = document.getElementById('storyHookText' + i);
+  if (hookEl) hookEl.textContent = ancien;
+
+  // LE TEXTE COMPLET DOIT SUIVRE. copyStory et shareStory ne relisent pas
+  // currentStory : ils lisent storyOutput.dataset.fulltext, posé une fois au
+  // rendu. Et c'est AUSSI ce texte qui sert de point de départ au storyboard.
+  // Sans cette reconstruction, le créateur remplacerait son accroche à
+  // l'écran, puis copierait l'ancienne, et son storyboard serait bâti sur
+  // l'ancienne aussi, sans que rien ne le signale. Même reconstruction que la
+  // retouche par passage.
+  currentStoryText = currentStory.recit.map(s => (s && s.texte) || '').join('\n\n');
+  const out = document.getElementById('storyOutput');
+  if (out) out.dataset.fulltext = currentStoryText;
+
+  const note = document.getElementById('storyHookEchangeNote');
+  if (note) {
+    note.textContent = 'Accroche remplacée dans ton récit. L\'ancienne a pris sa place ici, '
+      + 'un second appui la remet. Le Scriptura Score, lui, a été calculé sur l\'accroche précédente : '
+      + 'régénère le score seulement si tu veux le remettre à jour.';
+    note.style.display = '';
+  }
+  if (btn) {
+    const libelle = btn.textContent;
+    btn.textContent = '✓ Utilisée';
+    setTimeout(() => { btn.textContent = libelle; }, 1600);
+  }
+}
+
 async function microEditerSegmentRecit(idx, action, btn) {
   const consigne = MICRO_EDIT_CONSIGNES[action];
   const texteEl = document.getElementById('storySegText' + idx);
