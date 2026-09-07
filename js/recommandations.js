@@ -695,13 +695,26 @@ async function demarrerIdeesDepuisSommaire() {
 
 function salutationAccueil() {
   // Salutation selon le jour ET l'heure LOCALE du téléphone de l'utilisateur :
-  // - Lundi à jeudi : 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
+  // - Lundi : "Heureuse semaine" toute la journée, quelle que soit l'heure.
+  // - Mardi à jeudi : 0h-11h59 → Bonjour, 12h-17h59 → Bon après-midi, 18h-23h59 → Bonsoir.
   // - Vendredi : "Bon vendredi" toute la journée, quelle que soit l'heure.
   // - Samedi et dimanche : "Bon week-end" toute la journée, quelle que soit l'heure.
+  //
+  // POUR TOUT LE MONDE, FONDATEUR COMPRIS : cette fonction est le seul endroit
+  // qui compose la salutation, et le prénom vient du code d'accès (voir
+  // prenomDepuisCode). Aucun palier, aucun compte, n'a de branche à part, et
+  // c'est très bien : une seconde salutation posée ailleurs aurait fini par
+  // dire autre chose le même jour à deux endroits de l'app.
+  //
+  // JOUR LOCAL, jamais UTC : getDay() lit le fuseau du téléphone. Un créateur
+  // à Cotonou qui ouvre l'app lundi à 00h30 est lundi chez lui, même s'il est
+  // encore dimanche à Greenwich, et c'est SA semaine qui commence.
   const maintenant = new Date();
   const jour = maintenant.getDay(); // 0 = dimanche, 1 = lundi, ..., 5 = vendredi, 6 = samedi
   let base;
-  if (jour === 5) {
+  if (jour === 1) {
+    base = 'Heureuse semaine';
+  } else if (jour === 5) {
     base = 'Bon vendredi';
   } else if (jour === 0 || jour === 6) {
     base = 'Bon week-end';
