@@ -203,6 +203,10 @@ test('le pré-remplissage se limite aux traits stables : niche et format', async
         format: document.getElementById('format').value,
         ton: document.getElementById('tone').value,
         duree: document.getElementById('dureeGrid').value,
+        // Depuis que la durée est un CURSEUR (voir initSliderChoix, js/ui.js),
+        // le champ ne peut plus être vide : un curseur est toujours quelque
+        // part. Ce qui dit « personne n'y a touché », c'est son drapeau.
+        dureeTouchee: document.getElementById('dureeGrid').dataset.choisi === '1',
         varTon: selectedTone,
         varDuree: selectedDuree
       };
@@ -213,8 +217,12 @@ test('le pré-remplissage se limite aux traits stables : niche et format', async
     assert.ok(vu.format, 'le format aussi (faceless ou face caméra ne change pas d\'une vidéo à l\'autre) : ' + vu.format);
     assert.equal(vu.ton, '',
       'REGRESSION : le ton est une décision par vidéo, l\'hériter impose un choix que le créateur n\'a pas fait');
-    assert.equal(vu.duree, '',
-      'REGRESSION : c\'est exactement la durée héritée qui a produit un script de 48 secondes pour un formulaire affichant 2 minutes');
+    assert.equal(vu.dureeTouchee, false,
+      'REGRESSION : c\'est exactement la durée héritée qui a produit un script de 48 secondes pour un '
+      + 'formulaire affichant 2 minutes. Le curseur doit rester sur sa valeur par défaut, non choisie.');
+    assert.equal(vu.duree, '1 minute',
+      'et il reste posé sur la valeur par défaut, celle sur laquelle la génération retombait déjà quand '
+      + 'rien n\'était choisi : ' + vu.duree);
     assert.equal(vu.varTon, '', 'et rien ne part en douce dans la variable lue par la génération');
     assert.equal(vu.varDuree, '');
   } finally {

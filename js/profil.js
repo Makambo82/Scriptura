@@ -152,6 +152,12 @@ async function mettreAJourProfilCreateur(patch) {
 // donc "vide" doit aussi se vérifier via selectedIndex === 0, pas seulement
 // via el.value (qui serait alors non-vide dès le chargement de la page).
 function estChampEncoreVide(el) {
+  // Un champ devenu CURSEUR (les durées, voir initSliderChoix js/ui.js) n'a
+  // plus d'option vide : il est toujours posé quelque part. C'est son drapeau
+  // "choisi" qui dit si le créateur (ou un pré-remplissage) y a touché.
+  // Sans ce cas, un curseur paraîtrait choisi dès l'ouverture de la page, et
+  // la durée habituelle du profil ne serait plus jamais reposée.
+  if (el.dataset && el.dataset.sliderInit === '1') return el.dataset.choisi !== '1';
   return el.selectedIndex === 0 || !el.value;
 }
 

@@ -3938,6 +3938,12 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
 .car-slider:active::-moz-range-thumb{cursor:grabbing;background:var(--gold-light)}
 .car-slider:focus-visible{box-shadow:0 0 0 3px var(--emerald-pale)}
 .car-slider-bornes{display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:6px}
+/* Curseur construit à partir d'un <select> (durées des modes Script, Récit et
+   Série, voir initSliderChoix js/ui.js). Le <select> reste dans le DOM pour
+   que tout le code existant continue de le lire, mais il ne doit plus rien
+   dessiner : même mise à l'écart que .custom-select select plus haut. */
+.choix-slider{position:relative}
+.choix-slider select{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;overflow:hidden}
 
 /* Barre de format sur l'écran de résultat : changer d'avis après coup ne doit
    pas obliger à régénérer, les aperçus sont recomposés (voir

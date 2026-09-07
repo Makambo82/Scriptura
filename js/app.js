@@ -237,15 +237,16 @@ document.addEventListener('DOMContentLoaded', function() {
   // majCurseurEpisodesSerie/reglerEpisodesSerie, js/serie.js), plus par
   // pastilles : rien à câbler ici, l'input range appelle directement son
   // gestionnaire en HTML (oninput/onchange).
-  // Choix de la durée de chaque épisode
-  document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      serieDuree = btn.dataset.val || '45 à 60 secondes';
+  // Choix de la durée de chaque épisode : un <select> devenu curseur (voir
+  // initSliderChoix, js/ui.js). Le curseur repose la valeur sur le <select>
+  // puis relaie 'change', donc rien d'autre à câbler ici qu'un écouteur, comme
+  // pour le ton ou la durée du mode Script.
+  const serieDureeEl = document.getElementById('serieDureeGrid');
+  if (serieDureeEl) {
+    serieDureeEl.addEventListener('change', function () {
+      serieDuree = this.value || '45 à 60 secondes';
     });
-  });
+  }
   const paywallOv = document.getElementById('paywall');
   if (paywallOv) {
     paywallOv.addEventListener('click', function(e) {
@@ -267,7 +268,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Boutons cliquables (≤4 choix) d'abord : ils "réservent" leurs <select>
   // via toggleInit avant le balayage général ci-dessous, qui convertirait
   // sinon tout <select> non encore marqué en menu déroulant.
-  if (typeof initToggleButtonsAll === 'function') initToggleButtonsAll();
+  // Les échelles (durée) d'abord : elles réservent leur <select> via
+  // sliderInit avant les deux autres mécanismes.
+  if (typeof initSlidersChoix === "function") initSlidersChoix();
+  if (typeof initToggleButtonsAll === "function") initToggleButtonsAll();
   if (typeof initCustomSelects === 'function') initCustomSelects();
   if (typeof initCustomSelectsWatch === 'function') initCustomSelectsWatch();
 

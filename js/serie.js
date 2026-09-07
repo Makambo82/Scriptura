@@ -404,7 +404,8 @@ function restartCreationSerie() {
   // défaut (45-60 sec, 5 épisodes, déjà .active/valeur par défaut dans le
   // HTML d'origine).
   serieDuree = '45 à 60 secondes';
-  document.querySelectorAll('#serieDureeGrid .grid-btn').forEach(b => b.classList.toggle('active', b.dataset.val === serieDuree));
+  const serieDureeEl = document.getElementById('serieDureeGrid');
+  if (serieDureeEl) serieDureeEl.value = serieDuree;
   const curseur = document.getElementById('serieEpisodesSlider');
   if (curseur) curseur.value = '5';
   majCurseurEpisodesSerie();

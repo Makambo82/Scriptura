@@ -71,7 +71,8 @@ function ICO(nom, cls) {
 function initCustomSelect(select) {
   // toggleInit : déjà pris en charge par initToggleButtons (≤4 choix, voir
   // plus bas), jamais les deux mécanismes sur le même <select>.
-  if (!select || select.dataset.customInit === '1' || select.dataset.toggleInit === '1') return;
+  if (!select || select.dataset.customInit === '1' || select.dataset.toggleInit === '1'
+    || select.dataset.sliderInit === '1') return;
   select.dataset.customInit = '1';
 
   const wrap = document.createElement('div');
@@ -226,7 +227,8 @@ function initCustomSelectsWatch() {
 // js/generation.js…) continuent de fonctionner sans y toucher, y compris un
 // .value= posé silencieusement par preRemplirSiVide (js/profil.js).
 function initToggleButtons(select) {
-  if (!select || select.dataset.toggleInit === '1' || select.dataset.customInit === '1') return;
+  if (!select || select.dataset.toggleInit === '1' || select.dataset.customInit === '1'
+    || select.dataset.sliderInit === '1') return;
   select.dataset.toggleInit = '1';
 
   const wrap = document.createElement('div');
@@ -271,6 +273,149 @@ function initToggleButtonsAll() {
   ['format', 'auditObjectif', 'auditStyle', 'serieFormat'].forEach(function (id) {
     const el = document.getElementById(id);
     if (el) initToggleButtons(el);
+  });
+}
+
+// ── CURSEUR À GLISSER, POUR LES CHOIX QUI FORMENT UNE ÉCHELLE ──
+//
+// Demande du propriétaire : « remplacer pour tous les modes la durée
+// (actuellement menu déroulant) par le glissable, comme le nombre de slides
+// du carrousel ». Il a raison, et la raison est plus profonde qu'une
+// question de goût : une durée n'est pas une liste de choix sans rapport
+// entre eux, comme une niche ou un ton. C'est une ÉCHELLE, du plus court au
+// plus long. Un menu déroulant cache cette échelle derrière un clic et
+// oblige à lire cinq lignes ; un curseur la montre d'un coup d'œil, et se
+// règle d'un pouce sans jamais ouvrir de liste.
+//
+// MÊME MÉCANIQUE DE COMPATIBILITÉ que le menu maison et les boutons
+// cliquables au-dessus : le <select> d'origine RESTE dans le DOM, masqué.
+// .value, .selectedIndex et tout addEventListener('change') déjà branché
+// ailleurs (js/app.js, js/generation.js, js/storytelling.js…) continuent de
+// fonctionner sans qu'on y touche une ligne.
+function initSliderChoix(select) {
+  // Garde croisée avec les deux autres mécanismes, dans les deux sens, pour
+  // qu'aucun ordre d'appel ne puisse en poser deux sur le même <select>.
+  if (!select || select.dataset.sliderInit === '1'
+    || select.dataset.customInit === '1' || select.dataset.toggleInit === '1') return;
+  // L'option vide ("Choisis une durée…") n'a pas de sens sur une échelle : un
+  // curseur est TOUJOURS quelque part. Elle est donc écartée de la graduation,
+  // et le curseur se pose sur la valeur par défaut.
+  const options = Array.prototype.filter.call(select.options, o => o.value);
+  if (options.length < 2) return;
+  select.dataset.sliderInit = '1';
+
+  const wrap = document.createElement('div');
+  wrap.className = 'choix-slider';
+  select.parentNode.insertBefore(wrap, select);
+
+  const haut = document.createElement('div');
+  haut.className = 'car-slider-top';
+  // Le libellé du champ REMONTE dans la ligne du haut, exactement comme le
+  // curseur du carrousel : le titre à gauche, la valeur choisie à droite.
+  const champ = wrap.closest('.ctx-field');
+  const label = champ ? champ.querySelector('.ctx-label') : null;
+  const valeur = document.createElement('span');
+  valeur.className = 'car-slider-val';
+  if (label) haut.appendChild(label);
+  haut.appendChild(valeur);
+
+  const range = document.createElement('input');
+  range.type = 'range';
+  range.className = 'car-slider';
+  range.min = '0';
+  range.max = String(options.length - 1);
+  range.step = '1';
+  range.id = (select.id || 'choix') + 'Slider';
+  range.setAttribute('aria-label', (label && label.textContent.trim()) || 'Choix');
+  if (label) label.setAttribute('for', range.id);
+
+  const bornes = document.createElement('div');
+  bornes.className = 'car-slider-bornes';
+  const libelle = (o) => (o.dataset.court || o.textContent || '').trim();
+  bornes.innerHTML = '<span></span><span></span>';
+  bornes.children[0].textContent = libelle(options[0]);
+  bornes.children[1].textContent = libelle(options[options.length - 1]);
+
+  wrap.appendChild(haut);
+  wrap.appendChild(range);
+  wrap.appendChild(bornes);
+  wrap.appendChild(select);
+
+  // La valeur par défaut : celle déjà posée dans le HTML si elle existe,
+  // sinon la première de l'échelle. C'est elle qui reprend la main quand le
+  // code remet le champ à vide (les remises à zéro de formulaire posent
+  // select.value = '' un peu partout).
+  const parDefaut = Math.max(0, options.findIndex(o => o.defaultSelected));
+  const nativeValueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  const poser = (v) => {
+    if (nativeValueDesc && nativeValueDesc.set) nativeValueDesc.set.call(select, v);
+    else select.value = v;
+  };
+
+  // « PAS ENCORE CHOISI » DOIT SURVIVRE À LA DISPARITION DE L'OPTION VIDE.
+  //
+  // Un menu déroulant disait « pas encore choisi » en restant sur son option
+  // vide. Un curseur, lui, est TOUJOURS quelque part : sans ce drapeau, le
+  // champ paraîtrait choisi dès l'ouverture de la page. Ça casserait le
+  // pré-remplissage depuis le profil du créateur, qui ne remplit QUE les
+  // champs encore vides (voir preRemplirSiVide / estChampEncoreVide,
+  // js/profil.js) : sa durée habituelle enregistrée ne serait plus jamais
+  // reposée, et il retomberait en silence sur la valeur par défaut.
+  function marquerChoisi(oui) {
+    if (oui) select.dataset.choisi = '1';
+    else delete select.dataset.choisi;
+  }
+
+  function majDepuisSelect() {
+    let idx = options.findIndex(o => o.value === select.value);
+    if (idx < 0) { idx = parDefaut; poser(options[idx].value); marquerChoisi(false); }
+    range.value = String(idx);
+    valeur.textContent = libelle(options[idx]);
+  }
+
+  range.addEventListener('input', function () {
+    const o = options[Number(range.value)] || options[parDefaut];
+    poser(o.value);
+    marquerChoisi(true);
+    valeur.textContent = libelle(o);
+    // 'change' relayé À LA MAIN : tout le reste de l'app écoute le <select>,
+    // et un range qui bouge ne déclenche évidemment rien dessus.
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  // Même interception que les deux autres composants : du code pose
+  // select.value directement, sans jamais déclencher 'change' (les remises à
+  // zéro de formulaire, par exemple). Sans ça, le curseur resterait affiché
+  // sur l'ancienne valeur.
+  if (nativeValueDesc && nativeValueDesc.set) {
+    Object.defineProperty(select, 'value', {
+      get: function () { return nativeValueDesc.get.call(select); },
+      set: function (v) {
+        nativeValueDesc.set.call(select, v);
+        // Une valeur POSÉE par du code compte comme un choix (le
+        // pré-remplissage depuis le profil en est un), sauf la valeur vide,
+        // qui est justement la façon dont les remises à zéro de formulaire
+        // disent « on recommence ».
+        marquerChoisi(!!v && options.some(o => o.value === v));
+        majDepuisSelect();
+      },
+      configurable: true
+    });
+  }
+  select.addEventListener('change', majDepuisSelect);
+
+  majDepuisSelect();
+  marquerChoisi(false);
+}
+
+// Les champs qui forment une échelle, donc un curseur. Liste explicite et non
+// balayage automatique : la plupart des <select> de l'app sont de vrais choix
+// sans ordre (niche, ton, audience), pour lesquels un curseur n'aurait aucun
+// sens.
+function initSlidersChoix() {
+  ['dureeGrid', 'storyDureeGrid', 'serieDureeGrid'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) initSliderChoix(el);
   });
 }
 
