@@ -173,6 +173,24 @@ test('gratuit et AVANT les murs payants, et jamais sur un concurrent', async () 
   assert.ok(iPas < iMur,
     'REGRESSION : le pas suivant gratuit passe APRÈS le mur payant de l\'analyse détaillée.');
 
+  // ── LES ICÔNES RESTENT COLLÉES AU DIAGNOSTIC ──
+  // Défaut réellement introduit en livrant ce bloc, et vu par le propriétaire
+  // sur sa capture : en insérant le pas suivant entre la fin du diagnostic et
+  // les trois icônes (copier / partager / télécharger), celles-ci se sont
+  // retrouvées SOUS la carte d'action, orphelines entre deux sections titrées.
+  // Elles copient LE DIAGNOSTIC ; posées après une carte « Et maintenant », on
+  // croit qu'elles copient cette carte.
+  //
+  // Le commentaire d'origine de actionsFinHtml disait déjà pourquoi elles sont
+  // là : « pour rester au même endroit relatif dans les deux diagnostics ».
+  // Les déplacer désaligne aussi le diagnostic sommaire de l'analyse détaillée.
+  const iActions = src.indexOf('${actionsFinHtml}');
+  assert.ok(iActions > 0, 'les actions de fin doivent exister');
+  assert.ok(iActions < iPas,
+    'REGRESSION : les trois icônes (copier / partager / télécharger) passent APRÈS le pas suivant. '
+    + 'Elles se rapportent au DIAGNOSTIC : posées sous une carte « Et maintenant », plus rien ne dit '
+    + 'ce qu\'elles copient, et le diagnostic sommaire cesse d\'être disposé comme l\'analyse détaillée.');
+
   // Aucun appel IA : il est servi à des visiteurs gratuits, à chaque
   // diagnostic. Tout vient de notes déjà calculées.
   const bloc = src.slice(src.indexOf('function dsPasSuivantHTML'), src.indexOf('function dsPasSuivantHTML') + 1400);

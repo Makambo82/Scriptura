@@ -1485,8 +1485,8 @@ function afficherDiagnosticSommaireResultat(d, username, estMonCompte = true, re
     ${conceptsHtml}
     ${leviersHtml}
     ${faille}
-    ${moi ? dsPasSuivantHTML(d) : ''}
     ${actionsFinHtml}
+    ${moi ? dsPasSuivantHTML(d) : ''}
     ${opportuniteHtml}
 
     ${moi ? ctaDetailleHtml : ctaConcurrentHtml}
