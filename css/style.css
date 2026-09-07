@@ -3664,6 +3664,15 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-sep::before,.ds-sep::after{content:'';flex:1;height:1px;background:var(--border-soft)}
 .ds-alt{background:rgba(255,255,255,0.02);border:1px solid var(--border-soft);border-radius:14px;padding:18px 20px;text-align:left;font-family:'Poppins',sans-serif;font-size:0.9rem;color:var(--text-secondary);line-height:1.55}
 .ds-alt strong{color:var(--gold-light);font-weight:600}
+/* Le pas suivant est une CARTE à part entière, coincée entre les icônes du
+   diagnostic au-dessus et la section « En plus de ce diagnostic » en dessous.
+   Sans marge propre, elle collait aux deux (retour du propriétaire, capture à
+   l'appui : « c'est trop serré »), parce que .ds-alt n'en porte aucune et que
+   le libellé de section suivant ne prévoit que 8px au-dessus de lui.
+   24px, exactement le rythme de .score-card : la respiration entre deux blocs
+   doit être la même partout, sinon cet écran se met à respirer autrement que
+   le reste de l'app. */
+.ds-pas-suivant{margin:24px 0}
 .ds-alt a{color:var(--gold-light);text-decoration:underline;cursor:pointer;white-space:nowrap}
 
 /* ── OUTILS TIKTOK (services annexes : transcription / téléchargement) ──

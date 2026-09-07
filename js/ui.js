@@ -380,10 +380,31 @@ function initSliderChoix(select) {
 
   function majDepuisSelect() {
     let idx = options.findIndex(o => o.value === select.value);
-    if (idx < 0) { idx = parDefaut; poser(options[idx].value); marquerChoisi(false); }
+    // Le repli pose une valeur que PERSONNE n'a demandée : c'est le curseur
+    // qui décide, faute de valeur exploitable (typiquement après une remise à
+    // zéro de formulaire, qui écrit select.value = ''). Le reste de l'app
+    // gardant une copie de cette valeur (voir l'envoi différé plus bas), il
+    // faut la lui annoncer, sinon l'écran afficherait « 1 minute » pendant
+    // que la génération partirait sur la durée du script précédent.
+    let repli = false;
+    if (idx < 0) { idx = parDefaut; poser(options[idx].value); marquerChoisi(false); repli = true; }
     range.value = String(idx);
     valeur.textContent = libelle(options[idx]);
     majRemplissage(idx);
+    // Pas de boucle : ce 'change' rappelle cette fonction, mais la valeur
+    // vient d'être posée, donc idx sera trouvé et repli restera faux.
+    if (repli) annoncer();
+    return repli;
+  }
+
+  // Le seul endroit qui prévient le reste de l'app. Elle ne relit pas ce
+  // <select> au moment de générer, elle garde une COPIE de sa valeur, et cette
+  // copie ne bouge que sur 'change' (selectedDuree, storyDuree, serieDuree).
+  // Tout ce qui change la valeur effective doit donc passer par ici, sous
+  // peine de laisser l'écran et la mémoire de l'app dire deux choses
+  // différentes, ce qui est arrivé de trois façons distinctes.
+  function annoncer() {
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   range.addEventListener('input', function () {
@@ -412,7 +433,15 @@ function initSliderChoix(select) {
         // qui est justement la façon dont les remises à zéro de formulaire
         // disent « on recommence ».
         marquerChoisi(!!v && options.some(o => o.value === v));
-        majDepuisSelect();
+        // UNE VALEUR POSÉE PAR DU CODE DOIT ÊTRE ANNONCÉE, ELLE AUSSI.
+        // Troisième forme du même défaut, trouvée par le test : le
+        // pré-remplissage depuis le profil du créateur écrit ici sans passer
+        // par un 'change'. Le curseur affichait donc « 5 minutes » pendant que
+        // la génération partait sur la valeur précédente, et rien à l'écran ne
+        // pouvait le laisser voir.
+        // majDepuisSelect a déjà annoncé s'il a dû se replier sur le défaut :
+        // on ne double pas l'envoi.
+        if (!majDepuisSelect()) annoncer();
       },
       configurable: true
     });
@@ -421,6 +450,41 @@ function initSliderChoix(select) {
 
   majDepuisSelect();
   marquerChoisi(false);
+
+  // ── ANNONCER LA VALEUR DE DÉPART, UNE FOIS, ET DE FAÇON DIFFÉRÉE ──
+  //
+  // Retour du propriétaire : sur le mode Script, le curseur affiche « 1
+  // minute » dès l'ouverture, mais l'app réclamait quand même une durée au
+  // moment de générer. Sa parade était de bouger le curseur puis de le
+  // remettre exactement où il était, pour débloquer sa génération.
+  //
+  // LA CAUSE : le reste de l'app ne lit pas ce <select> au moment de générer,
+  // il garde une COPIE de sa valeur, mise à jour uniquement quand un 'change'
+  // passe (selectedDuree, storyDuree, serieDuree). Avec un menu déroulant,
+  // cette copie partait vide ET le champ aussi : les deux disaient la même
+  // chose, le défaut ne pouvait pas exister. Avec un curseur, le champ est
+  // TOUJOURS quelque part dès l'ouverture, la copie non : l'écran et la
+  // mémoire de l'app se sont mis à diverger, en silence.
+  //
+  // DIFFÉRÉ D'UN TOUR DE BOUCLE, par prudence et non par nécessité. Un envoi
+  // synchrone marcherait aujourd'hui : initSlidersChoix est appelée depuis le
+  // DOMContentLoaded de js/app.js, alors que les écouteurs de durée y sont
+  // posés au niveau racine, donc pendant l'évaluation du script, donc AVANT.
+  // (J'avais d'abord écrit ici le contraire ; c'est la vérification du test en
+  // remettant l'envoi synchrone qui l'a démenti.)
+  //
+  // Mais cet ordre-là est invisible et fragile : il suffit qu'un jour un de
+  // ces écouteurs soit déplacé dans le DOMContentLoaded, après cet appel, pour
+  // que l'envoi arrive avant que quiconque n'écoute, et le bug reviendrait
+  // exactement comme il était, sans qu'aucune ligne du composant n'ait bougé.
+  // Le différer supprime la dépendance à cet ordre, pour un coût nul.
+  //
+  // Ne marque PAS le champ comme choisi : personne n'a encore rien choisi. Le
+  // pré-remplissage depuis le profil du créateur continue donc de fonctionner
+  // (voir marquerChoisi ci-dessus).
+  setTimeout(function () {
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }, 0);
 }
 
 // ── LE RAPPEL SOUS LE SCORE : LA DURÉE SE RATTRAPE PASSAGE PAR PASSAGE ──
