@@ -2893,7 +2893,11 @@ function setLoading(on) {
   const btn = document.getElementById('generateBtn');
   btn.disabled = on;
   document.getElementById('spinner').style.display = on ? 'block' : 'none';
-  document.getElementById('btnText').textContent = on ? 'Scriptura génère ton contenu…' : 'Générer mon contenu Scriptura';
+  // Le libellé de repos doit être IDENTIQUE à celui posé dans index.html :
+  // c'est cette ligne qui le réécrit à la fin de chaque génération, et deux
+  // textes différents feraient changer le bouton tout seul après le premier
+  // usage, sans que rien ne le signale.
+  document.getElementById('btnText').textContent = on ? 'Scriptura génère ton contenu…' : 'Générer mon contenu';
 
   if (on) {
     startGenAnimation('script');
