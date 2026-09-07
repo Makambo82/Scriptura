@@ -135,7 +135,8 @@ test('l\'œil est un interrupteur : il affiche, puis il remasque', async () => {
     });
 
     const ferme = await lire();
-    await page.click('#sidebarCompteCode');
+    // Tant que le code est masqué, n'importe quelle zone l'affiche.
+    await page.click('#sidebarCompteCodeTxt');
     await page.waitForTimeout(300);
     const revele = await lire();
 
@@ -148,8 +149,12 @@ test('l\'œil est un interrupteur : il affiche, puis il remasque', async () => {
     assert.equal(revele.infosOuvertes, false,
       'REGRESSION : le clic remonte au bloc et ouvre la fenêtre d\'infos par-dessus');
 
-    // Le deuxième appui doit refermer, c'est tout l'objet de la demande.
-    await page.click('#sidebarCompteCode');
+    // Le deuxième appui SUR L'ŒIL doit refermer, c'est tout l'objet de la
+    // demande d'origine. Depuis, le propriétaire a séparé les deux gestes :
+    // l'œil masque et démasque, le code affiché se copie au toucher (voir
+    // tests/code-copie-au-toucher.test.js). On vise donc l'œil, pas le milieu
+    // de l'élément, qui tombe sur le code.
+    await page.click('#sidebarCompteCodeIcone');
     await page.waitForTimeout(300);
     const rereferme = await lire();
     assert.ok(rereferme.code.includes('•'),
@@ -159,7 +164,7 @@ test('l\'œil est un interrupteur : il affiche, puis il remasque', async () => {
     assert.match(rereferme.titre, /afficher/i, 'l\'infobulle doit redevenir celle de l\'affichage');
 
     // Et un troisième appui rouvre : la bascule n'est pas à usage unique.
-    await page.click('#sidebarCompteCode');
+    await page.click('#sidebarCompteCodeIcone');
     await page.waitForTimeout(300);
     assert.equal((await lire()).code, CODE, 'REGRESSION : la bascule ne fonctionne qu\'une fois');
 

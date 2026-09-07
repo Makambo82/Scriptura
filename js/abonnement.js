@@ -135,23 +135,54 @@ function appliquerEtatCodeSidebar(revele, racineId) {
   const code = el.getAttribute('data-code') || '';
   txt.textContent = revele ? code : masquerCodeAcces(code);
   ico.innerHTML = revele ? OEIL_BARRE_SVG : OEIL_SVG;
-  el.setAttribute('title', revele ? 'Toucher pour masquer ton code' : 'Toucher pour afficher et copier ton code');
+  el.setAttribute('title', revele
+    ? 'Toucher le code pour le copier, l\'œil pour le masquer'
+    : 'Toucher pour afficher et copier ton code');
   if (revele) el.setAttribute('data-revele', '1');
   else el.removeAttribute('data-revele');
   return code;
 }
 
-// L'œil est un INTERRUPTEUR : un appui affiche, l'appui suivant remasque.
-// À l'affichage on copie aussi, on ne regarde presque jamais son code pour
-// le plaisir, on le regarde pour le coller quelque part. stopPropagation est
-// indispensable, sans lui le clic remonterait au bloc et ouvrirait la
-// fenêtre d'infos par-dessus.
+// Copie le code et le dit, en émeraude, la couleur que Scriptura réserve à ce
+// qui a réussi. Sur un code d'accès, savoir que la copie a bien eu lieu compte
+// plus qu'ailleurs : on va le coller dans un message, souvent sans relire.
+function copierCodeAffiche(el, code) {
+  const c = code || el.getAttribute('data-code') || '';
+  if (!c) return;
+  try { if (navigator.clipboard) navigator.clipboard.writeText(c); } catch (e) { /* silencieux */ }
+  el.classList.add('copie-ok');
+  clearTimeout(el._minuteurCopie);
+  el._minuteurCopie = setTimeout(function () { el.classList.remove('copie-ok'); }, 1200);
+}
+
+// DEUX ZONES, DEUX GESTES, et c'est le retour du propriétaire : « lorsque le
+// code s'affiche, dès qu'il clique sur le code, ça copie automatiquement ».
+//
+//   L'ŒIL masque et démasque. C'est son seul rôle, dans les deux sens.
+//   LE CODE, une fois affiché, se copie au toucher, autant de fois qu'on veut.
+//
+// Avant ça, toucher le code affiché le REFERMAIT, et c'était le geste le plus
+// naturel : on regarde son code parce qu'on veut le coller quelque part, on
+// tape donc dessus, et il disparaissait. Il fallait alors rouvrir, viser
+// l'œil, et espérer que la copie du premier appui tienne encore.
+//
+// Tant que le code est masqué, n'importe quelle zone l'affiche ET le copie :
+// à ce moment-là, le geste ne peut vouloir dire qu'une chose.
+//
+// stopPropagation est indispensable : sans lui, le clic remonterait au bloc
+// du menu et ouvrirait la fenêtre d'infos par-dessus.
 function basculerCodeSidebar(ev, racineId) {
   if (ev) ev.stopPropagation();
   const el = document.getElementById(racineId || 'sidebarCompteCode');
   if (!el || !(el.getAttribute('data-code') || '')) return;
 
+  // Sans événement (appel direct depuis du code), on garde le sens
+  // historique : une bascule.
+  const cible = ev && ev.target;
+  const surOeil = !cible || typeof cible.closest !== 'function' || !!cible.closest('.sc-code-ico');
+
   if (el.getAttribute('data-revele') === '1') {
+    if (!surOeil) { copierCodeAffiche(el); return; }
     // On coupe aussi le vert de la copie : il annonce « c'est copié, le voilà »,
     // il n'a plus de sens sur un code qu'on vient de refermer.
     el.classList.remove('copie-ok');
@@ -159,10 +190,7 @@ function basculerCodeSidebar(ev, racineId) {
     return;
   }
 
-  const code = appliquerEtatCodeSidebar(true, racineId);
-  try { if (navigator.clipboard) navigator.clipboard.writeText(code); } catch (e) { /* silencieux */ }
-  el.classList.add('copie-ok');
-  setTimeout(function () { el.classList.remove('copie-ok'); }, 1200);
+  copierCodeAffiche(el, appliquerEtatCodeSidebar(true, racineId));
 }
 
 // Remet le code sous ses points. Appelé à la fermeture du menu : un code
