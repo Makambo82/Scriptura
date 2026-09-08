@@ -148,9 +148,40 @@ test('mesure : aucune donnée de contenu n\'est envoyée', async () => {
 
     assert.ok(!/Behanzin/i.test(envoye), 'le sujet ne doit jamais partir dans la mesure : ' + envoye);
     assert.ok(!/mot0|mot1|Hook /.test(envoye), 'ni le moindre morceau du script');
-    const clesAutorisees = ['resource', 'code', 'mode', 'duree_cible', 'mots_final', 'dans_cible', 'corrections_duree', 'critiques', 'revisions', 'second_brouillon'];
+
+    // LISTE BLANCHE, ET ELLE NE S'ÉLARGIT QUE DÉLIBÉRÉMENT. C'est ce test qui
+    // a mordu quand la mesure du coût réel a été ajoutée, et c'était son rôle :
+    // toute clé nouvelle doit être examinée une par une avant d'être admise.
+    const clesAutorisees = [
+      'resource', 'code', 'mode', 'duree_cible', 'mots_final', 'dans_cible',
+      'corrections_duree', 'critiques', 'revisions', 'second_brouillon',
+      // Coût réel de la génération : des entiers, plus un décompte d'appels
+      // par modèle. Rien de tout ça ne peut porter du texte généré.
+      'entree', 'sortie', 'cache_lu', 'cache_ecrit', 'appels', 'modeles',
+      // Ce que le premier critique a déclaré : un verdict d'un mot choisi
+      // dans une liste fermée, deux booléens et deux nombres. Le verdict est
+      // vérifié ci-dessous, justement parce que c'est le seul texte du lot.
+      'verdict', 'ia_generique', 'raisons_scroll', 'viralite_moyenne'
+    ];
     for (const cle of Object.keys(m)) {
       assert.ok(clesAutorisees.includes(cle), 'clé inattendue dans la mesure : ' + cle);
+    }
+
+    // LE SEUL CHAMP TEXTE VENANT DU MODÈLE EST BORNÉ. `verdict` est écrit par
+    // le critique : il doit rester l'un des deux mots attendus (ou vide), et
+    // jamais une phrase libre où du contenu pourrait se glisser.
+    if (m.verdict !== undefined) {
+      assert.ok(['', 'excellent', 'à améliorer'].includes(m.verdict),
+        'REGRESSION : le verdict du critique n\'est plus un mot d\'une liste fermée, mais « '
+        + m.verdict +' ». C\'est le seul texte de la mesure qui vienne du modèle : s\'il devient '
+        + 'libre, du contenu peut partir avec.');
+    }
+    // Tout le reste doit être un nombre, un booléen, ou le décompte par modèle.
+    for (const [cle, val] of Object.entries(m)) {
+      if (['resource', 'code', 'mode', 'duree_cible', 'verdict', 'modeles'].includes(cle)) continue;
+      assert.ok(typeof val === 'number' || typeof val === 'boolean',
+        'REGRESSION : la clé « ' + cle + ' » de la mesure n\'est ni un nombre ni un booléen ('
+        + typeof val + '). Une mesure ne transporte que des chiffres.');
     }
   } finally {
     await navigateur.close();
