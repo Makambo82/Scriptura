@@ -688,13 +688,24 @@ let _heroCtaPhraseAbonne = null;
 // Une boucle qui décrémente de 0.01 en 0.01 ferait des dizaines de mesures de
 // mise en page pour le même résultat.
 const HERO_CTA_TAILLE_MAX = 1;      // rem, la taille de référence, celle du CSS
-// PLANCHER MESURÉ, PAS CHOISI AU JUGÉ : sur un écran de 320px, la plus longue
-// des onze phrases (« Ton prochain contenu commence ici. ») demande 0.583rem
-// une fois le bouton resserré par la règle @media de css/style.css. 0.58 est
-// donc le plus grand plancher qui garantisse UNE SEULE LIGNE pour toutes les
-// phrases, sur tous les écrans, ce qui était la demande. Il n'est atteint que
-// sur ces très petits écrans ; à partir de 360px, aucune phrase n'y touche.
-const HERO_CTA_TAILLE_MIN = 0.58;
+// LE PLANCHER NE DOIT JAMAIS SE DÉCLENCHER EN USAGE RÉEL, et il a d'abord été
+// réglé trop haut, ce qui a fait échouer la CI. La leçon vaut d'être écrite :
+//
+//   L'ENVIRONNEMENT DE DÉVELOPPEMENT NE CHARGE PAS LES POLICES GOOGLE (requête
+//   sortante bloquée), la CI et la production SI. Les textes y sont donc rendus
+//   avec une police de repli, dont les lettres n'ont pas la largeur de Poppins.
+//   Toute valeur de largeur calibrée « au plus juste » sur des mesures locales
+//   est donc fausse ailleurs, et c'est exactement ce qui est arrivé : le
+//   plancher, calé à 0.58rem au pixel près, se déclenchait sur la CI et rognait
+//   une phrase.
+//
+// D'où ce plancher volontairement BAS. Il n'existe que comme garde-fou absurde
+// (quelqu'un ajoutant un jour une phrase de trois lignes), pas comme réglage
+// esthétique : aucune des onze phrases actuelles ne l'atteint, quelle que soit
+// la police. Le propriétaire a demandé UNE SEULE LIGNE quelle que soit la
+// longueur du texte ; entre « toujours une ligne » et « jamais en dessous de
+// telle taille », c'est la première qui a été demandée.
+const HERO_CTA_TAILLE_MIN = 0.5;
 const HERO_CTA_MARGE = 0.98;        // 2% de sécurité : les mesures sont
                                     // sous-pixelisées et arrondies, et il suffit
                                     // d'un pixel de trop pour repasser à la ligne

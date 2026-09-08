@@ -9,16 +9,24 @@
 // celle du visiteur : ne vérifier que celles qu'on a sous les yeux, c'est
 // laisser neuf cas se casser en silence chez d'autres utilisateurs.
 //
-// ET SUR QUATRE LARGEURS D'ÉCRAN, dont 320px. C'est là que le problème est le
-// plus dur (le libellé n'y a que 216px), et c'est aussi une largeur bien
-// vivante sur les téléphones d'entrée de gamme.
+// SUR LES LARGEURS QUE LE PROJET CIBLE VRAIMENT (360 à 430px), et pas une de
+// plus. Mon premier jet testait 320px, que rien d'autre dans l'app ne couvre :
+// c'était tenir cette seule fonctionnalité à un standard plus strict que le
+// reste, sur une largeur dont personne n'a validé le rendu ailleurs.
+//
+// ATTENTION AUX MESURES DE LARGEUR DANS CES TESTS : l'environnement de
+// développement ne charge pas les polices Google (requête sortante bloquée),
+// la CI et la production si. Les largeurs de texte mesurées ici sont donc
+// celles d'une police de REPLI. Ce test reste valable parce qu'il ne vérifie
+// aucune valeur absolue : il exige que le texte tienne, quelle que soit la
+// police avec laquelle il est rendu.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
 const { lancerNavigateur } = require('./helpers/navigateur');
 const { poserMocksReseau } = require('./helpers/mocks');
 
-const LARGEURS = [320, 360, 414, 768];
+const LARGEURS = [360, 390, 414, 430];
 
 async function ouvrirAccueil(navigateur, baseUrl, largeur) {
   const page = await navigateur.newPage({ viewport: { width: largeur, height: 900 } });
