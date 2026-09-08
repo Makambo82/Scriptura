@@ -92,6 +92,32 @@ const SUREC_MAX = parseInt(process.env.MONTAGE_SUPERSAMPLE_MAX || '4', 10);
 // que l'œil y gagne quoi que ce soit.
 const SUREC_PIXELS_CIBLE = parseFloat(process.env.MONTAGE_SUPERSAMPLE_CIBLE || '2');
 
+// Une dernière image ne descend pas sous une seconde : un gros écart la
+// réduirait sinon à un clignotement.
+const DUREE_PLAN_PLANCHER = 1;
+// En dessous, l'écart ne vaut pas la peine d'être corrigé : on ne bouge pas
+// une image pour cinq centièmes de seconde.
+const ECART_AUDIO_TOLERE = 0.05;
+
+// Cale la vidéo sur la durée RÉELLE de l'audio, DANS LES DEUX SENS. Modifie
+// `durees` sur place et le renvoie.
+function calerDureesSurAudio(durees, dureeReelleAudio) {
+  if (!Array.isArray(durees) || !durees.length) return durees;
+  if (!(dureeReelleAudio > 0)) return durees;
+  const somme = durees.reduce((s, d) => s + d, 0);
+  const dernier = durees.length - 1;
+  if (dureeReelleAudio > somme + ECART_AUDIO_TOLERE) {
+    // L'audio dépasse la vidéo : on allonge, la narration n'est jamais coupée.
+    durees[dernier] += (dureeReelleAudio - somme);
+  } else if (dureeReelleAudio < somme - ECART_AUDIO_TOLERE) {
+    // L'audio est plus court : sans ça, la vidéo continue après la dernière
+    // parole, et ces secondes-là n'ont NI voix NI musique (le mélange se cale
+    // sur la voix, amix duration=first).
+    durees[dernier] = Math.max(DUREE_PLAN_PLANCHER, durees[dernier] - (somme - dureeReelleAudio));
+  }
+  return durees;
+}
+
 function facteurSurEchantillonnage(D, W) {
   // Course totale de la fenêtre sur le plan entier, en pixels de sortie.
   const course = W * (1 - 1 / ZMAX);
@@ -441,15 +467,33 @@ app.post('/render', async (req, res) => {
     }
     noterPic();
 
-    // Cale la vidéo sur la durée RÉELLE de l'audio : si la somme des durées de
-    // segments est un peu inférieure à l'audio (ex. pauses arrondies, silence
-    // final), on allonge la DERNIÈRE image pour combler, la narration n'est
-    // ainsi jamais coupée et la vidéo dure exactement la voix off.
+    // Cale la vidéo sur la durée RÉELLE de l'audio, DANS LES DEUX SENS.
+    //
+    // Le premier sens existait déjà : quand la somme des durées de segments
+    // est inférieure à l'audio (pauses arrondies, silence final), on allonge
+    // la dernière image, et la narration n'est jamais coupée.
+    //
+    // LE SENS INVERSE MANQUAIT, et il produisait une fin MUETTE. Quand la
+    // somme dépasse l'audio, la vidéo continue après la dernière parole ; or
+    // le mélange audio se cale sur la voix (amix duration=first), donc ces
+    // secondes-là n'ont NI voix NI musique. Mesuré sur un cas réel : vidéo de
+    // 8,00 s, piste audio de 5,01 s, plus aucun signal après la 5e seconde.
+    // Trois secondes de silence à la fin d'une vidéo TikTok, ça ne passe pas
+    // pour une intention, ça passe pour un bug.
+    //
+    // Le commentaire d'origine promettait déjà « la vidéo dure exactement la
+    // voix off » : ce n'était vrai que d'un côté.
+    //
+    // ABSORBÉ SUR LA DERNIÈRE IMAGE, pas réparti : l'écart vient d'un silence
+    // de FIN, pas d'une dérive régulière. Chaque image reste donc alignée sur
+    // le segment de narration qu'elle illustre, ce qui est tout l'intérêt des
+    // horodatages reçus d'ElevenLabs.
+    //
+    // PLANCHER : une dernière image ne descend pas sous une seconde, sinon un
+    // gros écart la réduirait à un clignotement. Dans ce cas rare, il reste un
+    // peu de silence, et c'est le moindre mal.
     const dureeReelleAudio = await dureeAudio(cheminAudio);
-    const sommeDurees = durees.reduce((s, d) => s + d, 0);
-    if (dureeReelleAudio > sommeDurees + 0.05) {
-      durees[durees.length - 1] += (dureeReelleAudio - sommeDurees);
-    }
+    calerDureesSurAudio(durees, dureeReelleAudio);
     const dureeTotale = durees.reduce((s, d) => s + d, 0);
     console.log(`[render] début, ${images.length} plans, audio ${dureeReelleAudio.toFixed(2)}s, vidéo ${dureeTotale.toFixed(2)}s`);
     const filigraneDureeTotale = filigraneActif ? dureeTotale : 0;
@@ -580,7 +624,7 @@ if (require.main === module) {
 
 module.exports = {
   construireASS, versHorodatageASS, echapperTexteASS, mettreEnValeurChiffres,
-  construireGrapheLot, resoudreVolumeMusique, facteurSurEchantillonnage,
+  construireGrapheLot, resoudreVolumeMusique, facteurSurEchantillonnage, calerDureesSurAudio,
   MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
   GRADE_CONTRASTE, GRADE_SATURATION
 };
