@@ -100,6 +100,14 @@ function ouvrirMontageManuelAccueil() {
   omChargerVoix();
   omRenderImages();
   omRenderVoixZone();
+  // La zone musique est DÉJÀ rendue par omRenderVoixZone juste au-dessus, qui
+  // l'appelle dans ses deux branches. Je l'avais d'abord cru manquante et je
+  // me trompais : c'est la vérification du test qui m'a démenti.
+  // On l'appelle quand même, par prudence et non par nécessité. Cette
+  // dépendance est INVISIBLE : rien dans le nom « omRenderVoixZone » ne dit
+  // qu'elle rend aussi la musique, et il suffirait de l'en retirer, pour une
+  // bonne raison, pour que cet écran s'ouvre sans sa zone musique.
+  omRenderMusiqueZone();
   omMajBoutonLancer();
   window.scrollTo({ top: 0, behavior: 'auto' });
 }
@@ -602,6 +610,35 @@ function omRetirerMusique() {
   omRenderMusiqueZone();
 }
 
+// IMPORT D'UN MP3, ici aussi. La fonctionnalité était livrée sur le montage
+// qui suit un storyboard, PAS sur celui-ci, alors que c'est l'écran le plus
+// évident : « Monter une vidéo » sur l'accueil. Le propriétaire ne trouvait
+// donc pas le bouton, et il avait raison de ne pas le trouver.
+//
+// La validation est partagée avec l'autre montage (validerMusiqueImportee,
+// js/montage.js) : même limite, même formats, même message, pour de bon.
+function omImporterMusique(input) {
+  const err = document.getElementById('omErreur');
+  const fichier = input && input.files && input.files[0];
+  // Remis à zéro tout de suite, sinon réimporter le MÊME fichier après un
+  // retrait ne déclenche aucun événement et l'app paraît cassée.
+  if (input) input.value = '';
+  if (!fichier) return;
+  if (omMusiqueEnCours) return; // une génération est en cours, ne pas l'écraser
+
+  const verdict = validerMusiqueImportee(fichier);
+  if (!verdict.ok) {
+    if (err) { err.textContent = verdict.message; err.style.display = 'block'; }
+    return;
+  }
+  if (err) err.style.display = 'none';
+
+  if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
+  omMusique = verdict.musique;
+  omInvaliderResultat();
+  omRenderMusiqueZone();
+}
+
 function omChangerVolumeMusique(v) {
   omVolumeMusique = Number(v) || 0.15;
 }
@@ -616,15 +653,35 @@ function omRenderMusiqueZone() {
       <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="omMusiqueProgFill"></div></div>
     </div>`;
   } else if (omMusique) {
+    // PAS DE « RÉGÉNÉRER » SUR UNE MUSIQUE IMPORTÉE : ce bouton remplacerait
+    // le fichier du créateur par une musique inventée, sans prévenir, et
+    // consommerait son quota pour lui reprendre ce qu'il venait de choisir.
+    // « Changer de MP3 » est le geste équivalent et honnête.
+    const importee = !!omMusique.importee;
     zone.innerHTML = `
+      ${importee && omMusique.nom ? `<div class="ideas-sub" style="margin-bottom:8px;opacity:0.75">${auditEsc(omMusique.nom)}</div>` : ''}
       <audio class="montage-audio-preview" src="${omMusique.url}" controls></audio>
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
-        <button class="btn-regenerate" onclick="omGenererMusique()" type="button">↻ Régénérer</button>
+        ${importee
+          ? `<label class="btn-regenerate" style="cursor:pointer;margin:0">Changer de MP3
+               <input type="file" accept="audio/mpeg,.mp3" style="display:none" onchange="omImporterMusique(this)"/>
+             </label>`
+          : `<button class="btn-regenerate" onclick="omGenererMusique()" type="button">↻ Régénérer</button>`}
         <button class="btn-regenerate" onclick="omRetirerMusique()" type="button">Retirer</button>
       </div>`;
   } else {
+    // Deux chemins à égalité, comme sur l'autre montage. L'import ne dépend
+    // PAS de la voix off (contrairement à la génération, qui a besoin de sa
+    // durée) : on peut déposer son MP3 au moment où on y pense.
     const pret = omAudio && omAudio.duree > 0;
-    zone.innerHTML = `<button class="btn-montage-primary" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
+    zone.innerHTML = `
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn-montage-primary" style="width:auto;flex:1 1 200px" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>
+        <label class="btn-regenerate" style="cursor:pointer;margin:0">Importer un MP3
+          <input type="file" accept="audio/mpeg,.mp3" style="display:none" onchange="omImporterMusique(this)"/>
+        </label>
+      </div>
+      <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Ta musique se répète toute seule si elle est plus courte que la vidéo, et se coupe à la fin si elle est plus longue.</div>`;
   }
 }
 

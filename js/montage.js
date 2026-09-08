@@ -947,6 +947,43 @@ async function genererMusiqueMontage() {
 // comportement voulu, il existait déjà pour la musique générée.
 const MUSIQUE_IMPORT_MAX_MO = 15;
 
+// UNE SEULE VALIDATION POUR LES DEUX MONTAGES, et c'est le point important.
+// L'app a deux écrans de montage : celui qui suit un storyboard (ce fichier)
+// et le montage manuel de l'accueil (js/montage-manuel.js). Ils ont chacun
+// leur état et leur zone d'affichage, mais la question « ce fichier est-il
+// une musique de fond acceptable ? » est la MÊME des deux côtés. Recopier ce
+// bloc, c'est se garantir qu'un jour la limite passera à 20 Mo d'un côté et
+// pas de l'autre, ou qu'un format sera accepté ici et refusé là.
+//
+// Ne touche à AUCUN état et n'affiche RIEN : elle répond, l'appelant décide.
+function validerMusiqueImportee(fichier) {
+  if (!fichier) return { ok: false, message: '' };
+
+  const nom = String(fichier.name || '');
+  // Le type déclaré par le navigateur peut être vide (plusieurs téléphones le
+  // font) : l'extension suffit alors, refuser serait incompréhensible.
+  const estMp3 = /^audio\/(mpeg|mp3)$/i.test(fichier.type || '') || /\.mp3$/i.test(nom);
+  if (!estMp3) {
+    return { ok: false, message: 'Seuls les fichiers MP3 sont acceptés. Un WAV ou un M4A pèse '
+      + 'plusieurs fois plus lourd pour la même durée, et le montage passerait son temps à le '
+      + 'transférer.' };
+  }
+  if (fichier.size > MUSIQUE_IMPORT_MAX_MO * 1024 * 1024) {
+    return { ok: false, message: 'Ce MP3 fait ' + Math.round(fichier.size / (1024 * 1024))
+      + ' Mo, la limite est ' + MUSIQUE_IMPORT_MAX_MO + ' Mo. Une musique de fond n\'a pas besoin '
+      + 'd\'être plus longue que ta vidéo : elle se répète toute seule si elle est plus courte.' };
+  }
+  return {
+    ok: true,
+    musique: {
+      blob: fichier,
+      url: URL.createObjectURL(fichier),
+      importee: true,
+      nom: nom.replace(/\.mp3$/i, '').slice(0, 60)
+    }
+  };
+}
+
 function importerMusiqueMontage(input) {
   const err = document.getElementById('montageErreur');
   const fichier = input && input.files && input.files[0];
@@ -957,34 +994,15 @@ function importerMusiqueMontage(input) {
   if (input) input.value = '';
   if (!fichier) return;
 
-  const nom = String(fichier.name || '');
-  const estMp3 = /^audio\/(mpeg|mp3)$/i.test(fichier.type || '') || /\.mp3$/i.test(nom);
-  if (!estMp3) {
-    if (err) {
-      err.textContent = 'Seuls les fichiers MP3 sont acceptés. Un WAV ou un M4A pèse plusieurs fois '
-        + 'plus lourd pour la même durée, et le montage passerait son temps à le transférer.';
-      err.style.display = 'block';
-    }
-    return;
-  }
-  if (fichier.size > MUSIQUE_IMPORT_MAX_MO * 1024 * 1024) {
-    if (err) {
-      err.textContent = 'Ce MP3 fait ' + Math.round(fichier.size / (1024 * 1024)) + ' Mo, la limite est '
-        + MUSIQUE_IMPORT_MAX_MO + ' Mo. Une musique de fond n\'a pas besoin d\'être plus longue que ta '
-        + 'vidéo : elle se répète toute seule si elle est plus courte.';
-      err.style.display = 'block';
-    }
+  const verdict = validerMusiqueImportee(fichier);
+  if (!verdict.ok) {
+    if (err) { err.textContent = verdict.message; err.style.display = 'block'; }
     return;
   }
   if (err) err.style.display = 'none';
 
   libererMusiqueMontage();
-  montageMusique = {
-    blob: fichier,
-    url: URL.createObjectURL(fichier),
-    importee: true,
-    nom: nom.replace(/\.mp3$/i, '').slice(0, 60)
-  };
+  montageMusique = verdict.musique;
   renderMontageEtat();
 }
 
