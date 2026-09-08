@@ -575,7 +575,7 @@ async function demarrerPriseVoixMontage() {
   if (montageVoixPriseEnCours || montageVoixEnCours) return;
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
-  // « Reprendre » : la prise précédente non validée est abandonnée ici.
+  // « Refaire » : la prise précédente non validée est abandonnée ici.
   libererPriseAValiderMontage();
   if (!montagePlans.length) {
     if (err) { err.textContent = 'Aucun plan à raconter : ouvre le montage depuis un storyboard.'; err.style.display = 'block'; }
@@ -626,7 +626,7 @@ async function arreterPriseVoixMontage() {
     montageVoixPriseEnCours = false;
     if (!prise) { renderMontageEtat(); return; }
     // ON NE REMPLACE PAS ENCORE LA VOIX DU MONTAGE. Demande du propriétaire
-    // (« Reprendre / Utiliser ») : on écoute, puis on garde ou on recommence.
+    // (« Refaire / Garder ») : on écoute, puis on garde ou on recommence.
     // Sans ça, une prise ratée devenait la voix off à la seconde où on
     // relâchait le bouton, et la précédente était perdue.
     libererPriseAValiderMontage();
@@ -644,10 +644,10 @@ function libererPriseAValiderMontage() {
   montagePriseAValider = null;
 }
 
-// « Utiliser » : c'est ICI que la prise devient la voix off du montage.
+// « Garder » : c'est ICI que la prise devient la voix off du montage.
 // Les durées sont calculées à cet instant, pas avant : elles dépendent de la
 // durée de la prise retenue, pas de celle qu'on vient d'abandonner.
-function utiliserPriseVoixMontage() {
+function garderPriseVoixMontage() {
   if (!montagePriseAValider) return;
   // SYNCHRO AU PRORATA DES MOTS : un enregistrement n'a pas les horodatages
   // caractère par caractère d'ElevenLabs. Voir repartirDureesParMots.
@@ -1268,15 +1268,15 @@ function renderMontageEtat() {
       </div>`;
     } else if (montagePriseAValider) {
       // PRISE TERMINÉE, PAS ENCORE VALIDÉE. Deux boutons sous le lecteur :
-      // « Reprendre » et « Utiliser ». Tant qu'on n'a pas appuyé sur
-      // « Utiliser », la voix off du montage n'a pas changé.
+      // « Refaire » et « Garder ». Tant qu'on n'a pas appuyé sur
+      // « Garder », la voix off du montage n'a pas changé.
       zoneVoix.innerHTML = `
         <audio class="montage-audio-preview" src="${montagePriseAValider.url}" controls></audio>
         <div class="montage-statut" style="margin:6px 0 0">Ta prise · ${Math.round(montagePriseAValider.duree)}s${
           montageVoixOff ? ' · ta voix actuelle est gardée tant que tu ne l\'utilises pas' : ''}</div>
         <div class="montage-musique-choix" style="margin-top:10px">
-          <button class="btn-regenerate" style="margin:0" onclick="demarrerPriseVoixMontage()" type="button">↻ Reprendre</button>
-          <button class="btn-montage-primary" onclick="utiliserPriseVoixMontage()" type="button">Utiliser</button>
+          <button class="btn-regenerate" style="margin:0" onclick="demarrerPriseVoixMontage()" type="button">↻ Refaire</button>
+          <button class="btn-montage-primary" onclick="garderPriseVoixMontage()" type="button">Garder</button>
         </div>`;
     } else if (montageVoixOff) {
       zoneVoix.innerHTML = `
@@ -1291,7 +1291,7 @@ function renderMontageEtat() {
           <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">Télécharger</button>
         </div>
         ${montageVoixOff.enregistree
-          ? ''   // UNE FOIS LA VOIX VALIDÉE, « Reprendre » DISPARAÎT AUSSI ICI.
+          ? ''   // UNE FOIS LA VOIX VALIDÉE, « Refaire » DISPARAÎT AUSSI ICI.
                  // Demande du propriétaire, appliquée aux deux écrans pour ne
                  // pas recréer un écart entre eux. Conséquence assumée et
                  // signalée : une voix enregistrée puis validée ne se change

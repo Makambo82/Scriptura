@@ -362,8 +362,8 @@ function omRenderVoixZone() {
     const aUneVoix = !!(omAudio && omAudio.source === 'upload');
 
     // PRISE TERMINÉE, PAS ENCORE VALIDÉE. Demande du propriétaire : deux
-    // boutons sous le lecteur, « Reprendre » et « Utiliser ». Tant qu'on n'a
-    // pas appuyé sur « Utiliser », la voix off du montage n'a pas changé : une
+    // boutons sous le lecteur, « Refaire » et « Garder ». Tant qu'on n'a
+    // pas appuyé sur « Garder », la voix off du montage n'a pas changé : une
     // prise ratée ne remplace donc jamais celle qui marchait.
     if (omPriseAValider) {
       zone.innerHTML = `
@@ -374,8 +374,8 @@ function omRenderVoixZone() {
             aUneVoix ? ' · ta voix actuelle est gardée tant que tu ne l\'utilises pas' : ''}</div>
         </div>
         <div class="montage-musique-choix" style="margin-top:10px">
-          <button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">↻ Reprendre</button>
-          <button class="btn-montage-primary" onclick="omUtiliserPrise()" type="button">Utiliser</button>
+          <button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">↻ Refaire</button>
+          <button class="btn-montage-primary" onclick="omGarderPrise()" type="button">Garder</button>
         </div>`;
       omRenderMusiqueZone();
       omMajChipVoix();
@@ -387,7 +387,7 @@ function omRenderVoixZone() {
     const peutEnregistrer = enregistrementVoixDisponible();
 
     if (aUneVoix) {
-      // UNE FOIS LA VOIX VALIDÉE, « Reprendre » ET « Utiliser » DISPARAISSENT.
+      // UNE FOIS LA VOIX VALIDÉE, « Refaire » ET « GARDER » DISPARAISSENT.
       // Demande explicite du propriétaire. Ces deux boutons servent à trancher
       // sur une prise qu'on vient d'écouter ; une fois qu'on a tranché, ils
       // n'ont plus d'objet et ne font qu'inviter à défaire ce qu'on vient de
@@ -531,7 +531,7 @@ async function omDemarrerPriseVoix() {
   if (omVoixPriseEnCours || omVoixEnCours) return;
   const err = document.getElementById('omErreur');
   if (err) err.style.display = 'none';
-  // « Reprendre » : la prise précédente non validée est abandonnée ici, pas
+  // « Refaire » : la prise précédente non validée est abandonnée ici, pas
   // gardée « au cas où ». Deux enregistrements en mémoire sur un téléphone,
   // c'est deux fois le fichier.
   omLibererPriseAValider();
@@ -577,7 +577,7 @@ async function omArreterPriseVoix() {
     omVoixPriseEnCours = false;
     if (prise) {
       // ON NE REMPLACE PAS ENCORE LA VOIX DU MONTAGE. Demande du propriétaire
-      // (« Reprendre / Utiliser ») : on écoute sa prise, puis on garde ou on
+      // (« Refaire / Garder ») : on écoute sa prise, puis on garde ou on
       // recommence. Sans ça, une prise ratée devenait la voix off du montage à
       // la seconde où on relâchait le bouton, et l'ancienne était perdue.
       omLibererPriseAValider();
@@ -600,9 +600,9 @@ function omLibererPriseAValider() {
   omPriseAValider = null;
 }
 
-// « Utiliser » : c'est ICI que la prise devient la voix off du montage, et
+// « Garder » : c'est ICI que la prise devient la voix off du montage, et
 // nulle part avant.
-function omUtiliserPrise() {
+function omGarderPrise() {
   if (!omPriseAValider) return;
   if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
   omAudio = {

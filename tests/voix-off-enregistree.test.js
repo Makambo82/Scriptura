@@ -246,12 +246,12 @@ test('une prise devient la voix off du montage, avec ses durées', async () => {
       await new Promise(r => setTimeout(r, 2600));
       await arreterPriseVoixMontage();
       // LA PRISE N'EST PAS ENCORE LA VOIX DU MONTAGE : elle attend d'être
-      // validée. C'est la demande du propriétaire, « Reprendre / Utiliser ».
+      // validée. C'est la demande du propriétaire, « Refaire / Garder ».
       const avantValidation = {
         voixDejaPosee: !!montageVoixOff,
         html: document.getElementById('montageVoixZone').innerHTML
       };
-      utiliserPriseVoixMontage();
+      garderPriseVoixMontage();
       return {
         avantValidation,
         pendant,
@@ -291,18 +291,18 @@ test('une prise devient la voix off du montage, avec ses durées', async () => {
       'REGRESSION : la prise devient la voix off du montage AVANT d\'être validée. Une prise ratée '
       + 'remplacerait alors celle qui marchait, à la seconde où on relâche le bouton, sans qu\'on '
       + 'ait pu l\'écouter.');
-    assert.match(vu.avantValidation.html, /Utiliser/,
-      'REGRESSION : aucun bouton « Utiliser » après la prise. On ne pourrait plus la valider, donc '
+    assert.match(vu.avantValidation.html, /Garder/,
+      'REGRESSION : aucun bouton « Garder » après la prise. On ne pourrait plus la valider, donc '
       + 'plus jamais s\'en servir.');
-    assert.match(vu.avantValidation.html, /Reprendre/,
-      'et « Reprendre » doit être là aussi : écouter sans pouvoir refaire ne sert à rien.');
+    assert.match(vu.avantValidation.html, /Refaire/,
+      'et « Refaire » doit être là aussi : écouter sans pouvoir refaire ne sert à rien.');
 
     assert.equal(vu.drapeauApres, false, 'la prise est terminée');
-    // UNE FOIS VALIDÉE, plus de « Reprendre » ni d'« Utiliser » : demande du
+    // UNE FOIS VALIDÉE, plus de « Refaire » ni de « Garder » : demande du
     // propriétaire. Ces deux boutons servent à trancher sur une prise qu'on
     // vient d'écouter ; la décision prise, ils n'ont plus d'objet.
-    assert.doesNotMatch(vu.htmlApres, /Reprendre|Utiliser/,
-      'REGRESSION : « Reprendre » ou « Utiliser » restent affichés après validation. Ils invitent '
+    assert.doesNotMatch(vu.htmlApres, /Refaire|Garder/,
+      'REGRESSION : « Refaire » ou « Garder » restent affichés après validation. Ils invitent '
       + 'à défaire une décision qui vient d\'être prise. Vu : ' + String(vu.htmlApres).slice(0, 200));
     assert.doesNotMatch(vu.htmlApres, /Régénérer la voix off/,
       'REGRESSION : le bouton de régénération IA est proposé sur une voix ENREGISTRÉE. Un appui '
@@ -332,16 +332,21 @@ test('une fois la voix prête, les façons de l\'obtenir laissent place aux acti
       document.body.classList.add('is-unlocked', 'peut-monter-video');
       ouvrirMontageManuelAccueil();
       const zone = () => document.getElementById('omVoixZone');
-      const avant = zone().innerHTML;
+      // ON RELÈVE LE TEXTE DES BOUTONS, PAS LE HTML BRUT. Piège trouvé en
+      // vérifiant qu'une morsure mordait : l'attribut onclick contient le nom
+      // de la fonction (omGarderPrise), donc chercher « Garder » dans le HTML
+      // le trouvait TOUJOURS, même quand le bouton affichait autre chose. Le
+      // test passait au vert sur un libellé faux.
+      const libelles = () => [...zone().querySelectorAll('button')]
+        .map(b => b.textContent.replace(/\s+/g, ' ').trim());
+      const avant = libelles();
 
       await omDemarrerPriseVoix();
       await new Promise(r => setTimeout(r, 900));
       await omArreterPriseVoix();
-      // État intermédiaire demandé par le propriétaire : on écoute, puis on
-      // garde ou on recommence.
-      const aValider = zone().innerHTML;
-      omUtiliserPrise();
-      const apres = zone().innerHTML;
+      const aValider = libelles();
+      omGarderPrise();
+      const apres = libelles();
 
       // Position relative du lecteur et des boutons : les actions doivent
       // venir APRÈS lui, pas avant.
@@ -357,36 +362,40 @@ test('une fois la voix prête, les façons de l\'obtenir laissent place aux acti
 
     // Avant : on ne sait pas encore d'où viendra la voix, les deux chemins
     // doivent être là.
-    assert.match(vu.avant, /Choisir un fichier audio/, 'sans voix, le choix du fichier est proposé');
-    assert.match(vu.avant, /Enregistrer ma voix/, 'et l\'enregistrement aussi');
+    const contient = (liste, mot) => liste.some(t => t.includes(mot));
+
+    assert.ok(contient(vu.avant, 'Choisir un fichier audio'),
+      'sans voix, le choix du fichier est proposé. Vu : ' + JSON.stringify(vu.avant));
+    assert.ok(contient(vu.avant, 'Enregistrer ma voix'),
+      'et l\'enregistrement aussi. Vu : ' + JSON.stringify(vu.avant));
 
     // Après : ces deux-là ont fait leur travail.
-    assert.doesNotMatch(vu.apres, /Choisir un fichier audio/,
+    assert.ok(!contient(vu.apres, 'Choisir un fichier audio'),
       'REGRESSION : « Choisir un fichier audio » reste affiché alors que la voix est déjà là. '
       + 'C\'est exactement ce que le propriétaire a entouré en rouge : une question déjà répondue, '
       + 'posée une seconde fois au-dessus du lecteur.');
-    assert.doesNotMatch(vu.apres, /Enregistrer ma voix/,
+    assert.ok(!contient(vu.apres, 'Enregistrer ma voix'),
       'REGRESSION : « Enregistrer ma voix » reste affiché après la prise. Il est remplacé par '
-      + '« Reprendre », qui dit ce qu\'il fait vraiment à ce moment-là.');
+      + '« Refaire », qui dit ce qu\'il fait vraiment à ce moment-là.');
 
     // L'état intermédiaire : deux boutons, et rien d'autre à décider.
-    assert.match(vu.aValider, /Utiliser/,
+    assert.ok(contient(vu.aValider, 'Garder'),
       'REGRESSION : la prise ne peut plus être validée. Elle serait enregistrée pour rien.');
-    assert.match(vu.aValider, /Reprendre/,
+    assert.ok(contient(vu.aValider, 'Refaire'),
       'REGRESSION : impossible de refaire une prise qu\'on vient de trouver mauvaise en l\'écoutant.');
-    assert.doesNotMatch(vu.aValider, /Changer de fichier/,
+    assert.ok(!contient(vu.aValider, 'Changer de fichier'),
       'REGRESSION : « Changer de fichier » apparaît alors qu\'une prise attend d\'être validée. À cet '
       + 'instant il n\'y a que deux décisions à prendre, la garder ou la refaire : une troisième '
       + 'option brouille le choix.');
 
     assert.equal(vu.aUnLecteur, true, 'on doit pouvoir se réécouter avant de monter');
-    assert.doesNotMatch(vu.apres, /Reprendre|Utiliser/,
-      'REGRESSION : « Reprendre » ou « Utiliser » restent affichés une fois la voix validée. '
+    assert.ok(!contient(vu.apres, 'Refaire') && !contient(vu.apres, 'Garder'),
+      'REGRESSION : « Refaire » ou « Garder » restent affichés une fois la voix validée. '
       + 'Demande du propriétaire : la décision prise, ces deux boutons n\'ont plus d\'objet.');
-    assert.match(vu.apres, /Changer de fichier/,
+    assert.ok(contient(vu.apres, 'Changer de fichier'),
       'REGRESSION : plus aucun moyen de revenir sur sa voix une fois validée. Le créateur devrait '
       + 'recommencer tout son montage, images comprises, pour changer une voix off ratée. C\'est le '
-      + 'dernier garde-fou après le retrait de « Reprendre ».');
+      + 'dernier garde-fou après le retrait de « Refaire ».');
 
     assert.equal(vu.boutonsApresLecteur, true,
       'REGRESSION : les actions sont repassées AU-DESSUS du lecteur. On écoute d\'abord, on décide '
@@ -397,8 +406,8 @@ test('une fois la voix prête, les façons de l\'obtenir laissent place aux acti
   }
 });
 
-// Demande du propriétaire : deux boutons sous le lecteur, « Reprendre » et
-// « Utiliser ». Ce n'est pas qu'une question de boutons, c'est un changement de
+// Demande du propriétaire : deux boutons sous le lecteur, « Refaire » et
+// « Garder ». Ce n'est pas qu'une question de boutons, c'est un changement de
 // COMPORTEMENT : jusqu'ici la prise devenait la voix off du montage à la
 // seconde où on relâchait « Terminer ».
 //
@@ -421,7 +430,7 @@ test('une prise ratée ne détruit pas la voix qui marchait', async () => {
       await demarrerPriseVoixMontage();
       await new Promise(r => setTimeout(r, 2600));
       await arreterPriseVoixMontage();
-      utiliserPriseVoixMontage();
+      garderPriseVoixMontage();
       const bonne = { url: montageVoixOff.url, octets: montageVoixOff.blob.size };
 
       // Deuxième prise, qu'on juge ratée en l'écoutant.
@@ -453,7 +462,7 @@ test('une prise ratée ne détruit pas la voix qui marchait', async () => {
       + 'retour possible.');
 
     assert.equal(vu.apresReprise.voixTouchee, false,
-      'REGRESSION : appuyer sur « Reprendre » a détruit la voix off en place. Or reprendre, c\'est '
+      'REGRESSION : appuyer sur « Refaire » a détruit la voix off en place. Or reprendre, c\'est '
       + 'refaire la PRISE, pas effacer ce qu\'on avait déjà.');
 
     assert.ok(vu.voixFinale, 'REGRESSION : la voix off a disparu au passage.');
