@@ -1251,7 +1251,7 @@ function renderMontageEtat() {
           <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">Télécharger</button>
         </div>
         ${montageVoixOff.enregistree
-          ? `<button class="btn-regenerate" style="margin-top:10px" onclick="demarrerPriseVoixMontage()" type="button">↻ Refaire la prise</button>`
+          ? `<button class="btn-regenerate" style="margin-top:10px" onclick="demarrerPriseVoixMontage()" type="button">↻ Reprendre</button>`
           : `<button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`}`;
     } else if (montageVoixPriseEnCours) {
       // PENDANT LA PRISE. On n'affiche ni bouton de génération ni aperçu : à

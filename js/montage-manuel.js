@@ -329,7 +329,6 @@ function omRenderVoixZone() {
            <div class="montage-statut" style="margin:6px 0 0">${outilsEsc(omAudio.nom)} · ${Math.round(omAudio.duree)}s</div>
          </div>`
       : '';
-    const boutonUploadClasse = (omAudio && omAudio.source === 'upload') ? 'btn-regenerate' : 'btn-montage-primary';
     // PENDANT LA PRISE, plus rien d'autre : le créateur lit son texte.
     if (omVoixPriseEnCours) {
       zone.innerHTML = `
@@ -349,20 +348,42 @@ function omRenderVoixZone() {
       omMajCaseSousTitres();
       return;
     }
-    // DEUX FAÇONS DE FOURNIR SA PROPRE VOIX : un fichier déjà enregistré, ou
-    // le micro tout de suite. La bascule du dessus choisit la SOURCE (la
-    // mienne ou l'IA) ; ici on choisit seulement par quel moyen.
-    // Le bouton micro n'apparaît que si le navigateur sait l'ouvrir.
-    const micro = enregistrementVoixDisponible()
-      ? `<button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">Enregistrer ma voix</button>`
-      : '';
-    zone.innerHTML = `
-      <input type="file" id="omAudioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>
-      <div class="montage-musique-choix">
-        <button class="${boutonUploadClasse}" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
-        ${micro}
-      </div>
-      ${preview}`;
+    // LES DEUX FAÇONS D'OBTENIR SA VOIX NE S'AFFICHENT QUE TANT QU'ON N'EN A
+    // PAS. Retour du propriétaire, capture à l'appui : une fois la voix
+    // enregistrée, cette rangée restait en place au-dessus du lecteur alors
+    // qu'elle ne répond plus à aucune question. On la remplace par les actions
+    // qui, elles, ont un sens à ce moment-là, et on les met SOUS le lecteur :
+    // on écoute d'abord, on décide ensuite.
+    const champFichier = `<input type="file" id="omAudioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>`;
+    const aUneVoix = !!(omAudio && omAudio.source === 'upload');
+    // Le bouton micro n'apparaît que si le navigateur sait l'ouvrir : proposer
+    // un micro qui ne s'ouvrira pas est pire que ne rien proposer.
+    const peutEnregistrer = enregistrementVoixDisponible();
+
+    if (aUneVoix) {
+      // « Reprendre » plutôt que « Refaire la prise » : le mot du propriétaire,
+      // et le même sur les deux écrans de montage.
+      const reprendre = peutEnregistrer
+        ? `<button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">↻ Reprendre</button>`
+        : '';
+      zone.innerHTML = `
+        ${champFichier}
+        ${preview}
+        <div class="montage-musique-choix" style="margin-top:10px">
+          ${reprendre}
+          <button class="btn-regenerate" style="margin:0" type="button" onclick="document.getElementById('omAudioInput').click()">Changer de fichier</button>
+        </div>`;
+    } else {
+      const micro = peutEnregistrer
+        ? `<button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">Enregistrer ma voix</button>`
+        : '';
+      zone.innerHTML = `
+        ${champFichier}
+        <div class="montage-musique-choix">
+          <button class="btn-montage-primary" type="button" onclick="document.getElementById('omAudioInput').click()">Choisir un fichier audio</button>
+          ${micro}
+        </div>`;
+    }
     omRenderMusiqueZone();
     omMajChipVoix();
     omMajCaseSousTitres();

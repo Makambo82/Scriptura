@@ -280,12 +280,81 @@ test('une prise devient la voix off du montage, avec ses durées', async () => {
     assert.ok(vu.voix.octets > 0, 'et le fichier n\'est pas vide');
 
     assert.equal(vu.drapeauApres, false, 'la prise est terminée');
-    assert.match(vu.htmlApres, /Refaire la prise/,
-      'REGRESSION : après une prise, le bouton propose de « régénérer » au lieu de refaire la prise. '
+    assert.match(vu.htmlApres, /Reprendre/,
+      'REGRESSION : après une prise, le bouton propose de « régénérer » au lieu de reprendre. '
       + 'Un appui remplacerait la voix du créateur par une voix IA, sans prévenir, et en facturant '
       + 'ElevenLabs au propriétaire.');
     assert.doesNotMatch(vu.htmlApres, /Régénérer la voix off/,
       'et le bouton de régénération IA ne doit PAS être proposé sur une voix enregistrée');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+// Retour du propriétaire, capture à l'appui : une fois la voix enregistrée, la
+// rangée « Changer de fichier / Enregistrer ma voix » restait affichée AU-DESSUS
+// du lecteur, alors qu'elle ne répond plus à aucune question. Il l'a entourée
+// en rouge, et il a raison : à cet instant on veut s'écouter, pas se redemander
+// comment obtenir une voix.
+//
+// LES ACTIONS PASSENT SOUS LE LECTEUR : on écoute d'abord, on décide ensuite.
+test('une fois la voix prête, les façons de l\'obtenir laissent place aux actions', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateurAvecMicro();
+  try {
+    const page = await ouvrirApp(navigateur, baseUrl);
+
+    const vu = await page.evaluate(async () => {
+      unlocked = true;
+      document.body.classList.add('is-unlocked', 'peut-monter-video');
+      ouvrirMontageManuelAccueil();
+      const zone = () => document.getElementById('omVoixZone');
+      const avant = zone().innerHTML;
+
+      await omDemarrerPriseVoix();
+      await new Promise(r => setTimeout(r, 900));
+      await omArreterPriseVoix();
+      const apres = zone().innerHTML;
+
+      // Position relative du lecteur et des boutons : les actions doivent
+      // venir APRÈS lui, pas avant.
+      const lecteur = zone().querySelector('audio');
+      const boutons = zone().querySelector('.montage-musique-choix');
+      return {
+        avant, apres,
+        aUnLecteur: !!lecteur,
+        boutonsApresLecteur: !!(lecteur && boutons
+          && (lecteur.compareDocumentPosition(boutons) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0)
+      };
+    });
+
+    // Avant : on ne sait pas encore d'où viendra la voix, les deux chemins
+    // doivent être là.
+    assert.match(vu.avant, /Choisir un fichier audio/, 'sans voix, le choix du fichier est proposé');
+    assert.match(vu.avant, /Enregistrer ma voix/, 'et l\'enregistrement aussi');
+
+    // Après : ces deux-là ont fait leur travail.
+    assert.doesNotMatch(vu.apres, /Choisir un fichier audio/,
+      'REGRESSION : « Choisir un fichier audio » reste affiché alors que la voix est déjà là. '
+      + 'C\'est exactement ce que le propriétaire a entouré en rouge : une question déjà répondue, '
+      + 'posée une seconde fois au-dessus du lecteur.');
+    assert.doesNotMatch(vu.apres, /Enregistrer ma voix/,
+      'REGRESSION : « Enregistrer ma voix » reste affiché après la prise. Il est remplacé par '
+      + '« Reprendre », qui dit ce qu\'il fait vraiment à ce moment-là.');
+
+    assert.equal(vu.aUnLecteur, true, 'on doit pouvoir se réécouter avant de monter');
+    assert.match(vu.apres, /Reprendre/,
+      'REGRESSION : plus aucun moyen de refaire la prise après l\'avoir écoutée. On serait coincé '
+      + 'avec un enregistrement raté.');
+    assert.match(vu.apres, /Changer de fichier/,
+      'REGRESSION : plus aucun moyen de remplacer la voix par un fichier. En retirant la rangée du '
+      + 'dessus sans remettre cette possibilité, on aurait supprimé une fonctionnalité au lieu de '
+      + 'ranger l\'écran.');
+
+    assert.equal(vu.boutonsApresLecteur, true,
+      'REGRESSION : les actions sont repassées AU-DESSUS du lecteur. On écoute d\'abord, on décide '
+      + 'ensuite : c\'est l\'ordre demandé, et c\'est aussi l\'ordre logique.');
   } finally {
     await navigateur.close();
     await arreter();
