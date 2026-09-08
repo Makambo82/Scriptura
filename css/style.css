@@ -4311,3 +4311,35 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
    tactile garde sa hauteur, seule la largeur se resserre. */
 .history-toolbar{gap:8px}
 .history-toolbar .hist-tool-btn{padding:8px 10px}
+
+/* ── LA FLÈCHE DU BOUTON D'ACCUEIL RESPIRE ──
+   Demande du propriétaire : « que la flèche pointant vers la droite fasse de
+   petits mouvements gauche-droite comme le fait le bouton de défilement ».
+   Même rythme exactement (1.9s, ease-in-out), pour que les deux mouvements de
+   la page d'accueil parlent la même langue au lieu de battre chacun le sien.
+
+   C'EST LA FLÈCHE QUI BOUGE, PAS SON DISQUE BLANC. Le disque fait 42px dans
+   une pilule qui en fait 46 de haut : le faire glisser l'aurait fait paraître
+   mal fixé. La flèche, elle, a douze pixels de marge de chaque côté à
+   l'intérieur du disque, et son déplacement s'y lit comme une invitation.
+
+   4px POUR UNE FLÈCHE DE 18px, soit la même proportion que le bouton de
+   défilement (5px pour 24px). Une amplitude fixe aurait été trop discrète ici
+   ou trop agitée là-bas.
+
+   FIGÉE QUAND LE PANNEAU « CRÉER » EST OUVERT, même règle que le bouton de
+   défilement juste au-dessus : à cet instant le bouton d'accueil est derrière
+   un fond assombri, il n'invite plus à rien, et un élément qui bouge derrière
+   un panneau ne fait que disputer l'attention à ce panneau.
+
+   SOUS prefers-reduced-motion, rien ne bouge : c'est un réglage système que
+   des utilisateurs activent pour de vraies raisons, et le bouton reste
+   parfaitement compréhensible immobile. */
+@keyframes flecheCtaInvite{
+  0%, 100%{transform:translateX(0)}
+  50%{transform:translateX(4px)}
+}
+@media(prefers-reduced-motion:no-preference){
+  .hero-cta-arrow svg{animation:flecheCtaInvite 1.9s ease-in-out infinite}
+  body.creer-ouvert .hero-cta-arrow svg{animation:none}
+}
