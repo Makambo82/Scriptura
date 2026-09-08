@@ -226,3 +226,57 @@ test('le libellé peut rétrécir : sans ça, tout le calcul est faux', async ()
     await arreter();
   }
 });
+
+// CE TEST REPRODUIT L'ÉCHEC DE LA CI, qui n'était pas reproductible ici.
+//
+// La première version de l'ajustement calculait la taille en UNE passe, en
+// supposant la largeur du texte exactement proportionnelle à la taille de
+// police. Avec la police de repli de cet environnement, c'était assez vrai pour
+// que tout passe. Avec la vraie police, non : la CI a renvoyé des libellés
+// rognés à 11,6 et 13,4px, très au-dessus du plancher, donc pas à cause de lui.
+//
+// LA NON-PROPORTIONNALITÉ SE REPRODUIT À LA DEMANDE en donnant à l'élément un
+// espacement de lettres en PIXELS au lieu d'em : cette part-là ne rétrécit pas
+// avec la police, exactement comme l'arrondi des largeurs de glyphes. Une seule
+// passe sous-corrige alors, et le texte reste trop large.
+//
+// C'est la seule façon honnête que j'aie trouvée de vérifier ici un correctif
+// dont la cause n'existe qu'ailleurs.
+test('l\'ajustement remesure : une seule passe ne suffit pas toujours', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrirAccueil(navigateur, baseUrl, 414);
+
+    const vu = await page.evaluate(() => {
+      const lbl = document.getElementById('heroCtaLabel');
+      lbl.textContent = "Qu'est-ce qu'on écrit aujourd'hui ?";
+      // La part non proportionnelle : 2px par lettre, quelle que soit la
+      // taille. Calibré pour qu'UNE passe ne suffise pas et que DEUX suffisent,
+      // ce qui est exactement le régime où le défaut se manifestait. Plus fort,
+      // aucune taille ne ferait tenir le texte et le test ne prouverait rien.
+      lbl.style.letterSpacing = '2px';
+      ajusterHeroCta();
+      const px = parseFloat(getComputedStyle(lbl).fontSize);
+      const resultat = {
+        px, coupe: lbl.scrollWidth > lbl.clientWidth + 1,
+        dispo: lbl.clientWidth, besoin: lbl.scrollWidth
+      };
+      lbl.style.letterSpacing = '';
+      return resultat;
+    });
+
+    assert.equal(vu.coupe, false,
+      'REGRESSION : l\'ajustement ne remesure plus après avoir réduit. Quand une part de la largeur '
+      + 'ne rétrécit pas avec la police (arrondi des glyphes, espacement en pixels), une seule '
+      + 'passe sous-corrige et le texte reste trop large : ' + vu.besoin + 'px pour ' + vu.dispo
+      + 'px de place, à ' + vu.px + 'px de police. C\'est exactement ce qui a fait échouer la CI '
+      + 'trois fois, sans être reproductible dans cet environnement.');
+
+    assert.ok(vu.px < 16,
+      'et le texte a bien été réduit (' + vu.px + 'px)');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});

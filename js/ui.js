@@ -703,6 +703,22 @@ const TEXTE_UNE_LIGNE_MARGE = 0.98;  // 2% de sécurité : les mesures sont
                                      // suffit d'un pixel de trop pour repasser
                                      // à la ligne
 
+// ON MESURE, ON AJUSTE, PUIS ON REMESURE. Une première version calculait la
+// taille en UNE passe, en partant du principe que la largeur d'un texte est
+// exactement proportionnelle à sa taille de police. La CI l'a démentie : avec
+// la vraie police (Poppins, absente de l'environnement de développement), des
+// libellés ressortaient rognés à 11,6 et 13,4px, très au-dessus du plancher.
+//
+// La proportionnalité n'est qu'approchée : les largeurs de glyphes sont
+// arrondies au rendu, et l'écart se creuse à mesure qu'on réduit. Le rapport
+// donne une bonne première estimation, pas une garantie. On vérifie donc, et
+// on recommence tant que ça ne tient pas.
+//
+// SIX PASSES AU PLUS : chacune réduit fortement le dépassement restant, deux
+// suffisent en pratique. La borne existe pour qu'un cas pathologique ne fasse
+// jamais tourner la boucle indéfiniment.
+const TEXTE_UNE_LIGNE_PASSES = 6;
+
 function ajusterTexteUneLigne(el, maxRem, minRem) {
   if (!el) return;
   // On repart TOUJOURS de la taille de référence avant de mesurer : sinon
@@ -713,10 +729,15 @@ function ajusterTexteUneLigne(el, maxRem, minRem) {
   // largeur nulle donnerait un rapport absurde.
   const dispo = el.clientWidth;
   if (!(dispo > 0)) return;
-  const besoin = el.scrollWidth;   // largeur réelle du texte, sans retour à la ligne
-  if (besoin <= dispo) return;     // tient déjà : on ne touche à rien
-  const taille = Math.max(minRem, maxRem * TEXTE_UNE_LIGNE_MARGE * dispo / besoin);
-  el.style.fontSize = taille.toFixed(3) + 'rem';
+
+  let taille = maxRem;
+  for (let passe = 0; passe < TEXTE_UNE_LIGNE_PASSES; passe++) {
+    const besoin = el.scrollWidth;  // largeur réelle du texte, sans retour à la ligne
+    if (besoin <= dispo) return;    // ça tient : on s'arrête là
+    if (taille <= minRem) return;   // plancher atteint : on ne descend pas plus bas
+    taille = Math.max(minRem, taille * TEXTE_UNE_LIGNE_MARGE * dispo / besoin);
+    el.style.fontSize = taille.toFixed(3) + 'rem';
+  }
 }
 
 const HERO_CTA_TAILLE_MAX = 1;      // rem, la taille de référence, celle du CSS
@@ -766,6 +787,46 @@ function ajusterTitresModes() {
   document.querySelectorAll('.mode-label').forEach(function (el) {
     ajusterTexteUneLigne(el, MODE_TITRE_TAILLE_MAX, MODE_TITRE_TAILLE_MIN);
   });
+}
+
+// ON OBSERVE LA LARGEUR PLUTÔT QUE DE COURIR APRÈS LES MOMENTS D'AFFICHAGE.
+// Retour du propriétaire sur les cartes des Services annexes, et un défaut
+// trouvé en le vérifiant : « Monter une vidéo » n'apparaît que pour un abonné,
+// donc APRÈS le chargement, APRÈS l'ajustement initial, et son titre n'était
+// jamais mesuré. Mesuré : à 360px, avec un titre long, il restait à 1rem et se
+// faisait rogner.
+//
+// Brancher un appel de plus à cet endroit-là n'aurait réglé que ce cas. Il y en
+// a d'autres, et il y en aura : révélation des modes, ouverture du panneau
+// « Créer », apparition d'une carte réservée, rotation de l'écran, retour
+// d'un écran de mode. Chaque fois qu'on oublie un de ces moments, un titre
+// déborde en silence.
+//
+// Un titre a besoin d'être remesuré exactement quand sa LARGEUR change, et
+// c'est précisément ce que ResizeObserver signale, y compris le passage de
+// zéro (élément masqué) à sa vraie largeur. Une seule mécanique, aucun moment
+// à ne pas oublier.
+//
+// PAS DE BOUCLE POSSIBLE : la largeur du titre est imposée par sa carte
+// (min-width:0 et nowrap, voir css/style.css) ; changer sa taille de police
+// modifie sa hauteur, jamais sa largeur. L'observateur ne se rappelle donc pas
+// lui-même.
+if (typeof ResizeObserver !== 'undefined') {
+  const _observateurTitres = new ResizeObserver(function (entrees) {
+    entrees.forEach(function (e) {
+      ajusterTexteUneLigne(e.target, MODE_TITRE_TAILLE_MAX, MODE_TITRE_TAILLE_MIN);
+    });
+  });
+  const observerTitresModes = function () {
+    document.querySelectorAll('.mode-label').forEach(function (el) {
+      _observateurTitres.observe(el);
+    });
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observerTitresModes);
+  } else {
+    observerTitresModes();
+  }
 }
 
 // Les polices arrivent APRÈS le premier rendu : mesurer avant leur chargement

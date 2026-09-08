@@ -229,3 +229,67 @@ test('un titre long est vraiment ajusté, sur les deux surfaces', async () => {
     await arreter();
   }
 });
+
+// Retour du propriétaire : « de même que les boutons d'outils TikTok en bas de
+// la page d'accueil ». Deux des trois cartes des Services annexes étaient déjà
+// couvertes, partageant les mêmes classes. LA TROISIÈME NON, et c'est ce que la
+// vérification a montré : « Monter une vidéo » est réservée aux abonnés, elle
+// n'apparaît donc qu'APRÈS le chargement, APRÈS l'ajustement initial, et son
+// titre n'était jamais mesuré. Mesuré alors : il restait à 1rem et se faisait
+// rogner dès qu'il était un peu long.
+//
+// La correction n'a pas été d'ajouter un appel de plus à cet endroit : il y a
+// d'autres moments où une carte apparaît, et il y en aura. C'est la LARGEUR qui
+// est observée désormais, ce qui couvre le passage de zéro à la vraie largeur,
+// d'où qu'il vienne.
+test('une carte qui apparaît APRÈS le chargement voit son titre ajusté', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await ouvrirAccueil(navigateur, baseUrl, 360);
+
+    // La carte réservée aux abonnés, encore masquée : on lui donne un titre
+    // trop long pour sa largeur, afin que l'absence d'ajustement se voie.
+    const avant = await page.evaluate((titre) => {
+      const el = [...document.querySelectorAll('.mode-label')]
+        .find(e => /Monter une/i.test(e.textContent));
+      if (!el) return null;
+      el.textContent = titre;
+      el.style.fontSize = '';
+      el.dataset.sonde = '1';
+      return { visible: el.offsetParent !== null, largeur: el.clientWidth };
+    }, TITRE_LONG_REEL);
+
+    assert.ok(avant,
+      'REGRESSION : la carte « Monter une vidéo » est introuvable dans les Services annexes.');
+    assert.equal(avant.visible, false,
+      'REGRESSION : cette carte est visible sans abonnement. Elle mène au montage vidéo, réservé '
+      + 'à Creator et Pro : un visiteur cliquerait pour se faire refuser après coup.');
+
+    // L'abonnement est reconnu : la carte apparaît.
+    await page.evaluate(() => {
+      document.body.classList.add('peut-monter-video', 'is-unlocked');
+    });
+    await page.waitForTimeout(400);
+
+    const apres = await page.evaluate(() => {
+      const el = document.querySelector('[data-sonde="1"]');
+      const px = parseFloat(getComputedStyle(el).fontSize);
+      return { visible: el.offsetParent !== null, px,
+        coupe: el.scrollWidth > el.clientWidth + 1,
+        deuxLignes: el.getBoundingClientRect().height > px * 1.9 };
+    });
+
+    assert.equal(apres.visible, true, 'la carte doit apparaître pour un abonné');
+    assert.ok(apres.px < 16,
+      'REGRESSION : le titre de cette carte est resté à sa taille de référence (' + apres.px
+      + 'px) alors qu\'il est trop long pour elle. Les cartes qui apparaissent APRÈS le chargement '
+      + 'ne sont plus ajustées : leur titre débordera dès qu\'il sera un peu long, et personne ne '
+      + 'le verra venir puisque tout va bien au chargement.');
+    assert.equal(apres.coupe, false, 'et il ne doit pas être rogné');
+    assert.equal(apres.deuxLignes, false, 'ni passer sur deux lignes');
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
