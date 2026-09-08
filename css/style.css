@@ -3656,22 +3656,8 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-wrap{max-width:560px;margin:0 auto;padding:100px 12px 80px}
 /* Sélecteur Mon compte / Compte concurrent (analyse sommaire) */
 .ds-scope{display:flex;gap:8px;margin-top:26px}
-.ds-scope-btn{flex:1;padding:11px 12px;border-radius:999px;border:1px solid var(--border-soft);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-family:'Poppins',sans-serif;font-size:0.86rem;cursor:pointer;transition:all .2s}
+.ds-scope-btn{flex:1;padding:14px 12px;border-radius:999px;border:1px solid var(--border-soft);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-family:'Poppins',sans-serif;font-size:0.62rem;letter-spacing:0.13em;cursor:pointer;transition:all .2s}
 .ds-scope-btn.actif{border-color:var(--gold);background:var(--gold-pale);color:var(--gold-light);font-weight:600}
-/* Les deux bascules de la voix off du montage manuel (« IMPORTER UN FICHIER »
-   / « GÉNÉRER AVEC L'IA »), retour du propriétaire capture à l'appui : elles
-   se lisaient en minuscules juste au-dessus des boutons de la section Musique,
-   qui sont en capitales espacées. Deux rangées de boutons empilées sur le même
-   écran ne peuvent pas être écrites autrement l'une que l'autre.
-   MODIFICATEUR PLUTÔT QUE .ds-scope-btn : cette classe sert aussi à « Mon
-   compte / Compte concurrent » du diagnostic et à « Saisir / Choisir dans la
-   liste » des tendances. Ces libellés-là sont plus longs, et personne n'a
-   demandé à les changer.
-   LE REMBOURRAGE MONTE DE 11 À 14px : la police descend de 0.86rem à 0.62rem
-   pour rejoindre celle des boutons Musique, et sans ça la cible tactile
-   perdait 7px de haut. C'est l'ÉCRITURE qui devait s'aligner, jamais la zone
-   à toucher. */
-.om-mode-btn{font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase;padding:14px 12px}
 /* La rangée de la section Musique, sur les DEUX écrans de montage. Elle reprend
    la géométrie de la rangée de la voix off ci-dessus : deux boutons de largeur
    égale, côte à côte, même hauteur.
@@ -4190,4 +4176,48 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
    serait resté en Cinzel, seul, juste à côté de tous les autres. */
 .nav-subscribe-cta {
   font-family:'Poppins',sans-serif;
+}
+
+/* ── CASSE DES BOUTONS ──
+   Retour du propriétaire : « regarde dans toute l'app s'il y a encore des
+   boutons avec du texte en minuscule et corrige en majuscule ». Inventaire
+   fait en MESURANT la casse calculée sur 17 écrans, pas en lisant la feuille
+   de style : une règle peut exister et perdre en spécificité.
+
+   CE QUI PASSE EN CAPITALES : les boutons d'ACTION et de CHOIX, ceux qui ont
+   un fond ou un cadre et qu'on lit comme des boutons. Ils rejoignent les
+   .btn-generate, .copy-btn, .action-btn et compagnie, déjà en capitales.
+
+   CE QUI RESTE EN MINUSCULES, et chaque cas a sa raison :
+   · .custom-select-trigger : c'est un CHAMP, pas un bouton. Il affiche une
+     valeur choisie (« 1x (normal) », le nom d'une niche). Mettre une valeur
+     saisie en capitales, c'est la déformer.
+   · .footer-link-btn, .sidebar-item, .example-cta : des LIENS et des lignes
+     de menu, sans fond ni cadre. Huit phrases en capitales dans un pied de
+     page, ça crie au lieu d'aider.
+   · .pack-btn, .plan-toggle-btn, .hero-mode-btn : des CARTES, avec un prix ou
+     une description sur plusieurs lignes.
+   · .serie-suggest-btn : une phrase entière (« Ou laisse Scriptura me proposer
+     des concepts »), qui ne se met pas en capitales.
+   · .btn-back : le SEUL bouton que le propriétaire a explicitement voulu en
+     minuscules, et la raison tient toujours. En capitales espacées,
+     « ← RETOUR » pèse autant qu'une action principale alors que ce n'est
+     qu'un lien de navigation. Verrouillé par tests/police-des-boutons.
+
+   L'ESPACEMENT RESTE MODESTE (0.05em) et non 0.1em comme les boutons courts :
+   plusieurs de ces libellés sont longs (« NARRATIF LONG (IMMERSIF, SANS
+   LIMITE) », « COMPTE CONCURRENT »), et les capitales sont déjà plus larges
+   que les minuscules. Mesuré : au-delà, ça déborde sur un écran de 414px. */
+.grid-btn, .plan-btn, .ds-scope-btn, .rappel-btn, .outils-mini-btn,
+.script-edit-btn, .car-format-btn, .hero-cta-label {
+  text-transform:uppercase;
+}
+/* L'espacement est posé À PART, et .ds-scope-btn en est ABSENT à dessein : il
+   déclare le sien (0.13em) dans sa propre règle, plus haut. Le mettre aussi
+   ici l'écraserait en silence, cette règle-ci venant plus loin dans le
+   fichier. C'est la panne la plus discrète en CSS : les deux règles sont
+   justes, c'est leur ordre qui décide, et rien ne le signale. */
+.grid-btn, .plan-btn, .rappel-btn, .outils-mini-btn,
+.script-edit-btn, .car-format-btn, .hero-cta-label {
+  letter-spacing:0.05em;
 }
