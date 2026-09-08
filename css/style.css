@@ -4221,3 +4221,53 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
 .script-edit-btn, .car-format-btn, .hero-cta-label {
   letter-spacing:0.05em;
 }
+
+/* ── TAILLE DES BOUTONS DANS LES MODES ──
+   Retour du propriétaire, capture à l'appui : « la taille des textes de
+   boutons n'est pas la même partout, je parle des boutons à l'intérieur des
+   modes », avec la rangée du montage donnée comme RÉFÉRENCE.
+
+   Il avait raison, et c'était pire que ce que sa capture montrait. Mesuré
+   dans le navigateur sur douze écrans de mode, les textes de boutons
+   allaient de 0.52rem (.btn-actualiser) à 0.84rem (.car-format-btn) : seize
+   tailles différentes, réglées une par une au fil des livraisons, chacune
+   raisonnable dans son coin et l'ensemble incohérent.
+
+   LA RÉFÉRENCE EST CELLE DE SA CAPTURE : 0.62rem, espacement 0.13em, celle
+   de .ds-scope-btn et .btn-montage-primary. L'espacement est unifié lui
+   aussi, sans quoi des boutons de même taille ne se ressembleraient toujours
+   pas : c'est le couple taille + espacement qui fait la ressemblance.
+
+   CE QUI N'EST PAS TOUCHÉ, et ce n'est pas un oubli :
+   · l'ACCUEIL (.hero-cta-label, .hero-mode-btn, .example-cta), le PIED DE
+     PAGE, la BARRE DU HAUT et le MENU LATÉRAL : ce ne sont pas des « boutons
+     à l'intérieur des modes », et l'accueil a sa propre échelle, voulue plus
+     grande parce qu'on y arrive sans rien connaître de l'app ;
+   · les CARTES DE TARIF (.plan-btn, .pack-btn) : elles vivent dans la fenêtre
+     d'abonnement, pas dans un mode ;
+   · les boutons À ICÔNE SEULE (.genimg-btn-icon, .action-btn.icon-only,
+     #scrollTopBtn, .hero-cta-arrow) : leur font-size dimensionne un
+     pictogramme, pas un texte. Les aligner les rendrait minuscules ;
+   · .serie-suggest-btn : une phrase entière, pas un libellé de bouton ;
+   · .btn-back garde son espacement de 0.02em : il est le seul en minuscules
+     (décision du propriétaire), et les minuscules n'ont pas besoin de
+     tracking. Sa taille, elle, rejoint les autres.
+
+   PLACÉ EN FIN DE FICHIER, ET LES SÉLECTEURS COMPOSÉS SONT LISTÉS EXPLICITEMENT
+   (.btn-regenerate.mini, .aw-nav button, .car-format-btn span) : à
+   spécificité inférieure, ce bloc perdrait contre eux sans rien signaler, et
+   deux boutons resteraient à l'ancienne taille au milieu des autres. C'est
+   la panne CSS la plus discrète qui soit. Verrouillé par
+   tests/taille-des-boutons-des-modes.test.js. */
+.grid-btn, .btn-generate, .btn-back, .rappel-btn, .outils-mini-btn,
+.car-format-btn, .car-format-btn span, .script-edit-btn, .btn-storyboard,
+.affiner-toggle, .btn-montage-lancer, .btn-regenerate, .btn-regenerate.mini,
+.btn-restart, .btn-actualiser, .copy-btn, .share-btn, .idea-btn-copy,
+.idea-btn-share, .idea-btn-script, .action-btn, .gen-skip-btn, .hist-tool-btn,
+.sb-generate-btn, .genimg-btn, .aw-nav button, .modal-btn, .modal-btn-ghost,
+.ds-scope-btn, .btn-montage-primary {
+  font-size:0.62rem;
+  letter-spacing:0.13em;
+}
+/* Seule exception d'espacement, expliquée ci-dessus. */
+.btn-back{letter-spacing:0.02em}
