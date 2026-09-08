@@ -4404,3 +4404,26 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
   .hero-cta-arrow svg{animation:flecheCtaInvite 1.9s ease-in-out infinite}
   body.creer-ouvert .hero-cta-arrow svg{animation:none}
 }
+
+/* ── PRISE DE VOIX AU MICRO ──
+   Suggestion d'un vrai utilisateur : enregistrer sa voix off dans l'app plutôt
+   que de la faire générer.
+   PENDANT LA PRISE, L'ÉCRAN NE SERT QU'À ÇA : un point rouge qui pulse (on
+   enregistre), un chronomètre, une jauge de niveau, et le texte à lire. Le
+   reste de la section disparaît, parce qu'à cet instant le créateur lit.
+   LA JAUGE DE NIVEAU N'EST PAS UN GADGET : sans elle, on découvre qu'on était
+   trop loin du micro APRÈS avoir lu tout son texte, et on recommence. */
+.voix-prise{border:1px solid rgba(224,85,85,0.35);background:rgba(224,85,85,0.06);border-radius:14px;padding:14px 16px}
+.voix-prise-tete{display:flex;align-items:center;gap:10px}
+.voix-prise-point{flex:0 0 auto;width:10px;height:10px;border-radius:50%;background:#E05555}
+.voix-prise-chrono{font-family:'Poppins',sans-serif;font-size:0.95rem;font-weight:600;color:var(--white);font-variant-numeric:tabular-nums}
+.voix-prise-jauge{flex:1;height:6px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden}
+.voix-prise-jauge-fill{display:block;height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width .08s linear}
+.voix-prise-texte{margin-top:12px;max-height:180px;overflow-y:auto;font-size:1rem;line-height:1.7;color:rgba(255,255,255,0.88)}
+@media(prefers-reduced-motion:no-preference){
+  .voix-prise-point{animation:voixPrisePoint 1.2s ease-in-out infinite}
+}
+@keyframes voixPrisePoint{
+  0%, 100%{opacity:1}
+  50%{opacity:0.35}
+}

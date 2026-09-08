@@ -47,6 +47,8 @@ function omLabelVitesse(v) {
 let omVitesseVoix = 1;
 let omTexteNarration = '';
 let omVoixEnCours = false;
+let omVoixPriseEnCours = false;   // le micro tourne (voir js/voix-enregistree.js)
+let _omVoixChrono = null;
 let omMusique = null;        // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
 let omMusiqueEnCours = false;
 // Volume de la musique de fond relatif à la voix off (retour propriétaire),
@@ -66,6 +68,10 @@ function omResetState() {
   omVitesseVoix = 1;
   omTexteNarration = '';
   omVoixEnCours = false;
+  // Micro relâché : sinon la pastille rouge du téléphone reste allumée.
+  if (typeof annulerEnregistrementVoix === 'function') annulerEnregistrementVoix();
+  if (_omVoixChrono) { clearInterval(_omVoixChrono); _omVoixChrono = null; }
+  omVoixPriseEnCours = false;
   if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
   omMusique = null;
   omMusiqueEnCours = false;
@@ -324,9 +330,38 @@ function omRenderVoixZone() {
          </div>`
       : '';
     const boutonUploadClasse = (omAudio && omAudio.source === 'upload') ? 'btn-regenerate' : 'btn-montage-primary';
+    // PENDANT LA PRISE, plus rien d'autre : le créateur lit son texte.
+    if (omVoixPriseEnCours) {
+      zone.innerHTML = `
+        <div class="voix-prise">
+          <div class="voix-prise-tete">
+            <span class="voix-prise-point" aria-hidden="true"></span>
+            <span class="voix-prise-chrono" id="omVoixChrono">0:00</span>
+            <span class="voix-prise-jauge" aria-hidden="true"><span class="voix-prise-jauge-fill" id="omVoixNiveau"></span></span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-montage-primary" style="width:auto;flex:1 1 160px" onclick="omArreterPriseVoix()" type="button">Terminer</button>
+            <button class="btn-regenerate" onclick="omAnnulerPriseVoix()" type="button">Annuler</button>
+          </div>
+        </div>`;
+      omRenderMusiqueZone();
+      omMajChipVoix();
+      omMajCaseSousTitres();
+      return;
+    }
+    // DEUX FAÇONS DE FOURNIR SA PROPRE VOIX : un fichier déjà enregistré, ou
+    // le micro tout de suite. La bascule du dessus choisit la SOURCE (la
+    // mienne ou l'IA) ; ici on choisit seulement par quel moyen.
+    // Le bouton micro n'apparaît que si le navigateur sait l'ouvrir.
+    const micro = enregistrementVoixDisponible()
+      ? `<button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">Enregistrer ma voix</button>`
+      : '';
     zone.innerHTML = `
       <input type="file" id="omAudioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>
-      <button class="${boutonUploadClasse}" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
+      <div class="montage-musique-choix">
+        <button class="${boutonUploadClasse}" type="button" onclick="document.getElementById('omAudioInput').click()">${omAudio && omAudio.source === 'upload' ? '↻ Changer de fichier' : 'Choisir un fichier audio'}</button>
+        ${micro}
+      </div>
       ${preview}`;
     omRenderMusiqueZone();
     omMajChipVoix();
@@ -431,6 +466,83 @@ function omLireDureeAudio(fichier) {
     audio.onerror = () => fini(0);
     audio.src = url;
   });
+}
+
+// ── ENREGISTRER SA VOIX ICI AUSSI ──
+// Le mécanisme du micro vit dans js/voix-enregistree.js, partagé avec le
+// montage qui suit un storyboard. Livrer une fonctionnalité d'un seul côté
+// puis l'oublier de l'autre, ce projet l'a déjà fait deux fois aujourd'hui
+// (import MP3, bouton musique) : la troisième n'aura pas lieu.
+//
+// Une prise se comporte exactement comme un fichier importé (source 'upload')
+// et hérite donc de tout ce qui existe déjà : durées réglables à la main,
+// aperçu, sous-titres. Ce n'est pas de la paresse, c'est exact : dans les deux
+// cas on a un fichier audio sans le moindre repère temporel.
+async function omDemarrerPriseVoix() {
+  if (omVoixPriseEnCours || omVoixEnCours) return;
+  const err = document.getElementById('omErreur');
+  if (err) err.style.display = 'none';
+  try {
+    // Affichage AVANT l'ouverture du micro : la demande d'autorisation du
+    // navigateur se pose par-dessus, et on doit comprendre à quoi on dit oui.
+    omVoixPriseEnCours = true;
+    omRenderVoixZone();
+    await demarrerEnregistrementVoix(
+      function (niveau) {
+        const jauge = document.getElementById('omVoixNiveau');
+        if (jauge) jauge.style.width = Math.round(niveau * 100) + '%';
+      },
+      function () {
+        if (err) { err.textContent = 'Enregistrement arrêté : la limite de 10 minutes est atteinte.'; err.style.display = 'block'; }
+      }
+    );
+  } catch (e) {
+    omVoixPriseEnCours = false;
+    omRenderVoixZone();
+    if (err) { err.textContent = e.message; err.style.display = 'block'; }
+    return;
+  }
+  const debut = Date.now();
+  _omVoixChrono = setInterval(function () {
+    const el = document.getElementById('omVoixChrono');
+    if (!el) return;
+    const s = Math.floor((Date.now() - debut) / 1000);
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }, 250);
+}
+
+function _omArreterChronoVoix() {
+  if (_omVoixChrono) { clearInterval(_omVoixChrono); _omVoixChrono = null; }
+}
+
+async function omArreterPriseVoix() {
+  if (!omVoixPriseEnCours) return;
+  const err = document.getElementById('omErreur');
+  _omArreterChronoVoix();
+  try {
+    const prise = await arreterEnregistrementVoix();
+    omVoixPriseEnCours = false;
+    if (prise) {
+      if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
+      omAudio = { blob: prise.blob, url: prise.url, duree: prise.duree,
+        nom: 'Ma voix', source: 'upload' };
+      omDureesManuelles = [];   // recalculées à parts égales, comme un import
+      omInvaliderResultat();
+    }
+  } catch (e) {
+    omVoixPriseEnCours = false;
+    if (err) { err.textContent = e.message; err.style.display = 'block'; }
+  }
+  omRenderVoixZone();
+  omRenderDureesManuelles();
+  omMajBoutonLancer();
+}
+
+function omAnnulerPriseVoix() {
+  _omArreterChronoVoix();
+  annulerEnregistrementVoix();
+  omVoixPriseEnCours = false;
+  omRenderVoixZone();
 }
 
 async function omAudioFichierChoisi(fichier) {
@@ -810,7 +922,13 @@ async function omLancerMontage() {
 
     let audioUrl;
     try {
-      const extAudio = omAudio.source === 'ia' ? 'mp3' : omExtensionDeFichier({ name: omAudio.nom });
+      // L'EXTENSION VIENT DU TYPE DU FICHIER, pas de son nom. omExtensionDeFichier
+      // sert aux IMAGES : sans extension dans le nom, il retombe sur « jpg ».
+      // Une prise au micro s'appelle « Ma voix », sans extension : elle serait
+      // partie en « voix-off.jpg ». Vérifié avant de livrer.
+      const extAudio = omAudio.source === 'ia'
+        ? 'mp3'
+        : extensionAudioDepuisType(omAudio.blob && omAudio.blob.type);
       const cheminAudio = dossier + '/voix-off.' + extAudio;
       const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, omAudio.blob, { contentType: omAudio.blob.type || 'audio/mpeg' });
       if (errAudio) throw new Error(errAudio.message);

@@ -14,4 +14,15 @@ async function lancerNavigateur() {
   return chromium.launch(options);
 }
 
-module.exports = { lancerNavigateur };
+// Variante pour les tests qui ouvrent le MICRO (prise de voix off). Chromium
+// fournit un micro factice qui émet un bip continu, et accepte la demande
+// d'autorisation sans interaction : sans ces deux drapeaux, getUserMedia reste
+// bloqué indéfiniment en headless et le test expire au lieu d'échouer
+// clairement.
+async function lancerNavigateurAvecMicro() {
+  const options = fs.existsSync(CHEMIN_CHROMIUM_LOCAL) ? { executablePath: CHEMIN_CHROMIUM_LOCAL } : {};
+  options.args = ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'];
+  return chromium.launch(options);
+}
+
+module.exports = { lancerNavigateur, lancerNavigateurAvecMicro };

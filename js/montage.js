@@ -25,6 +25,9 @@
 let montagePlans = [];      // [{ text, visuel }], un par plan du storyboard
 let montageImages = [];     // [{ blob, apercu } | null], même ordre/longueur que montagePlans
 let montageVoixOff = null;  // { blob, url, durations }, générée par ElevenLabs
+                            // ou enregistrée au micro (enregistree: true)
+let montageVoixPriseEnCours = false;  // le micro tourne, le créateur lit son texte
+let _montageVoixChrono = null;
 let montageMusique = null;  // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
 // Volume de la musique de fond relatif à la voix off (retour propriétaire),
 // transmis au rendu (musicVolume, voir render-service/server.js pour le
@@ -99,6 +102,13 @@ function ouvrirMontage(plans, boutonEl) {
   montageImages = new Array(montagePlans.length).fill(null);
   montageImagesSelection = new Set();
   montageStyleOverride = '';
+  // Une prise en cours quand on ouvre un autre montage : le micro doit être
+  // relâché, sinon la pastille rouge du téléphone reste allumée et le
+  // navigateur continue de l'écouter pour rien.
+  if (typeof annulerEnregistrementVoix === 'function') annulerEnregistrementVoix();
+  _arreterChronoVoixMontage();
+  montageVoixPriseEnCours = false;
+  libererVoixOffMontage();
   montageVoixOff = null;
   montageMusique = null;
   montageVitesseVoix = 1;
@@ -553,6 +563,93 @@ async function convertirAudioVersWav(blob) {
   }
 }
 
+// ── ENREGISTRER SA VOIX PLUTÔT QUE LA FAIRE GÉNÉRER ──
+// Suggestion d'un vrai utilisateur. Le mécanisme du micro vit dans
+// js/voix-enregistree.js, partagé avec le montage manuel : cet écran-ci ne
+// s'occupe que de ce qu'il sait, l'état du montage et l'affichage.
+async function demarrerPriseVoixMontage() {
+  if (montageVoixPriseEnCours || montageVoixEnCours) return;
+  const err = document.getElementById('montageErreur');
+  if (err) err.style.display = 'none';
+  if (!montagePlans.length) {
+    if (err) { err.textContent = 'Aucun plan à raconter : ouvre le montage depuis un storyboard.'; err.style.display = 'block'; }
+    return;
+  }
+  try {
+    // On passe à l'affichage AVANT d'ouvrir le micro : le navigateur montre sa
+    // demande d'autorisation par-dessus, et le créateur doit comprendre à quoi
+    // il dit oui.
+    montageVoixPriseEnCours = true;
+    renderMontageEtat();
+    await demarrerEnregistrementVoix(
+      function (niveau) {
+        const jauge = document.getElementById('montageVoixNiveau');
+        if (jauge) jauge.style.width = Math.round(niveau * 100) + '%';
+      },
+      function () {
+        if (err) { err.textContent = 'Enregistrement arrêté : la limite de 10 minutes est atteinte.'; err.style.display = 'block'; }
+      }
+    );
+  } catch (e) {
+    montageVoixPriseEnCours = false;
+    renderMontageEtat();
+    if (err) { err.textContent = e.message; err.style.display = 'block'; }
+    return;
+  }
+  // Chronomètre : le seul repère dont on dispose quand on lit un texte les
+  // yeux sur l'écran.
+  const debut = Date.now();
+  _montageVoixChrono = setInterval(function () {
+    const el = document.getElementById('montageVoixChrono');
+    if (!el) return;
+    const s = Math.floor((Date.now() - debut) / 1000);
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }, 250);
+}
+
+function _arreterChronoVoixMontage() {
+  if (_montageVoixChrono) { clearInterval(_montageVoixChrono); _montageVoixChrono = null; }
+}
+
+async function arreterPriseVoixMontage() {
+  if (!montageVoixPriseEnCours) return;
+  const err = document.getElementById('montageErreur');
+  _arreterChronoVoixMontage();
+  try {
+    const prise = await arreterEnregistrementVoix();
+    montageVoixPriseEnCours = false;
+    if (!prise) { renderMontageEtat(); return; }
+    // SYNCHRO AU PRORATA DES MOTS : un enregistrement n'a pas les horodatages
+    // caractère par caractère d'ElevenLabs. Voir repartirDureesParMots.
+    const durations = repartirDureesParMots(montagePlans.map(p => p.text), prise.duree);
+    libererVoixOffMontage();
+    montageVoixOff = {
+      blob: prise.blob, url: prise.url, durations,
+      enregistree: true, type: prise.type
+    };
+  } catch (e) {
+    montageVoixPriseEnCours = false;
+    if (err) { err.textContent = e.message; err.style.display = 'block'; }
+  }
+  renderMontageEtat();
+}
+
+function annulerPriseVoixMontage() {
+  _arreterChronoVoixMontage();
+  annulerEnregistrementVoix();
+  montageVoixPriseEnCours = false;
+  renderMontageEtat();
+}
+
+// L'URL d'objet d'une voix enregistrée retient le fichier ENTIER en mémoire
+// tant qu'elle vit. Une voix générée vient d'une adresse construite pareil,
+// donc les deux se libèrent de la même façon.
+function libererVoixOffMontage() {
+  if (montageVoixOff && montageVoixOff.url && /^blob:/.test(montageVoixOff.url)) {
+    URL.revokeObjectURL(montageVoixOff.url);
+  }
+}
+
 async function telechargerVoixOffMontage() {
   if (!montageVoixOff) return;
   const err = document.getElementById('montageErreur');
@@ -563,7 +660,10 @@ async function telechargerVoixOffMontage() {
       const wavBlob = await convertirAudioVersWav(montageVoixOff.blob);
       telechargerBlob(wavBlob, 'scriptura-voix-off.wav');
     } else {
-      telechargerBlob(montageVoixOff.blob, 'scriptura-voix-off.mp3');
+      // Même raison qu'au téléversement : on ne renomme pas un enregistrement
+      // en .mp3, il ne s'ouvrirait pas partout.
+      const ext = extensionAudioDepuisType(montageVoixOff.blob.type || 'audio/mpeg');
+      telechargerBlob(montageVoixOff.blob, 'scriptura-voix-off.' + ext);
     }
   } catch (e) {
     if (err) { err.textContent = 'Erreur de téléchargement voix off : ' + e.message; err.style.display = 'block'; }
@@ -1143,14 +1243,51 @@ function renderMontageEtat() {
         <audio class="montage-audio-preview" src="${montageVoixOff.url}" controls></audio>
         <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <select class="ctx-input" id="montageAudioFormatSelect" style="flex:0 0 auto;width:auto">
-            <option value="mp3">MP3</option>
+            <option value="mp3">${montageVoixOff.enregistree
+              ? extensionAudioDepuisType(montageVoixOff.blob.type || '').toUpperCase()
+              : 'MP3'}</option>
             <option value="wav">WAV</option>
           </select>
           <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">Télécharger</button>
         </div>
-        <button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`;
+        ${montageVoixOff.enregistree
+          ? `<button class="btn-regenerate" style="margin-top:10px" onclick="demarrerPriseVoixMontage()" type="button">↻ Refaire la prise</button>`
+          : `<button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`}`;
+    } else if (montageVoixPriseEnCours) {
+      // PENDANT LA PRISE. On n'affiche ni bouton de génération ni aperçu : à
+      // cet instant le créateur lit son texte, tout le reste est du bruit.
+      const texte = montagePlans.map(p => p.text).join(' ');
+      zoneVoix.innerHTML = `
+        <div class="voix-prise">
+          <div class="voix-prise-tete">
+            <span class="voix-prise-point" aria-hidden="true"></span>
+            <span class="voix-prise-chrono" id="montageVoixChrono">0:00</span>
+            <span class="voix-prise-jauge" aria-hidden="true"><span class="voix-prise-jauge-fill" id="montageVoixNiveau"></span></span>
+          </div>
+          <div class="voix-prise-texte" id="montageVoixTexte">${auditEsc(texte)}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-montage-primary" style="width:auto;flex:1 1 160px" onclick="arreterPriseVoixMontage()" type="button">Terminer</button>
+            <button class="btn-regenerate" onclick="annulerPriseVoixMontage()" type="button">Annuler</button>
+          </div>
+        </div>`;
     } else {
-      zoneVoix.innerHTML = `<button class="btn-montage-primary" onclick="genererVoixOffMontage()" type="button">Générer la voix off</button>`;
+      // DEUX CHEMINS À ÉGALITÉ, mêmes mots et même ordre que le montage
+      // manuel : on enregistre sa voix, ou on la fait générer. L'ordre place
+      // l'enregistrement à gauche, comme là-bas.
+      // Le bouton d'enregistrement ne s'affiche QUE si le navigateur sait le
+      // faire : proposer un micro qui ne s'ouvrira pas est pire que ne rien
+      // proposer.
+      const micro = enregistrementVoixDisponible()
+        ? `<button class="btn-regenerate" style="margin:0" onclick="demarrerPriseVoixMontage()" type="button">Enregistrer ma voix</button>`
+        : '';
+      zoneVoix.innerHTML = `
+        <div class="montage-musique-choix">
+          ${micro}
+          <button class="btn-montage-primary" onclick="genererVoixOffMontage()" type="button">Générer avec l'IA</button>
+        </div>
+        <div class="ideas-sub" style="margin-top:8px;opacity:0.6">${micro
+          ? 'Ta voix ne consomme aucun quota. La voix IA lit le texte de tes plans, avec une synchronisation à la milliseconde.'
+          : 'La voix IA lit le texte de tes plans, avec une synchronisation à la milliseconde.'}</div>`;
     }
   }
   // Pastille d'état de l'en-tête "Voix off" (retour propriétaire).
@@ -1298,8 +1435,13 @@ async function lancerMontage() {
 
     let dataAudio;
     try {
-      const cheminAudio = dossier + '/voix-off.mp3';
-      const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageVoixOff.blob, { contentType: 'audio/mpeg' });
+      // L'EXTENSION SUIT LE VRAI FICHIER. C'était « .mp3 » en dur, ce qui
+      // était juste tant que la voix venait d'ElevenLabs (toujours du MP3) et
+      // devient faux dès qu'elle vient du micro : un webm nommé .mp3 et servi
+      // en audio/mpeg, c'est un fichier qui ment sur ce qu'il est.
+      const typeAudio = montageVoixOff.blob.type || 'audio/mpeg';
+      const cheminAudio = dossier + '/voix-off.' + extensionAudioDepuisType(typeAudio);
+      const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageVoixOff.blob, { contentType: typeAudio });
       if (errAudio) throw new Error(errAudio.message);
       dataAudio = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data;
     } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
