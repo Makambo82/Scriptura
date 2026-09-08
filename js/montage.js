@@ -926,7 +926,80 @@ async function genererMusiqueMontage() {
   }
 }
 
+// ── IMPORTER SA PROPRE MUSIQUE (MP3) ──
+//
+// Demande du propriétaire. Beaucoup de créateurs ont déjà leur piste, ou une
+// musique libre de droits imposée par leur niche : leur faire générer une
+// musique dont ils ne veulent pas, c'est leur faire perdre du temps ET du
+// quota.
+//
+// MP3 SEULEMENT, et son raisonnement est juste : un WAV est de l'audio non
+// compressé, environ 10 Mo la minute contre 1,4 Mo en MP3 à 128 kbit/s. Ce
+// n'est pas tant la mémoire de FFmpeg qui souffrirait (il décode au fil de
+// l'eau) que le trajet du fichier : téléversement depuis un téléphone en
+// connexion mobile, stockage, puis re-téléchargement par le service de rendu.
+// Sur une seule vidéo de trois minutes, c'est 30 Mo contre 4.
+//
+// RIEN À CHANGER CÔTÉ RENDU : le service reçoit déjà une simple URL publique
+// et boucle la musique (-stream_loop -1) puis la coupe à la durée de la voix
+// off (amix duration=first). Une piste plus courte que la vidéo se répétera
+// donc toute seule, une plus longue sera coupée net. C'est exactement le
+// comportement voulu, il existait déjà pour la musique générée.
+const MUSIQUE_IMPORT_MAX_MO = 15;
+
+function importerMusiqueMontage(input) {
+  const err = document.getElementById('montageErreur');
+  const fichier = input && input.files && input.files[0];
+  // Le champ est remis à zéro TOUT DE SUITE : sans ça, réimporter le même
+  // fichier après l'avoir retiré ne déclencherait aucun événement (le
+  // navigateur considère que la valeur n'a pas changé) et le créateur
+  // croirait l'app cassée.
+  if (input) input.value = '';
+  if (!fichier) return;
+
+  const nom = String(fichier.name || '');
+  const estMp3 = /^audio\/(mpeg|mp3)$/i.test(fichier.type || '') || /\.mp3$/i.test(nom);
+  if (!estMp3) {
+    if (err) {
+      err.textContent = 'Seuls les fichiers MP3 sont acceptés. Un WAV ou un M4A pèse plusieurs fois '
+        + 'plus lourd pour la même durée, et le montage passerait son temps à le transférer.';
+      err.style.display = 'block';
+    }
+    return;
+  }
+  if (fichier.size > MUSIQUE_IMPORT_MAX_MO * 1024 * 1024) {
+    if (err) {
+      err.textContent = 'Ce MP3 fait ' + Math.round(fichier.size / (1024 * 1024)) + ' Mo, la limite est '
+        + MUSIQUE_IMPORT_MAX_MO + ' Mo. Une musique de fond n\'a pas besoin d\'être plus longue que ta '
+        + 'vidéo : elle se répète toute seule si elle est plus courte.';
+      err.style.display = 'block';
+    }
+    return;
+  }
+  if (err) err.style.display = 'none';
+
+  libererMusiqueMontage();
+  montageMusique = {
+    blob: fichier,
+    url: URL.createObjectURL(fichier),
+    importee: true,
+    nom: nom.replace(/\.mp3$/i, '').slice(0, 60)
+  };
+  renderMontageEtat();
+}
+
+// L'URL d'objet d'un fichier importé retient le fichier ENTIER en mémoire
+// tant qu'elle n'est pas révoquée. Sur un téléphone, importer trois musiques
+// de suite en garderait trois. Les musiques générées, elles, viennent d'une
+// URL distante : rien à libérer, d'où le test sur `importee`.
+function libererMusiqueMontage() {
+  if (montageMusique && montageMusique.importee && montageMusique.url) {
+    try { URL.revokeObjectURL(montageMusique.url); } catch (e) { /* sans conséquence */ }
+  }
+}
+
 function retirerMusiqueMontage() {
+  libererMusiqueMontage();
   montageMusique = null;
   renderMontageEtat();
 }
@@ -1078,14 +1151,35 @@ function renderMontageEtat() {
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageMusiqueProgFill"></div></div>
       </div>`;
     } else if (montageMusique) {
+      // PAS DE « RÉGÉNÉRER » SUR UNE MUSIQUE IMPORTÉE : ce bouton remplacerait
+      // le fichier du créateur par une musique inventée, sans prévenir, et
+      // consommerait son quota pour lui reprendre ce qu'il venait de choisir.
+      // On lui propose de changer de fichier, ce qui est le geste équivalent.
+      const importee = !!montageMusique.importee;
       zoneMusique.innerHTML = `
+        ${importee && montageMusique.nom ? `<div class="ideas-sub" style="margin-bottom:8px;opacity:0.75">${auditEsc(montageMusique.nom)}</div>` : ''}
         <audio class="montage-audio-preview" src="${montageMusique.url}" controls></audio>
         <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
-          <button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button">↻ Régénérer</button>
+          ${importee
+            ? `<label class="btn-regenerate" style="cursor:pointer;margin:0">Changer de MP3
+                 <input type="file" accept="audio/mpeg,.mp3" style="display:none" onchange="importerMusiqueMontage(this)"/>
+               </label>`
+            : `<button class="btn-regenerate" onclick="genererMusiqueMontage()" type="button">↻ Régénérer</button>`}
           <button class="btn-regenerate" onclick="retirerMusiqueMontage()" type="button">Retirer</button>
         </div>`;
     } else {
-      zoneMusique.innerHTML = `<button class="btn-montage-primary" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>`;
+      // Deux chemins, à égalité : générer une musique, ou importer la sienne.
+      // L'import ne dépend PAS de la voix off (contrairement à la génération,
+      // qui a besoin de sa durée) : un créateur peut donc déposer son MP3
+      // avant même d'avoir généré la voix, au moment où il y pense.
+      zoneMusique.innerHTML = `
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn-montage-primary" style="width:auto;flex:1 1 200px" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>
+          <label class="btn-regenerate" style="cursor:pointer;margin:0">Importer un MP3
+            <input type="file" accept="audio/mpeg,.mp3" style="display:none" onchange="importerMusiqueMontage(this)"/>
+          </label>
+        </div>
+        <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Ta musique se répète toute seule si elle est plus courte que la vidéo, et se coupe à la fin si elle est plus longue.</div>`;
     }
   }
 
