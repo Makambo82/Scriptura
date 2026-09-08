@@ -25,7 +25,14 @@ const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet
 // 2. ÉCRIRE COURT NE SUFFIT PAS. Le découpeur REGROUPE les phrases courtes
 //    jusqu'à son plafond : mesuré sur un script à 7 mots de moyenne par
 //    phrase, il produisait quand même un plan de 8,8 s. Le problème n'était
-//    donc pas seulement dans le texte généré, il était ici.
+//    donc pas seulement dans le texte généré, il était ici. C'est ce qui a
+//    conduit à la règle « une phrase = un plan », plus bas.
+//
+// L'AMPLEUR RÉELLE, mesurée après coup sur la version en ligne (cf68abb) et
+// notée ici parce que je l'avais d'abord sous-estimée en comparant deux
+// variantes du NOUVEAU code au lieu de l'ancien : sur un récit réel, elle
+// produisait des plans de 18,4 s / 14,0 s / 13,2 s. La plainte de
+// l'utilisateur était donc très en dessous de la vérité.
 //
 // DEUX SEUILS, PAS UN, parce que la consigne en contient deux : « maxi 5
 // secondes, du moins entre 4-6 secondes max rigoureusement ».
@@ -36,6 +43,20 @@ const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet
 // Avoir deux seuils évite de casser un plan de 5,6 s en 3,6 + 2,0 pour
 // gagner une demi-seconde : chaque plan de plus est une image générée,
 // facturée 0,05 € et décomptée du quota mensuel (20 images pour un Creator).
+//
+// ── CE QUE ÇA COÛTE, MESURÉ, ET IL FAUT LE SAVOIR ──
+// Des plans plus courts, c'est mécaniquement PLUS D'IMAGES. Sur les trois
+// écritures que l'app produit, en images pour une vidéo de 60 secondes :
+//                                       récit long  script punchy  script vente
+//   avant (plans de 12 à 18 s)               5             15            11
+//   après le découpage corrigé              14             19            17
+//   après « une phrase = un plan »          14             26            17
+// Le pire cas passe donc de 15 à 26 images pour une minute de vidéo. Rapporté
+// au quota (api/_lib/acces.js), un Creator descend de 85 s à 47 s de vidéo
+// montée par mois, un Pro de 256 s à 140 s. C'est le prix du rythme demandé,
+// et c'est un arbitrage de produit, pas un réglage technique : si le quota
+// doit bouger, c'est LIMITES_MOIS.montageImages qu'il faut revoir, pas ces
+// deux seuils.
 const DUREE_MAX = 5;        // cible de regroupement, secondes RÉELLEMENT parlées
 const DUREE_PLAFOND = 6;    // au-delà, on découpe à l'intérieur de la phrase
 
@@ -187,73 +208,41 @@ function prolongeLaMemeImage(precedente, courante) {
   return false;
 }
 
-// Score de rupture : 0-100. Au-delà du seuil = nouvelle image = nouveau plan.
-function computeNarrativeBreakScore(precedente, courante) {
-  if (!precedente) return 100;
-  // Règles de continuité : priment sur tout le reste
-  if (prolongeLaMemeImage(precedente, courante)) return 0;
+// ═══ UNE PHRASE = UN PLAN ═══
+//
+// La règle du propriétaire, dans ses mots : « chaque phrase courte = nouveau
+// plan mental = nouveau prompt dans le storyboard ».
+//
+// CE QUI SE PASSAIT AVANT, ET POURQUOI C'ÉTAIT LE VRAI DÉFAUT : le découpeur
+// REGROUPAIT par défaut et ne coupait que si un score de rupture dépassait un
+// seuil. Le rédacteur écrivait donc des phrases courtes, une par image, et le
+// découpeur les recollait derrière lui. Mesuré sur un script réel : 10 phrases
+// écrites, 6 plans produits, dont un qui écrasait « Une étude de Cambridge l'a
+// montré en 2013. Trois cents likes suffisent. Trois cents. » en UNE image,
+// alors que ce sont trois temps distincts.
+//
+// LE SCORE DE RUPTURE A ÉTÉ SUPPRIMÉ, pas désactivé. Il devinait l'image
+// mentale à partir de listes de mots écrites à la main (« brûle|meurt|explose »
+// pour les actions, « dakar|paris|londres » pour les lieux) : sur un sujet
+// qu'aucune de ces listes ne couvre, c'est-à-dire la plupart, il ne voyait
+// aucune rupture et collait tout. Une phrase EST une image mentale : c'est vrai
+// par construction, pas par vocabulaire.
+//
+// IL RESTE DEUX EXCEPTIONS, et seulement deux :
+//  1. La phrase ne porte pas d'image à elle seule et prolonge la précédente :
+//     subordonnée (« qui… », « que… »), fragment de précision sans sujet ni
+//     action, incise de dialogue, cartouche d'ouverture (« Paris, 1925. »).
+//     C'est prolongeLaMemeImage, qui existait déjà et servait déjà à ça.
+//  2. La phrase dure moins d'une seconde. En dessous, l'image n'a pas le temps
+//     d'être vue (même plancher que le service de rendu) : on paierait une
+//     image générée pour un flash. Elle rejoint sa voisine.
+const DUREE_PLAN_SEUL_MIN = 1;   // secondes parlées, plancher de visibilité
 
-  let score = 0;
-  const clsPrev = classifySentence(precedente);
-  const clsCur = classifySentence(courante);
-  const t = (courante || '').trim().toLowerCase();
-
-  // Priorité 4, révélation jamais collée à sa préparation
-  if (clsCur === 'revelation') score += 55;
-  if (clsPrev === 'revelation' && clsCur !== 'revelation') score += 50; // la chute a son propre plan
-  if ((clsPrev === 'preparation' && clsCur === 'revelation') ||
-      (clsPrev === 'revelation' && clsCur === 'preparation')) score += 40;
-
-  // Priorité 5, question / interpellation = leur propre image
-  if (clsCur === 'question') score += 60;
-  if (clsPrev === 'question' && clsCur !== 'question') score += 50; // ce qui suit une question a son propre plan
-  if (clsCur === 'interpellation' && clsPrev !== 'interpellation') score += 35;
-  // Adresse directe qui projette le spectateur ailleurs = changement de scène radical
-  if (/^(imagine|imaginez|regarde|regardez|écoute|ecoute|écoutez|vous êtes|tu es|vous voilà)/.test(t)) score += 30;
-
-  // Priorité 1, IMAGE MENTALE : nouvelle action ou nouveau sujet visuel
-  const ePrev = empreinteVisuelle(precedente);
-  const eCur = empreinteVisuelle(courante);
-  const nouvelleAction = eCur.actions.some(a => !ePrev.actions.includes(a));
-  const nouveauSujet = eCur.sujets.some(s => !ePrev.sujets.includes(s));
-  if (eCur.actions.length && nouvelleAction) score += 45;
-  if (eCur.sujets.length && nouveauSujet && ePrev.sujets.length) score += 25;
-
-  // Priorité 2, changement de scène (lieu, époque)
-  // Lieu nommé en tête de phrase : "À Nefis", "Au Mali", "En Libye" (nom propre = nouvelle scène)
-  let changementScene = false;
-  if (/^(À|A|Au|Aux|En|Dans|Vers|Depuis|à|au|aux|en|dans|vers|depuis)\s+[A-ZÀ-Ý][a-zà-ÿ]+/.test((courante || '').trim())) {
-    score += 45; changementScene = true;
-  }
-  if (/\b(à |a |dans |vers |depuis )(dakar|paris|londres|new york|afrique|europe|palais|bureau|maison|rue|ville|pays)\b/.test(t)) score += 20;
-  if (/\b(deux ans|trois ans|plus tard|à l'époque|aujourd'hui|hier|demain|en \d{4}|le lendemain|quelques années|désormais|maintenant)\b/.test(t)) score += 25;
-
-  // Situation explicite : "Nous sommes à…", "On est à…", "Direction…"
-  if (/^(nous sommes|on est|direction |retour |cap sur)/.test(t)) { score += 45; changementScene = true; }
-
-  // Série rhétorique (anaphore intentionnelle) : martelage = rupture = nouveau plan
-  if (detecteSerieRhethorique(precedente, courante)) score += 45;
-
-  // Priorité 3, connecteurs narratifs (indices forts, non mécaniques)
-  if (/^(mais|pourtant|cependant|sauf que|c'est alors que|jusqu'au jour où|ce qu'il ignorait|personne ne savait|le problème|désormais|or |alors)/.test(t)) score += 22;
-  // Succession temporelle ("Puis…", "Ensuite…") = nouveau moment = nouvelle image
-  if (/^(puis |ensuite |après |plus tard|quelques (heures|jours|minutes|semaines|mois|années))/.test(t)) score += 45;
-
-  // Continuité douce : rien de neuf visuellement → on prolonge
-  if (!nouvelleAction && !nouveauSujet && eCur.actions.length === 0 && !changementScene
-      && clsCur !== 'question' && clsCur !== 'revelation' && clsCur !== 'interpellation'
-      && clsPrev !== 'question' && clsPrev !== 'revelation') {
-    score -= 20;
-  }
-
-  return Math.max(0, Math.min(100, score));
-}
-
-// Construit les plans : narration d'abord, durée en dernier
+// Construit les plans : une phrase, une image ; la durée n'arbitre qu'aux
+// extrêmes (regroupement plafonné, et découpe des phrases trop longues).
 function buildNarrativeSegments(texte) {
   const phrases = splitIntoSentences(texte);
   if (!phrases.length) return [];
-  const SEUIL = 45;
 
   const plans = [];
   let courant = [];
@@ -261,29 +250,29 @@ function buildNarrativeSegments(texte) {
   for (let i = 0; i < phrases.length; i++) {
     const prev = i > 0 ? phrases[i - 1] : null;
     const cur = phrases[i];
-    const score = computeNarrativeBreakScore(prev, cur);
 
     if (courant.length === 0) { courant.push(cur); continue; }
 
-    const dureeSiAjout = dureeParleeDe(courant.join(' ') + ' ' + cur);
-
-    // Fragment d'ouverture (lieu/date : "Paris, 1925.") : seulement au TOUT DÉBUT,
-    // et seulement s'il n'a ni verbe conjugué ni ponctuation forte.
     const txtCourant = courant.join(' ');
-    // Cartouche d'ouverture : "Paris, 1925.", un lieu suivi d'une date, sans verbe.
-    // Ce n'est pas une image à lui seul : il rejoint la phrase suivante.
+    // Cartouche d'ouverture : "Paris, 1925.", un lieu suivi d'une date, sans
+    // verbe. Ce n'est pas une image à lui seul : il rejoint la phrase suivante.
     const estCartouche = /^[A-ZÀ-Ý][\wà-ÿ'-]*\s*,\s*(\d{4}|\d{1,2}\s+\w+|\w+\s+\d{4})\s*\.?$/.test(txtCourant.trim());
     const courantEstFragment = plans.length === 0 && courant.length === 1 && estCartouche;
 
-    if (score >= SEUIL && !courantEstFragment) {
-      plans.push(courant.join(' '));
-      courant = [cur];
-    } else if (dureeSiAjout > DUREE_MAX && !prolongeLaMemeImage(prev, cur)) {
-      // Priorité 6 (durée) : garde-fou, jamais critère de décision
-      plans.push(courant.join(' '));
-      courant = [cur];
-    } else {
+    const exception = courantEstFragment
+      || prolongeLaMemeImage(prev, cur)
+      || dureeParleeDe(cur) < DUREE_PLAN_SEUL_MIN
+      || dureeParleeDe(txtCourant) < DUREE_PLAN_SEUL_MIN;
+
+    // Le regroupement reste plafonné : deux phrases qui forment vraiment une
+    // seule image peuvent aller jusqu'au plafond dur, pas au-delà.
+    const rentre = dureeParleeDe(txtCourant + ' ' + cur) <= DUREE_PLAFOND;
+
+    if (exception && rentre) {
       courant.push(cur);
+    } else {
+      plans.push(txtCourant);
+      courant = [cur];
     }
   }
   if (courant.length) plans.push(courant.join(' '));
