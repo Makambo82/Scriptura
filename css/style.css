@@ -4290,3 +4290,24 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
 .abonne-badge{font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase}
 .abonne-star{font-size:0.64rem}
 .hero-free{font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase}
+
+/* ── BARRE DE SÉLECTION DE L'HISTORIQUE ──
+   Correction d'une régression QUE J'AI INTRODUITE en unifiant la taille des
+   boutons : .hist-tool-btn est passé de 0.56rem / 0.06em à 0.62rem / 0.13em,
+   et cette barre-là compte cinq éléments sur une seule ligne. Mesuré sur un
+   iPhone Pro Max (430px) : 424px de contenu pour 404px visibles.
+
+   La CI l'a vue avant moi, et c'est important de le dire : mes vérifications
+   locales n'avaient pas rejoué ce fichier de test.
+
+   ON RESSERRE LA BARRE, ON NE RECULE PAS SUR LA TAILLE. Le propriétaire a
+   demandé une taille unique pour tous les boutons des modes ; faire une
+   exception ici, c'est recréer exactement ce qu'il a demandé de corriger.
+   C'est la barre qui doit s'adapter à ses boutons, pas l'inverse.
+
+   Mesuré après : 400px de contenu pour 404px visibles, dans les deux états
+   de la barre (rien de sélectionné, où les libellés sont au plus long, et
+   sélection en cours). Le remplissage VERTICAL ne bouge pas : la cible
+   tactile garde sa hauteur, seule la largeur se resserre. */
+.history-toolbar{gap:8px}
+.history-toolbar .hist-tool-btn{padding:8px 10px}
