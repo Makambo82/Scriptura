@@ -387,16 +387,18 @@ function omRenderVoixZone() {
     const peutEnregistrer = enregistrementVoixDisponible();
 
     if (aUneVoix) {
-      // « Reprendre » plutôt que « Refaire la prise » : le mot du propriétaire,
-      // et le même sur les deux écrans de montage.
-      const reprendre = peutEnregistrer
-        ? `<button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">↻ Reprendre</button>`
-        : '';
+      // UNE FOIS LA VOIX VALIDÉE, « Reprendre » ET « Utiliser » DISPARAISSENT.
+      // Demande explicite du propriétaire. Ces deux boutons servent à trancher
+      // sur une prise qu'on vient d'écouter ; une fois qu'on a tranché, ils
+      // n'ont plus d'objet et ne font qu'inviter à défaire ce qu'on vient de
+      // décider.
+      // « Changer de fichier » reste, et ce n'est pas un oubli : sans lui il
+      // n'y aurait plus AUCUN moyen de revenir sur sa voix, et le créateur
+      // devrait recommencer tout son montage, images comprises.
       zone.innerHTML = `
         ${champFichier}
         ${preview}
         <div class="montage-musique-choix" style="margin-top:10px">
-          ${reprendre}
           <button class="btn-regenerate" style="margin:0" type="button" onclick="document.getElementById('omAudioInput').click()">Changer de fichier</button>
         </div>`;
     } else {

@@ -298,12 +298,16 @@ test('une prise devient la voix off du montage, avec ses durées', async () => {
       'et « Reprendre » doit être là aussi : écouter sans pouvoir refaire ne sert à rien.');
 
     assert.equal(vu.drapeauApres, false, 'la prise est terminée');
-    assert.match(vu.htmlApres, /Reprendre/,
-      'REGRESSION : après une prise, le bouton propose de « régénérer » au lieu de reprendre. '
-      + 'Un appui remplacerait la voix du créateur par une voix IA, sans prévenir, et en facturant '
-      + 'ElevenLabs au propriétaire.');
+    // UNE FOIS VALIDÉE, plus de « Reprendre » ni d'« Utiliser » : demande du
+    // propriétaire. Ces deux boutons servent à trancher sur une prise qu'on
+    // vient d'écouter ; la décision prise, ils n'ont plus d'objet.
+    assert.doesNotMatch(vu.htmlApres, /Reprendre|Utiliser/,
+      'REGRESSION : « Reprendre » ou « Utiliser » restent affichés après validation. Ils invitent '
+      + 'à défaire une décision qui vient d\'être prise. Vu : ' + String(vu.htmlApres).slice(0, 200));
     assert.doesNotMatch(vu.htmlApres, /Régénérer la voix off/,
-      'et le bouton de régénération IA ne doit PAS être proposé sur une voix enregistrée');
+      'REGRESSION : le bouton de régénération IA est proposé sur une voix ENREGISTRÉE. Un appui '
+      + 'remplacerait la voix du créateur par une voix inventée, sans prévenir, en facturant '
+      + 'ElevenLabs au propriétaire.');
   } finally {
     await navigateur.close();
     await arreter();
@@ -376,13 +380,13 @@ test('une fois la voix prête, les façons de l\'obtenir laissent place aux acti
       + 'option brouille le choix.');
 
     assert.equal(vu.aUnLecteur, true, 'on doit pouvoir se réécouter avant de monter');
-    assert.match(vu.apres, /Reprendre/,
-      'REGRESSION : plus aucun moyen de refaire la prise après l\'avoir écoutée. On serait coincé '
-      + 'avec un enregistrement raté.');
+    assert.doesNotMatch(vu.apres, /Reprendre|Utiliser/,
+      'REGRESSION : « Reprendre » ou « Utiliser » restent affichés une fois la voix validée. '
+      + 'Demande du propriétaire : la décision prise, ces deux boutons n\'ont plus d\'objet.');
     assert.match(vu.apres, /Changer de fichier/,
-      'REGRESSION : plus aucun moyen de remplacer la voix par un fichier. En retirant la rangée du '
-      + 'dessus sans remettre cette possibilité, on aurait supprimé une fonctionnalité au lieu de '
-      + 'ranger l\'écran.');
+      'REGRESSION : plus aucun moyen de revenir sur sa voix une fois validée. Le créateur devrait '
+      + 'recommencer tout son montage, images comprises, pour changer une voix off ratée. C\'est le '
+      + 'dernier garde-fou après le retrait de « Reprendre ».');
 
     assert.equal(vu.boutonsApresLecteur, true,
       'REGRESSION : les actions sont repassées AU-DESSUS du lecteur. On écoute d\'abord, on décide '

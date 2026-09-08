@@ -1291,7 +1291,11 @@ function renderMontageEtat() {
           <button class="btn-regenerate" style="flex:0 0 auto" onclick="telechargerVoixOffMontage()" type="button">Télécharger</button>
         </div>
         ${montageVoixOff.enregistree
-          ? `<button class="btn-regenerate" style="margin-top:10px" onclick="demarrerPriseVoixMontage()" type="button">↻ Reprendre</button>`
+          ? ''   // UNE FOIS LA VOIX VALIDÉE, « Reprendre » DISPARAÎT AUSSI ICI.
+                 // Demande du propriétaire, appliquée aux deux écrans pour ne
+                 // pas recréer un écart entre eux. Conséquence assumée et
+                 // signalée : une voix enregistrée puis validée ne se change
+                 // plus sur cet écran.
           : `<button class="btn-regenerate" style="margin-top:10px" onclick="genererVoixOffMontage()" type="button">↻ Régénérer la voix off</button>`}`;
     } else if (montageVoixPriseEnCours) {
       // PENDANT LA PRISE. On n'affiche ni bouton de génération ni aperçu : à
