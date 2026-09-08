@@ -24,6 +24,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+// Les mocks de fetch de ce fichier doivent se comporter comme de VRAIES réponses
+// (avoir un .text() et un .status), sans quoi ils valident du code qui ne marche
+// qu'avec eux. Voir tests/helpers/fetch-fidele.js.
+require('./helpers/fetch-fidele').rendreLesMocksFideles();
+
 const PHOTO = { base64: 'UklGRhIAAABXRUJQ', mediaType: 'image/jpeg' };
 
 function poserEnv(extra) {

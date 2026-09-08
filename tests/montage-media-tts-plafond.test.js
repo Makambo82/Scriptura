@@ -9,6 +9,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+// Les mocks de fetch de ce fichier doivent se comporter comme de VRAIES réponses
+// (avoir un .text() et un .status), sans quoi ils valident du code qui ne marche
+// qu'avec eux. Voir tests/helpers/fetch-fidele.js.
+require('./helpers/fetch-fidele').rendreLesMocksFideles();
+
 test('/api/montage-media action=tts refuse clairement un trop grand nombre de segments, sans jamais tronquer en silence', async () => {
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_TTS_PLAFOND';

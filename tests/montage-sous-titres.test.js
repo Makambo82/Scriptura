@@ -18,6 +18,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+// Les mocks de fetch de ce fichier doivent se comporter comme de VRAIES réponses
+// (avoir un .text() et un .status), sans quoi ils valident du code qui ne marche
+// qu'avec eux. Voir tests/helpers/fetch-fidele.js.
+require('./helpers/fetch-fidele').rendreLesMocksFideles();
+
 function mockRes() {
   return { _status: 200, _json: null, status(c) { this._status = c; return this; }, json(o) { this._json = o; return this; } };
 }

@@ -12,6 +12,29 @@
 
 import { resoudreDroits, verifierAccesMontage, verifierQuota, rembourserUsage } from './_lib/acces.js';
 
+// ══ LIRE UNE RÉPONSE QUI N'EST PAS FORCÉMENT DU JSON ══
+//
+// UNE FAMILLE DE DÉFAUTS, PAS UN CAS ISOLÉ, et c'est pour ça que ça vit ici.
+// Ce fichier appelle trois fournisseurs (Together pour les images, ElevenLabs
+// pour la voix et la musique). Chacun peut répondre autre chose que du JSON :
+// une passerelle en panne renvoie du HTML, un 502 renvoie parfois un corps
+// vide. `await rep.json()` lève alors une SyntaxError, et ce qui arrivait sous
+// les yeux du créateur, c'était « Unexpected token '<', "<html> <h"... is not
+// valid JSON ». Deux endroits faisaient exactement ça, et un troisième
+// (la musique) s'en gardait déjà, preuve que le piège était connu sans avoir
+// été traité partout.
+//
+// Rend l'objet analysé, ou null. Jamais d'exception : c'est l'appelant qui
+// décide quoi dire et s'il faut réessayer, en connaissant le statut HTTP.
+function analyserJson(brut) {
+  if (!brut) return null;
+  try { return JSON.parse(brut); } catch (e) { return null; }
+}
+
+async function lireJsonOuNull(rep) {
+  return analyserJson(await rep.text().catch(() => ''));
+}
+
 // ═══ DOWNLOAD (voir l'ancien api/montage-download.js) ═══
 
 const HOTES_AUTORISES = [/^nlkfqxllunbvppulpnzl\.supabase\.co$/i];
@@ -214,7 +237,15 @@ async function handleTts(req, res, body) {
         body: JSON.stringify({ text: texteComplet, model_id: 'eleven_multilingual_v2', voice_settings: { speed } })
       }
     );
-    const data = await rep.json();
+    // Même garde que pour les images (voir genererAvecForme) : une passerelle
+    // en panne répond du HTML, et `await rep.json()` transformait ça en
+    // « Erreur serveur : Unexpected token '<'… » affiché au créateur.
+    const data = await lireJsonOuNull(rep);
+    if (data === null) {
+      return res.status(502).json({
+        error: { message: 'Le service de voix off a répondu quelque chose d\'illisible (statut ' + rep.status + ')' }
+      });
+    }
     if (!rep.ok) {
       const message = data?.detail?.message || data?.message || 'La voix off n\'a pas pu être générée';
       return res.status(502).json({ error: { message } });
@@ -320,10 +351,11 @@ async function handleMusic(req, res, body) {
 
     if (!rep.ok) {
       // Erreur : ElevenLabs répond en JSON même quand un succès renverrait de
-      // l'audio brut (voir en-tête ci-dessus). .json() peut lui-même échouer
-      // si la réponse d'erreur n'est pas du JSON valide, jamais un plantage
-      // pour autant.
-      const data = await rep.json().catch(() => null);
+      // l'audio brut (voir en-tête ci-dessus). La réponse d'erreur peut ne pas
+      // être du JSON valide, jamais un plantage pour autant : c'est le seul
+      // des trois appels qui s'en gardait déjà, il passe sur la fonction
+      // commune pour que les trois se comportent pareil.
+      const data = await lireJsonOuNull(rep);
       const message = data?.detail?.message || data?.message
         || (rep.status === 401 ? 'Accès refusé par ElevenLabs (vérifie que l\'accès à Music est bien activé sur ton compte)' : 'La musique de fond n\'a pas pu être générée');
       return res.status(502).json({ error: { message } });
@@ -470,7 +502,40 @@ async function genererAvecForme(apiKey, prompt, dims, reference, nomParam) {
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify(corps)
     });
-    const data = await rep.json();
+
+    // ── UNE RÉPONSE N'EST PAS TOUJOURS DU JSON, ET ÇA COÛTAIT DEUX FOIS ──
+    //
+    // `await rep.json()` était appelé sans garde. Quand Together répond autre
+    // chose que du JSON, ce qui arrive pour toutes les pannes qui ne viennent
+    // pas de l'application (502/503 d'une passerelle, page Cloudflare, corps
+    // vide), cette ligne lève une SyntaxError, et deux choses se passaient :
+    //
+    // 1. Le créateur lisait « Unexpected token '<', "<html> <h"... is not
+    //    valid JSON » dans la boîte d'erreur du montage. C'est le message que
+    //    l'app AFFICHE, pas un détail de console.
+    // 2. Pire : la SyntaxError sortait de la boucle AVANT toute lecture du
+    //    statut. Les retentatives ne se déclenchaient donc jamais pour la
+    //    panne passagère qu'elles existent précisément pour absorber.
+    //
+    // Ça vaut aussi pour le CHOIX DU MODÈLE : un modèle jugé « instable »
+    // a pu l'être à travers ce filtre, ses erreurs de passerelle apparaissant
+    // comme des échecs définitifs et incompréhensibles.
+    const brut = await rep.text().catch(() => '');
+    const data = analyserJson(brut);
+
+    if (data === null) {
+      const apercu = brut.replace(/\s+/g, ' ').trim().slice(0, 120);
+      const message = 'Le service d\'images a répondu quelque chose d\'illisible (statut '
+        + rep.status + (apercu ? ', « ' + apercu + ' »' : ', réponse vide') + ')';
+      // 5xx et 429 : panne passagère côté fournisseur, exactement le cas des
+      // retentatives. Le reste ne s'arrangera pas en réessayant.
+      if ((rep.status >= 500 || rep.status === 429) && tentative < TENTATIVES_MAX) {
+        await attendre(1500 * tentative);
+        continue;
+      }
+      throw new Error(message);
+    }
+
     if (rep.ok) {
       const image = (data.data || [])[0];
       const b64 = image && (image.b64_json || image.base64);
