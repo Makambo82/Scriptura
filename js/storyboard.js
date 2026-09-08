@@ -8,7 +8,36 @@
 
 const MOTS_PAR_SEC = 2.8;   // rythme de narration posée
 const DUREE_MIN = 2;        // un plan plus court n'est pas filmable (sauf effet)
-const DUREE_MAX = 7;        // au-delà : plusieurs images cachées
+
+// ── PLAFOND DE DURÉE D'UN PLAN, EN SECONDES RÉELLEMENT PARLÉES ──
+// Retour d'un vrai utilisateur, confirmé par le propriétaire : « les plans par
+// image sont trop longs ».
+//
+// DEUX DÉFAUTS SE CUMULAIENT, et il a fallu les mesurer pour les voir :
+//
+// 1. LE PLAFOND ÉTAIT MESURÉ AVEC LE MAUVAIS RYTHME. Il utilisait
+//    MOTS_PAR_SEC (2,8), un seuil de découpage, alors que la voix off réelle
+//    parle à MOTS_PAR_SEC_PARLE (2,5). Les estimations étaient donc 12 % trop
+//    optimistes : un plafond affiché à « 7 s » laissait passer des plans de
+//    7,8 s. Il est désormais compté en secondes RÉELLES, celles que le
+//    spectateur vit.
+//
+// 2. ÉCRIRE COURT NE SUFFIT PAS. Le découpeur REGROUPE les phrases courtes
+//    jusqu'à son plafond : mesuré sur un script à 7 mots de moyenne par
+//    phrase, il produisait quand même un plan de 8,8 s. Le problème n'était
+//    donc pas seulement dans le texte généré, il était ici.
+//
+// DEUX SEUILS, PAS UN, parce que la consigne en contient deux : « maxi 5
+// secondes, du moins entre 4-6 secondes max rigoureusement ».
+//   DUREE_MAX (5 s) est la CIBLE : on ne regroupe jamais deux phrases si le
+//   plan dépasse 5 s. C'est ce qui donne le rythme.
+//   DUREE_PLAFOND (6 s) est le PLAFOND DUR : au-dessus, on découpe à
+//   l'intérieur de la phrase. En dessous, on laisse tranquille.
+// Avoir deux seuils évite de casser un plan de 5,6 s en 3,6 + 2,0 pour
+// gagner une demi-seconde : chaque plan de plus est une image générée,
+// facturée 0,05 € et décomptée du quota mensuel (20 images pour un Creator).
+const DUREE_MAX = 5;        // cible de regroupement, secondes RÉELLEMENT parlées
+const DUREE_PLAFOND = 6;    // au-delà, on découpe à l'intérieur de la phrase
 
 // Rythme de PAROLE de référence pour tout ce qui PROMET une durée au
 // créateur (cibles de mots et minutage affiché des modes Script et Récit).
@@ -188,7 +217,7 @@ function buildNarrativeSegments(texte) {
 
     if (courant.length === 0) { courant.push(cur); continue; }
 
-    const dureeSiAjout = dureeDe(courant.join(' ') + ' ' + cur);
+    const dureeSiAjout = dureeParleeDe(courant.join(' ') + ' ' + cur);
 
     // Fragment d'ouverture (lieu/date : "Paris, 1925.") : seulement au TOUT DÉBUT,
     // et seulement s'il n'a ni verbe conjugué ni ponctuation forte.
@@ -211,30 +240,188 @@ function buildNarrativeSegments(texte) {
   }
   if (courant.length) plans.push(courant.join(' '));
 
-  // Dernier passage : un plan qui dépasse nettement 7s cache souvent plusieurs images
+  // DERNIER PASSAGE : LE PLAFOND DUR. Le regroupement ci-dessus ne sait
+  // refuser que d'AJOUTER une phrase ; une phrase seule de cinquante mots
+  // arrive ici entière. C'est decouperPlanTropLong qui la ramène sous
+  // DUREE_PLAFOND, ou explique pourquoi elle est incassable.
   const final = [];
-  for (const plan of plans) {
-    const phr = splitIntoSentences(plan);
-    if (dureeDe(plan) > DUREE_MAX + 1.5 && phr.length > 2) {
-      let buf = [];
-      for (let k = 0; k < phr.length; k++) {
-        buf.push(phr[k]);
-        if (dureeDe(buf.join(' ')) >= 4.5 || k === phr.length - 1) {
-          final.push(buf.join(' ')); buf = [];
-        }
-      }
-      if (buf.length) final.push(buf.join(' '));
-    } else {
-      final.push(plan);
-    }
-  }
+  for (const plan of plans) final.push(...decouperPlanTropLong(plan));
   return final;
 }
 
+// ── OÙ ON A LE DROIT DE COUPER À L'INTÉRIEUR D'UNE PHRASE ──
+// Jamais entre deux mots quelconques. Le texte d'un plan sert AUSSI à écrire
+// son prompt visuel : un morceau comme « pendant près de » ne décrit aucune
+// image, et l'image sera quand même générée et facturée. On ne coupe donc que
+// devant un mot qui OUVRE une proposition ou un complément, c'est-à-dire un
+// groupe qui, lui, se filme : « dans le faux plafond de sa salle de classe »,
+// « avec un sac de riz sur le dos ».
+// Volontairement absents : de, du, des, à, au, en (ils coupent au milieu d'un
+// groupe nominal : « deux kilomètres / de brousse ») ; si et bien (le plus
+// souvent adverbes au milieu d'une phrase).
+// Les mots sont comparés SANS ACCENTS (voir _motNu) : un texte collé depuis une
+// autre app peut porter des accents décomposés (« ou » suivi d'un accent
+// combinant), qui ne sont pas la même chaîne que « où » alors qu'ils
+// s'affichent à l'identique.
+const MOTS_DE_COUPE = new Set([
+  // subordination et relatives
+  'qui', 'que', 'qu', 'dont', 'quand', 'lorsque', 'lorsqu',
+  'parce', 'puisque', 'puisqu', 'tandis', 'comme', 'quoique',
+  // prépositions qui ouvrent un complément visualisable
+  'dans', 'sur', 'sous', 'avec', 'sans', 'pour', 'chez', 'vers', 'contre',
+  'devant', 'derriere', 'entre', 'depuis', 'avant', 'apres', 'pendant', 'malgre',
+  'selon', 'jusqu'
+]);
+
+// « par » est volontairement absent : il colle bien plus souvent au mot d'avant
+// (« une vidéo PAR jour », « par contre », « par ailleurs ») qu'il n'ouvre un
+// complément. Mesuré : il produisait « j'ai publié une vidéo » / « par jour sur
+// le problème que mon produit résout ».
+
+// LES CONJONCTIONS SONT UN CAS À PART : elles ouvrent une proposition (« ET IL
+// remontait les vivres ») aussi souvent qu'elles relient deux mots d'un même
+// groupe (« les allées ET VENUES »). Couper devant n'est donc autorisé que si
+// ce qui suit ressemble à un SUJET : un pronom, ou un nom propre (majuscule).
+// Sans cette règle, mesuré, le découpeur cassait « les allées / et venues ».
+// « où » est traité ici plutôt que dans MOTS_DE_COUPE : sans accents il devient
+// « ou », la conjonction, et hérite donc de la même prudence.
+const CONJONCTIONS_DE_COUPE = new Set(['et', 'mais', 'ou', 'donc', 'or', 'car', 'ni', 'puis', 'alors']);
+const SUJETS = new Set(['il', 'elle', 'ils', 'elles', 'on', 'je', 'j', 'tu', 'nous', 'vous',
+  'ca', 'cela', 'ce', 'c', 'personne', 'rien', 'chacun', 'tout', 'tous']);
+
+// UN PLAN NE DOIT JAMAIS SE TERMINER SUR UN MOT-OUTIL. Couper devant « que »
+// dans « pour que » laisserait un plan finissant par « pour » : ce n'est ni une
+// phrase ni une image, et c'est pourtant ce texte qui sert à écrire le prompt
+// visuel du plan.
+const MOTS_INTERDITS_EN_FIN = new Set([
+  'et', 'ou', 'ni', 'mais', 'donc', 'or', 'car', 'que', 'qu', 'qui', 'dont',
+  'a', 'au', 'aux', 'de', 'du', 'des', 'en', 'y', 'dans', 'sur', 'sous', 'avec',
+  'sans', 'pour', 'par', 'chez', 'vers', 'contre', 'entre', 'depuis', 'pendant',
+  'comme', 'quand', 'parce', 'tandis', 'afin', 'jusqu', 'le', 'la', 'les', 'un',
+  'une', 'ce', 'cet', 'cette', 'ces', 'son', 'sa', 'ses', 'leur', 'leurs', 'mon',
+  'ma', 'mes', 'ton', 'ta', 'tes', 'notre', 'nos', 'votre', 'vos', 'ne', 'plus',
+  'tres', 'si', 'tout', 'toute', 'tous', 'toutes'
+]);
+
+// Mot réduit à sa forme comparable : minuscules, sans accents, sans
+// ponctuation, coupé à l'apostrophe. « L'élève, » donne « l ».
+function _motNu(mot) {
+  return String(mot || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .split(/['’]/)[0]
+    .replace(/[^a-z]/g, '');
+}
+
+// Arbitrage du découpage (voir decouperPlanTropLong). Réglés pour que :
+//   - un plan à 6,0 s reste entier, un plan à 6,1 s soit coupé s'il existe une
+//     coupe propre (trop-long ×4 est décisif dès la première décimale) ;
+//   - on ne fabrique JAMAIS un fragment sous le plancher pour gagner une
+//     seconde (trop-court ×6 coûte plus cher que le dépassement qu'il évite) ;
+//   - à qualité égale, on produise MOINS de plans (chacun est une image payée).
+const POIDS_TROP_LONG = 4;    // par seconde au-dessus de DUREE_PLAFOND
+const POIDS_TROP_COURT = 6;   // par seconde sous DUREE_MIN
+const POIDS_PAR_PLAN = 0.15;  // prix fixe d'un plan de plus
+
+function _coutMorceau(duree) {
+  let cout = POIDS_PAR_PLAN;
+  if (duree > DUREE_PLAFOND) cout += (duree - DUREE_PLAFOND) * POIDS_TROP_LONG;
+  if (duree < DUREE_MIN) cout += (DUREE_MIN - duree) * POIDS_TROP_COURT;
+  return cout;
+}
+
+// Peut-on couper devant `mot` ? `motPrecedent` termine le plan de gauche,
+// `motSuivant` aide à trancher pour les conjonctions.
+function _coupeAutoriseeDevant(motPrecedent, mot, motSuivant) {
+  const finPropre = !MOTS_INTERDITS_EN_FIN.has(_motNu(motPrecedent));
+
+  // Ponctuation : la coupe la plus sûre. Elle reste soumise à la règle du
+  // mot-outil final (un plan qui finit par « et, » n'existe pas).
+  if (/[,;:.!?…]["'»)\]]*$/.test(motPrecedent)) return finPropre;
+  if (!finPropre) return false;
+
+  const nu = _motNu(mot);
+  if (MOTS_DE_COUPE.has(nu)) return true;
+  if (CONJONCTIONS_DE_COUPE.has(nu)) {
+    const suivant = String(motSuivant || '').replace(/^[«"'(\[]+/, '');
+    if (!suivant) return false;
+    // Un sujet derrière la conjonction : elle ouvre bien une proposition.
+    if (SUJETS.has(_motNu(suivant))) return true;
+    return /^[A-ZÀ-Ý]/.test(suivant);   // nom propre
+  }
+  return false;
+}
+
+// Coupe un plan trop long en morceaux qui se filment chacun.
+//
+// POURQUOI UN CALCUL GLOBAL ET PAS UNE COUPE AU MILIEU (ce que je faisais, et
+// c'était faux) : couper à la ponctuation la plus proche du milieu, puis
+// recommencer sur chaque moitié, décide localement et produit des miettes.
+// Mesuré sur un récit réel : « Chaque nuit, » (0,8 s), « Le jour, » (0,8 s),
+// « À la place, » (1,2 s), trois images générées et payées pour du vide, ET un
+// plan de 10 s malgré tout, parce qu'une proposition sans virgule interne
+// était déclarée incassable.
+//
+// On énumère donc TOUTES les coupes autorisées et on choisit la découpe qui
+// minimise le coût total (programmation dynamique, O(n²) sur les mots d'un
+// plan : quelques centaines d'opérations). Le résultat est déterministe, comme
+// tout ce qui décide d'un plan dans Scriptura.
+//
+// CE QUI RESTE POSSIBLE, ASSUMÉ : une proposition de dix-huit mots sans
+// ponctuation ni mot d'ouverture reste un plan long. Aucun découpage ne la
+// sauverait sans fabriquer une image sur un bout de phrase. C'est au texte
+// d'être écrit plus court, pas au découpeur de mentir.
+//
+// COUPER À L'INTÉRIEUR D'UNE PHRASE N'ABÎME PAS LA VOIX OFF, vérifié dans
+// api/montage-media.js : le texte entier part en UNE SEULE synthèse chez
+// ElevenLabs et les durées viennent d'horodatages caractère par caractère.
+// Découper déplace donc l'IMAGE, jamais la parole : aucune pause n'apparaît.
+function decouperPlanTropLong(plan) {
+  if (dureeParleeDe(plan) <= DUREE_PLAFOND) return [plan];
+
+  const mots = String(plan).split(/\s+/).filter(Boolean);
+  const n = mots.length;
+  if (n < 2) return [plan];
+
+  // Coupes autorisées, exprimées en « avant le mot d'indice i ».
+  const autorise = new Array(n + 1).fill(false);
+  autorise[0] = true;
+  autorise[n] = true;
+  for (let i = 1; i < n; i++) autorise[i] = _coupeAutoriseeDevant(mots[i - 1], mots[i], mots[i + 1]);
+
+  const INF = Infinity;
+  const cout = new Array(n + 1).fill(INF);
+  const origine = new Array(n + 1).fill(-1);
+  cout[0] = 0;
+  for (let fin = 1; fin <= n; fin++) {
+    if (!autorise[fin]) continue;
+    for (let debut = 0; debut < fin; debut++) {
+      if (!autorise[debut] || cout[debut] === INF) continue;
+      const total = cout[debut] + _coutMorceau((fin - debut) / MOTS_PAR_SEC_PARLE);
+      if (total < cout[fin]) { cout[fin] = total; origine[fin] = debut; }
+    }
+  }
+  if (cout[n] === INF) return [plan];
+
+  const bornes = [n];
+  for (let i = n; i > 0; i = origine[i]) bornes.unshift(origine[i]);
+  const morceaux = [];
+  for (let i = 0; i < bornes.length - 1; i++) {
+    morceaux.push(mots.slice(bornes[i], bornes[i + 1]).join(' '));
+  }
+  return morceaux.length ? morceaux : [plan];
+}
+
 function estimateDuration(texte) {
-  const sec = dureeDe(texte);
-  const bas = Math.max(DUREE_MIN, Math.round(sec));
-  const haut = Math.max(bas + 1, Math.round(sec) + 1);
+  // La durée ANNONCÉE au créateur se compte au rythme réellement parlé, pas
+  // au seuil interne de découpage : sinon l'app affiche « 4-5 sec » sur un
+  // plan qui en dure 5,6 dans la vidéo finale.
+  // ENCADRER, PAS ARRONDIR. Avec un arrondi, un plan de 5,6 s s'affichait
+  // « 6-7 sec » : la fourchette annoncée ne contenait même pas la durée réelle.
+  // On encadre donc : la durée vraie est toujours entre les deux bornes.
+  const sec = dureeParleeDe(texte);
+  const bas = Math.max(DUREE_MIN, Math.floor(sec));
+  const haut = Math.max(bas + 1, Math.ceil(sec));
   return { seconds: sec, label: bas + '-' + haut + ' sec' };
 }
 
