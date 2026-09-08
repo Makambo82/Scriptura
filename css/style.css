@@ -1400,6 +1400,16 @@ body.hero-focus .hero-focus-rule{display:block}
   transition:border-color 0.3s ease,background 0.3s ease,transform 0.3s ease,box-shadow 0.3s ease;
   width:100%;box-sizing:border-box;
 }
+/* min-width:0 SUR LA CARTE ELLE-MÊME, et pas seulement sur son corps de texte.
+   Piège trouvé en vérifiant qu'un test mordait : la largeur minimale d'un
+   élément de grille ou de flex vaut par défaut son CONTENU. Avec un titre en
+   white-space:nowrap, ce contenu c'est la phrase entière, et c'est la CARTE
+   qui s'élargit au lieu du titre qui rétrécit. Mesuré : 587px de carte dans un
+   écran de 414, donc une page qui défile latéralement, et un ajustement de
+   taille qui ne se déclenche jamais puisqu'il croit avoir toute la place.
+   Le corps de texte a déjà le sien, il ne suffit pas : il faut couper la
+   chaîne à chaque niveau, sinon le débordement remonte simplement d'un cran. */
+.hero-mode-btn{min-width:0}
 .hero-mode-btn .mode-body{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
 @media(min-width:600px){
   .hero-modes{grid-template-columns:1fr 1fr;max-width:680px}
@@ -1523,9 +1533,26 @@ body.hero-focus .hero-focus-rule{display:block}
   #heroModes > *:nth-child(3n) .mode-icon svg,
   .creer-panneau .hero-modes > *:nth-child(3n) .mode-icon svg{animation-delay:.36s}
 }
+/* ── LES TITRES DES CARTES DE MODE ──
+   Demande du propriétaire, capture à l'appui : « les titres des boutons du
+   héro en majuscules, mais surtout en sorte qu'ils tiennent sur une ligne ».
+
+   L'ESPACEMENT MONTE DE 0.01 À 0.04em : des capitales collées se lisent mal,
+   c'est justement ce qui distingue un titre en capitales d'un mot crié. Il
+   reste bien en dessous des 0.13em des boutons : ces titres sont plus longs,
+   et chaque centième d'em coûte de la largeur sur une ligne déjà juste.
+
+   nowrap ET overflow:hidden : le premier est la demande même, le second n'est
+   qu'un filet pour un cas absurde, la taille étant calculée pour que le titre
+   tienne (ajusterTitresModes, js/ui.js). Le conteneur .mode-body porte déjà le
+   min-width:0 nécessaire pour que la mesure de place disponible soit juste.
+
+   LA DESCRIPTION RESTE EN MINUSCULES et sur plusieurs lignes : c'est une
+   phrase, pas un libellé, et rien n'a été demandé pour elle. */
 .mode-label{
   font-family:'Playfair Display',serif;font-size:1rem;font-weight:500;
-  letter-spacing:0.01em;text-transform:none;color:var(--white);line-height:1.3;
+  letter-spacing:0.04em;text-transform:uppercase;color:var(--white);line-height:1.3;
+  white-space:nowrap;overflow:hidden;
 }
 .mode-desc{
   font-size:0.78rem;color:rgba(255,255,255,0.5);font-family:'Poppins',sans-serif;

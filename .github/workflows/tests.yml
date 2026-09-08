@@ -55,7 +55,12 @@ jobs:
         shell: bash
         run: |
           echo "──────── TESTS EN ÉCHEC ────────"
-          grep -E '^not ok' resultat.tap || echo "(aucun)"
+          # Le NOM ne suffit pas : les messages d'assertion de ce projet
+          # expliquent la régression et donnent les valeurs mesurées. Sans eux
+          # on connaît le test fautif mais pas la cause, et on repart en
+          # hypothèses. On rejoue donc le bloc YAML qui suit chaque « not ok »,
+          # là où node --test écrit l'erreur.
+          grep -E -A 30 '^not ok' resultat.tap || echo "(aucun)"
           echo "────────────────────────────────"
           grep -E '^# (tests|pass|fail)' resultat.tap || true
           # On refait échouer le job ici : l'étape précédente laisse passer pour

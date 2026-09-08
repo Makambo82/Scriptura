@@ -577,6 +577,9 @@ async function revelerModes() {
   const hint = document.getElementById('heroModesHint');
   if (cta) cta.style.display = 'none';
   if (modes) modes.style.display = ''; // retombe sur le display:grid du CSS
+  // Les cartes viennent seulement d'être affichées : AVANT cet instant elles
+  // avaient une largeur nulle et l'ajustement des titres les ignorait.
+  ajusterTitresModes();
   animerHeroModes(modes);
   document.body.classList.add('hero-focus');
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -687,6 +690,35 @@ let _heroCtaPhraseAbonne = null;
 // rapport « place disponible / place nécessaire » donne directement le facteur.
 // Une boucle qui décrémente de 0.01 en 0.01 ferait des dizaines de mesures de
 // mise en page pour le même résultat.
+// UNE SEULE FONCTION POUR TOUS LES TEXTES QUI DOIVENT TENIR SUR UNE LIGNE.
+// Elle sert au libellé du bouton d'accueil ET aux titres des cartes de mode.
+// Recopier ce calcul dans un second endroit, c'est se garantir que la marge de
+// sécurité ou le plancher divergeront le jour où l'un des deux sera retouché.
+//
+// Elle ne connaît NI le bouton NI les cartes : on lui donne un élément et ses
+// bornes, elle mesure et pose une taille. C'est l'appelant qui sait quoi
+// ajuster et quand.
+const TEXTE_UNE_LIGNE_MARGE = 0.98;  // 2% de sécurité : les mesures sont
+                                     // sous-pixelisées et arrondies, et il
+                                     // suffit d'un pixel de trop pour repasser
+                                     // à la ligne
+
+function ajusterTexteUneLigne(el, maxRem, minRem) {
+  if (!el) return;
+  // On repart TOUJOURS de la taille de référence avant de mesurer : sinon
+  // chaque appel rétrécirait un peu plus le texte, et après quelques passages
+  // il finirait minuscule sans que rien ne l'explique.
+  el.style.fontSize = maxRem + 'rem';
+  // Élément masqué (panneau replié, écran d'un mode) : rien à mesurer, et une
+  // largeur nulle donnerait un rapport absurde.
+  const dispo = el.clientWidth;
+  if (!(dispo > 0)) return;
+  const besoin = el.scrollWidth;   // largeur réelle du texte, sans retour à la ligne
+  if (besoin <= dispo) return;     // tient déjà : on ne touche à rien
+  const taille = Math.max(minRem, maxRem * TEXTE_UNE_LIGNE_MARGE * dispo / besoin);
+  el.style.fontSize = taille.toFixed(3) + 'rem';
+}
+
 const HERO_CTA_TAILLE_MAX = 1;      // rem, la taille de référence, celle du CSS
 // LE PLANCHER NE DOIT JAMAIS SE DÉCLENCHER EN USAGE RÉEL, et il a d'abord été
 // réglé trop haut, ce qui a fait échouer la CI. La leçon vaut d'être écrite :
@@ -711,27 +743,39 @@ const HERO_CTA_MARGE = 0.98;        // 2% de sécurité : les mesures sont
                                     // d'un pixel de trop pour repasser à la ligne
 
 function ajusterHeroCta() {
-  const lbl = document.getElementById('heroCtaLabel');
-  if (!lbl) return;
-  // On repart TOUJOURS de la taille de référence avant de mesurer : sinon
-  // chaque appel rétrécirait un peu plus le libellé, et après quelques
-  // changements de phrase il finirait minuscule sans que rien ne l'explique.
-  lbl.style.fontSize = HERO_CTA_TAILLE_MAX + 'rem';
-  // Bouton masqué (mode focus, écran d'un mode) : rien à mesurer, et une
-  // largeur nulle donnerait un rapport absurde.
-  const dispo = lbl.clientWidth;
-  if (!(dispo > 0)) return;
-  const besoin = lbl.scrollWidth;   // largeur réelle du texte, sans retour à la ligne
-  if (besoin <= dispo) return;      // tient déjà : on ne touche à rien
-  const taille = Math.max(HERO_CTA_TAILLE_MIN, HERO_CTA_TAILLE_MAX * HERO_CTA_MARGE * dispo / besoin);
-  lbl.style.fontSize = taille.toFixed(3) + 'rem';
+  ajusterTexteUneLigne(document.getElementById('heroCtaLabel'),
+    HERO_CTA_TAILLE_MAX, HERO_CTA_TAILLE_MIN);
+}
+
+// ── LES TITRES DES CARTES DE MODE, MÊME EXIGENCE ──
+// Demande du propriétaire, capture à l'appui : les titres des cartes de
+// l'accueil en majuscules, « mais surtout en sorte qu'ils tiennent sur une
+// ligne ». Les majuscules élargissent le texte de 10 à 15 % : sans ajustement,
+// « TRANSCRIRE OU TÉLÉCHARGER UNE VIDÉO » passerait à la ligne.
+//
+// LES ONZE CARTES EXISTENT EN DEUX EXEMPLAIRES, sur l'accueil et dans le
+// panneau « Créer » : on les ajuste toutes, celles qui sont masquées ayant une
+// largeur nulle et étant donc ignorées d'elles-mêmes. D'où le rappel à
+// l'ouverture du panneau.
+const MODE_TITRE_TAILLE_MAX = 1;
+const MODE_TITRE_TAILLE_MIN = 0.62;   // la taille des boutons de l'app ; comme
+                                      // pour le bouton d'accueil, ce plancher
+                                      // n'est là que pour un cas absurde
+
+function ajusterTitresModes() {
+  document.querySelectorAll('.mode-label').forEach(function (el) {
+    ajusterTexteUneLigne(el, MODE_TITRE_TAILLE_MAX, MODE_TITRE_TAILLE_MIN);
+  });
 }
 
 // Les polices arrivent APRÈS le premier rendu : mesurer avant leur chargement
 // donne la largeur d'une police de repli, donc une taille fausse, et le
 // libellé resterait trop grand ou trop petit pour de bon.
 if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
-  document.fonts.ready.then(ajusterHeroCta).catch(function () {});
+  document.fonts.ready.then(function () {
+    ajusterHeroCta();
+    ajusterTitresModes();
+  }).catch(function () {});
 }
 // Rotation de l'écran, fenêtre redimensionnée : la place disponible change,
 // la taille doit être recalculée depuis la référence.
@@ -739,7 +783,10 @@ if (typeof window !== 'undefined') {
   let _minuteurHeroCta = null;
   window.addEventListener('resize', function () {
     clearTimeout(_minuteurHeroCta);
-    _minuteurHeroCta = setTimeout(ajusterHeroCta, 120);
+    _minuteurHeroCta = setTimeout(function () {
+      ajusterHeroCta();
+      ajusterTitresModes();
+    }, 120);
   });
 }
 function majHeroCta() {
@@ -997,6 +1044,11 @@ document.addEventListener('DOMContentLoaded', majHauteurEntete);
 function ouvrirPanneauCreation() {
   const panneau = document.getElementById('creerPanneau');
   if (!panneau) return;
+  // Le panneau contient un SECOND exemplaire des cartes de mode, replié
+  // jusqu'ici donc de largeur nulle : leurs titres n'ont encore jamais pu être
+  // mesurés. On les ajuste au tour de boucle suivant, une fois le panneau
+  // réellement déplié : le mesurer dans la même frame donnerait encore zéro.
+  setTimeout(ajusterTitresModes, 0);
   // Relue à chaque ouverture : la barre d'adresse d'un navigateur mobile
   // apparaît et disparaît au fil du défilement, la hauteur peut donc avoir
   // changé depuis la dernière mesure.
