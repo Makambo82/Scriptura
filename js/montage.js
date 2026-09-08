@@ -27,6 +27,9 @@ let montageImages = [];     // [{ blob, apercu } | null], même ordre/longueur q
 let montageVoixOff = null;  // { blob, url, durations }, générée par ElevenLabs
                             // ou enregistrée au micro (enregistree: true)
 let montageVoixPriseEnCours = false;  // le micro tourne, le créateur lit son texte
+// Prise TERMINÉE mais pas encore validée : on l'écoute, puis on garde ou on
+// recommence. Tant qu'elle est là, elle n'est PAS la voix off du montage.
+let montagePriseAValider = null;      // { blob, url, duree, type }
 let _montageVoixChrono = null;
 let montageMusique = null;  // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
 // Volume de la musique de fond relatif à la voix off (retour propriétaire),
@@ -108,6 +111,7 @@ function ouvrirMontage(plans, boutonEl) {
   if (typeof annulerEnregistrementVoix === 'function') annulerEnregistrementVoix();
   _arreterChronoVoixMontage();
   montageVoixPriseEnCours = false;
+  libererPriseAValiderMontage();
   libererVoixOffMontage();
   montageVoixOff = null;
   montageMusique = null;
@@ -571,6 +575,8 @@ async function demarrerPriseVoixMontage() {
   if (montageVoixPriseEnCours || montageVoixEnCours) return;
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
+  // « Reprendre » : la prise précédente non validée est abandonnée ici.
+  libererPriseAValiderMontage();
   if (!montagePlans.length) {
     if (err) { err.textContent = 'Aucun plan à raconter : ouvre le montage depuis un storyboard.'; err.style.display = 'block'; }
     return;
@@ -619,18 +625,40 @@ async function arreterPriseVoixMontage() {
     const prise = await arreterEnregistrementVoix();
     montageVoixPriseEnCours = false;
     if (!prise) { renderMontageEtat(); return; }
-    // SYNCHRO AU PRORATA DES MOTS : un enregistrement n'a pas les horodatages
-    // caractère par caractère d'ElevenLabs. Voir repartirDureesParMots.
-    const durations = repartirDureesParMots(montagePlans.map(p => p.text), prise.duree);
-    libererVoixOffMontage();
-    montageVoixOff = {
-      blob: prise.blob, url: prise.url, durations,
-      enregistree: true, type: prise.type
-    };
+    // ON NE REMPLACE PAS ENCORE LA VOIX DU MONTAGE. Demande du propriétaire
+    // (« Reprendre / Utiliser ») : on écoute, puis on garde ou on recommence.
+    // Sans ça, une prise ratée devenait la voix off à la seconde où on
+    // relâchait le bouton, et la précédente était perdue.
+    libererPriseAValiderMontage();
+    montagePriseAValider = prise;
   } catch (e) {
     montageVoixPriseEnCours = false;
     if (err) { err.textContent = e.message; err.style.display = 'block'; }
   }
+  renderMontageEtat();
+}
+
+// L'URL d'objet d'une prise abandonnée retient le fichier ENTIER en mémoire.
+function libererPriseAValiderMontage() {
+  if (montagePriseAValider && montagePriseAValider.url) URL.revokeObjectURL(montagePriseAValider.url);
+  montagePriseAValider = null;
+}
+
+// « Utiliser » : c'est ICI que la prise devient la voix off du montage.
+// Les durées sont calculées à cet instant, pas avant : elles dépendent de la
+// durée de la prise retenue, pas de celle qu'on vient d'abandonner.
+function utiliserPriseVoixMontage() {
+  if (!montagePriseAValider) return;
+  // SYNCHRO AU PRORATA DES MOTS : un enregistrement n'a pas les horodatages
+  // caractère par caractère d'ElevenLabs. Voir repartirDureesParMots.
+  const durations = repartirDureesParMots(montagePlans.map(p => p.text), montagePriseAValider.duree);
+  libererVoixOffMontage();
+  montageVoixOff = {
+    blob: montagePriseAValider.blob, url: montagePriseAValider.url,
+    durations, enregistree: true, type: montagePriseAValider.type
+  };
+  // L'URL passe à montageVoixOff : on la transfère, on ne la révoque pas.
+  montagePriseAValider = null;
   renderMontageEtat();
 }
 
@@ -1238,6 +1266,18 @@ function renderMontageEtat() {
         <div class="wait-badge"><span class="sb-progress-bar-pct" id="montageVoixProgPct">0%</span></div>
         <div class="sb-progress-bar-track"><div class="sb-progress-bar-fill" id="montageVoixProgFill"></div></div>
       </div>`;
+    } else if (montagePriseAValider) {
+      // PRISE TERMINÉE, PAS ENCORE VALIDÉE. Deux boutons sous le lecteur :
+      // « Reprendre » et « Utiliser ». Tant qu'on n'a pas appuyé sur
+      // « Utiliser », la voix off du montage n'a pas changé.
+      zoneVoix.innerHTML = `
+        <audio class="montage-audio-preview" src="${montagePriseAValider.url}" controls></audio>
+        <div class="montage-statut" style="margin:6px 0 0">Ta prise · ${Math.round(montagePriseAValider.duree)}s${
+          montageVoixOff ? ' · ta voix actuelle est gardée tant que tu ne l\'utilises pas' : ''}</div>
+        <div class="montage-musique-choix" style="margin-top:10px">
+          <button class="btn-regenerate" style="margin:0" onclick="demarrerPriseVoixMontage()" type="button">↻ Reprendre</button>
+          <button class="btn-montage-primary" onclick="utiliserPriseVoixMontage()" type="button">Utiliser</button>
+        </div>`;
     } else if (montageVoixOff) {
       zoneVoix.innerHTML = `
         <audio class="montage-audio-preview" src="${montageVoixOff.url}" controls></audio>

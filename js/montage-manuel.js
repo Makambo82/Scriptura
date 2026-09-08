@@ -48,6 +48,9 @@ let omVitesseVoix = 1;
 let omTexteNarration = '';
 let omVoixEnCours = false;
 let omVoixPriseEnCours = false;   // le micro tourne (voir js/voix-enregistree.js)
+// Prise TERMINÉE mais pas encore validée : on l'écoute, puis on garde ou on
+// recommence. Tant qu'elle est là, elle n'est PAS la voix off du montage.
+let omPriseAValider = null;      // { blob, url, duree, type }
 let _omVoixChrono = null;
 let omMusique = null;        // { blob, url }, musique de fond instrumentale générée par Eleven Music (optionnelle)
 let omMusiqueEnCours = false;
@@ -72,6 +75,7 @@ function omResetState() {
   if (typeof annulerEnregistrementVoix === 'function') annulerEnregistrementVoix();
   if (_omVoixChrono) { clearInterval(_omVoixChrono); _omVoixChrono = null; }
   omVoixPriseEnCours = false;
+  omLibererPriseAValider();
   if (omMusique && omMusique.url) URL.revokeObjectURL(omMusique.url);
   omMusique = null;
   omMusiqueEnCours = false;
@@ -356,6 +360,28 @@ function omRenderVoixZone() {
     // on écoute d'abord, on décide ensuite.
     const champFichier = `<input type="file" id="omAudioInput" accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac" style="display:none" onchange="omAudioFichierChoisi(this.files[0])"/>`;
     const aUneVoix = !!(omAudio && omAudio.source === 'upload');
+
+    // PRISE TERMINÉE, PAS ENCORE VALIDÉE. Demande du propriétaire : deux
+    // boutons sous le lecteur, « Reprendre » et « Utiliser ». Tant qu'on n'a
+    // pas appuyé sur « Utiliser », la voix off du montage n'a pas changé : une
+    // prise ratée ne remplace donc jamais celle qui marchait.
+    if (omPriseAValider) {
+      zone.innerHTML = `
+        ${champFichier}
+        <div style="margin-top:10px">
+          <audio class="montage-audio-preview" src="${omPriseAValider.url}" controls></audio>
+          <div class="montage-statut" style="margin:6px 0 0">Ta prise · ${Math.round(omPriseAValider.duree)}s${
+            aUneVoix ? ' · ta voix actuelle est gardée tant que tu ne l\'utilises pas' : ''}</div>
+        </div>
+        <div class="montage-musique-choix" style="margin-top:10px">
+          <button class="btn-regenerate" style="margin:0" onclick="omDemarrerPriseVoix()" type="button">↻ Reprendre</button>
+          <button class="btn-montage-primary" onclick="omUtiliserPrise()" type="button">Utiliser</button>
+        </div>`;
+      omRenderMusiqueZone();
+      omMajChipVoix();
+      omMajCaseSousTitres();
+      return;
+    }
     // Le bouton micro n'apparaît que si le navigateur sait l'ouvrir : proposer
     // un micro qui ne s'ouvrira pas est pire que ne rien proposer.
     const peutEnregistrer = enregistrementVoixDisponible();
@@ -503,6 +529,10 @@ async function omDemarrerPriseVoix() {
   if (omVoixPriseEnCours || omVoixEnCours) return;
   const err = document.getElementById('omErreur');
   if (err) err.style.display = 'none';
+  // « Reprendre » : la prise précédente non validée est abandonnée ici, pas
+  // gardée « au cas où ». Deux enregistrements en mémoire sur un téléphone,
+  // c'est deux fois le fichier.
+  omLibererPriseAValider();
   try {
     // Affichage AVANT l'ouverture du micro : la demande d'autorisation du
     // navigateur se pose par-dessus, et on doit comprendre à quoi on dit oui.
@@ -544,16 +574,44 @@ async function omArreterPriseVoix() {
     const prise = await arreterEnregistrementVoix();
     omVoixPriseEnCours = false;
     if (prise) {
-      if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
-      omAudio = { blob: prise.blob, url: prise.url, duree: prise.duree,
-        nom: 'Ma voix', source: 'upload' };
-      omDureesManuelles = [];   // recalculées à parts égales, comme un import
-      omInvaliderResultat();
+      // ON NE REMPLACE PAS ENCORE LA VOIX DU MONTAGE. Demande du propriétaire
+      // (« Reprendre / Utiliser ») : on écoute sa prise, puis on garde ou on
+      // recommence. Sans ça, une prise ratée devenait la voix off du montage à
+      // la seconde où on relâchait le bouton, et l'ancienne était perdue.
+      omLibererPriseAValider();
+      omPriseAValider = prise;
     }
   } catch (e) {
     omVoixPriseEnCours = false;
     if (err) { err.textContent = e.message; err.style.display = 'block'; }
   }
+  omRenderVoixZone();
+  omRenderDureesManuelles();
+  omMajBoutonLancer();
+}
+
+// L'URL d'objet d'une prise abandonnée retient le fichier ENTIER en mémoire
+// tant qu'elle vit : sur un téléphone, trois prises refaites d'affilée en
+// garderaient trois.
+function omLibererPriseAValider() {
+  if (omPriseAValider && omPriseAValider.url) URL.revokeObjectURL(omPriseAValider.url);
+  omPriseAValider = null;
+}
+
+// « Utiliser » : c'est ICI que la prise devient la voix off du montage, et
+// nulle part avant.
+function omUtiliserPrise() {
+  if (!omPriseAValider) return;
+  if (omAudio && omAudio.url) URL.revokeObjectURL(omAudio.url);
+  omAudio = {
+    blob: omPriseAValider.blob, url: omPriseAValider.url,
+    duree: omPriseAValider.duree, nom: 'Ma voix',
+    source: 'upload', enregistree: true
+  };
+  // L'URL passe à omAudio : on ne la révoque surtout pas, on la transfère.
+  omPriseAValider = null;
+  omDureesManuelles = [];   // recalculées à parts égales, comme un import
+  omInvaliderResultat();
   omRenderVoixZone();
   omRenderDureesManuelles();
   omMajBoutonLancer();
