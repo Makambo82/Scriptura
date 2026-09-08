@@ -110,15 +110,12 @@ function motsAccrocheSerie(texte) {
   return String(premiere).split(/\s+/).filter(Boolean).length;
 }
 
-// Signal détecté en CODE, aucune IA : des phrases courtes tiennent le
-// rythme, des phrases longues trahissent un temps mort. Même seuil et même
-// calcul que les modes Script et Récit, pour que les trois notent la même
-// chose de la même façon.
+// Signal détecté en CODE, aucune IA. « Même seuil et même calcul que les modes
+// Script et Récit » : c'était le commentaire, et c'était une copie, donc une
+// promesse qu'aucun code ne tenait. La règle est maintenant partagée pour de
+// bon (detecterRythmeSoutenu, js/storyboard.js).
 function _serieDetecterRythmeSoutenu(texte) {
-  const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
-  if (!phrases.length) return false;
-  const mots = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
-  return (mots / phrases.length) <= 12;
+  return detecterRythmeSoutenu(texte);
 }
 
 // Signal EXPLICITEMENT true/false = 1/0 ; ABSENT (échec technique du juge)
@@ -1099,6 +1096,7 @@ RÈGLES D'ÉCRITURE :
 - L'épisode se suffit à lui-même, mais se termine sur la tension indiquée.
 - DURÉE CIBLE, RÈGLE ABSOLUE : ${b.duree_episode || "45 à 60 secondes"}. Calibre la longueur du texte en conséquence (environ 2,5 mots par seconde). Compte tes mots avant de répondre.
 - STRUCTURE DE "script", RÈGLE ABSOLUE : découpe le texte en plusieurs paragraphes courts (2 à 5 phrases), un par scène/moment/idée, séparés par UNE LIGNE VIDE entre chaque paragraphe (un vrai saut de ligne double, jamais un simple retour à la ligne). JAMAIS un seul bloc de texte compact du début à la fin : chaque paragraphe doit se lire comme un moment distinct de l'épisode, exactement comme les scènes découpées du mode Script de Scriptura.
+- ${CONSIGNE_PHRASES_COURTES}
 - Accroche forte dès les 3 premières secondes.
 - Annonce dans le script qu'il s'agit de l'épisode ${num} sur ${total}.
 ${num === total ? '- C\'est le DERNIER épisode : referme l\'arc et conclus la série.' : ''}
@@ -1263,6 +1261,7 @@ RÈGLES ABSOLUES DE LA RÉVISION :
 - Garde le même titre, la même histoire, le même format (${formatSerie}) et le ton « ${serie.style} ».
 - Garde une longueur COMPARABLE (environ ${wordCountSerieAvantRevision} mots) : ce n'est pas ici qu'on rallonge ou qu'on raccourcit.
 - Garde la structure en paragraphes courts (2 à 5 phrases), séparés par UNE LIGNE VIDE.
+- ${CONSIGNE_PHRASES_COURTES}
 - AUCUNE étiquette ni minutage (jamais « VOIX OFF », « TEXTE À L'ÉCRAN », « ÉCRAN NOIR », « PLAN », ni horodatage entre crochets).
 ${num === total ? '- C\'est le DERNIER épisode : il referme l\'arc, il ne relance rien.' : '- La fin doit laisser une tension nette et une raison CONCRÈTE de regarder l\'épisode suivant, jamais un « la suite bientôt » creux.'}
 

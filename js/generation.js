@@ -1078,15 +1078,15 @@ function _genDetecterDeuxiemePersonne(texte) {
   const m = String(texte || '').match(/\b(tu|t'|toi|ton|ta|tes|vous|votre|vos)\b/gi);
   return !!m && m.length >= 2;
 }
-// Rythme soutenu approximé par la longueur moyenne des phrases (statistique
-// pure, aucune IA) : des phrases courtes collent à la consigne "une image
-// mentale toutes les 3-5 secondes", des phrases longues trahissent un
-// temps mort ou une idée diluée.
+// Rythme soutenu : statistique pure, aucune IA. La règle vit dans UN seul
+// endroit (detecterRythmeSoutenu, js/storyboard.js), où sont déjà les durées
+// de plan dont elle est dérivée. Les trois modes en avaient une copie
+// identique, ce qui est la façon la plus sûre de les voir diverger, et ces
+// copies ne regardaient que la MOYENNE : elle se tient très bien avec cinq
+// phrases de quatre mots et une de trente, alors que c'est la phrase de
+// trente qui donne le plan trop long.
 function _genDetecterRythmeSoutenu(texte) {
-  const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
-  if (!phrases.length) return false;
-  const motsTotal = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
-  return (motsTotal / phrases.length) <= 12;
+  return detecterRythmeSoutenu(texte);
 }
 // Promesse chiffrée faite dans un hook ("l'erreur numéro trois", "la 3e
 // raison", "le secret n°2"), détectée MÉCANIQUEMENT, aucune IA. Retour
@@ -2019,6 +2019,7 @@ RÈGLES ABSOLUES DE QUALITÉ (non négociables) :
 3. CHAQUE PHRASE A UNE FONCTION : Interdiction absolue de phrase de remplissage. Chaque phrase doit soit accrocher, soit faire avancer, soit créer une tension, soit relancer. Si une phrase ne sert à rien, supprime-la.
 
 4. UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. Ce rythme sert la rétention ET permet un découpage storyboard précis, sans perte de sens.
+   ${CONSIGNE_PHRASES_COURTES}
 
 5. TENSION DU DÉBUT À LA FIN : Applique la stratégie de rétention du brief. Place des relances ("mais attends...", "et c'est là que...", "sauf que...") pour que personne ne décroche.
    COHÉRENCE DE LA PROMESSE CHIFFRÉE (piège classique, vérifie-le avant de répondre) : si ton hook annonce un rang précis ("l'erreur numéro trois", "la 2e raison", "le secret n°4"), alors l'élément que tu révèles ensuite comme étant CE rang doit être EXACTEMENT le rang qu'il occupe dans ton énumération, compté dans l'ordre d'apparition. Annoncer l'erreur 3, énumérer cinq erreurs, puis révéler comme "erreur 3" celle qui était la cinquième de ta liste : le spectateur qui compte le remarque, et il décroche pile au moment de la révélation, c'est-à-dire là où il devait rester. Soit tu fais correspondre le rang, soit tu ne chiffres pas la promesse du hook.
@@ -2380,6 +2381,7 @@ ${raisonsScrollTxt ? 'RAISONS POUR LESQUELLES UN SPECTATEUR DÉCROCHERAIT, À É
 
 RÈGLES :
 - Ne touche JAMAIS un segment qui n'est pas listé ci-dessus comme à réécrire.
+- ${CONSIGNE_PHRASES_COURTES}
 - Renvoie la liste COMPLÈTE des segments (les inchangés recopiés à l'identique, les faibles réécrits), dans le même ordre, avec le même nombre total de segments.
 - Respecte la durée cible ${wt.min}-${wt.max} mots au total et ${wt.blocs} blocs.
 - Répartition du temps à préserver : premier bloc (hook) 7 à 10 mots pour tenir en 0-3 secondes, dernier bloc 12 à 25 mots pour tenir en 5-10 secondes. Si tu réécris le premier segment, il doit RESTER dans cette limite, jamais s'allonger.

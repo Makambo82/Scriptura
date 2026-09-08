@@ -61,6 +61,54 @@ function dureeParleeDe(texte) {
   return (texte || '').split(/\s+/).filter(Boolean).length / MOTS_PAR_SEC_PARLE;
 }
 
+// ═══ LONGUEUR DES PHRASES : LA MÊME RÈGLE POUR LES TROIS MODES ═══
+//
+// Le propriétaire l'a dit avant moi, et il avait raison : « le problème doit
+// être réglé à la base depuis la génération du script/récit/série. S'il y a des
+// phrases longues, les plans seront longs. »
+//
+// Le découpeur (decouperPlanTropLong) est un FILET, pas une solution : une
+// proposition de dix-huit mots sans ponctuation reste un plan long, et rien
+// en aval ne peut la sauver sans fabriquer une image sur un bout de phrase.
+// La seule vraie correction est en amont, dans le texte écrit.
+//
+// LES SEUILS SONT DÉRIVÉS DES DURÉES, JAMAIS RECOPIÉS : changer DUREE_PLAFOND
+// change automatiquement la consigne envoyée au modèle et le signal de score.
+// Sans ça, les trois se seraient contredits au premier réglage.
+const RYTHME_MOTS_PHRASE_MAX = Math.floor(DUREE_PLAFOND * MOTS_PAR_SEC_PARLE);   // 15 mots = 6 s
+const RYTHME_MOTS_PHRASE_CIBLE = Math.floor(DUREE_MAX * MOTS_PAR_SEC_PARLE);    // 12 mots = 5 s
+
+function longueursDePhrases(texte) {
+  return String(texte || '')
+    .split(/[.!?…]+/)
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => p.split(/\s+/).filter(Boolean).length);
+}
+
+// Signal de score « rythme_soutenu », détecté en CODE, jamais par l'IA.
+//
+// AVANT, IL NE REGARDAIT QUE LA MOYENNE (≤ 12 mots), et c'est précisément ce
+// que le propriétaire a corrigé : « un maximum, pas seulement une moyenne ».
+// Une moyenne se tient très bien avec cinq phrases de quatre mots et une de
+// trente : la moyenne passe, et c'est la phrase de trente qui donne le plan de
+// douze secondes que le spectateur subit.
+//
+// Les trois modes appellent CETTE fonction. Ils en avaient chacun une copie
+// identique, ce qui est exactement la façon dont une règle finit par diverger.
+function detecterRythmeSoutenu(texte) {
+  const longueurs = longueursDePhrases(texte);
+  if (!longueurs.length) return false;
+  const moyenne = longueurs.reduce((s, n) => s + n, 0) / longueurs.length;
+  return moyenne <= RYTHME_MOTS_PHRASE_CIBLE && Math.max.apply(null, longueurs) <= RYTHME_MOTS_PHRASE_MAX;
+}
+
+// La consigne envoyée au modèle, écrite UNE SEULE FOIS. Script, Récit et Série
+// l'insèrent à l'écriture ET à la révision : sans elle à la révision, une passe
+// de correction rallonge tranquillement les phrases qu'elle réécrit, et le
+// travail de l'écriture est perdu.
+const CONSIGNE_PHRASES_COURTES = `LONGUEUR DES PHRASES, RÈGLE ABSOLUE ET VÉRIFIÉE PAR LE CODE : aucune phrase ne dépasse ${RYTHME_MOTS_PHRASE_MAX} mots, et la moyenne reste autour de ${RYTHME_MOTS_PHRASE_CIBLE - 2} mots. Ce n'est pas une préférence de style. Ce texte est ensuite découpé automatiquement en plans, un plan par image : une phrase de ${RYTHME_MOTS_PHRASE_MAX + 5} mots donne un plan de ${Math.round((RYTHME_MOTS_PHRASE_MAX + 5) / MOTS_PAR_SEC_PARLE)} secondes pendant lesquelles l'image ne bouge plus, et le spectateur décroche. Compte les mots de chaque phrase que tu écris. Si une phrase dépasse ${RYTHME_MOTS_PHRASE_MAX} mots, coupe-la en deux phrases qui portent chacune leur propre image, jamais en ajoutant une virgule. La bonne mesure est de 6 à ${RYTHME_MOTS_PHRASE_CIBLE} mots par phrase.`;
+
 // Découpe en phrases, ponctuation conservée
 function splitIntoSentences(texte) {
   if (!texte || typeof texte !== 'string') return [];

@@ -123,9 +123,11 @@ const GEN_DIMENSIONS_RECIT = {
   emotion:    ['emotion_forte', 'details_concrets'],
   viral:      ['originalite', 'rupture_attente', 'emotion_forte']
 };
-// Même détecteur mécanique que le mode Script (voir _genDetecterRythmeSoutenu,
-// js/generation.js), dupliqué ici (pas de module partagé entre fichiers
-// chargés en <script> dans ce projet).
+// Le détecteur de rythme n'est plus dupliqué ici : les trois modes appellent
+// detecterRythmeSoutenu (js/storyboard.js). L'excuse invoquée jusqu'ici (« pas
+// de module partagé entre fichiers chargés en <script> ») ne tenait pas : ces
+// fichiers partagent déjà une portée globale, c'est justement comme ça que
+// MOTS_PAR_SEC_PARLE et splitIntoSentences circulent.
 // ── NORMALISATION DES MOTS, UN SEUL ENDROIT ──
 // Trois usages dans ce fichier partageaient la même ligne de nettoyage,
 // recopiée : le détecteur de plagiat du hook, celui de la clôture, et
@@ -220,11 +222,11 @@ function _genJugerCoherenceFactuelleRecit(d, texteNormalise) {
   return !prouvee;
 }
 
+// Règle partagée par les trois modes (detecterRythmeSoutenu, js/storyboard.js) :
+// moyenne courte ET aucune phrase au-dessus du plafond. Voir le commentaire
+// dans js/storyboard.js pour la raison du maximum, qui manquait.
 function _genDetecterRythmeSoutenuRecit(texte) {
-  const phrases = String(texte || '').split(/[.!?…]+/).map(p => p.trim()).filter(Boolean);
-  if (!phrases.length) return false;
-  const motsTotal = phrases.reduce((s, p) => s + p.split(/\s+/).filter(Boolean).length, 0);
-  return (motsTotal / phrases.length) <= 12;
+  return detecterRythmeSoutenu(texte);
 }
 // Signal EXPLICITEMENT true/false = 1/0 ; ABSENT (échec technique de
 // l'évaluation IA) = 0.5, crédit neutre plutôt qu'une fausse note basse.
@@ -680,7 +682,7 @@ STYLE ET LANGUE :
 - Français courant, compréhensible par un ado de 12 ans, avec de subtiles anecdotes qui font sourire le spectateur.
 - Phrases brèves et moyennes. Rythme soutenu. Images fortes. Ruptures marquées.
 - AUCUN ton générique. Aucune formule plate.
-- UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image.
+- UNE IMAGE MENTALE TOUTES LES 3 À 5 SECONDES (essentiel pour le storyboard qui sera généré ensuite à partir de ce texte) : écris comme si tu filmais mentalement chaque instant. Chaque phrase, ou petit groupe de phrases très courtes, doit porter UNE SEULE idée visuelle claire, concrète et filmable (une action, un lieu, un visage, un objet), jamais plusieurs idées mélangées dans une même phrase longue. Change d'image mentale environ toutes les 8 à 14 mots (~3 à 5 secondes à l'oral). Interdiction des phrases analytiques ou à tiroirs qui empilent plusieurs images en une seule construction : découpe-les en plusieurs phrases courtes, chacune avec sa propre image. ${CONSIGNE_PHRASES_COURTES}
 - LE CHAMP "texte" DE CHAQUE SEGMENT NE CONTIENT JAMAIS DE MINUTAGE : le champ "segment" (ex: "Hook", "Contexte") est SÉPARÉ et sert uniquement de repère pour le créateur, ne répète jamais un minutage chiffré ("0-3 sec", "0:00-0:05"...) en tête ou dans le corps du champ "texte". Le champ "texte" est ce qu'une voix off va LIRE À VOIX HAUTE mot pour mot : écris directement la phrase parlée.
 
 EXIGENCE DE PERFECTION : Avant de livrer, relis ton récit. S'il n'atteint pas un niveau où un storyteller professionnel ne trouverait rien à améliorer, réécris-le. Vérifie que le hook arrête le scroll, que la tension tient du début à la fin, et que le DERNIER segment contient bien les DEUX éléments obligatoires : la triple question miroir (point 9) ET la signature métapoétique (point 10), jamais l'une sans l'autre.
@@ -859,6 +861,7 @@ ${raisonsScrollTxt ? '\nRAISONS DE DÉCROCHAGE À ÉLIMINER :\n' + raisonsScroll
 
 RÈGLES :
 - Ne touche JAMAIS un segment non listé ci-dessus.
+- ${CONSIGNE_PHRASES_COURTES}
 - Renvoie la liste COMPLÈTE des segments dans le même ordre, avec le même nombre total et les mêmes valeurs de "segment" (fonction narrative).
 - Si le dernier segment (clôture) est réécrit, il DOIT contenir la triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?", adaptée au sujet) ET la signature métapoétique ("Moi, je t'ai pas [X]. Je t'ai [Y]."), les deux systématiquement, percutantes et adaptées au sujet.
 - Réécris aussi les 5 hooks si le critique a signalé un hook faible, sinon garde-les.
