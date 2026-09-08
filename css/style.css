@@ -4271,3 +4271,22 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
 }
 /* Seule exception d'espacement, expliquée ci-dessus. */
 .btn-back{letter-spacing:0.02em}
+
+/* ── PASTILLE D'ABONNÉ ET LIGNE GRATUITE ──
+   Retour du propriétaire : « abonné creator / abonné pro / fondateur selon le
+   cas, et aussi “aucun compte requis • 5 générations offertes”, en majuscules
+   à la même taille que l'image » — la même référence que les boutons des
+   modes, 0.62rem / 0.13em.
+
+   Ces deux-là ne sont pas des boutons, d'où leur oubli lors de l'unification
+   précédente : la pastille est un ÉTAT (qui je suis), la ligne gratuite une
+   PROMESSE. Mais ce sont les deux premières choses qu'on lit sur l'accueil,
+   juste au-dessus du bouton principal, et elles étaient les seules à ne pas
+   parler la même langue que lui (0.72rem et 0.70rem, sans capitales).
+
+   L'ÉTOILE SUIT LE TEXTE. Elle a sa propre taille, réglée à 0.74rem quand le
+   libellé en faisait 0.72 : les laisser diverger l'aurait rendue plus grosse
+   que le mot qu'elle accompagne. Mesuré avant d'y toucher. */
+.abonne-badge{font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase}
+.abonne-star{font-size:0.64rem}
+.hero-free{font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase}
