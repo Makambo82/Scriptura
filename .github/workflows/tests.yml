@@ -34,5 +34,30 @@ jobs:
       - name: Installer Chromium (Playwright)
         run: npx playwright-core install --with-deps chromium
 
+      # LE NOM DU TEST FAUTIF DOIT ÊTRE LISIBLE À LA FIN DU JOURNAL.
+      # Trois échecs de CI de suite se sont présentés comme « 1 test sur 599 »
+      # sans dire lequel : la sortie TAP nomme bien le coupable, mais au milieu
+      # de quatre mille lignes, et la fin du journal ne montre que le décompte.
+      # On rejoue donc les lignes d'échec à la fin, là où on les cherche.
+      # `set -o pipefail` est indispensable : sans lui le code de sortie serait
+      # celui de `tee`, donc toujours 0, et la CI passerait au vert avec des
+      # tests rouges. C'est le pire des deux mondes.
       - name: Lancer la suite de tests
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee resultat.tap
+        continue-on-error: true
+        id: suite
+
+      - name: Résumé des échecs
+        if: always()
+        shell: bash
+        run: |
+          echo "──────── TESTS EN ÉCHEC ────────"
+          grep -E '^not ok' resultat.tap || echo "(aucun)"
+          echo "────────────────────────────────"
+          grep -E '^# (tests|pass|fail)' resultat.tap || true
+          # On refait échouer le job ici : l'étape précédente laisse passer pour
+          # que ce résumé s'affiche, mais un test rouge doit rester rouge.
+          test "${{ steps.suite.outcome }}" = "success"
