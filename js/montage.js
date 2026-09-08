@@ -1186,18 +1186,24 @@ function renderMontageEtat() {
           <button class="btn-regenerate" onclick="retirerMusiqueMontage()" type="button">Retirer</button>
         </div>`;
     } else {
-      // Deux chemins, à égalité : générer une musique, ou importer la sienne.
+      // Deux chemins, à égalité : importer sa musique, ou en générer une.
+      // MÊMES MOTS ET MÊME ORDRE QUE SUR LE MONTAGE MANUEL, et que la rangée
+      // de la voix off là-bas : ces deux écrans font le même travail, un
+      // créateur qui passe de l'un à l'autre ne doit pas avoir à réapprendre.
+      // Le format attendu est dans la ligne d'aide et non sur le bouton :
+      // « Importer un fichier » ne dit plus MP3, il faut donc le dire avant
+      // que le créateur n'ouvre sa bibliothèque pour rien.
       // L'import ne dépend PAS de la voix off (contrairement à la génération,
-      // qui a besoin de sa durée) : un créateur peut donc déposer son MP3
-      // avant même d'avoir généré la voix, au moment où il y pense.
+      // qui a besoin de sa durée) : on peut déposer son fichier quand on y
+      // pense.
       zoneMusique.innerHTML = `
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn-montage-primary" style="width:auto;flex:1 1 200px" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>
-          <label class="btn-regenerate" style="cursor:pointer;margin:0">Importer un MP3
+        <div class="montage-musique-choix">
+          <label class="btn-regenerate" style="cursor:pointer">Importer un fichier
             <input type="file" accept="audio/mpeg,.mp3" style="display:none" onchange="importerMusiqueMontage(this)"/>
           </label>
+          <button class="btn-montage-primary" onclick="genererMusiqueMontage()" type="button" ${montageVoixOff ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer avec l'IA</button>
         </div>
-        <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Ta musique se répète toute seule si elle est plus courte que la vidéo, et se coupe à la fin si elle est plus longue.</div>`;
+        <div class="ideas-sub" style="margin-top:8px;opacity:0.6">MP3 uniquement, ${MUSIQUE_IMPORT_MAX_MO} Mo maximum. Ta musique se répète toute seule si elle est plus courte que la vidéo, et se coupe à la fin si elle est plus longue.</div>`;
     }
   }
 

@@ -86,8 +86,8 @@ test('les DEUX écrans de montage proposent d\'importer un MP3, dès l\'ouvertur
         return z ? z.innerHTML : '';
       }, ecran.zone);
 
-      assert.match(html, /Importer un MP3/,
-        'REGRESSION : aucun bouton « Importer un MP3 » à l\'ouverture de l\'écran « '
+      assert.match(html, /Importer un fichier/,
+        'REGRESSION : aucun bouton d\'import à l\'ouverture de l\'écran « '
         + ecran.nom + ' ». Le créateur qui a déjà sa piste, ou une musique imposée par '
         + 'sa niche, n\'a pas d\'autre choix que d\'en faire générer une dont il ne veut '
         + 'pas, en y laissant du quota. Vu : ' + html.slice(0, 300));
@@ -97,7 +97,13 @@ test('les DEUX écrans de montage proposent d\'importer un MP3, dès l\'ouvertur
         + 'plus sur le MP3. Sur téléphone, le créateur se voit alors proposer toute sa '
         + 'bibliothèque, choisit un fichier, et se fait refuser après coup.');
 
-      assert.match(html, /Générer une musique de fond/,
+      assert.match(html, /MP3 uniquement, 15 Mo maximum/,
+        'REGRESSION : le format attendu n\'est plus annoncé sur « ' + ecran.nom + ' ». '
+        + 'Le bouton dit « Importer un fichier » et ne le dit donc plus lui-même : sans '
+        + 'cette ligne, le créateur ouvre sa bibliothèque, choisit un WAV, et ne '
+        + 'découvre le refus qu\'après. Vu : ' + html.slice(0, 300));
+
+      assert.match(html, /Générer avec l'IA/,
         'et la génération reste proposée à côté, sur « ' + ecran.nom + ' » : l\'import '
         + 's\'ajoute à ce chemin, il ne le remplace pas.');
     }

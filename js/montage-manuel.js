@@ -670,18 +670,24 @@ function omRenderMusiqueZone() {
         <button class="btn-regenerate" onclick="omRetirerMusique()" type="button">Retirer</button>
       </div>`;
   } else {
-    // Deux chemins à égalité, comme sur l'autre montage. L'import ne dépend
-    // PAS de la voix off (contrairement à la génération, qui a besoin de sa
-    // durée) : on peut déposer son MP3 au moment où on y pense.
+    // MÊMES MOTS QUE LA VOIX OFF, ET DANS LE MÊME ORDRE (retour du
+    // propriétaire) : les deux rangées se suivent sur le même écran, et l'œil
+    // ne devrait pas avoir à relire pour comprendre que ce sont les deux mêmes
+    // chemins. L'import passe donc à gauche, comme au-dessus.
+    // Le format attendu quitte le bouton et descend dans la ligne d'aide :
+    // « Importer un fichier » ne dit plus MP3, il faut donc le dire AVANT que
+    // le créateur n'ouvre sa bibliothèque et ne choisisse un WAV pour rien.
+    // L'import ne dépend PAS de la voix off, contrairement à la génération qui
+    // a besoin de sa durée : on peut déposer son fichier quand on y pense.
     const pret = omAudio && omAudio.duree > 0;
     zone.innerHTML = `
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn-montage-primary" style="width:auto;flex:1 1 200px" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer une musique de fond</button>
-        <label class="btn-regenerate" style="cursor:pointer;margin:0">Importer un MP3
+      <div class="montage-musique-choix">
+        <label class="btn-regenerate" style="cursor:pointer">Importer un fichier
           <input type="file" accept="audio/mpeg,.mp3" style="display:none" onchange="omImporterMusique(this)"/>
         </label>
+        <button class="btn-montage-primary" onclick="omGenererMusique()" type="button" ${pret ? '' : 'disabled title="Génère d\'abord la voix off"'}>Générer avec l'IA</button>
       </div>
-      <div class="ideas-sub" style="margin-top:8px;opacity:0.6">Ta musique se répète toute seule si elle est plus courte que la vidéo, et se coupe à la fin si elle est plus longue.</div>`;
+      <div class="ideas-sub" style="margin-top:8px;opacity:0.6">MP3 uniquement, ${MUSIQUE_IMPORT_MAX_MO} Mo maximum. Ta musique se répète toute seule si elle est plus courte que la vidéo, et se coupe à la fin si elle est plus longue.</div>`;
   }
 }
 

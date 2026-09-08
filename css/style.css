@@ -3658,6 +3658,30 @@ body.is-unlocked .sidebar-logout{display:block}
 .ds-scope{display:flex;gap:8px;margin-top:26px}
 .ds-scope-btn{flex:1;padding:11px 12px;border-radius:999px;border:1px solid var(--border-soft);background:rgba(255,255,255,0.03);color:var(--text-secondary);font-family:'Poppins',sans-serif;font-size:0.86rem;cursor:pointer;transition:all .2s}
 .ds-scope-btn.actif{border-color:var(--gold);background:var(--gold-pale);color:var(--gold-light);font-weight:600}
+/* Les deux bascules de la voix off du montage manuel (« IMPORTER UN FICHIER »
+   / « GÉNÉRER AVEC L'IA »), retour du propriétaire capture à l'appui : elles
+   se lisaient en minuscules juste au-dessus des boutons de la section Musique,
+   qui sont en capitales espacées. Deux rangées de boutons empilées sur le même
+   écran ne peuvent pas être écrites autrement l'une que l'autre.
+   MODIFICATEUR PLUTÔT QUE .ds-scope-btn : cette classe sert aussi à « Mon
+   compte / Compte concurrent » du diagnostic et à « Saisir / Choisir dans la
+   liste » des tendances. Ces libellés-là sont plus longs, et personne n'a
+   demandé à les changer.
+   LE REMBOURRAGE MONTE DE 11 À 14px : la police descend de 0.86rem à 0.62rem
+   pour rejoindre celle des boutons Musique, et sans ça la cible tactile
+   perdait 7px de haut. C'est l'ÉCRITURE qui devait s'aligner, jamais la zone
+   à toucher. */
+.om-mode-btn{font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase;padding:14px 12px}
+/* La rangée de la section Musique, sur les DEUX écrans de montage. Elle reprend
+   la géométrie de la rangée de la voix off ci-dessus : deux boutons de largeur
+   égale, côte à côte, même hauteur.
+   MESURÉ AVANT, et c'est ce qui a motivé cette règle : en largeurs libres, les
+   deux boutons ne tenaient pas sur 414px (168 + 8 + 180 pour 348 disponibles).
+   Le second passait à la ligne et s'étalait sur toute la largeur. On avait donc
+   deux boutons empilés en face de deux boutons côte à côte, en croyant les
+   avoir alignés. */
+.montage-musique-choix{display:flex;gap:8px;align-items:stretch}
+.montage-musique-choix > *{flex:1 1 0;min-width:0;margin:0;display:inline-flex;align-items:center;justify-content:center;text-align:center;padding:14px 10px}
 .ds-scope + .ds-field{margin-top:12px}
 
 .ds-field{display:flex;align-items:center;gap:10px;background:#3A3A3D;border:1px solid rgba(201,168,76,0.35);border-radius:999px;padding:8px 8px 8px 20px;margin-top:26px;transition:border-color .2s}
