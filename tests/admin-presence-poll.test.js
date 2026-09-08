@@ -39,10 +39,20 @@ test('le statut en ligne se rafraîchit sans reload, et le polling s\'arrête pr
       };
     });
 
+    // ── ON ATTEND UNE CONDITION, JAMAIS UN DÉLAI ──
+    // Ce test tombait par intermittence sur la CI (run 640 : « le polling doit
+    // démarrer à l'ouverture du panneau »), et jamais en local. La cause n'est
+    // pas le code de l'app : ouvrirTableauDeBord laisse du travail asynchrone
+    // derrière lui, et sur une machine chargée les 300 ms fixes s'écoulaient
+    // AVANT que #listeAbonnesAdmin n'existe. toggleListeAbonnesAdmin sortait
+    // alors sur son garde `if (!el) return;`, sans jamais démarrer le poll.
+    // Le test mesurait donc la vitesse du runner, pas le comportement.
     await page.evaluate(() => ouvrirTableauDeBord());
-    await page.waitForTimeout(300);
+    await page.waitForSelector('#listeAbonnesAdmin', { state: 'attached' });
+    await page.waitForFunction(() => Array.isArray(_codesAbonnesAdmin) && _codesAbonnesAdmin.length > 0);
+
     await page.evaluate(() => toggleListeAbonnesAdmin());
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => _presencePollInterval !== null);
 
     const enLigneAvant = await page.evaluate(() => document.getElementById('listeAbonnesAdminList').innerHTML.includes('social-dot'));
     const pollingActif = await page.evaluate(() => _presencePollInterval !== null);

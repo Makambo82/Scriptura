@@ -32,7 +32,12 @@ test('si un test charge le service de rendu, la CI installe ses dépendances', (
   const workflow = fs.readFileSync(
     path.join(RACINE, '.github/workflows/tests.yml'), 'utf8');
 
-  assert.match(workflow, /npm ci --prefix render-service/,
+  // On exige l'INSTALLATION, pas une ligne de commande au caractère près : la
+  // vraie règle est « les dépendances du service sont là sur la CI ». Fixer la
+  // commande exacte a fait tomber ce test à l'ajout de --ignore-scripts, qui
+  // corrigeait pourtant un vrai échec de CI (voir le workflow). Un test qui
+  // refuse une amélioration de la chose qu'il protège est trop serré.
+  assert.match(workflow, /npm ci(?:\s+--[\w-]+)*\s+--prefix render-service/,
     'REGRESSION : ' + dependants.length + ' fichier(s) de test chargent '
     + 'render-service/server.js (' + dependants.join(', ') + '), mais le workflow '
     + 'n\'installe plus les dépendances du service. Or server.js commence par '

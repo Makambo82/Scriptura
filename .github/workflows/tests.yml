@@ -28,8 +28,18 @@ jobs:
       # fichiers ne se chargent même pas ici : node_modules/ est ignoré par git,
       # donc le défaut n'apparaît QUE sur la CI, jamais en local.
       # Verrouillé par tests/dependances-du-service-de-rendu.test.js.
+      #
+      # --ignore-scripts, ET C'EST LA CORRECTION D'UN VRAI ÉCHEC DE CI (run
+      # 640) : le postinstall de ffmpeg-static télécharge un binaire de ~80 Mo
+      # depuis GitHub Releases, qui a répondu 500. Toute la CI est tombée sans
+      # qu'un seul test ne tourne, sur une panne qui n'a rien à voir avec le
+      # code. Or les tests n'exécutent JAMAIS ffmpeg : ils lisent les calculs
+      # de server.js. Et `require('ffmpeg-static')` se contente de calculer un
+      # chemin, il ne vérifie pas que le binaire est là (voir son index.js).
+      # On installe donc les paquets sans leurs scripts : plus rapide, et la
+      # CI ne dépend plus de la disponibilité d'un CDN tiers.
       - name: Installer les dépendances du service de rendu
-        run: npm ci --prefix render-service
+        run: npm ci --ignore-scripts --prefix render-service
 
       - name: Installer Chromium (Playwright)
         run: npx playwright-core install --with-deps chromium
