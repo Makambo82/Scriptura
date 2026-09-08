@@ -1710,6 +1710,17 @@ async function generate() {
   // gagnent-elles leur prix ? Aucune donnée de contenu n'est enregistrée.
   const _mesurePasses = { corrections_duree: 0, critiques: 0, revisions: 0, second_brouillon: false };
 
+  // Compteur de jetons RÉELS de cette génération (voir demarrerMesureJetons,
+  // js/api.js). Démarré ici, c'est-à-dire au tout début du pipeline : tout
+  // appel IA fait ensuite y est additionné, sans qu'aucun d'eux ait à le
+  // savoir.
+  if (typeof demarrerMesureJetons === 'function') demarrerMesureJetons();
+
+  // Ce que le CRITIQUE a réellement déclaré, pour savoir si le second
+  // brouillon (85 % des générations) est justifié ou si c'est le déclencheur
+  // qui est mal posé. Passif : ne change aucune décision.
+  const _mesureCritique = { verdict: '', ia_generique: null, raisons_scroll: 0, viralite_moyenne: null };
+
   const DUREE_BLOC_TOLERANCE = 1.5;
   const DUREE_BLOC_PLANCHER = 25;
   function plafondDureeBloc() {
@@ -2334,6 +2345,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
         if (!nouvelleCritique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
         critique = nouvelleCritique;
+        if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritique, critique);
 
         if (!critiqueIndiqueProbleme(critique)) break; // le script passe le contrôle qualité : terminé
 
@@ -2717,7 +2729,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         // fier ferait passer pour "hors cible" un script dont le total est
         // parfait. Le hook a sa propre mesure juste en dessous.
         dans_cible: !(wordCount < hardMin || wordCount > hardMax)
-      }, _mesurePasses));
+        // Jetons RÉELS de la génération et signaux déclarés par le critique :
+        // deux mesures passives, aucune donnée de contenu (voir js/api.js).
+      }, _mesurePasses, _mesureCritique, (typeof lireMesureJetons === 'function' ? (lireMesureJetons() || {}) : {})));
     }
 
     // Le juge part MAINTENANT, après l'affichage : plus rien ne l'attend.

@@ -627,6 +627,11 @@ ${blocsCandidats}
   // légende, hashtags et CTA partaient sans aucun cadre.
   const plateformeInstruction = `PLATEFORME, RÈGLE ABSOLUE : ce contenu est destiné à TIKTOK, jamais à une autre plateforme. Le récit lui-même ne change pas de structure, mais la LÉGENDE, les HASHTAGS et l'appel à l'action DOIVENT respecter les codes TikTok : légende courte et punchy, tutoiement direct, appel à l'action franc ("commente si...", "partage à quelqu'un qui..."), hashtags mêlant tendance et niche. Ne produis jamais une légende générique valable pour n'importe quelle plateforme, ni une légende qui ressemble à une description YouTube.`;
 
+  // Compteur de jetons RÉELS, démarré AVANT le premier appel IA du récit :
+  // placé plus bas (près de _mesurePassesRecit), il aurait raté l'écriture,
+  // c'est-à-dire l'appel le plus cher de tout le pipeline.
+  if (typeof demarrerMesureJetons === 'function') demarrerMesureJetons();
+
   // Mémoire virale partagée (le récit n'a pas de niche : mélange universel de
   // leviers réels). recupererPatternsViraux vient de js/generation.js (global).
   const memoireViraleStory = (typeof recupererPatternsViraux === 'function')
@@ -772,6 +777,7 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
     // js/generation.js, même principe et même finalité). N'influence aucune
     // décision, aucune donnée de contenu.
     const _mesurePassesRecit = { corrections_duree: 0, critiques: 0, revisions: 0, second_brouillon: false };
+    const _mesureCritiqueRecit = { verdict: '', ia_generique: null, raisons_scroll: 0, viralite_moyenne: null };
 
     const MAX_PASSES_QUALITE_RECIT = 2;
     if (!repondreMaintenant) {
@@ -804,6 +810,7 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           const critiqueRaw = await callAI(modeleQualiteRecit(), 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
           const critique = parseAIResponse(critiqueRaw);
           if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
+          if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritiqueRecit, critique);
 
           function critiqueRecitProbleme(c) {
             if (!c) return false;
@@ -1305,7 +1312,9 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
         duree_cible: storyFormat === 'court' ? (storyDuree || '') : 'format long',
         mots_final: countStoryWords(parsed.recit),
         dans_cible: !parsed.avertissementDuree
-      }, _mesurePassesRecit));
+        // Jetons RÉELS de la génération et signaux déclarés par le critique :
+        // deux mesures passives, aucune donnée de contenu (voir js/api.js).
+      }, _mesurePassesRecit, _mesureCritiqueRecit, (typeof lireMesureJetons === 'function' ? (lireMesureJetons() || {}) : {})));
     }
 
     // Le juge part MAINTENANT, après l'affichage : plus rien ne l'attend.

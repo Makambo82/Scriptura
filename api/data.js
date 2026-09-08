@@ -306,11 +306,34 @@ async function handlePasses(req, res, cfg, body) {
       revisions: entier(body?.revisions, 20),
       second_brouillon: !!body?.second_brouillon
     };
-    await fetch(cfg.url + '/rest/v1/passes_generation', {
+
+    // ── CE QUE LA GÉNÉRATION A RÉELLEMENT COÛTÉ, ET CE QUE LE CRITIQUE A DIT ──
+    // Colonnes ajoutées par supabase/mesure_jetons.sql. Tant que le
+    // propriétaire ne l'a pas lancé, elles n'existent pas et PostgREST refuse
+    // toute la ligne : on réessaie donc SANS elles, pour ne pas perdre aussi
+    // la mesure des passes qui, elle, fonctionne depuis des semaines.
+    const extras = {
+      jetons_entree: entier(body?.entree, 5000000),
+      jetons_sortie: entier(body?.sortie, 5000000),
+      jetons_cache_lu: entier(body?.cache_lu, 5000000),
+      jetons_cache_ecrit: entier(body?.cache_ecrit, 5000000),
+      appels_ia: entier(body?.appels, 200),
+      critique_verdict: typeof body?.verdict === 'string' ? body.verdict.slice(0, 20) : '',
+      critique_ia_generique: body?.ia_generique === true,
+      critique_raisons_scroll: entier(body?.raisons_scroll, 50),
+      critique_viralite: typeof body?.viralite_moyenne === 'number' && isFinite(body.viralite_moyenne)
+        ? Math.max(0, Math.min(20, Math.round(body.viralite_moyenne * 10) / 10))
+        : null
+    };
+
+    const envoyer = (corps) => fetch(cfg.url + '/rest/v1/passes_generation', {
       method: 'POST',
       headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
-      body: JSON.stringify(ligne)
+      body: JSON.stringify(corps)
     });
+
+    const rep = await envoyer({ ...ligne, ...extras });
+    if (!rep.ok) await envoyer(ligne);
     return res.status(200).json({ ok: true });
   } catch (e) {
     return res.status(200).json({ ok: false });

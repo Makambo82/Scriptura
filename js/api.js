@@ -414,11 +414,24 @@ async function callAI(model, maxTokens, prompt, maxRetries, webSearch, webSearch
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-        if (onApercu) onApercu(buffer);
+        // Le relevé de jetons est posé en toute fin de flux, derrière U+001E
+        // (voir api/generate.js). Il est détaché AVANT l'aperçu : sans ça, le
+        // créateur verrait passer du JSON de mesure à la fin de sa génération.
+        const coupe = buffer.indexOf(SEPARATEUR_JETONS);
+        if (onApercu) onApercu(coupe >= 0 ? buffer.slice(0, coupe) : buffer);
+      }
+      const coupe = buffer.indexOf(SEPARATEUR_JETONS);
+      if (coupe >= 0) {
+        noterJetons(buffer.slice(coupe + 1), useModel);
+        buffer = buffer.slice(0, coupe);
       }
       raw = buffer;
     } else {
       const data = await res.json();
+      // Chemin sans flux : `usage` est déjà là, il n'était simplement lu par
+      // personne. C'est la majorité des appels d'une génération (brief,
+      // critique, révision, correction, juge, prompts visuels).
+      if (res.ok && data && data.usage) noterJetons(data.usage, useModel);
       if (!res.ok) {
         const detail = data.error?.message || data.message || JSON.stringify(data).slice(0, 150);
         // Refus DÉFINITIF du fournisseur (400/401/404...) : requête ou compte
@@ -604,6 +617,93 @@ function journaliserReponseIncomplete(mode, raison, rattrape) {
 // Aucune donnée de contenu n'est envoyée : ni sujet, ni texte, uniquement des
 // compteurs. Fire-and-forget, jamais attendu, jamais bloquant, et sans effet
 // si la table n'existe pas encore.
+// ═══════════════════════════════════════════════════════════
+//  CE QUE COÛTE VRAIMENT UNE GÉNÉRATION, EN JETONS RÉELS
+//
+//  Retour du propriétaire, tableau de bord à l'appui : « 8 générations et 5 €
+//  sont finis, les 40 générations du plan Creator me coûteront combien ? »
+//  Personne ne pouvait répondre autrement qu'en estimant, parce que l'app
+//  jetait les chiffres qu'Anthropic lui envoyait à chaque appel.
+//
+//  On compte donc pour de bon. Aucune donnée de contenu ne circule ici : des
+//  entiers, un nom de modèle, rien d'autre. Aucun appel IA supplémentaire,
+//  aucun changement de comportement : ce module ne fait qu'additionner ce qui
+//  arrivait déjà dans la réponse.
+//
+//  LE SÉPARATEUR EST LE MÊME QUE CÔTÉ SERVEUR (api/generate.js, U+001E). Les
+//  deux doivent rester identiques : un test l'exige, parce qu'un désaccord
+//  d'un caractère ferait passer le relevé pour du texte de génération.
+// ═══════════════════════════════════════════════════════════
+const SEPARATEUR_JETONS = '';
+
+let _jetonsGeneration = null;   // null = aucune mesure en cours
+
+// Remet le compteur à zéro au DÉBUT d'une génération. Sans cet appel, rien
+// n'est mesuré : c'est volontaire, une mesure qui traîne d'une génération à
+// l'autre donnerait des totaux faux, et faux vaut moins que rien du tout.
+function demarrerMesureJetons() {
+  _jetonsGeneration = { appels: 0, entree: 0, sortie: 0, cache_lu: 0, cache_ecrit: 0, modeles: {} };
+}
+
+function noterJetons(usageOuTexte, modele) {
+  if (!_jetonsGeneration) return;
+  let u = usageOuTexte;
+  if (typeof u === 'string') {
+    try { u = JSON.parse(u); } catch (e) { return; }
+  }
+  if (!u || typeof u !== 'object') return;
+  // Deux formes : celle d'Anthropic (chemin sans flux) et celle du relevé de
+  // fin de flux (api/generate.js), volontairement plus courte.
+  const n = (a, b) => {
+    const v = typeof u[a] === 'number' ? u[a] : (typeof u[b] === 'number' ? u[b] : 0);
+    return v > 0 ? v : 0;
+  };
+  _jetonsGeneration.appels++;
+  _jetonsGeneration.entree += n('input_tokens', 'entree');
+  _jetonsGeneration.sortie += n('output_tokens', 'sortie');
+  _jetonsGeneration.cache_lu += n('cache_read_input_tokens', 'cache_lu');
+  _jetonsGeneration.cache_ecrit += n('cache_creation_input_tokens', 'cache_ecrit');
+  if (modele) _jetonsGeneration.modeles[modele] = (_jetonsGeneration.modeles[modele] || 0) + 1;
+}
+
+// Rend le relevé de la génération en cours, ou null si aucune mesure n'a été
+// démarrée. Le lecteur ne remet jamais le compteur à zéro lui-même : c'est
+// demarrerMesureJetons qui décide où commence une génération.
+function lireMesureJetons() {
+  if (!_jetonsGeneration) return null;
+  return Object.assign({}, _jetonsGeneration);
+}
+
+// ── CE QUE LE CRITIQUE A DÉCLARÉ, ÉCRIT UNE SEULE FOIS POUR TOUS LES MODES ──
+//
+// Le tableau de bord montre que le second brouillon complet part dans 85 % des
+// générations, et la révision aussi. Deux lectures possibles, opposées : soit
+// les premiers jets sont vraiment faibles huit fois sur dix, soit les
+// DÉCLENCHEURS sont mal posés. Deux indices sérieux pour la seconde :
+//
+//   - la révision se déclenche si `raisons_de_scroll` n'est pas vide, or ce
+//     champ fait partie du formulaire imposé au critique, et l'exemple qu'on
+//     lui montre en contient déjà deux ;
+//   - le second brouillon exige `ia_generique === true`, et la valeur d'exemple
+//     affichée dans ce même formulaire est littéralement `"ia_generique":true`.
+//
+// On ne corrige rien avant de savoir. Cette fonction ENREGISTRE, elle ne
+// décide rien : aucune valeur lue ici n'influence le pipeline.
+//
+// Le PREMIER critique seulement : c'est lui qui décide du second brouillon.
+// Les suivants jugent un texte déjà réécrit, ils répondent à une autre question.
+function mesurerSignauxCritique(mesure, critique) {
+  if (!mesure || !critique || mesure.verdict) return;   // déjà rempli : on garde le premier
+  mesure.verdict = typeof critique.verdict === 'string' ? critique.verdict.slice(0, 20) : '';
+  mesure.ia_generique = critique.ia_generique === true;
+  mesure.raisons_scroll = Array.isArray(critique.raisons_de_scroll) ? critique.raisons_de_scroll.length : 0;
+  const v = critique.viralite;
+  if (v && typeof v === 'object') {
+    const vals = Object.values(v).filter(x => typeof x === 'number');
+    if (vals.length) mesure.viralite_moyenne = Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
+  }
+}
+
 function journaliserPassesGeneration(mesure) {
   try {
     fetch('/api/data', {

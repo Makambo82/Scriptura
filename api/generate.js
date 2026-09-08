@@ -18,6 +18,20 @@ const MODELE_DEFAUT = 'claude-haiku-4-5-20251001';
 // script complet, 16000, voir js/generation.js/js/storytelling.js).
 const MAX_TOKENS_PLAFOND = 16000;
 
+// ══ COMBIEN A COÛTÉ CET APPEL, RÉELLEMENT ══
+//
+// Anthropic renvoie l'usage en jetons à CHAQUE appel, et l'app le jetait :
+// le chemin en flux ne relayait que le texte, le chemin classique renvoyait
+// bien `usage` mais personne ne le lisait. Résultat : impossible de dire ce
+// que coûte une génération autrement qu'en l'estimant, et une estimation ne
+// permet aucune décision de prix ni de quota.
+//
+// Le séparateur d'enregistrement U+001E ferme le flux et précède le relevé.
+// C'est un caractère de CONTRÔLE : un modèle ne l'écrit ni dans du texte ni
+// dans du JSON, donc il ne peut pas apparaître au milieu d'une génération et
+// être pris pour une frontière. Partagé avec js/api.js, qui le détache.
+const SEPARATEUR_JETONS = '';
+
 const PLAFOND_ANONYME_JOUR = 15; // filet IP, générations gratuites sans code
 
 // Date réelle du jour, injectée dans CHAQUE appel modèle (voir handler ci-dessous).
@@ -182,6 +196,17 @@ export default async function handler(req, res) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buf = '';
+      // Ce que l'appel a RÉELLEMENT coûté. Anthropic l'envoie à chaque flux et
+      // on le jetait : `message_start` porte les jetons d'entrée (et ceux lus
+      // en cache), `message_delta` le total de sortie une fois fini.
+      const jetons = { entree: 0, sortie: 0, cache_lu: 0, cache_ecrit: 0 };
+      const noterUsage = (u) => {
+        if (!u) return;
+        if (typeof u.input_tokens === 'number') jetons.entree = u.input_tokens;
+        if (typeof u.output_tokens === 'number') jetons.sortie = u.output_tokens;
+        if (typeof u.cache_read_input_tokens === 'number') jetons.cache_lu = u.cache_read_input_tokens;
+        if (typeof u.cache_creation_input_tokens === 'number') jetons.cache_ecrit = u.cache_creation_input_tokens;
+      };
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -195,10 +220,22 @@ export default async function handler(req, res) {
             const evt = JSON.parse(ligneData.slice(5).trim());
             if (evt.type === 'content_block_delta' && evt.delta && evt.delta.type === 'text_delta') {
               res.write(evt.delta.text);
+            } else if (evt.type === 'message_start' && evt.message) {
+              noterUsage(evt.message.usage);
+            } else if (evt.type === 'message_delta') {
+              noterUsage(evt.usage);
             }
           } catch (e) { /* trame partielle ou non-JSON (ex: ping), ignorée */ }
         }
       }
+      // ── LE RELEVÉ DE JETONS, EN FIN DE FLUX ──
+      // Le corps de cette réponse est du TEXTE BRUT affiché en direct au
+      // créateur (aperçu de génération) : on ne peut pas y glisser du JSON
+      // n'importe où. Il est donc posé tout à la fin, derrière un séparateur
+      // d'enregistrement (U+001E), un caractère de contrôle qu'un modèle
+      // n'écrit jamais dans du texte ni dans du JSON. callAI le détache avant
+      // que quoi que ce soit d'autre ne voie la réponse, aperçu compris.
+      res.write(SEPARATEUR_JETONS + JSON.stringify(jetons));
       return res.end();
     }
 
