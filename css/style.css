@@ -1300,7 +1300,41 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 }
 .hero-cta:hover{transform:translateY(-2px);box-shadow:0 20px 46px -12px rgba(201,168,76,0.75)}
 .hero-cta:active{transform:translateY(0)}
-.hero-cta-label{flex:1;text-align:center;font-family:'Poppins',sans-serif;font-size:1rem;font-weight:600}
+/* Sur les très petits écrans (320px, encore courants sur les téléphones
+   d'entrée de gamme), le libellé n'a que 200px pour lui et les phrases les
+   plus longues tombent sous le plancher de lisibilité. On lui rend de la
+   place AVANT de rapetisser le texte, dans cet ordre-là : mieux vaut un
+   bouton un peu moins aéré qu'un libellé illisible.
+   Le remplissage gauche vaut 28px contre 12 à droite, pour compenser
+   optiquement le disque de la flèche. Sur 296px de bouton, cet écart devient
+   disproportionné : 16px suffisent à garder l'équilibre. Mesuré : la place du
+   libellé passe de 200 à 216px. */
+@media(max-width:360px){
+  .hero-cta{padding:12px 12px 12px 16px;gap:10px}
+}
+/* ── LE LIBELLÉ DU BOUTON D'ACCUEIL TIENT SUR UNE LIGNE ──
+   Demande du propriétaire, deux captures à l'appui : « Commence gratuitement »
+   tenait sur une ligne, « On fait grandir ton audience ? » passait sur deux, et
+   le point d'interrogation se retrouvait seul en dessous.
+
+   TROIS PROPRIÉTÉS, ET AUCUNE N'EST DÉCORATIVE :
+   · white-space:nowrap interdit le retour à la ligne, c'est la demande même ;
+   · min-width:0 est INDISPENSABLE et c'est le piège classique du flex : la
+     largeur minimale d'un élément flexible vaut par défaut son contenu, donc,
+     en nowrap, la phrase entière. Sans lui l'élément refuserait de rétrécir,
+     clientWidth vaudrait la largeur du TEXTE et non la place disponible, et le
+     calcul de js/ui.js trouverait qu'il n'y a rien à réduire, pendant que le
+     bouton déborderait ;
+   · overflow:hidden est un filet, jamais un fonctionnement normal : la taille
+     est calculée pour que la phrase tienne. Il n'existe que pour le jour où
+     quelqu'un ajoutera une phrase si longue qu'elle passe sous le plancher de
+     lisibilité, et où mieux vaut un mot coupé qu'un bouton crevé.
+
+   LA TAILLE EST CALCULÉE EN JS (ajusterHeroCta, js/ui.js) et posée en ligne :
+   aucune règle CSS ne sait mesurer une phrase. clamp() et les unités de vue
+   font varier la taille avec l'ÉCRAN, jamais avec la LONGUEUR DU TEXTE, or
+   c'est le texte qui change ici, à écran constant. */
+.hero-cta-label{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-align:center;font-family:'Poppins',sans-serif;font-size:1rem;font-weight:600}
 .hero-cta-arrow{flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:#FFFFFF;color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:1.2rem;line-height:1}
 @media(prefers-reduced-motion:no-preference){
   .hero-cta::after{content:'';position:absolute;top:0;bottom:0;left:-60%;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,0.55),transparent);transform:skewX(-18deg);animation:goldSheen 4.5s ease-in-out infinite}

@@ -670,6 +670,67 @@ const HERO_CTA_PHRASES_ABONNE = [
 // rappelée souvent, après chaque génération, changement de quota…) pour que
 // le texte reste stable pendant toute la session au lieu de changer sous les yeux.
 let _heroCtaPhraseAbonne = null;
+
+// ── LE LIBELLÉ S'ADAPTE AU BOUTON, JAMAIS L'INVERSE ──
+// Demande du propriétaire, deux captures à l'appui : « Commence gratuitement »
+// tenait sur une ligne, « On fait grandir ton audience ? » passait sur deux, et
+// le point d'interrogation se retrouvait tout seul en dessous. Le bouton a une
+// largeur fixe, les phrases non : il y en a onze, tirées au hasard à chaque
+// visite, de « On s'y met ? » à « Qu'est-ce qu'on écrit aujourd'hui ? ».
+//
+// POURQUOI PAS DU CSS SEUL : clamp() et les unités de vue font varier la taille
+// avec l'ÉCRAN, jamais avec la LONGUEUR DU TEXTE. Or c'est bien le texte qui
+// change ici, à écran constant. Aucune règle CSS ne sait mesurer une phrase.
+//
+// UN SEUL CALCUL, PAS UNE BOUCLE : la largeur d'un texte est proportionnelle à
+// sa taille de police (l'espacement des lettres est en em, il suit donc), et le
+// rapport « place disponible / place nécessaire » donne directement le facteur.
+// Une boucle qui décrémente de 0.01 en 0.01 ferait des dizaines de mesures de
+// mise en page pour le même résultat.
+const HERO_CTA_TAILLE_MAX = 1;      // rem, la taille de référence, celle du CSS
+// PLANCHER MESURÉ, PAS CHOISI AU JUGÉ : sur un écran de 320px, la plus longue
+// des onze phrases (« Ton prochain contenu commence ici. ») demande 0.583rem
+// une fois le bouton resserré par la règle @media de css/style.css. 0.58 est
+// donc le plus grand plancher qui garantisse UNE SEULE LIGNE pour toutes les
+// phrases, sur tous les écrans, ce qui était la demande. Il n'est atteint que
+// sur ces très petits écrans ; à partir de 360px, aucune phrase n'y touche.
+const HERO_CTA_TAILLE_MIN = 0.58;
+const HERO_CTA_MARGE = 0.98;        // 2% de sécurité : les mesures sont
+                                    // sous-pixelisées et arrondies, et il suffit
+                                    // d'un pixel de trop pour repasser à la ligne
+
+function ajusterHeroCta() {
+  const lbl = document.getElementById('heroCtaLabel');
+  if (!lbl) return;
+  // On repart TOUJOURS de la taille de référence avant de mesurer : sinon
+  // chaque appel rétrécirait un peu plus le libellé, et après quelques
+  // changements de phrase il finirait minuscule sans que rien ne l'explique.
+  lbl.style.fontSize = HERO_CTA_TAILLE_MAX + 'rem';
+  // Bouton masqué (mode focus, écran d'un mode) : rien à mesurer, et une
+  // largeur nulle donnerait un rapport absurde.
+  const dispo = lbl.clientWidth;
+  if (!(dispo > 0)) return;
+  const besoin = lbl.scrollWidth;   // largeur réelle du texte, sans retour à la ligne
+  if (besoin <= dispo) return;      // tient déjà : on ne touche à rien
+  const taille = Math.max(HERO_CTA_TAILLE_MIN, HERO_CTA_TAILLE_MAX * HERO_CTA_MARGE * dispo / besoin);
+  lbl.style.fontSize = taille.toFixed(3) + 'rem';
+}
+
+// Les polices arrivent APRÈS le premier rendu : mesurer avant leur chargement
+// donne la largeur d'une police de repli, donc une taille fausse, et le
+// libellé resterait trop grand ou trop petit pour de bon.
+if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(ajusterHeroCta).catch(function () {});
+}
+// Rotation de l'écran, fenêtre redimensionnée : la place disponible change,
+// la taille doit être recalculée depuis la référence.
+if (typeof window !== 'undefined') {
+  let _minuteurHeroCta = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(_minuteurHeroCta);
+    _minuteurHeroCta = setTimeout(ajusterHeroCta, 120);
+  });
+}
 function majHeroCta() {
   const lbl = document.getElementById('heroCtaLabel');
   if (!lbl) return;
@@ -687,6 +748,9 @@ function majHeroCta() {
     const maxGratuit = typeof MAX_FREE !== 'undefined' ? MAX_FREE : 5;
     free.textContent = dejaAbonne ? 'Aucun compte requis' : `Aucun compte requis • ${maxGratuit} générations offertes`;
   }
+  // APRÈS avoir posé le texte, jamais avant : c'est le texte qui vient d'être
+  // écrit qu'il faut mesurer.
+  ajusterHeroCta();
 }
 
 function openModal() {
