@@ -22,6 +22,15 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      # Le service de rendu a ses PROPRES dépendances (express), et
+      # tests/montage-*.test.js charge render-service/server.js pour vérifier
+      # ses calculs de durée et de sur-échantillonnage. Sans cette étape, ces
+      # fichiers ne se chargent même pas ici : node_modules/ est ignoré par git,
+      # donc le défaut n'apparaît QUE sur la CI, jamais en local.
+      # Verrouillé par tests/dependances-du-service-de-rendu.test.js.
+      - name: Installer les dépendances du service de rendu
+        run: npm ci --prefix render-service
+
       - name: Installer Chromium (Playwright)
         run: npx playwright-core install --with-deps chromium
 
