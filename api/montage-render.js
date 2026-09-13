@@ -79,6 +79,15 @@ export default async function handler(req, res) {
   if (!process.env.MONTAGE_RENDER_URL) {
     return res.status(500).json({ error: { message: 'Service de rendu vidéo non configuré (MONTAGE_RENDER_URL absente).' } });
   }
+  // LOT 3, audit A2 : le render-service refuse désormais TOUTE requête sans
+  // jeton valide (voir jetonValide, render-service/server.js). Sans cette
+  // variable ici, le proxy enverrait la requête sans en-tête et le
+  // render-service la rejetterait avec un 401 générique - vrai, mais qui
+  // ressemblerait à une panne du service externe plutôt qu'à ce que c'est
+  // réellement : une configuration Vercel incomplète.
+  if (!process.env.MONTAGE_RENDER_TOKEN) {
+    return res.status(500).json({ error: { message: 'Service de rendu vidéo non configuré (MONTAGE_RENDER_TOKEN absente).' } });
+  }
 
   // LOT 2, audit A7 : le rendu vidéo (Railway) n'avait jusqu'ici AUCUN
   // quota, seulement la vérification de plan ci-dessus - un appel direct et

@@ -67,12 +67,20 @@ continue de fonctionner normalement dans les deux cas.
      d'environnement serveur, jamais dans du code versionné.
    - `ALLOWED_ORIGIN` — l'URL du site, ex. `https://scriptura-v1.vercel.app`
      (ou `*` pour tout autoriser).
-   - `MONTAGE_TOKEN` — **fortement recommandé** : un mot de passe simple
-     (ex. généré avec `openssl rand -hex 32`). Sans lui, ce service accepte
-     n'importe quelle requête `POST /render` venue de n'importe où, sans
-     vérification (le rendu FFmpeg coûte du temps de calcul facturé par
-     l'hébergeur). S'il est défini ici, il doit être renseigné avec la
-     MÊME valeur côté Vercel (voir plus bas).
+   - `MONTAGE_TOKEN` — **OBLIGATOIRE**, un secret long et aléatoire (ex.
+     généré avec `openssl rand -hex 32`). Le service **refuse de démarrer**
+     si cette variable est absente (voir le message d'erreur explicite dans
+     les logs Railway au démarrage) : `POST /render` accepterait sinon
+     n'importe quelle requête, de n'importe où, sans aucune vérification
+     (le rendu FFmpeg coûte du temps de calcul facturé par l'hébergeur).
+     Chaque requête doit porter la MÊME valeur dans l'en-tête HTTP
+     `x-montage-token`, comparée en temps constant (jamais un `===` nu, qui
+     laisserait fuiter le secret par le temps de réponse). Cette variable
+     doit être renseignée avec la MÊME valeur côté Vercel, sous le nom
+     `MONTAGE_RENDER_TOKEN` (voir plus bas) : deux noms différents pour la
+     même valeur, l'un pour ce service, l'autre pour le proxy Vercel qui
+     l'appelle. Ne jamais écrire la valeur réelle du jeton dans ce dépôt,
+     dans un commit, ou dans une réponse HTTP.
    - *(optionnel)* `MONTAGE_WIDTH` / `MONTAGE_HEIGHT` / `MONTAGE_FPS` /
      `MONTAGE_TRANSITION` pour ajuster résolution, cadence et durée de fondu.
    - *(optionnel)* `MONTAGE_BATCH` — nombre de plans rendus ensemble (défaut 3,
@@ -108,12 +116,24 @@ Sur **Vercel**, projet du site principal → *Settings* → *Environment
 Variables*, ajoute :
 
 - `MONTAGE_RENDER_URL` — l'URL de ce service (ex. `https://scriptura-render.onrender.com`).
-- `MONTAGE_RENDER_TOKEN` — **la même valeur** que `MONTAGE_TOKEN` réglé ci-dessus.
+- `MONTAGE_RENDER_TOKEN` — **OBLIGATOIRE**, la MÊME valeur que `MONTAGE_TOKEN`
+  réglé ci-dessus côté Railway/Render/Fly. Sans elle, `/api/montage-render`
+  refuse la requête (500, "MONTAGE_RENDER_TOKEN absente") plutôt que
+  d'appeler le service de rendu sans authentification.
 
 Puis redéploie (un nouveau push suffit, ou "Redeploy" sur le dernier
-déploiement). `MONTAGE_RENDER_URL` est désormais requise : sans elle,
-`/api/montage-render` refuse la requête (le repli sur un rendu FFmpeg
-local à Vercel a été retiré, voir api/montage-render.js).
+déploiement). `MONTAGE_RENDER_URL` et `MONTAGE_RENDER_TOKEN` sont désormais
+toutes les deux requises : sans l'une ou l'autre, `/api/montage-render`
+refuse la requête (le repli sur un rendu FFmpeg local à Vercel a été
+retiré, voir api/montage-render.js).
+
+**Démarrage refusé côté render-service.** Si `MONTAGE_TOKEN` n'est pas
+réglée sur l'hébergeur du service de rendu, le processus se termine
+immédiatement au lancement (`process.exit(1)`) avec un message explicite
+dans les logs - jamais un service qui démarre quand même sans protection.
+Railway (ou l'hébergeur choisi) affichera ce déploiement comme en échec :
+c'est le comportement voulu, pas un bug. Configure `MONTAGE_TOKEN` puis
+relance.
 
 ## Test rapide
 

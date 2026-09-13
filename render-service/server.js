@@ -26,6 +26,7 @@ const { spawn } = require('child_process');
 const { promises: fs } = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const ffmpegPath = require('ffmpeg-static');
 
 const app = express();
@@ -166,11 +167,41 @@ function resoudreVolumeMusique(demande) {
 // production (montage à 53 plans, lot-0 déjà tué "code null") : même le tout
 // premier lot de 4 dépassait la RAM disponible sur le conteneur actuel.
 const TAILLE_LOT = parseInt(process.env.MONTAGE_BATCH || '3', 10);
-// Jeton optionnel : si défini, chaque requête doit envoyer le même dans
-// l'en-tête "x-montage-token". Gate légère (l'outil est réservé au fondateur).
+// LOT 3, audit A2 : ce jeton était OPTIONNEL ("si défini") - sans lui,
+// POST /render acceptait n'importe quelle requête, de n'importe où, sans
+// aucune vérification (le rendu FFmpeg coûte du temps de calcul facturé par
+// l'hébergeur, voir A9 pour les limites de ressources qui bornent CE coût
+// une fois la requête acceptée, mais rien n'empêchait alors de la
+// déclencher du tout). Le SEUL appelant légitime est api/montage-render.js
+// (Vercel, jamais le navigateur, voir js/montage.js et
+// render-service/README.md "Brancher le site sur le service") : Vercel
+// connaît déjà MONTAGE_RENDER_URL, la même valeur peut donc porter un jeton
+// obligatoire sans aucune gêne pour l'usage réel.
+// MONTAGE_TOKEN est désormais OBLIGATOIRE pour démarrer le service en tant
+// que serveur (voir la garde tout en bas de ce fichier, dans
+// `if (require.main === module)`) : cette variable reste vide UNIQUEMENT
+// quand ce fichier est importé comme bibliothèque (tests, qui n'appellent
+// jamais app.listen() par ce chemin) - jamais un "mode dégradé" utilisable
+// en production, aucune branche NODE_ENV nulle part dans ce fichier.
 const MONTAGE_TOKEN = process.env.MONTAGE_TOKEN || '';
 // Origine(s) autorisée(s) pour l'appel navigateur direct. '*' par défaut.
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+// Comparaison EN TEMPS CONSTANT (audit A2) : un simple `===` sur un secret
+// laisse fuiter, par le temps de réponse, le nombre de caractères corrects
+// au début de la valeur reçue (attaque de timing, connue et pratique sur un
+// service accessible en réseau). `crypto.timingSafeEqual` exige deux
+// Buffers de MÊME longueur : le test de longueur ci-dessous ne compare donc
+// jamais deux tampons de tailles différentes (qui ferait planter la
+// fonction), sans jamais retourner vrai pour un jeton absent ou vide.
+function jetonValide(recu) {
+  const valeur = Array.isArray(recu) ? recu[0] : recu;
+  if (!MONTAGE_TOKEN || typeof valeur !== 'string' || !valeur) return false;
+  const a = Buffer.from(valeur);
+  const b = Buffer.from(MONTAGE_TOKEN);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
 // ── LOT 2, audit A9 : limites de ressources d'un job de rendu ──
 //
@@ -629,7 +660,12 @@ async function telechargerImagesEnPool(images, dossier, etatTotal, signalJob) {
 }
 
 app.post('/render', async (req, res) => {
-  if (MONTAGE_TOKEN && req.headers['x-montage-token'] !== MONTAGE_TOKEN) {
+  // LOT 3, audit A2 : jamais de repli "pas de jeton configuré = tout le
+  // monde passe" (l'ancien `if (MONTAGE_TOKEN && ...)` faisait exactement
+  // ça). jetonValide() renvoie false dans les deux cas, jeton absent côté
+  // serveur OU en-tête absent/faux côté requête : cette route n'accepte
+  // JAMAIS une requête non authentifiée, quelle qu'en soit la raison.
+  if (!jetonValide(req.headers['x-montage-token'])) {
     return res.status(401).json({ error: { message: 'Jeton invalide' } });
   }
   const debutRendu = Date.now();
@@ -847,6 +883,22 @@ app.post('/render', async (req, res) => {
 // test-sous-titres.js) : sinon chaque import ouvrirait son propre serveur
 // HTTP, en concurrence sur le même port.
 if (require.main === module) {
+  // LOT 3, audit A2 : un service démarré sans MONTAGE_TOKEN accepterait
+  // /render de n'importe qui (voir jetonValide, plus haut). Refus de
+  // démarrer plutôt qu'un service silencieusement non protégé - jamais une
+  // branche NODE_ENV (qui, mal réglée sur l'hébergeur, laisserait passer
+  // une prod non protégée) : cette garde s'applique à CHAQUE lancement réel
+  // de ce fichier comme serveur, sans exception. Jamais la valeur du jeton
+  // dans ce message, seulement son absence.
+  if (!MONTAGE_TOKEN) {
+    console.error(
+      '[render-service] Démarrage refusé : la variable d\'environnement MONTAGE_TOKEN est absente. '
+      + 'Sans elle, POST /render accepterait n\'importe quelle requête, de n\'importe où, sans '
+      + 'authentification (voir render-service/README.md, section Railway > Variables). '
+      + 'Configure MONTAGE_TOKEN puis relance le service.'
+    );
+    process.exit(1);
+  }
   app.listen(PORT, () => console.log('Service de rendu Scriptura à l\'écoute sur le port ' + PORT));
 }
 
@@ -858,5 +910,6 @@ module.exports = {
   urlAssetApprouvee, telechargerVers, executerFFmpeg, telechargerImagesEnPool,
   MAX_IMAGES, MAX_OCTETS_IMAGE, MAX_OCTETS_AUDIO, MAX_OCTETS_MUSIQUE,
   MAX_OCTETS_TOTAL, CONCURRENCE_TELECHARGEMENT, TIMEOUT_TELECHARGEMENT_MS, TIMEOUT_JOB_MS,
+  jetonValide,
   app
 };

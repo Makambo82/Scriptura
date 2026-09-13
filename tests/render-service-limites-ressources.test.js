@@ -17,6 +17,11 @@ const path = require('path');
 const http = require('http');
 
 process.env.SUPABASE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
+// LOT 3, audit A2 : POST /render exige désormais toujours un jeton valide
+// (voir jetonValide, render-service/server.js) : un jeton de TEST explicite,
+// jamais un vrai secret, jamais une exception basée sur NODE_ENV.
+const JETON_TEST = 'jeton-de-test-A9-jamais-un-secret-reel';
+process.env.MONTAGE_TOKEN = JETON_TEST;
 const BON = 'https://nlkfqxllunbvppulpnzl.supabase.co/storage/v1/object/public/montages/img.jpg';
 
 function mockReponseAvecCorps(contenu, { status = 200, ok = true, contentLength, morceaux } = {}) {
@@ -54,7 +59,7 @@ test('1. nombre d\'images trop élevé : rejeté (400) AVANT tout téléchargeme
     // les téléchargements INTERNES du service) : sinon cette requête de test
     // vers le serveur local serait, elle aussi, absorbée par le mock.
     const rep = await fetchOriginal('http://127.0.0.1:' + port + '/render', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-montage-token': JETON_TEST },
       body: JSON.stringify({ images, audioUrl: BON })
     });
     assert.equal(rep.status, 400);
@@ -226,7 +231,7 @@ test('7. nettoyage garanti après erreur : le dossier temporaire disparaît mêm
   try {
     // fetchOriginal, pas global.fetch (mocké au-dessus) : voir le test 1.
     const rep = await fetchOriginal('http://127.0.0.1:' + port + '/render', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-montage-token': JETON_TEST },
       body: JSON.stringify({ images: [{ url: BON, duration: 1 }], audioUrl: BON })
     });
     assert.equal(rep.status, 500);

@@ -28,6 +28,10 @@ function poserEnv() {
   process.env.SUPABASE_URL = 'https://exemple.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'cle-service-role-test';
   process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+  // LOT 3, audit A2 : /api/montage-render exige désormais MONTAGE_RENDER_TOKEN
+  // (sans quoi il répond 500 avant même de vérifier le quota testé ici, voir
+  // api/montage-render.js). Valeur factice, jamais un vrai secret.
+  process.env.MONTAGE_RENDER_TOKEN = 'jeton-de-test-A7-jamais-un-secret-reel';
   process.env.ELEVENLABS_API_KEY = 'cle-elevenlabs-test';
   process.env.ELEVENLABS_VOICE_ID = 'voix-test-1';
 }
@@ -35,6 +39,7 @@ function retirerEnv() {
   delete process.env.SUPABASE_URL;
   delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   delete process.env.MONTAGE_RENDER_URL;
+  delete process.env.MONTAGE_RENDER_TOKEN;
   delete process.env.ELEVENLABS_API_KEY;
   delete process.env.ELEVENLABS_VOICE_ID;
 }
