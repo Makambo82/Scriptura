@@ -29,10 +29,34 @@
 //  reste publique (donnée anonymisée, faite pour inspirer tout le monde).
 //  Si la clé service_role est absente, l'endpoint dégrade en silence
 //  (ok:false), l'app n'est jamais bloquée.
+//
+//  AUDIT A20 : cette route n'avait AUCUNE vérification d'identité ni de
+//  rate-limit avant ce correctif (seul le score recalculé, ci-dessus,
+//  protégeait contre un score fabriqué). Rien n'empêchait un script
+//  d'appeler POST /api/patterns en boucle avec des signaux tous à `true`
+//  (score garanti au-dessus du seuil) pour noyer la mémoire partagée sous
+//  de faux leviers, ou simplement consommer des ressources en boucle.
+//  « Analyser une vidéo virale » reste accessible aux visiteurs SANS code
+//  d'accès (1 analyse gratuite à vie, voir MODES_GRATUIT_UNIQUE,
+//  api/_lib/acces.js) : exiger un abonnement ici casserait un dépôt
+//  légitime. Le mécanisme déjà présent et adapté à ce cas exact est
+//  verifierLimiteAnonyme (même filet IP + jour que /api/verify-code,
+//  /api/generate, /api/tiktok-video…), réutilisé tel quel plutôt que de
+//  créer un deuxième système d'authentification : chaque écriture doit
+//  provenir d'une IP qui n'a pas déjà dépassé le plafond du jour, abonné ou
+//  non. La lecture (GET) reste publique et non limitée, comme avant : elle
+//  ne modifie rien et sert à inspirer tout le monde.
 // ═══════════════════════════════════════════════════════════
+
+import { verifierLimiteAnonyme } from './_lib/acces.js';
 
 const SEUIL_MEMOIRE = 85;   // score de recette (pondéré) minimal pour entrer
 const MAX_LIRE = 12;        // plafond dur de patterns renvoyés
+// Filet généreux (comparer à PLAFOND_ANONYME_JOUR=15 pour /api/generate,
+// une action bien plus fréquente) : un dépôt légitime est déjà rare en
+// amont (quota analyseVirale : 6-10/mois abonné, 1 fois à vie sans code),
+// ce plafond ne vise qu'à borner un abus scripté, jamais un usage réel.
+const PLAFOND_PATTERNS_JOUR = 20;
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -163,6 +187,12 @@ export default async function handler(req, res) {
       return res.status(200).json(out);
     }
     if (req.method === 'POST') {
+      // Filet IP + jour (audit A20), voir le commentaire d'en-tête : jamais
+      // un blocage dur pour une panne (verifierLimiteAnonyme dégrade en
+      // laissant passer), seulement un vrai plafond dépassé.
+      const limite = await verifierLimiteAnonyme(req, 'patterns-ecrire', PLAFOND_PATTERNS_JOUR);
+      if (!limite.ok) return res.status(200).json({ ok: false, raison: 'limite_anonyme' });
+
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
       body = body || {};

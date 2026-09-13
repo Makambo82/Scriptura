@@ -7,6 +7,13 @@
 // signaux bruts (voir calculerScoreRecette, api/patterns.js), le client ne
 // peut plus influencer que les signaux eux-mêmes (des booléens dont la
 // combinaison doit rester cohérente pour espérer franchir le seuil).
+//
+// AUDIT A20 : le POST passe désormais par verifierLimiteAnonyme AVANT
+// d'évaluer le garde-fou (voir api/patterns.js), ce qui fait un premier
+// appel fetch (RPC consommer_usage) même quand l'écriture réelle
+// n'aura jamais lieu. Les tests ci-dessous vérifient donc l'ABSENCE d'un
+// appel vers /rest/v1/patterns_viraux précisément, pas l'absence de TOUT
+// appel réseau.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
@@ -16,9 +23,9 @@ test('/api/patterns ignore un score fabriqué par le client : les signaux réels
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'cle-service-role-test';
 
   const fetchOriginal = global.fetch;
-  let requeteSupabase = null;
+  const appels = [];
   global.fetch = async (url, options) => {
-    requeteSupabase = { url, options };
+    appels.push({ url, options });
     return { ok: true, json: async () => ({}) };
   };
 
@@ -48,7 +55,8 @@ test('/api/patterns ignore un score fabriqué par le client : les signaux réels
     assert.equal(statusRecu, 200);
     assert.equal(jsonRecu.ok, false, 'un score fabriqué ne doit jamais suffire à passer le garde-fou : ' + JSON.stringify(jsonRecu));
     assert.equal(jsonRecu.raison, 'sous_seuil');
-    assert.equal(requeteSupabase, null, 'aucune écriture Supabase ne doit partir si le score recalculé est sous le seuil');
+    assert.ok(!appels.some(a => a.url.includes('/rest/v1/patterns_viraux')),
+      'aucune écriture Supabase ne doit partir si le score recalculé est sous le seuil : ' + JSON.stringify(appels));
   } finally {
     global.fetch = fetchOriginal;
     process.env = envAvant;
@@ -61,9 +69,9 @@ test('/api/patterns accepte et stocke le score RECALCULÉ (pas celui envoyé) qu
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'cle-service-role-test';
 
   const fetchOriginal = global.fetch;
-  let requeteSupabase = null;
+  const appels = [];
   global.fetch = async (url, options) => {
-    requeteSupabase = { url, options };
+    appels.push({ url, options });
     return { ok: true, json: async () => ({}) };
   };
 
@@ -96,8 +104,9 @@ test('/api/patterns accepte et stocke le score RECALCULÉ (pas celui envoyé) qu
 
     assert.equal(statusRecu, 200);
     assert.equal(jsonRecu.ok, true, 'des signaux réellement complets doivent passer le garde-fou : ' + JSON.stringify(jsonRecu));
-    assert.ok(requeteSupabase, 'une écriture Supabase doit partir');
-    const ligneEcrite = JSON.parse(requeteSupabase.options.body);
+    const requeteEcriture = appels.find(a => a.url.includes('/rest/v1/patterns_viraux'));
+    assert.ok(requeteEcriture, 'une écriture Supabase doit partir : ' + JSON.stringify(appels));
+    const ligneEcrite = JSON.parse(requeteEcriture.options.body);
     assert.equal(ligneEcrite.score, 100, 'le score stocké doit être celui recalculé en code (100), jamais celui envoyé par le client (10) : ' + JSON.stringify(ligneEcrite));
   } finally {
     global.fetch = fetchOriginal;
