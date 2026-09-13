@@ -23,6 +23,7 @@
 // documente EXACTEMENT cette limite plutôt que de prétendre la fermer.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+require('./helpers/fetch-fidele').rendreLesMocksFideles();
 
 const ENV_BASE = { SUPABASE_URL: 'https://nlkfqxllunbvppulpnzl.supabase.co' };
 
