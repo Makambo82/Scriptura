@@ -26,7 +26,7 @@
 //  désormais requise pour que le montage fonctionne.
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, verifierAccesMontage, codeAccesRefuse } from './_lib/acces.js';
+import { resoudreDroits, verifierAccesMontage, verifierQuota, rembourserUsage, codeAccesRefuse } from './_lib/acces.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -79,6 +79,19 @@ export default async function handler(req, res) {
   if (!process.env.MONTAGE_RENDER_URL) {
     return res.status(500).json({ error: { message: 'Service de rendu vidéo non configuré (MONTAGE_RENDER_URL absente).' } });
   }
+
+  // LOT 2, audit A7 : le rendu vidéo (Railway) n'avait jusqu'ici AUCUN
+  // quota, seulement la vérification de plan ci-dessus - un appel direct et
+  // répété à cette route coûtait donc à volonté. Décompté ICI, une fois la
+  // requête validée (jamais pour un payload invalide ou une configuration
+  // manquante), juste avant de proxier vers le service externe (même ordre
+  // que la génération d'images du même montage, voir api/montage-media.js),
+  // remboursé si le service externe échoue.
+  const quota = await verifierQuota(droits, 'montageRendus', body?.code_acces);
+  if (!quota.ok) {
+    return res.status(403).json({ error: { message: 'Limite de rendus vidéo du mois atteinte pour ton plan.', code: 'QUOTA_ATTEINT' } });
+  }
+
   try {
     const entetesProxy = { 'Content-Type': 'application/json' };
     if (process.env.MONTAGE_RENDER_TOKEN) entetesProxy['x-montage-token'] = process.env.MONTAGE_RENDER_TOKEN;
@@ -91,6 +104,7 @@ export default async function handler(req, res) {
     });
     const dataProxy = await rProxy.json().catch(() => ({}));
     if (!rProxy.ok || !dataProxy.url) {
+      if (quota.consomme) await rembourserUsage(droits, 'montageRendus', body?.code_acces, 1);
       return res.status(502).json({ error: { message: (dataProxy.error && dataProxy.error.message) || 'Le service de rendu externe a échoué.' } });
     }
     // Mesure du rendu, jamais bloquante (voir journaliserMontage) : la vidéo
@@ -109,6 +123,7 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ url: dataProxy.url });
   } catch (e) {
+    if (quota.consomme) await rembourserUsage(droits, 'montageRendus', body?.code_acces, 1);
     return res.status(502).json({ error: { message: 'Service de rendu externe injoignable : ' + (e.message || 'inconnue') } });
   }
 }

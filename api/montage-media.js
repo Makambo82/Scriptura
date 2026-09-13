@@ -206,6 +206,17 @@ async function handleTts(req, res, body) {
     return res.status(400).json({ error: { message: 'Aucun texte à narrer' } });
   }
 
+  // LOT 2, audit A7/A15 : la voix off (ElevenLabs, facturé au caractère)
+  // n'avait jusqu'ici AUCUN quota, seulement la vérification de plan
+  // ci-dessus - un appel direct et répété à cette route coûtait donc à
+  // volonté. Décompté ici, une fois la requête validée, remboursé si
+  // ElevenLabs échoue (même principe que les images du même montage).
+  const quotaVoix = await verifierQuota(droits, 'montageVoix', body?.code_acces);
+  if (!quotaVoix.ok) {
+    return res.status(403).json({ error: { message: 'Limite de générations de voix off du mois atteinte pour ton plan.', code: 'QUOTA_ATTEINT' } });
+  }
+  const rembourserVoix = async () => { if (quotaVoix.consomme) await rembourserUsage(droits, 'montageVoix', body?.code_acces, 1); };
+
   const voixDemandee = typeof body?.voiceId === 'string' ? body.voiceId : '';
   const voixChoisie = voixDisponibles.find(v => v.id === voixDemandee) || voixDisponibles[0];
   const voiceId = voixChoisie.id;
@@ -242,17 +253,20 @@ async function handleTts(req, res, body) {
     // « Erreur serveur : Unexpected token '<'… » affiché au créateur.
     const data = await lireJsonOuNull(rep);
     if (data === null) {
+      await rembourserVoix();
       return res.status(502).json({
         error: { message: 'Le service de voix off a répondu quelque chose d\'illisible (statut ' + rep.status + ')' }
       });
     }
     if (!rep.ok) {
+      await rembourserVoix();
       const message = data?.detail?.message || data?.message || 'La voix off n\'a pas pu être générée';
       return res.status(502).json({ error: { message } });
     }
 
     const align = data?.alignment;
     if (!data?.audio_base64 || !align || !Array.isArray(align.character_start_times_seconds)) {
+      await rembourserVoix();
       return res.status(502).json({ error: { message: 'Réponse ElevenLabs inattendue (pas d\'horodatage)' } });
     }
     const debutsTemps = align.character_start_times_seconds;
@@ -294,6 +308,7 @@ async function handleTts(req, res, body) {
       captions
     });
   } catch (e) {
+    await rembourserVoix();
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
   }
 }
@@ -337,6 +352,15 @@ async function handleMusic(req, res, body) {
   // qu'ElevenLabs refuserait.
   const dureeMs = Math.min(MUSIQUE_DUREE_MAX_MS, Math.max(MUSIQUE_DUREE_MIN_MS, dureeDemandeeMs));
 
+  // LOT 2, audit A7/A15 : la musique de fond (ElevenLabs Music, facturé à la
+  // durée) n'avait jusqu'ici AUCUN quota, seulement la vérification de plan
+  // ci-dessus. Décompté ici, remboursé si ElevenLabs échoue.
+  const quotaMusique = await verifierQuota(droits, 'montageMusique', body?.code_acces);
+  if (!quotaMusique.ok) {
+    return res.status(403).json({ error: { message: 'Limite de générations de musique du mois atteinte pour ton plan.', code: 'QUOTA_ATTEINT' } });
+  }
+  const rembourserMusique = async () => { if (quotaMusique.consomme) await rembourserUsage(droits, 'montageMusique', body?.code_acces, 1); };
+
   try {
     const rep = await fetch('https://api.elevenlabs.io/v1/music', {
       method: 'POST',
@@ -356,6 +380,7 @@ async function handleMusic(req, res, body) {
       // des trois appels qui s'en gardait déjà, il passe sur la fonction
       // commune pour que les trois se comportent pareil.
       const data = await lireJsonOuNull(rep);
+      await rembourserMusique();
       const message = data?.detail?.message || data?.message
         || (rep.status === 401 ? 'Accès refusé par ElevenLabs (vérifie que l\'accès à Music est bien activé sur ton compte)' : 'La musique de fond n\'a pas pu être générée');
       return res.status(502).json({ error: { message } });
@@ -363,10 +388,12 @@ async function handleMusic(req, res, body) {
 
     const tampon = Buffer.from(await rep.arrayBuffer());
     if (!tampon.length) {
+      await rembourserMusique();
       return res.status(502).json({ error: { message: 'Réponse ElevenLabs vide (pas de musique reçue)' } });
     }
     return res.status(200).json({ audioBase64: tampon.toString('base64'), mimeType: 'audio/mpeg' });
   } catch (e) {
+    await rembourserMusique();
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
   }
 }

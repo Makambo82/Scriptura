@@ -44,8 +44,27 @@ const LIMITES_MOIS = {
   // carrousels : la génération d'images est pensée SLIDE PAR SLIDE, la
   // plupart des slides d'un carrousel qui performe étant du texte sur fond
   // uni, pas une illustration.
-  creator: { creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0, montageImages: 20, carrouselImages: 15 },
-  pro:     { creation: 70, audit: 5, diagnosticSommaire: 15, analyseVirale: 10, tendances: 1, montageImages: 60, carrouselImages: 40 }
+  // montageRendus / montageVoix / montageMusique (LOT 2, audit A7/A15) :
+  // avant ce correctif, le rendu vidéo final (render-service, Railway) et
+  // les appels ElevenLabs (voix off, musique) n'avaient AUCUN quota, juste
+  // une vérification de plan (Creator/Pro) - un appel direct et répété à
+  // /api/montage-render ou /api/montage-media (tts/music) coûtait donc à
+  // volonté, sans aucune limite. Plafonds délibérément généreux (jamais
+  // l'intention de gêner un usage normal, seulement de border un abus) :
+  // montageRendus permet plusieurs rendus par montage (retouches avant
+  // export final) ; montageVoix/montageMusique permettent plusieurs
+  // régénérations par montage. Aucun lien avec montageImages/carrouselImages
+  // (budgets déjà existants, non modifiés).
+  creator: {
+    creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0,
+    montageImages: 20, carrouselImages: 15,
+    montageRendus: 30, montageVoix: 60, montageMusique: 30
+  },
+  pro: {
+    creation: 70, audit: 5, diagnosticSommaire: 15, analyseVirale: 10, tendances: 1,
+    montageImages: 60, carrouselImages: 40,
+    montageRendus: 100, montageVoix: 150, montageMusique: 80
+  }
 };
 const PLAN_PAR_DEFAUT = 'creator';
 const MAX_FREE = 5;                // création, code jeton/inconnu (à vie)
@@ -108,6 +127,53 @@ function codesEnv() {
 const ALERTE_DEGRADE_INTERVALLE_MS = 10 * 60 * 1000;
 let _derniereAlerteDegrade = 0;
 
+// ── LOT 2, audit A6 : grâce contrôlée, en mémoire d'instance uniquement ──
+//
+// Le fail-open ci-dessus ne distinguait pas un abonné RÉELLEMENT déjà validé
+// (CAS 1 : Supabase confirmait son plan il y a une minute) d'un code
+// totalement inventé, jamais vu (CAS 2) : les deux recevaient exactement le
+// même accès Creator gratuit pendant une panne. Ce cache retient, pour
+// CHAQUE code qui vient d'être validé AVEC SUCCÈS par une vraie lecture
+// Supabase, ses droits réels et l'instant de cette validation. Si Supabase
+// tombe ensuite en panne :
+//  - un code présent ici ET dans la fenêtre de grâce retrouve SES VRAIS
+//    droits (pas un Creator par défaut) ;
+//  - un code absent (jamais validé par CETTE instance) n'obtient RIEN : pas
+//    de nouveau compte ni de nouveau code accepté en mode dégradé ;
+//  - la grâce n'est JAMAIS prolongée par un accès en mode dégradé, seule une
+//    vraie réussite Supabase la renouvelle : pas de prolongation infinie.
+//
+// Volontairement PAS un second système d'authentification : aucun jeton,
+// aucun secret, rien d'écrit côté client (encore moins dans localStorage),
+// juste un instantané des droits déjà légitimement obtenus, gardé le temps
+// d'une panne courte. Limite assumée : en mémoire d'instance seulement (les
+// fonctions serverless sont recyclées et ne partagent pas cette mémoire
+// entre elles), donc une grâce qui fonctionne sur UNE instance chaude peut
+// ne rien donner sur une autre qui vient de démarrer - c'est un filet
+// best-effort, pas une garantie, exactement comme le reste de ce fichier.
+const GRACE_DUREE_MS = 30 * 60 * 1000; // 30 min : couvre un vrai incident court, jamais une panne de plusieurs heures
+const _graceParCode = new Map(); // codeUpper -> { droits, valideLe }
+
+function memoriserGrace(codeUpper, droits) {
+  // Purge opportuniste des entrées expirées à chaque écriture : borne la
+  // mémoire sans avoir besoin d'un minuteur séparé à nettoyer.
+  const maintenant = Date.now();
+  for (const [cle, entree] of _graceParCode) {
+    if (maintenant - entree.valideLe > GRACE_DUREE_MS) _graceParCode.delete(cle);
+  }
+  _graceParCode.set(codeUpper, { droits, valideLe: maintenant });
+}
+
+function lireGrace(codeUpper) {
+  const entree = _graceParCode.get(codeUpper);
+  if (!entree) return null;
+  if (Date.now() - entree.valideLe > GRACE_DUREE_MS) {
+    _graceParCode.delete(codeUpper); // expirée : jamais prolongée, jamais réutilisée
+    return null;
+  }
+  return entree.droits;
+}
+
 function journaliserAccesDegrade(cfg, raison) {
   try {
     if (!cfg) return; // rien à quoi écrire, voir limite 1 ci-dessus
@@ -126,6 +192,41 @@ function journaliserAccesDegrade(cfg, raison) {
   } catch (e) { /* une alerte ne doit jamais casser la requête qu'elle observe */ }
 }
 
+// ── LOT 2, audit A7 : les pannes de la RPC de quota étaient invisibles ──
+//
+// appelerRpc (plus bas) renvoyait déjà `null` sur toute panne (réponse HTTP
+// en erreur, RPC absente, exception réseau), et cette valeur `null` fait
+// volontairement PASSER l'opération (verifierQuota/verifierLimiteAnonyme :
+// "indéterminé, ne jamais enfermer un abonné dehors pour une panne d'infra").
+// Mais contrairement à resoudreDroits (voir journaliserAccesDegrade
+// ci-dessus), rien n'était journalisé : une panne de la RPC de quota
+// pouvait donc laisser passer une consommation illimitée d'une ressource
+// payante (génération, images, voix off, musique, rendu vidéo) sans que
+// personne ne le sache. Même mécanique de throttle que ci-dessus (une
+// alerte toutes les 10 minutes suffit à voir le problème sans noyer la
+// carte), mode distinct ('quota-degrade') pour que le Tableau de bord
+// distingue les deux causes.
+const ALERTE_QUOTA_INTERVALLE_MS = 10 * 60 * 1000;
+let _derniereAlerteQuota = 0;
+
+function journaliserPanneRpc(cfg, fonction, raison) {
+  try {
+    if (!cfg) return;
+    const maintenant = Date.now();
+    if (maintenant - _derniereAlerteQuota < ALERTE_QUOTA_INTERVALLE_MS) return;
+    _derniereAlerteQuota = maintenant;
+    fetch(cfg.url + '/rest/v1/erreurs_generation', {
+      method: 'POST',
+      headers: { ...entetes(cfg.key), Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        mode: 'quota-degrade',
+        code_acces: null, // jamais le code : cet appel peut concerner n'importe quel appelant
+        detail: 'RPC ' + fonction + ' en panne, quota laissé passer SANS vérification : ' + String(raison || 'cause inconnue').slice(0, 150)
+      })
+    }).catch(() => {});
+  } catch (e) { /* une alerte ne doit jamais casser la requête qu'elle observe */ }
+}
+
 async function resoudreDroits(code) {
   if (!code) return { ok: true, anonyme: true, isAdmin: false, illimite: false, plan: null, jetons: 0 };
 
@@ -137,13 +238,15 @@ async function resoudreDroits(code) {
 
   const cfg = config();
   if (!cfg) {
-    // Clé service role absente : dégradation (voir en-tête de fichier),
-    // on ne bloque personne mais rien n'est réellement vérifié ici. Ce cas
-    // donne un accès Creator gratuit à N'IMPORTE QUEL code, y compris
-    // inventé : sans log, une mauvaise config Supabase en prod ouvrirait
-    // l'accès payant à tout le monde sans que personne ne s'en aperçoive.
-    console.error('[acces] SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absent(s) : accès Creator dégradé accordé sans vérification réelle');
-    return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, nonConfigure: true };
+    // Clé service role absente (LOT 2, audit A6) : AUCUNE écriture Supabase
+    // n'a jamais pu réussir dans cette instance, donc la grâce est
+    // forcément vide ici, pour tout le monde. Avant, ce cas donnait un accès
+    // Creator gratuit à N'IMPORTE QUEL code, y compris inventé (CAS 2) ; il
+    // n'y a par construction aucun CAS 1 possible sans configuration, donc
+    // plus aucun accès n'est accordé du tout, exactement comme un code
+    // inconnu sur un Supabase sain.
+    console.error('[acces] SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY absent(s) : aucun accès dégradé accordé (LOT 2 A6, plus de Creator gratuit par défaut)');
+    return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: null, jetons: 0, nonConfigure: true };
   }
 
   try {
@@ -152,14 +255,16 @@ async function resoudreDroits(code) {
       { headers: entetes(cfg.key) }
     );
     if (!r.ok) {
-      // Erreur Supabase (clé invalide, schéma, RLS, quota API…) : SANS cette
-      // distinction, une simple panne était auparavant traitée exactement
-      // comme "code inconnu" (rows.length===0 par défaut de r.json() en
-      // erreur), ce qui plafonnait TOUT abonné réel à 5 générations gratuites
-      // à vie au lieu de son quota mensuel réel, à la moindre erreur d'API.
-      console.error('[acces] Supabase a répondu ' + r.status + ' sur /rest/v1/abonnes : accès Creator dégradé accordé sans vérification réelle');
+      // Erreur Supabase (clé invalide, schéma, RLS, quota API…) : LOT 2 A6,
+      // on ne traite plus tout le monde pareil. Un code déjà validé avec
+      // succès par cette instance (CAS 1) retrouve ses VRAIS droits pour la
+      // durée de la grâce ; un code jamais vu (CAS 2, ex. inventé) n'obtient
+      // rien, jamais un Creator par défaut.
+      console.error('[acces] Supabase a répondu ' + r.status + ' sur /rest/v1/abonnes : ' + (lireGrace(codeUpper) ? 'grâce accordée à un code déjà validé' : 'aucun accès (code jamais validé par cette instance)'));
       journaliserAccesDegrade(cfg, 'Supabase a répondu ' + r.status + ' sur /rest/v1/abonnes');
-      return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
+      const grace = lireGrace(codeUpper);
+      if (grace) return { ...grace, panne: true, viaGrace: true };
+      return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: null, jetons: 0, panne: true };
     }
     const rows = await r.json();
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -181,13 +286,20 @@ async function resoudreDroits(code) {
     const planBrut = String(ab.plan || '').trim().toLowerCase();
     // "jeton" = achat à l'unité, sans abonnement : pas un plan Creator/Pro réel.
     const plan = (planBrut === 'creator' || planBrut === 'pro') ? planBrut : null;
-    return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan, jetons };
+    const resultat = { ok: true, anonyme: false, isAdmin: false, illimite: false, plan, jetons };
+    // Mémorisé UNIQUEMENT sur ce chemin (vraie lecture Supabase réussie, code
+    // réellement actif) : voir memoriserGrace, jamais sur un chemin dégradé,
+    // donc jamais de prolongation infinie de la grâce (LOT 2, audit A6).
+    memoriserGrace(codeUpper, resultat);
+    return resultat;
   } catch (e) {
-    // Panne réseau/Supabase : ne jamais enfermer un abonné dehors pour ça
-    // (même filet que le comportement d'avant cette passe).
-    console.error('[acces] panne réseau vers Supabase (' + (e && e.message) + ') : accès Creator dégradé accordé sans vérification réelle');
+    // Panne réseau/Supabase (LOT 2 A6) : même distinction CAS 1/CAS 2 que
+    // ci-dessus, jamais un Creator par défaut pour un code jamais validé.
+    console.error('[acces] panne réseau vers Supabase (' + (e && e.message) + ') : ' + (lireGrace(codeUpper) ? 'grâce accordée à un code déjà validé' : 'aucun accès (code jamais validé par cette instance)'));
     journaliserAccesDegrade(cfg, 'panne réseau vers Supabase (' + (e && e.message) + ')');
-    return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: PLAN_PAR_DEFAUT, jetons: 0, panne: true };
+    const grace = lireGrace(codeUpper);
+    if (grace) return { ...grace, panne: true, viaGrace: true };
+    return { ok: true, anonyme: false, isAdmin: false, illimite: false, plan: null, jetons: 0, panne: true };
   }
 }
 
@@ -211,10 +323,24 @@ async function appelerRpc(cfg, fonction, params) {
       headers: entetes(cfg.key),
       body: JSON.stringify(params)
     });
-    if (!r.ok) return null;
+    if (!r.ok) {
+      // LOT 2, audit A7 : panne journalisée (throttlée), jamais bloquante.
+      journaliserPanneRpc(cfg, fonction, 'Supabase a répondu ' + r.status);
+      return null;
+    }
     const data = await r.json();
-    return typeof data === 'boolean' ? data : null;
-  } catch (e) { return null; }
+    if (typeof data !== 'boolean') {
+      // Réponse inattendue (RPC pas encore installée, schéma différent…) :
+      // même traitement qu'une panne HTTP, jamais un plantage silencieux
+      // sans trace.
+      journaliserPanneRpc(cfg, fonction, 'réponse inattendue (RPC absente ou schéma différent ?)');
+      return null;
+    }
+    return data;
+  } catch (e) {
+    journaliserPanneRpc(cfg, fonction, 'panne réseau (' + (e && e.message) + ')');
+    return null;
+  }
 }
 
 // Incrémente le compteur d'usage `ref` de 1 SI encore sous `plafond` (table
@@ -354,6 +480,37 @@ async function verifierLimiteAnonyme(req, fonction, plafond, sansExpiration) {
   return consomme === false ? { ok: false, raison: 'limite_anonyme' } : { ok: true };
 }
 
+// ── LOT 2, audit A13 : filet journalier générique, identité = code OU IP ──
+//
+// Certains modes de /api/generate (microEditScript, microEditRecit,
+// detectionNiche) sont VOLONTAIREMENT hors du quota de génération (un
+// confort d'édition sur un contenu déjà généré/payé, pas une nouvelle
+// génération, voir api/generate.js) : verifierQuota ne convient pas, il
+// décompterait sur le mauvais budget. Mais ils n'avaient AUCUNE limite
+// serveur du tout (le plafond MICRO_EDIT_MAX_PAR_SCRIPT n'existe que côté
+// client, js/generation.js, trivialement contournable par un appel direct),
+// pas même le filet IP journalier des visiteurs anonymes. Cette fonction
+// réutilise exactement la même mécanique que verifierLimiteAnonyme (même
+// table usage_serveur, même RPC atomique), seule la clé change : par CODE
+// pour un appelant identifié (accès normal, réservé aux jours normaux, se
+// recharge chaque jour), par IP sinon (même filet que le reste de l'app).
+// Volontairement PAS un nouveau système de quota mensuel par plan : ce
+// n'est qu'un garde-fou anti-script, généreux par construction.
+function refLimiteGenerique(req, code, fonction) {
+  const jour = new Date().toISOString().slice(0, 10);
+  return code
+    ? 'limite_' + fonction + '_' + String(code).trim().toUpperCase() + '_' + jour
+    : 'limite_' + fonction + '_ip_' + hashCourt(ipDuRequest(req)) + '_' + jour;
+}
+
+async function verifierLimiteGenerique(req, code, fonction, plafond) {
+  const cfg = config();
+  if (!cfg) return { ok: true }; // clé service role absente : dégradation, comme le reste de ce fichier
+  const ref = refLimiteGenerique(req, code, fonction);
+  const consomme = await consommerUsage(cfg, ref, plafond);
+  return consomme === false ? { ok: false, raison: 'limite_' + fonction } : { ok: true };
+}
+
 // Lecture SEULE (jamais de décompte ici) du compteur anonyme réel, pour
 // synchroniser l'affichage client (voir fetchServerQuota, js/api.js) sur LA
 // MÊME source que le vrai verrou serveur (verifierLimiteAnonyme). Avant ce
@@ -458,6 +615,7 @@ export {
   verifierQuota,
   rembourserUsage,
   verifierLimiteAnonyme,
+  verifierLimiteGenerique,
   lireUsageAnonyme,
   verifierAccesProOuJeton,
   verifierAccesMontage,

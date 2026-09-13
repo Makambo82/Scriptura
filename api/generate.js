@@ -3,7 +3,7 @@
 // demandé, puis relaie vers Anthropic. Voir api/_lib/acces.js pour le détail
 // de la résolution des droits (le serveur ne fait plus confiance au client :
 // ni pour le plan, ni pour le quota, ni pour le modèle/nombre de tokens).
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierAccesProOuJeton, codeAccesRefuse, MAX_FREE } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierLimiteGenerique, verifierAccesProOuJeton, codeAccesRefuse, MAX_FREE } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par l'app pour ce type d'appel (voir
 // MODEL_CREATIF/MODEL_RAPIDE/MODEL_QUALITE_RECIT, js/api.js) : un modèle
@@ -33,6 +33,13 @@ const MAX_TOKENS_PLAFOND = 16000;
 const SEPARATEUR_JETONS = '';
 
 const PLAFOND_ANONYME_JOUR = 15; // filet IP, générations gratuites sans code
+// LOT 2, audit A13 : ces deux modes sont hors quota de génération par
+// conception (voir plus bas), mais n'avaient jusqu'ici AUCUNE limite
+// serveur. Plafonds journaliers généreux, par identité (code si connu,
+// sinon IP, voir verifierLimiteGenerique) : jamais l'intention de gêner un
+// usage normal, seulement de border un abus scripté.
+const PLAFOND_MICRO_EDIT_JOUR = 100;      // couvre ~5 scripts entiers à 20 retouches chacun (MICRO_EDIT_MAX_PAR_SCRIPT côté client)
+const PLAFOND_DETECTION_NICHE_JOUR = 60;  // un appel par nouveau sujet tapé, largement au-dessus d'un usage normal
 
 // Date réelle du jour, injectée dans CHAQUE appel modèle (voir handler ci-dessous).
 // Le modèle n'a autrement aucun moyen de savoir qu'on n'est plus à la date de
@@ -98,26 +105,36 @@ export default async function handler(req, res) {
       // Elle reste minuscule par construction côté client (modèle rapide,
       // une trentaine de jetons de réponse, appelée seulement quand les
       // mots-clés n'ont rien trouvé, jamais deux fois pour le même texte).
-      // Le seul vrai risque est l'abus par un visiteur anonyme, couvert plus
-      // bas par le filet journalier par IP, comme toutes les autres routes.
-      if (droits.anonyme) {
-        verdict = await verifierLimiteAnonyme(req, 'generate', PLAFOND_ANONYME_JOUR);
-      } else {
-        verdict = { ok: true };
-      }
+      //
+      // LOT 2, AUDIT A13 : jusqu'ici, un appelant IDENTIFIÉ (code_acces
+      // fourni) passait ici sans AUCUNE limite serveur (`{ok:true}`
+      // inconditionnel) - seul l'anonyme avait le filet IP. Un appel direct
+      // et répété à cette route avec un code_acces quelconque déclenchait
+      // donc des appels Anthropic illimités. Filet journalier générique
+      // (voir verifierLimiteGenerique, api/_lib/acces.js) pour les deux cas,
+      // généreux (60/jour, un appel par nouveau sujet tapé dans un usage
+      // normal est très en dessous).
+      verdict = droits.anonyme
+        ? await verifierLimiteAnonyme(req, 'generate', PLAFOND_ANONYME_JOUR)
+        : await verifierLimiteGenerique(req, code_acces, 'detection-niche', PLAFOND_DETECTION_NICHE_JOUR);
     } else if (modeDemande === 'microEditScript' || modeDemande === 'microEditRecit') {
       // Éditeur IA par passage (Reformuler/Raccourcir/Allonger/Simplifier,
       // voir js/generation.js et js/storytelling.js) : gratuit et hors quota
       // de génération par conception (un confort d'édition sur un script déjà
-      // généré, pas une nouvelle génération), plafonné côté client par
-      // MICRO_EDIT_MAX_PAR_SCRIPT. BUG CORRIGÉ (retour terrain) : ces deux
-      // modes n'existaient dans AUCUNE limite de plan, verifierQuota() les
-      // faisait donc retomber sur un plafond de 0 et refusait systématiquement
-      // pour Creator/Pro (un anonyme, lui, passait car verifierQuota() laisse
-      // passer tout mode non listé pour les anonymes). Accès déjà filtré plus
-      // haut par resoudreDroits() (compte désactivé/invalide refusé avant
-      // d'arriver ici) : rien à revérifier de plus pour un simple bloc de texte.
-      verdict = { ok: true };
+      // généré, pas une nouvelle génération). BUG CORRIGÉ (retour terrain) :
+      // ces deux modes n'existaient dans AUCUNE limite de plan, verifierQuota()
+      // les faisait donc retomber sur un plafond de 0 et refusait
+      // systématiquement pour Creator/Pro.
+      //
+      // LOT 2, AUDIT A13 : le plafond MICRO_EDIT_MAX_PAR_SCRIPT (20,
+      // js/generation.js) n'existe QUE côté client, trivialement contourné
+      // par un appel direct à cette route - `{ok:true}` inconditionnel, MÊME
+      // POUR UN ANONYME SANS CODE, permettait donc des appels Anthropic
+      // illimités et totalement anonymes. Filet journalier générique (voir
+      // verifierLimiteGenerique, api/_lib/acces.js), généreux (100/jour,
+      // couvre 5 scripts entiers de 20 retouches chacun) : couvre l'usage
+      // normal sans jamais permettre l'explosion illimitée d'avant.
+      verdict = await verifierLimiteGenerique(req, code_acces, 'micro-edit', PLAFOND_MICRO_EDIT_JOUR);
     } else {
       if (droits.anonyme) {
         const limiteIP = await verifierLimiteAnonyme(req, 'generate', PLAFOND_ANONYME_JOUR);
