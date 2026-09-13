@@ -67,6 +67,9 @@ test('/api/montage-render transmet musicUrl et musicVolume au service externe (r
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE_VOLUME';
   process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+  // LOT 3, audit A2 : /api/montage-render exige désormais MONTAGE_RENDER_TOKEN
+  // (sinon 500 avant même d'appeler le service externe, voir api/montage-render.js).
+  process.env.MONTAGE_RENDER_TOKEN = 'jeton-de-test-A2-jamais-un-secret-reel';
 
   const fetchOriginal = global.fetch;
   let requeteProxy = null;
@@ -104,6 +107,8 @@ test('/api/montage-render transmet watermark au service externe (retour proprié
   const envAvant = { ...process.env };
   process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE_FILIGRANE';
   process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+  // LOT 3, audit A2 : voir commentaire équivalent dans le test précédent.
+  process.env.MONTAGE_RENDER_TOKEN = 'jeton-de-test-A2-jamais-un-secret-reel';
 
   const fetchOriginal = global.fetch;
   let requetes = [];
