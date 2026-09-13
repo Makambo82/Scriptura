@@ -753,13 +753,15 @@ async function handleAdminStats(req, res, cfg, body) {
     //     pour tout le monde, y compris un abonné inscrit la veille.
     //
     // On croise donc les deux sources et on renvoie une VRAIE date par code.
-    // La présence est lue avec la clé publishable, comme son écriture : ce
-    // signal ne doit jamais dépendre de la configuration service_role.
+    // Lue avec le service_role (voir cfg, déjà résolu par l'appelant) depuis
+    // l'audit A19 : la RLS anon de `presence` est désormais fermée (voir
+    // supabase/presence_rls.sql), cette route reste protégée en amont par
+    // droits.isAdmin (vérifié plus haut dans cette même fonction).
     const derniereActiviteParCode = Object.assign({}, derniereGenParCode);
     try {
       const rPresence = await fetch(
-        PRESENCE_URL + '/rest/v1/presence?select=ref,derniere_activite&abonne=eq.true',
-        { headers: { apikey: PRESENCE_KEY, Authorization: 'Bearer ' + PRESENCE_KEY } }
+        cfg.url + '/rest/v1/presence?select=ref,derniere_activite&abonne=eq.true',
+        { headers: entetes(cfg.key) }
       );
       const rowsPresence = await rPresence.json().catch(() => []);
       (Array.isArray(rowsPresence) ? rowsPresence : []).forEach(r => {
@@ -930,19 +932,17 @@ async function handlePreuveSociale(req, res) {
 }
 
 // ═══ PRÉSENCE (voir envoyerPresence, js/app.js) ═══
-// Écrit toujours avec la clé publishable (même RLS ouverte que l'ancien
-// appel direct au client, voir supabase/presence.sql), jamais besoin de la
-// clé service_role : le signal "je suis encore là" ne doit jamais dépendre
-// de sa configuration. Passe par le serveur (et non plus directement du
-// client à Supabase) uniquement pour lire pays/navigateur depuis des
-// en-têtes DE CONFIANCE (x-vercel-ip-country, injecté par la plateforme,
-// jamais fourni par le client lui-même) : un visiteur ne peut pas se
-// prétendre dans un autre pays. Jamais d'IP stockée (décision propriétaire,
-// donnée personnelle identifiante hors de propos ici, voir
-// supabase/presence.sql).
-const PRESENCE_URL = 'https://nlkfqxllunbvppulpnzl.supabase.co';
-const PRESENCE_KEY = 'sb_publishable_PqRwwhtRedPMvETLCp562g_7HKFsjLl';
-
+//
+// AUDIT A19 : écrivait jusqu'ici avec la clé publishable, sur une RLS restée
+// grande ouverte (`ref` == code d'accès de l'abonné, voir getUserRef,
+// js/api.js) : n'importe qui pouvait lire directement Supabase avec cette
+// même clé (publique par nécessité, présente dans le JS servi) et obtenir la
+// liste des codes d'accès actuellement en ligne. La RLS est maintenant
+// fermée à `anon` dans les deux sens (voir supabase/presence_rls.sql),
+// l'écriture passe donc par le service_role comme le reste de ce fichier :
+// le signal "je suis encore là" continue de fonctionner pour tout visiteur
+// (abonné ou non), c'est la LECTURE directe côté client qui était le vrai
+// problème (voir la route presence-admin plus bas, qui la remplace).
 function detecterNavigateur(ua) {
   if (!ua || typeof ua !== 'string') return null;
   const mobile = /Mobi|Android|iPhone|iPad/i.test(ua);
@@ -958,22 +958,108 @@ function detecterNavigateur(ua) {
 async function handlePresence(req, res, body) {
   const ref = typeof body.ref === 'string' ? body.ref.trim().slice(0, 120) : '';
   if (!ref) return res.status(200).json({ ok: false });
+  // Clé service_role (voir config(), en tête de fichier) : la RLS anon est
+  // fermée depuis l'audit A19 (supabase/presence_rls.sql). Pas de clé
+  // configurée = dégradation silencieuse, comme le reste de cette route
+  // avant ce correctif (le signal de présence n'a jamais été garanti).
+  const cfg = config();
+  if (!cfg) return res.status(200).json({ ok: false });
   const paysEntete = req.headers['x-vercel-ip-country'];
   const pays = (Array.isArray(paysEntete) ? paysEntete[0] : paysEntete || '').toString().trim().slice(0, 8) || null;
   const uaEntete = req.headers['user-agent'];
   const navigateur = detecterNavigateur(Array.isArray(uaEntete) ? uaEntete[0] : uaEntete);
   try {
-    const r = await fetch(PRESENCE_URL + '/rest/v1/presence?on_conflict=ref', {
+    const r = await fetch(cfg.url + '/rest/v1/presence?on_conflict=ref', {
       method: 'POST',
-      headers: {
-        apikey: PRESENCE_KEY, Authorization: 'Bearer ' + PRESENCE_KEY,
-        'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal'
-      },
+      headers: { ...entetes(cfg.key), Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify([{ ref, derniere_activite: new Date().toISOString(), abonne: !!body.abonne, pays, navigateur }])
     });
     return res.status(200).json({ ok: r.ok });
   } catch (e) {
     return res.status(200).json({ ok: false });
+  }
+}
+
+// ═══ PRÉSENCE, LECTURE ADMIN (audit A19) ═══
+//
+// Remplace TROIS accès directs `supabaseClient.from('presence')` faits par
+// le navigateur du fondateur (chargerPresenceAdmin, compterNonAbonnesEnLigne,
+// chargerDetailNonAbonnesAdmin, js/admin.js) : ils fonctionnaient tant que
+// la RLS de `presence` restait ouverte à `anon`, exactement la faille que
+// l'audit a nommée (n'importe qui, avec la même clé publique, pouvait faire
+// la même requête sans jamais avoir été authentifié fondateur). Cette
+// fermeture de RLS (supabase/presence_rls.sql) rend ces trois appels
+// inopérants : cette route les remplace, authentifiée, et ne renvoie JAMAIS
+// `ref` en clair (seulement un booléen "en ligne" par code déjà connu de
+// l'appelant, ou des agrégats pays/navigateur sans identifiant).
+const PRESENCE_ADMIN_SEUIL_MS = 2 * 60 * 1000; // même seuil que l'ancien code client
+const PRESENCE_ADMIN_MAX_CODES = 500; // large : couvre tout abonné actif, borne un payload abusif
+
+async function handlePresenceAdmin(req, res, body) {
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ ok: false, error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
+  }
+  const cfg = config();
+  if (!cfg) return res.status(200).json({ ok: false, indisponible: true });
+
+  const action = body?.action || '';
+  const seuilIso = new Date(Date.now() - PRESENCE_ADMIN_SEUIL_MS).toISOString();
+
+  try {
+    if (action === 'statuts') {
+      // Remplace chargerPresenceAdmin : point vert/rouge par code, dans la
+      // liste déjà dépliée par le fondateur. `codes` vient de
+      // _codesAbonnesAdmin (déjà chargée via admin-stats, donc déjà
+      // authentifiée) : cette route ne fait que dire, POUR CES CODES-LÀ,
+      // s'ils sont en ligne — jamais une liste ouverte de tout ce qui existe.
+      const codes = Array.isArray(body?.codes)
+        ? body.codes.map(c => String(c || '').trim().toUpperCase()).filter(Boolean).slice(0, PRESENCE_ADMIN_MAX_CODES)
+        : [];
+      if (!codes.length) return res.status(200).json({ ok: true, parCode: {} });
+      const filtreCodes = codes.map(c => encodeURIComponent(c)).join(',');
+      const r = await fetch(
+        cfg.url + '/rest/v1/presence?select=ref,derniere_activite&ref=in.(' + filtreCodes + ')',
+        { headers: entetes(cfg.key) }
+      );
+      const rows = await r.json().catch(() => []);
+      const parCode = {};
+      (Array.isArray(rows) ? rows : []).forEach(row => {
+        const cle = String(row.ref || '').toUpperCase();
+        if (!cle) return;
+        parCode[cle] = !!(row.derniere_activite && row.derniere_activite >= seuilIso);
+      });
+      return res.status(200).json({ ok: true, parCode });
+    }
+
+    if (action === 'compte-non-abonnes') {
+      // Remplace compterNonAbonnesEnLigne : un simple compte, jamais de ref.
+      // Même pattern HEAD + count=exact que le reste de ce fichier (voir
+      // handleGenerations, action=count).
+      const r = await fetch(
+        cfg.url + '/rest/v1/presence?select=ref&abonne=eq.false&derniere_activite=gte.' + encodeURIComponent(seuilIso),
+        { headers: { ...entetes(cfg.key), Prefer: 'count=exact' }, method: 'HEAD' }
+      );
+      const c = r.headers.get('content-range');
+      const count = c ? parseInt(c.split('/')[1], 10) : NaN;
+      return res.status(200).json({ ok: true, count: Number.isFinite(count) ? count : null });
+    }
+
+    if (action === 'detail-non-abonnes') {
+      // Remplace chargerDetailNonAbonnesAdmin : pays/navigateur seuls,
+      // jamais de ref ni d'IP (comme avant), l'agrégation reste faite côté
+      // client (comportement d'affichage inchangé).
+      const r = await fetch(
+        cfg.url + '/rest/v1/presence?select=pays,navigateur&abonne=eq.false&derniere_activite=gte.' + encodeURIComponent(seuilIso) + '&limit=300',
+        { headers: entetes(cfg.key) }
+      );
+      const data = await r.json().catch(() => []);
+      return res.status(200).json({ ok: true, data: Array.isArray(data) ? data : [] });
+    }
+
+    return res.status(400).json({ ok: false, error: 'action inconnue' });
+  } catch (e) {
+    return res.status(200).json({ ok: false, indisponible: true });
   }
 }
 
@@ -1030,6 +1116,7 @@ export default async function handler(req, res) {
   const resource = req.method === 'GET' ? (req.query && req.query.resource) : body.resource;
 
   if (resource === 'presence') return handlePresence(req, res, body);
+  if (resource === 'presence-admin') return handlePresenceAdmin(req, res, body);
   if (resource === 'preuveSociale') return handlePreuveSociale(req, res);
   if (resource === 'quotaMontage') return handleQuotaMontage(req, res);
   if (resource === 'quotaCarrousel') return handleQuotaCarrousel(req, res);

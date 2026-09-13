@@ -5,6 +5,13 @@
 // panneau est ouvert, met vraiment à jour l'affichage, et s'arrête tout
 // seul dès qu'on ferme le panneau ou qu'on quitte l'écran admin (pas de
 // polling fantôme qui continue en arrière-plan).
+//
+// AUDIT A19 : chargerPresenceAdmin lit désormais /api/data
+// (resource=presence-admin, action=statuts, voir js/admin.js et
+// handlePresenceAdmin dans api/data.js) au lieu d'interroger directement
+// Supabase (`presence` est fermée à l'anon depuis ce correctif). Le mock
+// bascule donc côté serveur de test (poserMocksReseau), pas côté
+// supabaseClient du navigateur.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -18,26 +25,20 @@ test('le statut en ligne se rafraîchit sans reload, et le polling s\'arrête pr
   const navigateur = await lancerNavigateur();
   try {
     const page = await navigateur.newPage();
+    let presenceEnLigne = false;
     await poserMocksReseau(page, {
-      data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined
+      data: (body) => {
+        if (body.resource === 'admin-stats') return CODES_ADMIN_STATS;
+        if (body.resource === 'presence-admin' && body.action === 'statuts') {
+          return { ok: true, parCode: presenceEnLigne ? { FIFA: true } : {} };
+        }
+        return undefined;
+      }
     });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
     await page.waitForTimeout(200);
-
-    await page.evaluate(() => {
-      let presenceEnLigne = false;
-      window.__basculerPresenceFifa = (v) => { presenceEnLigne = v; };
-      supabaseClient = {
-        from(table) {
-          if (table === 'presence') {
-            return { select() { return this; }, in() { return Promise.resolve({ data: presenceEnLigne ? [{ ref: 'FIFA', derniere_activite: new Date().toISOString() }] : [], error: null }); } };
-          }
-          return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
-        }
-      };
-    });
 
     // ── ON ATTEND UNE CONDITION, JAMAIS UN DÉLAI ──
     // Ce test tombait par intermittence sur la CI (run 640 : « le polling doit
@@ -47,7 +48,13 @@ test('le statut en ligne se rafraîchit sans reload, et le polling s\'arrête pr
     // AVANT que #listeAbonnesAdmin n'existe. toggleListeAbonnesAdmin sortait
     // alors sur son garde `if (!el) return;`, sans jamais démarrer le poll.
     // Le test mesurait donc la vitesse du runner, pas le comportement.
-    await page.evaluate(() => ouvrirTableauDeBord());
+    // chargerTableauDeBord (js/admin.js) exige un `supabaseClient` non-nul
+    // avant de charger quoi que ce soit (garde pré-existante, plus rien à
+    // voir avec la présence désormais) : le vrai script Supabase ne charge
+    // jamais dans ce navigateur de test (aucun réseau externe), un stub
+    // minimal suffit puisqu'aucune carte du tableau de bord ne l'utilise
+    // plus directement après le passage de `presence` au serveur.
+    await page.evaluate(() => { supabaseClient = {}; ouvrirTableauDeBord(); });
     await page.waitForSelector('#listeAbonnesAdmin', { state: 'attached' });
     await page.waitForFunction(() => Array.isArray(_codesAbonnesAdmin) && _codesAbonnesAdmin.length > 0);
 
@@ -63,8 +70,8 @@ test('le statut en ligne se rafraîchit sans reload, et le polling s\'arrête pr
     // puis déclenche le même rafraîchissement que ferait le prochain tick
     // (sans attendre 10s réelles) : c'est le comportement observable qui
     // compte, pas le minutage exact de l'intervalle.
+    presenceEnLigne = true;
     await page.evaluate(async () => {
-      window.__basculerPresenceFifa(true);
       const codesUniques = Array.from(new Set(_codesAbonnesAdmin.map(c => c.code)));
       await chargerPresenceAdmin(codesUniques);
       renderAdminListe();

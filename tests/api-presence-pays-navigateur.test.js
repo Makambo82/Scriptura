@@ -17,6 +17,8 @@ function mockRes() {
 }
 
 test('handlePresence (resource=presence) écrit pays + navigateur depuis les en-têtes, jamais l\'IP', async () => {
+  process.env.SUPABASE_URL = 'https://fake.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'fake-service-role-key';
   const fetchAppels = [];
   const fetchOriginal = global.fetch;
   global.fetch = async (url, opts = {}) => {
@@ -55,10 +57,14 @@ test('handlePresence (resource=presence) écrit pays + navigateur depuis les en-
     assert.ok(!('ip' in ligne), 'aucun champ ip ne doit exister sur la ligne écrite : ' + JSON.stringify(ligne));
   } finally {
     global.fetch = fetchOriginal;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   }
 });
 
 test('handlePresence détecte correctement plusieurs navigateurs, et se dégrade proprement sans en-têtes', async () => {
+  process.env.SUPABASE_URL = 'https://fake.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'fake-service-role-key';
   const fetchOriginal = global.fetch;
   let dernierCorps = null;
   global.fetch = async (url, opts = {}) => { dernierCorps = JSON.parse(opts.body || '{}'); return { ok: true, status: 200, json: async () => null }; };
@@ -85,6 +91,8 @@ test('handlePresence détecte correctement plusieurs navigateurs, et se dégrade
     assert.equal(dernierCorps[0].abonne, true);
   } finally {
     global.fetch = fetchOriginal;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   }
 });
 

@@ -7,6 +7,17 @@
 // lisible à afficher un par un. `abonne=false` couvre tous les visiteurs
 // sans code_acces (envoyerPresence, js/app.js, envoie abonne:!!unlocked
 // pour CHAQUE visiteur, pas seulement les abonnés).
+//
+// AUDIT A19 : compterNonAbonnesEnLigne et chargerDetailNonAbonnesAdmin
+// lisent désormais /api/data (resource=presence-admin, actions
+// compte-non-abonnes / detail-non-abonnes, voir js/admin.js et
+// handlePresenceAdmin dans api/data.js) au lieu d'interroger directement
+// Supabase (`presence` est fermée à l'anon depuis ce correctif). Les mocks
+// basculent donc côté serveur de test (poserMocksReseau). `supabaseClient =
+// {}` reste posé avant ouvrirTableauDeBord() : chargerTableauDeBord garde
+// une vérification "supabaseClient non-nul" indépendante de la présence, et
+// le vrai script Supabase ne charge jamais dans ce navigateur de test
+// (aucun réseau externe) sans ce stub minimal.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -15,30 +26,6 @@ const { poserMocksReseau, connecterAbonne } = require('./helpers/mocks');
 
 const CODES_ADMIN_STATS = { codes: [], parModePlan: {}, erreursParMode: {}, erreursTotal: 0 };
 
-// Mock minimal mais fidèle à l'API supabase-js réellement utilisée ici :
-// .select('ref').in(...) pour la présence par code (déjà existant), ET
-// .select('ref', {count,head}).eq('abonne', false).gte('derniere_activite', seuil)
-// pour le nouveau compte des non-abonnés en ligne.
-function poserMockPresence(page, nbNonAbonnesEnLigne) {
-  return page.evaluate((n) => {
-    supabaseClient = {
-      from(table) {
-        if (table !== 'presence') return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
-        return {
-          select(_cols, opts) {
-            if (opts && opts.count) {
-              // Chaîne .eq().gte() -> Promise{count, error}
-              return { eq() { return { gte() { return Promise.resolve({ count: n, error: null }); } }; } };
-            }
-            // Chaîne .in() -> Promise{data, error}
-            return { in() { return Promise.resolve({ data: [], error: null }); } };
-          }
-        };
-      }
-    };
-  }, nbNonAbonnesEnLigne);
-}
-
 test('Tableau de bord : la carte "Abonnés actifs" affiche aussi le nombre de non-abonnés en ligne maintenant', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
@@ -46,14 +33,19 @@ test('Tableau de bord : la carte "Abonnés actifs" affiche aussi le nombre de no
     const page = await navigateur.newPage();
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
-    await poserMocksReseau(page, { data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined });
+    await poserMocksReseau(page, {
+      data: (body) => {
+        if (body.resource === 'admin-stats') return CODES_ADMIN_STATS;
+        if (body.resource === 'presence-admin' && body.action === 'compte-non-abonnes') return { ok: true, count: 3 };
+        return undefined;
+      }
+    });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
     await page.waitForTimeout(200);
 
-    await poserMockPresence(page, 3);
-    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.evaluate(() => { supabaseClient = {}; ouvrirTableauDeBord(); });
     await page.waitForTimeout(400);
 
     const texte = await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne')?.textContent || '');
@@ -71,14 +63,23 @@ test('Tableau de bord : au singulier avec un seul non-abonné en ligne, et rien 
   const navigateur = await lancerNavigateur();
   try {
     const page = await navigateur.newPage();
-    await poserMocksReseau(page, { data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined });
+    let comptePresence = 1;
+    let presenceDisponible = true;
+    await poserMocksReseau(page, {
+      data: (body) => {
+        if (body.resource === 'admin-stats') return CODES_ADMIN_STATS;
+        if (body.resource === 'presence-admin' && body.action === 'compte-non-abonnes') {
+          return presenceDisponible ? { ok: true, count: comptePresence } : { ok: false, indisponible: true };
+        }
+        return undefined;
+      }
+    });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
     await page.waitForTimeout(200);
 
-    await poserMockPresence(page, 1);
-    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.evaluate(() => { supabaseClient = {}; ouvrirTableauDeBord(); });
     await page.waitForTimeout(400);
     const singulier = await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne')?.textContent || '');
     assert.match(singulier, /1 non-abonné en ligne maintenant/, 'accord au singulier attendu : ' + singulier);
@@ -86,18 +87,8 @@ test('Tableau de bord : au singulier avec un seul non-abonné en ligne, et rien 
 
     // La requête de présence échoue (table/RLS indisponible) : jamais un
     // zéro trompeur, la ligne ne doit simplement pas apparaître.
-    await page.evaluate(() => {
-      supabaseClient = {
-        from(table) {
-          if (table !== 'presence') return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
-          return { select(_cols, opts) {
-            if (opts && opts.count) return { eq() { return { gte() { return Promise.resolve({ count: null, error: new Error('RLS') }); } }; } };
-            return { in() { return Promise.resolve({ data: [], error: null }); } };
-          } };
-        }
-      };
-    });
-    await page.evaluate(() => ouvrirTableauDeBord());
+    presenceDisponible = false;
+    await page.evaluate(() => { supabaseClient = {}; ouvrirTableauDeBord(); });
     await page.waitForTimeout(400);
     const indisponible = await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne'));
     assert.equal(indisponible, null, 'aucune ligne ne doit apparaître quand le compte est indisponible (jamais un faux zéro)');
@@ -119,42 +110,28 @@ test('Tableau de bord : cliquer sur "N non-abonnés en ligne" ouvre le détail p
     const page = await navigateur.newPage();
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
-    await poserMocksReseau(page, { data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined });
+    // Mock couvrant les deux actions presence-admin réellement utilisées ici :
+    // compte-non-abonnes (le nombre affiché) et detail-non-abonnes (le détail
+    // groupé pays · navigateur ouvert au clic).
+    await poserMocksReseau(page, {
+      data: (body) => {
+        if (body.resource === 'admin-stats') return CODES_ADMIN_STATS;
+        if (body.resource === 'presence-admin' && body.action === 'compte-non-abonnes') return { ok: true, count: 2 };
+        if (body.resource === 'presence-admin' && body.action === 'detail-non-abonnes') {
+          return { ok: true, data: [
+            { pays: 'CI', navigateur: 'Safari mobile' },
+            { pays: 'CI', navigateur: 'Safari mobile' }
+          ] };
+        }
+        return undefined;
+      }
+    });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
     await page.waitForTimeout(200);
 
-    // Mock couvrant les trois requêtes réellement utilisées sur `presence` :
-    // .select('ref').in(...) (points verts abonnés), .select('ref',{count})
-    // .eq().gte() (compteur non-abonnés), .select('pays,navigateur').eq()
-    // .gte().limit() (détail groupé, nouveau).
-    await page.evaluate(() => {
-      supabaseClient = {
-        from(table) {
-          if (table !== 'presence') return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
-          return {
-            select(cols, opts) {
-              if (opts && opts.count) {
-                return { eq() { return { gte() { return Promise.resolve({ count: 2, error: null }); } }; } };
-              }
-              if (cols === 'pays,navigateur') {
-                return { eq() { return { gte() { return { limit() { return Promise.resolve({
-                  data: [
-                    { pays: 'CI', navigateur: 'Safari mobile' },
-                    { pays: 'CI', navigateur: 'Safari mobile' }
-                  ],
-                  error: null
-                }); } }; } }; } };
-              }
-              return { in() { return Promise.resolve({ data: [], error: null }); } };
-            }
-          };
-        }
-      };
-    });
-
-    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.evaluate(() => { supabaseClient = {}; ouvrirTableauDeBord(); });
     await page.waitForTimeout(400);
 
     // Clique réellement sur la zone "N non-abonnés en ligne" (pas un appel
@@ -192,30 +169,20 @@ test('Tableau de bord : le nombre de non-abonnés en ligne se rafraîchit sans r
   const navigateur = await lancerNavigateur();
   try {
     const page = await navigateur.newPage();
-    await poserMocksReseau(page, { data: (body) => body.resource === 'admin-stats' ? CODES_ADMIN_STATS : undefined });
+    let nonAbonnesEnLigne = 3;
+    await poserMocksReseau(page, {
+      data: (body) => {
+        if (body.resource === 'admin-stats') return CODES_ADMIN_STATS;
+        if (body.resource === 'presence-admin' && body.action === 'compte-non-abonnes') return { ok: true, count: nonAbonnesEnLigne };
+        return undefined;
+      }
+    });
     await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(200);
     await connecterAbonne(page, { code: 'FONDATEUR', plan: 'admin' });
     await page.waitForTimeout(200);
 
-    await page.evaluate(() => {
-      window.__nonAbonnesEnLigne = 3;
-      supabaseClient = {
-        from(table) {
-          if (table !== 'presence') return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } };
-          return {
-            select(_cols, opts) {
-              if (opts && opts.count) {
-                return { eq() { return { gte() { return Promise.resolve({ count: window.__nonAbonnesEnLigne, error: null }); } }; } };
-              }
-              return { in() { return Promise.resolve({ data: [], error: null }); } };
-            }
-          };
-        }
-      };
-    });
-
-    await page.evaluate(() => ouvrirTableauDeBord());
+    await page.evaluate(() => { supabaseClient = {}; ouvrirTableauDeBord(); });
     await page.waitForTimeout(400);
 
     const texteAvant = await page.evaluate(() => document.getElementById('adminNonAbonnesEnLigne')?.textContent || '');
@@ -226,8 +193,8 @@ test('Tableau de bord : le nombre de non-abonnés en ligne se rafraîchit sans r
     // Un non-abonné supplémentaire ouvre l'app pendant que le fondateur
     // regarde l'écran : simule ce que ferait le prochain tick, sans
     // attendre 10s réelles (comportement observable, pas le minutage).
+    nonAbonnesEnLigne = 4;
     await page.evaluate(async () => {
-      window.__nonAbonnesEnLigne = 4;
       const n = await compterNonAbonnesEnLigne();
       document.getElementById('adminNonAbonnesEnLigne').textContent = `${n} non-abonné${n > 1 ? 's' : ''} en ligne maintenant`;
     });

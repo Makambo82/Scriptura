@@ -282,30 +282,35 @@ const ADMIN_PLAN_FILTRE = [
   { v: 'desactive', label: 'Désactivés' }
 ];
 
-// Statut en ligne/hors ligne par code, à partir de la table `presence`
-// (voir supabase/presence.sql). Contrairement à `abonnes`/`generations`,
-// `presence` reste en lecture ouverte à la clé publique : lecture directe
-// via supabaseClient, pas besoin de passer par /api/data. `ref` == code
-// d'accès quand l'abonné est connecté (voir getUserRef, js/api.js), donc
-// directement comparable aux codes de la liste. Seuil : 2 minutes
-// d'inactivité (mêmes anciennes cartes "En ligne maintenant"/"Actifs 24h"
-// retirées du tableau de bord, redondantes avec ce point par code).
+// Statut en ligne/hors ligne par code, à partir de la table `presence`.
+//
+// AUDIT A19 : lisait jusqu'ici `presence` en accès Supabase DIRECT (clé
+// publique), sur une RLS restée ouverte à `anon` — exactement ce qui
+// permettait à N'IMPORTE QUI, sans être fondateur, de faire la même requête
+// et de lire `ref` (== le code d'accès de l'abonné, voir getUserRef,
+// js/api.js) pour n'importe quel code. La RLS est maintenant fermée (voir
+// supabase/presence_rls.sql) : cette lecture passe par la route serveur
+// authentifiée `presence-admin` (api/data.js, vérifie droits.isAdmin), qui
+// ne renvoie qu'un booléen par code déjà connu de cet appel, jamais `ref`
+// ni la date brute.
+// Seuil : 2 minutes d'inactivité (calculé côté serveur désormais).
 // `_presenceStatutInconnu` distingue "vérifié hors ligne" (point rouge) de
-// "on n'a pas pu vérifier" (échec réseau/RLS) : un échec silencieux
+// "on n'a pas pu vérifier" (échec réseau/accès) : un échec silencieux
 // affichait un rouge trompeur, indiscernable d'un vrai hors ligne. Voir
 // .admin-dot-inconnu (css/style.css).
 let _presenceParCode = {};
 let _presenceStatutInconnu = false;
 async function chargerPresenceAdmin(codes) {
   if (!codes.length) return;
-  if (!supabaseClient) { _presenceStatutInconnu = true; return; }
   try {
-    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    const { data, error } = await supabaseClient.from('presence').select('ref, derniere_activite').in('ref', codes);
-    if (error) throw error;
-    const parCode = {};
-    (data || []).forEach(row => { parCode[row.ref] = row.derniere_activite >= seuil; });
-    _presenceParCode = parCode;
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'presence-admin', action: 'statuts', codes, code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || 'indisponible');
+    _presenceParCode = data.parCode || {};
     _presenceStatutInconnu = false;
   } catch (e) {
     console.warn('Statut en ligne des abonnés indisponible (table presence) :', e);
@@ -320,19 +325,22 @@ async function chargerPresenceAdmin(codes) {
 // lisible à afficher un par un. `abonne=false` couvre déjà tous les
 // visiteurs sans code_acces (voir envoyerPresence, js/app.js, qui envoie
 // abonne:!!unlocked pour CHAQUE visiteur, pas seulement les abonnés).
-// null = indisponible (RLS/réseau), distinct de 0 vrai, jamais affiché
-// comme un zéro trompeur.
+// null = indisponible (accès refusé/réseau), distinct de 0 vrai, jamais
+// affiché comme un zéro trompeur.
+//
+// AUDIT A19 : lisait `presence` en accès Supabase direct (voir
+// chargerPresenceAdmin ci-dessus pour le détail de la faille) ; passe
+// maintenant par la même route serveur authentifiée `presence-admin`.
 async function compterNonAbonnesEnLigne() {
-  if (!supabaseClient) return null;
   try {
-    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    const { count, error } = await supabaseClient
-      .from('presence')
-      .select('ref', { count: 'exact', head: true })
-      .eq('abonne', false)
-      .gte('derniere_activite', seuil);
-    if (error) throw error;
-    return typeof count === 'number' ? count : null;
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'presence-admin', action: 'compte-non-abonnes', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || 'indisponible');
+    return typeof data.count === 'number' ? data.count : null;
   } catch (e) {
     console.warn('Non-abonnés en ligne indisponible (table presence) :', e);
     return null;
@@ -399,21 +407,24 @@ function libellePaysAdmin(code) {
 }
 
 // Détail des non-abonnés en ligne : pays + navigateur, JAMAIS d'IP (voir
-// PRESENCE_URL/handlePresence, api/data.js, décision propriétaire). Un
-// identifiant anonyme n'a rien de lisible à afficher un par un, les
-// combinaisons identiques (pays · navigateur) sont regroupées et comptées
-// plutôt qu'une liste à plat.
+// handlePresence, api/data.js, décision propriétaire). Un identifiant
+// anonyme n'a rien de lisible à afficher un par un, les combinaisons
+// identiques (pays · navigateur) sont regroupées et comptées plutôt qu'une
+// liste à plat.
+//
+// AUDIT A19 : lisait `presence` en accès Supabase direct (voir
+// chargerPresenceAdmin plus haut) ; passe maintenant par la route serveur
+// authentifiée `presence-admin`. L'agrégation reste faite ici, inchangée.
 async function chargerDetailNonAbonnesAdmin() {
-  if (!supabaseClient) return '<div class="ideas-sub">Détail indisponible.</div>';
   try {
-    const seuil = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-    const { data, error } = await supabaseClient
-      .from('presence')
-      .select('pays,navigateur')
-      .eq('abonne', false)
-      .gte('derniere_activite', seuil)
-      .limit(300);
-    if (error) throw error;
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'presence-admin', action: 'detail-non-abonnes', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const rep = await r.json();
+    if (!r.ok || !rep.ok) throw new Error((rep && rep.error && rep.error.message) || 'indisponible');
+    const data = rep.data;
     if (!data || !data.length) return '<div class="ideas-sub">Aucun non-abonné en ligne actuellement.</div>';
     const compte = {};
     data.forEach(row => {
