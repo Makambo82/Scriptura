@@ -12,6 +12,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+// Convention du dépôt (voir tests/reponse-fournisseur-illisible.test.js et
+// tests/helpers/fetch-fidele.js) : tout test qui pose son propre fetch pour
+// appeler montage-media doit passer par ce helper, sans quoi un mock
+// incomplet (sans .text()/.status) validerait du code qui ne fonctionne
+// qu'avec lui. Nos mocks fournissent déjà .text() explicitement pour les
+// réponses ElevenLabs, ce helper les laisse alors intactes.
+require('./helpers/fetch-fidele').rendreLesMocksFideles();
 
 function mockRes() {
   return { _status: 200, _json: null, status(c) { this._status = c; return this; }, json(o) { this._json = o; return this; } };

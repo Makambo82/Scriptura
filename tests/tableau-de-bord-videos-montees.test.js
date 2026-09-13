@@ -151,18 +151,23 @@ test('LA MESURE NE CASSE JAMAIS LE MONTAGE : table absente, la vidéo est livré
   } finally { restaurer(); }
 });
 
-test('Supabase non configuré : rien n\'est journalisé, et le montage passe quand même', async () => {
+// LOT 2, AUDIT A6 : ce test vérifiait auparavant qu'un code QUELCONQUE
+// ('PEU-IMPORTE') passait sans configuration Supabase, parce que
+// resoudreDroits accordait alors un Creator dégradé à n'importe qui - c'est
+// précisément la faille fermée par A6 (voir tests/grace-acces-degrade.test.js) :
+// un code jamais validé n'obtient plus rien sans configuration, il n'y a par
+// construction aucune grâce possible sans avoir jamais pu valider quoi que
+// ce soit. Seul un code déjà privilégié SANS passer par Supabase (admin/
+// illimité, vérifié avant même de regarder la configuration) continue de
+// fonctionner : c'était déjà vrai avant A6, ça le reste après.
+test('Supabase non configuré : le fondateur (admin, jamais vérifié via Supabase) passe quand même, rien n\'est journalisé', async () => {
   const restaurer = poserEnv({ SUPABASE_URL: '', SUPABASE_SERVICE_ROLE_KEY: '' });
   const journal = [];
   poserFetchMock({ journal });
   try {
-    // Sans configuration Supabase, resoudreDroits accorde un accès Creator
-    // dégradé (comportement documenté, voir api/_lib/acces.js) : le montage
-    // passe donc, et c'est justement le cas où la journalisation doit se
-    // taire au lieu d'échouer bruyamment.
     const { default: handler } = await import('../api/montage-render.js?t=' + Date.now());
     const res = creerRes();
-    await handler({ method: 'POST', body: { code_acces: 'PEU-IMPORTE', ...CORPS_MONTAGE } }, res);
+    await handler({ method: 'POST', body: { code_acces: ENV_BASE.CODE_ADMIN, ...CORPS_MONTAGE } }, res);
     await laisserPasser();
 
     assert.equal(res.statutRecu, 200);
