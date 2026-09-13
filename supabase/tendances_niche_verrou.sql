@@ -1,0 +1,20 @@
+-- LOT 4A, audit ID 1 (Gate Phase 2) : verrou atomique côté Postgres pour
+-- empêcher deux requêtes concurrentes sur POST /api/tendances
+-- (action=avancer) de traiter le même lot de vidéos en double (téléchargement
+-- + transcription ElevenLabs payante, à chaque fois). Le verrou optimiste
+-- déjà en place (colonne index_suivant, voir supabaseUpdateSiInchange,
+-- api/tendances.js) protège l'ÉCRITURE finale, mais pas le calcul qui la
+-- précède : deux requêtes qui lisent le même job avant que l'une des deux
+-- n'écrive déclenchaient chacune leur propre série d'appels payants.
+--
+-- verrou_expire_le : NULL = libre. Une date dans le futur = verrouillé
+-- jusqu'à cette date. Acquis par un PATCH conditionnel PostgREST
+-- (or=(verrou_expire_le.is.null,verrou_expire_le.lt.<maintenant>)) : Postgres
+-- sérialise ces écritures concurrentes lui-même (MVCC), une seule requête
+-- peut donc voir son PATCH matcher la ligne et gagner la course. Une
+-- EXPIRATION plutôt qu'un verrou permanent garantit qu'un crash pendant le
+-- traitement (timeout, exception non rattrapée) ne bloque jamais durablement
+-- le job : voir TIMEOUT_VERROU_MS, api/tendances.js.
+--
+-- Idempotent, sûr à rejouer.
+alter table tendances_niche add column if not exists verrou_expire_le timestamptz;

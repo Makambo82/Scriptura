@@ -41,6 +41,26 @@ const PLAFOND_ANONYME_JOUR = 15; // filet IP, générations gratuites sans code
 const PLAFOND_MICRO_EDIT_JOUR = 100;      // couvre ~5 scripts entiers à 20 retouches chacun (MICRO_EDIT_MAX_PAR_SCRIPT côté client)
 const PLAFOND_DETECTION_NICHE_JOUR = 60;  // un appel par nouveau sujet tapé, largement au-dessus d'un usage normal
 
+// LOT 4A, audit ID 2 (Gate Phase 2) : microEditScript/microEditRecit/
+// detectionNiche n'étaient bridés que par le filet journalier ci-dessus
+// (PLAFOND_MICRO_EDIT_JOUR/PLAFOND_DETECTION_NICHE_JOUR), jamais par la
+// TAILLE de l'appel lui-même : max_tokens (jusqu'à MAX_TOKENS_PLAFOND,
+// 16000), web_search (jusqu'à 3 recherches) et le modèle restaient ceux
+// d'une génération complète, quel que soit le mode déclaré par le client. Un
+// appel direct avec mode:'microEditScript' et un payload de génération
+// complète passait donc le filet de 100/jour sans jamais toucher au quota
+// mensuel `creation` (40 à 70/mois). Plafonds alignés sur le SEUL usage
+// client réel de ces trois modes (jamais une valeur arbitraire) :
+// microEditScript/microEditRecit, 300 tokens, js/generation.js:3514 et
+// js/storytelling.js:1667 ; detectionNiche, jusqu'à 700 tokens (avec fichier
+// joint), js/niche-auto.js:296,433. Aucun des trois n'active jamais la
+// recherche web côté client, donc jamais autorisée ici non plus.
+const PLAFONDS_MODE_LEGER = {
+  microEditScript: { maxTokens: 300, webSearch: false },
+  microEditRecit: { maxTokens: 300, webSearch: false },
+  detectionNiche: { maxTokens: 700, webSearch: false }
+};
+
 // Date réelle du jour, injectée dans CHAQUE appel modèle (voir handler ci-dessous).
 // Le modèle n'a autrement aucun moyen de savoir qu'on n'est plus à la date de
 // ses connaissances d'entraînement : sans ce repère, il peut présenter une
@@ -159,8 +179,18 @@ export default async function handler(req, res) {
 
     // Modèle et nombre de tokens : jamais transmis tels quels, le serveur
     // décide des valeurs réellement autorisées.
-    const modeleFinal = MODELES_AUTORISES.has(model) ? model : MODELE_DEFAUT;
-    const maxTokensFinal = Math.min(Math.max(parseInt(max_tokens, 10) || 4000, 1), MAX_TOKENS_PLAFOND);
+    // LOT 4A, audit ID 2 : microEditScript/microEditRecit/detectionNiche
+    // reçoivent leur PROPRE plafond (voir PLAFONDS_MODE_LEGER), aligné sur
+    // leur seul usage client légitime, jamais celui, bien plus large, d'une
+    // génération complète - et jamais le modèle demandé par le client
+    // (toujours MODELE_DEFAUT), aucun de ces trois modes n'ayant de raison
+    // légitime d'utiliser un autre modèle.
+    const plafondLeger = PLAFONDS_MODE_LEGER[modeDemande];
+    const modeleFinal = plafondLeger ? MODELE_DEFAUT : (MODELES_AUTORISES.has(model) ? model : MODELE_DEFAUT);
+    const maxTokensFinal = plafondLeger
+      ? Math.min(Math.max(parseInt(max_tokens, 10) || plafondLeger.maxTokens, 1), plafondLeger.maxTokens)
+      : Math.min(Math.max(parseInt(max_tokens, 10) || 4000, 1), MAX_TOKENS_PLAFOND);
+    const webSearchAutorise = plafondLeger ? plafondLeger.webSearch : true;
 
     const bodyAnthropic = {
       model: modeleFinal,
@@ -181,7 +211,7 @@ export default async function handler(req, res) {
     // recherches (web_search_max_uses) pour ses appels plus légers (6000
     // tokens max, ex. Recommandations/Idées) qui combinent vérification de
     // faits et recherche de tendances ; borné ici côté serveur quoi qu'il arrive.
-    if (web_search) {
+    if (web_search && webSearchAutorise) {
       const maxUses = Math.min(Math.max(parseInt(web_search_max_uses, 10) || 1, 1), 3);
       bodyAnthropic.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxUses }];
     }

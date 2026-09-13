@@ -29,7 +29,7 @@
 //  diagnostic conservée pour du dépannage futur (endpoints TikHub candidats).
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, verifierQuota, codeAccesRefuse } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteGenerique, codeAccesRefuse } from './_lib/acces.js';
 import { urlsVideo, telechargerMedia, detailTikHub, extraireAuteurUsername, extraireAuteurAvatar } from './_lib/tiktok-media.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
@@ -109,6 +109,24 @@ const LOT_PAR_AVANCEE = 3;        // vidéos traitées par appel "avancer", en p
 const MODEL_SYNTHESE = 'claude-haiku-4-5-20251001';
 const MAX_TRANSCRIPT = 2000;      // par vidéo, la synthèse porte sur l'ensemble de l'échantillon
 
+// LOT 4A, audit ID 1 (Gate Phase 2) : action=avancer ne vérifiait ni la
+// propriété du job, ni aucun rate-limit, ni aucune protection contre deux
+// requêtes concurrentes traitant le même lot en double (voir avancer() plus
+// bas pour le détail). Plafond généreux, réutilise le filet générique déjà
+// en place pour A13 (verifierLimiteGenerique, api/_lib/acces.js), jamais un
+// 2e système de crédits : le flux légitime (js/tendances.js, aucun délai
+// entre deux appels) a besoin d'au plus ceil(VIDEOS_CIBLE/LOT_PAR_AVANCEE)
+// = ceil(50/3) = 17 appels par job, ce plafond reste très largement au-dessus.
+const PLAFOND_AVANCEE_JOUR = 60;
+// Durée max d'un verrou avant expiration automatique (voir
+// supabaseAcquerirVerrou) : large marge au-dessus du pire cas réaliste d'un
+// lot de 3 vidéos (téléchargement + jusqu'à 3 tentatives d'URL par vidéo,
+// chacune bornée à 45s côté ElevenLabs, voir transcrireEleven), pour ne
+// jamais expirer pendant un traitement normal, mais assez court pour qu'un
+// crash ou un timeout ne bloque pas durablement le job (le navigateur
+// rappelle avancer en boucle sans délai, voir js/tendances.js).
+const TIMEOUT_VERROU_MS = 3 * 60 * 1000;
+
 // ── Supabase (service_role, jamais exposé au client) ──
 function supabaseConfig() {
   const url = process.env.SUPABASE_URL;
@@ -157,6 +175,31 @@ async function supabaseUpdateSiInchange(cfg, table, id, colonneCondition, valeur
   if (!r.ok) return { ok: false, appliquee: false };
   const rows = await r.json().catch(() => []);
   return { ok: true, appliquee: Array.isArray(rows) && rows.length > 0 };
+}
+
+// LOT 4A, audit ID 1 : verrou ATOMIQUE côté Postgres (voir
+// supabase/tendances_niche_verrou.sql), acquis AVANT tout appel payant
+// (TikHub/ElevenLabs) - contrairement à supabaseUpdateSiInchange ci-dessus,
+// qui ne protège que l'écriture FINALE, après que le travail a déjà été
+// fait. Le PATCH ne s'applique QUE si `verrou_expire_le` est encore NULL ou
+// déjà expiré (filtre PostgREST `or=`) : Postgres sérialise ces écritures
+// concurrentes lui-même (MVCC), une seule requête peut donc voir son PATCH
+// matcher la ligne. `Prefer: return=representation` ne renvoie une ligne que
+// si le filtre a matché, ce qui permet de distinguer verrou acquis / déjà
+// pris par quelqu'un d'autre, sans lecture séparée.
+async function supabaseAcquerirVerrou(cfg, table, id, dureeMs) {
+  const maintenantIso = new Date().toISOString();
+  const expirationIso = new Date(Date.now() + dureeMs).toISOString();
+  const url = cfg.url + '/rest/v1/' + table
+    + '?id=eq.' + encodeURIComponent(id)
+    + '&or=(verrou_expire_le.is.null,verrou_expire_le.lt.' + encodeURIComponent(maintenantIso) + ')';
+  const r = await fetch(url, {
+    method: 'PATCH', headers: { ...supabaseHeaders(cfg.key), Prefer: 'return=representation' },
+    body: JSON.stringify({ verrou_expire_le: expirationIso })
+  });
+  if (!r.ok) return false;
+  const rows = await r.json().catch(() => []);
+  return Array.isArray(rows) && rows.length > 0;
 }
 
 // ── Recherche TikHub (fetch_general_search, confirmé en prod) ──
@@ -650,52 +693,96 @@ async function avancer(req, res, tikhubKey, elevenKey) {
   if (!cfg) return res.status(500).json({ error: { message: 'Mémoire indisponible (Supabase non configuré).' } });
   const job = await supabaseGetById(cfg, 'tendances_niche', id);
   if (!job) return res.status(404).json({ error: { message: 'Analyse introuvable.' } });
+
+  // LOT 4A, audit ID 1 (Gate Phase 2) : propriété du job vérifiée CÔTÉ
+  // SERVEUR, jamais fiée au frontend. Sans ça, connaître/deviner un `id`
+  // (uuid, donc pas trivial, mais transmis en clair au client par lancer(),
+  // donc pas un secret non plus) suffisait à avancer - et lire - le job d'un
+  // AUTRE créateur.
+  const codeNormalise = String(code_acces || '').trim().toUpperCase();
+  const codeJob = String(job.code_acces || '').trim().toUpperCase();
+  if (!codeNormalise || codeNormalise !== codeJob) {
+    return res.status(403).json({ error: { message: 'Cette analyse ne t\'appartient pas.', code: 'ACCES_REFUSE' } });
+  }
+
   if (job.statut !== 'en_cours') {
     return res.status(200).json({ ok: true, statut: job.statut, traitees: job.index_suivant, total: (job.videos || []).length, resultat: job.resultat || null });
   }
 
-  const videos = job.videos || [];
-  const debut = job.index_suivant || 0;
-  const lot = videos.slice(debut, debut + LOT_PAR_AVANCEE).filter(v => !v.transcript && !v.transcriptEchec);
-  if (!elevenKey) {
-    lot.forEach(v => { v.transcriptEchec = true; }); // dégradation propre : la synthèse continue sans transcript
-  } else {
-    await Promise.all(lot.map(v => transcrireVideo(v, tikhubKey, elevenKey)));
+  // LOT 4A, audit ID 1 : filet journalier générique déjà existant (A13),
+  // réutilisé tel quel plutôt qu'un 2e système de crédits. Clé = l'id du
+  // job, pas le code : c'est bien LE JOB (la ressource concrètement
+  // avancée) qu'on protège contre le spam.
+  const limite = await verifierLimiteGenerique(req, id, 'tendances-avancer', PLAFOND_AVANCEE_JOUR);
+  if (!limite.ok) {
+    return res.status(403).json({ error: { message: 'Trop de tentatives sur cette analyse aujourd\'hui.', code: 'QUOTA_ATTEINT' } });
   }
 
-  const nouvelIndex = Math.min(debut + LOT_PAR_AVANCEE, videos.length);
-  let statut = 'en_cours', resultat = null;
-  if (nouvelIndex >= videos.length) {
-    try {
-      resultat = await synthetiser(job.niche, videos, job.zone);
-      statut = 'termine';
-    } catch (e) {
-      statut = 'echec';
-      // Journalise la panne (jamais faite jusqu'ici : un échec de synthèse
-      // était totalement invisible, ni logs serveur ni trace admin, alors
-      // que le quota mensuel Pro (1/mois) est déjà consommé à ce stade).
-      console.error('[tendances] synthèse échouée', job.niche, e && e.message);
-      supabaseInsert(cfg, 'erreurs_generation', {
-        mode: 'tendances',
-        code_acces: code_acces || null,
-        detail: ('synthèse (' + job.niche + ') : ' + (e && e.message || 'erreur inconnue')).slice(0, 300)
-      }).catch(() => {});
-    }
+  // LOT 4A, audit ID 1 : verrou atomique acquis AVANT tout appel payant (voir
+  // supabaseAcquerirVerrou). Si un autre appel traite DÉJÀ ce job (verrou pas
+  // encore expiré), on ne déclenche AUCUN appel TikHub/ElevenLabs : le
+  // navigateur, qui rappelle avancer en boucle, verra la vraie progression
+  // au prochain passage.
+  const verrouAcquis = await supabaseAcquerirVerrou(cfg, 'tendances_niche', id, TIMEOUT_VERROU_MS);
+  if (!verrouAcquis) {
+    return res.status(200).json({ ok: true, statut: 'en_cours', traitees: job.index_suivant, total: (job.videos || []).length, dejaEnCours: true });
   }
 
-  const maj = await supabaseUpdateSiInchange(cfg, 'tendances_niche', id, 'index_suivant', debut,
-    { videos, index_suivant: nouvelIndex, statut, resultat, maj_le: new Date().toISOString() });
-  if (maj.ok && !maj.appliquee) {
-    // Un autre appel concurrent (même job, ex. deux onglets) a déjà avancé
-    // ce job entre notre lecture et notre écriture : on abandonne NOTRE
-    // écriture plutôt que d'écraser la sienne, et on relit l'état réel pour
-    // que l'appelant reparte de la vérité actuelle, jamais d'une supposition.
-    const jobActuel = await supabaseGetById(cfg, 'tendances_niche', id);
-    if (jobActuel) {
-      return res.status(200).json({ ok: true, statut: jobActuel.statut, traitees: jobActuel.index_suivant, total: (jobActuel.videos || []).length, resultat: jobActuel.resultat || null });
+  try {
+    const videos = job.videos || [];
+    const debut = job.index_suivant || 0;
+    const lot = videos.slice(debut, debut + LOT_PAR_AVANCEE).filter(v => !v.transcript && !v.transcriptEchec);
+    if (!elevenKey) {
+      lot.forEach(v => { v.transcriptEchec = true; }); // dégradation propre : la synthèse continue sans transcript
+    } else {
+      await Promise.all(lot.map(v => transcrireVideo(v, tikhubKey, elevenKey)));
     }
+
+    const nouvelIndex = Math.min(debut + LOT_PAR_AVANCEE, videos.length);
+    let statut = 'en_cours', resultat = null;
+    if (nouvelIndex >= videos.length) {
+      try {
+        resultat = await synthetiser(job.niche, videos, job.zone);
+        statut = 'termine';
+      } catch (e) {
+        statut = 'echec';
+        // Journalise la panne (jamais faite jusqu'ici : un échec de synthèse
+        // était totalement invisible, ni logs serveur ni trace admin, alors
+        // que le quota mensuel Pro (1/mois) est déjà consommé à ce stade).
+        console.error('[tendances] synthèse échouée', job.niche, e && e.message);
+        supabaseInsert(cfg, 'erreurs_generation', {
+          mode: 'tendances',
+          code_acces: code_acces || null,
+          detail: ('synthèse (' + job.niche + ') : ' + (e && e.message || 'erreur inconnue')).slice(0, 300)
+        }).catch(() => {});
+      }
+    }
+
+    const maj = await supabaseUpdateSiInchange(cfg, 'tendances_niche', id, 'index_suivant', debut,
+      { videos, index_suivant: nouvelIndex, statut, resultat, maj_le: new Date().toISOString() });
+    if (maj.ok && !maj.appliquee) {
+      // Un autre appel concurrent (même job, ex. deux onglets) a déjà avancé
+      // ce job entre notre lecture et notre écriture : on abandonne NOTRE
+      // écriture plutôt que d'écraser la sienne, et on relit l'état réel pour
+      // que l'appelant reparte de la vérité actuelle, jamais d'une supposition.
+      // Cas résiduel désormais rare (le verrou ci-dessus empêche déjà deux
+      // traitements payants simultanés), conservé tel quel par sécurité.
+      const jobActuel = await supabaseGetById(cfg, 'tendances_niche', id);
+      if (jobActuel) {
+        return res.status(200).json({ ok: true, statut: jobActuel.statut, traitees: jobActuel.index_suivant, total: (jobActuel.videos || []).length, resultat: jobActuel.resultat || null });
+      }
+    }
+    return res.status(200).json({ ok: true, statut, traitees: nouvelIndex, total: videos.length, resultat });
+  } finally {
+    // LOT 4A, audit ID 1 : libéré dans TOUS les cas (succès, erreur de
+    // synthèse déjà rattrapée ci-dessus, ou exception non prévue) - un
+    // `finally` couvre aussi bien un retour normal qu'un throw. Ne PAS
+    // attendre TIMEOUT_VERROU_MS pour libérer un job qui vient de finir son
+    // lot : le navigateur rappelle avancer en boucle SANS délai (voir
+    // js/tendances.js), un verrou relâché immédiatement évite une attente
+    // inutile sur le prochain appel légitime.
+    await supabaseUpdate(cfg, 'tendances_niche', id, { verrou_expire_le: null }).catch(() => {});
   }
-  return res.status(200).json({ ok: true, statut, traitees: nouvelIndex, total: videos.length, resultat });
 }
 
 // ── Sonde de diagnostic (admin), conservée pour du dépannage futur ──

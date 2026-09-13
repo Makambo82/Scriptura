@@ -54,10 +54,20 @@ function poserFetchMock(scenario) {
       return { ok: true, json: async () => (scenario.jobRow ? [scenario.jobRow] : []) };
     }
     if (u.includes('/rest/v1/tendances_niche') && opts && opts.method === 'PATCH') {
-      // Simule le verrou optimiste (Prefer: return=representation, voir
-      // supabaseUpdateSiInchange, api/tendances.js) : une ligne "appliquée"
-      // par défaut, sauf si le scénario veut explicitement simuler une
-      // écriture concurrente perdante (scenario.patchAppliquee === false).
+      // LOT 4A, ID 1 : deux PATCH distincts désormais sur le même job.
+      // Le PREMIER acquiert le verrou atomique (supabaseAcquerirVerrou,
+      // filtre `or=`, jamais `index_suivant=eq.` dans son URL) : succès par
+      // défaut, sauf si le scénario simule un verrou déjà pris par un autre
+      // appel (scenario.verrouIndisponible). Le SECOND reste le verrou
+      // optimiste historique sur l'écriture finale (filtre
+      // `index_suivant=eq.` présent dans l'URL, voir supabaseUpdateSiInchange)
+      // : comportement inchangé (scenario.patchAppliquee). Le PATCH de
+      // libération du verrou en fin de traitement (supabaseUpdate, sans
+      // filtre particulier) tombe aussi dans la première branche, mais son
+      // appelant ne lit jamais le corps de la réponse (seulement `r.ok`).
+      if (!u.includes('index_suivant=eq.')) {
+        return { ok: true, json: async () => (scenario.verrouIndisponible ? [] : [{ id: 'job-test-1' }]) };
+      }
       return { ok: true, json: async () => (scenario.patchAppliquee === false ? [] : [{ id: 'job-test-1' }]) };
     }
     return { ok: true, json: async () => ({}) };
@@ -415,7 +425,7 @@ test('avancer : un PATCH concurrent perdant (verrou optimiste) fait relire l\'é
   let appelsGet = 0;
   poserFetchMock({
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
-    jobRow: { id: 'job-concurrent', statut: 'en_cours', niche: 'cuisine', index_suivant: 0, videos: cinqVideos },
+    jobRow: { id: 'job-concurrent', code_acces: 'CODE-PRO', statut: 'en_cours', niche: 'cuisine', index_suivant: 0, videos: cinqVideos },
     patchAppliquee: false,
     custom: async (u, opts) => {
       if (u.includes('/rest/v1/tendances_niche') && (!opts || !opts.method || opts.method === 'GET')) {
@@ -453,6 +463,7 @@ test('avancer : résout une URL fraîche via fetch_post_detail avant de téléch
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-1',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'cuisine',
       index_suivant: 0,
@@ -510,6 +521,7 @@ test('avancer : la synthèse finale donne à chaque créateur un lien vers SA vi
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-liens',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'cuisine',
       index_suivant: 0,
@@ -567,6 +579,7 @@ test('avancer : un échec de la synthèse qualitative (Anthropic) est journalis�
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-synthese-qualitative-echec',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'cuisine',
       index_suivant: 0,
@@ -656,6 +669,7 @@ test('avancer : complète la photo de profil manquante via le détail du post, e
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-avatar-manquant',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'cuisine',
       index_suivant: 0,
@@ -714,6 +728,7 @@ test('avancer : complète le uniqueId manquant de l\'auteur via le détail du po
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-uniqueid-manquant',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'finance',
       index_suivant: 0,
@@ -771,6 +786,7 @@ test('avancer : même sans AUCUN handle trouvable (ni recherche, ni détail du p
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-sans-handle-du-tout',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'finance',
       index_suivant: 0,
@@ -889,6 +905,7 @@ test('avancer : la zone géographique du job est transmise à la synthèse final
     abonneRows: [{ actif: true, plan: 'pro', jetons_audit: 0 }],
     jobRow: {
       id: 'job-avec-zone',
+      code_acces: 'CODE-PRO',
       statut: 'en_cours',
       niche: 'cuisine',
       zone: 'Afrique',
