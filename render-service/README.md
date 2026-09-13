@@ -59,7 +59,12 @@ continue de fonctionner normalement dans les deux cas.
    - **Start Command** : `npm start` (souvent détecté automatiquement).
 4. **Variables** (onglet *Variables*) :
    - `SUPABASE_URL` — même valeur que sur Vercel.
-   - `SUPABASE_ANON_KEY` — même valeur que sur Vercel.
+   - `SUPABASE_SERVICE_ROLE_KEY` — même valeur que sur Vercel (audit A3 :
+     le bucket `montages` est privé depuis ce correctif, un upload à la clé
+     anon échouerait désormais). Ne JAMAIS confondre avec `SUPABASE_ANON_KEY`
+     (retirée, elle n'a plus aucun usage dans ce service) : la clé
+     service_role contourne la RLS, elle doit rester une variable
+     d'environnement serveur, jamais dans du code versionné.
    - `ALLOWED_ORIGIN` — l'URL du site, ex. `https://scriptura-v1.vercel.app`
      (ou `*` pour tout autoriser).
    - `MONTAGE_TOKEN` — **fortement recommandé** : un mot de passe simple

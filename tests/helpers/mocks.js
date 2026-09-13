@@ -5,7 +5,26 @@
 
 // Réponse par défaut pour /api/data (utilisée si le test ne fournit pas son
 // propre gestionnaire pour une requête donnée).
-function reponseDataParDefaut(method) {
+//
+// AUDIT A3 : resource=montage-storage (voir handleMontageStorage,
+// api/data.js) a besoin d'un défaut réaliste, sans quoi TOUS les tests de
+// montage existants (qui simulaient jusqu'ici supabaseClient.storage
+// directement) échoueraient d'un coup : uploaderAssetMontage/
+// obtenirUrlsLectureMontage (js/api.js) attendent {ok:true, uploadUrl} et
+// {ok:true, urls}. `uploadUrl` pointe vers une route /api/* quelconque
+// (jamais /api/data ni /api/generate) : le filet générique de
+// poserMocksReseau, plus bas, répond 200 à n'importe quel PUT dessus.
+function reponseDataParDefaut(method, body) {
+  if (body && body.resource === 'montage-storage') {
+    if (body.action === 'upload-url') {
+      return { ok: true, chemin: body.chemin, uploadUrl: '/api/__mock-montage-upload__' };
+    }
+    if (body.action === 'read-url') {
+      const urls = {};
+      (Array.isArray(body.chemins) ? body.chemins : []).forEach(c => { urls[c] = 'https://x.example/montages/' + c; });
+      return { ok: true, urls };
+    }
+  }
   return method === 'GET'
     ? { ok: true, data: [] }
     : { ok: true, id: 'gen-test', data: [] };
@@ -23,7 +42,7 @@ async function poserMocksReseau(page, gestionnaires = {}) {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(reponse !== undefined ? reponse : reponseDataParDefaut(method))
+      body: JSON.stringify(reponse !== undefined ? reponse : reponseDataParDefaut(method, body))
     });
   };
   // Deux motifs nécessaires : le glob Playwright '**/api/data' ne matche PAS

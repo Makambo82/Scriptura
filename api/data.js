@@ -13,7 +13,7 @@
 //  resource=generations | series | profil | admin-stats
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme } from './_lib/acces.js';
+import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme, verifierAccesMontage, codeAccesRefuse } from './_lib/acces.js';
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -1106,6 +1106,111 @@ async function handleQuotaGenerationGratuite(req, res) {
   return res.status(200).json({ ok: true, used });
 }
 
+// ═══ STOCKAGE DU MONTAGE, SLOTS SIGNÉS (audit A3) ═══
+//
+// Le bucket `montages` était PUBLIC (supabase/montage_storage.sql) avec une
+// policy d'écriture `with check(true)` : n'importe qui, avec la seule clé
+// publique déjà présente dans le JS servi, pouvait déposer des fichiers
+// arbitraires dans ce bucket ou lire n'importe quel objet dont il devinait
+// le chemin, sans jamais passer par verifierAccesMontage (réservé aux
+// abonnés Creator/Pro). Scriptura n'utilise jamais de vraie session Supabase
+// (auth par code d'accès, pas supabase.auth) : la RLS ne peut donc pas
+// distinguer un abonné d'un visiteur quelconque, la seule vérification
+// possible passe par CE serveur, avec la clé service_role.
+//
+// Le bucket devient privé, la RLS anon est fermée en lecture ET écriture
+// (voir supabase/montage_storage.sql), et js/montage.js / js/montage-manuel.js
+// appellent ces deux actions au lieu de supabaseClient.storage direct :
+//   - upload-url : un chemin par fichier (même convention qu'avant, choisi
+//     côté client, seulement validé ici), renvoie une URL de dépôt SIGNÉE à
+//     usage unique. Le client y fait un PUT direct vers Supabase : les
+//     octets ne transitent jamais par ce serveur (pas de limite de taille
+//     de fonction serverless à gérer).
+//   - read-url : une fois l'upload terminé, renvoie une URL de LECTURE
+//     signée et temporaire (2h, largement assez pour un rendu, jamais
+//     permanente) ; c'est cette URL qui part vers /api/montage-render puis
+//     le render-service (voir urlAssetApprouvee, render-service/server.js,
+//     audit A1 : elle accepte déjà /storage/v1/object/sign/montages/).
+const MONTAGE_STORAGE_BUCKET = 'montages';
+const MONTAGE_STORAGE_URL_EXPIRATION_S = 2 * 60 * 60;
+// Même forme que les chemins déjà produits côté client
+// (montage-<horodatage>/img-1.jpg, .../voix-off.mp3, .../musique.mp3) : un
+// dossier puis un nom de fichier, alphanumérique + tirets/points seulement,
+// jamais de ".." ni de chemin absolu.
+const MONTAGE_STORAGE_CHEMIN_RE = /^[A-Za-z0-9_-]{1,80}\/[A-Za-z0-9_.-]{1,80}$/;
+
+// Le format exact de la réponse Supabase (URL relative ou absolue selon les
+// versions de l'API Storage) importe peu : seul le jeton de la query string
+// autorise réellement l'accès. On le récupère par une simple recherche dans
+// le texte brut de la réponse plutôt que de supposer une forme précise.
+function extraireJetonSigne(reponse) {
+  const brut = JSON.stringify(reponse || {});
+  const m = /token=([^"\\&]+)/.exec(brut);
+  return m ? m[1] : '';
+}
+
+async function handleMontageStorage(req, res, cfg, body) {
+  const droits = await resoudreDroits(body?.code_acces);
+  const acces = verifierAccesMontage(droits);
+  if (!acces.ok) {
+    return res.status(403).json({ ok: false, error: { message: 'Réservé aux abonnés Creator et Pro', code: codeAccesRefuse(droits) } });
+  }
+  if (!cfg) return res.status(500).json({ ok: false, error: { message: 'Stockage indisponible.' } });
+
+  const action = body?.action || '';
+
+  if (action === 'upload-url') {
+    const chemin = typeof body?.chemin === 'string' ? body.chemin : '';
+    if (!MONTAGE_STORAGE_CHEMIN_RE.test(chemin)) {
+      return res.status(400).json({ ok: false, error: { message: 'Chemin de fichier invalide.' } });
+    }
+    try {
+      const r = await fetch(cfg.url + '/storage/v1/object/upload/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin, {
+        method: 'POST',
+        headers: entetes(cfg.key)
+      });
+      const data = await r.json().catch(() => ({}));
+      const token = extraireJetonSigne(data);
+      if (!r.ok || !token) {
+        return res.status(502).json({ ok: false, error: { message: 'Le stockage a refusé de préparer ce fichier.' } });
+      }
+      const uploadUrl = cfg.url + '/storage/v1/object/upload/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin + '?token=' + token;
+      return res.status(200).json({ ok: true, chemin, uploadUrl });
+    } catch (e) {
+      return res.status(502).json({ ok: false, error: { message: 'Stockage injoignable.' } });
+    }
+  }
+
+  if (action === 'read-url') {
+    // Un montage compte souvent plusieurs dizaines d'images : un seul appel
+    // groupé pour toutes, plutôt qu'un aller-retour par fichier.
+    const chemins = Array.isArray(body?.chemins)
+      ? body.chemins.filter(c => typeof c === 'string' && MONTAGE_STORAGE_CHEMIN_RE.test(c)).slice(0, 60)
+      : [];
+    if (!chemins.length) return res.status(200).json({ ok: true, urls: {} });
+    const urls = {};
+    await Promise.all(chemins.map(async (chemin) => {
+      try {
+        const r = await fetch(cfg.url + '/storage/v1/object/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin, {
+          method: 'POST',
+          headers: { ...entetes(cfg.key), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expiresIn: MONTAGE_STORAGE_URL_EXPIRATION_S })
+        });
+        const data = await r.json().catch(() => ({}));
+        const token = extraireJetonSigne(data);
+        if (r.ok && token) {
+          urls[chemin] = cfg.url + '/storage/v1/object/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin + '?token=' + token;
+        }
+        // Un chemin manquant dans `urls` (échec) est géré côté client comme
+        // un upload raté pour ce fichier précis, jamais un plantage global.
+      } catch (e) { /* volontairement avalé, voir commentaire ci-dessus */ }
+    }));
+    return res.status(200).json({ ok: true, urls });
+  }
+
+  return res.status(400).json({ ok: false, error: { message: 'action inconnue' } });
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -1130,6 +1235,11 @@ export default async function handler(req, res) {
     if (!cfg) return res.status(200).json({ indisponible: true });
     return handleAdminStats(req, res, cfg, body);
   }
+  // montage-storage vérifie ses droits lui-même (voir handleMontageStorage),
+  // avant même de regarder si le service_role est configuré (même ordre que
+  // handlePresenceAdmin) : jamais de repli silencieux pour une route qui
+  // autorise une écriture/lecture dans le Storage.
+  if (resource === 'montage-storage') return handleMontageStorage(req, res, config(), body);
 
   const cfg = config();
   if (!cfg) {

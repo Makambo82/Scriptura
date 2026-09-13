@@ -344,8 +344,57 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return entete + lignes + ligneFiligrane + '\n';
 }
 
+// SSRF (audit A1) : images[].url, audioUrl et musicUrl viennent du CLIENT
+// (transmises telles quelles par api/montage-render.js, qui ne fait que
+// proxier vers ce service), et c'est CE fichier qui les télécharge lui-même
+// juste en dessous. Sans contrôle, un client pouvait faire demander à ce
+// serveur de récupérer n'importe quelle adresse (localhost, un réseau privé
+// RFC1918, un endpoint de metadata cloud comme 169.254.169.254, un service
+// interne quelconque) et lire la réponse via l'URL de la vidéo rendue.
+//
+// Une simple vérification textuelle de l'URL (regex sur le nom d'hôte) ne
+// suffit pas : elle ne dit rien de l'IP réellement résolue (DNS
+// rebinding), ignore les représentations alternatives d'une même adresse
+// (decimal/octal/hex, IPv4 mappée en IPv6, "0" pour localhost…), et ignore
+// les redirections HTTP. Plutôt que de tenter de couvrir tout ça, la seule
+// source d'assets légitime dans TOUT le produit est le Storage Supabase DE
+// CE PROJET (voir js/montage.js et js/montage-manuel.js : chaque image, la
+// voix off et la musique sont TOUJOURS uploadées vers le bucket `montages`
+// puis référencées par l'URL Storage qui en revient, jamais par une URL
+// choisie librement) : on vérifie donc que l'URL appartient EXACTEMENT à
+// cette origine (comparaison de chaîne sur `SUPABASE_URL`, jamais de
+// résolution DNS faite par ce code), sous le bon chemin Storage. Toute
+// autre URL est refusée avant le moindre fetch(), quelle que soit sa forme.
+function origineStorageApprouvee() {
+  const base = process.env.SUPABASE_URL || '';
+  if (!base) return '';
+  try { return new URL(base).origin; } catch (e) { return ''; }
+}
+
+function urlAssetApprouvee(valeur) {
+  if (typeof valeur !== 'string' || !valeur) return false;
+  let u;
+  try { u = new URL(valeur); } catch (e) { return false; }
+  if (u.protocol !== 'https:') return false;
+  const origine = origineStorageApprouvee();
+  if (!origine || u.origin !== origine) return false;
+  return u.pathname.startsWith('/storage/v1/object/public/montages/')
+    || u.pathname.startsWith('/storage/v1/object/sign/montages/');
+}
+
 async function telechargerVers(url, cheminLocal) {
-  const rep = await fetch(url);
+  if (!urlAssetApprouvee(url)) {
+    throw new Error('URL de média refusée (doit être un asset Supabase Storage du bucket montages de ce projet) : ' + url);
+  }
+  // redirect:'manual' : une redirection (même vers une origine approuvée au
+  // départ) n'est jamais suivie automatiquement, elle échoue proprement.
+  // L'origine approuvée ne redirige jamais en usage normal ; si elle le
+  // faisait un jour, mieux vaut un rendu en échec qu'un téléchargement vers
+  // une destination qui n'a pas été vérifiée par urlAssetApprouvee.
+  const rep = await fetch(url, { redirect: 'manual' });
+  if (rep.status >= 300 && rep.status < 400) {
+    throw new Error('Téléchargement refusé (redirection non autorisée) : ' + url);
+  }
   if (!rep.ok) throw new Error('Téléchargement échoué (' + rep.status + ') : ' + url);
   const tampon = Buffer.from(await rep.arrayBuffer());
   await fs.writeFile(cheminLocal, tampon);
@@ -393,10 +442,26 @@ function dureeAudio(chemin) {
   });
 }
 
+// Même extraction que côté Vercel (voir extraireJetonSigne, api/data.js) :
+// dupliquée volontairement, ce service n'importe aucun code du dossier
+// api/ (déploiement Railway séparé, pas de module partagé aujourd'hui) et
+// ces quelques lignes ne justifient pas d'en créer un.
+function extraireJetonSigne(reponse) {
+  const brut = JSON.stringify(reponse || {});
+  const m = /token=([^"\\&]+)/.exec(brut);
+  return m ? m[1] : '';
+}
+
 async function uploaderVersSupabase(cheminLocal, nomFichier) {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Configuration Supabase absente (SUPABASE_URL / SUPABASE_ANON_KEY)');
+  // Clé service_role, pas anon (audit A3) : le bucket `montages` est privé
+  // depuis ce correctif (supabase/montage_storage_rls.sql), un upload à la
+  // clé anon échouerait désormais (RLS fermée). SUPABASE_SERVICE_ROLE_KEY
+  // est déjà une variable Railway requise ailleurs dans ce fichier ? Non :
+  // c'est la première fois que ce service en a besoin, à ajouter à sa
+  // configuration (voir render-service/README.md).
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('Configuration Supabase absente (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)');
   const tampon = await fs.readFile(cheminLocal);
   const chemin = 'rendus/' + nomFichier;
   const rep = await fetch(url + '/storage/v1/object/montages/' + chemin, {
@@ -408,7 +473,24 @@ async function uploaderVersSupabase(cheminLocal, nomFichier) {
     const texte = await rep.text().catch(() => '');
     throw new Error('Upload du rendu final échoué (' + rep.status + ') : ' + texte.slice(0, 300));
   }
-  return url + '/storage/v1/object/public/montages/' + chemin;
+  // Bucket privé : le navigateur affiche/télécharge cette URL DIRECTEMENT
+  // (balise <video>, lien de téléchargement), sans en-tête d'autorisation
+  // possible sur ces deux usages, donc une URL signée est indispensable ici.
+  // 7 jours : contrairement aux assets SOURCES d'un montage (2h, voir
+  // handleMontageStorage, api/data.js), le créateur peut vouloir revenir
+  // télécharger sa vidéo plus tard dans la même session ou le lendemain.
+  const rSign = await fetch(url + '/storage/v1/object/sign/montages/' + chemin, {
+    method: 'POST',
+    headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiresIn: 7 * 24 * 60 * 60 })
+  });
+  const dataSign = await rSign.json().catch(() => ({}));
+  const token = extraireJetonSigne(dataSign);
+  if (!rSign.ok || !token) {
+    const texte = JSON.stringify(dataSign).slice(0, 300);
+    throw new Error('Rendu déposé mais lien de lecture impossible à générer (' + rSign.status + ') : ' + texte);
+  }
+  return url + '/storage/v1/object/sign/montages/' + chemin + '?token=' + token;
 }
 
 // Chronométrage et pic de mémoire d'un rendu (retour propriétaire : le coût
@@ -626,5 +708,6 @@ module.exports = {
   construireASS, versHorodatageASS, echapperTexteASS, mettreEnValeurChiffres,
   construireGrapheLot, resoudreVolumeMusique, facteurSurEchantillonnage, calerDureesSurAudio,
   MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
-  GRADE_CONTRASTE, GRADE_SATURATION
+  GRADE_CONTRASTE, GRADE_SATURATION,
+  urlAssetApprouvee, telechargerVers
 };

@@ -990,18 +990,19 @@ async function omLancerMontage() {
   try {
     const dossier = 'montage-manuel-' + Date.now();
 
-    const images = [];
+    // AUDIT A3 : bucket privé désormais, plus d'upload/lecture directs via
+    // supabaseClient.storage (voir uploaderAssetMontage/obtenirUrlsLectureMontage,
+    // js/api.js, même flux que js/montage.js).
+    const cheminsImages = [];
     try {
       for (let i = 0; i < omImages.length; i++) {
         const chemin = dossier + '/img-' + (i + 1) + '.' + omExtensionDeFichier(omImages[i].file);
-        const { error } = await supabaseClient.storage.from('montages').upload(chemin, omImages[i].file, { contentType: omImages[i].file.type || 'image/jpeg' });
-        if (error) throw new Error(error.message);
-        const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
-        images.push({ url: data.publicUrl, duration: durees[i] });
+        await uploaderAssetMontage(chemin, omImages[i].file, omImages[i].file.type || 'image/jpeg');
+        cheminsImages.push({ chemin, duration: durees[i] });
       }
     } catch (e) { throw new Error('Upload des images : ' + e.message); }
 
-    let audioUrl;
+    let cheminAudio;
     try {
       // L'EXTENSION VIENT DU TYPE DU FICHIER, pas de son nom. omExtensionDeFichier
       // sert aux IMAGES : sans extension dans le nom, il retombe sur « jpg ».
@@ -1010,24 +1011,34 @@ async function omLancerMontage() {
       const extAudio = omAudio.source === 'ia'
         ? 'mp3'
         : extensionAudioDepuisType(omAudio.blob && omAudio.blob.type);
-      const cheminAudio = dossier + '/voix-off.' + extAudio;
-      const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, omAudio.blob, { contentType: omAudio.blob.type || 'audio/mpeg' });
-      if (errAudio) throw new Error(errAudio.message);
-      audioUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data.publicUrl;
+      cheminAudio = dossier + '/voix-off.' + extAudio;
+      await uploaderAssetMontage(cheminAudio, omAudio.blob, omAudio.blob.type || 'audio/mpeg');
     } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
 
     // Musique de fond : optionnelle, seulement si générée (voir
     // omGenererMusique). Le rendu (render-service/server.js) la mélange sous
     // la voix off avec le volume automatiquement baissé.
-    let musicUrl = '';
+    let cheminMusique = '';
     if (omMusique) {
       try {
-        const cheminMusique = dossier + '/musique.mp3';
-        const { error: errMusique } = await supabaseClient.storage.from('montages').upload(cheminMusique, omMusique.blob, { contentType: 'audio/mpeg' });
-        if (errMusique) throw new Error(errMusique.message);
-        musicUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminMusique).data.publicUrl;
+        cheminMusique = dossier + '/musique.mp3';
+        await uploaderAssetMontage(cheminMusique, omMusique.blob, 'audio/mpeg');
       } catch (e) { throw new Error('Upload de la musique de fond : ' + e.message); }
     }
+
+    // Une fois tous les uploads terminés, un seul appel groupé pour toutes
+    // les URLs de lecture (temporaires, voir obtenirUrlsLectureMontage).
+    let urlsLecture;
+    try {
+      const tousChemins = cheminsImages.map(c => c.chemin).concat([cheminAudio], cheminMusique ? [cheminMusique] : []);
+      urlsLecture = await obtenirUrlsLectureMontage(tousChemins);
+    } catch (e) { throw new Error('Préparation des fichiers du montage : ' + e.message); }
+
+    const images = cheminsImages.map(c => ({ url: urlsLecture[c.chemin], duration: c.duration }));
+    if (images.some(img => !img.url)) throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi.');
+    const audioUrl = urlsLecture[cheminAudio];
+    if (!audioUrl) throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi.');
+    const musicUrl = cheminMusique ? (urlsLecture[cheminMusique] || '') : '';
 
     if (statut) statut.textContent = "Montage en cours (peut prendre plusieurs minutes selon le nombre d'images)…";
     const format = await omDetecterFormat();

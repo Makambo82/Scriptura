@@ -1466,42 +1466,57 @@ async function lancerMontage() {
     // (upload images, upload audio, ou rendu) elle s'est produite.
     // imagesEff : les plans sans image (bloqués) réutilisent l'image voisine,
     // pour ne jamais bloquer tout le montage à cause d'un seul plan.
-    const images = [];
+    // AUDIT A3 : bucket privé désormais, plus d'upload/lecture directs via
+    // supabaseClient.storage (voir uploaderAssetMontage/obtenirUrlsLectureMontage,
+    // js/api.js). Les chemins restent choisis ici comme avant (même
+    // convention "montage-<horodatage>/nom.ext"), seule leur écriture réelle
+    // passe désormais par une URL signée, authentifiée côté serveur.
+    const cheminsImages = [];
     try {
       for (let i = 0; i < imagesEff.length; i++) {
         const chemin = dossier + '/img-' + (i + 1) + '.jpg';
-        const { error } = await supabaseClient.storage.from('montages').upload(chemin, imagesEff[i].blob, { contentType: imagesEff[i].blob.type || 'image/png' });
-        if (error) throw new Error(error.message);
-        const { data } = supabaseClient.storage.from('montages').getPublicUrl(chemin);
-        images.push({ url: data.publicUrl, duration: durees[i] || 2 });
+        await uploaderAssetMontage(chemin, imagesEff[i].blob, imagesEff[i].blob.type || 'image/png');
+        cheminsImages.push({ chemin, duration: durees[i] || 2 });
       }
     } catch (e) { throw new Error('Upload des images : ' + e.message); }
 
-    let dataAudio;
+    let cheminAudio;
     try {
       // L'EXTENSION SUIT LE VRAI FICHIER. C'était « .mp3 » en dur, ce qui
       // était juste tant que la voix venait d'ElevenLabs (toujours du MP3) et
       // devient faux dès qu'elle vient du micro : un webm nommé .mp3 et servi
       // en audio/mpeg, c'est un fichier qui ment sur ce qu'il est.
       const typeAudio = montageVoixOff.blob.type || 'audio/mpeg';
-      const cheminAudio = dossier + '/voix-off.' + extensionAudioDepuisType(typeAudio);
-      const { error: errAudio } = await supabaseClient.storage.from('montages').upload(cheminAudio, montageVoixOff.blob, { contentType: typeAudio });
-      if (errAudio) throw new Error(errAudio.message);
-      dataAudio = supabaseClient.storage.from('montages').getPublicUrl(cheminAudio).data;
+      cheminAudio = dossier + '/voix-off.' + extensionAudioDepuisType(typeAudio);
+      await uploaderAssetMontage(cheminAudio, montageVoixOff.blob, typeAudio);
     } catch (e) { throw new Error('Upload de la voix off : ' + e.message); }
 
     // Musique de fond : optionnelle, seulement si générée (voir
     // genererMusiqueMontage). Le rendu (render-service/server.js) la mélange
     // sous la voix off avec le volume automatiquement baissé.
-    let musicUrl = '';
+    let cheminMusique = '';
     if (montageMusique) {
       try {
-        const cheminMusique = dossier + '/musique.mp3';
-        const { error: errMusique } = await supabaseClient.storage.from('montages').upload(cheminMusique, montageMusique.blob, { contentType: 'audio/mpeg' });
-        if (errMusique) throw new Error(errMusique.message);
-        musicUrl = supabaseClient.storage.from('montages').getPublicUrl(cheminMusique).data.publicUrl;
+        cheminMusique = dossier + '/musique.mp3';
+        await uploaderAssetMontage(cheminMusique, montageMusique.blob, 'audio/mpeg');
       } catch (e) { throw new Error('Upload de la musique de fond : ' + e.message); }
     }
+
+    // Une fois tous les uploads terminés, un seul appel groupé pour toutes
+    // les URLs de lecture (temporaires, voir obtenirUrlsLectureMontage) :
+    // c'est ce que le rendu (render-service, via /api/montage-render) va
+    // effectivement télécharger.
+    let urlsLecture;
+    try {
+      const tousChemins = cheminsImages.map(c => c.chemin).concat([cheminAudio], cheminMusique ? [cheminMusique] : []);
+      urlsLecture = await obtenirUrlsLectureMontage(tousChemins);
+    } catch (e) { throw new Error('Préparation des fichiers du montage : ' + e.message); }
+
+    const images = cheminsImages.map(c => ({ url: urlsLecture[c.chemin], duration: c.duration }));
+    if (images.some(img => !img.url)) throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi.');
+    const audioUrl = urlsLecture[cheminAudio];
+    if (!audioUrl) throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi.');
+    const musicUrl = cheminMusique ? (urlsLecture[cheminMusique] || '') : '';
 
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de
     // sondage de statut (contrairement à JSON2Video, remplacé faute de
@@ -1518,7 +1533,7 @@ async function lancerMontage() {
       // montage" dans le HTML. Cochée par défaut.
       const sousTitresActives = document.getElementById('montageSousTitresCheckbox')?.checked !== false;
       const corpsRendu = {
-        images, audioUrl: dataAudio.publicUrl,
+        images, audioUrl,
         format: ratioDuPrompt((montagePlans[0] && montagePlans[0].visuel) || ''),
         captions: (sousTitresActives && montageVoixOff.captions) || [],
         musicUrl,

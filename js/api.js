@@ -741,6 +741,52 @@ function getUserRef() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  STOCKAGE DU MONTAGE, SLOTS SIGNÉS (audit A3)
+//
+//  Le bucket `montages` est privé désormais (supabase/montage_storage_rls.sql) :
+//  plus d'upload ni de lecture directs via supabaseClient.storage (RLS anon
+//  fermée). Ces deux fonctions passent par /api/data (resource=montage-storage),
+//  qui vérifie verifierAccesMontage (Creator/Pro) avant de minter une URL
+//  signée à usage limité (voir handleMontageStorage, api/data.js). Partagées
+//  par js/montage.js et js/montage-manuel.js : même flux d'upload dans les
+//  deux, que le montage parte d'un script généré ou d'un montage manuel.
+// ═══════════════════════════════════════════════════════════
+
+// Dépose un seul fichier (image, voix off ou musique) à `chemin` (même
+// convention qu'avant : "montage-<horodatage>/nom.ext"). Les octets partent
+// directement du navigateur vers Supabase (PUT sur l'URL signée), jamais via
+// ce serveur.
+async function uploaderAssetMontage(chemin, blob, contentType) {
+  const rSlot = await fetch('/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resource: 'montage-storage', action: 'upload-url', chemin, code_acces: localStorage.getItem('scriptura_code') || null })
+  });
+  const slot = await rSlot.json().catch(() => ({}));
+  if (!rSlot.ok || !slot.ok || !slot.uploadUrl) {
+    throw new Error((slot.error && slot.error.message) || 'Emplacement de stockage refusé.');
+  }
+  const rPut = await fetch(slot.uploadUrl, { method: 'PUT', headers: { 'Content-Type': contentType || 'application/octet-stream' }, body: blob });
+  if (!rPut.ok) throw new Error('Envoi du fichier échoué (' + rPut.status + ').');
+}
+
+// Une fois tous les uploads d'un montage terminés : un seul appel groupé
+// pour toutes leurs URLs de LECTURE (temporaires, 2h), plutôt qu'un
+// aller-retour par fichier. Renvoie { chemin: url }, un chemin absent du
+// résultat signale un échec pour CE fichier précis (voir l'appelant).
+async function obtenirUrlsLectureMontage(chemins) {
+  if (!chemins.length) return {};
+  const r = await fetch('/api/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resource: 'montage-storage', action: 'read-url', chemins, code_acces: localStorage.getItem('scriptura_code') || null })
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || !data.ok) throw new Error((data.error && data.error.message) || 'Lecture des fichiers du montage impossible.');
+  return data.urls || {};
+}
+
+// ═══════════════════════════════════════════════════════════
 //  ANTI-CONTOURNEMENT, empreinte d'appareil + IP (via Supabase)
 // ═══════════════════════════════════════════════════════════
 // Objectif : le quota gratuit ne se réinitialise PAS quand on vide le cache.

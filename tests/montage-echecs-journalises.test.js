@@ -36,13 +36,19 @@ test('Montage manuel : un échec de voix off ou de rendu est journalisé pour le
       status: 200, contentType: 'application/json', body: JSON.stringify({ voices: [{ id: 'v1', label: 'Adrien' }] })
     }));
 
+    // Capture pour les assertions ci-dessous, PUIS laisse poserMocksReseau
+    // (enregistré juste au-dessus) répondre réellement : ce test veut
+    // observer resource='erreur', pas remplacer resource='montage-storage'
+    // (audit A3, voir js/api.js) dont ce montage manuel a besoin pour
+    // uploader ses fichiers avant même d'atteindre l'étape du rendu testée
+    // plus bas.
     const appelsData = [];
     await page.route('**/api/data', async route => {
       const req = route.request();
       if (req.method() === 'POST') {
         try { appelsData.push(JSON.parse(req.postData())); } catch (e) { /* ignore */ }
       }
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+      return route.fallback();
     });
 
     // 1) La génération de la voix off échoue → doit journaliser montageVoixOff.
