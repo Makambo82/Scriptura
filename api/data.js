@@ -13,7 +13,7 @@
 //  resource=generations | series | profil | admin-stats
 // ═══════════════════════════════════════════════════════════
 
-import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme, verifierAccesMontage, codeAccesRefuse } from './_lib/acces.js';
+import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme, verifierAccesMontage, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
 
 function config() {
   const url = process.env.SUPABASE_URL;
@@ -39,11 +39,67 @@ async function ligneGenerationAppartientA(cfg, id, code) {
 
 const HIST_TAILLE_PAGE = 50;
 
+// LOT 4B, audit ID 5 (Gate Phase 2B) : handleGenerations/handleSeries ne
+// vérifiaient QUE « code non vide », jamais que l'appelant était réellement
+// autorisé pour CE code précis - une lecture croisée (ou une écriture
+// injectée dans l'historique d'un tiers via action=save) était possible dès
+// que le code_acces d'un tiers était connu ou deviné (PRÉNOM + 4 caractères
+// pour un abonné réel, voir genererCode plus bas ; format anon_<horodatage>_
+// <aléa> pour un visiteur non-abonné, voir getUserRef, js/api.js).
+//
+// DEUX correctifs, tous deux des primitives déjà existantes réutilisées
+// telles quelles, AUCUN NE FERME COMPLÈTEMENT LE RISQUE (voir le rapport de
+// ce lot pour ce qui reste, honnêtement, hors de portée sans changer le
+// modèle d'accès de Scriptura, qui n'a jamais de session séparée du code
+// lui-même) :
+//
+//  1. droits.ok (resoudreDroits, même primitive que TOUTES les autres routes
+//     payantes, ex. api/generate.js) : un compte désactivé ou dont
+//     l'abonnement a expiré perd l'accès à SON PROPRE historique, exactement
+//     comme il perd déjà l'accès à une génération ou au montage. VOLONTAIREMENT
+//     PAS un rejet sur `codeInconnu` : un visiteur non-abonné utilise un
+//     identifiant LOCAL (anon_...) qui n'existe JAMAIS dans `abonnes` par
+//     construction - le rejeter casserait tout l'historique des générations
+//     gratuites, le flux le plus utilisé par un nouveau visiteur.
+//  2. Filet IP journalier (verifierLimiteAnonyme, même primitive que le
+//     filet anonyme de génération, A13) appliqué ICI À TOUT LE MONDE, abonné
+//     ou non, PAR IP plutôt que par code : verifierLimiteGenerique (A13,
+//     déjà utilisé ailleurs dans ce fichier) donne un budget SÉPARÉ à
+//     CHAQUE code essayé et ne freinerait donc en rien une IP qui essaierait
+//     des centaines de codes différents. Ce filet-ci partage UN SEUL budget
+//     par IP quel que soit le code demandé : généreux (couvre très large un
+//     usage normal, même partagé sur une IP), mais rend un essai automatisé
+//     de nombreux codes différents (67 600 combinaisons par prénom)
+//     impraticable au lieu d'instantané.
+//
+// CE QUI RESTE RÉELLEMENT OUVERT, ASSUMÉ ET DOCUMENTÉ : un tiers qui connaît
+// déjà (fuite, ingénierie sociale) un code_acces RÉEL ET ACTIF, ou un
+// identifiant anon_... réel, garde un accès à l'historique associé - c'est
+// le modèle d'accès de Scriptura lui-même (le code EST la seule preuve
+// d'identité, aucune session séparée), pas une négligence de ce correctif.
+// Le fermer demanderait une vraie session (mot de passe, cookie signé) :
+// explicitement hors du périmètre de ce lot.
+const PLAFOND_LECTURE_CROISEE_JOUR = 300;
+
+async function verifierAppelantAutoriseGenerationsSeries(req, code) {
+  const limiteIp = await verifierLimiteAnonyme(req, 'data-generations-series', PLAFOND_LECTURE_CROISEE_JOUR);
+  if (!limiteIp.ok) {
+    return { ok: false, status: 429, body: { ok: false, data: [], error: 'Trop de requêtes, réessaie plus tard.' } };
+  }
+  const droits = await resoudreDroits(code);
+  if (!droits.ok) {
+    return { ok: false, status: 403, body: { ok: false, data: [], error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } } };
+  }
+  return { ok: true };
+}
+
 async function handleGenerations(req, res, cfg, body) {
   if (req.method === 'GET') {
     const action = req.query && req.query.action;
     const code = (req.query && req.query.code) || '';
     if (!code) return res.status(200).json({ ok: false, data: [] });
+    const verif = await verifierAppelantAutoriseGenerationsSeries(req, code);
+    if (!verif.ok) return res.status(verif.status).json(verif.body);
 
     if (action === 'list') {
       const offset = Math.max(0, parseInt((req.query && req.query.offset) || '0', 10) || 0);
@@ -90,6 +146,8 @@ async function handleGenerations(req, res, cfg, body) {
   const action = body.action;
   const code = body.code || '';
   if (!code) return res.status(400).json({ ok: false, error: 'code manquant' });
+  const verifPost = await verifierAppelantAutoriseGenerationsSeries(req, code);
+  if (!verifPost.ok) return res.status(verifPost.status).json(verifPost.body);
 
   if (action === 'save') {
     const r = await fetch(cfg.url + '/rest/v1/generations', {
@@ -161,6 +219,8 @@ async function handleSeries(req, res, cfg, body) {
     const action = req.query && req.query.action;
     const code = (req.query && req.query.code) || '';
     if (!code) return res.status(200).json({ ok: false, data: [] });
+    const verif = await verifierAppelantAutoriseGenerationsSeries(req, code);
+    if (!verif.ok) return res.status(verif.status).json(verif.body);
 
     if (action === 'list') {
       const r = await fetch(cfg.url + '/rest/v1/series?code_acces=eq.' + encodeURIComponent(code) + '&select=*&order=cree_le.desc', { headers: entetes(cfg.key) });
@@ -181,6 +241,8 @@ async function handleSeries(req, res, cfg, body) {
   const action = body.action;
   const code = body.code || '';
   if (!code) return res.status(400).json({ ok: false, error: 'code manquant' });
+  const verifPost = await verifierAppelantAutoriseGenerationsSeries(req, code);
+  if (!verifPost.ok) return res.status(verifPost.status).json(verifPost.body);
 
   if (action === 'save') {
     const r = await fetch(cfg.url + '/rest/v1/series', {
@@ -232,9 +294,16 @@ async function handleSeries(req, res, cfg, body) {
 // ═══ PROFIL CRÉATEUR (voir l'ancien api/profil-createur.js) ═══
 
 async function handleProfil(req, res, cfg, body) {
+  // LOT 4B, audit ID 5 (Gate Phase 2B) : même contournement que generations/
+  // series (voir verifierAppelantAutoriseGenerationsSeries plus haut), signalé
+  // par le Gate comme « ressource voisine » exposée au même risque - un
+  // profil créateur (niche, style) est une donnée personnelle au même titre
+  // qu'une génération. Même correctif, même primitive, même limite assumée.
   if (req.method === 'GET') {
     const code = (req.query && req.query.code) || '';
     if (!code) return res.status(200).json({ profil: {} });
+    const verif = await verifierAppelantAutoriseGenerationsSeries(req, code);
+    if (!verif.ok) return res.status(verif.status).json({ profil: {} });
     const r = await fetch(
       cfg.url + '/rest/v1/profils_createurs?code_acces=eq.' + encodeURIComponent(code) + '&select=profil',
       { headers: entetes(cfg.key) }
@@ -248,6 +317,8 @@ async function handleProfil(req, res, cfg, body) {
     const code = (body && body.code) || '';
     const profil = (body && body.profil) || {};
     if (!code) return res.status(400).json({ error: { message: 'code manquant' } });
+    const verifPost = await verifierAppelantAutoriseGenerationsSeries(req, code);
+    if (!verifPost.ok) return res.status(verifPost.status).json({ ok: false });
     const r = await fetch(cfg.url + '/rest/v1/profils_createurs', {
       method: 'POST',
       headers: { ...entetes(cfg.key), Prefer: 'resolution=merge-duplicates,return=minimal' },

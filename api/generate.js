@@ -3,17 +3,46 @@
 // demandé, puis relaie vers Anthropic. Voir api/_lib/acces.js pour le détail
 // de la résolution des droits (le serveur ne fait plus confiance au client :
 // ni pour le plan, ni pour le quota, ni pour le modèle/nombre de tokens).
-import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierLimiteGenerique, verifierAccesProOuJeton, codeAccesRefuse, MAX_FREE } from './_lib/acces.js';
+import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierLimiteGenerique, verifierAccesProOuJeton, rembourserUsage, codeAccesRefuse, MAX_FREE } from './_lib/acces.js';
 
 // Seuls modèles réellement utilisés par l'app pour ce type d'appel (voir
-// MODEL_CREATIF/MODEL_RAPIDE/MODEL_QUALITE_RECIT, js/api.js) : un modèle
-// demandé hors de cette liste retombe sur le défaut, jamais transmis tel
-// quel à Anthropic. claude-sonnet-4-6 : Critique + Réviseur du récit
-// (js/storytelling.js) seulement, jugement créatif fin que Haiku jugeant
-// Haiku ne rendait pas fidèlement ; toujours plafonné par le même quota et
-// le même MAX_TOKENS_PLAFOND que le reste de ce endpoint.
+// MODEL_CREATIF/MODEL_RAPIDE/MODEL_QUALITE_RECIT/MODEL_JUGE_SECOURS,
+// js/api.js) : un modèle demandé hors de cette liste retombe sur le défaut,
+// jamais transmis tel quel à Anthropic.
 const MODELES_AUTORISES = new Set(['claude-haiku-4-5-20251001', 'claude-sonnet-4-6']);
 const MODELE_DEFAUT = 'claude-haiku-4-5-20251001';
+const MODEL_SONNET = 'claude-sonnet-4-6';
+// LOT 4B, audit ID 4 (Gate Phase 2B) : Sonnet était accepté du client SANS
+// AUCUNE restriction serveur au-delà de MODELES_AUTORISES - n'importe quel
+// appelant identifié pouvait forcer model:'claude-sonnet-4-6' sur N'IMPORTE
+// QUEL appel (rédaction complète à 16000 jetons comprise), pour un coût très
+// supérieur à Haiku, jamais prévu ni facturé pour aucun palier.
+//
+// Sonnet n'a QUE deux usages légitimes dans tout le produit (voir js/api.js) :
+//  1. juge de secours (MODEL_JUGE_SECOURS ; js/generation.js, js/storytelling.js,
+//     js/serie.js) : 2e tentative du juge indépendant, SEULEMENT quand la 1re
+//     (Haiku) est illisible, pour N'IMPORTE QUEL compte (jamais réservé à un
+//     palier), toujours 1200 ou 1400 jetons max, jamais plus ;
+//  2. essai à l'aveugle Critique/Révision du récit (MODELES_ESSAI_RECIT,
+//     js/api.js), STRICTEMENT réservé à l'admin (estCodeAdmin(), armé
+//     seulement en localStorage admin) - jusqu'à 8000 jetons.
+// Aucun palier (Créateur/Pro) n'a d'accès légitime à Sonnet en dehors de ces
+// deux cas précis : la règle serveur ci-dessous s'appuie sur droits.isAdmin
+// (résolu depuis Supabase, jamais depuis le client) pour le cas 2, et sur un
+// plafond de jetons pour couvrir le cas 1 sans réserver Sonnet à l'admin.
+//
+// RÉSIDU SIGNALÉ PLUTÔT QU'IMPROVISÉ : le serveur ne peut pas prouver avec
+// certitude qu'un appel non-admin, modèle Sonnet, max_tokens ≤ 1400 est bien
+// un VRAI appel de juge de secours plutôt qu'un client qui en imiterait la
+// forme - `mode` reste volontairement undefined pour ces trois appels (voir
+// callAI, js/api.js), aucun autre signal du corps de la requête ne le prouve.
+// Ce plafond ferme le risque de coût dominant (impossible d'obtenir Sonnet
+// sur un appel de rédaction complète, 2500 à 16000 jetons, sans être admin)
+// sans fermer totalement ce résidu à petite échelle (≤1400 jetons) : le
+// fermer complètement demanderait que le serveur décide LUI-MÊME du modèle
+// du juge plutôt que de faire confiance à ce qu'envoie le client, un
+// changement de contrat hors du périmètre de ce lot.
+const MAX_TOKENS_SONNET_NON_ADMIN = 1400;
 // Plafond dur, aligné sur le plus gros appel légitime existant (écriture du
 // script complet, 16000, voir js/generation.js/js/storytelling.js).
 const MAX_TOKENS_PLAFOND = 16000;
@@ -84,13 +113,39 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
   }
 
+  // LOT 4B, audit ID 3 (Gate Phase 2B) : verifierQuota décomptait déjà un
+  // slot AVANT l'appel Anthropic (nécessaire pour rester atomique, voir
+  // consommer_usage), mais rien ne le rendait si l'appel échouait ensuite
+  // (erreur Anthropic, réseau, exception) - un créateur perdait un slot de
+  // quota pour une génération qu'il n'a jamais reçue. Variables hissées hors
+  // du bloc try pour que le catch (toute exception, y compris en plein flux)
+  // puisse rembourser lui aussi, sur EXACTEMENT la référence débitée par
+  // verifierQuota. `rembourserUsage` est déjà best-effort et ne lève jamais
+  // (voir api/_lib/acces.js), donc aucun essai supplémentaire ici : un échec
+  // de remboursement reste silencieux pour le créateur (il a déjà l'erreur
+  // d'origine) et journalisé côté Supabase (voir journaliserPanneRpc).
+  let droits = null;
+  let verdict = null;
+  let code_acces = null;
+  let modeQuotaEffectif = null;
+  let quotaRembourse = false; // un seul remboursement par requête, quel que soit le nombre de points de sortie traversés
+  let appelAnthropicReussi = false; // Anthropic a accepté et déjà généré : plus jamais de remboursement après ce point, même si la suite échoue (JSON illisible, flux coupé)
+
+  async function rembourserQuotaSiNecessaire() {
+    if (!verdict || !verdict.consomme || quotaRembourse || appelAnthropicReussi) return;
+    quotaRembourse = true;
+    await rembourserUsage(droits, modeQuotaEffectif, code_acces, 1);
+  }
+
   try {
-    const { model, max_tokens, messages, code_acces, web_search, web_search_max_uses, mode, stream } = req.body;
+    const { model, max_tokens, messages, web_search, web_search_max_uses, mode, stream } = req.body;
+    code_acces = req.body.code_acces;
     const modeDemande = typeof mode === 'string' && mode ? mode : 'creation';
+    modeQuotaEffectif = modeDemande;
 
     // Résout les droits réels (plan/jetons/admin) DIRECTEMENT depuis Supabase
     // (service role), jamais depuis une valeur envoyée par le client.
-    const droits = await resoudreDroits(code_acces);
+    droits = await resoudreDroits(code_acces);
     if (!droits.ok) {
       return res.status(403).json({ error: { message: 'Accès refusé : ' + droits.raison, code: codeAccesRefuse(droits) } });
     }
@@ -99,9 +154,9 @@ export default async function handler(req, res) {
     // création normale une fois dedans, voir moyenSerie côté client) a un
     // traitement à part ; les autres modes suivent le quota mensuel/à vie
     // habituel (voir verifierQuota).
-    let verdict;
     if (modeDemande === 'creationSerie') {
       if (droits.isAdmin || droits.illimite || droits.plan === 'pro') {
+        modeQuotaEffectif = 'creation';
         verdict = await verifierQuota(droits, 'creation', code_acces);
       } else {
         verdict = await verifierAccesProOuJeton(droits, code_acces);
@@ -186,11 +241,20 @@ export default async function handler(req, res) {
     // (toujours MODELE_DEFAUT), aucun de ces trois modes n'ayant de raison
     // légitime d'utiliser un autre modèle.
     const plafondLeger = PLAFONDS_MODE_LEGER[modeDemande];
-    const modeleFinal = plafondLeger ? MODELE_DEFAUT : (MODELES_AUTORISES.has(model) ? model : MODELE_DEFAUT);
     const maxTokensFinal = plafondLeger
       ? Math.min(Math.max(parseInt(max_tokens, 10) || plafondLeger.maxTokens, 1), plafondLeger.maxTokens)
       : Math.min(Math.max(parseInt(max_tokens, 10) || 4000, 1), MAX_TOKENS_PLAFOND);
     const webSearchAutorise = plafondLeger ? plafondLeger.webSearch : true;
+
+    // LOT 4B, audit ID 4 : Sonnet demandé par un appelant non-admin n'est
+    // accepté que pour un appel de la taille du juge de secours (voir le
+    // commentaire de MAX_TOKENS_SONNET_NON_ADMIN plus haut) ; au-delà, il
+    // retombe sur MODELE_DEFAUT comme n'importe quel modèle hors liste.
+    const modeleDemande = MODELES_AUTORISES.has(model) ? model : MODELE_DEFAUT;
+    const sonnetAutorise = droits.isAdmin || maxTokensFinal <= MAX_TOKENS_SONNET_NON_ADMIN;
+    const modeleFinal = plafondLeger
+      ? MODELE_DEFAUT
+      : (modeleDemande === MODEL_SONNET && !sonnetAutorise ? MODELE_DEFAUT : modeleDemande);
 
     const bodyAnthropic = {
       model: modeleFinal,
@@ -234,10 +298,16 @@ export default async function handler(req, res) {
       });
 
       if (!response.ok || !response.body) {
+        await rembourserQuotaSiNecessaire();
         let data = null;
         try { data = await response.json(); } catch (e) {}
         return res.status(response.status).json(data || { error: { message: 'Erreur en amont' } });
       }
+      // Anthropic a accepté la requête et commence déjà à générer : le jeton
+      // est dépensé pour de vrai à partir d'ici, même si le flux est ensuite
+      // coupé (réseau, créateur qui ferme l'onglet) - jamais remboursé après
+      // ce point.
+      appelAnthropicReussi = true;
 
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache' });
       const reader = response.body.getReader();
@@ -296,10 +366,16 @@ export default async function handler(req, res) {
       body: JSON.stringify(bodyAnthropic)
     });
 
+    if (response.ok) {
+      appelAnthropicReussi = true;
+    } else {
+      await rembourserQuotaSiNecessaire();
+    }
     const data = await response.json();
     return res.status(response.status).json(data);
 
   } catch (error) {
+    await rembourserQuotaSiNecessaire();
     return res.status(500).json({ error: { message: 'Erreur serveur : ' + error.message } });
   }
 }

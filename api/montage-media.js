@@ -36,8 +36,67 @@ async function lireJsonOuNull(rep) {
 }
 
 // ═══ DOWNLOAD (voir l'ancien api/montage-download.js) ═══
+//
+// LOT 4B, audit ID 6 (Gate Phase 2B) : flux reconstitué AVANT tout correctif
+// (exigé par la tâche) -
+//   1. render-service (Railway) rend la vidéo, l'UPLOAD lui-même dans le
+//      bucket Storage `montages` (privé) et la SIGNE (voir urlAssetApprouvee
+//      et /storage/v1/object/sign/montages/<chemin>, render-service/server.js) ;
+//   2. POST /api/montage-render (ce dépôt) relaie cette URL SIGNÉE telle
+//      quelle au navigateur (`{url: dataProxy.url}`), sans jamais la stocker
+//      ni l'associer à un `code_acces` nulle part côté serveur - render-service
+//      ne reçoit JAMAIS le `code_acces` de l'appelant (voir le corps envoyé à
+//      /render, api/montage-render.js), il ne peut donc pas l'inscrire dans
+//      le chemin de l'objet qu'il crée ;
+//   3. js/montage.js transmet cette URL telle quelle à `?action=download`,
+//      uniquement pour la PROXIER (fetch serveur, Content-Disposition:
+//      attachment), afin d'éviter tout souci CORS et d'obtenir le fichier via
+//      navigator.share (voir prechargerVideoMontage/partagerVideoMontage,
+//      js/montage.js) - cette route ne reçoit JAMAIS code_acces, ce n'était
+//      pas un oubli (voir la limite assumée ci-dessous).
+//
+// CE QUI EST VÉRIFIABLE SANS CHANGER LE CONTRAT FRONTEND, ET DONC CORRIGÉ ICI :
+// l'ancienne vérification ne portait que sur le NOM D'HÔTE (une regex figée
+// sur un seul sous-domaine, jamais dérivée de SUPABASE_URL) - un projet
+// Supabase sert PLUSIEURS API sous LE MÊME NOM D'HÔTE (Storage, REST,
+// Auth...), donc une url malveillante du type https://<même hôte>/rest/v1/
+// <table> passait cette vérification alors qu'elle ne pointe pas du tout
+// vers un objet Storage. Repris ICI À L'IDENTIQUE le contrôle déjà audité de
+// render-service (urlAssetApprouvee, render-service/server.js, audit A1) :
+// origine EXACTE dérivée de SUPABASE_URL (jamais un hôte codé en dur) ET
+// chemin sous /storage/v1/object/(public|sign)/montages/ - jamais une autre
+// route Supabase du même projet.
+//
+// CE QUI RESTE RÉELLEMENT OUVERT, ASSUMÉ ET DOCUMENTÉ (pas une négligence,
+// une limite de ce qui est vérifiable sans changer d'architecture) : cette
+// route ne peut PAS vérifier que l'appelant est bien le créateur qui a
+// commandé CE rendu précis, puisque cette identité n'existe nulle part dans
+// le chemin de l'objet ni dans une table qui l'associerait à cette URL (voir
+// point 2 ci-dessus). La fermer proprement demanderait de changer le
+// CONTRAT (faire transiter code_acces jusqu'à render-service, lui faire
+// inscrire ce code dans le chemin de l'objet, ou tenir une table de
+// correspondance url signée <-> code_acces) : un changement d'architecture,
+// explicitement hors du périmètre de ce lot. Le Gate Phase 2B avait déjà
+// qualifié ce risque de FAIBLE, n'accordant aucun accès nouveau au-delà de
+// ce qu'une URL signée déjà connue permettrait de toute façon : ce correctif
+// referme la vraie ouverture (élargissement SSRF vers d'autres routes
+// Supabase du même hôte), pas celle, architecturale, qui reste.
+function origineStorageApprouvee() {
+  const base = process.env.SUPABASE_URL || '';
+  if (!base) return '';
+  try { return new URL(base).origin; } catch (e) { return ''; }
+}
 
-const HOTES_AUTORISES = [/^nlkfqxllunbvppulpnzl\.supabase\.co$/i];
+function urlStorageMontageApprouvee(valeur) {
+  if (typeof valeur !== 'string' || !valeur) return false;
+  let u;
+  try { u = new URL(valeur); } catch (e) { return false; }
+  if (u.protocol !== 'https:') return false;
+  const origine = origineStorageApprouvee();
+  if (!origine || u.origin !== origine) return false;
+  return u.pathname.startsWith('/storage/v1/object/public/montages/')
+    || u.pathname.startsWith('/storage/v1/object/sign/montages/');
+}
 
 async function handleDownload(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
@@ -46,13 +105,8 @@ async function handleDownload(req, res) {
   if (!cible || typeof cible !== 'string') {
     return res.status(400).json({ error: { message: 'Paramètre url manquant' } });
   }
-
-  let hote;
-  try { hote = new URL(cible).hostname; } catch (e) {
-    return res.status(400).json({ error: { message: 'URL invalide' } });
-  }
-  if (!HOTES_AUTORISES.some(re => re.test(hote))) {
-    return res.status(403).json({ error: { message: 'Hôte non autorisé' } });
+  if (!urlStorageMontageApprouvee(cible)) {
+    return res.status(403).json({ error: { message: 'URL non autorisée' } });
   }
 
   try {
