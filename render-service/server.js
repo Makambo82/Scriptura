@@ -172,6 +172,36 @@ const MONTAGE_TOKEN = process.env.MONTAGE_TOKEN || '';
 // Origine(s) autorisée(s) pour l'appel navigateur direct. '*' par défaut.
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
+// ── LOT 2, audit A9 : limites de ressources d'un job de rendu ──
+//
+// Avant ce correctif, ni le nombre d'images, ni la taille d'un fichier
+// téléchargé, ni la taille totale d'un job, ni la concurrence des
+// téléchargements (Promise.all sans plafond), ni aucun timeout (par
+// téléchargement ou pour le job entier) n'étaient bornés. Un body JSON de
+// 2 Mo (voir express.json({limit:'2mb'}) plus haut) ne protège en rien
+// contre des URLs pointant vers de gros fichiers DISTANTS.
+//
+// Limites choisies à partir de l'usage RÉEL du produit, jamais arbitraires :
+// un script généré vise des plans de ~5 s max (voir DUREE_MAX, côté
+// écriture), un script de 5 minutes (la durée maximale proposée) peut donc
+// légitimement compter plusieurs dizaines de plans ; le montage MANUEL,
+// lui, n'a aucune limite côté client sur le nombre d'images uploadées, et
+// un cas réel de production a déjà atteint 53 plans (voir le commentaire
+// sur MONTAGE_BATCH). MAX_IMAGES=200 laisse une marge large au-dessus de ce
+// cas réel connu sans jamais l'être au point de rester illimité en pratique.
+// Tout réglable par variable d'environnement si l'usage réel évolue.
+const MAX_IMAGES = parseInt(process.env.MONTAGE_MAX_IMAGES || '200', 10);
+const MAX_OCTETS_IMAGE = parseInt(process.env.MONTAGE_MAX_OCTETS_IMAGE || String(8 * 1024 * 1024), 10);       // 8 Mo
+const MAX_OCTETS_AUDIO = parseInt(process.env.MONTAGE_MAX_OCTETS_AUDIO || String(40 * 1024 * 1024), 10);      // 40 Mo (voix off, y compris upload micro non compressé)
+const MAX_OCTETS_MUSIQUE = parseInt(process.env.MONTAGE_MAX_OCTETS_MUSIQUE || String(40 * 1024 * 1024), 10);  // 40 Mo
+const MAX_OCTETS_TOTAL = parseInt(process.env.MONTAGE_MAX_OCTETS_TOTAL || String(300 * 1024 * 1024), 10);     // 300 Mo cumulés, tout le job
+const CONCURRENCE_TELECHARGEMENT = parseInt(process.env.MONTAGE_CONCURRENCE_TELECHARGEMENT || '4', 10);
+const TIMEOUT_TELECHARGEMENT_MS = parseInt(process.env.MONTAGE_TIMEOUT_TELECHARGEMENT_MS || '30000', 10);      // 30 s par fichier
+// 10 min : très large au-dessus d'un rendu réel mesuré (~35 s pour un
+// montage typique de 11 plans), pour couvrir sans risque un job au plafond
+// (200 images) sur un conteneur chargé.
+const TIMEOUT_JOB_MS = parseInt(process.env.MONTAGE_TIMEOUT_JOB_MS || String(10 * 60 * 1000), 10);
+
 // Transitions variées (une différente à chaque coupe, en boucle). Choisies
 // pour rester élégantes, pas gadget.
 const TRANSITIONS = [
@@ -382,32 +412,102 @@ function urlAssetApprouvee(valeur) {
     || u.pathname.startsWith('/storage/v1/object/sign/montages/');
 }
 
-async function telechargerVers(url, cheminLocal) {
+// Combine un signal PARENT (timeout/annulation du job entier) avec un
+// timeout propre à CET appel : le premier des deux qui se déclenche coupe
+// le téléchargement. `nettoyer()` doit être appelé dans tous les cas
+// (succès ou échec) pour ne pas laisser le minuteur tourner pour rien.
+function creerSignalTelechargement(signalJob, timeoutMs) {
+  const controleur = new AbortController();
+  const minuteur = setTimeout(() => controleur.abort(new Error('Timeout de téléchargement dépassé (' + timeoutMs + ' ms)')), timeoutMs);
+  const surAbandonParent = () => controleur.abort(signalJob.reason);
+  if (signalJob) {
+    if (signalJob.aborted) controleur.abort(signalJob.reason);
+    else signalJob.addEventListener('abort', surAbandonParent, { once: true });
+  }
+  return {
+    signal: controleur.signal,
+    nettoyer: () => { clearTimeout(minuteur); if (signalJob) signalJob.removeEventListener('abort', surAbandonParent); }
+  };
+}
+
+// LOT 2, audit A9 : téléchargement borné en taille (par fichier ET cumulé
+// sur tout le job), avec timeout. `etatTotal` est un accumulateur PARTAGÉ
+// entre tous les appels d'un même job (voir handler /render) : c'est lui
+// qui empêche un job de centaines de petits fichiers, chacun sous le
+// plafond individuel, de saturer quand même la mémoire/le disque au total.
+// La vérification se fait EN FLUX (pas seulement sur l'en-tête
+// Content-Length, absent ou faux dans le pire cas) : c'est la seule
+// protection fiable contre un gros fichier distant.
+async function telechargerVers(url, cheminLocal, maxOctets = MAX_OCTETS_IMAGE, etatTotal = { octets: 0 }, signalJob) {
   if (!urlAssetApprouvee(url)) {
     throw new Error('URL de média refusée (doit être un asset Supabase Storage du bucket montages de ce projet) : ' + url);
   }
-  // redirect:'manual' : une redirection (même vers une origine approuvée au
-  // départ) n'est jamais suivie automatiquement, elle échoue proprement.
-  // L'origine approuvée ne redirige jamais en usage normal ; si elle le
-  // faisait un jour, mieux vaut un rendu en échec qu'un téléchargement vers
-  // une destination qui n'a pas été vérifiée par urlAssetApprouvee.
-  const rep = await fetch(url, { redirect: 'manual' });
-  if (rep.status >= 300 && rep.status < 400) {
-    throw new Error('Téléchargement refusé (redirection non autorisée) : ' + url);
+  const { signal, nettoyer } = creerSignalTelechargement(signalJob, TIMEOUT_TELECHARGEMENT_MS);
+  try {
+    // redirect:'manual' : une redirection (même vers une origine approuvée
+    // au départ) n'est jamais suivie automatiquement, elle échoue
+    // proprement. L'origine approuvée ne redirige jamais en usage normal ;
+    // si elle le faisait un jour, mieux vaut un rendu en échec qu'un
+    // téléchargement vers une destination qui n'a pas été vérifiée par
+    // urlAssetApprouvee.
+    const rep = await fetch(url, { redirect: 'manual', signal });
+    if (rep.status >= 300 && rep.status < 400) {
+      throw new Error('Téléchargement refusé (redirection non autorisée) : ' + url);
+    }
+    if (!rep.ok) throw new Error('Téléchargement échoué (' + rep.status + ') : ' + url);
+
+    // Rejet rapide si l'en-tête l'annonce déjà trop gros, mais JAMAIS
+    // suffisant seul (en-tête absent ou mensonger) : la vraie garde est la
+    // vérification en flux ci-dessous.
+    const declare = parseInt(rep.headers.get('content-length') || '', 10);
+    if (Number.isFinite(declare) && declare > maxOctets) {
+      throw new Error('Fichier refusé (' + declare + ' octets déclarés, plafond ' + maxOctets + ') : ' + url);
+    }
+
+    const lecteur = rep.body.getReader();
+    const morceaux = [];
+    let total = 0;
+    try {
+      for (;;) {
+        const { done, value } = await lecteur.read();
+        if (done) break;
+        total += value.length;
+        etatTotal.octets += value.length;
+        if (total > maxOctets) {
+          throw new Error('Fichier refusé (dépasse ' + maxOctets + ' octets en cours de téléchargement) : ' + url);
+        }
+        if (etatTotal.octets > MAX_OCTETS_TOTAL) {
+          throw new Error('Job refusé : taille cumulée des fichiers au-delà de ' + MAX_OCTETS_TOTAL + ' octets');
+        }
+        morceaux.push(value);
+      }
+    } finally {
+      lecteur.cancel().catch(() => {});
+    }
+    await fs.writeFile(cheminLocal, Buffer.concat(morceaux));
+  } finally {
+    nettoyer();
   }
-  if (!rep.ok) throw new Error('Téléchargement échoué (' + rep.status + ') : ' + url);
-  const tampon = Buffer.from(await rep.arrayBuffer());
-  await fs.writeFile(cheminLocal, tampon);
 }
 
-function executerFFmpeg(args) {
+// LOT 2, audit A9 : `signalJob` (optionnel) permet au timeout global du job
+// (voir handler /render) de TUER un FFmpeg en cours plutôt que de le
+// laisser tourner après que la requête a déjà répondu en erreur - sans ça,
+// un timeout ne faisait qu'abandonner la promesse côté Node, le process
+// FFmpeg continuait de consommer CPU/mémoire pour un résultat qui ne sera
+// jamais lu. `spawn` avec `signal` envoie SIGTERM automatiquement dès que
+// le signal s'abandonne (Node >= 15.14).
+function executerFFmpeg(args, signalJob) {
   return new Promise((resolve, reject) => {
-    const proc = spawn(ffmpegPath, args);
+    const proc = spawn(ffmpegPath, args, signalJob ? { signal: signalJob } : undefined);
     let stderr = '';
     proc.stderr.on('data', (d) => { stderr += d.toString(); });
     proc.on('error', reject);
     proc.on('close', (code, signal) => {
       if (code === 0) resolve();
+      else if (signalJob && signalJob.aborted) {
+        reject(new Error('FFmpeg interrompu : ' + (signalJob.reason && signalJob.reason.message || 'timeout du job dépassé')));
+      }
       // "code null" veut dire que le processus n'est pas parti de lui-même :
       // il a été TUÉ par un signal (Node ne remonte alors jamais de code de
       // sortie). SIGKILL depuis l'hébergeur (pas depuis FFmpeg lui-même) est
@@ -505,6 +605,29 @@ async function uploaderVersSupabase(cheminLocal, nomFichier) {
 // approximatif, largement assez précis pour chiffrer un prix.
 function moGo(octets) { return (octets / (1024 * 1024)).toFixed(0) + ' Mo'; }
 
+// LOT 2, audit A9 : téléchargements des images EN CONCURRENCE BORNÉE
+// (CONCURRENCE_TELECHARGEMENT), jamais un Promise.all libre qui laisserait
+// un client déclencher des centaines de téléchargements simultanés (le
+// nombre d'images est lui-même déjà borné par MAX_IMAGES avant d'arriver
+// ici, voir le handler /render). Même mécanique de file de travail que la
+// génération d'images côté Vercel (api/montage-media.js, `travailleur`).
+// Extraite en fonction séparée pour rester testable indépendamment du
+// reste du rendu (FFmpeg, upload final), qui nécessiterait un vrai binaire
+// FFmpeg pour être exercé en test.
+async function telechargerImagesEnPool(images, dossier, etatTotal, signalJob) {
+  let curseur = 0;
+  async function travailleur() {
+    while (curseur < images.length) {
+      const i = curseur++;
+      await telechargerVers(images[i].url, path.join(dossier, `img-${i}.jpg`), MAX_OCTETS_IMAGE, etatTotal, signalJob);
+    }
+  }
+  await Promise.all(Array.from(
+    { length: Math.min(CONCURRENCE_TELECHARGEMENT, images.length) },
+    travailleur
+  ));
+}
+
 app.post('/render', async (req, res) => {
   if (MONTAGE_TOKEN && req.headers['x-montage-token'] !== MONTAGE_TOKEN) {
     return res.status(401).json({ error: { message: 'Jeton invalide' } });
@@ -516,6 +639,12 @@ app.post('/render', async (req, res) => {
   const audioUrl = typeof req.body?.audioUrl === 'string' ? req.body.audioUrl : '';
   if (!images.length || !audioUrl) {
     return res.status(400).json({ error: { message: 'Images ou audio manquant' } });
+  }
+  // LOT 2, audit A9 : borne le nombre d'images AVANT tout téléchargement -
+  // voir le commentaire sur MAX_IMAGES pour le raisonnement (200, large
+  // marge au-dessus du plus gros cas réel connu, 53 plans).
+  if (images.length > MAX_IMAGES) {
+    return res.status(400).json({ error: { message: 'Trop d\'images pour un seul montage (' + images.length + ', max ' + MAX_IMAGES + ').' } });
   }
   const durees = images.map(img => Math.max(1, Number(img.duration) || 2));
   // Dimensions de sortie selon le format demandé (défaut = valeurs d'env).
@@ -537,15 +666,31 @@ app.post('/render', async (req, res) => {
   // client), voir resoudreVolumeMusique ci-dessus pour le bornage.
   const musicVolume = resoudreVolumeMusique(req.body?.musicVolume);
 
+  // LOT 2, audit A9 : timeout GLOBAL du job (voir TIMEOUT_JOB_MS), pour ne
+  // jamais laisser un rendu tourner indéfiniment (téléchargement qui traîne,
+  // FFmpeg bloqué...). Le signal est transmis aux téléchargements ET aux
+  // process FFmpeg (voir telechargerVers/executerFFmpeg) pour qu'un
+  // dépassement les interrompe réellement, plutôt que d'abandonner
+  // seulement la promesse côté Node en laissant le travail continuer pour
+  // rien. `etatTotal` est l'accumulateur PARTAGÉ de tous les octets
+  // téléchargés dans CE job (images + audio + musique), voir MAX_OCTETS_TOTAL.
+  const controleurJob = new AbortController();
+  const minuteurJob = setTimeout(
+    () => controleurJob.abort(new Error('Timeout du job de rendu dépassé (' + TIMEOUT_JOB_MS + ' ms)')),
+    TIMEOUT_JOB_MS
+  );
+  const signalJob = controleurJob.signal;
+  const etatTotal = { octets: 0 };
+
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'montage-'));
   try {
-    await Promise.all(images.map((img, i) => telechargerVers(img.url, path.join(dossier, `img-${i}.jpg`))));
+    await telechargerImagesEnPool(images, dossier, etatTotal, signalJob);
     const cheminAudio = path.join(dossier, 'audio.mp3');
-    await telechargerVers(audioUrl, cheminAudio);
+    await telechargerVers(audioUrl, cheminAudio, MAX_OCTETS_AUDIO, etatTotal, signalJob);
     let cheminMusique = '';
     if (musicUrl) {
       cheminMusique = path.join(dossier, 'musique.mp3');
-      await telechargerVers(musicUrl, cheminMusique);
+      await telechargerVers(musicUrl, cheminMusique, MAX_OCTETS_MUSIQUE, etatTotal, signalJob);
     }
     noterPic();
 
@@ -599,7 +744,7 @@ app.post('/render', async (req, res) => {
         '-t', String(dureesLot.reduce((s, d) => s + d, 0)),
         '-y', cheminLot
       );
-      await executerFFmpeg(args);
+      await executerFFmpeg(args, signalJob);
       cheminsLots.push(cheminLot);
       noterPic();
       console.log(`[render] lot ${cheminsLots.length}/${Math.ceil(images.length / TAILLE_LOT)} rendu`);
@@ -610,7 +755,7 @@ app.post('/render', async (req, res) => {
     const cheminListe = path.join(dossier, 'liste.txt');
     await fs.writeFile(cheminListe, cheminsLots.map(c => `file '${c.replace(/'/g, "'\\''")}'`).join('\n'));
     const cheminConcat = path.join(dossier, 'concat.mp4');
-    await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat]);
+    await executerFFmpeg(['-f', 'concat', '-safe', '0', '-i', cheminListe, '-c', 'copy', '-y', cheminConcat], signalJob);
 
     // Sous-titres et musique de fond (retour propriétaire), tous deux
     // optionnels et indépendants : sans les deux, le flux vidéo ET la piste
@@ -667,7 +812,7 @@ app.post('/render', async (req, res) => {
       '-t', String(dureeTotale),
       '-y', path.join(dossier, 'out.mp4')
     );
-    await executerFFmpeg(argsMux);
+    await executerFFmpeg(argsMux, signalJob);
     noterPic();
     console.log('[render] rendu FFmpeg terminé'
       + (captions.length ? ' (avec sous-titres)' : '')
@@ -692,6 +837,7 @@ app.post('/render', async (req, res) => {
       + `pic mémoire ${moGo(picRss)} :`, e.message);
     return res.status(500).json({ error: { message: 'Erreur de rendu : ' + (e.message || 'inconnue') } });
   } finally {
+    clearTimeout(minuteurJob);
     await fs.rm(dossier, { recursive: true, force: true }).catch(() => {});
   }
 });
@@ -709,5 +855,8 @@ module.exports = {
   construireGrapheLot, resoudreVolumeMusique, facteurSurEchantillonnage, calerDureesSurAudio,
   MUSIQUE_VOLUME_DEFAUT, MUSIQUE_VOLUME_MIN, MUSIQUE_VOLUME_MAX,
   GRADE_CONTRASTE, GRADE_SATURATION,
-  urlAssetApprouvee, telechargerVers
+  urlAssetApprouvee, telechargerVers, executerFFmpeg, telechargerImagesEnPool,
+  MAX_IMAGES, MAX_OCTETS_IMAGE, MAX_OCTETS_AUDIO, MAX_OCTETS_MUSIQUE,
+  MAX_OCTETS_TOTAL, CONCURRENCE_TELECHARGEMENT, TIMEOUT_TELECHARGEMENT_MS, TIMEOUT_JOB_MS,
+  app
 };

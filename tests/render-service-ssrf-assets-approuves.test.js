@@ -105,13 +105,39 @@ test('telechargerVers refuse une redirection, même depuis l\'origine approuvée
   }
 });
 
+// LOT 2, audit A9 : telechargerVers lit désormais la réponse EN FLUX
+// (rep.body.getReader(), pour vérifier la taille au fur et à mesure) plutôt
+// que d'attendre rep.arrayBuffer() d'un coup. Ce mock reproduit un vrai
+// Response minimal (headers.get + body.getReader) plutôt que le raccourci
+// arrayBuffer() utilisé avant.
+function mockReponseAvecCorps(contenu, { status = 200, ok = true, contentLength } = {}) {
+  return {
+    ok, status,
+    headers: { get: (nom) => (nom.toLowerCase() === 'content-length' ? String(contentLength ?? contenu.length) : null) },
+    body: {
+      getReader() {
+        let livre = false;
+        return {
+          async read() {
+            if (livre) return { done: true, value: undefined };
+            livre = true;
+            return { done: false, value: contenu };
+          },
+          cancel: async () => {}
+        };
+      }
+    },
+    arrayBuffer: async () => contenu.buffer.slice(contenu.byteOffset, contenu.byteOffset + contenu.byteLength)
+  };
+}
+
 test('telechargerVers télécharge normalement une URL approuvée (non-régression du montage)', async () => {
   const fetchOriginal = global.fetch;
   const contenu = Buffer.from('donnee-image-factice');
   let urlAppelee = null, optsAppeles = null;
   global.fetch = async (url, opts) => {
     urlAppelee = url; optsAppeles = opts;
-    return { ok: true, status: 200, arrayBuffer: async () => contenu.buffer.slice(contenu.byteOffset, contenu.byteOffset + contenu.byteLength) };
+    return mockReponseAvecCorps(contenu);
   };
   const dossier = await fs.mkdtemp(path.join(os.tmpdir(), 'ssrf-test-'));
   try {
