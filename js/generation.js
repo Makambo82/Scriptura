@@ -2282,6 +2282,40 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
         }
         return false;
       }
+      // LOT 5A (audit token efficiency) : avant ce correctif, le second
+      // brouillon complet (ligne ~2360) réutilisait writePrompt à l'identique,
+      // sans jamais lire le diagnostic déjà payé du Critique (jusqu'à 2500
+      // jetons de sortie) - un second tirage à l'aveugle sur le même prompt,
+      // aussi susceptible de reproduire les mêmes faiblesses que de les
+      // corriger. Synthèse COMPACTE, jamais une recopie du JSON entier :
+      // champs choisis pour leur caractère actionnable et non redondant entre
+      // eux. Volontairement exclus : verdict/note_globale (pas actionnables,
+      // on sait déjà que c'est insuffisant), segments_faibles (ses index ne
+      // correspondront plus au nouveau brouillon, et son contenu recoupe déjà
+      // raisons_de_scroll/instructions_revision), viralite (scores bruts, pas
+      // actionnables tels quels). points_forts est inclus ICI seulement (pas
+      // dans le Réviseur, qui préserve déjà tout ce qui n'est pas signalé) :
+      // un second brouillon COMPLET ne préserve rien par défaut, sans ce
+      // champ ce qui marchait déjà a autant de chances d'être perdu que
+      // reproduit.
+      function syntheseDiagnosticSecondBrouillon(c) {
+        if (!c) return '';
+        const parties = [];
+        if (c.ia_generique) {
+          parties.push('- Jugé trop générique / proche d\'une IA généraliste' + (c.justification_ia_generique ? ' : ' + c.justification_ia_generique : '') + '.');
+        }
+        if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length) {
+          parties.push('- Raisons concrètes pour lesquelles un spectateur décrocherait (à éliminer absolument) :\n' + c.raisons_de_scroll.map(r => '  · ' + r).join('\n'));
+        }
+        if (c.instructions_revision) {
+          parties.push('- Instructions du Critique :\n  ' + c.instructions_revision);
+        }
+        if (Array.isArray(c.points_forts) && c.points_forts.length) {
+          parties.push('- Ce qui fonctionnait déjà dans le premier essai (à conserver si possible) :\n' + c.points_forts.map(p => '  · ' + p).join('\n'));
+        }
+        if (!parties.length) return '';
+        return '\n\nDIAGNOSTIC DU CRITIQUE SUR LE PREMIER BROUILLON, à corriger dans cette nouvelle version (ne répète pas les mêmes erreurs) :\n' + parties.join('\n');
+      }
 
       // Qualité maximale : jusqu'à 2 rondes de critique + révision. Le créateur
       // peut couper court à tout moment via « Répondre maintenant » (le drapeau
@@ -2357,7 +2391,11 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // écriture complète plutôt que de rafistoler.
           try {
             _mesurePasses.second_brouillon = true;
-            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePrompt, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
+            // LOT 5A : writePrompt lui-même reste inchangé (utilisé tel quel
+            // par le 1er essai ligne 2209 et son retry technique ligne 2225) -
+            // seul CET appel reçoit le diagnostic, en plus, jamais à la place.
+            const writePromptInforme = writePrompt + syntheseDiagnosticSecondBrouillon(critique);
+            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePromptInforme, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
             const parsed2 = parseAIResponse(writeRaw2);
             if (scriptEstComplet(parsed2)) {
               parsed = parsed2;

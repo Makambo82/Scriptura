@@ -829,6 +829,28 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             if (Array.isArray(c.segments_faibles) && Array.isArray(parsed.recit) && parsed.recit.length > 0 && c.segments_faibles.length / parsed.recit.length >= 0.6) return true;
             return false;
           }
+          // LOT 5A (audit token efficiency) : même correctif que le mode
+          // Script (js/generation.js), adapté au schéma du critique Récit -
+          // PLUS RESTREINT que celui du Script (pas de points_forts ni de
+          // justification_ia_generique dans le JSON demandé au Critique
+          // Récit, voir critiquePrompt ci-dessus) : synthèse écrite pour ce
+          // schéma précis, pas un copier-coller du helper Script. Avant ce
+          // correctif, le second brouillon (ligne ~842) réutilisait
+          // storyPrompt à l'identique, sans jamais lire ce diagnostic déjà
+          // payé (jusqu'à 2500 jetons de sortie du Critique).
+          function syntheseDiagnosticSecondBrouillonRecit(c) {
+            if (!c) return '';
+            const parties = [];
+            if (c.ia_generique) parties.push('- Jugé trop générique / proche d\'une IA généraliste.');
+            if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length) {
+              parties.push('- Raisons concrètes pour lesquelles un spectateur décrocherait (à éliminer absolument) :\n' + c.raisons_de_scroll.map(r => '  · ' + r).join('\n'));
+            }
+            if (c.instructions_revision) {
+              parties.push('- Instructions du Critique :\n  ' + c.instructions_revision);
+            }
+            if (!parties.length) return '';
+            return '\n\nDIAGNOSTIC DU CRITIQUE SUR LE PREMIER BROUILLON, à corriger dans cette nouvelle version (ne répète pas les mêmes erreurs) :\n' + parties.join('\n');
+          }
 
           if (!critiqueRecitProbleme(critique)) break; // le récit passe le contrôle qualité : terminé
 
@@ -839,7 +861,12 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             // retente une écriture complète plutôt que de rafistoler.
             try {
               _mesurePassesRecit.second_brouillon = true;
-              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPrompt, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
+              // LOT 5A : storyPrompt lui-même reste inchangé (utilisé tel
+              // quel par le 1er essai ligne 722 et son retry technique ligne
+              // 736) - seul CET appel reçoit le diagnostic, en plus, jamais à
+              // la place.
+              const storyPromptInforme = storyPrompt + syntheseDiagnosticSecondBrouillonRecit(critique);
+              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPromptInforme, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
               const parsed2 = parseAIResponse(raw2);
               if (parsed2 && parsed2.recit) {
                 parsed = parsed2;
