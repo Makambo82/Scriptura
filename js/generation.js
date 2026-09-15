@@ -2528,12 +2528,20 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
     // exactement combien de mots il manque. On lui donne désormais des cibles
     // par bloc, en chiffres : il n'a plus qu'à développer un bloc précis d'un
     // nombre de mots précis, à partir d'un compte qu'il n'a pas eu à établir.
+    // LOT 5B (audit token efficiency) : `indicesACorriger` (blocs du milieu
+    // dont delta !== 0) permet au correctif de durée de ne demander/recevoir
+    // QUE ces blocs-là, plutôt que de refaire écrire le script entier à
+    // chaque tentative (voir corrigerDureeScript plus bas). Le hook et la
+    // chute n'y figurent JAMAIS : ils ont déjà pour consigne de rester
+    // identiques, les y inclure reviendrait à demander au modèle de les
+    // reproduire lui-même (donc à risquer qu'il les altère), au lieu de les
+    // garder tels quels par construction.
     function planDureeParBloc(script) {
       const compte = (script || []).map(b => String((b && b.texte) || '').split(/\s+/).filter(Boolean).length);
       const n = compte.length;
       const plafondMots = Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE);
       const cibleTotale = Math.round((wt.min + wt.max) / 2);
-      if (n < 3) return { compte: compte, lignes: '', plafondMots: plafondMots };
+      if (n < 3) return { compte: compte, lignes: '', plafondMots: plafondMots, indicesACorriger: [] };
       // Le hook et la chute gardent leur budget propre : c'est la structure
       // même des vidéos qui performent, on n'allonge jamais l'un pour combler
       // un manque, ce serait recréer le défaut qu'on vient de corriger.
@@ -2542,15 +2550,17 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       const nbMilieu = n - 2;
       const restant = cibleTotale - budgetHook - budgetChute;
       const parMilieu = Math.max(1, Math.min(plafondMots, Math.round(restant / nbMilieu)));
+      const indicesACorriger = [];
       const lignes = compte.map((m, i) => {
         if (i === 0) return '- Bloc ' + i + ' (le hook) : ' + m + ' mots. GARDE-LE TEL QUEL.';
         if (i === n - 1) return '- Bloc ' + i + ' (la chute) : ' + m + ' mots. GARDE-LA TELLE QUELLE.';
         const delta = parMilieu - m;
         if (delta === 0) return '- Bloc ' + i + ' : ' + m + ' mots, il est déjà à sa cible.';
+        indicesACorriger.push(i);
         return '- Bloc ' + i + ' : ' + m + ' mots aujourd\'hui, vise ' + parMilieu + ' mots ('
           + (delta > 0 ? 'ajoute environ ' + delta + ' mots' : 'retire environ ' + (-delta) + ' mots') + ').';
       }).join('\n');
-      return { compte: compte, lignes: lignes, plafondMots: plafondMots };
+      return { compte: compte, lignes: lignes, plafondMots: plafondMots, indicesACorriger: indicesACorriger };
     }
 
     async function corrigerDureeScript() {
@@ -2584,7 +2594,20 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
         const tooShort = wordCount < hardMin;
         const plan = planDureeParBloc(parsed.script);
         const manque = tooShort ? (wt.min - wordCount) : (wordCount - wt.max);
-        const correctionPrompt = `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
+        // LOT 5B (audit token efficiency) : quand le plan par bloc identifie
+        // précisément QUELS blocs du milieu doivent changer (indicesACorriger),
+        // on ne demande plus de réécrire le script entier - seulement ces
+        // blocs-là, par leur index. Le hook, la chute et les blocs déjà à leur
+        // cible ne sont plus renvoyés PAR LE MODÈLE du tout (ils ne peuvent
+        // donc plus être accidentellement altérés malgré la consigne "garde-le
+        // tel quel") : le code les recolle lui-même, verbatim, juste en dessous.
+        // Repli sur l'ancien comportement (script entier) si le plan ne peut
+        // pas être établi (moins de 3 blocs) ou, cas limite, si aucun bloc du
+        // milieu ne ressort comme à corriger alors que le total reste hors
+        // cible (l'écart vient alors du hook ou de la chute eux-mêmes, qu'on
+        // ne touche jamais : seule une réécriture complète peut y répondre).
+        const correctionCiblee = plan.lignes && plan.indicesACorriger.length > 0;
+        const correctionPrompt = correctionCiblee ? `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
 
 TEXTE RÉELLEMENT PARLÉ DU SCRIPT ACTUEL (${wordCount} mots, c'est LUI seul qui détermine la durée de la vidéo) :
 ${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
@@ -2592,11 +2615,25 @@ ${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
 PROBLÈME : Ce script fait ${wordCount} mots PARLÉS. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots parlés (le texte à l'écran décrit dans les visuels ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
 ${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Ajoute du contenu de valeur, développe les idées, ajoute des détails percutants, SANS remplissage inutile. Garde le même sujet, le même angle, le même ton.' : 'Le script est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
 
-${plan.lignes ? `LE COMPTE EXACT DE CHAQUE BLOC, MESURÉ (ne le recompte pas, il est juste) :
+LE COMPTE EXACT DE CHAQUE BLOC, MESURÉ (ne le recompte pas, il est juste) :
 ${plan.lignes}
 
 Il ${tooShort ? 'MANQUE' : 'y a'} exactement ${manque} mot${manque > 1 ? 's' : ''} ${tooShort ? 'à ajouter' : 'de trop'}. Applique les cibles ci-dessus bloc par bloc : c'est la seule chose à faire, et elle suffit à atteindre la durée.
-` : ''}
+
+NE RÉÉCRIS QUE LES BLOCS D'INDEX ${plan.indicesACorriger.join(', ')} (les seuls signalés ci-dessus comme à corriger). N'inclus JAMAIS le hook, la chute, ni un bloc déjà à sa cible dans ta réponse : ils restent tels quels, ce n'est pas à toi de les recopier.
+- AUCUN bloc ne dépasse ${Math.round(plafondDureeBloc())} secondes de parole, soit environ ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots.
+- Chaque phrase garde une fonction, zéro remplissage.
+- Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujetCourt}
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec UNIQUEMENT les blocs d'index ${plan.indicesACorriger.join(', ')}, dans n'importe quel ordre :
+{"blocs":[{"index":${plan.indicesACorriger[0]},"texte":"...","visuel":"..."}]}` : `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
+
+TEXTE RÉELLEMENT PARLÉ DU SCRIPT ACTUEL (${wordCount} mots, c'est LUI seul qui détermine la durée de la vidéo) :
+${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
+
+PROBLÈME : Ce script fait ${wordCount} mots PARLÉS. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots parlés (le texte à l'écran décrit dans les visuels ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
+${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Ajoute du contenu de valeur, développe les idées, ajoute des détails percutants, SANS remplissage inutile. Garde le même sujet, le même angle, le même ton.' : 'Le script est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
+
 RÈGLES :
 - Le nouveau script DOIT faire entre ${wt.min} et ${wt.max} mots au total.
 - Garde ${wt.blocs} blocs, un hook fort au début, ${estObjectifVues ? 'une chute qui boucle sur le hook à la fin (pas de CTA parlé)' : 'un CTA clair à la fin'}
@@ -2608,17 +2645,50 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
 
+        // LOT 5B : plafond réduit en proportion du nombre de blocs réellement
+        // demandés quand la correction est ciblée (jamais au-delà de l'ancien
+        // plafond, 8000, qui reste celui du repli script entier) - 400 jetons
+        // par bloc couvre largement un bloc du milieu (texte + visuel + JSON),
+        // avec un plancher pour ne jamais couper une réponse même à 1 seul bloc.
+        const maxTokensCorrection = correctionCiblee
+          ? Math.max(1500, Math.min(8000, plan.indicesACorriger.length * 400))
+          : 8000;
+
         let correctedScript = null;
         try {
-          const correctRaw = await callAI(MODEL_CREATIF, 8000, correctionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+          const correctRaw = await callAI(MODEL_CREATIF, maxTokensCorrection, correctionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
           correctedScript = parseAIResponse(correctRaw);
         } catch(e) { /* échec réseau/parsing sur cette tentative : la boucle retente au tour suivant plutôt que d'abandonner tout de suite */ }
 
-        if (correctedScript && Array.isArray(correctedScript.script) && correctedScript.script.length) {
+        let scriptCorrige = null;
+        if (correctionCiblee) {
+          // Recolle : chaque bloc reçu (par index) remplace le bloc d'origine,
+          // texte ET visuel (une réécriture change parfois la direction de
+          // tournage aussi) ; tout bloc absent de la réponse - hook, chute,
+          // bloc déjà à sa cible, ou un index que le modèle aurait malgré tout
+          // omis - reste EXACTEMENT le bloc d'origine, jamais régénéré.
+          const blocsRecus = correctedScript && Array.isArray(correctedScript.blocs) ? correctedScript.blocs : [];
+          const parIndex = new Map();
+          blocsRecus.forEach(b => {
+            if (b && Number.isInteger(b.index) && typeof b.texte === 'string' && b.texte.trim()) parIndex.set(b.index, b);
+          });
+          if (parIndex.size) {
+            scriptCorrige = parsed.script.map((bloc, i) => {
+              const r = parIndex.get(i);
+              if (!r) return bloc;
+              const visuel = (typeof r.visuel === 'string' && r.visuel.trim()) ? r.visuel : bloc.visuel;
+              return Object.assign({}, bloc, { texte: r.texte, visuel: visuel });
+            });
+          }
+        } else if (correctedScript && Array.isArray(correctedScript.script) && correctedScript.script.length) {
+          scriptCorrige = correctedScript.script;
+        }
+
+        if (scriptCorrige) {
           // Même nettoyage sur la version corrigée : la correction de durée est
           // un nouvel appel IA, donc une nouvelle occasion d'y glisser une
           // étiquette parasite, et son texte sert directement au recomptage.
-          parsed.script = nettoyerBlocsScript(correctedScript.script);
+          parsed.script = nettoyerBlocsScript(scriptCorrige);
           wordCount = countScriptWords(parsed.script);
           // La tentative suivante repart de CETTE version (elle a vu la
           // consigne la plus récente), mais on retient à part la meilleure

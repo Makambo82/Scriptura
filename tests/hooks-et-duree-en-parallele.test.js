@@ -43,14 +43,6 @@ test('Script : la complétion des hooks et le contrôle de durée s\'exécutent 
       legende: 'L', hashtags: ['#a'], variantes_titre: ['T']
     };
     const HOOKS_MANQUANTS = { hooks: [{ style: 'y', texte: 'Hook 3' }, { style: 'y', texte: 'Hook 4' }, { style: 'y', texte: 'Hook 5' }] };
-    // 9 blocs de 15 mots = 135 mots, dans la fenêtre acceptée (124-179 pour
-    // « 1 minute ») : la boucle de correction de durée s'arrête après cette
-    // seule tentative, ce que le test compte.
-    const SCRIPT_CORRIGE = {
-      script: Array.from({ length: 9 }, (_, i) => ({
-        temps: '0-3 sec', texte: 'Phrase corrigée numéro ' + i + ' avec plusieurs mots pour peser correctement dans le compte total ici.', visuel: 'V' + i
-      }))
-    };
 
     let debutHooks = null, finHooks = null, debutDuree = null, finDuree = null;
     await poserMocksReseau(page);
@@ -81,11 +73,30 @@ test('Script : la complétion des hooks et le contrôle de durée s\'exécutent 
         finHooks = Date.now();
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(HOOKS_MANQUANTS) }] }) });
       }
-      if (body.max_tokens === 8000) {
+      // LOT 5B (audit token efficiency) : la correction de durée ne demande
+      // plus le script entier à max_tokens fixe (8000), mais UNIQUEMENT les
+      // blocs à corriger, par index, à un max_tokens proportionnel - détecté
+      // ici par le contenu du prompt, plus par une valeur fixe. Un seul bloc
+      // flaggé absorbe la totalité du manque exact indiqué par le prompt
+      // lui-même (calculé par le CODE, jamais deviné ici) : la correction
+      // atteint pile la cible en UNE tentative, préservant l'hypothèse du
+      // test (une seule fenêtre de temps à comparer au parallélisme des hooks).
+      if (/ne respecte PAS la durée demandée/.test(texteBody)) {
         debutDuree = Date.now();
         await new Promise(r => setTimeout(r, DELAI_MS));
         finDuree = Date.now();
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(SCRIPT_CORRIGE) }] }) });
+        const mIndices = /NE RÉÉCRIS QUE LES BLOCS D'INDEX ([\d, ]+)/.exec(texteBody);
+        const indices = mIndices ? mIndices[1].split(',').map(s => parseInt(s.trim(), 10)) : [];
+        const mManque = /Il (?:MANQUE|y a) exactement (\d+) mot/.exec(texteBody);
+        const manque = mManque ? parseInt(mManque[1], 10) : 0;
+        const blocs = indices.map((idx, pos) => {
+          const original = SCRIPT_INCOMPLET.script[idx].texte;
+          const texte = pos === 0 && manque > 0
+            ? original + ' ' + Array.from({ length: manque }, (_, k) => 'motAjoute' + k).join(' ')
+            : original;
+          return { index: idx, texte: texte, visuel: 'V' + idx };
+        });
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify({ blocs: blocs }) }] }) });
       }
       // Juge indépendant (evaluerScriptGenere) et autres appels annexes :
       // réponse neutre rapide, il doit rester séquentiel et hors mesure ici.
@@ -128,9 +139,15 @@ test('Script : la complétion des hooks et le contrôle de durée s\'exécutent 
 
     // Et bien sûr : le résultat final doit être correct malgré la
     // parallélisation, les deux corrections ayant bien leur effet.
-    const resultat = await page.evaluate(() => ({ nbHooks: currentHooks.length, nbBlocs: currentScript.length }));
+    // LOT 5B : le nombre de blocs reste désormais INCHANGÉ (6) - la
+    // correction ciblée recolle des blocs à leur place, elle ne restructure
+    // plus le script en un nombre de blocs différent (l'ancien mock à 9
+    // blocs simulait une réécriture complète qui n'existe plus dans ce
+    // chemin, voir js/generation.js, corrigerDureeScript).
+    const resultat = await page.evaluate(() => ({ nbHooks: currentHooks.length, nbBlocs: currentScript.length, mots: currentScript.map(b => b.texte.split(/\s+/).filter(Boolean).length).reduce((a, b) => a + b, 0) }));
     assert.equal(resultat.nbHooks, 5, 'les 3 hooks manquants doivent avoir été ajoutés aux 2 déjà présents : ' + resultat.nbHooks);
-    assert.equal(resultat.nbBlocs, 9, 'le script corrigé (9 blocs) doit avoir remplacé le script incomplet (6 blocs) : ' + resultat.nbBlocs);
+    assert.equal(resultat.nbBlocs, 6, 'la correction ciblée recolle les blocs à leur place, le nombre de blocs ne change plus : ' + resultat.nbBlocs);
+    assert.ok(resultat.mots > 78, 'le compte de mots doit avoir progressé par rapport au script incomplet (78 mots) : ' + resultat.mots);
   } finally {
     await navigateur.close();
     await arreter();

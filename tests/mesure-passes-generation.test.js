@@ -46,6 +46,13 @@ const SCRIPT_TROP_COURT = {
   legende: 'L', hashtags: ['#a'], variantes_titre: ['T']
 };
 
+function texteEnvoye(body) {
+  const c = body.messages && body.messages[0] && body.messages[0].content;
+  if (typeof c === 'string') return c;
+  if (Array.isArray(c)) return c.map(b => (b && b.text) || '').join('\n');
+  return '';
+}
+
 async function genererScript(page, baseUrl, { premierJet, correction }) {
   const mesures = [];
   await poserMocksReseau(page);
@@ -61,7 +68,18 @@ async function genererScript(page, baseUrl, { premierJet, correction }) {
     if (body.max_tokens === 2000) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(BRIEF) }] }) });
     if (body.max_tokens === 16000) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(premierJet) }] }) });
     if (body.max_tokens === 2500) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(CRITIQUE_OK) }] }) });
-    if (body.max_tokens === 8000 && correction) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(correction) }] }) });
+    // LOT 5B (audit token efficiency) : la correction de durée ne demande
+    // plus le script entier à max_tokens fixe (8000), mais uniquement les
+    // blocs à corriger par index, à un max_tokens proportionnel - détectée
+    // ici par le contenu du prompt. `correction.script` (fourni par le
+    // test) sert de source pour le texte de chaque bloc demandé.
+    const texte = texteEnvoye(body);
+    if (correction && /ne respecte PAS la durée demandée/.test(texte)) {
+      const m = /NE RÉÉCRIS QUE LES BLOCS D'INDEX ([\d, ]+)/.exec(texte);
+      const indices = m ? m[1].split(',').map(s => parseInt(s.trim(), 10)) : [];
+      const blocs = indices.map(i => ({ index: i, texte: correction.script[i].texte, visuel: correction.script[i].visuel || 'V' + i }));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify({ blocs: blocs }) }] }) });
+    }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: '{}' }] }) });
   });
 
@@ -120,9 +138,14 @@ test('mesure : un script hors cible compte les tours réellement effectués', as
     // La correction ramène le script dans la cible : la boucle s'arrête donc
     // après UN seul tour, et la mesure doit refléter ce tour unique, pas le
     // maximum théorique de 3.
+    // Correction ciblée (LOT 5B) : le hook (index 0) et la chute (index 3) ne
+    // sont jamais renvoyés au modèle, ils gardent leur texte ORIGINAL de
+    // SCRIPT_TROP_COURT (20 mots chacun). Seuls les blocs du milieu (1 et 2)
+    // sont recollés depuis cette correction : 20 + 52 + 52 + 20 = 144 mots,
+    // pour retomber pile dans la cible attendue par le test.
     const mesures = await genererScript(page, baseUrl, {
       premierJet: SCRIPT_TROP_COURT,
-      correction: { script: [0, 1, 2, 3].map(i => bloc(i, 36)) }
+      correction: { script: [0, 1, 2, 3].map(i => bloc(i, 52)) }
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
