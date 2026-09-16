@@ -1183,20 +1183,31 @@ Réponds UNIQUEMENT en JSON, sans texte autour :
     if (genProgressCtl) genProgressCtl.etapeTerminee(0);
 
     // ══════════════════════════════════════
-    //  LE CRITIQUE, agent INDÉPENDANT (seconde moitié de l'angle mort du
-    //  mode Série). Il n'a pas écrit l'épisode et ne reçoit pas les consignes
-    //  d'écriture, seulement le texte fini et les quelques éléments de la
-    //  bible qu'il doit vérifier. Son test principal est le seul qui compte
-    //  vraiment pour une série : POURQUOI le spectateur ne regarderait-il pas
-    //  l'épisode suivant. Une passe unique, jamais une boucle : au-delà, le
-    //  coût par épisode ne serait plus tenable pour ce que ça apporte.
+    //  LE CRITIQUE-RÉVISEUR, agent INDÉPENDANT (seconde moitié de l'angle
+    //  mort du mode Série). Il n'a pas écrit l'épisode et ne reçoit pas les
+    //  consignes d'écriture, seulement le texte fini et les quelques
+    //  éléments de la bible qu'il doit vérifier. Son test principal est le
+    //  seul qui compte vraiment pour une série : POURQUOI le spectateur ne
+    //  regarderait-il pas l'épisode suivant. Une passe unique, jamais une
+    //  boucle : au-delà, le coût par épisode ne serait plus tenable pour ce
+    //  que ça apporte.
     //  Placé AVANT le contrôle de durée, comme en mode Script : la révision
     //  peut changer la longueur, c'est donc la durée qui doit avoir le
     //  dernier mot, jamais l'inverse.
+    //  FUSION Critique+Reviewer (audit architectural dédié) : contrairement
+    //  à Script/Récit, Série n'a ni boucle de passes ni Second Draft à
+    //  protéger d'une correction prématurée (voir l'audit) — rien n'empêche
+    //  donc de diagnostiquer ET corriger dans le MÊME appel, économisant
+    //  l'appel de révision séparé dans tous les cas où il aurait été
+    //  déclenché. Avant ce correctif : Critique (2000 jetons) puis, si
+    //  besoin, Reviewer (3200 jetons), deux appels distincts. Le diagnostic
+    //  est toujours produit en PREMIER dans la consigne (TEMPS 1 avant
+    //  TEMPS 2) pour qu'il reste sincère, non influencé par une correction
+    //  déjà entamée.
     // ══════════════════════════════════════
-    let critiqueSerie = null;
+    let fusionCritiqueRevisionSerie = null;
     try {
-      const critiquePromptSerie = `Tu es un critique EXTÉRIEUR et sévère de séries TikTok. Tu n'as PAS écrit cet épisode.
+      const critiqueRevisionPromptSerie = `Tu es le Critique Éditorial ET, si nécessaire, le Réviseur en Chef de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit cet épisode.
 
 CE QUE CET ÉPISODE DOIT TENIR :
 - Ton exigé par le créateur, du début à la fin : « ${serie.style} »
@@ -1207,13 +1218,14 @@ CE QUE CET ÉPISODE DOIT TENIR :
 - Épisodes déjà publiés, à ne jamais redire :
 ${precedents}
 
-ÉPISODE À JUGER :
+ÉPISODE À JUGER, ET À CORRIGER SI NÉCESSAIRE :
 """
 ${ep.voix_off_propre}
 """
 
-TON TRAVAIL, EN TROIS TEMPS :
+TON TRAVAIL, EN DEUX TEMPS :
 
+TEMPS 1, LE DIAGNOSTIC (à faire en premier et sincèrement, avant de songer à corriger quoi que ce soit) :
 1. LE TEST LE PLUS IMPORTANT, l'abandon de la SÉRIE : cherche toutes les raisons concrètes pour lesquelles ce spectateur, après cet épisode, ne reviendrait PAS voir le suivant (fin qui referme tout au lieu de suspendre, tension annoncée jamais tenue, épisode qui n'avance pas l'histoire, redite d'un épisode déjà publié, promesse molle du type « la suite bientôt » qui ne dit rien de concret). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as trouvé aucune raison valable.
 ${num === total ? '' : `2. LE TEST DE L'ABANDON EN COURS D'ÉPISODE : cherche les raisons de faire défiler AVANT la fin de cet épisode (accroche lente, passage à vide, prévisibilité, longueur inutile).
 `}3. LES DEUX CONSIGNES EXPLICITES DU CRÉATEUR, à vérifier séparément :
@@ -1221,15 +1233,34 @@ ${num === total ? '' : `2. LE TEST DE L'ABANDON EN COURS D'ÉPISODE : cherche le
    - la signature récurrente ${b.regle_recurrente ? '« ' + b.regle_recurrente + ' »' : '(aucune déclarée, réponds true)'} est-elle vraiment présente ?
 Toute réponse négative ou mitigée est une faiblesse, au même titre que celles ci-dessus.
 
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"verdict":"excellent" ou "à améliorer","raisons_d_abandon":["raison concrète 1"],"faiblesses":["faiblesse précise"],"ton_tenu":true,"signature_presente":true,"instructions_revision":"instructions précises et actionnables, ce qu'il faut changer et où"}`;
+TEMPS 2, LA CORRECTION (UNIQUEMENT si le diagnostic du Temps 1 a trouvé au moins un problème) : corrige UNIQUEMENT ce que ton propre diagnostic vient de signaler, et ne touche à rien d'autre : ce qui n'est pas signalé fonctionne, ne l'abîme pas.
 
-      const critiqueRawSerie = await callAI(MODEL_RAPIDE, 2000, critiquePromptSerie, undefined, false, undefined, undefined, undefined, undefined, 'serie');
-      critiqueSerie = serieParseJSON(critiqueRawSerie);
+RÈGLES ABSOLUES DE LA CORRECTION, SI ELLE A LIEU :
+- Garde le même titre, la même histoire, le même format (${formatSerie}) et le ton « ${serie.style} ».
+- Garde une longueur COMPARABLE à l'original (environ ${wordCountSerieAvantRevision} mots) : ce n'est pas ici qu'on rallonge ou qu'on raccourcit.
+- Garde la structure en paragraphes courts (2 à 5 phrases), séparés par UNE LIGNE VIDE.
+- ${CONSIGNE_PHRASES_COURTES}
+- AUCUNE étiquette ni minutage (jamais « VOIX OFF », « TEXTE À L'ÉCRAN », « ÉCRAN NOIR », « PLAN », ni horodatage entre crochets).
+${num === total ? '- C\'est le DERNIER épisode : il referme l\'arc, il ne relance rien.' : '- La fin doit laisser une tension nette et une raison CONCRÈTE de regarder l\'épisode suivant, jamais un « la suite bientôt » creux.'}
+- Si le ton n'est pas tenu, réécris les passages fautifs pour rester intégralement dans le ton « ${serie.style} ». C'est une consigne explicite du créateur, pas une suggestion.
+- Si la signature de la série manque${b.regle_recurrente ? ' (« ' + b.regle_recurrente + ' »)' : ''}, fais-la réellement apparaître dans l'épisode, sans la plaquer artificiellement.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après. Si le Temps 1 ne trouve AUCUN problème, "script_corrige" et "voix_off_propre_corrige" doivent être des chaînes VIDES (ne corrige rien qui n'a pas été diagnostiqué) :
+{"verdict":"excellent" ou "à améliorer","raisons_d_abandon":["raison concrète 1"],"faiblesses":["faiblesse précise"],"ton_tenu":true,"signature_presente":true,"instructions_revision":"ce qui a été changé et pourquoi, chaîne vide si aucun problème","script_corrige":"l'épisode complet corrigé, ou chaîne vide si aucun problème trouvé","voix_off_propre_corrige":"strictement identique à script_corrige, ou chaîne vide"}`;
+
+      // 4000 et non 2000/3200 : ce seul appel porte désormais à la fois le
+      // diagnostic (auparavant 2000 jetons) et la correction éventuelle
+      // (auparavant 3200 jetons pour l'épisode seul) — budget dimensionné
+      // pour le pire cas (les deux dans la même réponse), pas mesuré.
+      const fusionRawSerie = await callAI(MODEL_CREATIF, 4000, critiqueRevisionPromptSerie, undefined, false, undefined, undefined, undefined, undefined, 'serie');
+      fusionCritiqueRevisionSerie = serieParseJSON(fusionRawSerie);
     } catch (e) { /* un critique en échec ne bloque jamais la livraison */ }
     if (genProgressCtl) genProgressCtl.etapeTerminee(1);
 
-    // Le Critique décide, jamais l'auto-évaluation du rédacteur.
+    // Le Critique décide, jamais l'auto-évaluation du rédacteur. Fonction
+    // INCHANGÉE (même signature, mêmes champs lus) : elle s'applique
+    // identiquement à la réponse fusionnée, qui porte les mêmes champs de
+    // diagnostic que l'ancien appel Critique séparé.
     const critiqueSerieIndiqueProbleme = (c) => !!c && (
       c.verdict === 'à améliorer'
       || (Array.isArray(c.raisons_d_abandon) && c.raisons_d_abandon.length > 0)
@@ -1237,53 +1268,19 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
       || c.ton_tenu === false || c.signature_presente === false
     );
 
-    if (critiqueSerieIndiqueProbleme(critiqueSerie)) {
-      try {
-        const listeSerie = (t) => (Array.isArray(t) ? t : []).map(x => '- ' + x).join('\n');
-        const revisePromptSerie = `Tu es le Réviseur en Chef de Scriptura. Un critique indépendant a évalué l'épisode ci-dessous. Corrige UNIQUEMENT ce qu'il signale, et ne touche à rien d'autre : ce qui n'est pas signalé fonctionne, ne l'abîme pas.
-
-ÉPISODE ACTUEL :
-"""
-${ep.voix_off_propre}
-"""
-
-RAISONS DE NE PAS REGARDER L'ÉPISODE SUIVANT (à faire disparaître en priorité) :
-${listeSerie(critiqueSerie.raisons_d_abandon) || '- aucune signalée'}
-
-AUTRES FAIBLESSES :
-${listeSerie(critiqueSerie.faiblesses) || '- aucune signalée'}
-
-INSTRUCTIONS DU CRITIQUE :
-${critiqueSerie.instructions_revision || 'applique les points ci-dessus'}
-${critiqueSerie.ton_tenu === false ? `\nLE TON N'EST PAS TENU : réécris les passages fautifs pour rester intégralement dans le ton « ${serie.style} ». C'est une consigne explicite du créateur, pas une suggestion.` : ''}${critiqueSerie.signature_presente === false && b.regle_recurrente ? `\nLA SIGNATURE DE LA SÉRIE MANQUE : fais réellement apparaître « ${b.regle_recurrente} » dans l'épisode, sans le plaquer artificiellement.` : ''}
-
-RÈGLES ABSOLUES DE LA RÉVISION :
-- Garde le même titre, la même histoire, le même format (${formatSerie}) et le ton « ${serie.style} ».
-- Garde une longueur COMPARABLE (environ ${wordCountSerieAvantRevision} mots) : ce n'est pas ici qu'on rallonge ou qu'on raccourcit.
-- Garde la structure en paragraphes courts (2 à 5 phrases), séparés par UNE LIGNE VIDE.
-- ${CONSIGNE_PHRASES_COURTES}
-- AUCUNE étiquette ni minutage (jamais « VOIX OFF », « TEXTE À L'ÉCRAN », « ÉCRAN NOIR », « PLAN », ni horodatage entre crochets).
-${num === total ? '- C\'est le DERNIER épisode : il referme l\'arc, il ne relance rien.' : '- La fin doit laisser une tension nette et une raison CONCRÈTE de regarder l\'épisode suivant, jamais un « la suite bientôt » creux.'}
-
-Réponds UNIQUEMENT en JSON, sans texte autour :
-{"script":"l'épisode complet révisé","voix_off_propre":"strictement identique à script"}`;
-
-        // 3200 et non 3000 : chaque appel du mode Série porte un budget de
-        // tokens qui lui est propre (écriture 3000, critique 2000, révision
-        // 3200, durée 2500, juge 1400). Deux appels au même budget seraient
-        // indistinguables, aussi bien dans les mocks de test que dans les
-        // mesures de coût.
-        const reviseRawSerie = await callAI(MODEL_CREATIF, 3200, revisePromptSerie, undefined, false, undefined, undefined, undefined, undefined, 'serie');
-        const reviseSerie = serieParseJSON(reviseRawSerie);
-        if (reviseSerie && typeof reviseSerie.script === 'string' && reviseSerie.script.trim()) {
-          ep.script = nettoyerEtiquettesEpisodeSerie(reviseSerie.script);
-          ep.voix_off_propre = nettoyerEtiquettesEpisodeSerie(
-            (typeof reviseSerie.voix_off_propre === 'string' && reviseSerie.voix_off_propre.trim())
-              ? reviseSerie.voix_off_propre
-              : ep.script
-          );
-        }
-      } catch (e) { /* révision en échec : on garde la version d'avant, jamais rien de cassé */ }
+    // La correction n'est appliquée QUE si le diagnostic (même fonction de
+    // gating qu'avant la fusion) l'exige ET qu'une correction non vide a
+    // vraiment été fournie : un modèle qui corrigerait malgré un diagnostic
+    // "excellent" ne doit jamais pouvoir modifier l'épisode.
+    if (critiqueSerieIndiqueProbleme(fusionCritiqueRevisionSerie)
+        && typeof fusionCritiqueRevisionSerie.script_corrige === 'string'
+        && fusionCritiqueRevisionSerie.script_corrige.trim()) {
+      ep.script = nettoyerEtiquettesEpisodeSerie(fusionCritiqueRevisionSerie.script_corrige);
+      ep.voix_off_propre = nettoyerEtiquettesEpisodeSerie(
+        (typeof fusionCritiqueRevisionSerie.voix_off_propre_corrige === 'string' && fusionCritiqueRevisionSerie.voix_off_propre_corrige.trim())
+          ? fusionCritiqueRevisionSerie.voix_off_propre_corrige
+          : ep.script
+      );
     }
     if (genProgressCtl) genProgressCtl.etapeTerminee(2);
 

@@ -3,12 +3,20 @@
 // cherche activement les raisons de décrocher, puis un Réviseur qui corrige
 // ce qu'il signale. En Série, le premier jet partait tel quel.
 //
+// AUDIT ARCHITECTURAL "Fusion Critique+Reviewer" : contrairement à Script et
+// Récit, Série n'a ni boucle de passes ni Second Draft à protéger d'une
+// correction prématurée, donc rien n'empêche de diagnostiquer ET corriger
+// dans le MÊME appel (voir js/serie.js). Le Critique et le Réviseur de série
+// ne sont donc plus deux appels séparés (2000 puis 3200 jetons), mais un
+// seul appel fusionné (4000 jetons) qui porte le diagnostic (TEMPS 1) et,
+// s'il trouve un problème, la correction (TEMPS 2) dans la même réponse.
+//
 // Le test principal du Critique de série n'est PAS celui du mode Script.
 // Script demande « pourquoi ferait-on défiler avant la fin de la vidéo ».
 // Série doit aussi demander « pourquoi ne reviendrait-on pas voir l'épisode
 // suivant », qui est la seule question qui décide de la vie d'une série. Ce
-// test verrouille cette différence, la révision qui suit, et le fait qu'un
-// épisode jugé bon ne paie pas d'appel de révision pour rien.
+// fichier verrouille cette différence, l'application de la correction issue
+// du même appel, et le fait qu'un épisode jugé bon ne paie qu'un seul appel.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -33,13 +41,12 @@ const SERIE_FAKE = {
 const corps = (etiquette) => Array.from({ length: 10 },
   (_, i) => `${etiquette} phrase ${i} de la voix off, écrite pour compter dans le total.`).join(' ');
 const EP_INITIAL = { titre: 'Épisode 1', script: corps('Initiale'), voix_off_propre: corps('Initiale'), directives: 'Plans serrés.' };
-const EP_REVISE = { script: corps('Révisée'), voix_off_propre: corps('Révisée') };
 
 // Chaque appel du mode a son propre budget de tokens, ce qui les rend
-// distinguables ici : écriture 3000, critique 2000, révision 3200,
+// distinguables ici : écriture 3000, critique+révision fusionnés 4000,
 // durée 2500, juge 1400.
-async function jouerEpisode(page, { critique }) {
-  const vus = { ecriture: 0, critique: 0, revision: 0, duree: 0, juge: 0 };
+async function jouerEpisode(page, { fusion }) {
+  const vus = { ecriture: 0, fusion: 0, duree: 0, juge: 0 };
   const prompts = {};
   let patchFinal = null;
 
@@ -66,10 +73,9 @@ async function jouerEpisode(page, { critique }) {
   await page.route('**/api/generate', async (route) => {
     const body = JSON.parse(route.request().postData() || '{}');
     const txt = String(body.prompt || body.messages && JSON.stringify(body.messages) || '');
-    const rendre = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(o) }] }) });
+    const rendre = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: typeof o === 'string' ? o : JSON.stringify(o) }] }) });
     if (body.max_tokens === 3000) { vus.ecriture++; prompts.ecriture = txt; return rendre(EP_INITIAL); }
-    if (body.max_tokens === 2000) { vus.critique++; prompts.critique = txt; return rendre(critique); }
-    if (body.max_tokens === 3200) { vus.revision++; prompts.revision = txt; return rendre(EP_REVISE); }
+    if (body.max_tokens === 4000) { vus.fusion++; prompts.fusion = txt; return rendre(fusion); }
     if (body.max_tokens === 2500) { vus.duree++; return rendre({ script: corps('Durée'), voix_off_propre: corps('Durée') }); }
     if (body.max_tokens === 1400) { vus.juge++; return rendre({}); }
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: '{}' }] }) });
@@ -90,7 +96,7 @@ async function jouerEpisode(page, { critique }) {
   return { vus, prompts, patchFinal };
 }
 
-test('le Critique de série cherche l\'abandon de la SÉRIE, pas seulement de la vidéo', async () => {
+test('le Critique-Réviseur de série cherche l\'abandon de la SÉRIE, pas seulement de la vidéo', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -102,27 +108,29 @@ test('le Critique de série cherche l\'abandon de la SÉRIE, pas seulement de la
     await connecterAbonne(page, { code: 'SERIECRIT1', plan: 'pro' });
     await page.waitForTimeout(200);
 
-    const r = await jouerEpisode(page, { critique: { verdict: 'excellent', raisons_d_abandon: [], faiblesses: [], ton_tenu: true, signature_presente: true } });
+    const r = await jouerEpisode(page, {
+      fusion: { verdict: 'excellent', raisons_d_abandon: [], faiblesses: [], ton_tenu: true, signature_presente: true, script_corrige: '', voix_off_propre_corrige: '' }
+    });
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
-    assert.equal(r.vus.critique, 1, 'REGRESSION : aucun Critique n\'est appelé sur un épisode de série');
+    assert.equal(r.vus.fusion, 1, 'REGRESSION : aucun appel Critique+Réviseur n\'est effectué sur un épisode de série');
 
-    const p = r.prompts.critique;
+    const p = r.prompts.fusion;
     assert.match(p, /ne reviendrait PAS voir le suivant|épisode suivant/i,
-      'REGRESSION : le Critique ne cherche pas les raisons de ne pas revenir à l\'épisode suivant. '
+      'REGRESSION : le diagnostic ne cherche pas les raisons de ne pas revenir à l\'épisode suivant. '
       + 'C\'est la seule question qui décide de la vie d\'une série.');
     assert.match(p, /sobre et tendu/, 'le ton exigé par le créateur doit être vérifié explicitement');
     assert.match(p, /une porte qui claque à la fin/, 'la signature récurrente de la bible aussi');
-    assert.match(p, /qui a ouvert le coffre/, 'la tension finale prévue par l\'arc doit être connue du Critique');
+    assert.match(p, /qui a ouvert le coffre/, 'la tension finale prévue par l\'arc doit être connue du diagnostic');
     assert.ok(!/Tu écris l'épisode/.test(p),
-      'REGRESSION : le Critique reçoit les consignes d\'écriture. Il doit juger un texte fini, pas relire sa propre recette.');
+      'REGRESSION : l\'appel reçoit les consignes d\'écriture. Il doit juger un texte fini, pas relire sa propre recette.');
   } finally {
     await navigateur.close();
     await arreter();
   }
 });
 
-test('un épisode jugé bon ne paie aucun appel de révision', async () => {
+test('un épisode jugé bon ne paie qu\'un seul appel, et le texte d\'origine est conservé', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -132,10 +140,12 @@ test('un épisode jugé bon ne paie aucun appel de révision', async () => {
     await connecterAbonne(page, { code: 'SERIECRIT2', plan: 'pro' });
     await page.waitForTimeout(200);
 
-    const r = await jouerEpisode(page, { critique: { verdict: 'excellent', raisons_d_abandon: [], faiblesses: [], ton_tenu: true, signature_presente: true } });
+    const r = await jouerEpisode(page, {
+      fusion: { verdict: 'excellent', raisons_d_abandon: [], faiblesses: [], ton_tenu: true, signature_presente: true, script_corrige: '', voix_off_propre_corrige: '' }
+    });
 
-    assert.equal(r.vus.revision, 0,
-      'REGRESSION : une révision est facturée alors que le Critique n\'a rien trouvé. '
+    assert.equal(r.vus.fusion, 1,
+      'REGRESSION : plus d\'un appel est facturé pour un seul passage de qualité. '
       + 'Chaque appel inutile coûte au créateur et allonge l\'attente.');
     const ep = r.patchFinal && r.patchFinal.episodes && r.patchFinal.episodes[0];
     assert.ok(ep && /Initiale/.test(ep.voix_off_propre), 'le texte d\'origine doit être conservé tel quel');
@@ -145,7 +155,7 @@ test('un épisode jugé bon ne paie aucun appel de révision', async () => {
   }
 });
 
-test('une raison d\'abandon déclenche la révision, et le texte révisé est bien celui qui est gardé', async () => {
+test('une raison d\'abandon déclenche une correction dans le même appel, et le texte corrigé est bien celui qui est gardé', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -156,29 +166,29 @@ test('une raison d\'abandon déclenche la révision, et le texte révisé est bi
     await page.waitForTimeout(200);
 
     const r = await jouerEpisode(page, {
-      critique: {
+      fusion: {
         verdict: 'à améliorer',
         raisons_d_abandon: ['la fin referme tout, il ne reste aucune question'],
         faiblesses: ['le milieu traîne'],
         ton_tenu: false,
         signature_presente: false,
-        instructions_revision: 'rouvre une question à la toute fin'
+        instructions_revision: 'rouvre une question à la toute fin',
+        script_corrige: corps('Révisée'),
+        voix_off_propre_corrige: corps('Révisée')
       }
     });
 
-    assert.equal(r.vus.revision, 1, 'REGRESSION : une raison d\'abandon ne déclenche aucune révision');
-    const p = r.prompts.revision;
-    assert.match(p, /la fin referme tout/, 'le Réviseur doit recevoir la raison d\'abandon à faire disparaître');
-    assert.match(p, /le milieu traîne/, 'et les autres faiblesses');
-    assert.match(p, /LE TON N'EST PAS TENU/, 'un ton non tenu doit être signalé explicitement au Réviseur');
-    assert.match(p, /LA SIGNATURE DE LA SÉRIE MANQUE/, 'une signature absente aussi');
+    assert.equal(r.vus.fusion, 1, 'REGRESSION : la correction doit tenir dans le même appel que le diagnostic, jamais un second appel séparé');
+    const p = r.prompts.fusion;
     assert.match(p, /AUCUNE étiquette ni minutage/,
-      'le Réviseur doit garder l\'interdiction des étiquettes, sinon il les réintroduit');
+      'la consigne de correction doit interdire les étiquettes, sinon un texte corrigé les réintroduit');
+    assert.match(p, /ton/i, 'la consigne doit rappeler que le ton doit être tenu');
+    assert.match(p, /signature/i, 'la consigne doit rappeler que la signature récurrente doit apparaître');
 
     const ep = r.patchFinal && r.patchFinal.episodes && r.patchFinal.episodes[0];
     assert.ok(ep, 'l\'épisode doit être enregistré');
     assert.ok(/Révisée|Durée/.test(ep.voix_off_propre),
-      'REGRESSION : le texte révisé est jeté et l\'épisode d\'origine est enregistré');
+      'REGRESSION : le texte corrigé par l\'appel fusionné est jeté et l\'épisode d\'origine est enregistré');
     assert.ok(!/Initiale/.test(ep.voix_off_propre), 'le premier jet ne doit plus être celui qu\'on garde');
   } finally {
     await navigateur.close();
@@ -186,7 +196,40 @@ test('une raison d\'abandon déclenche la révision, et le texte révisé est bi
   }
 });
 
-test('un Critique en échec ne casse jamais la livraison de l\'épisode', async () => {
+test('un diagnostic "excellent" mais accompagné (à tort) d\'une correction ne modifie jamais l\'épisode', async () => {
+  // Robustesse propre à la fusion (§14 de l'audit, "correction prématurée") :
+  // un modèle qui renverrait malgré tout un script_corrige alors que son
+  // propre verdict est "excellent" ne doit JAMAIS pouvoir modifier l'épisode.
+  // Seul le diagnostic (verdict/raisons_d_abandon/faiblesses/ton_tenu/
+  // signature_presente) décide, jamais la simple présence d'un champ de
+  // correction.
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    await poserMocksReseau(page);
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
+    await connecterAbonne(page, { code: 'SERIECRIT5', plan: 'pro' });
+    await page.waitForTimeout(200);
+
+    const r = await jouerEpisode(page, {
+      fusion: {
+        verdict: 'excellent', raisons_d_abandon: [], faiblesses: [], ton_tenu: true, signature_presente: true,
+        script_corrige: corps('CorrectionNonAutorisee'), voix_off_propre_corrige: corps('CorrectionNonAutorisee')
+      }
+    });
+
+    const ep = r.patchFinal && r.patchFinal.episodes && r.patchFinal.episodes[0];
+    assert.ok(ep && /Initiale/.test(ep.voix_off_propre),
+      'REGRESSION : une correction non diagnostiquée par le verdict a quand même été appliquée');
+    assert.ok(!/CorrectionNonAutorisee/.test(ep.voix_off_propre));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('un Critique-Réviseur en échec ne casse jamais la livraison de l\'épisode', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -198,15 +241,15 @@ test('un Critique en échec ne casse jamais la livraison de l\'épisode', async 
     await connecterAbonne(page, { code: 'SERIECRIT4', plan: 'pro' });
     await page.waitForTimeout(200);
 
-    // Réponse du Critique volontairement illisible.
-    const r = await jouerEpisode(page, { critique: 'pas du json du tout' });
+    // Réponse volontairement illisible.
+    const r = await jouerEpisode(page, { fusion: 'pas du json du tout' });
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
     const ep = r.patchFinal && r.patchFinal.episodes && r.patchFinal.episodes[0];
     assert.ok(ep && ep.voix_off_propre,
-      'REGRESSION : un Critique muet empêche l\'épisode d\'être livré. Le contrôle qualité ne doit '
+      'REGRESSION : un appel muet empêche l\'épisode d\'être livré. Le contrôle qualité ne doit '
       + 'jamais coûter au créateur le texte qu\'il a déjà payé.');
-    assert.equal(r.vus.revision, 0, 'sans verdict exploitable, on ne lance pas de révision au hasard');
+    assert.ok(/Initiale/.test(ep.voix_off_propre), 'sans réponse exploitable, le premier jet doit être conservé');
   } finally {
     await navigateur.close();
     await arreter();

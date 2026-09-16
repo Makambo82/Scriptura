@@ -787,30 +787,6 @@ Génère exactement 5 hooks et 2 variantes de titre (A et B) percutantes et diff
           if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
 
           const recitForReview = (parsed.recit || []).map((s, i) => '[segment ' + i + ', ' + (s.segment || '') + '] ' + s.texte).join('\n');
-          const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
-
-SUJET : ${sujetPourPrompt}
-RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
-${recitForReview}
-${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (référence réelle à comparer, pas une supposition) :\n"""\n${structureModeleRef}\n"""` : ''}
-${contrainteDureeRecit}
-
-TON TRAVAIL :
-1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
-2. RÉFUTATION, cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
-3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) : le récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Si le récit s'écarte du squelette du modèle (une étape sautée, réordonnée, ou développée alors que le modèle ne fait que l'effleurer, ou l'inverse), c'est un écart de calque à signaler dans segments_faibles. Vérifie SPÉCIFIQUEMENT que le dernier segment se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") : si elle est absente, c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser, c'est l'écart le plus visible et le plus grave que Scriptura puisse commettre.
-4. PLAGIAT, vérification OBLIGATOIRE, indépendante des points précédents : compare chaque phrase du récit, mot par mot, aux phrases du script du modèle. Si une phrase du récit reprend la construction ou l'essentiel des mots d'une phrase du modèle (même avec un ou deux mots changés, ex. "Que parfois, la tendresse ne sauve rien ?" copié sur "Que parfois, la beauté ne sauve rien ?"), c'est un PLAGIAT à signaler explicitement dans segments_faibles, quel que soit le segment concerné (hook, clôture, ou autre). Une bonne exécution du calque ne partage JAMAIS de phrase reconnaissable avec le modèle, seulement sa mécanique.
-5. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi, si elle est absente, générique ou faible, signale-le comme un problème à corriger.
-6. REDONDANCE, vérification OBLIGATOIRE : compare chaque segment à celui qui le précède IMMÉDIATEMENT, en particulier les tout premiers (Hook, Ouverture, Contexte). Si un segment exprime, avec d'autres mots, une idée déjà posée dans le segment précédent (piétinement, pas de progression), c'est une faiblesse à signaler explicitement dans segments_faibles, même si chaque segment pris isolément est bien écrit. Exemple à signaler : l'Ouverture dit "imposé pour asservir l'Allemagne pendant des décennies" et le segment suivant dit "avec un seul objectif : la faire payer pendant des décennies", c'est la même idée répétée.
-
-Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
-{"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
-
-          if (typeof avancerEtapeGen === 'function') avancerEtapeGen(2); // phase : critique éditorial
-          const critiqueRaw = await callAI(modeleQualiteRecit(), 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
-          const critique = parseAIResponse(critiqueRaw);
-          if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
-          if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritiqueRecit, critique);
 
           function critiqueRecitProbleme(c) {
             if (!c) return false;
@@ -829,59 +805,95 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
             if (Array.isArray(c.segments_faibles) && Array.isArray(parsed.recit) && parsed.recit.length > 0 && c.segments_faibles.length / parsed.recit.length >= 0.6) return true;
             return false;
           }
-          // LOT 5A (audit token efficiency) : même correctif que le mode
-          // Script (js/generation.js), adapté au schéma du critique Récit -
-          // PLUS RESTREINT que celui du Script (pas de points_forts ni de
-          // justification_ia_generique dans le JSON demandé au Critique
-          // Récit, voir critiquePrompt ci-dessus) : synthèse écrite pour ce
-          // schéma précis, pas un copier-coller du helper Script. Avant ce
-          // correctif, le second brouillon (ligne ~842) réutilisait
-          // storyPrompt à l'identique, sans jamais lire ce diagnostic déjà
-          // payé (jusqu'à 2500 jetons de sortie du Critique).
-          function syntheseDiagnosticSecondBrouillonRecit(c) {
-            if (!c) return '';
-            const parties = [];
-            if (c.ia_generique) parties.push('- Jugé trop générique / proche d\'une IA généraliste.');
-            if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length) {
-              parties.push('- Raisons concrètes pour lesquelles un spectateur décrocherait (à éliminer absolument) :\n' + c.raisons_de_scroll.map(r => '  · ' + r).join('\n'));
-            }
-            if (c.instructions_revision) {
-              parties.push('- Instructions du Critique :\n  ' + c.instructions_revision);
-            }
-            if (!parties.length) return '';
-            return '\n\nDIAGNOSTIC DU CRITIQUE SUR LE PREMIER BROUILLON, à corriger dans cette nouvelle version (ne répète pas les mêmes erreurs) :\n' + parties.join('\n');
-          }
 
-          if (!critiqueRecitProbleme(critique)) break; // le récit passe le contrôle qualité : terminé
+          if (passe === 0) {
+            // ══════════════════════════════════════
+            //  PASSE 0, LE CRITIQUE SEUL (agent indépendant)
+            //  Volontairement NON fusionnée avec le Réviseur (audit
+            //  architectural "Fusion Critique+Reviewer") : c'est le seul
+            //  passage qui peut encore déclencher un Second Draft complet
+            //  ci-dessous, une décision qui doit s'appuyer sur un diagnostic
+            //  produit AVANT toute tentative de correction, jamais mêlé à
+            //  elle dans la même réponse.
+            // ══════════════════════════════════════
+            const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
 
-          if (!repondreMaintenant && passe === 0 && critiqueRecitProblemeFondamental(critique)) {
-            // ── SECOND BROUILLON COMPLET ──
-            // Le Critique (indépendant) juge le premier brouillon fondamentalement
-            // faible : une révision segment par segment ne suffirait pas, on
-            // retente une écriture complète plutôt que de rafistoler.
-            try {
-              _mesurePassesRecit.second_brouillon = true;
-              // LOT 5A : storyPrompt lui-même reste inchangé (utilisé tel
-              // quel par le 1er essai ligne 722 et son retry technique ligne
-              // 736) - seul CET appel reçoit le diagnostic, en plus, jamais à
-              // la place.
-              const storyPromptInforme = storyPrompt + syntheseDiagnosticSecondBrouillonRecit(critique);
-              const raw2 = await callAI(MODEL_CREATIF, 16000, storyPromptInforme, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
-              const parsed2 = parseAIResponse(raw2);
-              if (parsed2 && parsed2.recit) {
-                parsed = parsed2;
-                if (storyTon) parsed.ton = storyTon;
-                continue; // relance une passe de critique sur ce nouveau brouillon
+SUJET : ${sujetPourPrompt}
+RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
+${recitForReview}
+${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (référence réelle à comparer, pas une supposition) :\n"""\n${structureModeleRef}\n"""` : ''}
+${contrainteDureeRecit}
+
+TON TRAVAIL :
+1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
+2. RÉFUTATION, cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
+3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) : le récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Si le récit s'écarte du squelette du modèle (une étape sautée, réordonnée, ou développée alors que le modèle ne fait que l'effleurer, ou l'inverse), c'est un écart de calque à signaler dans segments_faibles. Vérifie SPÉCIFIQUEMENT que le dernier segment se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") : si elle est absente, c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles, pas une nuance à minimiser, c'est l'écart le plus visible et le plus grave que Scriptura puisse commettre.
+4. PLAGIAT, vérification OBLIGATOIRE, indépendante des points précédents : compare chaque phrase du récit, mot par mot, aux phrases du script du modèle. Si une phrase du récit reprend la construction ou l'essentiel des mots d'une phrase du modèle (même avec un ou deux mots changés, ex. "Que parfois, la tendresse ne sauve rien ?" copié sur "Que parfois, la beauté ne sauve rien ?"), c'est un PLAGIAT à signaler explicitement dans segments_faibles, quel que soit le segment concerné (hook, clôture, ou autre). Une bonne exécution du calque ne partage JAMAIS de phrase reconnaissable avec le modèle, seulement sa mécanique.
+5. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet, et qu'elle frappe fort en une seule image. Elle est OBLIGATOIRE dans tous les récits, quel que soit le modèle choisi, si elle est absente, générique ou faible, signale-le comme un problème à corriger.
+6. REDONDANCE, vérification OBLIGATOIRE : compare chaque segment à celui qui le précède IMMÉDIATEMENT, en particulier les tout premiers (Hook, Ouverture, Contexte). Si un segment exprime, avec d'autres mots, une idée déjà posée dans le segment précédent (piétinement, pas de progression), c'est une faiblesse à signaler explicitement dans segments_faibles, même si chaque segment pris isolément est bien écrit. Exemple à signaler : l'Ouverture dit "imposé pour asservir l'Allemagne pendant des décennies" et le segment suivant dit "avec un seul objectif : la faire payer pendant des décennies", c'est la même idée répétée.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
+{"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment"}`;
+
+            if (typeof avancerEtapeGen === 'function') avancerEtapeGen(2); // phase : critique éditorial
+            const critiqueRaw = await callAI(modeleQualiteRecit(), 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+            const critique = parseAIResponse(critiqueRaw);
+            if (!critique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
+            if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritiqueRecit, critique);
+
+            // LOT 5A (audit token efficiency) : même correctif que le mode
+            // Script (js/generation.js), adapté au schéma du critique Récit -
+            // PLUS RESTREINT que celui du Script (pas de points_forts ni de
+            // justification_ia_generique dans le JSON demandé au Critique
+            // Récit, voir critiquePrompt ci-dessus) : synthèse écrite pour ce
+            // schéma précis, pas un copier-coller du helper Script. Avant ce
+            // correctif, le second brouillon réutilisait storyPrompt à
+            // l'identique, sans jamais lire ce diagnostic déjà payé (jusqu'à
+            // 2500 jetons de sortie du Critique).
+            function syntheseDiagnosticSecondBrouillonRecit(c) {
+              if (!c) return '';
+              const parties = [];
+              if (c.ia_generique) parties.push('- Jugé trop générique / proche d\'une IA généraliste.');
+              if (Array.isArray(c.raisons_de_scroll) && c.raisons_de_scroll.length) {
+                parties.push('- Raisons concrètes pour lesquelles un spectateur décrocherait (à éliminer absolument) :\n' + c.raisons_de_scroll.map(r => '  · ' + r).join('\n'));
               }
-            } catch(e) { /* si le second brouillon échoue, on continue avec la révision ciblée */ }
-          }
+              if (c.instructions_revision) {
+                parties.push('- Instructions du Critique :\n  ' + c.instructions_revision);
+              }
+              if (!parties.length) return '';
+              return '\n\nDIAGNOSTIC DU CRITIQUE SUR LE PREMIER BROUILLON, à corriger dans cette nouvelle version (ne répète pas les mêmes erreurs) :\n' + parties.join('\n');
+            }
 
-          const segmentsFaiblesTxt = (critique.segments_faibles || [])
-            .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
-            || 'Applique les instructions générales ci-dessous.';
-          const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
+            if (!critiqueRecitProbleme(critique)) break; // le récit passe le contrôle qualité : terminé
 
-          const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de récits viraux. Un critique indépendant a évalué le récit ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même fonction narrative), ce sont les points forts, ne les abîme pas.
+            if (!repondreMaintenant && critiqueRecitProblemeFondamental(critique)) {
+              // ── SECOND BROUILLON COMPLET ──
+              // Le Critique (indépendant) juge le premier brouillon fondamentalement
+              // faible : une révision segment par segment ne suffirait pas, on
+              // retente une écriture complète plutôt que de rafistoler.
+              try {
+                _mesurePassesRecit.second_brouillon = true;
+                // LOT 5A : storyPrompt lui-même reste inchangé (utilisé tel
+                // quel par le 1er essai ligne 722 et son retry technique ligne
+                // 736) - seul CET appel reçoit le diagnostic, en plus, jamais à
+                // la place.
+                const storyPromptInforme = storyPrompt + syntheseDiagnosticSecondBrouillonRecit(critique);
+                const raw2 = await callAI(MODEL_CREATIF, 16000, storyPromptInforme, undefined, rechercheWebStory, undefined, undefined, undefined, onApercuEcriture, 'story');
+                const parsed2 = parseAIResponse(raw2);
+                if (parsed2 && parsed2.recit) {
+                  parsed = parsed2;
+                  if (storyTon) parsed.ton = storyTon;
+                  continue; // relance une passe de critique sur ce nouveau brouillon
+                }
+              } catch(e) { /* si le second brouillon échoue, on continue avec la révision ciblée */ }
+            }
+
+            const segmentsFaiblesTxt = (critique.segments_faibles || [])
+              .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
+              || 'Applique les instructions générales ci-dessous.';
+            const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
+
+            const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de récits viraux. Un critique indépendant a évalué le récit ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même fonction narrative), ce sont les points forts, ne les abîme pas.
 
 SUJET : ${sujetPourPrompt}
 RÉCIT ACTUEL (segments numérotés) :
@@ -903,18 +915,88 @@ RÈGLES :
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"Hook","texte":"..."}]}`;
 
-          try {
-            if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
-            _mesurePassesRecit.revisions++;
-            const reviseRaw = await callAI(modeleQualiteRecit(), 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
-            const revised = parseAIResponse(reviseRaw);
-            if (revised && Array.isArray(revised.recit) && revised.recit.length) {
-              parsed.recit = revised.recit;
-              if (Array.isArray(revised.hooks) && revised.hooks.length) parsed.hooks = revised.hooks;
-            } else {
-              break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
-            }
-          } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
+            try {
+              if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
+              _mesurePassesRecit.revisions++;
+              const reviseRaw = await callAI(modeleQualiteRecit(), 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+              const revised = parseAIResponse(reviseRaw);
+              if (revised && Array.isArray(revised.recit) && revised.recit.length) {
+                parsed.recit = revised.recit;
+                if (Array.isArray(revised.hooks) && revised.hooks.length) parsed.hooks = revised.hooks;
+              } else {
+                break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
+              }
+            } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
+
+          } else {
+            // ══════════════════════════════════════
+            //  PASSE FINALE, CRITIQUE + RÉVISEUR FUSIONNÉS (audit
+            //  architectural "Fusion Critique+Reviewer"). Plus de Second
+            //  Draft possible à ce stade (son déclenchement est réservé à
+            //  passe===0 ci-dessus) : rien n'empêche donc de diagnostiquer
+            //  ET corriger dans le même appel. Le diagnostic (TEMPS 1) reste
+            //  écrit en premier dans la consigne, avant la correction
+            //  (TEMPS 2), pour qu'il reste sincère. Bénéfice supplémentaire
+            //  propre à Récit : le SCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE
+            //  n'est envoyé QU'UNE FOIS dans ce prompt fusionné, alors qu'il
+            //  était envoyé deux fois (Critique puis Réviseur) avant ce
+            //  correctif. Avant ce correctif : Critique (2500 jetons) puis,
+            //  si besoin, Réviseur (8000 jetons), deux appels distincts,
+            //  identiques en substance à la passe 0 ci-dessus.
+            // ══════════════════════════════════════
+            const fusionPrompt = `Tu es le Critique Éditorial ET, si nécessaire, le Réviseur en Chef de Scriptura, un directeur narratif exigeant et INDÉPENDANT. Tu n'as PAS écrit ce récit, ton rôle est d'abord de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. Un récit Scriptura ne doit JAMAIS ressembler à ce que produirait une IA généraliste (transitions plates, généralités creuses, ton neutre de manuel).
+
+SUJET : ${sujetPourPrompt}
+RÉCIT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
+${recitForReview}
+${structureModeleRef ? `\nSCRIPT COMPLET DU MODÈLE DE RÉFÉRENCE RÉELLEMENT SUIVI POUR CE RÉCIT (référence réelle à comparer, et toute réécriture doit rester CALQUÉE sur SA structure entière, pas seulement sa clôture) :\n"""\n${structureModeleRef}\n"""` : ''}
+${contrainteDureeRecit}${(storyFormat === 'court' && wt) ? `\nSi tu réécris des segments, ils doivent tenir dans le MÊME volume que ceux qu'ils remplacent (13 à 18 mots chacun) : une réécriture qui rallonge le récit le fait sortir de la durée choisie, c'est un échec même si le texte est meilleur.` : ''}
+
+TON TRAVAIL, EN DEUX TEMPS :
+
+TEMPS 1, LE DIAGNOSTIC (à faire en premier et sincèrement, avant de songer à corriger quoi que ce soit) :
+1. DÉTECTION DES FAIBLESSES segment par segment : phrases génériques, clichés, baisses de tension, passages oubliables, révélations arrivées trop tôt, formulations "qui sentent l'IA". Indique le numéro du segment.
+2. RÉFUTATION, cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, passage à vide, prévisibilité, immersion qui retombe...). Ne laisse la liste vide que si, après examen sincère et sévère, tu ne trouves vraiment aucune raison.
+3. Compare LITTÉRALEMENT le récit au SCRIPT COMPLET DU MODÈLE ci-dessus (si fourni) : le récit doit être CALQUÉ sur ce modèle, pas seulement inspiré par lui, TOUTE sa structure : l'ordre des étapes narratives, ce qu'il développe ou survole, son rythme. Si le récit s'écarte du squelette du modèle (une étape sautée, réordonnée, ou développée alors que le modèle ne fait que l'effleurer, ou l'inverse), c'est un écart de calque à signaler dans segments_faibles. Vérifie SPÉCIFIQUEMENT que le dernier segment se termine par une triple question miroir ("Alors, que retenir de cette histoire ? Que... ? Que... ? Ou que... ?") : si elle est absente, c'est une ERREUR GRAVE à signaler explicitement dans segments_faibles.
+4. PLAGIAT, vérification OBLIGATOIRE, indépendante des points précédents : compare chaque phrase du récit, mot par mot, aux phrases du script du modèle. Si une phrase du récit reprend la construction ou l'essentiel des mots d'une phrase du modèle (même avec un ou deux mots changés), c'est un PLAGIAT à signaler explicitement dans segments_faibles, quel que soit le segment concerné.
+5. Vérifie que la SIGNATURE MÉTAPOÉTIQUE ("Moi, je t'ai pas [X]. Je t'ai [Y].") est bien présente dans la clôture, adaptée précisément au sujet. Elle est OBLIGATOIRE, si elle est absente, générique ou faible, signale-le comme un problème à corriger.
+6. REDONDANCE, vérification OBLIGATOIRE : compare chaque segment à celui qui le précède IMMÉDIATEMENT. Si un segment exprime, avec d'autres mots, une idée déjà posée dans le segment précédent, c'est une faiblesse à signaler explicitement dans segments_faibles.
+
+TEMPS 2, LA CORRECTION (UNIQUEMENT si le Temps 1 a trouvé au moins un problème réel) : réécris UNIQUEMENT les segments identifiés comme faibles au Temps 1. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même fonction narrative), ce sont les points forts, ne les abîme pas.
+
+RÈGLES DE LA CORRECTION, SI ELLE A LIEU :
+- Ne touche JAMAIS un segment que ton propre diagnostic n'a pas signalé comme faible.
+- ${CONSIGNE_PHRASES_COURTES}
+- Renvoie la liste COMPLÈTE des segments dans le même ordre, avec le même nombre total et les mêmes valeurs de "segment" (fonction narrative).
+- Si le dernier segment (clôture) est réécrit, il DOIT contenir la triple question miroir ET la signature métapoétique, les deux systématiquement.
+- Réécris aussi les 5 hooks UNIQUEMENT si ton diagnostic a signalé un hook faible, sinon garde-les.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après. Si le Temps 1 ne trouve AUCUN problème, "hooks" et "recit" doivent être des tableaux VIDES (ne corrige rien qui n'a pas été diagnostiqué) :
+{"verdict":"excellent" ou "à améliorer","segments_faibles":[{"index":2,"probleme":"description précise et actionnable"}],"raisons_de_scroll":["raison concrète 1"],"ia_generique":false,"instructions_revision":"instructions précises, segment par segment, ou vide si aucun problème","hooks":[{"style":"...","texte":"..."}],"recit":[{"segment":"Hook","texte":"..."}]}`;
+
+            try {
+              if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3); // phase : corrections ciblées
+              // 9000 et non 2500/8000 : ce seul appel porte désormais à la
+              // fois le diagnostic (auparavant 2500 jetons) et la correction
+              // éventuelle (auparavant 8000 jetons) — budget dimensionné
+              // pour le pire cas (les deux dans la même réponse), pas mesuré.
+              const fusionRaw = await callAI(modeleQualiteRecit(), 9000, fusionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'story');
+              const fusion = parseAIResponse(fusionRaw);
+              if (!fusion) break; // échec technique : on s'arrête là plutôt que de perdre du temps
+              if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritiqueRecit, fusion);
+
+              // La correction n'est appliquée QUE si le diagnostic (même
+              // fonction de gating qu'à la passe 0) l'exige ET qu'une
+              // correction non vide a vraiment été fournie : un modèle qui
+              // corrigerait malgré un diagnostic "excellent" ne doit jamais
+              // pouvoir modifier le récit.
+              if (critiqueRecitProbleme(fusion) && Array.isArray(fusion.recit) && fusion.recit.length) {
+                _mesurePassesRecit.revisions++;
+                parsed.recit = fusion.recit;
+                if (Array.isArray(fusion.hooks) && fusion.hooks.length) parsed.hooks = fusion.hooks;
+              }
+            } catch(e) { break; /* si la fusion échoue (même après réessais), on garde la meilleure version obtenue */ }
+          }
         }
       } catch(e) { /* si la critique/révision échoue, on garde la meilleure version obtenue */ }
     }

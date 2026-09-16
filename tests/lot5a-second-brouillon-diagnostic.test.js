@@ -65,6 +65,12 @@ const CRITIQUE_NON_FONDAMENTAL = {
 async function lancerScript(page, baseUrl, premiereCritique) {
   const appelsEcriture = [];
   const appelsCritique = [];
+  // Audit architectural "Fusion Critique+Reviewer" : la passe finale (passe
+  // 1) n'appelle plus le Critique seul (2500 jetons), mais un appel fusionné
+  // Critique+Réviseur (9000 jetons, voir js/generation.js). C'est LUI qui
+  // repasse sur le nouveau brouillon après un Second Draft, pas une 2e
+  // critique isolée.
+  const appelsFusion = [];
   await poserMocksReseau(page);
   await page.route('**/api/generate', async (route) => {
     const body = JSON.parse(route.request().postData() || '{}');
@@ -75,8 +81,15 @@ async function lancerScript(page, baseUrl, premiereCritique) {
     }
     if (body.max_tokens === 2500) {
       appelsCritique.push(body);
-      const critique = appelsCritique.length === 1 ? premiereCritique : CRITIQUE_OK;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(critique) }] }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(premiereCritique) }] }) });
+    }
+    if (body.max_tokens === 9000) {
+      appelsFusion.push(body);
+      // Diagnostic "excellent" sans correction : ce lot ne teste pas la
+      // fusion elle-même (voir tests/audit-fusion-critique-reviewer si
+      // présent), seulement que la passe finale a bien lieu et n'invente
+      // rien de plus.
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(CRITIQUE_OK) }] }) });
     }
     // Hook completion, correction de durée, juge : hors périmètre de ce lot,
     // réponse neutre (le script est déjà à 5 hooks et dans la cible).
@@ -97,7 +110,7 @@ async function lancerScript(page, baseUrl, premiereCritique) {
   await page.evaluate(() => generate());
   await page.waitForFunction(() => typeof currentScript !== 'undefined' && currentScript && currentScript.length, null, { timeout: 25000 });
   await page.waitForTimeout(600);
-  return { appelsEcriture, appelsCritique };
+  return { appelsEcriture, appelsCritique, appelsFusion };
 }
 
 test('Script : le second brouillon reçoit une synthèse du diagnostic du Critique (raisons de scroll, instructions, justification IA générique, points forts)', async () => {
@@ -108,10 +121,11 @@ test('Script : le second brouillon reçoit une synthèse du diagnostic du Critiq
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
 
-    const { appelsEcriture, appelsCritique } = await lancerScript(page, baseUrl, CRITIQUE_FONDAMENTAL_SCRIPT);
+    const { appelsEcriture, appelsCritique, appelsFusion } = await lancerScript(page, baseUrl, CRITIQUE_FONDAMENTAL_SCRIPT);
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(appelsCritique.length, 2, 'le critique doit repasser une 2e fois sur le nouveau brouillon');
+    assert.equal(appelsCritique.length, 1, 'un seul passage de la Critique seule (passe 0)');
+    assert.equal(appelsFusion.length, 1, 'REGRESSION : la passe finale (fusion Critique+Réviseur) doit repasser sur le nouveau brouillon issu du second brouillon');
     assert.equal(appelsEcriture.length, 2, 'exactement 1er brouillon + second brouillon, pas de 3e écriture');
 
     const texteSecond = texteEnvoye(appelsEcriture[1]);
@@ -205,6 +219,10 @@ const CRITIQUE_NON_FONDAMENTAL_RECIT = {
 async function lancerRecit(page, baseUrl, premiereCritique) {
   const appelsEcriture = [];
   const appelsCritique = [];
+  // Audit architectural "Fusion Critique+Reviewer" : la passe finale (passe
+  // 1) n'appelle plus le Critique seul (2500 jetons), mais un appel fusionné
+  // Critique+Réviseur (9000 jetons, voir js/storytelling.js).
+  const appelsFusion = [];
   await poserMocksReseau(page);
   await page.route('**/api/generate', async (route) => {
     const body = JSON.parse(route.request().postData() || '{}');
@@ -214,8 +232,11 @@ async function lancerRecit(page, baseUrl, premiereCritique) {
     }
     if (body.max_tokens === 2500) {
       appelsCritique.push(body);
-      const critique = appelsCritique.length === 1 ? premiereCritique : CRITIQUE_OK_RECIT;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(critique) }] }) });
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(premiereCritique) }] }) });
+    }
+    if (body.max_tokens === 9000) {
+      appelsFusion.push(body);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ content: [{ text: JSON.stringify(CRITIQUE_OK_RECIT) }] }) });
     }
     // Choix sémantique de modèle (400), hooks/ouverture/clôture/révision/
     // correction de durée/juge : hors périmètre de ce lot, réponse neutre.
@@ -235,7 +256,7 @@ async function lancerRecit(page, baseUrl, premiereCritique) {
   await page.evaluate(() => generateStory());
   await page.waitForFunction(() => typeof currentStory !== 'undefined' && currentStory && currentStory.recit && currentStory.recit.length, null, { timeout: 25000 });
   await page.waitForTimeout(600);
-  return { appelsEcriture, appelsCritique };
+  return { appelsEcriture, appelsCritique, appelsFusion };
 }
 
 test('Récit : le second brouillon reçoit une synthèse du diagnostic du Critique (raisons de scroll, instructions)', async () => {
@@ -246,10 +267,11 @@ test('Récit : le second brouillon reçoit une synthèse du diagnostic du Critiq
     const erreursJs = [];
     page.on('pageerror', e => erreursJs.push(e.message));
 
-    const { appelsEcriture, appelsCritique } = await lancerRecit(page, baseUrl, CRITIQUE_FONDAMENTAL_RECIT);
+    const { appelsEcriture, appelsCritique, appelsFusion } = await lancerRecit(page, baseUrl, CRITIQUE_FONDAMENTAL_RECIT);
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    assert.equal(appelsCritique.length, 2, 'le critique doit repasser une 2e fois sur le nouveau brouillon');
+    assert.equal(appelsCritique.length, 1, 'un seul passage de la Critique seule (passe 0)');
+    assert.equal(appelsFusion.length, 1, 'REGRESSION : la passe finale (fusion Critique+Réviseur) doit repasser sur le nouveau brouillon issu du second brouillon');
     assert.equal(appelsEcriture.length, 2, 'exactement 1er brouillon + second brouillon');
 
     const texteSecond = texteEnvoye(appelsEcriture[1]);

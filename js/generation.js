@@ -2324,11 +2324,7 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
       for (let passe = 0; passe < MAX_PASSES_QUALITE; passe++) {
         _mesurePasses.critiques++;
         if (repondreMaintenant) break; // l'utilisateur a demandé son brouillon maintenant
-        // ══════════════════════════════════════
-        //  PHASE 3, LE CRITIQUE (agent indépendant)
-        //  Juge le travail du rédacteur sans l'avoir écrit. Cherche
-        //  volontairement les faiblesses plutôt que de valider par défaut.
-        // ══════════════════════════════════════
+
         const scriptForReview = (parsed.script || []).map((s, i) => '[segment ' + i + ', ' + s.temps + '] ' + s.texte).join('\n');
         const hooksForReview = (parsed.hooks || []).map((h, i) => (i + 1) + '. ' + h.texte).join('\n');
 
@@ -2341,7 +2337,21 @@ Génère exactement 5 hooks. Le script doit avoir ${wt.blocs} blocs et faire IMP
              || _genDetecterPromesseRang((parsed.hooks && parsed.hooks[0] && parsed.hooks[0].texte) || ''))
           : '';
 
-        const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
+        if (passe === 0) {
+          // ══════════════════════════════════════
+          //  PASSE 0, LE CRITIQUE SEUL (agent indépendant)
+          //  Juge le travail du rédacteur sans l'avoir écrit. Cherche
+          //  volontairement les faiblesses plutôt que de valider par défaut.
+          //  Volontairement NON fusionnée avec le Réviseur (audit
+          //  architectural "Fusion Critique+Reviewer") : c'est le seul
+          //  passage qui peut encore déclencher un Second Draft complet
+          //  ci-dessous, une décision qui doit s'appuyer sur un diagnostic
+          //  produit AVANT toute tentative de correction, jamais mêlé à elle
+          //  dans la même réponse (sinon la correction que cet appel aurait
+          //  produite serait jetée en silence dès qu'un problème fondamental
+          //  est détecté).
+          // ══════════════════════════════════════
+          const critiquePrompt = `Tu es le Critique Éditorial de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script, ton rôle est de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
 
 CONTEXTE :
 - Sujet : ${sujetCourt}
@@ -2370,52 +2380,52 @@ ${objectifCritiqueScript ? `\n1bis. CONTRÔLE SPÉCIFIQUE À L'OBJECTIF "${state
 Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 {"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise avec le numéro de segment concerné"],"points_forts":["ce qui marche"],"segments_faibles":[{"index":2,"probleme":"description précise et actionnable du problème de ce segment"}],"raisons_de_scroll":["raison concrète 1","raison concrète 2"],"ia_generique":true,"justification_ia_generique":"pourquoi, en une phrase (chaîne vide si non générique)","viralite":{"hook":15,"curiosite":14,"rythme":16,"progression":15,"transitions":14,"revelation":13,"memorisation":15},"instructions_revision":"instructions précises et actionnables pour le réviseur, segment par segment"}`;
 
-        if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3);
-        let nouvelleCritique = null;
-        try {
-          const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
-          nouvelleCritique = parseAIResponse(critiqueRaw);
-        } catch(e) { /* si le critique échoue (même après réessais), on garde la meilleure version obtenue */ }
-
-        if (!nouvelleCritique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
-        critique = nouvelleCritique;
-        if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritique, critique);
-
-        if (!critiqueIndiqueProbleme(critique)) break; // le script passe le contrôle qualité : terminé
-
-        if (!repondreMaintenant && passe === 0 && critiqueIndiqueProblemeFondamental(critique)) {
-          // ── SECOND BROUILLON COMPLET ──
-          // Le Critique (indépendant) juge le premier brouillon fondamentalement
-          // faible (générique ET jugé "à améliorer", ou viralité très basse) :
-          // une révision segment par segment ne suffirait pas, on retente une
-          // écriture complète plutôt que de rafistoler.
+          if (typeof avancerEtapeGen === 'function') avancerEtapeGen(3);
+          let nouvelleCritique = null;
           try {
-            _mesurePasses.second_brouillon = true;
-            // LOT 5A : writePrompt lui-même reste inchangé (utilisé tel quel
-            // par le 1er essai ligne 2209 et son retry technique ligne 2225) -
-            // seul CET appel reçoit le diagnostic, en plus, jamais à la place.
-            const writePromptInforme = writePrompt + syntheseDiagnosticSecondBrouillon(critique);
-            const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePromptInforme, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
-            const parsed2 = parseAIResponse(writeRaw2);
-            if (scriptEstComplet(parsed2)) {
-              parsed = parsed2;
-              continue; // relance une passe de critique sur ce nouveau brouillon
-            }
-          } catch(e) { /* si le second brouillon échoue, on continue avec la révision ciblée */ }
-        }
+            const critiqueRaw = await callAI(MODEL_RAPIDE, 2500, critiquePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+            nouvelleCritique = parseAIResponse(critiqueRaw);
+          } catch(e) { /* si le critique échoue (même après réessais), on garde la meilleure version obtenue */ }
 
-        // ══════════════════════════════════════
-        //  PHASE 4, LE RÉVISEUR (agent indépendant)
-        //  Réécrit UNIQUEMENT les segments identifiés comme faibles,
-        //  jamais le script entier, pour ne jamais perdre ce qui marche.
-        // ══════════════════════════════════════
-        const segmentsFaiblesTxt = (critique.segments_faibles || [])
-          .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
-          || (critique.faiblesses || []).map(f => '- ' + f).join('\n')
-          || 'Aucun segment précis signalé, applique les instructions générales ci-dessous à l\'ensemble.';
-        const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
+          if (!nouvelleCritique) break; // échec technique : on s'arrête là plutôt que de perdre du temps
+          critique = nouvelleCritique;
+          if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritique, critique);
 
-        const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de contenu viral. Un critique indépendant a évalué le script ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel), ce sont les points forts du script, ne les abîme pas.
+          if (!critiqueIndiqueProbleme(critique)) break; // le script passe le contrôle qualité : terminé
+
+          if (!repondreMaintenant && critiqueIndiqueProblemeFondamental(critique)) {
+            // ── SECOND BROUILLON COMPLET ──
+            // Le Critique (indépendant) juge le premier brouillon fondamentalement
+            // faible (générique ET jugé "à améliorer", ou viralité très basse) :
+            // une révision segment par segment ne suffirait pas, on retente une
+            // écriture complète plutôt que de rafistoler.
+            try {
+              _mesurePasses.second_brouillon = true;
+              // LOT 5A : writePrompt lui-même reste inchangé (utilisé tel quel
+              // par le 1er essai ligne 2209 et son retry technique ligne 2225) -
+              // seul CET appel reçoit le diagnostic, en plus, jamais à la place.
+              const writePromptInforme = writePrompt + syntheseDiagnosticSecondBrouillon(critique);
+              const writeRaw2 = await callAI(MODEL_CREATIF, 16000, writePromptInforme, undefined, rechercheWeb, undefined, undefined, undefined, onApercuEcriture, 'script');
+              const parsed2 = parseAIResponse(writeRaw2);
+              if (scriptEstComplet(parsed2)) {
+                parsed = parsed2;
+                continue; // relance une passe de critique sur ce nouveau brouillon
+              }
+            } catch(e) { /* si le second brouillon échoue, on continue avec la révision ciblée */ }
+          }
+
+          // ══════════════════════════════════════
+          //  PHASE 4, LE RÉVISEUR (agent indépendant)
+          //  Réécrit UNIQUEMENT les segments identifiés comme faibles,
+          //  jamais le script entier, pour ne jamais perdre ce qui marche.
+          // ══════════════════════════════════════
+          const segmentsFaiblesTxt = (critique.segments_faibles || [])
+            .map(sf => '- Segment ' + sf.index + ' : ' + sf.probleme).join('\n')
+            || (critique.faiblesses || []).map(f => '- ' + f).join('\n')
+            || 'Aucun segment précis signalé, applique les instructions générales ci-dessous à l\'ensemble.';
+          const raisonsScrollTxt = (critique.raisons_de_scroll || []).map(r => '- ' + r).join('\n');
+
+          const revisePrompt = `Tu es le Réviseur en Chef de Scriptura, expert en réécriture CIBLÉE de contenu viral. Un critique indépendant a évalué le script ci-dessous. RÈGLE ABSOLUE : ne réécris QUE les segments identifiés comme faibles. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel), ce sont les points forts du script, ne les abîme pas.
 
 SUJET : ${sujetCourt} | PLATEFORME : ${state.plateforme} | OBJECTIF : ${state.objectif}
 ${objectifCorpsInstructionScript}
@@ -2444,18 +2454,99 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
 
 Fournis les 5 hooks (réécris-les aussi si le critique a signalé un problème de hook, sinon garde les meilleurs) et le script complet, segment par segment, dans le même ordre.`;
 
-        if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4);
-        try {
-          _mesurePasses.revisions++;
-          const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
-          const revised = parseAIResponse(reviseRaw);
-          if (revised && revised.script) {
-            parsed.script = revised.script;
-            if (revised.hooks) parsed.hooks = revised.hooks;
-          } else {
-            break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
+          if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4);
+          try {
+            _mesurePasses.revisions++;
+            const reviseRaw = await callAI(MODEL_CREATIF, 8000, revisePrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+            const revised = parseAIResponse(reviseRaw);
+            if (revised && revised.script) {
+              parsed.script = revised.script;
+              if (revised.hooks) parsed.hooks = revised.hooks;
+            } else {
+              break; // réponse illisible : on garde la meilleure version obtenue plutôt que de la perdre
+            }
+          } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
+
+        } else {
+          // ══════════════════════════════════════
+          //  PASSE FINALE, CRITIQUE + RÉVISEUR FUSIONNÉS (audit architectural
+          //  "Fusion Critique+Reviewer"). Plus de Second Draft possible à ce
+          //  stade (son déclenchement est réservé à passe===0 ci-dessus) :
+          //  rien n'empêche donc de diagnostiquer ET corriger dans le même
+          //  appel. Le diagnostic (TEMPS 1) reste écrit en premier dans la
+          //  consigne, avant la correction (TEMPS 2), pour qu'il reste
+          //  sincère, non influencé par une correction déjà entamée. Avant
+          //  ce correctif : Critique (2500 jetons) puis, si besoin, Réviseur
+          //  (8000 jetons), deux appels distincts, identiques en substance à
+          //  la passe 0 ci-dessus.
+          // ══════════════════════════════════════
+          const fusionPrompt = `Tu es le Critique Éditorial ET, si nécessaire, le Réviseur en Chef de Scriptura, un directeur éditorial exigeant et INDÉPENDANT. Tu n'as PAS écrit ce script, ton rôle est d'abord de chercher VOLONTAIREMENT ses faiblesses, jamais de le valider par complaisance. RÈGLE FONDAMENTALE : un script de Scriptura ne doit jamais ressembler à ce que produirait une IA généraliste. Si c'est le cas ici, dis-le sans détour.
+
+CONTEXTE :
+- Sujet : ${sujetCourt}
+- Plateforme : ${state.plateforme}
+- Objectif : ${state.objectif}
+${objectifCorpsInstructionScript}
+- Durée cible : ${wt.desc} (${wt.min}-${wt.max} mots)
+- Angle stratégique prévu : ${brief.angle_choisi || 'non précisé'}
+
+HOOKS PROPOSÉS (numérotés) :
+${hooksForReview}
+
+SCRIPT PROPOSÉ (segments numérotés, ne change jamais leur numéro) :
+${scriptForReview}
+
+TON TRAVAIL, EN DEUX TEMPS :
+
+TEMPS 1, LE DIAGNOSTIC (à faire en premier et sincèrement, avant de songer à corriger quoi que ce soit) :
+1. DÉTECTION DES FAIBLESSES, cherche, segment par segment : phrases génériques, clichés, longueurs inutiles, répétitions, révélations arrivées trop tôt (qui tuent la tension), baisses de tension, passages oubliables, formulations qui "sentent l'IA" (transitions plates, généralités creuses, ton neutre de manuel). Vérifie aussi que l'angle, l'émotion et la structure servent vraiment l'objectif du créateur ci-dessus (pas seulement le CTA final) : si le corps du script pourrait être identique quel que soit l'objectif choisi, c'est une faiblesse à signaler. Pour chaque faiblesse, indique le numéro du segment concerné.
+${objectifCritiqueScript ? `\n1bis. CONTRÔLE SPÉCIFIQUE À L'OBJECTIF "${state.objectif}" : ${objectifCritiqueScript} Toute réponse négative ou mitigée à ces questions est une faiblesse à signaler, au même titre que celles du point 1.\n` : ''}
+1ter. CONTRÔLE DE LA RÉPARTITION DU TEMPS (structure standard des vidéos qui performent : hook 0-3 secondes, puis corps, puis CTA/chute sur 5-10 secondes) : COMPTE les mots du PREMIER segment. Au-delà de 10-12 mots, il dépasse les 3 secondes de hook (repère : ~2,5 mots par seconde) et ce n'est plus un hook mais du développement déguisé, le spectateur a déjà scrollé. Signale-le comme une faiblesse du segment 0, avec le nombre de mots constaté. Même contrôle sur le DERNIER segment, qui doit tenir en 5-10 secondes (12 à 25 mots). COMPTE ENFIN les mots de CHAQUE segment du milieu : aucun ne doit dépasser ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots (${Math.round(plafondDureeBloc())} secondes de parole). Un segment qui porte à lui seul la moitié du script est une faiblesse à signaler même si le total de mots est juste : indique son numéro, son nombre de mots, et à quelle frontière d'idée il devrait être coupé en deux.${promesseRangScript ? `
+1quater. CONTRÔLE DE LA PROMESSE CHIFFRÉE : l'ouverture de ce script promet explicitement « ${promesseRangScript} ». ÉNUMÈRE dans l'ordre d'apparition les éléments que le corps du script présente vraiment, numérote-les, puis vérifie que l'élément révélé/développé comme étant ce rang est EXACTEMENT celui qui occupe ce rang dans ton énumération. S'il y a décalage (le hook annonce le rang 3 mais la révélation porte sur le 5e élément listé), c'est une faiblesse MAJEURE : signale-la avec le numéro du segment de la révélation, le rang promis et le rang réellement livré. Un spectateur qui compte décroche pile à cet instant, c'est-à-dire au moment de la révélation.` : ''}
+2. RÉFUTATION, LE TEST LE PLUS IMPORTANT : essaie volontairement de RÉFUTER ce script. Cherche TOUTES les raisons concrètes pour lesquelles un spectateur ferait défiler la vidéo AVANT LA FIN (hook trop lent, promesse non tenue, passage à vide, prévisibilité, bloc trop long, perte d'intérêt...). Ne laisse la liste vide que si, après un examen sincère et sévère, tu n'as vraiment trouvé aucune raison valable.
+3. CONTRÔLE DE VIRALITÉ ET ANTI-IA-GÉNÉRIQUE, note chacun de ces critères avec rigueur, sur 20 : force du hook, intensité de la curiosité créée, rythme narratif, progression dramatique, qualité des transitions, puissance de la révélation, mémorisation finale. Puis réponds honnêtement : ce script, tel quel, paraît-il avoir été écrit par une IA généraliste plutôt que par un storyteller TikTok spécialisé ?
+
+TEMPS 2, LA CORRECTION (UNIQUEMENT si le Temps 1 a trouvé au moins un problème réel) : réécris UNIQUEMENT les segments identifiés comme faibles au Temps 1. Conserve TOUS les autres segments EXACTEMENT tels quels (même texte, même timing, même visuel), ce sont les points forts du script, ne les abîme pas.
+
+RÈGLES DE LA CORRECTION, SI ELLE A LIEU :
+- Ne touche JAMAIS un segment que ton propre diagnostic n'a pas signalé comme faible.
+- ${CONSIGNE_PHRASES_COURTES}
+- Renvoie la liste COMPLÈTE des segments (les inchangés recopiés à l'identique, les faibles réécrits), dans le même ordre, avec le même nombre total de segments.
+- Respecte la durée cible ${wt.min}-${wt.max} mots au total et ${wt.blocs} blocs.
+- Répartition du temps à préserver : premier bloc (hook) 7 à 10 mots pour tenir en 0-3 secondes, dernier bloc 12 à 25 mots pour tenir en 5-10 secondes. Si tu réécris le premier segment, il doit RESTER dans cette limite, jamais s'allonger.
+- Aucun segment ne dépasse ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots (${Math.round(plafondDureeBloc())} secondes de parole) : un segment réécrit ne doit jamais absorber le contenu d'un autre ni gonfler au-delà de cette limite.${promesseRangScript ? `
+- L'ouverture promet « ${promesseRangScript} » : si tu réécris le segment de la révélation ou l'énumération, le rang annoncé et le rang réellement livré doivent correspondre exactement.` : ''}
+- Le hook doit arrêter le scroll, la tension tenir jusqu'au bout, ${estObjectifVues ? 'la chute doit boucler sur le hook (même mot/image/idée), jamais un CTA parlé de partage.' : 'le CTA final être présent et clair.'}
+- Réécris aussi les hooks UNIQUEMENT si ton diagnostic a signalé un problème de hook, sinon garde les 5 meilleurs tels quels.
+
+Réponds UNIQUEMENT en JSON valide sans texte avant ni après. Si le Temps 1 ne trouve AUCUN problème, "hooks" et "script" doivent être des tableaux VIDES (ne corrige rien qui n'a pas été diagnostiqué) :
+{"verdict":"excellent" ou "à améliorer","note_globale":75,"faiblesses":["faiblesse précise avec le numéro de segment concerné"],"points_forts":["ce qui marche"],"segments_faibles":[{"index":2,"probleme":"description précise et actionnable du problème de ce segment"}],"raisons_de_scroll":["raison concrète 1","raison concrète 2"],"ia_generique":true,"justification_ia_generique":"pourquoi, en une phrase (chaîne vide si non générique)","viralite":{"hook":15,"curiosite":14,"rythme":16,"progression":15,"transitions":14,"revelation":13,"memorisation":15},"instructions_revision":"instructions précises et actionnables, ou vide si aucun problème","hooks":[{"style":"...","texte":"..."}],"script":[{"temps":"0-3 sec","texte":"...","visuel":"..."}]}`;
+
+          if (typeof avancerEtapeGen === 'function') avancerEtapeGen(4);
+          let fusion = null;
+          try {
+            // 9000 et non 2500/8000 : ce seul appel porte désormais à la fois
+            // le diagnostic (auparavant 2500 jetons) et la correction
+            // éventuelle (auparavant 8000 jetons) — budget dimensionné pour
+            // le pire cas (les deux dans la même réponse), pas mesuré.
+            const fusionRaw = await callAI(MODEL_CREATIF, 9000, fusionPrompt, undefined, undefined, undefined, undefined, undefined, undefined, 'script');
+            fusion = parseAIResponse(fusionRaw);
+          } catch(e) { break; /* si la fusion échoue (même après réessais), on garde la meilleure version obtenue */ }
+
+          if (!fusion) break;
+          critique = fusion;
+          if (typeof mesurerSignauxCritique === 'function') mesurerSignauxCritique(_mesureCritique, critique);
+
+          // La correction n'est appliquée QUE si le diagnostic (même fonction
+          // de gating qu'à la passe 0) l'exige ET qu'une correction non vide
+          // a vraiment été fournie : un modèle qui corrigerait malgré un
+          // diagnostic "excellent" ne doit jamais pouvoir modifier le script.
+          if (critiqueIndiqueProbleme(fusion) && Array.isArray(fusion.script) && fusion.script.length) {
+            _mesurePasses.revisions++;
+            parsed.script = fusion.script;
+            if (Array.isArray(fusion.hooks) && fusion.hooks.length) parsed.hooks = fusion.hooks;
           }
-        } catch(e) { break; /* si la révision échoue (même après réessais), on garde la version précédente */ }
+        }
       }
     }
 
@@ -2563,6 +2654,65 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       return { compte: compte, lignes: lignes, plafondMots: plafondMots, indicesACorriger: indicesACorriger };
     }
 
+    // LOT 5C (audit token efficiency, suite de LOT 5B) : `indicesACorriger`
+    // est déjà trié par ordre croissant (construit par un .map séquentiel sur
+    // les blocs, voir planDureeParBloc ci-dessus) - regrouper les indices
+    // CONSÉCUTIFS en zones permet de donner à chaque zone un seul voisin
+    // avant/après, plutôt que de fournir un contexte isolé par bloc qui
+    // ignorerait que les blocs voisins font eux-mêmes partie d'une même
+    // correction. Fonction pure, sans effet de bord, testable seule.
+    function regrouperIndicesEnZones(indices) {
+      if (!Array.isArray(indices) || !indices.length) return [];
+      const zones = [];
+      let zoneCourante = [indices[0]];
+      for (let i = 1; i < indices.length; i++) {
+        if (indices[i] === indices[i - 1] + 1) {
+          zoneCourante.push(indices[i]);
+        } else {
+          zones.push(zoneCourante);
+          zoneCourante = [indices[i]];
+        }
+      }
+      zones.push(zoneCourante);
+      return zones;
+    }
+
+    // Construit le contexte RÉDUIT envoyé au modèle pour une correction
+    // ciblée : le hook, la chute, et pour chaque zone à corriger, ses blocs
+    // plus le voisin immédiat avant/après (jamais les blocs plus éloignés).
+    // Les blocs non montrés existent mais ne changent pas : le modèle en est
+    // informé explicitement pour qu'il ne les confonde jamais avec des blocs
+    // à corriger ni ne les considère comme absents du script.
+    // Marque clairement CHAQUE bloc montré comme "À CORRIGER" ou "contexte,
+    // ne pas modifier", pour qu'aucune ambiguïté ne subsiste sur ce qui peut
+    // être réécrit.
+    function construireContexteReduit(script, indicesACorriger) {
+      const n = script.length;
+      const zones = regrouperIndicesEnZones(indicesACorriger);
+      const aMontrer = new Set([0, n - 1]); // hook et chute, toujours
+      zones.forEach(zone => {
+        zone.forEach(i => aMontrer.add(i));
+        if (zone[0] - 1 >= 0) aMontrer.add(zone[0] - 1);
+        if (zone[zone.length - 1] + 1 <= n - 1) aMontrer.add(zone[zone.length - 1] + 1);
+      });
+      const indicesTries = Array.from(aMontrer).sort((a, b) => a - b);
+      const setACorriger = new Set(indicesACorriger);
+      const lignes = [];
+      let dernierAffiche = -1;
+      indicesTries.forEach(i => {
+        if (dernierAffiche !== -1 && i > dernierAffiche + 1) {
+          lignes.push('[... blocs ' + (dernierAffiche + 1) + ' à ' + (i - 1) + ' non montrés ici, ils existent mais ne font pas partie de cette correction, ils restent inchangés ...]');
+        }
+        const etiquette = i === 0 ? 'Bloc 0 (le HOOK, ne jamais modifier)'
+          : i === n - 1 ? 'Bloc ' + i + ' (la CHUTE, ne jamais modifier)'
+          : setACorriger.has(i) ? 'Bloc ' + i + ' (À CORRIGER)'
+          : 'Bloc ' + i + ' (contexte seulement, ne PAS modifier ni recopier)';
+        lignes.push('[' + etiquette + '] ' + script[i].texte);
+        dernierAffiche = i;
+      });
+      return lignes.join('\n');
+    }
+
     async function corrigerDureeScript() {
       // Nettoyage AVANT tout comptage : sinon un "[0-3 sec]" ou un "VOIX OFF :"
       // parasite gonfle artificiellement le nombre de mots et fausse aussi bien
@@ -2580,6 +2730,18 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
       // trois corrections pour ça.
       let meilleurScript = parsed.script;
       let meilleurCount = wordCount;
+
+      // LOT 5C : une promesse chiffrée dans le hook ("l'erreur numéro 3", "la
+      // 2e raison"...) engage TOUT le script, pas seulement les blocs
+      // voisins d'une correction - le même contrôle que le Critique et le
+      // Réviseur appliquent déjà (voir promesseRangScript plus haut, et
+      // _genDetecterPromesseRang). Le hook (bloc 0) ne change jamais pendant
+      // cette boucle, donc ce test ne dépend pas de la tentative en cours :
+      // calculé UNE fois, avant la boucle.
+      const promesseRangCorrection = (typeof _genDetecterPromesseRang === 'function')
+        ? (_genDetecterPromesseRang((parsed.script && parsed.script[0] && parsed.script[0].texte) || '')
+           || _genDetecterPromesseRang((parsed.hooks && parsed.hooks[0] && parsed.hooks[0].texte) || ''))
+        : '';
 
       // 3 tentatives (au lieu de 2) : retour terrain, un script "2 minutes"
       // livré à 95 mots sans aucun avertissement. Avant ce correctif, une
@@ -2602,25 +2764,43 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après, avec EXACTEMENT $
         // donc plus être accidentellement altérés malgré la consigne "garde-le
         // tel quel") : le code les recolle lui-même, verbatim, juste en dessous.
         // Repli sur l'ancien comportement (script entier) si le plan ne peut
-        // pas être établi (moins de 3 blocs) ou, cas limite, si aucun bloc du
-        // milieu ne ressort comme à corriger alors que le total reste hors
-        // cible (l'écart vient alors du hook ou de la chute eux-mêmes, qu'on
-        // ne touche jamais : seule une réécriture complète peut y répondre).
-        const correctionCiblee = plan.lignes && plan.indicesACorriger.length > 0;
+        // pas être établi (moins de 3 blocs), si aucun bloc du milieu ne
+        // ressort comme à corriger alors que le total reste hors cible
+        // (l'écart vient alors du hook ou de la chute eux-mêmes, qu'on ne
+        // touche jamais : seule une réécriture complète peut y répondre), OU
+        // (LOT 5C) si une promesse chiffrée engage tout le script : dans ce
+        // cas, le CONTRAT DE SORTIE ne change pas (toujours seulement les
+        // blocs signalés, voir plus bas), seul le CONTEXTE D'ENTRÉE bascule
+        // sur le repli existant (script entier), inchangé depuis LOT5B.
+        const correctionCiblee = plan.lignes && plan.indicesACorriger.length > 0 && !promesseRangCorrection;
+        // LOT 5C (audit token efficiency, suite de LOT5B) : LOT5B avait déjà
+        // réduit la SORTIE demandée (uniquement les blocs signalés), mais
+        // laissait le script ENTIER en entrée à chaque tentative. Le code
+        // sait déjà PRÉCISÉMENT quels blocs sont à corriger
+        // (plan.indicesACorriger) : construireContexteReduit ne montre donc
+        // plus que le hook, la chute, et pour chaque zone de blocs à
+        // corriger (regrouperIndicesEnZones), son voisin immédiat avant/
+        // après - jamais les blocs plus éloignés, dont ce script n'a
+        // structurellement pas besoin pour corriger UN bloc précis (transition
+        // locale). Chaque bloc montré est étiqueté explicitement "À CORRIGER"
+        // ou "contexte seulement, ne PAS modifier ni recopier", pour qu'aucune
+        // ambiguïté ne subsiste sur ce qui peut être réécrit.
         const correctionPrompt = correctionCiblee ? `Tu es le Rédacteur en Chef de Scriptura. Le script suivant ne respecte PAS la durée demandée et doit être corrigé.
 
-TEXTE RÉELLEMENT PARLÉ DU SCRIPT ACTUEL (${wordCount} mots, c'est LUI seul qui détermine la durée de la vidéo) :
-${(parsed.script || []).map(s => '[' + s.temps + '] ' + s.texte).join('\n')}
+Tu ne reçois PAS le script complet ici, seulement un CONTEXTE PARTIEL : le hook, la chute, et les blocs directement utiles à la correction demandée. Les blocs non montrés existent bel et bien dans le script final, ils ne font simplement pas partie de cette correction et resteront inchangés.
 
-PROBLÈME : Ce script fait ${wordCount} mots PARLÉS. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots parlés (le texte à l'écran décrit dans les visuels ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
+CONTEXTE DISPONIBLE (${wordCount} mots au total dans le script COMPLET, c'est CE TOTAL seul qui détermine la durée de la vidéo, pas seulement ce que tu vois ci-dessous) :
+${construireContexteReduit(parsed.script, plan.indicesACorriger)}
+
+PROBLÈME : Ce script fait ${wordCount} mots PARLÉS au total. La cible pour ${wt.desc} est ${wt.min} à ${wt.max} mots parlés (le texte à l'écran décrit dans les visuels ne compte pas : il n'est jamais lu à voix haute et ne dure rien).
 ${tooShort ? 'Le script est TROP COURT. Tu dois l\'ALLONGER pour atteindre ' + wt.min + '-' + wt.max + ' mots. Ajoute du contenu de valeur, développe les idées, ajoute des détails percutants, SANS remplissage inutile. Garde le même sujet, le même angle, le même ton.' : 'Le script est TROP LONG. Tu dois le RACCOURCIR pour tomber à ' + wt.min + '-' + wt.max + ' mots. Coupe le superflu, condense, garde uniquement l\'essentiel percutant.'}
 
-LE COMPTE EXACT DE CHAQUE BLOC, MESURÉ (ne le recompte pas, il est juste) :
+LE COMPTE EXACT DE CHAQUE BLOC DU SCRIPT COMPLET, MESURÉ (ne le recompte pas, il est juste, y compris pour les blocs que tu ne vois pas ci-dessus) :
 ${plan.lignes}
 
 Il ${tooShort ? 'MANQUE' : 'y a'} exactement ${manque} mot${manque > 1 ? 's' : ''} ${tooShort ? 'à ajouter' : 'de trop'}. Applique les cibles ci-dessus bloc par bloc : c'est la seule chose à faire, et elle suffit à atteindre la durée.
 
-NE RÉÉCRIS QUE LES BLOCS D'INDEX ${plan.indicesACorriger.join(', ')} (les seuls signalés ci-dessus comme à corriger). N'inclus JAMAIS le hook, la chute, ni un bloc déjà à sa cible dans ta réponse : ils restent tels quels, ce n'est pas à toi de les recopier.
+NE RÉÉCRIS QUE LES BLOCS D'INDEX ${plan.indicesACorriger.join(', ')} (les seuls marqués "À CORRIGER" ci-dessus). N'inclus JAMAIS le hook, la chute, un bloc marqué "contexte seulement", ni aucun autre index dans ta réponse : ils restent tels quels, ce n'est pas à toi de les recopier ni de les modifier. Toute réponse portant un index hors de cette liste sera ignorée.
 - AUCUN bloc ne dépasse ${Math.round(plafondDureeBloc())} secondes de parole, soit environ ${Math.round(plafondDureeBloc() * MOTS_PAR_SEC_PARLE)} mots.
 - Chaque phrase garde une fonction, zéro remplissage.
 - Contexte : ${state.plateforme}, objectif ${state.objectif}, sujet : ${sujetCourt}
@@ -2667,10 +2847,23 @@ Réponds UNIQUEMENT en JSON valide sans texte avant ni après :
           // tournage aussi) ; tout bloc absent de la réponse - hook, chute,
           // bloc déjà à sa cible, ou un index que le modèle aurait malgré tout
           // omis - reste EXACTEMENT le bloc d'origine, jamais régénéré.
+          // LOT 5C : le prompt ne demande QUE plan.indicesACorriger, mais rien
+          // ne garantissait jusqu'ici qu'une réponse malgré tout hors-consigne
+          // (un index du hook, de la chute, ou tout autre index) soit rejetée
+          // AVANT ce correctif - seule la FORME du bloc était vérifiée
+          // (Number.isInteger + texte non vide), jamais que son index fasse
+          // partie des indices RÉELLEMENT demandés. Le hook et la chute ne
+          // doivent JAMAIS pouvoir être altérés par cette passe, quelle que
+          // soit la réponse du modèle : indépendant de l'optimisation de
+          // contexte ci-dessus, cette vérification s'applique aussi bien à
+          // l'ancien comportement (script entier envoyé) qu'au nouveau.
+          const indicesAutorises = new Set(plan.indicesACorriger);
           const blocsRecus = correctedScript && Array.isArray(correctedScript.blocs) ? correctedScript.blocs : [];
           const parIndex = new Map();
           blocsRecus.forEach(b => {
-            if (b && Number.isInteger(b.index) && typeof b.texte === 'string' && b.texte.trim()) parIndex.set(b.index, b);
+            if (b && Number.isInteger(b.index) && typeof b.texte === 'string' && b.texte.trim() && indicesAutorises.has(b.index)) {
+              parIndex.set(b.index, b);
+            }
           });
           if (parIndex.size) {
             scriptCorrige = parsed.script.map((bloc, i) => {
