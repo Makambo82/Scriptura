@@ -849,12 +849,20 @@ async function handleAdminStats(req, res, cfg, body) {
     // Table optionnelle (supabase/erreurs_generation.sql, à exécuter par le
     // propriétaire) : reste à 0 tant qu'elle n'existe pas, dégradation
     // silencieuse comme le reste de cette route.
+    //
+    // mode=neq.quota-degrade : retour propriétaire, ce mode (panne RPC
+    // consommer_usage/decrementer_jeton, voir journaliserPanneRpc dans
+    // api/_lib/acces.js) noyait la carte pendant l'incident. L'ÉCRITURE de
+    // l'alerte reste intacte (elle sert de trace côté base si besoin de
+    // creuser plus tard) : seul l'AFFICHAGE ici est filtré, pas la
+    // détection. Retirer ce filtre suffira à la faire réapparaître le jour
+    // où on voudra la surveiller à nouveau.
     let erreursParMode = {};
     let erreursTotal = 0;
     try {
       const depuis7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
       const rErr = await fetch(
-        cfg.url + '/rest/v1/erreurs_generation?select=mode&cree_le=gte.' + encodeURIComponent(depuis7),
+        cfg.url + '/rest/v1/erreurs_generation?select=mode&cree_le=gte.' + encodeURIComponent(depuis7) + '&mode=neq.quota-degrade',
         { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
       );
       const rowsErr = await rErr.json().catch(() => []);
@@ -866,12 +874,13 @@ async function handleAdminStats(req, res, cfg, body) {
     // voir ce qui s'est réellement passé, pas seulement un compte. Requête
     // SÉPARÉE de celle ci-dessus (qui doit rester exhaustive pour un total
     // exact) : celle-ci est limitée aux 50 plus récents, uniquement pour
-    // l'affichage du détail, jamais pour le comptage.
+    // l'affichage du détail, jamais pour le comptage. Même filtre
+    // quota-degrade qu'au-dessus, pour la même raison.
     let erreursRecentes = [];
     try {
       const depuis7 = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
       const rErrDetail = await fetch(
-        cfg.url + '/rest/v1/erreurs_generation?select=mode,detail,code_acces,cree_le&cree_le=gte.' + encodeURIComponent(depuis7) + '&order=cree_le.desc&limit=50',
+        cfg.url + '/rest/v1/erreurs_generation?select=mode,detail,code_acces,cree_le&cree_le=gte.' + encodeURIComponent(depuis7) + '&mode=neq.quota-degrade&order=cree_le.desc&limit=50',
         { headers: { apikey: cfg.key, Authorization: 'Bearer ' + cfg.key } }
       );
       const rowsErrDetail = await rErrDetail.json().catch(() => []);
