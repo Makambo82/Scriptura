@@ -55,10 +55,11 @@ nav{
    (identifiée par comparaison visuelle : Russo One, Google Fonts), en
    majuscules. Distinct du reste de l'app (Poppins minuscule) : c'est le
    texte du logo lui-même, pas un libellé Cinzel de la refonte précédente. */
-.logo{display:inline-flex;align-items:center;gap:8px;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.05rem;letter-spacing:0.01em;color:var(--white);opacity:1;transition:opacity 0.3s ease}
-/* URA en doré dans l'en-tête uniquement (retour propriétaire) : le menu
-   latéral, l'écran de génération et le pied de page gardent Scriptura
-   entièrement blanc (ou entièrement doré pour le pied de page). */
+.logo{display:inline-flex;align-items:center;gap:0;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.05rem;letter-spacing:0.01em;color:var(--white);opacity:1;transition:opacity 0.3s ease}
+/* URA en doré (retour propriétaire, capture de référence à l'appui) : le S
+   de l'icône se fond directement dans le mot, sans espace, comme un seul
+   logotype. Appliqué aux 4 emplacements (en-tête, menu latéral, écran de
+   génération, pied de page en style inline). */
 .logo em{color:var(--gold);font-style:normal}
 /* Icône "S" du logo (voir image de référence fournie par le propriétaire) :
    un seul trait épais en dégradé or, réutilisé identique aux 4 endroits où le
@@ -851,11 +852,12 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 }
 .gen-logo{
   /* Même police que .logo (voir plus haut) : Russo One, majuscules. */
-  display:flex;align-items:center;justify-content:center;gap:9px;
+  display:flex;align-items:center;justify-content:center;gap:0;
   font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.15rem;
   letter-spacing:0.01em;color:var(--white);margin-bottom:8px;
 }
 .gen-logo .logo-icon{width:26px;height:26px}
+.gen-logo em{color:var(--gold);font-style:normal}
 .gen-tagline{
   font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.18em;
   text-transform:lowercase;color:var(--gold);opacity:0.6;margin-bottom:48px;
@@ -2519,8 +2521,9 @@ body.is-unlocked .nav-generations-btn{display:flex}
 .sidebar.active{transform:translateX(0)}
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
 /* Même police que .logo (voir plus haut) : Russo One, majuscules. */
-.sidebar-logo{display:inline-flex;align-items:center;gap:7px;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1rem;letter-spacing:0.01em;color:var(--white)}
+.sidebar-logo{display:inline-flex;align-items:center;gap:0;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1rem;letter-spacing:0.01em;color:var(--white)}
 .sidebar-logo .logo-icon{width:20px;height:20px}
+.sidebar-logo em{color:var(--gold);font-style:normal}
 /* ZONE TACTILE DE 44x44, le minimum recommandé par Apple comme par Material.
    Mesurée à 23x29 lors de l'audit responsive : c'est le geste le plus
    fréquent du tiroir, et le plus pénible à viser au pouce quand il rate.
