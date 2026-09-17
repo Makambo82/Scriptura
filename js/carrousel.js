@@ -77,7 +77,7 @@ const CAR_MOTS_CTA = /\b(abonne|suis-moi|suis moi|commente|partage|enregistre|sa
 // carrousels de référence : chaque slide prend l'accent suivant, ce qui fait
 // respirer la série sans jamais sortir du fond sombre commun.
 const CAR_ACCENTS = [
-  { trait: '#C9A84C', doux: 'rgba(201,168,76,0.12)',  bord: 'rgba(201,168,76,0.42)' },
+  { trait: '#FA9410', doux: 'rgba(250,148,16,0.12)',  bord: 'rgba(250,148,16,0.42)' },
   { trait: '#3E9B75', doux: 'rgba(62,155,117,0.12)',  bord: 'rgba(62,155,117,0.42)' },
   { trait: '#6E9BD1', doux: 'rgba(110,155,209,0.12)', bord: 'rgba(110,155,209,0.40)' },
   { trait: '#9186D6', doux: 'rgba(145,134,214,0.12)', bord: 'rgba(145,134,214,0.40)' },
@@ -1456,8 +1456,8 @@ function carrouselFond(c, L, H) {
   // Halo radial très discret, comme sur les carrousels de référence : il
   // évite le fond parfaitement plat, qui fait "capture d'écran".
   const halo = c.createRadialGradient(L / 2, H * 0.22, 0, L / 2, H * 0.22, L * 0.7);
-  halo.addColorStop(0, 'rgba(201,168,76,0.07)');
-  halo.addColorStop(1, 'rgba(201,168,76,0)');
+  halo.addColorStop(0, 'rgba(250,148,16,0.07)');
+  halo.addColorStop(1, 'rgba(250,148,16,0)');
   c.fillStyle = halo;
   c.fillRect(0, 0, L, H);
 }
@@ -1516,7 +1516,7 @@ function composerSlideCarrousel(i) {
       // Cadre fin, légèrement doré, qui referme la slide comme sur les
       // carrousels de référence.
       const marge = 30 * u;
-      c.strokeStyle = 'rgba(201,168,76,0.30)';
+      c.strokeStyle = 'rgba(250,148,16,0.30)';
       c.lineWidth = 2 * u;
       carrouselRectArrondi(c, marge, marge, L - marge * 2, H - marge * 2, 42 * u);
       c.stroke();
@@ -1530,7 +1530,7 @@ function composerSlideCarrousel(i) {
       const seg = (bl - ecart * (total - 1)) / total;
       const by = marge + 28 * u;
       for (let s = 0; s < total; s++) {
-        c.fillStyle = s <= i ? '#C9A84C' : 'rgba(255,255,255,0.17)';
+        c.fillStyle = s <= i ? '#FA9410' : 'rgba(255,255,255,0.17)';
         carrouselRectArrondi(c, bx + s * (seg + ecart), by, Math.max(seg, 1), 6 * u, 3 * u);
         c.fill();
       }
@@ -1557,7 +1557,7 @@ function composerSlideCarrousel(i) {
       // en est, même si la barre du haut est masquée par l'interface TikTok.
       c.font = '600 ' + Math.round(28 * u) + 'px ' + CAR_SANS;
       c.textAlign = 'center';
-      c.fillStyle = 'rgba(201,168,76,0.75)';
+      c.fillStyle = 'rgba(250,148,16,0.75)';
       c.fillText((i + 1) + ' / ' + total, L / 2, H - marge - 22 * u);
 
       canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Composition impossible')), 'image/png');

@@ -14,8 +14,8 @@
      perçu comme un zoom. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Cinzel:wght@400;500&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260916-1"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="css/style.css?v=20260917-1"/>
 </head>
 <body>
 <script>
@@ -27,7 +27,7 @@
 
 <!-- NAV -->
 <nav>
-  <div class="logo" onclick="goHome()" style="cursor:pointer"><span class="logo-s">SCRIPT</span><em>URA</em></div>
+  <div class="logo" onclick="goHome()" style="cursor:pointer"><svg class="logo-icon" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="logoGradHeader" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F2762A"/><stop offset="100%" stop-color="#FDB71E"/></linearGradient></defs><path fill="none" stroke="url(#logoGradHeader)" stroke-width="20" stroke-linecap="round" d="M 74 24 C 40 24 22 30 22 42 C 22 54 78 46 78 62 C 78 76 58 78 24 76"/></svg><span class="logo-s">Scriptura</span></div>
   <div class="nav-right">
     <button class="nav-subscribe-cta nav-subscribe-btn" onclick="openPlans('abonnement')">S'abonner</button>
     <!-- Raccourci vers "Mes générations", réservé aux abonnés (Creator, Pro) et
@@ -60,7 +60,7 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-logo">SCRIPT<em>URA</em></span>
+    <span class="sidebar-logo"><svg class="logo-icon" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="logoGradSidebar" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F2762A"/><stop offset="100%" stop-color="#FDB71E"/></linearGradient></defs><path fill="none" stroke="url(#logoGradSidebar)" stroke-width="20" stroke-linecap="round" d="M 74 24 C 40 24 22 30 22 42 C 22 54 78 46 78 62 C 78 76 58 78 24 76"/></svg>Scriptura</span>
     <button class="sidebar-close" onclick="closeSidebar()" aria-label="Fermer">✕</button>
   </div>
 
@@ -158,7 +158,7 @@
   <button id="heroRetour" class="hero-retour" onclick="quitterFocus()">← Retour</button>
   <div class="hero-logo-badge hero-cascade" style="animation-delay:0s" aria-hidden="true">
     <svg width="24" height="24" viewBox="0 0 24 24">
-      <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#FDB71E" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
     </svg>
   </div>
   <div class="hero-eyebrow hero-cascade" style="animation-delay:.08s">Propulsé par l'IA</div>
@@ -541,7 +541,7 @@
         <p class="ds-loading-note" id="dsLoadingNote">Plus tu as de contenus, plus l'analyse est fouillée : on lit tes vidéos des 2 derniers mois, une à une. Quelques secondes de plus ☕, on s'occupe du reste.</p>
         <div class="ds-loading-icon">
           <svg viewBox="0 0 24 24" class="ds-loading-bolt">
-            <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#FDB71E" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
           </svg>
         </div>
         <div class="ds-loading-pct" id="dsLoadingPct">0%</div>
@@ -776,7 +776,7 @@
         <p class="ds-loading-note">On transcrit chaque vidéo pour en tirer le registre de langage et les patterns qui reviennent. Peut prendre plusieurs minutes ☕, on s'occupe du reste.</p>
         <div class="ds-loading-icon">
           <svg viewBox="0 0 24 24" class="ds-loading-bolt">
-            <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#E2C87A" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+            <path d="M13 2 L5 13 H11 L10 22 L19 10 H13 L14 2 Z" fill="none" stroke="#FDB71E" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
           </svg>
         </div>
         <div class="ds-loading-pct" id="tendancesLoadingPct">0%</div>
@@ -1926,7 +1926,7 @@
     </a>
   </div>
   <div style="margin-bottom:20px;white-space:nowrap;font-size:0.46rem;letter-spacing:0.08em;text-transform:uppercase">
-    <strong style="color:var(--gold);font-family:'Cinzel',serif">SCRIPTURA</strong><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">L'OS du créateur francophone</span><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">© 2026</span>
+    <strong style="color:var(--gold);font-family:'Poppins',sans-serif;text-transform:lowercase;display:inline-flex;align-items:center;gap:4px;vertical-align:middle"><svg class="logo-icon" style="width:11px;height:11px" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="logoGradFooter" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F2762A"/><stop offset="100%" stop-color="#FDB71E"/></linearGradient></defs><path fill="none" stroke="url(#logoGradFooter)" stroke-width="20" stroke-linecap="round" d="M 74 24 C 40 24 22 30 22 42 C 22 54 78 46 78 62 C 78 76 58 78 24 76"/></svg>Scriptura</strong><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">L'OS du créateur francophone</span><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">© 2026</span>
   </div>
 </footer>
 
@@ -1939,37 +1939,37 @@
      conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="js/modeles.js?v=20260916-1"></script>
+<script src="js/modeles.js?v=20260917-1"></script>
 
-<script src="js/api.js?v=20260916-1"></script>
-<script src="js/profil.js?v=20260916-1"></script>
-<script src="js/recommandations.js?v=20260916-1"></script>
-<script src="js/historique.js?v=20260916-1"></script>
-<script src="js/abonnement.js?v=20260916-1"></script>
-<script src="js/ui.js?v=20260916-1"></script>
-<script src="js/preuve-sociale.js?v=20260916-1"></script>
-<script src="js/auth.js?v=20260916-1"></script>
-<script src="js/state.js?v=20260916-1"></script>
-<script src="js/audit.js?v=20260916-1"></script>
-<script src="js/admin.js?v=20260916-1"></script>
-<script src="js/serie.js?v=20260916-1"></script>
-<script src="js/navigation.js?v=20260916-1"></script>
-<script src="js/storytelling.js?v=20260916-1"></script>
-<script src="js/storyboard.js?v=20260916-1"></script>
-<script src="js/storyboard-seul.js?v=20260916-1"></script>
-<script src="js/viral.js?v=20260916-1"></script>
-<script src="js/tendances.js?v=20260916-1"></script>
-<script src="js/tiktok-outils.js?v=20260916-1"></script>
-<script src="js/voix-enregistree.js?v=20260916-1"></script>
-<script src="js/montage.js?v=20260916-1"></script>
-<script src="js/montage-manuel.js?v=20260916-1"></script>
-<script src="js/montage-guide.js?v=20260916-1"></script>
-<script src="js/diagnostic-sommaire.js?v=20260916-1"></script>
-<script src="js/diagnostic-fusion.js?v=20260916-1"></script>
-<script src="js/carrousel.js?v=20260916-1"></script>
-<script src="js/generation.js?v=20260916-1"></script>
-<script src="js/niche-auto.js?v=20260916-1"></script>
-<script src="js/app.js?v=20260916-1"></script>
+<script src="js/api.js?v=20260917-1"></script>
+<script src="js/profil.js?v=20260917-1"></script>
+<script src="js/recommandations.js?v=20260917-1"></script>
+<script src="js/historique.js?v=20260917-1"></script>
+<script src="js/abonnement.js?v=20260917-1"></script>
+<script src="js/ui.js?v=20260917-1"></script>
+<script src="js/preuve-sociale.js?v=20260917-1"></script>
+<script src="js/auth.js?v=20260917-1"></script>
+<script src="js/state.js?v=20260917-1"></script>
+<script src="js/audit.js?v=20260917-1"></script>
+<script src="js/admin.js?v=20260917-1"></script>
+<script src="js/serie.js?v=20260917-1"></script>
+<script src="js/navigation.js?v=20260917-1"></script>
+<script src="js/storytelling.js?v=20260917-1"></script>
+<script src="js/storyboard.js?v=20260917-1"></script>
+<script src="js/storyboard-seul.js?v=20260917-1"></script>
+<script src="js/viral.js?v=20260917-1"></script>
+<script src="js/tendances.js?v=20260917-1"></script>
+<script src="js/tiktok-outils.js?v=20260917-1"></script>
+<script src="js/voix-enregistree.js?v=20260917-1"></script>
+<script src="js/montage.js?v=20260917-1"></script>
+<script src="js/montage-manuel.js?v=20260917-1"></script>
+<script src="js/montage-guide.js?v=20260917-1"></script>
+<script src="js/diagnostic-sommaire.js?v=20260917-1"></script>
+<script src="js/diagnostic-fusion.js?v=20260917-1"></script>
+<script src="js/carrousel.js?v=20260917-1"></script>
+<script src="js/generation.js?v=20260917-1"></script>
+<script src="js/niche-auto.js?v=20260917-1"></script>
+<script src="js/app.js?v=20260917-1"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">
@@ -2002,7 +2002,7 @@
 <!-- ANIMATION DE GÉNÉRATION -->
 <div class="gen-overlay" id="genOverlay">
   <div class="gen-box">
-    <div class="gen-logo">SCRIPT<em>URA</em></div>
+    <div class="gen-logo"><svg class="logo-icon" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="logoGradGen" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F2762A"/><stop offset="100%" stop-color="#FDB71E"/></linearGradient></defs><path fill="none" stroke="url(#logoGradGen)" stroke-width="20" stroke-linecap="round" d="M 74 24 C 40 24 22 30 22 42 C 22 54 78 46 78 62 C 78 76 58 78 24 76"/></svg>Scriptura</div>
     <div class="gen-tagline">Ton réalisateur IA au travail</div>
     <div class="gen-steps" id="genSteps">
       <div class="gen-step" data-step="0"><div class="gen-step-icon">1</div><div class="gen-step-text">Analyse stratégique du sujet…</div></div>

@@ -99,7 +99,7 @@ function updateGeoRequirement() {
 
   if (geoRequired) {
     if (optional) optional.style.display = 'none';
-    if (input) input.style.borderColor = 'rgba(201,168,76,0.4)';
+    if (input) input.style.borderColor = 'rgba(250,148,16,0.4)';
     if (label && !label.querySelector('.geo-req')) {
       const req = document.createElement('span');
       req.className = 'geo-req';

@@ -1666,8 +1666,8 @@ function telechargerDiagSommairePDF() {
   const UTILE = LARGEUR - MARGE * 2;
   let y = 0;
 
-  const OR = [201, 168, 76];
-  const OR_CLAIR = [226, 200, 122];
+  const OR = [250, 148, 16];
+  const OR_CLAIR = [253, 183, 30];
   const FOND = [28, 28, 30];
   const BLANC = [255, 255, 255];
   const GRIS = [175, 175, 178];

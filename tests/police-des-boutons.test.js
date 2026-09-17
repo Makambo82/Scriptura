@@ -16,10 +16,15 @@
 //      spécificité contre une autre, auquel cas rien ne change à l'écran ;
 //   2. le bouton principal reste en MAJUSCULES : c'est ce qui le distingue
 //      d'un champ ordinaire, et c'était l'objet même de la comparaison ;
-//   3. l'IDENTITÉ n'a pas suivi. Le logo et les libellés de section restent en
-//      Cinzel. Basculer toute l'app en Poppins n'a jamais été demandé, et ce
-//      serait la façon la plus rapide de faire disparaître Scriptura dans la
-//      masse des apps.
+//   3. MISE À JOUR (refonte visuelle, capture de référence à l'appui) : le
+//      point 3 disait que le logo et les libellés de section restaient en
+//      Cinzel. Ce n'est plus vrai depuis la refonte : Cinzel est retiré de
+//      toute l'app, logo compris, qui passe en Poppins minuscule (voir
+//      css/style.css, bloc « POLICE DES BOUTONS » et import de police dans
+//      index.html, Cinzel n'y est même plus chargé). Le bouton principal,
+//      lui, reste en MAJUSCULES : c'est une particularité du bouton, pas de
+//      l'identité générale, ce test-ci ne change pas. L'identité de
+//      Scriptura tient maintenant à l'icône S dorée du logo, pas à sa police.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -90,36 +95,48 @@ test('les boutons se lisent en Poppins, et le principal garde ses majuscules', a
   }
 });
 
-test('l\'identité de Scriptura reste en Cinzel', async () => {
+test('l\'identité de Scriptura tient à l\'icône S dorée du logo, en Poppins minuscule comme le reste de l\'app', async () => {
+  // Refonte visuelle (capture de référence à l'appui du propriétaire) :
+  // Cinzel est retiré de l'app entière, logo compris. Ce test remplace
+  // l'ancien « l'identité de Scriptura reste en Cinzel », qui verrouillait
+  // précisément le contraire de ce qui est demandé maintenant.
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
     const page = await ouvrirFormulaireScript(navigateur, baseUrl);
 
     const vu = await page.evaluate(() => {
-      const famille = (sel) => {
+      const style = (sel) => {
         const el = document.querySelector(sel);
-        return el ? getComputedStyle(el).fontFamily : null;
+        if (!el) return null;
+        const s = getComputedStyle(el);
+        return { famille: s.fontFamily, casse: s.textTransform };
       };
       const label = Array.from(document.querySelectorAll('.ctx-label'))
         .find(e => e.offsetParent !== null);
+      const logoEl = document.querySelector('.logo');
       return {
-        logo: famille('.logo'),
-        libelle: label ? getComputedStyle(label).fontFamily : null
+        logo: style('.logo'),
+        logoIcone: !!(logoEl && logoEl.querySelector('svg.logo-icon path[stroke^="url(#"]')),
+        libelle: label ? { famille: getComputedStyle(label).fontFamily, casse: getComputedStyle(label).textTransform } : null
       };
     });
 
-    assert.equal(familleDe(vu.logo), 'Cinzel',
-      'REGRESSION : le LOGO est passé en Poppins. Seuls les boutons devaient changer. Le logo est la '
-      + 'signature de Scriptura : le basculer, c\'est faire disparaître l\'app dans la masse, et ça '
-      + 'n\'a jamais été demandé. Police calculée : ' + vu.logo);
+    assert.ok(vu.logo, 'le logo doit exister');
+    assert.equal(familleDe(vu.logo.famille), 'Poppins',
+      'REGRESSION : le logo n\'est plus en Poppins. Police calculée : ' + vu.logo.famille);
+    assert.equal(vu.logo.casse, 'lowercase',
+      'REGRESSION : le mot "Scriptura" du logo n\'est plus rendu en minuscules. Casse calculée : ' + vu.logo.casse);
+    assert.ok(vu.logoIcone,
+      'REGRESSION : l\'icône S (dégradé doré, voir image de référence) a disparu du logo. C\'est '
+      + 'elle qui porte désormais l\'identité de Scriptura, pas la police du mot.');
 
     if (vu.libelle) {
-      assert.equal(familleDe(vu.libelle), 'Cinzel',
-        'REGRESSION : les libellés de champ (« TON & VOIX », « DURÉE DE LA VIDÉO ») sont passés en '
-        + 'Poppins. Ce sont EUX qui donnent son registre au bouton principal, resté en majuscules '
-        + 'espacées : les changer casse l\'accord qui justifiait ce choix. Police calculée : '
-        + vu.libelle);
+      assert.equal(familleDe(vu.libelle.famille), 'Poppins',
+        'REGRESSION : les libellés de champ (« TON & VOIX », « DURÉE DE LA VIDÉO ») ne sont plus en '
+        + 'Poppins. Police calculée : ' + vu.libelle.famille);
+      assert.equal(vu.libelle.casse, 'lowercase',
+        'REGRESSION : les libellés de champ ne sont plus en minuscules. Casse calculée : ' + vu.libelle.casse);
     }
   } finally {
     await navigateur.close();

@@ -469,9 +469,9 @@ test('le bouton reste dans la palette Scriptura et au-dessus de la zone sûre du
       };
     });
 
-    // Doré Scriptura (#C9A84C), jamais le cyan/rose de TikTok qui jurerait
-    // avec le reste de l'app.
-    assert.equal(vu.fond, 'rgb(201, 168, 76)', 'fond doré Scriptura : ' + vu.fond);
+    // Doré Scriptura (#FA9410, refonte visuelle sur capture de référence),
+    // jamais le cyan/rose de TikTok qui jurerait avec le reste de l'app.
+    assert.equal(vu.fond, 'rgb(250, 148, 16)', 'fond doré Scriptura : ' + vu.fond);
     assert.equal(vu.plus, 'rgb(0, 0, 0)', 'le "+" est noir : ' + vu.plus);
     // Émeraude clair Scriptura (#3E9B75) sur les deux arêtes, jamais le
     // cyan/rose de TikTok. Les bordures plutôt qu'un pseudo-élément décalé :

@@ -487,7 +487,7 @@ function afficherRapportViral(d) {
   const RING_R = 74, RING_C = 2 * Math.PI * RING_R;
   const note = scoreViraliteRecette(d.signaux, d.frameDisponible);
   const score = note ? note.score : null;
-  const pal = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(score) : { ringA: '#E2C87A', ringB: '#c9a84c', texte: '#E2C87A' };
+  const pal = (typeof paletteScoreAudit === 'function') ? paletteScoreAudit(score) : { ringA: '#FDB71E', ringB: '#fa9410', texte: '#FDB71E' };
   // Carte source en tête du rapport (retour du propriétaire, raisons
   // commerciales et d'attractivité) : même composant que la transcription/
   // le téléchargement TikTok (_outilsCarteSourceHtml, js/tiktok-outils.js),

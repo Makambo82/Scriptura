@@ -695,7 +695,7 @@ function _afficherListeFiltree() {
   }
 
   const modeLabels = { script: ICO_MODE.script + ' Script', ideas: ICO_MODE.ideas + ' Idées', story: ICO_MODE.story + ' Récit', audit: ICO_MODE.audit + ' Diagnostic', serie: ICO_MODE.serie + ' Série', storyboardSeul: ICO_MODE.storyboardSeul + ' Storyboard' };
-  const modeColors = { script: '#C9A84C', ideas: '#E2C87A', story: '#C9A84C', audit: '#E2C87A', serie: '#C9A84C', storyboardSeul: '#E2C87A' };
+  const modeColors = { script: '#FA9410', ideas: '#FDB71E', story: '#FA9410', audit: '#FDB71E', serie: '#FA9410', storyboardSeul: '#FDB71E' };
 
   // Séries et générations sont fusionnées dans UNE seule liste,
   // triée du plus récent au plus ancien (peu importe le type).
@@ -715,7 +715,7 @@ function _afficherListeFiltree() {
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${sid}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${sid}')` : `ouvrirSerieDepuisHistorique('${s.id}')`}">
           <div class="history-card-head">
-            <span class="history-mode" style="color:#C9A84C">${ICO_MODE.serie} Série</span>
+            <span class="history-mode" style="color:#FA9410">${ICO_MODE.serie} Série</span>
             ${fini ? '<span class="serie-badge-fini">Terminée</span>' : `<span class="history-date">${formaterNombre(fait)}/${formaterNombre(total)} épisodes</span>`}
           </div>
           <div class="history-title">${serieEsc(s.titre || 'Série sans titre')}</div>
@@ -740,7 +740,7 @@ function _afficherListeFiltree() {
         ${_selectMode ? `<label class="history-check" onclick="event.stopPropagation()"><input type="checkbox" ${checked} onchange="toggleSelect('${g.id}')"/></label>` : ''}
         <div class="history-card-body" onclick="${_selectMode ? `toggleSelect('${g.id}')` : `reopenGeneration(${i})`}">
           <div class="history-card-head">
-            <span class="history-mode" style="color:${modeColors[g.mode] || '#C9A84C'}">${modeLabels[g.mode] || auditEsc(g.mode)}</span>
+            <span class="history-mode" style="color:${modeColors[g.mode] || '#FA9410'}">${modeLabels[g.mode] || auditEsc(g.mode)}</span>
             <span class="history-date">${dateStr}</span>
           </div>
           <div class="history-title">${serieEsc(histTitreCourt(g.titre))}</div>

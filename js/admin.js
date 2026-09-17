@@ -1457,7 +1457,7 @@ function carteErreursAdmin() {
       const detailHtml = erreursDuMode
         .map(e => {
           const nouvelle = estErreurNouvelle(e.cree_le, seuil);
-          return `<div class="erreur-detail-item" style="border-left-color:${nouvelle ? 'rgba(248,113,113,0.55)' : 'rgba(201,168,76,0.4)'}"><span class="erreur-detail-quand">${escAdmin(tempsRelatifCourt(e.cree_le))}${e.code_acces ? ' · ' + escAdmin(e.code_acces) : ''}</span><span class="erreur-detail-texte">${escAdmin(e.detail || 'Détail indisponible.')}</span></div>`;
+          return `<div class="erreur-detail-item" style="border-left-color:${nouvelle ? 'rgba(248,113,113,0.55)' : 'rgba(250,148,16,0.4)'}"><span class="erreur-detail-quand">${escAdmin(tempsRelatifCourt(e.cree_le))}${e.code_acces ? ' · ' + escAdmin(e.code_acces) : ''}</span><span class="erreur-detail-texte">${escAdmin(e.detail || 'Détail indisponible.')}</span></div>`;
         })
         .join('') || '<div class="ideas-sub">Détail indisponible pour ces échecs.</div>';
       return `<div class="audit-sujet erreur-mode-ligne" onclick="toggleDetailErreursMode('${modeJs}')">

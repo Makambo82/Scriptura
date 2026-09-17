@@ -146,8 +146,8 @@ test('le Scriptura Score reste doré, y compris sur un excellent score', async (
     });
 
     assert.deepEqual(erreursJs, [], 'aucune erreur JS');
-    // --gold-light = #E2C87A = rgb(226, 200, 122).
-    assert.equal(vu.couleurNum, 'rgb(226, 200, 122)',
+    // --gold-light = #FDB71E = rgb(253, 183, 30) (refonte visuelle sur capture de référence).
+    assert.equal(vu.couleurNum, 'rgb(253, 183, 30)',
       'REGRESSION : le chiffre du Scriptura Score doit rester doré : ' + vu.couleurNum);
     assert.ok(!/62, 155, 117|31, 107, 76/.test(vu.fondBarre),
       'REGRESSION : les barres du Scriptura Score doivent rester dorées : ' + vu.fondBarre);
