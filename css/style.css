@@ -56,6 +56,10 @@ nav{
    majuscules. Distinct du reste de l'app (Poppins minuscule) : c'est le
    texte du logo lui-même, pas un libellé Cinzel de la refonte précédente. */
 .logo{display:inline-flex;align-items:center;gap:8px;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.05rem;letter-spacing:0.01em;color:var(--white);opacity:1;transition:opacity 0.3s ease}
+/* URA en doré dans l'en-tête uniquement (retour propriétaire) : le menu
+   latéral, l'écran de génération et le pied de page gardent Scriptura
+   entièrement blanc (ou entièrement doré pour le pied de page). */
+.logo em{color:var(--gold);font-style:normal}
 /* Icône "S" du logo (voir image de référence fournie par le propriétaire) :
    un seul trait épais en dégradé or, réutilisé identique aux 4 endroits où le
    mot Scriptura sert de repère de marque (en-tête, menu latéral, écran de
