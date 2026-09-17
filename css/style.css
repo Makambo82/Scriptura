@@ -127,6 +127,10 @@ body.notif-visible.hero-focus .hero{padding-top:28px}
   letter-spacing:0.26em;text-transform:lowercase;
   color:var(--gold);opacity:0.75;margin-bottom:32px;
 }
+/* "IA" reste en majuscules même dans un libellé en minuscule (retour
+   propriétaire) : un sigle ne se lit pas comme le reste de la phrase.
+   Utilisé ici et dans .gen-tagline ("Ton réalisateur IA au travail"). */
+.ia-majuscule{text-transform:uppercase}
 /* Badge logo au-dessus du texte "Propulsé par l'IA" : éclair dans un cadre
    avec un filet doré qui tourne en continu, même mécanique que
    .hero-mode-btn.audit (voir plus bas), pour lier visuellement le logo au
