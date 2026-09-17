@@ -612,10 +612,28 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
   font-family:'Poppins',sans-serif;font-size:0.55rem;letter-spacing:0.14em;
   color:var(--gold);opacity:0.5;display:block;margin-bottom:6px;text-transform:lowercase;
 }
+/* CORRECTIF (refonte visuelle) : .copy-btn et 18 autres boutons de cette
+   feuille de style (.share-btn, .btn-restart, .gen-skip-btn, .modal-btn,
+   .footer-wa-btn, .sb-generate-btn, .btn-actualiser, .idea-btn-script,
+   .idea-btn-copy, .idea-btn-share, .btn-storyboard, .nav-history-btn,
+   .hist-tool-btn, .modal-btn-ghost, .action-btn, .affiner-toggle,
+   .nav-subscribe-cta, .genimg-btn, plus .btn-regenerate et
+   .btn-montage-primary corrigés séparément plus haut) utilisaient Cinzel
+   dans leur PROPRE règle, avec déjà text-transform:uppercase dedans. Le
+   retrait mécanique de Cinzel a converti ces règles en Poppins minuscule
+   comme le reste de l'app, cassant au passage la casse MAJUSCULE de ces
+   boutons décidée lors d'un correctif antérieur (voir le bloc « POLICE DES
+   BOUTONS » plus bas). Contrairement à .rappel-btn/.plan-btn/.ds-scope-btn
+   (protégés par une règle groupée plus bas dans le fichier qui les repasse
+   en majuscules, donc jamais réellement cassés à l'écran), ces boutons-ci
+   n'ont pas ce filet : la casse vient uniquement d'ici. Repéré par
+   tests/montage-deux-rangees-memes-mots.test.js (bouton de musique du
+   montage manuel passé en minuscules alors que son jumeau de la voix off
+   restait en majuscules), puis vérifié un par un sur le reste du fichier. */
 .copy-btn{
   display:inline-flex;align-items:center;gap:6px;
   margin-top:14px;
-  font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;
   color:rgba(255,255,255,0.7);background:transparent;
   border:1px solid var(--border-soft);
   padding:7px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
@@ -634,7 +652,7 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
 .share-btn{
   display:inline-flex;align-items:center;gap:6px;
   margin-top:14px;
-  font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.14em;text-transform:uppercase;
   color:var(--gold);background:transparent;
   border:1px solid rgba(250,148,16,0.4);
   padding:7px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
@@ -648,7 +666,7 @@ select.ctx-input:has(option[value=""]:checked){color:rgba(255,255,255,0.45)}
   width:100%;margin-top:40px;padding:14px;
   background:transparent;color:rgba(255,255,255,0.7);
   font-family:'Poppins',sans-serif;font-size:0.65rem;
-  letter-spacing:0.16em;text-transform:lowercase;
+  letter-spacing:0.16em;text-transform:uppercase;
   border:1px solid var(--border-soft);border-radius:999px;cursor:pointer;
   transition:all 0.25s;
 }
@@ -878,7 +896,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 /* ── Bouton « Répondre maintenant » (échappement rapide) ── */
 .gen-skip-zone{margin-top:28px;text-align:center}
 .gen-skip-btn{
-  font-family:'Poppins',sans-serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;
   color:rgba(255,255,255,0.75);background:transparent;border:1px solid var(--border);
   padding:10px 22px;border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
@@ -1155,7 +1173,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
 .modal-input::placeholder{letter-spacing:0.05em;text-transform:none;color:rgba(255,255,255,0.3);font-size:0.82rem}
 .modal-btn{
   width:100%;padding:14px;background:var(--gold);color:var(--bg);
-  font-family:'Poppins',sans-serif;font-weight:500;font-size:0.75rem;letter-spacing:0.14em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-weight:500;font-size:0.75rem;letter-spacing:0.14em;text-transform:uppercase;
   border:none;border-radius:999px;cursor:pointer;transition:all 0.25s;margin-bottom:12px;
 }
 .modal-btn:hover{background:var(--gold-light)}
@@ -1181,7 +1199,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   display:inline-flex;align-items:center;gap:8px;
   background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.4);
   color:#25D366;font-family:'Poppins',sans-serif;font-size:0.6rem;
-  letter-spacing:0.1em;text-transform:lowercase;
+  letter-spacing:0.1em;text-transform:uppercase;
   padding:9px 20px;border-radius:999px;text-decoration:none;transition:all 0.25s;
 }
 .footer-wa-btn:hover{background:rgba(37,211,102,0.2);border-color:#25D366}
@@ -1258,7 +1276,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   display:inline-flex;align-items:center;gap:10px;
   background:var(--gold);color:var(--bg);
   font-family:'Poppins',sans-serif;font-weight:500;font-size:0.72rem;
-  letter-spacing:0.14em;text-transform:lowercase;
+  letter-spacing:0.14em;text-transform:uppercase;
   padding:14px 32px;border-radius:999px;border:none;cursor:pointer;transition:all 0.25s;
 }
 .sb-generate-btn:hover{background:var(--gold-light)}
@@ -1737,7 +1755,14 @@ body.hero-focus .hero-focus-rule{display:block}
   margin:36px 0 20px;flex-wrap:wrap;gap:12px;
 }
 .btn-regenerate{
-  font-family:'Poppins',sans-serif;font-size:0.6rem;letter-spacing:0.12em;text-transform:lowercase;
+  /* text-transform:uppercase, PAS lowercase : .btn-regenerate est un bouton
+     (voir le bloc « POLICE DES BOUTONS » en fin de fichier, qui le liste
+     explicitement avec .btn-generate et les autres), pas un libellé
+     décoratif. La refonte Cinzel→Poppins avait emporté sa casse au passage
+     avec le reste, cassant l'accord avec les boutons de MUSIQUE du montage
+     manuel qui, eux, restent en majuscules (voir
+     tests/montage-deux-rangees-memes-mots.test.js). */
+  font-family:'Poppins',sans-serif;font-size:0.6rem;letter-spacing:0.12em;text-transform:uppercase;
   color:var(--gold);background:transparent;border:1px solid var(--border);
   padding:9px 18px;border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
@@ -1747,7 +1772,7 @@ body.hero-focus .hero-focus-rule{display:block}
    "Actualiser" discret à droite (remplace l'ancien bouton pleine largeur). */
 .reco-header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .btn-actualiser{
-  font-family:'Poppins',sans-serif;font-size:0.52rem;letter-spacing:0.1em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.52rem;letter-spacing:0.1em;text-transform:uppercase;
   color:var(--gold);background:transparent;border:1px solid var(--border);
   padding:5px 12px;border-radius:999px;cursor:pointer;transition:all 0.2s;flex-shrink:0;
 }
@@ -1820,7 +1845,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .idea-btn-script{
   flex:1;min-width:180px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
   background:var(--gold);color:var(--bg);border:none;border-radius:999px;
-  font-family:'Poppins',sans-serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;
   padding:12px 20px;cursor:pointer;transition:all 0.2s;font-weight:500;
 }
 .idea-btn-script:hover{background:var(--gold-light)}
@@ -1828,14 +1853,14 @@ body.hero-focus .hero-focus-rule{display:block}
   display:inline-flex;align-items:center;gap:6px;
   background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);
   border-radius:999px;font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.1em;
-  text-transform:lowercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
+  text-transform:uppercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
 }
 .idea-btn-copy + .idea-btn-share{margin-left:8px}
 .idea-btn-share{
   display:inline-flex;align-items:center;gap:6px;
   background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);
   border-radius:999px;font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.1em;
-  text-transform:lowercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
+  text-transform:uppercase;padding:12px 18px;cursor:pointer;transition:all 0.2s;
 }
 .idea-btn-copy:hover{border-color:var(--gold);color:var(--gold)}
 
@@ -1866,7 +1891,7 @@ body.hero-focus .hero-focus-rule{display:block}
   display:inline-flex;align-items:center;gap:10px;
   background:transparent;color:var(--gold);border:1px solid var(--gold);
   border-radius:999px;font-family:'Poppins',sans-serif;font-size:0.68rem;letter-spacing:0.1em;
-  text-transform:lowercase;padding:13px 26px;cursor:pointer;transition:all 0.2s;
+  text-transform:uppercase;padding:13px 26px;cursor:pointer;transition:all 0.2s;
 }
 .btn-storyboard:hover{background:var(--gold);color:var(--bg)}
 .btn-storyboard:disabled{opacity:0.5;cursor:not-allowed}
@@ -1882,7 +1907,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .nav-history-btn{
   background:transparent;border:1px solid rgba(250,148,16,0.3);
   color:var(--gold-light);font-family:'Poppins',sans-serif;font-size:0.6rem;
-  letter-spacing:0.1em;text-transform:lowercase;padding:8px 14px;
+  letter-spacing:0.1em;text-transform:uppercase;padding:8px 14px;
   border-radius:999px;cursor:pointer;transition:all 0.2s;white-space:nowrap;
 }
 .nav-history-btn:hover{border-color:var(--gold);background:rgba(250,148,16,0.08)}
@@ -1921,7 +1946,7 @@ body.hero-focus .hero-focus-rule{display:block}
 .hist-tool-btn{
   background:transparent;border:1px solid rgba(250,148,16,0.3);
   color:var(--gold-light);font-family:'Poppins',sans-serif;font-size:0.56rem;
-  letter-spacing:0.06em;text-transform:lowercase;padding:8px 12px;white-space:nowrap;
+  letter-spacing:0.06em;text-transform:uppercase;padding:8px 12px;white-space:nowrap;
   border-radius:999px;cursor:pointer;transition:all 0.2s;
 }
 .hist-tool-btn:hover{border-color:var(--gold);background:rgba(250,148,16,0.08)}
@@ -2038,7 +2063,7 @@ body.hist-select #scrollTopBtn{display:none !important}
 /* Bouton "Plus tard" du pop-up rappel */
 .modal-btn-ghost{
   width:100%;padding:12px;background:transparent;color:rgba(255,255,255,0.6);
-  font-family:'Poppins',sans-serif;font-size:0.7rem;letter-spacing:0.12em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.7rem;letter-spacing:0.12em;text-transform:uppercase;
   border:none;cursor:pointer;margin-top:10px;transition:color 0.2s;
 }
 .modal-btn-ghost:hover{color:rgba(255,255,255,0.9)}
@@ -2056,7 +2081,7 @@ body.is-unlocked .nav-subscribe-btn{display:none}
 .action-btn{
   background:transparent;border:1px solid rgba(250,148,16,0.35);
   color:var(--gold-light);font-family:'Poppins',sans-serif;font-size:0.62rem;
-  letter-spacing:0.1em;text-transform:lowercase;padding:10px 18px;
+  letter-spacing:0.1em;text-transform:uppercase;padding:10px 18px;
   border-radius:999px;cursor:pointer;transition:all 0.2s;white-space:nowrap;
 }
 .action-btn:hover{border-color:var(--gold);background:rgba(250,148,16,0.08)}
@@ -2141,7 +2166,7 @@ body.is-unlocked .action-bar .nav-code-btn{display:none}
   width:100%;margin:0 0 18px;padding:12px 16px;
   background:transparent;border:1px dashed rgba(250,148,16,0.28);border-radius:12px;
   color:rgba(255,255,255,0.62);cursor:pointer;
-  font-family:'Poppins',sans-serif;font-size:0.68rem;letter-spacing:0.1em;text-transform:lowercase;
+  font-family:'Poppins',sans-serif;font-size:0.68rem;letter-spacing:0.1em;text-transform:uppercase;
   transition:border-color 0.25s, color 0.25s, background 0.25s;
 }
 .affiner-toggle:hover{border-color:rgba(250,148,16,0.55);color:var(--gold-light);background:rgba(250,148,16,0.05)}
@@ -2414,7 +2439,7 @@ body.creer-visible::after{
   border:1px solid var(--gold);border-radius:999px;
   background:linear-gradient(120deg,var(--gold),var(--gold-light));
   color:#000;font-family:'Poppins',sans-serif;font-size:0.72rem;font-weight:500;
-  letter-spacing:0.1em;text-transform:lowercase;white-space:nowrap;
+  letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap;
   box-shadow:0 10px 26px -10px rgba(250,148,16,0.6);
   transition:transform .2s ease,box-shadow .2s ease;
   position:relative;overflow:hidden;
@@ -2891,7 +2916,7 @@ body.is-unlocked .sidebar-logout{display:block}
   background:rgba(255,255,255,0.04);border:1px solid var(--gold);
   border-radius:12px;padding:20px 12px;cursor:pointer;transition:all 0.2s;
   font-family:'Poppins',sans-serif;font-size:0.7rem;letter-spacing:0.1em;
-  text-transform:lowercase;color:var(--gold-light);
+  text-transform:uppercase;color:var(--gold-light);
 }
 .genimg-btn:hover{background:rgba(250,148,16,0.12)}
 .genimg-btn-icon{font-size:1.8rem;display:flex;align-items:center;justify-content:center;height:38px}
@@ -3452,7 +3477,12 @@ body.is-unlocked .sidebar-logout{display:block}
 .btn-montage-primary{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   font-family:'Poppins',sans-serif;font-size:0.62rem;font-weight:500;
-  letter-spacing:0.13em;text-transform:lowercase;
+  /* text-transform:uppercase, PAS lowercase : même correctif que
+     .btn-regenerate ci-dessus, même cause (Cinzel→Poppins a emporté la casse
+     de ce bouton avec le reste), même garde-fou (tests/montage-deux-
+     rangees-memes-mots.test.js compare ce bouton à son jumeau de la voix off,
+     resté en majuscules). */
+  letter-spacing:0.13em;text-transform:uppercase;
   background:var(--gold);color:var(--bg);border:none;
   padding:12px 22px;border-radius:999px;cursor:pointer;transition:all 0.25s;
 }
