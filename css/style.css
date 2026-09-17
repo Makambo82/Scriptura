@@ -265,8 +265,14 @@ body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
 .choice:hover::before{transform:scaleY(1)}
 .choice-icon{font-size:1.4rem;flex-shrink:0;width:36px;text-align:center;opacity:0.8}
 .choice-body{flex:1}
+/* Retour propriétaire : ces cartes de choix (objectif, idée vague/sujet
+   précis, etc.) passent en Russo One comme le logo et les titres des cartes
+   de mode, en minuscule avec la première lettre en capitale (voir le bloc
+   CAPITALE DE PHRASE plus bas, qui gère cette première lettre partout où
+   l'app est en minuscule). */
 .choice-label{
-  font-family:'Playfair Display',serif;font-weight:500;font-size:1.05rem;
+  font-family:'Russo One',sans-serif;font-weight:400;font-size:1.05rem;
+  text-transform:lowercase;letter-spacing:0.01em;
   margin-bottom:4px;line-height:1.3;color:#FFFFFF;
 }
 .choice-desc{font-size:0.82rem;color:var(--text-secondary);line-height:1.6}
@@ -4485,4 +4491,110 @@ body.peut-monter-video .outils-montage-home-btn{display:flex}
 @keyframes voixPrisePoint{
   0%, 100%{opacity:1}
   50%{opacity:0.35}
+}
+
+/* ── CAPITALE DE PHRASE ──
+   Retour du propriétaire : « j'ai vu que t'as mis plusieurs textes en toute
+   minuscule, or une phrase commence toujours par une lettre majuscule ».
+   Il avait raison : text-transform:lowercase écrase la casse du HTML, y
+   compris la majuscule de départ que le texte source avait naturellement.
+
+   CORRECTIF SYSTÉMATIQUE plutôt qu'au cas par cas : chaque sélecteur de
+   l'app qui déclare text-transform:lowercase (libellés, tags, compteurs,
+   titres de section...) reçoit ici son ::first-letter en majuscule. C'est
+   additif et sans risque : ça ne touche que le tout premier caractère,
+   laisse le reste en minuscule, et ne fait rien sur un texte qui commence
+   par un chiffre ou un symbole (text-transform n'a pas de prise dessus).
+
+   EXCLUS DE CETTE LISTE, à dessein :
+   · .rappel-btn, .plan-btn : leur text-transform:lowercase est déjà mort,
+     écrasé par la règle groupée de CASSE DES BOUTONS plus haut qui les
+     repasse en majuscules. Un ::first-letter ici n'aurait aucun effet.
+   · footer (le sélecteur générique) : le pied de page n'a pas de texte
+     direct, seulement des enfants qui ont chacun leur propre sélecteur
+     (.footer-links-title, .footer-contact-text, déjà couverts ci-dessous).
+     Cibler le ::first-letter du conteneur générique aurait capitalisé une
+     lettre au hasard dans sa structure, pas le début de chaque libellé.
+   · .audit-steps li::before : contenu décoratif (puce), pas une phrase. */
+.hero-eyebrow::first-letter,
+.ticker-word::first-letter,
+.step-indicator::first-letter,
+.choice-label::first-letter,
+.ctx-label::first-letter,
+.summary-tag::first-letter,
+.results-meta::first-letter,
+.out-num::first-letter,
+.out-section-label::first-letter,
+.script-time::first-letter,
+.hook-style::first-letter,
+.ht::first-letter,
+.prompt-type::first-letter,
+.footer-links-title::first-letter,
+.chip::first-letter,
+.score-title::first-letter,
+.metric-label::first-letter,
+.gen-tagline::first-letter,
+.gen-counter-unlock::first-letter,
+.paywall-tag::first-letter,
+.paywall-wa::first-letter,
+.rappel-tag::first-letter,
+.plans-tag::first-letter,
+.plan-name::first-letter,
+.plan-toggle-name::first-letter,
+.modal-tag::first-letter,
+.footer-contact-text::first-letter,
+.sb-time::first-letter,
+.sb-index::first-letter,
+.sb-visual-label::first-letter,
+.sb-copy::first-letter,
+.strategy-tag::first-letter,
+.script-meta-item::first-letter,
+body.hero-focus .hero-retour::first-letter,
+.mode-label::first-letter,
+.how-eyebrow::first-letter,
+.how-num::first-letter,
+.how-step-title::first-letter,
+.example-sub::first-letter,
+.ideas-eyebrow::first-letter,
+.idea-number::first-letter,
+.idea-section-label::first-letter,
+.story-segment-label::first-letter,
+.hashtag-chip::first-letter,
+.sb-seg-num::first-letter,
+.history-mode::first-letter,
+.history-montee::first-letter,
+.hist-time::first-letter,
+.sous-titre-etape::first-letter,
+.sidebar-footer::first-letter,
+.sb-progress-pct::first-letter,
+.sb-progress-bar-pct::first-letter,
+.genimg-trigger::first-letter,
+.sb-opt > span::first-letter,
+.genimg-inline-label::first-letter,
+.sb-regen::first-letter,
+.ou-separateur::first-letter,
+.serie-section-label::first-letter,
+.serie-episode-num::first-letter,
+.serie-directives-titre::first-letter,
+.serie-sb-titre::first-letter,
+.serie-sb-num::first-letter,
+.audit-guide-title::first-letter,
+.aw-count::first-letter,
+.aw-ex-titre::first-letter,
+.aw-nav button::first-letter,
+.audit-drop-label::first-letter,
+.couv-titre::first-letter,
+.montage-section-label::first-letter,
+.audit-score-label::first-letter,
+.audit-prio-titre::first-letter,
+.audit-section-label::first-letter,
+.admin-modes-header::first-letter,
+.ds-sep::first-letter,
+.outils-result-card h3::first-letter,
+.ds-niveau-badge::first-letter,
+.ds-dim-name::first-letter,
+.ds-abo-evo-delta::first-letter,
+.car-formats-label::first-letter,
+.car-slide-role::first-letter {
+  text-transform:uppercase;
 }
