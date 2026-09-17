@@ -33,6 +33,9 @@
 //      l'app) et de Poppins MAJUSCULES (les boutons) : le logo est la seule
 //      identité visuelle de l'app, elle a le droit de ne ressembler à rien
 //      d'autre.
+//   5. MISE À JOUR 3 (retour propriétaire) : l'icône S séparée (SVG en
+//      dégradé doré) a été retirée des 4 emplacements. Il ne reste plus que
+//      le mot SCRIPTURA, avec "URA" en doré (voir .logo em et équivalents).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -103,12 +106,14 @@ test('les boutons se lisent en Poppins, et le principal garde ses majuscules', a
   }
 });
 
-test('l\'identité de Scriptura tient à l\'icône S dorée ET à la police Russo One du logo, en majuscules', async () => {
-  // Refonte visuelle (deux captures de référence successives du propriétaire) :
+test('l\'identité de Scriptura tient au mot SCRIPTURA en Russo One, avec URA doré', async () => {
+  // Refonte visuelle (captures de référence successives du propriétaire) :
   // Cinzel est retiré de l'app entière (les libellés de champ passent en
   // Poppins minuscule, comme les autres libellés de section), et le mot
   // "Scriptura" du logo a sa PROPRE police, Russo One en majuscules,
-  // identifiée par comparaison visuelle avec la seconde capture fournie.
+  // identifiée par comparaison visuelle avec la capture fournie. L'icône S
+  // séparée (SVG en dégradé doré) a ensuite été retirée sur demande du
+  // propriétaire : il ne reste que le mot, "URA" en doré.
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -124,9 +129,11 @@ test('l\'identité de Scriptura tient à l\'icône S dorée ET à la police Russ
       const label = Array.from(document.querySelectorAll('.ctx-label'))
         .find(e => e.offsetParent !== null);
       const logoEl = document.querySelector('.logo');
+      const em = logoEl ? logoEl.querySelector('em') : null;
       return {
         logo: style('.logo'),
-        logoIcone: !!(logoEl && logoEl.querySelector('svg.logo-icon path[stroke^="url(#"]')),
+        pasIcone: !!(logoEl && !logoEl.querySelector('svg')),
+        uraColor: em ? getComputedStyle(em).color : null,
         libelle: label ? { famille: getComputedStyle(label).fontFamily, casse: getComputedStyle(label).textTransform } : null
       };
     });
@@ -138,8 +145,11 @@ test('l\'identité de Scriptura tient à l\'icône S dorée ET à la police Russ
     assert.equal(vu.logo.casse, 'uppercase',
       'REGRESSION : le mot "Scriptura" du logo n\'est plus rendu en majuscules, comme sur la capture de '
       + 'référence. Casse calculée : ' + vu.logo.casse);
-    assert.ok(vu.logoIcone,
-      'REGRESSION : l\'icône S (dégradé doré, voir image de référence) a disparu du logo.');
+    assert.ok(vu.pasIcone,
+      'REGRESSION : une icône SVG est réapparue dans le logo, le propriétaire a explicitement demandé de '
+      + 'ne garder que le mot SCRIPTURA.');
+    assert.equal(vu.uraColor, 'rgb(250, 148, 16)',
+      'REGRESSION : "URA" n\'est plus dans la couleur dorée attendue. Couleur calculée : ' + vu.uraColor);
 
     if (vu.libelle) {
       assert.equal(familleDe(vu.libelle.famille), 'Poppins',

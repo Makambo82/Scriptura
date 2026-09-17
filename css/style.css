@@ -56,18 +56,11 @@ nav{
    majuscules. Distinct du reste de l'app (Poppins minuscule) : c'est le
    texte du logo lui-même, pas un libellé Cinzel de la refonte précédente. */
 .logo{display:inline-flex;align-items:center;gap:0;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.05rem;letter-spacing:0.01em;color:var(--white);opacity:1;transition:opacity 0.3s ease}
-/* URA en doré (retour propriétaire, capture de référence à l'appui) : le S
-   de l'icône se fond directement dans le mot, sans espace, comme un seul
-   logotype. Appliqué aux 4 emplacements (en-tête, menu latéral, écran de
-   génération, pied de page en style inline). */
+/* URA en doré (retour propriétaire, capture de référence à l'appui) : plus
+   d'icône S séparée, seul le mot SCRIPTURA reste, en Russo One majuscule.
+   Appliqué aux 4 emplacements (en-tête, menu latéral, écran de génération,
+   pied de page en style inline). */
 .logo em{color:var(--gold);font-style:normal}
-/* Icône "S" du logo (voir image de référence fournie par le propriétaire) :
-   un seul trait épais en dégradé or, réutilisé identique aux 4 endroits où le
-   mot Scriptura sert de repère de marque (en-tête, menu latéral, écran de
-   génération, mention en pied de page). stroke-width et le tracé du path ne
-   doivent JAMAIS diverger d'un endroit à l'autre : c'est la même icône,
-   seule sa taille d'affichage change selon le contexte. */
-.logo-icon{width:22px;height:22px;flex-shrink:0}
 /* Retour propriétaire : logo discret pendant le travail (scrollé dans le
    contenu), pleinement présent en haut de page ou au survol. Toggle posé
    par updateScrollBtn (js/ui.js), même mécanisme que le bouton remonter. */
@@ -856,7 +849,6 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.15rem;
   letter-spacing:0.01em;color:var(--white);margin-bottom:8px;
 }
-.gen-logo .logo-icon{width:26px;height:26px}
 .gen-logo em{color:var(--gold);font-style:normal}
 .gen-tagline{
   font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.18em;
@@ -2522,7 +2514,6 @@ body.is-unlocked .nav-generations-btn{display:flex}
 .sidebar-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
 /* Même police que .logo (voir plus haut) : Russo One, majuscules. */
 .sidebar-logo{display:inline-flex;align-items:center;gap:0;font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1rem;letter-spacing:0.01em;color:var(--white)}
-.sidebar-logo .logo-icon{width:20px;height:20px}
 .sidebar-logo em{color:var(--gold);font-style:normal}
 /* ZONE TACTILE DE 44x44, le minimum recommandé par Apple comme par Material.
    Mesurée à 23x29 lors de l'audit responsive : c'est le geste le plus
