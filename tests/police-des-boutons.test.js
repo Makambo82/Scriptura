@@ -19,12 +19,20 @@
 //   3. MISE À JOUR (refonte visuelle, capture de référence à l'appui) : le
 //      point 3 disait que le logo et les libellés de section restaient en
 //      Cinzel. Ce n'est plus vrai depuis la refonte : Cinzel est retiré de
-//      toute l'app, logo compris, qui passe en Poppins minuscule (voir
-//      css/style.css, bloc « POLICE DES BOUTONS » et import de police dans
-//      index.html, Cinzel n'y est même plus chargé). Le bouton principal,
-//      lui, reste en MAJUSCULES : c'est une particularité du bouton, pas de
-//      l'identité générale, ce test-ci ne change pas. L'identité de
-//      Scriptura tient maintenant à l'icône S dorée du logo, pas à sa police.
+//      toute l'app (voir css/style.css, bloc « POLICE DES BOUTONS » et
+//      import de police dans index.html, Cinzel n'y est même plus chargé).
+//      Les libellés de section passent en Poppins minuscule, comme le reste
+//      de l'app. Le bouton principal, lui, reste en MAJUSCULES : c'est une
+//      particularité du bouton, pas de l'identité générale, ce test-ci ne
+//      change pas.
+//   4. MISE À JOUR 2 (nouvelle capture de référence, le mot du logo cette
+//      fois) : le mot "Scriptura" du logo a sa PROPRE police, Russo One,
+//      identifiée par comparaison visuelle avec la capture fournie (voir
+//      css/style.css, règle .logo, import Russo+One dans index.html), en
+//      MAJUSCULES. Distincte à la fois de Poppins minuscule (le reste de
+//      l'app) et de Poppins MAJUSCULES (les boutons) : le logo est la seule
+//      identité visuelle de l'app, elle a le droit de ne ressembler à rien
+//      d'autre.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -95,11 +103,12 @@ test('les boutons se lisent en Poppins, et le principal garde ses majuscules', a
   }
 });
 
-test('l\'identité de Scriptura tient à l\'icône S dorée du logo, en Poppins minuscule comme le reste de l\'app', async () => {
-  // Refonte visuelle (capture de référence à l'appui du propriétaire) :
-  // Cinzel est retiré de l'app entière, logo compris. Ce test remplace
-  // l'ancien « l'identité de Scriptura reste en Cinzel », qui verrouillait
-  // précisément le contraire de ce qui est demandé maintenant.
+test('l\'identité de Scriptura tient à l\'icône S dorée ET à la police Russo One du logo, en majuscules', async () => {
+  // Refonte visuelle (deux captures de référence successives du propriétaire) :
+  // Cinzel est retiré de l'app entière (les libellés de champ passent en
+  // Poppins minuscule, comme les autres libellés de section), et le mot
+  // "Scriptura" du logo a sa PROPRE police, Russo One en majuscules,
+  // identifiée par comparaison visuelle avec la seconde capture fournie.
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -123,13 +132,14 @@ test('l\'identité de Scriptura tient à l\'icône S dorée du logo, en Poppins 
     });
 
     assert.ok(vu.logo, 'le logo doit exister');
-    assert.equal(familleDe(vu.logo.famille), 'Poppins',
-      'REGRESSION : le logo n\'est plus en Poppins. Police calculée : ' + vu.logo.famille);
-    assert.equal(vu.logo.casse, 'lowercase',
-      'REGRESSION : le mot "Scriptura" du logo n\'est plus rendu en minuscules. Casse calculée : ' + vu.logo.casse);
+    assert.equal(familleDe(vu.logo.famille), 'Russo One',
+      'REGRESSION : le mot "Scriptura" du logo n\'est plus dans sa police dédiée (Russo One, capture de '
+      + 'référence à l\'appui). Police calculée : ' + vu.logo.famille);
+    assert.equal(vu.logo.casse, 'uppercase',
+      'REGRESSION : le mot "Scriptura" du logo n\'est plus rendu en majuscules, comme sur la capture de '
+      + 'référence. Casse calculée : ' + vu.logo.casse);
     assert.ok(vu.logoIcone,
-      'REGRESSION : l\'icône S (dégradé doré, voir image de référence) a disparu du logo. C\'est '
-      + 'elle qui porte désormais l\'identité de Scriptura, pas la police du mot.');
+      'REGRESSION : l\'icône S (dégradé doré, voir image de référence) a disparu du logo.');
 
     if (vu.libelle) {
       assert.equal(familleDe(vu.libelle.famille), 'Poppins',
