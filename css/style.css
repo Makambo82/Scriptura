@@ -1580,9 +1580,21 @@ body.hero-focus .hero-focus-rule{display:block}
 
    LA DESCRIPTION RESTE EN MINUSCULES et sur plusieurs lignes : c'est une
    phrase, pas un libellé, et rien n'a été demandé pour elle. */
+/* Retour du propriétaire, capture à l'appui : les titres des cartes de
+   l'accueil ("Analyse mon compte TikTok", etc.) passent de Playfair Display
+   majuscules à Russo One (la police du logo, voir .logo plus haut) en
+   minuscules. Contrairement au logo (Russo One MAJUSCULES), demande
+   explicite pour ces cartes précisément. */
 .mode-label{
-  font-family:'Playfair Display',serif;font-size:1rem;font-weight:500;
-  letter-spacing:0.04em;text-transform:uppercase;color:var(--white);line-height:1.3;
+  /* Taille INCHANGÉE (1rem) : Russo One est plus large que Playfair Display
+     à taille égale, mais l'app a déjà un mécanisme dédié qui mesure le
+     débordement réel et réduit au besoin (ajusterTexteUneLigne, voir
+     js/ui.js, verrouillé par tests/titres-des-modes-une-ligne.test.js).
+     Rétrécir la taille de référence ici referait à la main ce que ce
+     mécanisme fait déjà, et pour de moins bonnes raisons : une valeur
+     devinée plutôt que mesurée au pixel près, pour CHAQUE titre. */
+  font-family:'Russo One',sans-serif;font-size:1rem;font-weight:400;
+  letter-spacing:0.01em;text-transform:lowercase;color:var(--white);line-height:1.3;
   white-space:nowrap;overflow:hidden;
 }
 .mode-desc{

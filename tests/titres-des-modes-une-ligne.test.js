@@ -1,9 +1,14 @@
 // Demande du propriétaire, capture à l'appui : « les titres des boutons du
 // héro en majuscules, mais surtout en sorte qu'ils tiennent sur une ligne ».
 //
-// LES MAJUSCULES ÉLARGISSENT LE TEXTE de 10 à 15 % : la deuxième moitié de sa
-// phrase n'est pas un détail, c'est ce qui rend la première réalisable. Sans
-// ajustement, « TRANSCRIRE OU TÉLÉCHARGER UNE VIDÉO » passerait à la ligne.
+// MISE À JOUR (refonte visuelle, nouvelle capture) : les titres passent de
+// Playfair Display majuscules à Russo One (la police du logo) minuscules.
+// La demande de tenir sur une ligne, elle, n'a pas changé : Russo One est
+// une police large (dessin display, chasse généreuse), la marge de sécurité
+// posée pour les majuscules Playfair Display sert donc toujours, même si le
+// pourcentage exact qui l'a motivée à l'origine ne s'applique plus tel quel.
+// Sans ajustement, « transcrire ou télécharger une vidéo » passerait à la
+// ligne.
 //
 // LES ONZE CARTES EXISTENT EN DEUX EXEMPLAIRES, sur l'accueil et dans le
 // panneau « Créer ». Les deux surfaces sont testées : celle du panneau était le
@@ -60,7 +65,7 @@ function releverTitres(page) {
   });
 }
 
-test('les titres des cartes sont en capitales et tiennent sur une ligne', async () => {
+test('les titres des cartes sont en minuscules (Russo One) et tiennent sur une ligne', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -75,8 +80,8 @@ test('les titres des cartes sont en capitales et tiennent sur une ligne', async 
         const titres = await releverTitres(page);
         titres.forEach(x => {
           mesures++;
-          if (x.casse !== 'uppercase') {
-            fautes.push(largeur + 'px · ' + ou + ' · PAS EN CAPITALES (' + x.casse + ') · « ' + x.t + ' »');
+          if (x.casse !== 'lowercase') {
+            fautes.push(largeur + 'px · ' + ou + ' · PAS EN MINUSCULES (' + x.casse + ') · « ' + x.t + ' »');
           }
           if (x.coupe) fautes.push(largeur + 'px · ' + ou + ' · COUPÉ à ' + x.px + 'px · « ' + x.t + ' »');
           if (x.deuxLignes) {
@@ -96,7 +101,7 @@ test('les titres des cartes sont en capitales et tiennent sur une ligne', async 
 
     assert.deepEqual(fautes, [],
       'REGRESSION : les titres des cartes de mode ne respectent plus la demande du propriétaire '
-      + '(capitales, et surtout une seule ligne) :\n  ' + fautes.join('\n  '));
+      + '(minuscules Russo One, et surtout une seule ligne) :\n  ' + fautes.join('\n  '));
   } finally {
     await navigateur.close();
     await arreter();
@@ -172,18 +177,18 @@ test('titres et bouton d\'accueil partagent le MÊME ajustement', async () => {
 // l'ajustement était seulement branché. Sur la CI et en production, où la vraie
 // police est plus large, il l'est.
 //
-// On force donc le cas en donnant à TOUTES les cartes le plus long titre réel
-// de l'app, « Transcrire ou télécharger une vidéo », qui demande environ
-// 0.81rem à 414px : assez long pour que l'ajustement doive intervenir, pas
-// assez pour atteindre le plancher. On vérifie alors qu'il a VRAIMENT été
-// réduit, ce qui ne peut arriver que si l'ajustement a été déclenché.
-//
-// Un premier jet utilisait un titre inventé, bien plus long : il atteignait le
-// plancher et se faisait rogner, ce qui est le comportement ATTENDU dans ce cas
-// absurde. Le test échouait donc pour une bonne raison, et ne prouvait rien sur
-// le branchement.
-const TITRE_LONG_REEL = 'Transcrire ou télécharger une vidéo';
-
+// MISE À JOUR (passage à Russo One) : un titre réel fixe (« Transcrire ou
+// télécharger une vidéo ») avait été calibré à la main pour être marginal
+// avec Playfair Display. Le changement de police a suffi à le faire rentrer
+// sans réduction dans CE test-ci, pas parce que le mécanisme d'ajustement
+// s'est cassé (il est inchangé, voir js/ui.js), mais parce qu'un titre fixe,
+// recopié pour une police précise, se périme dès que la police change. On ne
+// recalibre plus à la main : le titre de test est désormais CONSTRUIT au vol
+// dans la page, à partir de la largeur et de la police RÉELLEMENT mesurées à
+// cet instant (canvas.measureText, indépendant de la mise en page), pour
+// toujours déborder d'environ 25 % à la taille de référence, quelle que soit
+// la police qui rend réellement le texte ici. Le plancher (0.62rem, voir
+// MODE_TITRE_TAILLE_MIN dans js/ui.js) n'est jamais atteint à ce ratio.
 test('un titre long est vraiment ajusté, sur les deux surfaces', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
@@ -191,7 +196,41 @@ test('un titre long est vraiment ajusté, sur les deux surfaces', async () => {
     const page = await ouvrirAccueil(navigateur, baseUrl, 414);
 
     for (const [ou, ouvrir] of SURFACES) {
-      const vu = await page.evaluate(({ src, titre }) => {
+      const vu = await page.evaluate(({ src }) => {
+        // Taille et largeur de RÉFÉRENCE lues sur un élément JETABLE, jamais
+        // recopiées à la main : la boucle réutilise les mêmes .mode-label
+        // d'un tour à l'autre (les deux surfaces existent en même temps dans
+        // le DOM), un élément déjà réduit au tour précédent donnerait une
+        // fausse référence s'il était lu directement. Un span détaché, placé
+        // dans la même structure de carte (même largeur imposée par
+        // min-width:0/flex), ne porte aucune mutation passée.
+        const carteRef = document.querySelector('.hero-mode-btn .mode-body') || document.body;
+        const sonde = document.createElement('span');
+        sonde.className = 'mode-label';
+        sonde.style.visibility = 'hidden';
+        sonde.textContent = 'x';
+        carteRef.appendChild(sonde);
+        const style = getComputedStyle(sonde);
+        const refPx = parseFloat(style.fontSize);
+        const dispo = sonde.parentElement.clientWidth || 260; // repli raisonnable si non mesurable
+        const police = style.fontFamily;
+        sonde.remove();
+
+        // CONSTRUCTION DU TITRE : on double un mot réel de l'app jusqu'à
+        // dépasser ~125 % de la largeur disponible, mesuré au vrai pixel près
+        // avec la police et la taille RÉELLEMENT utilisées (canvas, pas une
+        // estimation). Toujours un mot réel de l'interface, jamais une suite
+        // de caractères inventée.
+        const mot = 'Transcrire ';
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = refPx + 'px ' + police;
+        let titre = mot;
+        while (ctx.measureText(titre).width < dispo * 1.25 && titre.length < 600) {
+          titre += mot;
+        }
+        titre = titre.trim();
+
         // On allonge le titre AVANT d'ouvrir la surface : c'est l'ouverture qui
         // doit déclencher l'ajustement, comme dans la vraie vie où les cartes
         // n'ont aucune largeur tant qu'elles sont masquées.
@@ -200,8 +239,13 @@ test('un titre long est vraiment ajusté, sur les deux surfaces', async () => {
           el.style.fontSize = '';   // on repart de la taille du CSS
         });
         eval('(' + src + ')()');
-        return null;
-      }, { src: ouvrir.toString(), titre: TITRE_LONG_REEL });
+        return { refPx, titreLongueur: titre.length };
+      }, { src: ouvrir.toString() });
+
+      assert.ok(vu.refPx, 'REGRESSION : impossible de lire la taille de référence de .mode-label.');
+      assert.ok(vu.titreLongueur > 10 && vu.titreLongueur < 600,
+        'REGRESSION : le titre de test construit au vol a une longueur suspecte (' + vu.titreLongueur
+        + ' caractères) : la mesure canvas a dû échouer silencieusement.');
 
       await page.waitForTimeout(500);
       const titres = await releverTitres(page);
@@ -211,11 +255,11 @@ test('un titre long est vraiment ajusté, sur les deux surfaces', async () => {
         'REGRESSION : aucun titre visible sur « ' + ou + ' » : ce cas ne vérifie rien.');
 
       // LA PREUVE DU BRANCHEMENT : ce titre-là ne tient pas à la taille de
-      // référence, il DOIT donc avoir été réduit. S'il est resté à 1rem, c'est
-      // que l'ajustement n'a pas été déclenché quand cette surface est devenue
-      // visible, et sur la CI comme en production, où la police est plus large,
-      // tous les titres déborderaient.
-      const nonReduits = titres.filter(x => x.px >= 16);
+      // référence, il DOIT donc avoir été réduit. S'il est resté à cette
+      // taille, c'est que l'ajustement n'a pas été déclenché quand cette
+      // surface est devenue visible, et sur la CI comme en production, où la
+      // police est plus large, tous les titres déborderaient.
+      const nonReduits = titres.filter(x => x.px >= vu.refPx);
       assert.deepEqual(nonReduits.map(x => x.t), [],
         'REGRESSION : sur « ' + ou + ' », un titre trop long pour la carte est resté à sa taille '
         + 'de référence. L\'ajustement n\'est pas déclenché quand cette surface devient visible.');
@@ -250,15 +294,30 @@ test('une carte qui apparaît APRÈS le chargement voit son titre ajusté', asyn
 
     // La carte réservée aux abonnés, encore masquée : on lui donne un titre
     // trop long pour sa largeur, afin que l'absence d'ajustement se voie.
-    const avant = await page.evaluate((titre) => {
+    // Titre CONSTRUIT au vol (même technique que le test précédent, voir son
+    // commentaire) : jamais une valeur figée qui se périme au prochain
+    // changement de police.
+    const avant = await page.evaluate(() => {
       const el = [...document.querySelectorAll('.mode-label')]
         .find(e => /Monter une/i.test(e.textContent));
       if (!el) return null;
+      const style = getComputedStyle(el);
+      const refPx = parseFloat(style.fontSize);
+      const police = style.fontFamily;
+      const dispo = el.clientWidth || el.closest('.mode-body')?.clientWidth || 200;
+      const mot = 'Transcrire ';
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      ctx.font = refPx + 'px ' + police;
+      let titre = mot;
+      while (ctx.measureText(titre).width < dispo * 1.25 && titre.length < 600) titre += mot;
+      titre = titre.trim();
+
       el.textContent = titre;
       el.style.fontSize = '';
       el.dataset.sonde = '1';
-      return { visible: el.offsetParent !== null, largeur: el.clientWidth };
-    }, TITRE_LONG_REEL);
+      return { visible: el.offsetParent !== null, refPx };
+    });
 
     assert.ok(avant,
       'REGRESSION : la carte « Monter une vidéo » est introuvable dans les Services annexes.');
@@ -281,7 +340,7 @@ test('une carte qui apparaît APRÈS le chargement voit son titre ajusté', asyn
     });
 
     assert.equal(apres.visible, true, 'la carte doit apparaître pour un abonné');
-    assert.ok(apres.px < 16,
+    assert.ok(apres.px < avant.refPx,
       'REGRESSION : le titre de cette carte est resté à sa taille de référence (' + apres.px
       + 'px) alors qu\'il est trop long pour elle. Les cartes qui apparaissent APRÈS le chargement '
       + 'ne sont plus ajustées : leur titre débordera dès qu\'il sera un peu long, et personne ne '
