@@ -178,3 +178,46 @@ test('/api/montage-render refuse un code non-abonné avant même de songer à un
     process.env = envAvant;
   }
 });
+
+// Retour terrain : un montage à 22 images a échoué avec "Le service de
+// rendu externe a échoué.", message générique qui ne dit pas si le service
+// a planté (processus/conteneur), a renvoyé une page d'erreur de
+// l'hébergeur (pas du JSON), ou une vraie raison applicative. Même leçon
+// que le correctif du stockage montage (audit A3) : le statut HTTP réel
+// est ajouté au message, même quand le corps de la réponse n'a pas pu
+// être lu en JSON (rProxy.json().catch(() => ({}))).
+test('/api/montage-render inclut le statut HTTP du service externe quand celui-ci échoue sans réponse JSON exploitable', async () => {
+  const envAvant = { ...process.env };
+  process.env.CODE_ADMIN = 'TESTADMIN_MONTAGE_502';
+  process.env.MONTAGE_RENDER_URL = 'https://service-de-rendu-test.example/';
+  process.env.MONTAGE_RENDER_TOKEN = 'jeton-secret-test';
+
+  const fetchOriginal = global.fetch;
+  global.fetch = async () => ({
+    ok: false,
+    status: 503,
+    // Simule une page d'erreur de l'hébergeur (pas du JSON) : json() plante,
+    // exactement le cas que le .catch(() => ({})) d'api/montage-render.js
+    // rend silencieux.
+    json: async () => { throw new SyntaxError('Unexpected token < in JSON'); }
+  });
+
+  try {
+    const { default: handler } = await import('../api/montage-render.js');
+    const req = {
+      method: 'POST',
+      body: { code_acces: 'TESTADMIN_MONTAGE_502', images: [{ url: 'https://x.example/a.jpg', duration: 2 }], audioUrl: 'https://x.example/audio.mp3' }
+    };
+    let statusRecu = null, jsonRecu = null;
+    const res = { status(code) { statusRecu = code; return this; }, json(obj) { jsonRecu = obj; return this; } };
+
+    await handler(req, res);
+
+    assert.equal(statusRecu, 502);
+    assert.match(jsonRecu.error.message, /503/,
+      'REGRESSION : le statut HTTP du service externe a disparu du message renvoyé au client : ' + JSON.stringify(jsonRecu));
+  } finally {
+    global.fetch = fetchOriginal;
+    process.env = envAvant;
+  }
+});

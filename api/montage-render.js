@@ -114,7 +114,17 @@ export default async function handler(req, res) {
     const dataProxy = await rProxy.json().catch(() => ({}));
     if (!rProxy.ok || !dataProxy.url) {
       if (quota.consomme) await rembourserUsage(droits, 'montageRendus', body?.code_acces, 1);
-      return res.status(502).json({ error: { message: (dataProxy.error && dataProxy.error.message) || 'Le service de rendu externe a échoué.' } });
+      // MÊME LEÇON que le correctif du stockage montage (audit A3, retour
+      // terrain) : un message générique qui avale le statut HTTP réel rend
+      // le prochain incident impossible à diagnostiquer sans accès direct
+      // au service externe (Railway). Le statut est toujours disponible ici
+      // (rProxy.status), même quand le corps n'a pas pu être lu en JSON
+      // (processus planté, page d'erreur de l'hébergeur au lieu du JSON
+      // attendu) : dataProxy.error.message reste le message le plus précis
+      // quand le service a pu répondre proprement, le statut HTTP comble le
+      // reste, en particulier ce cas de figure.
+      const raison = (dataProxy.error && dataProxy.error.message) || 'réponse illisible';
+      return res.status(502).json({ error: { message: 'Le service de rendu externe a échoué (HTTP ' + rProxy.status + ' : ' + raison + ').' } });
     }
     // Mesure du rendu, jamais bloquante (voir journaliserMontage) : la vidéo
     // est déjà prête, rien de ce qui suit ne doit pouvoir la retarder ni la
