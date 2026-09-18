@@ -2,11 +2,12 @@
 // héro en majuscules, mais surtout en sorte qu'ils tiennent sur une ligne ».
 //
 // MISE À JOUR (refonte visuelle, nouvelle capture) : les titres passent de
-// Playfair Display majuscules à Russo One (la police du logo) minuscules.
-// La demande de tenir sur une ligne, elle, n'a pas changé : Russo One est
-// une police large (dessin display, chasse généreuse), la marge de sécurité
-// posée pour les majuscules Playfair Display sert donc toujours, même si le
-// pourcentage exact qui l'a motivée à l'origine ne s'applique plus tel quel.
+// Playfair Display majuscules à Russo One (la police du logo) minuscules,
+// puis (retour suivant, encore une capture) à Poppins GRAS minuscule. La
+// demande de tenir sur une ligne, elle, n'a jamais changé, et le mécanisme
+// de réduction (ajusterTexteUneLigne) mesure la largeur RÉELLEMENT rendue à
+// chaque fois : peu importe la police en place, la marge de sécurité posée
+// à l'origine pour des majuscules Playfair Display sert toujours de filet.
 // Sans ajustement, « transcrire ou télécharger une vidéo » passerait à la
 // ligne.
 //
@@ -65,7 +66,7 @@ function releverTitres(page) {
   });
 }
 
-test('les titres des cartes sont en minuscules (Russo One) et tiennent sur une ligne', async () => {
+test('les titres des cartes sont en minuscules et tiennent sur une ligne', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -101,7 +102,7 @@ test('les titres des cartes sont en minuscules (Russo One) et tiennent sur une l
 
     assert.deepEqual(fautes, [],
       'REGRESSION : les titres des cartes de mode ne respectent plus la demande du propriétaire '
-      + '(minuscules Russo One, et surtout une seule ligne) :\n  ' + fautes.join('\n  '));
+      + '(minuscules, et surtout une seule ligne) :\n  ' + fautes.join('\n  '));
   } finally {
     await navigateur.close();
     await arreter();

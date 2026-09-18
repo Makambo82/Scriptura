@@ -270,12 +270,11 @@ body.hero-focus .hero-logo-badge svg{width:30px;height:30px}
 .choice-icon{font-size:1.4rem;flex-shrink:0;width:36px;text-align:center;opacity:0.8}
 .choice-body{flex:1}
 /* Retour propriétaire : ces cartes de choix (objectif, idée vague/sujet
-   précis, etc.) passent en Russo One comme le logo et les titres des cartes
-   de mode, en minuscule avec la première lettre en capitale (voir le bloc
-   CAPITALE DE PHRASE plus bas, qui gère cette première lettre partout où
-   l'app est en minuscule). */
+   précis, etc.) passent en Poppins GRAS minuscule, première lettre en
+   capitale (voir le bloc CAPITALE DE PHRASE plus bas), un peu plus grand
+   que .choice-desc juste en dessous (0.82rem). */
 .choice-label{
-  font-family:'Russo One',sans-serif;font-weight:400;font-size:1.05rem;
+  font-family:'Poppins',sans-serif;font-weight:700;font-size:1.05rem;
   text-transform:lowercase;letter-spacing:0.01em;
   margin-bottom:4px;line-height:1.3;color:#FFFFFF;
 }
@@ -703,8 +702,13 @@ footer strong{color:var(--gold)}
   margin-bottom:32px;text-align:left;
 }
 .footer-links-col{display:flex;flex-direction:column;gap:10px;min-width:190px}
+/* Retour propriétaire : en gras, un peu plus grand que les liens en
+   dessous (.footer-link-btn, 0.82rem) au lieu du petit libellé tracké
+   qu'il était (0.6rem, plus petit que ses propres liens). Espacement
+   resserré en conséquence : la police, gérée par la même refonte, ne
+   ressemble plus à une étiquette mais à un vrai titre de colonne. */
 .footer-links-title{
-  font-family:'Poppins',sans-serif;font-size:0.6rem;letter-spacing:0.14em;
+  font-family:'Poppins',sans-serif;font-size:0.92rem;font-weight:700;letter-spacing:0.01em;
   text-transform:lowercase;color:var(--gold);margin-bottom:2px;
 }
 .footer-link-btn{
@@ -726,7 +730,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   footer{padding:40px 12px}
   .footer-links{gap:14px}
   .footer-links-col{min-width:0;flex:1 1 0}
-  .footer-links-title{font-size:0.52rem;letter-spacing:0.1em}
+  .footer-links-title{font-size:0.8rem;letter-spacing:0.01em}
   .footer-link-btn{font-size:0.72rem}
 }
 
@@ -1589,19 +1593,18 @@ body.hero-focus .hero-focus-rule{display:block}
    LA DESCRIPTION RESTE EN MINUSCULES et sur plusieurs lignes : c'est une
    phrase, pas un libellé, et rien n'a été demandé pour elle. */
 /* Retour du propriétaire, capture à l'appui : les titres des cartes de
-   l'accueil ("Analyse mon compte TikTok", etc.) passent de Playfair Display
-   majuscules à Russo One (la police du logo, voir .logo plus haut) en
-   minuscules. Contrairement au logo (Russo One MAJUSCULES), demande
-   explicite pour ces cartes précisément. */
+   l'accueil ("Analyse mon compte TikTok", etc.) passent de Russo One à
+   Poppins GRAS minuscule, première lettre en capitale (voir le bloc
+   CAPITALE DE PHRASE plus bas), un peu plus grand que .mode-desc juste
+   en dessous (0.78rem) pour marquer la hiérarchie titre/description. */
 .mode-label{
-  /* Taille INCHANGÉE (1rem) : Russo One est plus large que Playfair Display
-     à taille égale, mais l'app a déjà un mécanisme dédié qui mesure le
-     débordement réel et réduit au besoin (ajusterTexteUneLigne, voir
+  /* Taille INCHANGÉE (1rem) : l'app a déjà un mécanisme dédié qui mesure
+     le débordement réel et réduit au besoin (ajusterTexteUneLigne, voir
      js/ui.js, verrouillé par tests/titres-des-modes-une-ligne.test.js).
      Rétrécir la taille de référence ici referait à la main ce que ce
      mécanisme fait déjà, et pour de moins bonnes raisons : une valeur
      devinée plutôt que mesurée au pixel près, pour CHAQUE titre. */
-  font-family:'Russo One',sans-serif;font-size:1rem;font-weight:400;
+  font-family:'Poppins',sans-serif;font-size:1rem;font-weight:700;
   letter-spacing:0.01em;text-transform:lowercase;color:var(--white);line-height:1.3;
   white-space:nowrap;overflow:hidden;
 }
