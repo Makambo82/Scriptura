@@ -113,7 +113,10 @@ test('l\'identité de Scriptura tient au mot SCRIPTURA en Russo One, avec URA do
   // "Scriptura" du logo a sa PROPRE police, Russo One en majuscules,
   // identifiée par comparaison visuelle avec la capture fournie. L'icône S
   // séparée (SVG en dégradé doré) a ensuite été retirée sur demande du
-  // propriétaire : il ne reste que le mot, "URA" en doré.
+  // propriétaire : il ne reste que le mot. "URA" porte le reflet scintillant
+  // doré d'origine (couleur transparente + dégradé en background-clip:text,
+  // voir .logo em dans le bloc @supports de css/style.css), pas une couleur
+  // plate : le test vérifie donc le dégradé, pas `color`.
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();
   try {
@@ -130,10 +133,13 @@ test('l\'identité de Scriptura tient au mot SCRIPTURA en Russo One, avec URA do
         .find(e => e.offsetParent !== null);
       const logoEl = document.querySelector('.logo');
       const em = logoEl ? logoEl.querySelector('em') : null;
+      const emStyle = em ? getComputedStyle(em) : null;
       return {
         logo: style('.logo'),
         pasIcone: !!(logoEl && !logoEl.querySelector('svg')),
-        uraColor: em ? getComputedStyle(em).color : null,
+        uraClipText: !!(emStyle && (emStyle.webkitBackgroundClip === 'text' || emStyle.backgroundClip === 'text')),
+        uraColor: em ? emStyle.color : null,
+        uraGradientDore: !!(emStyle && /253,\s*183,\s*30/.test(emStyle.backgroundImage)), // --gold-light
         libelle: label ? { famille: getComputedStyle(label).fontFamily, casse: getComputedStyle(label).textTransform } : null
       };
     });
@@ -148,8 +154,14 @@ test('l\'identité de Scriptura tient au mot SCRIPTURA en Russo One, avec URA do
     assert.ok(vu.pasIcone,
       'REGRESSION : une icône SVG est réapparue dans le logo, le propriétaire a explicitement demandé de '
       + 'ne garder que le mot SCRIPTURA.');
-    assert.equal(vu.uraColor, 'rgb(250, 148, 16)',
-      'REGRESSION : "URA" n\'est plus dans la couleur dorée attendue. Couleur calculée : ' + vu.uraColor);
+    assert.ok(vu.uraClipText,
+      'REGRESSION : "URA" n\'a plus son reflet scintillant (background-clip:text attendu, voir .logo em '
+      + 'dans le bloc @supports de css/style.css).');
+    assert.equal(vu.uraColor, 'rgba(0, 0, 0, 0)',
+      'REGRESSION : "URA" a une couleur de texte opaque au lieu de transparente, le reflet scintillant ne '
+      + 'peut pas se voir par-dessus. Couleur calculée : ' + vu.uraColor);
+    assert.ok(vu.uraGradientDore,
+      'REGRESSION : le dégradé de "URA" n\'est plus doré (--gold-light attendu dans le background-image).');
 
     if (vu.libelle) {
       assert.equal(familleDe(vu.libelle.famille), 'Poppins',
