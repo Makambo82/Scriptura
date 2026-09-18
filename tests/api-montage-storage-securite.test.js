@@ -101,6 +101,14 @@ test('A3-3 : un abonné Creator/Pro (ou le fondateur) obtient bien ses URLs sign
     assert.equal(upload._json.ok, true);
     assert.ok(upload._json.uploadUrl.includes('/storage/v1/object/upload/sign/montages/' + CHEMIN_VALIDE), upload._json.uploadUrl);
     assert.ok(upload._json.uploadUrl.includes('token=jeton-signe-test'), upload._json.uploadUrl);
+    // Retour terrain (montage à 22 images, mais en fait TOUT montage) :
+    // "HTTP 400 : Body cannot be empty when content-type is set to
+    // 'application/json'". entetes() déclare toujours ce content-type ;
+    // un appel Storage sans corps du tout se faisait donc rejeter par
+    // Supabase à chaque fois, jamais seulement au-delà d'un certain
+    // nombre d'images. Verrouille qu'un corps non vide part bien.
+    assert.ok(appels.storage[0].opts.body, 'REGRESSION : l\'appel upload-url repart sans corps alors que '
+      + 'Content-Type: application/json est déclaré, Supabase Storage le refusera : ' + JSON.stringify(appels.storage[0].opts));
 
     const lecture = await appeler({ resource: 'montage-storage', action: 'read-url', chemins: [CHEMIN_VALIDE], code_acces: 'SCRIPTURA-CELINE' });
     assert.equal(lecture._status, 200, JSON.stringify(lecture._json));

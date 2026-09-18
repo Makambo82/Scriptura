@@ -1245,9 +1245,19 @@ async function handleMontageStorage(req, res, cfg, body) {
       return res.status(400).json({ ok: false, error: { message: 'Chemin de fichier invalide.' } });
     }
     try {
+      // CAUSE RÉELLE trouvée grâce au message d'erreur enrichi ci-dessous
+      // (retour terrain : "HTTP 400 : Body cannot be empty when content-type
+      // is set to 'application/json'") : entetes() déclare toujours
+      // Content-Type: application/json, mais cet appel ne fournissait AUCUN
+      // corps. Supabase Storage refuse désormais cette combinaison. Ce
+      // n'était pas propre au montage à 22 images du retour propriétaire :
+      // CHAQUE appel upload-url échouait, quelle que soit la taille du
+      // montage. Un corps JSON vide mais explicite suffit, cette route n'a
+      // besoin d'aucun champ particulier.
       const r = await fetch(cfg.url + '/storage/v1/object/upload/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin, {
         method: 'POST',
-        headers: entetes(cfg.key)
+        headers: entetes(cfg.key),
+        body: '{}'
       });
       const data = await r.json().catch(() => ({}));
       const token = extraireJetonSigne(data);
