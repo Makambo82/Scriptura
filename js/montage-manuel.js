@@ -1028,16 +1028,22 @@ async function omLancerMontage() {
 
     // Une fois tous les uploads terminés, un seul appel groupé pour toutes
     // les URLs de lecture (temporaires, voir obtenirUrlsLectureMontage).
-    let urlsLecture;
+    let urlsLecture, echecsLecture;
     try {
       const tousChemins = cheminsImages.map(c => c.chemin).concat([cheminAudio], cheminMusique ? [cheminMusique] : []);
-      urlsLecture = await obtenirUrlsLectureMontage(tousChemins);
+      ({ urls: urlsLecture, echecs: echecsLecture } = await obtenirUrlsLectureMontage(tousChemins));
     } catch (e) { throw new Error('Préparation des fichiers du montage : ' + e.message); }
 
     const images = cheminsImages.map(c => ({ url: urlsLecture[c.chemin], duration: c.duration }));
-    if (images.some(img => !img.url)) throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi.');
+    if (images.some(img => !img.url)) {
+      throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi'
+        + detailEchecsLectureMontage(cheminsImages.map(c => c.chemin), echecsLecture) + '.');
+    }
     const audioUrl = urlsLecture[cheminAudio];
-    if (!audioUrl) throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi.');
+    if (!audioUrl) {
+      throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi'
+        + detailEchecsLectureMontage([cheminAudio], echecsLecture) + '.');
+    }
     const musicUrl = cheminMusique ? (urlsLecture[cheminMusique] || '') : '';
 
     if (statut) statut.textContent = "Montage en cours (peut prendre plusieurs minutes selon le nombre d'images)…";

@@ -198,3 +198,45 @@ test('A3-7 : un refus Supabase Storage inclut le statut HTTP et la raison dans l
     retirerEnv();
   }
 });
+
+// Retour terrain (montage à 22 images) : "certaines images sont introuvables
+// après l'envoi", sans dire lesquelles ni pourquoi. read-url tirait aussi
+// TOUTES les URLs de lecture d'un coup (Promise.all libre, jamais borné),
+// suspect n°1 pour un échec PARTIEL (certains chemins, pas tous) sur un gros
+// montage. Ce test verrouille les deux correctifs : la raison par chemin
+// remonte dans `echecs`, et plus de deux requêtes ne partent jamais en même
+// temps vers Supabase (MONTAGE_STORAGE_CONCURRENCE_LECTURE).
+test('A3-8 : read-url expose la raison d\'un échec PARTIEL par chemin, et borne la concurrence vers Supabase', async () => {
+  poserEnv();
+  const fetchOriginal = global.fetch;
+  let enVol = 0, picEnVol = 0;
+  const CHEMINS = Array.from({ length: 8 }, (_, i) => `montage-1700000000000/img-${i + 1}.jpg`);
+  global.fetch = async (url) => {
+    const u = new URL(url.toString());
+    if (u.pathname.startsWith('/storage/v1/object/sign/')) {
+      enVol++; picEnVol = Math.max(picEnVol, enVol);
+      await new Promise(r => setTimeout(r, 5));
+      enVol--;
+      // Un chemin sur deux échoue, pour simuler un échec PARTIEL, pas total.
+      const echoue = /img-[24680]\.jpg$/.test(u.pathname);
+      if (echoue) {
+        return { ok: false, status: 429, json: async () => ({ error: 'Too Many Requests', message: 'Rate limit exceeded' }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ url: u.pathname + '?token=jeton-signe-test' }) };
+    }
+    return { ok: true, status: 200, json: async () => ([]), headers: { get: () => null } };
+  };
+  try {
+    const r = await appeler({ resource: 'montage-storage', action: 'read-url', chemins: CHEMINS, code_acces: 'SCRIPTURA-CELINE' });
+    assert.equal(r._status, 200, JSON.stringify(r._json));
+    assert.equal(Object.keys(r._json.urls).length, 4, 'les 4 chemins pairs doivent avoir réussi : ' + JSON.stringify(r._json));
+    assert.equal(Object.keys(r._json.echecs).length, 4, 'les 4 chemins impairs doivent apparaître dans echecs : ' + JSON.stringify(r._json));
+    for (const chemin of Object.keys(r._json.echecs)) {
+      assert.match(r._json.echecs[chemin], /429/, 'REGRESSION : la raison de l\'échec pour ' + chemin + ' ne dit pas pourquoi : ' + JSON.stringify(r._json.echecs));
+    }
+    assert.ok(picEnVol <= 5, 'REGRESSION : plus de 5 requêtes simultanées sont parties vers Supabase Storage (pic mesuré : ' + picEnVol + '), un Promise.all libre a dû revenir.');
+  } finally {
+    global.fetch = fetchOriginal;
+    retirerEnv();
+  }
+});

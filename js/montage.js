@@ -1506,16 +1506,22 @@ async function lancerMontage() {
     // les URLs de lecture (temporaires, voir obtenirUrlsLectureMontage) :
     // c'est ce que le rendu (render-service, via /api/montage-render) va
     // effectivement télécharger.
-    let urlsLecture;
+    let urlsLecture, echecsLecture;
     try {
       const tousChemins = cheminsImages.map(c => c.chemin).concat([cheminAudio], cheminMusique ? [cheminMusique] : []);
-      urlsLecture = await obtenirUrlsLectureMontage(tousChemins);
+      ({ urls: urlsLecture, echecs: echecsLecture } = await obtenirUrlsLectureMontage(tousChemins));
     } catch (e) { throw new Error('Préparation des fichiers du montage : ' + e.message); }
 
     const images = cheminsImages.map(c => ({ url: urlsLecture[c.chemin], duration: c.duration }));
-    if (images.some(img => !img.url)) throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi.');
+    if (images.some(img => !img.url)) {
+      throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi'
+        + detailEchecsLectureMontage(cheminsImages.map(c => c.chemin), echecsLecture) + '.');
+    }
     const audioUrl = urlsLecture[cheminAudio];
-    if (!audioUrl) throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi.');
+    if (!audioUrl) {
+      throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi'
+        + detailEchecsLectureMontage([cheminAudio], echecsLecture) + '.');
+    }
     const musicUrl = cheminMusique ? (urlsLecture[cheminMusique] || '') : '';
 
     // Rendu FFmpeg auto-hébergé, synchrone : une seule requête, pas de

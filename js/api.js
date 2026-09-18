@@ -773,9 +773,12 @@ async function uploaderAssetMontage(chemin, blob, contentType) {
 // Une fois tous les uploads d'un montage terminés : un seul appel groupé
 // pour toutes leurs URLs de LECTURE (temporaires, 2h), plutôt qu'un
 // aller-retour par fichier. Renvoie { chemin: url }, un chemin absent du
-// résultat signale un échec pour CE fichier précis (voir l'appelant).
+// résultat signale un échec pour CE fichier précis (voir l'appelant), et
+// `echecs` (chemin -> raison, voir handleMontageStorage côté serveur) dit
+// pourquoi, pour un message d'erreur qui nomme enfin la cause plutôt que
+// de dire seulement "certaines images sont introuvables".
 async function obtenirUrlsLectureMontage(chemins) {
-  if (!chemins.length) return {};
+  if (!chemins.length) return { urls: {}, echecs: {} };
   const r = await fetch('/api/data', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -783,7 +786,25 @@ async function obtenirUrlsLectureMontage(chemins) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || !data.ok) throw new Error((data.error && data.error.message) || 'Lecture des fichiers du montage impossible.');
-  return data.urls || {};
+  return { urls: data.urls || {}, echecs: data.echecs || {} };
+}
+
+// Construit le détail affiché après "certaines images sont introuvables..."
+// (retour terrain, montage à 22 images) : sans lui, deux montages avec des
+// causes totalement différentes (Supabase en panne vs. un simple délai
+// réseau) affichaient EXACTEMENT le même message, impossible à distinguer
+// sans consulter le journal erreurs_generation. Ne garde que le NOM de
+// fichier (dernier segment du chemin), le dossier "montage-<horodatage>/"
+// n'apprend rien à l'utilisateur. Limité à 3 exemples : au-delà, la liste
+// devient plus longue à lire que le message d'erreur lui-même.
+function detailEchecsLectureMontage(chemins, echecs) {
+  if (!echecs) return '';
+  const details = chemins
+    .filter(c => echecs[c])
+    .map(c => c.split('/').pop() + ' (' + echecs[c] + ')');
+  if (!details.length) return '';
+  const aff = details.slice(0, 3).join(', ') + (details.length > 3 ? ', +' + (details.length - 3) + ' autre(s)' : '');
+  return ' : ' + aff;
 }
 
 // ═══════════════════════════════════════════════════════════
