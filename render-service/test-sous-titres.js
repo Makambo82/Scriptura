@@ -113,11 +113,18 @@ test('construireGrapheLot applique le filtre d\'étalonnage (eq contrast/saturat
 
 // Filigrane Scriptura (retour propriétaire), facultatif (case à cocher côté
 // client, cochée par défaut) : petit texte semi-transparent en coin bas-droit,
-// présent toute la vidéo.
-test('construireASS ajoute une ligne Dialogue "SCRIPTURA" (style Filigrane) sur toute la durée quand demandé', () => {
+// présent toute la vidéo. "SCRIPT" en blanc, "URA" en doré (comme le logo de
+// l'app, retour propriétaire suivant, capture à l'appui) via des balises de
+// couleur ASS en ligne (\c&HBBGGRR&, ordre inversé par rapport à un hex CSS).
+// Comparaison en chaîne littérale (includes), pas en regex : \c, { et }
+// sont tous des caractères spéciaux en regex, une regex qui les échappe
+// correctement est plus dure à relire que le texte ASS qu'elle vérifie.
+const FILIGRANE_TEXTE = '{\\c&HFFFFFF&\\alpha&H80&}SCRIPT{\\c&H1094FA&\\alpha&H80&}URA';
+
+test('construireASS ajoute une ligne Dialogue "SCRIPT"+"URA" (style Filigrane) sur toute la durée quand demandé', () => {
   const ass = construireASS([], 720, 1280, 42.5);
   assert.match(ass, /Style: Filigrane,/, 'le style Filigrane doit être déclaré : ' + ass);
-  assert.match(ass, /Dialogue: 0,0:00:00\.00,0:00:42\.50,Filigrane,,0,0,0,,SCRIPTURA/, ass);
+  assert.ok(ass.includes('Dialogue: 0,0:00:00.00,0:00:42.50,Filigrane,,0,0,0,,' + FILIGRANE_TEXTE), ass);
 });
 
 test('construireASS n\'ajoute AUCUNE ligne de filigrane quand il n\'est pas demandé (facultatif, décochable)', () => {
@@ -132,5 +139,11 @@ test('construireASS : le filigrane peut cohabiter avec les sous-titres, chacun s
     10
   );
   assert.match(ass, /,Default,,0,0,0,,/, 'sous-titre présent : ' + ass);
-  assert.match(ass, /,Filigrane,,0,0,0,,SCRIPTURA/, 'filigrane présent : ' + ass);
+  assert.ok(ass.includes(',Filigrane,,0,0,0,,' + FILIGRANE_TEXTE), 'filigrane présent : ' + ass);
+});
+
+test('construireASS : "URA" du filigrane est bien en doré, la couleur du logo de l\'app', () => {
+  const ass = construireASS([], 720, 1280, 5);
+  assert.ok(ass.includes('\\c&H1094FA&'),
+    'REGRESSION : "URA" n\'est plus dans la couleur dorée attendue (--gold, #FA9410) : ' + ass);
 });

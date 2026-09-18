@@ -374,6 +374,21 @@ function construireASS(captions, W, H, filigraneDureeTotale) {
   // l'habitude CSS en ASS : 00=opaque, FF=invisible), coin bas-droit
   // (Alignment=3), espacement des lettres (Spacing=3) pour évoquer le
   // logo du site ("S C R I P T U R A" très espacé).
+  //
+  // COULEUR DU LOGO, retour propriétaire (capture à l'appui) : "SCRIPT" en
+  // blanc, "URA" en doré, comme le logo de l'app (.logo em, css/style.css).
+  // Balises de couleur ASS EN LIGNE (\c&HBBGGRR&, l'ordre est inversé par
+  // rapport à un hex CSS), une seule ligne Dialogue, pas deux : le style
+  // Filigrane (police, taille, position) reste commun aux deux segments.
+  // PAS de scintillement ici, contrairement au logo à l'écran : ce texte
+  // est incrusté une fois pour toutes dans les pixels de la vidéo exportée
+  // par ffmpeg, jamais rejoué par un navigateur ensuite. Un vrai reflet qui
+  // se déplace demanderait de fabriquer un dégradé animé image par image
+  // (calque vidéo séparé composé par-dessus), une complexité et un risque
+  // d'échec de rendu disproportionnés pour un filigrane discret de coin.
+  const COULEUR_FILIGRANE_BLANC = '&HFFFFFF&';
+  const COULEUR_FILIGRANE_OR = '&H1094FA&';    // --gold (#FA9410) en &HBBGGRR& (ordre inversé)
+  const ALPHA_FILIGRANE = '&H80&';             // même transparence que le style Filigrane
   const fontSizeFiligrane = Math.max(14, Math.round(W * 0.032));
   const marginFiligrane = Math.max(16, Math.round(W * 0.035));
   const entete = `[Script Info]
@@ -398,9 +413,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   const lignes = captions.map(c =>
     `Dialogue: 0,${versHorodatageASS(c.debut)},${versHorodatageASS(c.fin)},Default,,0,0,0,,${mettreEnValeurChiffres(echapperTexteASS(c.texte))}`
   ).join('\n');
-  // Filigrane : dure toute la vidéo (0 -> durée totale).
+  // Filigrane : dure toute la vidéo (0 -> durée totale). "SCRIPT" en blanc
+  // (couleur par défaut du style Filigrane, pas besoin de balise), "URA" en
+  // doré, comme le logo de l'app.
+  const texteFiligrane = `{\\c${COULEUR_FILIGRANE_BLANC}\\alpha${ALPHA_FILIGRANE}}SCRIPT{\\c${COULEUR_FILIGRANE_OR}\\alpha${ALPHA_FILIGRANE}}URA`;
   const ligneFiligrane = filigraneDureeTotale
-    ? `\nDialogue: 0,${versHorodatageASS(0)},${versHorodatageASS(filigraneDureeTotale)},Filigrane,,0,0,0,,SCRIPTURA`
+    ? `\nDialogue: 0,${versHorodatageASS(0)},${versHorodatageASS(filigraneDureeTotale)},Filigrane,,0,0,0,,${texteFiligrane}`
     : '';
   return entete + lignes + ligneFiligrane + '\n';
 }

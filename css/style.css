@@ -866,7 +866,7 @@ body.is-admin .footer-link-btn.nav-contact-btn{display:none}
   font-family:'Russo One',sans-serif;text-transform:uppercase;font-weight:400;font-size:1.15rem;
   letter-spacing:0.01em;color:var(--white);margin-bottom:8px;
 }
-.gen-logo em{color:var(--gold);font-style:normal}
+.gen-logo em{font-style:normal}
 .gen-tagline{
   font-family:'Poppins',sans-serif;font-size:0.58rem;letter-spacing:0.18em;
   text-transform:lowercase;color:var(--gold);opacity:0.6;margin-bottom:48px;
@@ -1527,19 +1527,26 @@ body.hero-focus .hero-focus-rule{display:block}
   .hero-shimmer.hero-word{animation:liftIn .6s cubic-bezier(.2,.7,.2,1) both,wmShine 5.5s ease-in-out infinite}
   .hero-cascade{animation:liftIn .6s cubic-bezier(.2,.7,.2,1) both}
 }
-/* Reflet doré sur les mots-marques (logo en-tête, mot "réinventé") : dans
-   l'en-tête, "Script" (.logo-s) porte un reflet blanc, "URA" (.logo em)
-   son propre reflet doré, chacun sa couleur, réunis dans le même mot.
+/* Reflet doré sur les mots-marques (logo en-tête, écran de génération, mot
+   "réinventé") : "Script" (.logo-s) porte un reflet blanc, "URA" (em) son
+   propre reflet doré, chacun sa couleur, réunis dans le même mot.
    Retour propriétaire : ce reflet doré sur "URA" existait avant la refonte
    visuelle, avait disparu en route (l'em ne portait plus qu'une couleur
-   plate), remis en place ici. */
+   plate), remis en place ici, puis étendu à l'écran de génération (« sur
+   les pages d'attente il y a aussi Scriptura écrit en haut »). Toujours
+   PAS la barre latérale ni le pied de page : jamais eu de reflet, aucune
+   demande en ce sens. */
 @supports ((-webkit-background-clip:text) or (background-clip:text)){
-  .logo .logo-s,.logo em,.hero-shimmer{
+  .logo .logo-s,.gen-logo .logo-s,.hero-shimmer{
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
     background-size:250% 100%;background-repeat:no-repeat;
   }
-  .logo .logo-s{background-image:linear-gradient(100deg,#f4f1ea 0%,#f4f1ea 44%,#ffffff 50%,#f4f1ea 56%,#f4f1ea 100%)}
-  .logo em,.hero-shimmer{background-image:linear-gradient(100deg,var(--gold-light) 0%,var(--gold-light) 44%,#fff6d8 50%,var(--gold-light) 56%,var(--gold-light) 100%)}
+  .logo .logo-s,.gen-logo .logo-s{background-image:linear-gradient(100deg,#f4f1ea 0%,#f4f1ea 44%,#ffffff 50%,#f4f1ea 56%,#f4f1ea 100%)}
+  .logo em,.gen-logo em,.hero-shimmer{
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+    background-size:250% 100%;background-repeat:no-repeat;
+    background-image:linear-gradient(100deg,var(--gold-light) 0%,var(--gold-light) 44%,#fff6d8 50%,var(--gold-light) 56%,var(--gold-light) 100%);
+  }
 }
 /* Reflet qui traverse les boutons dorés principaux */
 .btn-generate,.plan-btn-pro{position:relative;overflow:hidden}
@@ -1549,8 +1556,8 @@ body.hero-focus .hero-focus-rule{display:block}
   transform:skewX(-18deg);pointer-events:none;
 }
 @media (prefers-reduced-motion:no-preference){
-  .logo .logo-s{animation:wmShine 6.5s ease-in-out infinite}
-  .logo em{animation:wmShine 6.5s ease-in-out infinite}
+  .logo .logo-s,.gen-logo .logo-s{animation:wmShine 6.5s ease-in-out infinite}
+  .logo em,.gen-logo em{animation:wmShine 6.5s ease-in-out infinite}
   .hero-shimmer{animation:wmShine 5.5s ease-in-out infinite}
   .btn-generate::after,.plan-btn-pro::after{animation:goldSheen 5s ease-in-out infinite}
   .audit-block{animation:liftIn .5s cubic-bezier(.2,.7,.2,1) backwards}
