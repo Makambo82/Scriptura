@@ -1213,6 +1213,13 @@ async function handleQuotaGenerationGratuite(req, res) {
 //     audit A1 : elle accepte déjà /storage/v1/object/sign/montages/).
 const MONTAGE_STORAGE_BUCKET = 'montages';
 const MONTAGE_STORAGE_URL_EXPIRATION_S = 2 * 60 * 60;
+// Retour terrain (montage à 22 images) : read-url tirait TOUTES les URLs de
+// lecture d'un coup, dans un Promise.all libre, jamais borné. Même défaut
+// que celui déjà corrigé côté render-service pour les téléchargements
+// (LOT 2, audit A9, voir telechargerImagesEnPool) : rien n'empêchait un
+// montage à 60 fichiers de déclencher 60 requêtes simultanées vers Supabase
+// Storage. Même concurrence bornée ici, même raisonnement.
+const MONTAGE_STORAGE_CONCURRENCE_LECTURE = 5;
 // Même forme que les chemins déjà produits côté client
 // (montage-<horodatage>/img-1.jpg, .../voix-off.mp3, .../musique.mp3) : un
 // dossier puis un nom de fichier, alphanumérique + tirets/points seulement,
@@ -1291,23 +1298,44 @@ async function handleMontageStorage(req, res, cfg, body) {
       : [];
     if (!chemins.length) return res.status(200).json({ ok: true, urls: {} });
     const urls = {};
-    await Promise.all(chemins.map(async (chemin) => {
-      try {
-        const r = await fetch(cfg.url + '/storage/v1/object/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin, {
-          method: 'POST',
-          headers: { ...entetes(cfg.key), 'Content-Type': 'application/json' },
-          body: JSON.stringify({ expiresIn: MONTAGE_STORAGE_URL_EXPIRATION_S })
-        });
-        const data = await r.json().catch(() => ({}));
-        const token = extraireJetonSigne(data);
-        if (r.ok && token) {
-          urls[chemin] = cfg.url + '/storage/v1/object/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin + '?token=' + token;
-        }
-        // Un chemin manquant dans `urls` (échec) est géré côté client comme
-        // un upload raté pour ce fichier précis, jamais un plantage global.
-      } catch (e) { /* volontairement avalé, voir commentaire ci-dessus */ }
-    }));
-    return res.status(200).json({ ok: true, urls });
+    // Retour terrain : "certaines images sont introuvables après l'envoi",
+    // sans jamais dire lesquelles ni pourquoi (l'échec par chemin était
+    // avalé en silence, voir le commentaire d'origine ci-dessous, conservé
+    // pour mémoire). `echecs` porte maintenant la raison réelle par chemin,
+    // et un travailleur en concurrence BORNÉE (MONTAGE_STORAGE_CONCURRENCE_
+    // LECTURE) remplace le Promise.all libre : un montage à 22+ fichiers ne
+    // déclenche plus 22+ requêtes simultanées vers Supabase Storage, hypothèse
+    // la plus probable pour expliquer un échec PARTIEL (certains chemins,
+    // pas tous) plutôt qu'un total.
+    const echecs = {};
+    let curseur = 0;
+    async function travailleurLecture() {
+      while (curseur < chemins.length) {
+        const chemin = chemins[curseur++];
+        try {
+          const r = await fetch(cfg.url + '/storage/v1/object/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin, {
+            method: 'POST',
+            headers: { ...entetes(cfg.key), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expiresIn: MONTAGE_STORAGE_URL_EXPIRATION_S })
+          });
+          const data = await r.json().catch(() => ({}));
+          const token = extraireJetonSigne(data);
+          if (r.ok && token) {
+            urls[chemin] = cfg.url + '/storage/v1/object/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin + '?token=' + token;
+          } else {
+            const raison = String((data && (data.message || data.error)) || '').slice(0, 150);
+            echecs[chemin] = 'HTTP ' + r.status + (raison ? ' : ' + raison : '');
+          }
+          // Un chemin manquant dans `urls` (échec) est géré côté client comme
+          // un upload raté pour ce fichier précis, jamais un plantage global.
+        } catch (e) { echecs[chemin] = 'panne réseau (' + (e && e.message) + ')'; }
+      }
+    }
+    await Promise.all(Array.from(
+      { length: Math.min(MONTAGE_STORAGE_CONCURRENCE_LECTURE, chemins.length) },
+      travailleurLecture
+    ));
+    return res.status(200).json({ ok: true, urls, echecs });
   }
 
   return res.status(400).json({ ok: false, error: { message: 'action inconnue' } });
