@@ -188,8 +188,14 @@ test('titres et bouton d\'accueil partagent le MÊME ajustement', async () => {
 // dans la page, à partir de la largeur et de la police RÉELLEMENT mesurées à
 // cet instant (canvas.measureText, indépendant de la mise en page), pour
 // toujours déborder d'environ 25 % à la taille de référence, quelle que soit
-// la police qui rend réellement le texte ici. Le plancher (0.62rem, voir
-// MODE_TITRE_TAILLE_MIN dans js/ui.js) n'est jamais atteint à ce ratio.
+// la police qui rend réellement le texte ici.
+//
+// MISE À JOUR (passage à Poppins GRAS) : le plancher (voir
+// MODE_TITRE_TAILLE_MIN dans js/ui.js) a bel et bien été atteint côté CI sur
+// le panneau « Créer », Poppins 700 étant nettement plus large que Russo One
+// à taille égale. Ce test-ci l'a détecté exactement comme prévu (c'est son
+// rôle) ; le plancher a été baissé en conséquence dans js/ui.js, pas ce
+// test, qui reste le garde-fou côté CI de tout futur changement de police.
 test('un titre long est vraiment ajusté, sur les deux surfaces', async () => {
   const { baseUrl, arreter } = await demarrerServeur();
   const navigateur = await lancerNavigateur();

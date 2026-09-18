@@ -779,9 +779,17 @@ function ajusterHeroCta() {
 // largeur nulle et étant donc ignorées d'elles-mêmes. D'où le rappel à
 // l'ouverture du panneau.
 const MODE_TITRE_TAILLE_MAX = 1;
-const MODE_TITRE_TAILLE_MIN = 0.62;   // la taille des boutons de l'app ; comme
-                                      // pour le bouton d'accueil, ce plancher
-                                      // n'est là que pour un cas absurde
+// Plancher baissé de 0.62 à 0.45 (passage de .mode-label à Poppins GRAS,
+// retour propriétaire) : Poppins en graisse 700 est nettement plus large que
+// Russo One à taille égale (mesuré, canvas.measureText : environ 19 % de
+// plus que le texte courant). 0.62 se déclenchait alors sur le panneau
+// « Créer » (largeur dispo la plus étroite des deux surfaces), CI démentie
+// par tests/titres-des-modes-une-ligne.test.js, MÊME LEÇON que
+// HERO_CTA_TAILLE_MIN plus haut : ne JAMAIS calibrer ce plancher sur
+// l'environnement de développement, qui ne charge pas Poppins. Comme pour
+// le bouton d'accueil, ce plancher n'est là que pour un cas absurde, aucune
+// des onze phrases réelles ne devrait l'atteindre.
+const MODE_TITRE_TAILLE_MIN = 0.45;
 
 function ajusterTitresModes() {
   document.querySelectorAll('.mode-label').forEach(function (el) {
