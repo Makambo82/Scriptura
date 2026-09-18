@@ -1252,7 +1252,19 @@ async function handleMontageStorage(req, res, cfg, body) {
       const data = await r.json().catch(() => ({}));
       const token = extraireJetonSigne(data);
       if (!r.ok || !token) {
-        return res.status(502).json({ ok: false, error: { message: 'Le stockage a refusé de préparer ce fichier.' } });
+        // La raison RÉELLE de Supabase (quota dépassé, fichier déjà présent,
+        // clé invalide...) était jusqu'ici avalée en silence : le message
+        // générique ne distinguait aucun de ces cas, ni pour l'utilisateur
+        // (qui ne peut rien corriger sans savoir quoi), ni dans le journal
+        // erreurs_generation (mode montageRendu, voir js/montage-manuel.js/
+        // js/montage.js) où ce message atterrit ensuite tel quel. La raison
+        // de Supabase (data.message/data.error selon la version de l'API
+        // Storage) est maintenant ajoutée, tronquée pour rester lisible.
+        const raisonSupabase = String((data && (data.message || data.error)) || '').slice(0, 150);
+        return res.status(502).json({ ok: false, error: {
+          message: 'Le stockage a refusé de préparer ce fichier'
+            + ' (HTTP ' + r.status + (raisonSupabase ? ' : ' + raisonSupabase : '') + ').'
+        } });
       }
       const uploadUrl = cfg.url + '/storage/v1/object/upload/sign/' + MONTAGE_STORAGE_BUCKET + '/' + chemin + '?token=' + token;
       return res.status(200).json({ ok: true, chemin, uploadUrl });

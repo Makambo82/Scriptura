@@ -161,3 +161,32 @@ test('A3-6 : une action inconnue est refusée proprement (400), jamais un fetch 
     retirerEnv();
   }
 });
+
+// Retour terrain (montage à 22 images) : Supabase a refusé de préparer un
+// fichier, et le message générique ("Le stockage a refusé de préparer ce
+// fichier.") ne disait ni pourquoi ni pour quel appel — impossible à
+// diagnostiquer sans accès direct au projet Supabase. La raison réelle
+// (statut HTTP + message/error de la réponse Supabase) est désormais
+// ajoutée, et remonte telle quelle jusqu'au journal erreurs_generation
+// (mode montageRendu, voir js/montage.js/js/montage-manuel.js) : la
+// prochaine occurrence sera diagnosticable depuis le Tableau de bord.
+test('A3-7 : un refus Supabase Storage inclut le statut HTTP et la raison dans le message renvoyé', async () => {
+  poserEnv();
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url) => {
+    const u = new URL(url.toString());
+    if (u.pathname.startsWith('/storage/v1/object/upload/sign/')) {
+      return { ok: false, status: 413, json: async () => ({ statusCode: '413', error: 'Payload too large', message: 'The object exceeded the maximum allowed size' }) };
+    }
+    return { ok: true, status: 200, json: async () => ([]), headers: { get: () => null } };
+  };
+  try {
+    const r = await appeler({ resource: 'montage-storage', action: 'upload-url', chemin: CHEMIN_VALIDE, code_acces: 'SCRIPTURA-CELINE' });
+    assert.equal(r._status, 502, JSON.stringify(r._json));
+    assert.match(r._json.error.message, /413/, 'REGRESSION : le statut HTTP de Supabase a disparu du message : ' + JSON.stringify(r._json));
+    assert.match(r._json.error.message, /maximum allowed size/, 'REGRESSION : la raison donnée par Supabase a disparu du message : ' + JSON.stringify(r._json));
+  } finally {
+    global.fetch = fetchOriginal;
+    retirerEnv();
+  }
+});
