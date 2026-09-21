@@ -1,7 +1,8 @@
-# Image portable pour Render / Railway / Fly.io (ou tout hôte Docker).
-# Sur Render en mode "Node" natif, ce Dockerfile est optionnel : l'hôte lance
-# directement `npm install && npm start`. On le fournit pour les hôtes qui
-# préfèrent un conteneur.
+# Image portable pour Northflank / Render / Railway / Fly.io (ou tout hôte
+# Docker). Sur Render en mode "Node" natif, ce Dockerfile est optionnel :
+# l'hôte lance directement `npm install && npm start`. On le fournit pour
+# les hôtes qui préfèrent un conteneur (Northflank en particulier construit
+# TOUJOURS à partir de ce Dockerfile, voir README.md).
 FROM node:20-slim
 
 WORKDIR /app

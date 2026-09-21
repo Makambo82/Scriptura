@@ -912,7 +912,7 @@ if (require.main === module) {
     console.error(
       '[render-service] Démarrage refusé : la variable d\'environnement MONTAGE_TOKEN est absente. '
       + 'Sans elle, POST /render accepterait n\'importe quelle requête, de n\'importe où, sans '
-      + 'authentification (voir render-service/README.md, section Railway > Variables). '
+      + 'authentification (voir render-service/README.md, section Déploiement > Variables). '
       + 'Configure MONTAGE_TOKEN puis relance le service.'
     );
     process.exit(1);
