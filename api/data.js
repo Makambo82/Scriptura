@@ -16,7 +16,13 @@
 import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme, verifierAccesMontage, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
 
 function config() {
-  const url = process.env.SUPABASE_URL;
+  // Slash final retiré (incident vécu : une variable d'environnement
+  // SUPABASE_URL collée avec un "/" en fin produisait un double slash sur
+  // CHAQUE URL construite plus bas ("co//storage/..."), invisible partout
+  // sauf là où render-service/server.js compare le pathname strictement
+  // (urlAssetApprouvee) : le montage échouait avec "URL de média refusée"
+  // sans que rien d'autre ne le laisse deviner.
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return url && key ? { url, key } : null;
 }

@@ -160,7 +160,8 @@ export default async function handler(req, res) {
 // Aucune donnée de contenu n'est enregistrée, uniquement des compteurs.
 function journaliserMontage(ligne) {
   try {
-    const url = process.env.SUPABASE_URL;
+    // Slash final retiré (voir api/data.js, même correctif).
+    const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) return;
     fetch(url + '/rest/v1/montages_rendus', {

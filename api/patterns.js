@@ -59,7 +59,8 @@ const MAX_LIRE = 12;        // plafond dur de patterns renvoyés
 const PLAFOND_PATTERNS_JOUR = 20;
 
 function config() {
-  const url = process.env.SUPABASE_URL;
+  // Slash final retiré (voir api/data.js, même correctif).
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return url && key ? { url, key } : null;
 }

@@ -72,7 +72,9 @@ const MODES_GRATUIT_UNIQUE = { diagnosticSommaire: 1, analyseVirale: 1 }; // à 
 const MODES_JETON = { audit: true, diagnosticSommaire: true, analyseVirale: true, creation: false };
 
 function config() {
-  const url = process.env.SUPABASE_URL;
+  // Slash final retiré (voir api/data.js, même correctif) : évite un double
+  // slash sur toute URL construite par concaténation plus bas.
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return url && key ? { url, key } : null;
 }

@@ -240,7 +240,8 @@ Français simple, direct, concret. Tu n'es pas un tableau de chiffres, tu es un 
 // laisse l'audit se dérouler exactement comme avant, sans ce contexte.
 async function dernierDiagnosticSommaire(code) {
   if (!code) return null;
-  const url = process.env.SUPABASE_URL;
+  // Slash final retiré (voir api/data.js, même correctif).
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   const key = process.env.SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   try {

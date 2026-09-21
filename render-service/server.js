@@ -602,7 +602,9 @@ function extraireJetonSigne(reponse) {
 }
 
 async function uploaderVersSupabase(cheminLocal, nomFichier) {
-  const url = process.env.SUPABASE_URL;
+  // Slash final retiré (incident vécu côté Vercel, voir api/data.js) : évite
+  // un double slash si la variable est collée avec un "/" en fin ici aussi.
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
   // Clé service_role, pas anon (audit A3) : le bucket `montages` est privé
   // depuis ce correctif (supabase/montage_storage_rls.sql), un upload à la
   // clé anon échouerait désormais (RLS fermée). SUPABASE_SERVICE_ROLE_KEY
