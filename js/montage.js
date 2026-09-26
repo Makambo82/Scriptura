@@ -429,6 +429,16 @@ function gererClicBoutonSelection() {
   toggleToutSelectionnerImages();
 }
 
+// Icône "✕" à côté de la suppression (retour propriétaire) : sort du mode
+// sélection sans rien supprimer, ramène la grille à son état propre (cases
+// à cocher masquées, bouton "Sélectionner" de nouveau) - la seule façon d'y
+// revenir jusqu'ici (voir gererClicBoutonSelection ci-dessus).
+function annulerModeSelection() {
+  montageImagesSelection = new Set();
+  montageModeSelectionActif = false;
+  renderMontageEtat();
+}
+
 // ── ZIP minimal (méthode "stored", sans compression) ────────────────────
 // Les images sont déjà compressées (PNG/JPEG/WEBP) : recompresser dans le
 // zip n'apporterait rien, autant écrire un zip "stored", le format le
@@ -1287,6 +1297,18 @@ function renderMontageEtat() {
   // si au moins une image est cochée, comme les autres actions de sélection.
   const btnDelSelection = document.getElementById('montageDelSelectionBtn');
   if (btnDelSelection) btnDelSelection.disabled = montageImagesSelection.size === 0;
+  // Icône de téléchargement (raccourci à côté de "Sélectionner", retour
+  // propriétaire) : même action et même garde que le bouton texte
+  // ci-dessus (montageDlSelectionBtn), juste un accès plus rapide.
+  const btnDlSelectionIcon = document.getElementById('montageDlSelectionIconBtn');
+  if (btnDlSelectionIcon) btnDlSelectionIcon.disabled = !nbPretes;
+  // Icône "✕ annuler" (retour propriétaire) : n'a de sens QU'EN mode
+  // sélection (rien à annuler sinon), indépendamment de savoir si une image
+  // est déjà cochée - contrairement à "supprimer", elle doit rester
+  // utilisable même quand le mode vient d'être activé et que rien n'est
+  // encore coché.
+  const btnAnnulerSelection = document.getElementById('montageAnnulerSelectionBtn');
+  if (btnAnnulerSelection) btnAnnulerSelection.disabled = !montageModeSelectionActif;
 
   const zoneVoix = document.getElementById('montageVoixZone');
   if (zoneVoix) {
