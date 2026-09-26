@@ -36,9 +36,15 @@ app.use(express.json({ limit: '2mb' }));
 const PORT = process.env.PORT || 3000;
 const LARGEUR = parseInt(process.env.MONTAGE_WIDTH || '1080', 10);   // défaut si aucun format envoyé
 const HAUTEUR = parseInt(process.env.MONTAGE_HEIGHT || '1920', 10);
-// Dimensions de sortie par format (raisonnables pour la mémoire du conteneur).
+// Dimensions de sortie par format. '9:16' (le seul réellement utilisé par
+// Scriptura, TikTok exclusivement, voir ratioDuPrompt côté client) relevé
+// à 1080x1920 (retour propriétaire, 26/09) : resté à 720x1280 depuis la
+// migration hors Vercel malgré l'en-tête de ce fichier qui promettait déjà
+// "1080p" comme l'un des compromis levés en quittant le plan gratuit
+// Vercel - jamais mis à jour ici, un oubli, pas un choix. '16:9'/'1:1'
+// laissés tels quels (jamais atteints en pratique par ce produit).
 const DIMENSIONS_VIDEO = {
-  '9:16': { w: 720,  h: 1280 },
+  '9:16': { w: 1080, h: 1920 },
   '16:9': { w: 1280, h: 720 },
   '1:1':  { w: 1000, h: 1000 },
 };
