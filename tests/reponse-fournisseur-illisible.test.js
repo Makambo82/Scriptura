@@ -47,18 +47,29 @@ test('la fonction de lecture est écrite UNE fois et partagée', () => {
   assert.ok(/function analyserJson\(/.test(SOURCE), 'analyserJson doit exister');
   assert.ok(/async function lireJsonOuNull\(/.test(SOURCE), 'lireJsonOuNull doit exister');
 
-  // Les trois appels externes (images, voix off, musique) doivent tous passer
-  // par elle. Deux d'entre eux ne le faisaient pas.
+  // Les appels externes (images, voix off, musique, animation Agnes AI
+  // create/poll) doivent tous passer par elle. Deux d'entre eux ne le
+  // faisaient pas à l'origine.
   //
   // ON COMPTE LES APPELS, PAS LES OCCURRENCES : compter « analyserJson(brut) »
   // comptait aussi sa propre DÉCLARATION, ce qui gonflait le total de un et
   // laissait le contrôle de morsure passer alors qu'un fournisseur avait été
   // débranché. Un compteur qui compte la définition ne mesure rien.
+  //
+  // Seuil tenu à jour avec le nombre RÉEL d'appels (5 : Together images,
+  // ElevenLabs voix, ElevenLabs musique, Agnes AI animate-create,
+  // Agnes AI animate-poll) plutôt qu'un « au moins 3 » qui aurait laissé
+  // passer un nouvel appel fournisseur ajouté sans la lecture partagée -
+  // c'est exactement ce qui a fait taire le contrôle de morsure plus bas
+  // le jour où l'animation IA a été ajoutée (5 appels réels, casser le
+  // premier ne faisait tomber le compte qu'à 4, toujours au-dessus d'un
+  // plancher figé à 3).
   const usages = (SOURCE.match(/await lireJsonOuNull\(rep\)|= analyserJson\(brut\)/g) || []).length;
-  assert.ok(usages >= 3,
-    'REGRESSION : seulement ' + usages + ' appel(s) passe(nt) par la lecture commune. Les trois '
-    + 'fournisseurs (Together images, ElevenLabs voix, ElevenLabs musique) doivent se comporter '
-    + 'pareil : c\'est en en oubliant un que le défaut a survécu à sa première correction.');
+  assert.ok(usages >= 5,
+    'REGRESSION : seulement ' + usages + ' appel(s) passe(nt) par la lecture commune. Les cinq '
+    + 'fournisseurs (Together images, ElevenLabs voix, ElevenLabs musique, Agnes AI animate-create, '
+    + 'Agnes AI animate-poll) doivent se comporter pareil : c\'est en en oubliant un que le défaut '
+    + 'a survécu à sa première correction.');
 });
 
 test('une réponse illisible sur une panne passagère est RÉESSAYÉE, pas abandonnée', () => {
@@ -147,10 +158,14 @@ test('contrôle de morsure : chaque règle tombe quand on réintroduit son défa
     assert.ok(/rep\.status >= 500 \|\| rep\.status === 429/.test(corps));
   }), 'le test de la retentative ne mord pas.');
 
-  // 3. Un des trois fournisseurs qui reprend son propre chemin.
+  // 3. Un des cinq fournisseurs qui reprend son propre chemin. Seuil
+  // (>= 5) identique à celui du test juste au-dessus, pour la même
+  // raison : un plancher plus bas que le total réel ne mord plus dès
+  // qu'un fournisseur de plus rejoint la lecture partagée (voir le
+  // commentaire du test précédent).
   const disperse = SOURCE.replace('const data = await lireJsonOuNull(rep);', 'const data = null;');
   assert.ok(mordu(() => {
     const usages = (disperse.match(/await lireJsonOuNull\(rep\)|= analyserJson\(brut\)/g) || []).length;
-    assert.ok(usages >= 3);
+    assert.ok(usages >= 5);
   }), 'le test du partage ne mord pas.');
 });
