@@ -873,6 +873,23 @@ async function handleAnimateCreate(req, res, body) {
   const mimeType = (typeof body?.mimeType === 'string' && /^image\//i.test(body.mimeType)) ? body.mimeType : 'image/png';
   if (!imageBase64) return res.status(400).json({ error: { message: 'Image manquante' } });
 
+  // Contexte de scène (retour propriétaire, 26/09) : le prompt visuel du
+  // plan (celui qui a servi à générer l'IMAGE fixe, voir js/montage.js)
+  // n'était pas transmis à Agnes AI, qui recevait une consigne générique
+  // identique pour tous les plans. Ajouté en PRÉFIXE, jamais en
+  // remplacement : les consignes fixes d'AGNES_PROMPT_DEFAUT (préserver le
+  // sujet, mouvement naturel, 9:16, sans texte ni filigrane) restent
+  // nécessaires quel que soit le contexte, écrit pour un générateur
+  // d'image fixe et pas pour décrire un mouvement, donc pas de garantie
+  // qu'il aide - c'est justement ce que ce test doit permettre de juger.
+  // Plafonné (400 caractères) et le éventuel " 9:16" final retiré (déjà
+  // repris par AGNES_PROMPT_DEFAUT, doublon sinon) : entrée externe, jamais
+  // envoyée telle quelle sans borne.
+  const contexteScene = typeof body?.prompt === 'string'
+    ? body.prompt.trim().replace(/\s*9:16\s*$/i, '').slice(0, 400)
+    : '';
+  const prompt = (contexteScene ? 'Scene context: ' + contexteScene + '. ' : '') + AGNES_PROMPT_DEFAUT;
+
   const quota = await verifierQuota(droits, 'montageAnimations', body?.code_acces);
   if (!quota.ok) {
     return res.status(403).json({ error: { message: 'Limite d\'animations du mois atteinte.', code: 'QUOTA_ATTEINT' } });
@@ -884,7 +901,7 @@ async function handleAnimateCreate(req, res, body) {
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: AGNES_MODELE,
-        prompt: AGNES_PROMPT_DEFAUT,
+        prompt,
         image: 'data:' + mimeType + ';base64,' + imageBase64,
         num_frames: AGNES_NUM_FRAMES,
         frame_rate: AGNES_FRAME_RATE

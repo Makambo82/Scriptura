@@ -438,10 +438,18 @@ async function testerAnimationImageMontage(i) {
   const code = localStorage.getItem('scriptura_code') || '';
   try {
     const base64 = await lireFichierEnBase64(img.blob);
+    // Prompt visuel du plan (celui qui a servi à générer CETTE image, voir
+    // corpsImagesMontage plus haut) transmis comme contexte de scène (retour
+    // propriétaire, 26/09) : jusqu'ici Agnes AI ne recevait qu'une consigne
+    // générique identique pour tous les plans. Le serveur le combine avec
+    // ses propres consignes fixes, jamais envoyé seul (voir
+    // handleAnimateCreate, api/montage-media.js).
+    const plan = montagePlans[i];
+    const promptScene = (plan && (plan.visuel || plan.text)) || '';
     const repCreation = await fetch('/api/montage-media?action=animate-create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64: base64, mimeType: img.blob.type || 'image/png', code_acces: code || null })
+      body: JSON.stringify({ imageBase64: base64, mimeType: img.blob.type || 'image/png', prompt: promptScene, code_acces: code || null })
     });
     const dataCreation = await repCreation.json().catch(() => ({}));
     if (!repCreation.ok || !dataCreation.taskId) {
