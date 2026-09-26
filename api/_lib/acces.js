@@ -58,14 +58,23 @@ const LIMITES_MOIS = {
   creator: {
     creation: 40, audit: 0, diagnosticSommaire: 10, analyseVirale: 6, tendances: 0,
     montageImages: 20, carrouselImages: 15,
-    montageRendus: 30, montageVoix: 60, montageMusique: 30
+    montageRendus: 30, montageVoix: 60, montageMusique: 30,
+    montageAnimations: 10
   },
   pro: {
     creation: 70, audit: 5, diagnosticSommaire: 15, analyseVirale: 10, tendances: 1,
     montageImages: 60, carrouselImages: 40,
-    montageRendus: 100, montageVoix: 150, montageMusique: 80
+    montageRendus: 100, montageVoix: 150, montageMusique: 80,
+    montageAnimations: 20
   }
 };
+// montageAnimations (Agnes AI, animation d'image en mini-clip vidéo) :
+// PHASE 1 en test, réservée au fondateur (voir handleAnimateCreate,
+// api/montage-media.js) - ces plafonds n'ont donc encore aucun effet
+// pratique (droits.isAdmin court-circuite verifierQuota avant de les lire),
+// posés à l'avance pour le jour où la fonctionnalité s'ouvrira aux abonnés,
+// volontairement bas tant que le coût réel et la fiabilité du service tiers
+// ne sont pas connus.
 const PLAN_PAR_DEFAUT = 'creator';
 const MAX_FREE = 5;                // création, code jeton/inconnu (à vie)
 const MODES_GRATUIT_UNIQUE = { diagnosticSommaire: 1, analyseVirale: 1 }; // à vie

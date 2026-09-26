@@ -792,6 +792,182 @@ async function handleImages(req, res, body) {
   return res.status(200).json({ images: resultats, erreurs });
 }
 
+// ═══ ANIMATION IA (Agnes AI) — PHASE 1, VALIDATION UNIQUEMENT ═══
+//
+// Retour propriétaire (25/09) : une API tierce "gratuite illimitée" pour
+// animer une image en mini-clip vidéo, apportée sans documentation
+// vérifiable (platform.agnes-ai.com et apihub.agnes-ai.com bloqués par le
+// proxy réseau côté outillage, jamais consultés). Avant d'y bâtir quoi que
+// ce soit dans le pipeline de rendu final (render-service), cette action ne
+// sert qu'à JUGER SUR PIÈCE : qualité réelle, délai réel, fiabilité réelle.
+// Volontairement réservée au fondateur (droits.isAdmin), jamais montrée aux
+// abonnés Creator/Pro tant que rien de tout ça n'est confirmé.
+//
+// Ne rejoint JAMAIS le pipeline de montage final à ce stade : le résultat
+// est republié dans le Storage Supabase (bucket `montages`, dossier
+// test-animations/) uniquement pour être prévisualisé côté client via une
+// URL signée, exactement le même principe de confiance que le reste du
+// montage (jamais l'URL du fournisseur tiers renvoyée telle quelle au
+// navigateur, voir urlStorageMontageApprouvee plus haut).
+const AGNES_URL_CREATION = 'https://apihub.agnes-ai.com/v1/videos';
+const AGNES_URL_POLLING = 'https://apihub.agnes-ai.com/agnesapi';
+const AGNES_MODELE = 'agnes-video-v2.0';
+// 121 images à 24 i/s ≈ 5 s, le plus court des trois formats documentés par
+// Agnes AI (121/153/241) : cette phase ne sert qu'à juger la qualité et le
+// délai réel, pas à produire un plan complet, donc le format le moins
+// coûteux et le plus rapide à obtenir.
+const AGNES_NUM_FRAMES = 121;
+const AGNES_FRAME_RATE = 24;
+const AGNES_STATUTS_OK = new Set(['completed', 'succeeded', 'done']);
+const AGNES_STATUTS_ECHEC = new Set(['failed', 'error', 'cancelled']);
+const AGNES_PROMPT_DEFAUT = 'Animate this exact image as the starting frame. '
+  + 'Preserve subject identity, face, pose, clothing, composition. '
+  + 'Natural subtle motion, cinematic. 9:16, no text, no watermark.';
+
+// Slash final retiré (même incident déjà corrigé ailleurs, voir api/data.js) :
+// ce fichier n'avait encore jamais eu besoin d'ÉCRIRE dans le Storage
+// (origineStorageApprouvee plus haut ne fait que LIRE la variable pour
+// vérifier une origine).
+function supabaseStockage() {
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return url && key ? { url, key } : null;
+}
+
+// Identique à l'extraction déjà utilisée pour signer les autres objets du
+// bucket `montages` (voir api/data.js, render-service/server.js) : le champ
+// exact varie selon la version de l'API Storage (signedURL, signedUrl...),
+// la seule chose stable est la présence d'un paramètre token= dans l'URL.
+function extraireJetonSigne(reponse) {
+  const brut = JSON.stringify(reponse || {});
+  const m = /token=([^"\\&]+)/.exec(brut);
+  return m ? m[1] : '';
+}
+
+async function handleAnimateCreate(req, res, body) {
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+
+  const apiKey = process.env.AGNES_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (AGNES_API_KEY)' } });
+
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Animation IA en test, réservée au fondateur pour l\'instant.' } });
+  }
+
+  const imageBase64 = typeof body?.imageBase64 === 'string' ? body.imageBase64 : '';
+  const mimeType = (typeof body?.mimeType === 'string' && /^image\//i.test(body.mimeType)) ? body.mimeType : 'image/png';
+  if (!imageBase64) return res.status(400).json({ error: { message: 'Image manquante' } });
+
+  const quota = await verifierQuota(droits, 'montageAnimations', body?.code_acces);
+  if (!quota.ok) {
+    return res.status(403).json({ error: { message: 'Limite d\'animations du mois atteinte.', code: 'QUOTA_ATTEINT' } });
+  }
+
+  try {
+    const rep = await fetch(AGNES_URL_CREATION, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: AGNES_MODELE,
+        prompt: AGNES_PROMPT_DEFAUT,
+        image: 'data:' + mimeType + ';base64,' + imageBase64,
+        num_frames: AGNES_NUM_FRAMES,
+        frame_rate: AGNES_FRAME_RATE
+      })
+    });
+    const data = await lireJsonOuNull(rep);
+    if (data === null) {
+      if (quota.consomme) await rembourserUsage(droits, 'montageAnimations', body?.code_acces, 1);
+      return res.status(502).json({ error: { message: 'Agnes AI a répondu quelque chose d\'illisible (statut ' + rep.status + ')' } });
+    }
+    const taskId = data.video_id || data.id || data.task_id;
+    if (!rep.ok || !taskId) {
+      if (quota.consomme) await rembourserUsage(droits, 'montageAnimations', body?.code_acces, 1);
+      const message = data?.error?.message || data?.error || data?.message || 'Échec de la création (statut ' + rep.status + ')';
+      return res.status(502).json({ error: { message } });
+    }
+    return res.status(200).json({ taskId: String(taskId) });
+  } catch (e) {
+    if (quota.consomme) await rembourserUsage(droits, 'montageAnimations', body?.code_acces, 1);
+    return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
+  }
+}
+
+async function handleAnimatePoll(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+
+  const apiKey = process.env.AGNES_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (AGNES_API_KEY)' } });
+
+  const droits = await resoudreDroits(req.query?.code_acces);
+  if (!droits.isAdmin) {
+    return res.status(403).json({ error: { message: 'Animation IA en test, réservée au fondateur pour l\'instant.' } });
+  }
+
+  const taskId = typeof req.query?.taskId === 'string' ? req.query.taskId : '';
+  if (!taskId) return res.status(400).json({ error: { message: 'taskId manquant' } });
+
+  try {
+    const rep = await fetch(
+      AGNES_URL_POLLING + '?video_id=' + encodeURIComponent(taskId) + '&model_name=' + encodeURIComponent(AGNES_MODELE),
+      { headers: { Authorization: 'Bearer ' + apiKey } }
+    );
+    const data = await lireJsonOuNull(rep);
+    if (data === null) {
+      return res.status(502).json({ error: { message: 'Agnes AI a répondu quelque chose d\'illisible (statut ' + rep.status + ')' } });
+    }
+    const statut = String(data.status || '').toLowerCase();
+    if (AGNES_STATUTS_ECHEC.has(statut)) {
+      return res.status(200).json({ status: 'failed', message: String(data.error || data.message || 'Animation échouée').slice(0, 200) });
+    }
+    if (!AGNES_STATUTS_OK.has(statut)) {
+      return res.status(200).json({ status: 'pending', progress: Number(data.progress) || 0 });
+    }
+
+    const urlSource = data?.metadata?.url || data?.url || data?.output?.url;
+    if (typeof urlSource !== 'string' || !urlSource) {
+      return res.status(502).json({ error: { message: 'Animation terminée mais aucune URL renvoyée par Agnes AI' } });
+    }
+
+    // Jamais l'URL du fournisseur tiers renvoyée telle quelle au navigateur
+    // (voir en-tête de section) : rapatriée ici, republiée dans NOTRE
+    // Storage, seule une URL signée Supabase repart vers le client.
+    const stockage = supabaseStockage();
+    if (!stockage) {
+      return res.status(500).json({ error: { message: 'Stockage Supabase non configuré côté serveur' } });
+    }
+    const repVideo = await fetch(urlSource);
+    if (!repVideo.ok) {
+      return res.status(502).json({ error: { message: 'Vidéo Agnes AI introuvable au téléchargement (statut ' + repVideo.status + ')' } });
+    }
+    const tampon = Buffer.from(await repVideo.arrayBuffer());
+    const chemin = 'test-animations/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.mp4';
+    const repUpload = await fetch(stockage.url + '/storage/v1/object/montages/' + chemin, {
+      method: 'POST',
+      headers: { apikey: stockage.key, Authorization: 'Bearer ' + stockage.key, 'Content-Type': 'video/mp4' },
+      body: tampon
+    });
+    if (!repUpload.ok) {
+      const detail = await repUpload.text().catch(() => '');
+      return res.status(502).json({ error: { message: 'Échec de la republication dans le Storage (statut ' + repUpload.status + (detail ? ' : ' + detail.slice(0, 150) : '') + ')' } });
+    }
+    const repSign = await fetch(stockage.url + '/storage/v1/object/sign/montages/' + chemin, {
+      method: 'POST',
+      headers: { apikey: stockage.key, Authorization: 'Bearer ' + stockage.key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expiresIn: 3600 })
+    });
+    const dataSign = await lireJsonOuNull(repSign);
+    const token = extraireJetonSigne(dataSign);
+    if (!repSign.ok || !token) {
+      return res.status(502).json({ error: { message: 'Vidéo republiée mais impossible d\'obtenir un lien de lecture' } });
+    }
+    return res.status(200).json({ status: 'completed', url: stockage.url + '/storage/v1/object/sign/montages/' + chemin + '?token=' + token });
+  } catch (e) {
+    return res.status(500).json({ error: { message: 'Erreur serveur : ' + (e.message || 'inconnue') } });
+  }
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -799,6 +975,7 @@ export default async function handler(req, res) {
 
   if (action === 'download') return handleDownload(req, res);
   if (action === 'voices') return handleVoices(req, res);
+  if (action === 'animate-poll') return handleAnimatePoll(req, res);
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
@@ -807,6 +984,7 @@ export default async function handler(req, res) {
   if (action === 'tts') return handleTts(req, res, body);
   if (action === 'music') return handleMusic(req, res, body);
   if (action === 'images') return handleImages(req, res, body);
+  if (action === 'animate-create') return handleAnimateCreate(req, res, body);
 
   return res.status(400).json({ error: { message: 'action inconnue' } });
 }

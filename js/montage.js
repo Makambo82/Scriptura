@@ -43,6 +43,14 @@ let montageEnCours = false;
 let montageVoixEnCours = false;
 let montageMusiqueEnCours = false;
 let montageImagesEnCours = false;
+// Animation IA (Agnes AI), PHASE 1 de validation, réservée au fondateur
+// (voir handleAnimateCreate/handleAnimatePoll, api/montage-media.js) : ne
+// touche à rien du pipeline de montage final, juste un aperçu par image
+// pour juger qualité/délai/fiabilité avant d'envisager de l'intégrer pour
+// de vrai. `montageAnimationEnCours` : Set des index de plan en cours de
+// génération, pour désactiver/griser seulement CE plan-là (les autres
+// restent utilisables pendant l'attente).
+let montageAnimationEnCours = new Set();
 let montageVoixListe = [];  // [{ id, label, description }], voix ElevenLabs configurées (voir api/montage-media.js action=voices)
 let montageVoixId = '';     // id de la voix actuellement choisie
 // Vitesse de lecture de la voix off (retour propriétaire), transmise à
@@ -367,17 +375,96 @@ function agrandirImageMontage(i) {
   if (!img) return;
   const box = document.getElementById('montageLightbox');
   const el = document.getElementById('montageLightboxImg');
+  const elVideo = document.getElementById('montageLightboxVideo');
   if (!box || !el) return;
+  if (elVideo) { elVideo.pause(); elVideo.removeAttribute('src'); elVideo.style.display = 'none'; }
+  el.style.display = '';
   el.src = img.apercu;
   box.classList.add('active');
+}
+// Même lightbox que les images (voir agrandirImageMontage), pour le résultat
+// du test d'animation IA (Agnes AI, PHASE 1, voir testerAnimationImageMontage
+// plus bas) : pas de composant séparé pour un aperçu ponctuel réservé au
+// fondateur.
+function agrandirVideoMontage(url) {
+  const box = document.getElementById('montageLightbox');
+  const el = document.getElementById('montageLightboxImg');
+  const elVideo = document.getElementById('montageLightboxVideo');
+  if (!box || !elVideo) return;
+  if (el) el.style.display = 'none';
+  elVideo.src = url;
+  elVideo.style.display = '';
+  box.classList.add('active');
+  elVideo.play().catch(() => {});
 }
 function fermerImageMontage() {
   const box = document.getElementById('montageLightbox');
   if (box) box.classList.remove('active');
+  const elVideo = document.getElementById('montageLightboxVideo');
+  if (elVideo) elVideo.pause();
 }
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') fermerImageMontage();
 });
+
+// ── Test d'animation IA (Agnes AI), PHASE 1 de validation, fondateur
+// uniquement (voir handleAnimateCreate/handleAnimatePoll,
+// api/montage-media.js pour le pourquoi) : transforme UNE vignette déjà
+// générée en mini-clip vidéo, juste pour en juger la qualité et le délai
+// réel. Ne modifie jamais montageImages ni le pipeline de rendu final, un
+// échec ici n'affecte donc jamais le montage en cours.
+//
+// Intervalle et nombre de tentatives calqués sur la documentation Agnes AI
+// telle que transmise (passation "Atelier Vidéo", 26/09) : 8 s entre deux
+// vérifications, jusqu'à 100 fois (~13 min) avant d'abandonner.
+const AGNES_POLL_INTERVALLE_MS = 8000;
+const AGNES_POLL_TENTATIVES_MAX = 100;
+function montageAttendre(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function testerAnimationImageMontage(i) {
+  // Défense en profondeur : le bouton n'est déjà rendu que pour le
+  // fondateur (voir renderMontageEtat), le serveur revérifie de toute façon
+  // à chaque appel (droits.isAdmin, api/montage-media.js) - ceci évite
+  // seulement un aller-retour réseau inutile si jamais appelé autrement.
+  if (typeof estCodeAdmin !== 'function' || !estCodeAdmin()) return;
+  const img = montageImages[i];
+  if (!img || montageAnimationEnCours.has(i)) return;
+
+  montageAnimationEnCours.add(i);
+  renderMontageEtat();
+  const code = localStorage.getItem('scriptura_code') || '';
+  try {
+    const base64 = await lireFichierEnBase64(img.blob);
+    const repCreation = await fetch('/api/montage-media?action=animate-create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64, mimeType: img.blob.type || 'image/png', code_acces: code || null })
+    });
+    const dataCreation = await repCreation.json().catch(() => ({}));
+    if (!repCreation.ok || !dataCreation.taskId) {
+      throw new Error((dataCreation?.error?.message) || 'Création de l\'animation refusée');
+    }
+
+    let resultat = null;
+    for (let tentative = 0; tentative < AGNES_POLL_TENTATIVES_MAX; tentative++) {
+      await montageAttendre(AGNES_POLL_INTERVALLE_MS);
+      const repPoll = await fetch('/api/montage-media?action=animate-poll&taskId=' + encodeURIComponent(dataCreation.taskId) + '&code_acces=' + encodeURIComponent(code));
+      const dataPoll = await repPoll.json().catch(() => ({}));
+      if (!repPoll.ok) throw new Error((dataPoll?.error?.message) || 'Vérification de l\'animation impossible');
+      if (dataPoll.status === 'failed') throw new Error(dataPoll.message || 'Animation échouée côté Agnes AI');
+      if (dataPoll.status === 'completed') { resultat = dataPoll.url; break; }
+    }
+    if (!resultat) throw new Error('Délai dépassé, l\'animation n\'a pas abouti à temps');
+
+    agrandirVideoMontage(resultat);
+    if (typeof toastRegen === 'function') toastRegen('Animation prête.');
+  } catch (e) {
+    if (typeof toastRegen === 'function') toastRegen('Animation IA : ' + (e.message || 'échec inconnu'));
+  } finally {
+    montageAnimationEnCours.delete(i);
+    renderMontageEtat();
+  }
+}
 
 async function telechargerImageMontage(i) {
   const img = montageImages[i];
@@ -1172,10 +1259,19 @@ function renderMontageEtat() {
       // là (doctrine de la palette, --emerald dans css/style.css). Même
       // langage que la pastille de compte .montage-chip-pret : d'un coup
       // d'œil sur la bande, on voit ce qui est prêt et ce qui manque.
+      // Bouton "Tester l'animation IA" : PHASE 1 de validation Agnes AI (voir
+      // testerAnimationImageMontage), réservé au fondateur (body.is-admin,
+      // même classe que le reste de l'admin, voir js/api.js) - jamais montré
+      // à un abonné Creator/Pro tant que le service tiers n'est pas éprouvé.
+      const animationEnCours = montageAnimationEnCours.has(i);
+      const btnAnimation = (typeof estCodeAdmin === 'function' && estCodeAdmin())
+        ? `<button class="montage-thumb-anim" onclick="event.stopPropagation();testerAnimationImageMontage(${i})" title="Tester l'animation IA (bêta, fondateur, 1-3 min)" ${animationEnCours ? 'disabled' : ''}>${animationEnCours ? '…' : ICO('sparkle')}</button>`
+        : '';
       if (img) return `<div class="audit-thumb montage-thumb-prete">
         <img src="${img.apercu}" alt="" style="cursor:zoom-in" onclick="agrandirImageMontage(${i})" title="Agrandir">
         <input type="checkbox" class="montage-thumb-select" title="Sélectionner" ${montageImagesSelection.has(i) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectionImage(${i})">
         <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">${ICO('download')}</button>
+        ${btnAnimation}
       </div>`;
       if (montageImagesEnCours && i >= montageImageIndexEnCours) {
         return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
