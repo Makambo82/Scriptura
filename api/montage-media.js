@@ -11,6 +11,15 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierAccesMontage, verifierQuota, rembourserUsage } from './_lib/acces.js';
+// ffmpeg-static déjà utilisé depuis une fonction Vercel ailleurs dans ce
+// dépôt (api/tiktok-video.js, extraction de frames) : même dépendance,
+// même façon de l'invoquer (spawn + dossier temporaire), ici pour recadrer
+// le résultat d'Agnes AI en 9:16 (voir recadrerEnPortrait plus bas).
+import ffmpegPath from 'ffmpeg-static';
+import { spawn } from 'child_process';
+import { promises as fsp } from 'fs';
+import path from 'path';
+import os from 'os';
 
 // ══ LIRE UNE RÉPONSE QUI N'EST PAS FORCÉMENT DU JSON ══
 //
@@ -899,6 +908,48 @@ async function handleAnimateCreate(req, res, body) {
   }
 }
 
+// ══ RECADRAGE 9:16, Agnes AI ignore le format demandé ══
+//
+// Constaté sur le premier vrai test (retour propriétaire) : malgré la
+// mention "9:16" dans AGNES_PROMPT_DEFAUT (déjà la même approche - un
+// simple mot dans le prompt - que la version DeepSeek documentée dans la
+// passation "Atelier Vidéo"), Agnes AI rend systématiquement en paysage.
+// L'API documentée n'expose aucun paramètre width/height/aspect_ratio (voir
+// AGNES_URL_CREATION ci-dessus) : le texte du prompt est le seul levier, et
+// il ne suffit pas. Plutôt que de dépendre d'un fournisseur tiers non
+// éprouvé pour un format qui est la RAISON D'ÊTRE de Scriptura (TikTok,
+// jamais autre chose que du vertical), le recadrage est imposé ICI, en
+// code, après coup : mêmes filtres FFmpeg que render-service pour le même
+// problème (scale+crop centré), voir DIMENSIONS_VIDEO/kenBurns,
+// render-service/server.js.
+const AGNES_LARGEUR_SORTIE = 1080;
+const AGNES_HAUTEUR_SORTIE = 1920;
+
+async function recadrerEnPortrait(bufferEntree) {
+  const dossier = await fsp.mkdtemp(path.join(os.tmpdir(), 'agnes-crop-'));
+  const cheminEntree = path.join(dossier, 'in.mp4');
+  const cheminSortie = path.join(dossier, 'out.mp4');
+  try {
+    await fsp.writeFile(cheminEntree, bufferEntree);
+    await new Promise((resolve, reject) => {
+      const proc = spawn(ffmpegPath, [
+        '-y', '-i', cheminEntree,
+        '-vf', `scale=${AGNES_LARGEUR_SORTIE}:${AGNES_HAUTEUR_SORTIE}:force_original_aspect_ratio=increase,crop=${AGNES_LARGEUR_SORTIE}:${AGNES_HAUTEUR_SORTIE},setsar=1`,
+        '-c:a', 'copy', cheminSortie
+      ]);
+      let stderr = '';
+      proc.stderr.on('data', (d) => { stderr += d.toString(); });
+      proc.on('error', reject);
+      proc.on('close', (code) => code === 0 ? resolve() : reject(new Error('ffmpeg (code ' + code + ') : ' + stderr.slice(-500))));
+    });
+    return await fsp.readFile(cheminSortie);
+  } finally {
+    // Best-effort : un dossier temporaire non nettoyé ne casse jamais la
+    // réponse déjà obtenue, l'instance serverless est de toute façon jetée.
+    await fsp.rm(dossier, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function handleAnimatePoll(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
 
@@ -947,7 +998,16 @@ async function handleAnimatePoll(req, res) {
     if (!repVideo.ok) {
       return res.status(502).json({ error: { message: 'Vidéo Agnes AI introuvable au téléchargement (statut ' + repVideo.status + ')' } });
     }
-    const tampon = Buffer.from(await repVideo.arrayBuffer());
+    const tamponBrut = Buffer.from(await repVideo.arrayBuffer());
+    // Voir recadrerEnPortrait ci-dessus : Agnes AI ignore le 9:16 demandé,
+    // imposé ici en dernier recours plutôt que de republier un paysage dans
+    // un produit exclusivement vertical. Si le recadrage lui-même échoue
+    // (FFmpeg absent/erreur), on republie quand même l'original brut plutôt
+    // que de faire échouer tout le test pour un souci de format seul : le
+    // fondateur peut encore juger la qualité de l'animation, juste pas
+    // encore dans le bon cadrage.
+    let tampon = tamponBrut;
+    try { tampon = await recadrerEnPortrait(tamponBrut); } catch (e) { /* repli sur l'original, voir ci-dessus */ }
     const chemin = 'test-animations/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.mp4';
     const repUpload = await fetch(stockage.url + '/storage/v1/object/montages/' + chemin, {
       method: 'POST',
