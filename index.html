@@ -15,7 +15,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Russo+One&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260926-4"/>
+<link rel="stylesheet" href="css/style.css?v=20260926-5"/>
 </head>
 <body>
 <script>
@@ -1939,37 +1939,37 @@
      conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="js/modeles.js?v=20260926-4"></script>
+<script src="js/modeles.js?v=20260926-5"></script>
 
-<script src="js/api.js?v=20260926-4"></script>
-<script src="js/profil.js?v=20260926-4"></script>
-<script src="js/recommandations.js?v=20260926-4"></script>
-<script src="js/historique.js?v=20260926-4"></script>
-<script src="js/abonnement.js?v=20260926-4"></script>
-<script src="js/ui.js?v=20260926-4"></script>
-<script src="js/preuve-sociale.js?v=20260926-4"></script>
-<script src="js/auth.js?v=20260926-4"></script>
-<script src="js/state.js?v=20260926-4"></script>
-<script src="js/audit.js?v=20260926-4"></script>
-<script src="js/admin.js?v=20260926-4"></script>
-<script src="js/serie.js?v=20260926-4"></script>
-<script src="js/navigation.js?v=20260926-4"></script>
-<script src="js/storytelling.js?v=20260926-4"></script>
-<script src="js/storyboard.js?v=20260926-4"></script>
-<script src="js/storyboard-seul.js?v=20260926-4"></script>
-<script src="js/viral.js?v=20260926-4"></script>
-<script src="js/tendances.js?v=20260926-4"></script>
-<script src="js/tiktok-outils.js?v=20260926-4"></script>
-<script src="js/voix-enregistree.js?v=20260926-4"></script>
-<script src="js/montage.js?v=20260926-4"></script>
-<script src="js/montage-manuel.js?v=20260926-4"></script>
-<script src="js/montage-guide.js?v=20260926-4"></script>
-<script src="js/diagnostic-sommaire.js?v=20260926-4"></script>
-<script src="js/diagnostic-fusion.js?v=20260926-4"></script>
-<script src="js/carrousel.js?v=20260926-4"></script>
-<script src="js/generation.js?v=20260926-4"></script>
-<script src="js/niche-auto.js?v=20260926-4"></script>
-<script src="js/app.js?v=20260926-4"></script>
+<script src="js/api.js?v=20260926-5"></script>
+<script src="js/profil.js?v=20260926-5"></script>
+<script src="js/recommandations.js?v=20260926-5"></script>
+<script src="js/historique.js?v=20260926-5"></script>
+<script src="js/abonnement.js?v=20260926-5"></script>
+<script src="js/ui.js?v=20260926-5"></script>
+<script src="js/preuve-sociale.js?v=20260926-5"></script>
+<script src="js/auth.js?v=20260926-5"></script>
+<script src="js/state.js?v=20260926-5"></script>
+<script src="js/audit.js?v=20260926-5"></script>
+<script src="js/admin.js?v=20260926-5"></script>
+<script src="js/serie.js?v=20260926-5"></script>
+<script src="js/navigation.js?v=20260926-5"></script>
+<script src="js/storytelling.js?v=20260926-5"></script>
+<script src="js/storyboard.js?v=20260926-5"></script>
+<script src="js/storyboard-seul.js?v=20260926-5"></script>
+<script src="js/viral.js?v=20260926-5"></script>
+<script src="js/tendances.js?v=20260926-5"></script>
+<script src="js/tiktok-outils.js?v=20260926-5"></script>
+<script src="js/voix-enregistree.js?v=20260926-5"></script>
+<script src="js/montage.js?v=20260926-5"></script>
+<script src="js/montage-manuel.js?v=20260926-5"></script>
+<script src="js/montage-guide.js?v=20260926-5"></script>
+<script src="js/diagnostic-sommaire.js?v=20260926-5"></script>
+<script src="js/diagnostic-fusion.js?v=20260926-5"></script>
+<script src="js/carrousel.js?v=20260926-5"></script>
+<script src="js/generation.js?v=20260926-5"></script>
+<script src="js/niche-auto.js?v=20260926-5"></script>
+<script src="js/app.js?v=20260926-5"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">
@@ -2194,7 +2194,7 @@
         <button class="btn-regenerate" id="montageChargerImagesBtn" onclick="declencherUploadImages()" type="button" title="Charger tes propres images (ex. générées avec ChatGPT ou Gemini), dans l'ordre des plans">Charger mes images</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        <button class="btn-regenerate" id="montageSelectAllBtn" onclick="toggleToutSelectionnerImages()" type="button">Tout sélectionner</button>
+        <button class="btn-regenerate" id="montageSelectAllBtn" onclick="gererClicBoutonSelection()" type="button">Sélectionner</button>
         <button class="btn-montage-icon" id="montageDelSelectionBtn" onclick="supprimerImagesSelectionnees()" type="button" title="Supprimer la sélection">
           <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
         </button>
@@ -2303,24 +2303,6 @@
         </span>
       </div>
 
-      <!-- Animation IA (Agnes AI), PHASE 2, réservée au fondateur (voir
-           renderMontageEtat, js/montage.js, qui bascule le display de cette
-           ligne - même garde qu'ailleurs, admin OU illimité) : décochée par
-           défaut, expérimentale et lente (1-3 min PAR IMAGE animée), jamais
-           montrée à un abonné Creator/Pro tant que ce n'est pas éprouvé à
-           plus grande échelle. -->
-      <div class="montage-toggle-row" id="montageAnimationIaRow" style="margin-top:10px;display:none">
-        <label class="montage-toggle-label" for="montageAnimationIaCheckbox">
-          <!-- icône sparkle, cohérente avec le bouton de test des vignettes -->
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.4L19 10l-5.1 1.6L12 17l-1.9-5.4L5 10l5.1-1.6L12 3Z"/><path d="M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2Z"/></svg>
-          Animer avec l'IA <span class="montage-toggle-note">(bêta, lent : 1-3 min par image)</span>
-        </label>
-        <span class="montage-toggle">
-          <input type="checkbox" id="montageAnimationIaCheckbox">
-          <span class="montage-toggle-track"></span>
-        </span>
-      </div>
-
       <!-- Retour propriétaire : la barre de progression puis la vidéo une
            fois prête doivent apparaître ICI, entre le réglage des
            sous-titres et le bouton "Lancer le montage", pour rester juste
@@ -2340,10 +2322,6 @@
 <div class="montage-lightbox" id="montageLightbox" onclick="fermerImageMontage()">
   <button class="montage-lightbox-close" onclick="event.stopPropagation();fermerImageMontage()" aria-label="Fermer">✕</button>
   <img id="montageLightboxImg" src="" alt="" onclick="event.stopPropagation()">
-  <!-- Aperçu du test d'animation IA (Agnes AI, PHASE 1, fondateur uniquement),
-       voir agrandirVideoMontage/testerAnimationImageMontage, js/montage.js.
-       Même boîte que l'agrandissement d'image, un seul des deux visible à la fois. -->
-  <video id="montageLightboxVideo" src="" style="display:none" controls loop playsinline onclick="event.stopPropagation()"></video>
 </div>
 
 <!-- NOTIFICATION PREUVE SOCIALE (niveau racine, visible partout) -->
