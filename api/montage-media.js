@@ -851,7 +851,12 @@ async function handleAnimateCreate(req, res, body) {
   if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (AGNES_API_KEY)' } });
 
   const droits = await resoudreDroits(body?.code_acces);
-  if (!droits.isAdmin) {
+  // isAdmin (code fondateur exact) OU illimite (codes VIP/secours déjà
+  // privilégiés, voir resoudreDroits) : le fondateur teste au quotidien
+  // avec un code illimité, pas forcément le code admin littéral. Toujours
+  // à des kilomètres d'un abonné Creator/Pro ordinaire, qui n'obtient ni
+  // l'un ni l'autre.
+  if (!droits.isAdmin && !droits.illimite) {
     return res.status(403).json({ error: { message: 'Animation IA en test, réservée au fondateur pour l\'instant.' } });
   }
 
@@ -901,7 +906,8 @@ async function handleAnimatePoll(req, res) {
   if (!apiKey) return res.status(500).json({ error: { message: 'Clé API absente côté serveur (AGNES_API_KEY)' } });
 
   const droits = await resoudreDroits(req.query?.code_acces);
-  if (!droits.isAdmin) {
+  // Même repli que handleAnimateCreate ci-dessus (isAdmin OU illimite).
+  if (!droits.isAdmin && !droits.illimite) {
     return res.status(403).json({ error: { message: 'Animation IA en test, réservée au fondateur pour l\'instant.' } });
   }
 

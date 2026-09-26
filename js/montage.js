@@ -422,11 +422,14 @@ const AGNES_POLL_TENTATIVES_MAX = 100;
 function montageAttendre(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function testerAnimationImageMontage(i) {
-  // Défense en profondeur : le bouton n'est déjà rendu que pour le
-  // fondateur (voir renderMontageEtat), le serveur revérifie de toute façon
-  // à chaque appel (droits.isAdmin, api/montage-media.js) - ceci évite
-  // seulement un aller-retour réseau inutile si jamais appelé autrement.
-  if (typeof estCodeAdmin !== 'function' || !estCodeAdmin()) return;
+  // Défense en profondeur : le bouton n'est déjà rendu que pour un compte
+  // privilégié (voir renderMontageEtat), le serveur revérifie de toute
+  // façon à chaque appel (droits.isAdmin/illimite, api/montage-media.js) -
+  // ceci évite seulement un aller-retour réseau inutile si jamais appelé
+  // autrement.
+  const peutAnimer = (typeof estCodeAdmin === 'function' && estCodeAdmin())
+    || (typeof estIllimite === 'function' && estIllimite());
+  if (!peutAnimer) return;
   const img = montageImages[i];
   if (!img || montageAnimationEnCours.has(i)) return;
 
@@ -1260,12 +1263,16 @@ function renderMontageEtat() {
       // langage que la pastille de compte .montage-chip-pret : d'un coup
       // d'œil sur la bande, on voit ce qui est prêt et ce qui manque.
       // Bouton "Tester l'animation IA" : PHASE 1 de validation Agnes AI (voir
-      // testerAnimationImageMontage), réservé au fondateur (body.is-admin,
-      // même classe que le reste de l'admin, voir js/api.js) - jamais montré
-      // à un abonné Creator/Pro tant que le service tiers n'est pas éprouvé.
+      // testerAnimationImageMontage), réservé à un compte privilégié (admin
+      // OU illimité, voir js/api.js/estIllimite - le fondateur teste au
+      // quotidien avec un code illimité, pas forcément le code admin
+      // littéral) - jamais montré à un abonné Creator/Pro ordinaire tant que
+      // le service tiers n'est pas éprouvé.
       const animationEnCours = montageAnimationEnCours.has(i);
-      const btnAnimation = (typeof estCodeAdmin === 'function' && estCodeAdmin())
-        ? `<button class="montage-thumb-anim" onclick="event.stopPropagation();testerAnimationImageMontage(${i})" title="Tester l'animation IA (bêta, fondateur, 1-3 min)" ${animationEnCours ? 'disabled' : ''}>${animationEnCours ? '…' : ICO('sparkle')}</button>`
+      const peutAnimerCetteVignette = (typeof estCodeAdmin === 'function' && estCodeAdmin())
+        || (typeof estIllimite === 'function' && estIllimite());
+      const btnAnimation = peutAnimerCetteVignette
+        ? `<button class="montage-thumb-anim" onclick="event.stopPropagation();testerAnimationImageMontage(${i})" title="Tester l'animation IA (bêta, 1-3 min)" ${animationEnCours ? 'disabled' : ''}>${animationEnCours ? '…' : ICO('sparkle')}</button>`
         : '';
       if (img) return `<div class="audit-thumb montage-thumb-prete">
         <img src="${img.apercu}" alt="" style="cursor:zoom-in" onclick="agrandirImageMontage(${i})" title="Agrandir">
