@@ -229,6 +229,11 @@ function jetonValide(recu) {
 // Tout réglable par variable d'environnement si l'usage réel évolue.
 const MAX_IMAGES = parseInt(process.env.MONTAGE_MAX_IMAGES || '200', 10);
 const MAX_OCTETS_IMAGE = parseInt(process.env.MONTAGE_MAX_OCTETS_IMAGE || String(8 * 1024 * 1024), 10);       // 8 Mo
+// Clip déjà animé (Agnes AI, PHASE 2, voir images[i].type === 'video' plus
+// bas) : quelques secondes de vidéo compressée pèsent nettement plus qu'une
+// image fixe, mais restent loin des 40 Mo déjà tolérés pour l'audio/la
+// musique, bornage repris à l'identique par cohérence.
+const MAX_OCTETS_CLIP = parseInt(process.env.MONTAGE_MAX_OCTETS_CLIP || String(40 * 1024 * 1024), 10);        // 40 Mo
 const MAX_OCTETS_AUDIO = parseInt(process.env.MONTAGE_MAX_OCTETS_AUDIO || String(40 * 1024 * 1024), 10);      // 40 Mo (voix off, y compris upload micro non compressé)
 const MAX_OCTETS_MUSIQUE = parseInt(process.env.MONTAGE_MAX_OCTETS_MUSIQUE || String(40 * 1024 * 1024), 10);  // 40 Mo
 const MAX_OCTETS_TOTAL = parseInt(process.env.MONTAGE_MAX_OCTETS_TOTAL || String(300 * 1024 * 1024), 10);     // 300 Mo cumulés, tout le job
@@ -286,12 +291,34 @@ function kenBurns(preset, D) {
 // la durée totale du lot reste égale à la somme de ses durées, donc, une fois
 // les lots recollés, à la voix off entière. Chaque image apparaît à sa
 // seconde exacte. Vérifié par exécution réelle.
-function construireGrapheLot(durees, decalage, W, H) {
+// `types` (optionnel, PHASE 2 - animation IA) : un tableau parallèle à
+// `durees`, 'video' pour un plan déjà animé (Agnes AI, voir
+// api/montage-media.js action=animate-create/animate-poll), 'image' (ou
+// absent) pour le Ken Burns habituel. Paramètre ajouté en dernier et
+// optionnel : les deux appels existants (tests/montage-animations-fluides,
+// et l'appel historique ci-dessous) continuent de fonctionner à
+// l'identique sans le fournir.
+function construireGrapheLot(durees, decalage, W, H, types) {
   const n = durees.length;
   const longueurs = durees.map(d => d + DUREE_TRANSITION);
   const parts = [];
   for (let i = 0; i < n; i++) {
     const D = Math.max(1, Math.round(longueurs[i] * FPS));
+    if (types && types[i] === 'video') {
+      // Clip déjà en mouvement (Agnes AI) : ni Ken Burns, ni
+      // sur-échantillonnage anti-saccade (facteurSurEchantillonnage) - les
+      // deux compensent l'arrondi entier de zoompan sur une image FIXE, un
+      // clip déjà animé n'a pas ce défaut. La durée exacte est déjà imposée
+      // en amont, sur l'entrée FFmpeg elle-même (-t, voir la construction
+      // des lots dans le handler /render) ; ici on cadre juste au format de
+      // sortie et on harmonise la cadence avec le reste du montage.
+      parts.push(
+        `[${i}:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+        `crop=${W}:${H},setsar=1,fps=${FPS},` +
+        `eq=contrast=${GRADE_CONTRASTE}:saturation=${GRADE_SATURATION}[v${i}]`
+      );
+      continue;
+    }
     const kb = kenBurns(decalage + i, D);
     // L'image entre dans zoompan PLUS GRANDE que la sortie (voir
     // facteurSurEchantillonnage) : c'est ce qui rend le mouvement continu.
@@ -671,12 +698,24 @@ function moGo(octets) { return (octets / (1024 * 1024)).toFixed(0) + ' Mo'; }
 // Extraite en fonction séparée pour rester testable indépendamment du
 // reste du rendu (FFmpeg, upload final), qui nécessiterait un vrai binaire
 // FFmpeg pour être exercé en test.
+// Nom de fichier ET plafond de taille selon le type de plan (voir
+// PHASE 2 - animation IA, ci-dessous) : une extension différente (.mp4 vs
+// .jpg) pour que FFmpeg n'ait jamais à deviner le conteneur d'un flux
+// nommé comme une image.
+function cheminEtPlafondPlan(image, i, dossier) {
+  if (image && image.type === 'video') {
+    return { chemin: path.join(dossier, `clip-${i}.mp4`), plafond: MAX_OCTETS_CLIP };
+  }
+  return { chemin: path.join(dossier, `img-${i}.jpg`), plafond: MAX_OCTETS_IMAGE };
+}
+
 async function telechargerImagesEnPool(images, dossier, etatTotal, signalJob) {
   let curseur = 0;
   async function travailleur() {
     while (curseur < images.length) {
       const i = curseur++;
-      await telechargerVers(images[i].url, path.join(dossier, `img-${i}.jpg`), MAX_OCTETS_IMAGE, etatTotal, signalJob);
+      const { chemin, plafond } = cheminEtPlafondPlan(images[i], i, dossier);
+      await telechargerVers(images[i].url, chemin, plafond, etatTotal, signalJob);
     }
   }
   await Promise.all(Array.from(
@@ -709,6 +748,14 @@ app.post('/render', async (req, res) => {
     return res.status(400).json({ error: { message: 'Trop d\'images pour un seul montage (' + images.length + ', max ' + MAX_IMAGES + ').' } });
   }
   const durees = images.map(img => Math.max(1, Number(img.duration) || 2));
+  // PHASE 2, animation IA (Agnes AI, voir api/montage-media.js) : un plan
+  // peut arriver comme un clip déjà animé plutôt qu'une image fixe (voir
+  // construireGrapheLot/cheminEtPlafondPlan plus haut). Le client
+  // (js/montage.js) ne marque JAMAIS le DERNIER plan comme 'video' - lui
+  // seul peut voir sa durée étirée par calerDureesSurAudio ci-dessous pour
+  // absorber l'écart avec la voix off réelle, ce qu'un clip figé à une
+  // durée fixe ne peut pas suivre sans se figer sur sa dernière image.
+  const types = images.map(img => (img && img.type === 'video') ? 'video' : 'image');
   // Dimensions de sortie selon le format demandé (défaut = valeurs d'env).
   const dim = DIMENSIONS_VIDEO[req.body?.format];
   const W = dim ? dim.w : LARGEUR;
@@ -793,13 +840,23 @@ app.post('/render', async (req, res) => {
     for (let debut = 0; debut < images.length; debut += TAILLE_LOT) {
       const fin = Math.min(debut + TAILLE_LOT, images.length);
       const dureesLot = durees.slice(debut, fin);
+      const typesLot = types.slice(debut, fin);
       const longueursLot = dureesLot.map(d => d + DUREE_TRANSITION);
       const cheminLot = path.join(dossier, `lot-${cheminsLots.length}.mp4`);
       const args = [];
       for (let j = debut; j < fin; j++) {
-        args.push('-loop', '1', '-t', String(longueursLot[j - debut]), '-i', path.join(dossier, `img-${j}.jpg`));
+        const longueur = String(longueursLot[j - debut]);
+        if (types[j] === 'video') {
+          // Clip déjà animé : pas de -loop (ce n'est pas une image fixe à
+          // répéter), -t coupe à la durée voulue en partant du début - le
+          // client n'a choisi ce clip que s'il est AU MOINS aussi long
+          // (voir dureeAnimationEligible, js/montage.js), jamais l'inverse.
+          args.push('-t', longueur, '-i', path.join(dossier, `clip-${j}.mp4`));
+        } else {
+          args.push('-loop', '1', '-t', longueur, '-i', path.join(dossier, `img-${j}.jpg`));
+        }
       }
-      args.push('-filter_complex', construireGrapheLot(dureesLot, debut, W, H));
+      args.push('-filter_complex', construireGrapheLot(dureesLot, debut, W, H, typesLot));
       args.push(
         '-map', '[vout]',
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',

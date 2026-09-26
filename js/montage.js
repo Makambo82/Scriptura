@@ -427,9 +427,7 @@ async function testerAnimationImageMontage(i) {
   // façon à chaque appel (droits.isAdmin/illimite, api/montage-media.js) -
   // ceci évite seulement un aller-retour réseau inutile si jamais appelé
   // autrement.
-  const peutAnimer = (typeof estCodeAdmin === 'function' && estCodeAdmin())
-    || (typeof estIllimite === 'function' && estIllimite());
-  if (!peutAnimer) return;
+  if (!peutUtiliserAnimationIA()) return;
   const img = montageImages[i];
   if (!img || montageAnimationEnCours.has(i)) return;
 
@@ -1252,6 +1250,123 @@ function changerVolumeMusiqueMontage(v) {
   montageVolumeMusique = Number(v) || 0.15;
 }
 
+// ── Anti-veille pendant le montage (Wake Lock) ──
+//
+// Le rendu final durait déjà "plusieurs minutes" sans jamais en avoir eu
+// besoin jusqu'ici. L'animation IA (Agnes AI, PHASE 2 ci-dessous) change
+// d'échelle : 1 à 3 minutes PAR IMAGE animée, potentiellement des dizaines
+// de minutes sur un montage à plusieurs plans - largement assez pour
+// qu'un téléphone verrouille son écran et suspende l'onglet en arrière-plan
+// (retour d'expérience documenté sur un outil similaire, "Atelier Vidéo").
+// Uniquement l'API Wake Lock standard (supportée par Safari iOS depuis la
+// 16.4, largement suffisant ici) : jamais le repli canvas/vidéo muette de
+// cet autre outil, une complexité qui ne se justifie pas pour un usage
+// réservé au fondateur. Best-effort partout : jamais bloquant si l'API est
+// absente ou refuse (mode privé, permission navigateur…).
+let _montageWakeLock = null;
+async function activerAntiVeilleMontage() {
+  try {
+    if ('wakeLock' in navigator) _montageWakeLock = await navigator.wakeLock.request('screen');
+  } catch (e) { /* best-effort, jamais bloquant */ }
+}
+function desactiverAntiVeilleMontage() {
+  try { _montageWakeLock && _montageWakeLock.release(); } catch (e) { /* best-effort */ }
+  _montageWakeLock = null;
+}
+
+// ── PHASE 2 : intégration réelle de l'animation IA (Agnes AI) dans le
+// montage final (voir renderMontageEtat/testerAnimationImageMontage pour
+// la Phase 1, prévisualisation seule) ──
+//
+// Durées fixes proposées par Agnes AI (voir handleAnimateCreate,
+// api/montage-media.js) : 121/153/241 images à 24 i/s. MARGE de sécurité
+// au-dessus de la durée réellement nécessaire (durée du plan + la
+// transition qui le suit côté render-service, jamais connue exactement
+// ici) : sans cette marge, render-service tronquerait le clip avant la fin
+// voulue (voir construireGrapheLot, branche 'video', render-service/server.js).
+const AGNES_FRAMES_DISPONIBLES = [121, 153, 241]; // ~5.04 / 6.375 / 10.04 s à 24 i/s
+const AGNES_MARGE_TRANSITION_S = 1;
+function framesAgnesPourDuree(dureeSecondes) {
+  const cible = dureeSecondes + AGNES_MARGE_TRANSITION_S;
+  return AGNES_FRAMES_DISPONIBLES.find(f => (f / 24) >= cible) || null;
+}
+
+// Anime les plans éligibles AVANT le rendu final : remplace l'URL de
+// l'image par celle d'un clip déjà animé pour les plans qui le permettent,
+// laisse les autres inchangés (Ken Burns habituel). JAMAIS le DERNIER plan
+// (voir le commentaire sur `types`, render-service/server.js : lui seul
+// peut voir sa durée étirée pour absorber l'écart avec la voix off réelle,
+// ce qu'un clip à durée fixe ne peut pas suivre sans se figer). Séquentiel,
+// jamais en parallèle : délai déjà long par image, mieux vaut un montage
+// prévisible qu'accéléré au risque de heurter une limite de débit chez
+// Agnes AI. Un échec sur UN plan ne bloque jamais les autres ni le
+// montage : ce plan-là retombe simplement sur son image fixe.
+async function animerPlansEligibles(images, imagesEff, statutEl) {
+  if (!peutUtiliserAnimationIA()) return images;
+  const checkbox = document.getElementById('montageAnimationIaCheckbox');
+  if (!checkbox || !checkbox.checked) return images;
+
+  const code = localStorage.getItem('scriptura_code') || '';
+  const resultat = images.slice();
+  const dernier = resultat.length - 1;
+  let nbAnimes = 0, nbEligibles = 0;
+
+  for (let i = 0; i < resultat.length; i++) {
+    if (i === dernier) continue; // voir en-tête de fonction
+    const img = imagesEff[i];
+    if (!img || !img.blob) continue;
+    const frames = framesAgnesPourDuree(resultat[i].duration);
+    if (!frames) continue; // plan trop long pour les formats Agnes disponibles
+
+    nbEligibles++;
+    if (statutEl) statutEl.textContent = 'Animation IA du plan ' + (i + 1) + '/' + resultat.length + ' (peut prendre plusieurs minutes)…';
+    try {
+      const base64 = await lireFichierEnBase64(img.blob);
+      const plan = montagePlans[i];
+      const promptScene = (plan && (plan.visuel || plan.text)) || '';
+      const repCreation = await fetch('/api/montage-media?action=animate-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64, mimeType: img.blob.type || 'image/png',
+          prompt: promptScene, numFrames: frames, code_acces: code || null
+        })
+      });
+      const dataCreation = await repCreation.json().catch(() => ({}));
+      if (!repCreation.ok || !dataCreation.taskId) continue;
+
+      let urlAnimee = null;
+      for (let tentative = 0; tentative < AGNES_POLL_TENTATIVES_MAX; tentative++) {
+        await montageAttendre(AGNES_POLL_INTERVALLE_MS);
+        const repPoll = await fetch('/api/montage-media?action=animate-poll&taskId=' + encodeURIComponent(dataCreation.taskId) + '&code_acces=' + encodeURIComponent(code));
+        const dataPoll = await repPoll.json().catch(() => ({}));
+        if (!repPoll.ok || dataPoll.status === 'failed') break;
+        if (dataPoll.status === 'completed') { urlAnimee = dataPoll.url; break; }
+      }
+      if (urlAnimee) {
+        resultat[i] = { url: urlAnimee, duration: resultat[i].duration, type: 'video' };
+        nbAnimes++;
+      }
+    } catch (e) { /* ce plan reste une image fixe, jamais bloquant */ }
+  }
+
+  if (nbEligibles > 0 && typeof toastRegen === 'function') {
+    toastRegen(nbAnimes + '/' + nbEligibles + ' plan(s) animé(s) par l\'IA.');
+  }
+  return resultat;
+}
+
+// Compte privilégié (admin OU illimité, voir resoudreDroits côté serveur) :
+// seule condition d'accès à l'animation IA (Agnes AI), test comme montage
+// final, tant que ce service tiers reste expérimental. Centralisé ici
+// (au lieu de dupliquer la même expression à chaque appelant) pour ne
+// jamais laisser un des deux endroits (bouton de test, case à cocher du
+// montage final) diverger de l'autre.
+function peutUtiliserAnimationIA() {
+  return (typeof estCodeAdmin === 'function' && estCodeAdmin())
+    || (typeof estIllimite === 'function' && estIllimite());
+}
+
 function renderMontageEtat() {
   const nbPretes = montageImages.filter(Boolean).length;
   const compte = document.getElementById('montageImagesCompte');
@@ -1261,6 +1376,8 @@ function renderMontageEtat() {
     compte.textContent = nbPretes + ' / ' + montagePlans.length;
     compte.classList.toggle('montage-chip-pret', montagePlans.length > 0 && nbPretes === montagePlans.length);
   }
+  const ligneAnimationIa = document.getElementById('montageAnimationIaRow');
+  if (ligneAnimationIa) ligneAnimationIa.style.display = peutUtiliserAnimationIA() ? '' : 'none';
 
   const zoneImg = document.getElementById('montageImagesThumbs');
   if (zoneImg) {
@@ -1277,9 +1394,7 @@ function renderMontageEtat() {
       // littéral) - jamais montré à un abonné Creator/Pro ordinaire tant que
       // le service tiers n'est pas éprouvé.
       const animationEnCours = montageAnimationEnCours.has(i);
-      const peutAnimerCetteVignette = (typeof estCodeAdmin === 'function' && estCodeAdmin())
-        || (typeof estIllimite === 'function' && estIllimite());
-      const btnAnimation = peutAnimerCetteVignette
+      const btnAnimation = peutUtiliserAnimationIA()
         ? `<button class="montage-thumb-anim" onclick="event.stopPropagation();testerAnimationImageMontage(${i})" title="Tester l'animation IA (bêta, 1-3 min)" ${animationEnCours ? 'disabled' : ''}>${animationEnCours ? '…' : ICO('sparkle')}</button>`
         : '';
       if (img) return `<div class="audit-thumb montage-thumb-prete">
@@ -1562,6 +1677,7 @@ async function lancerMontage() {
   }, dureeEstimeeMontage);
   if (progBarMontage) progBarMontage.style.display = 'flex';
   progMontage.start();
+  await activerAntiVeilleMontage();
 
   try {
     const dossier = 'montage-' + Date.now();
@@ -1623,11 +1739,17 @@ async function lancerMontage() {
       ({ urls: urlsLecture, echecs: echecsLecture } = await obtenirUrlsLectureMontage(tousChemins));
     } catch (e) { throw new Error('Préparation des fichiers du montage : ' + e.message); }
 
-    const images = cheminsImages.map(c => ({ url: urlsLecture[c.chemin], duration: c.duration }));
+    let images = cheminsImages.map(c => ({ url: urlsLecture[c.chemin], duration: c.duration }));
     if (images.some(img => !img.url)) {
       throw new Error('Préparation des fichiers du montage : certaines images sont introuvables après l\'envoi'
         + detailEchecsLectureMontage(cheminsImages.map(c => c.chemin), echecsLecture) + '.');
     }
+    // PHASE 2, animation IA (Agnes AI) : voir animerPlansEligibles, remplace
+    // certaines entrées de `images` par un clip déjà animé (envoie
+    // directement le blob de chaque image, sans passer par son URL Storage).
+    // Placé ici simplement parce que `images` (avec ses durées déjà
+    // résolues) est prêt à cet endroit précis.
+    images = await animerPlansEligibles(images, imagesEff, statut);
     const audioUrl = urlsLecture[cheminAudio];
     if (!audioUrl) {
       throw new Error('Préparation des fichiers du montage : la voix off est introuvable après l\'envoi'
@@ -1702,6 +1824,7 @@ async function lancerMontage() {
       }).catch(() => {});
     } catch (e2) { /* silencieux */ }
   } finally {
+    desactiverAntiVeilleMontage();
     montageEnCours = false;
     renderMontageEtat();
   }

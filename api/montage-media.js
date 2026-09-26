@@ -822,10 +822,13 @@ const AGNES_URL_CREATION = 'https://apihub.agnes-ai.com/v1/videos';
 const AGNES_URL_POLLING = 'https://apihub.agnes-ai.com/agnesapi';
 const AGNES_MODELE = 'agnes-video-v2.0';
 // 121 images à 24 i/s ≈ 5 s, le plus court des trois formats documentés par
-// Agnes AI (121/153/241) : cette phase ne sert qu'à juger la qualité et le
-// délai réel, pas à produire un plan complet, donc le format le moins
-// coûteux et le plus rapide à obtenir.
+// Agnes AI (121/153/241) : valeur par défaut pour le bouton de test (Phase
+// 1, une seule image, aucune contrainte de durée). Le montage final (Phase
+// 2, voir animerPlansEligibles, js/montage.js) choisit lui-même le format
+// le plus court qui couvre la durée réelle du plan, transmis via
+// `numFrames` dans le corps de la requête - voir plus bas.
 const AGNES_NUM_FRAMES = 121;
+const AGNES_FRAMES_AUTORISES = [121, 153, 241];
 const AGNES_FRAME_RATE = 24;
 const AGNES_STATUTS_OK = new Set(['completed', 'succeeded', 'done']);
 const AGNES_STATUTS_ECHEC = new Set(['failed', 'error', 'cancelled']);
@@ -895,6 +898,13 @@ async function handleAnimateCreate(req, res, body) {
     return res.status(403).json({ error: { message: 'Limite d\'animations du mois atteinte.', code: 'QUOTA_ATTEINT' } });
   }
 
+  // Choisi par le client (Phase 2, montage final, voir animerPlansEligibles
+  // js/montage.js) selon la durée réelle du plan à animer ; retombe sur le
+  // format le plus court (Phase 1, bouton de test) si absent ou invalide -
+  // jamais une valeur hors des trois formats qu'Agnes AI documente.
+  const numFramesDemande = parseInt(body?.numFrames, 10);
+  const numFrames = AGNES_FRAMES_AUTORISES.includes(numFramesDemande) ? numFramesDemande : AGNES_NUM_FRAMES;
+
   try {
     const rep = await fetch(AGNES_URL_CREATION, {
       method: 'POST',
@@ -903,7 +913,7 @@ async function handleAnimateCreate(req, res, body) {
         model: AGNES_MODELE,
         prompt,
         image: 'data:' + mimeType + ';base64,' + imageBase64,
-        num_frames: AGNES_NUM_FRAMES,
+        num_frames: numFrames,
         frame_rate: AGNES_FRAME_RATE
       })
     });
