@@ -1989,6 +1989,25 @@ body.hero-focus .hero-focus-rule{display:block}
 .hist-line{font-size:0.92rem;line-height:1.6;color:rgba(255,255,255,0.85);margin-bottom:10px}
 .hist-time{font-family:'Poppins',sans-serif;text-transform:lowercase;font-size:0.62rem;color:var(--gold);letter-spacing:0.08em}
 
+/* Vidéos montées à récupérer (retour propriétaire, 27/09) : liste à part,
+   au-dessus des générations - contenu éphémère (3 jours ou jusqu'au
+   téléchargement, voir js/historique.js), jamais mêlé aux cartes
+   permanentes. Même accent émeraude que .history-montee : c'est la même
+   réussite, ici encore disponible plutôt que déjà actée. */
+.hist-videos-montees:empty{display:none}
+.hist-videos-titre{
+  font-family:'Poppins',sans-serif;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--emerald-light);margin-bottom:10px;
+}
+.hist-video-item{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  background:var(--emerald-pale);border:1px solid var(--emerald-border);border-radius:14px;
+  padding:14px 16px;margin-bottom:10px;
+}
+.hist-video-info{display:flex;flex-direction:column;gap:3px}
+.hist-video-format{font-family:'Playfair Display',serif;font-size:0.95rem;color:#fff}
+.hist-video-delai{font-family:'Poppins',sans-serif;font-size:0.68rem;color:rgba(255,255,255,0.55)}
+
 /* ── SUPPRESSION HISTORIQUE ── */
 .history-toolbar{
   display:flex;align-items:center;gap:10px;margin-bottom:16px;

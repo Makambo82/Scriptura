@@ -533,6 +533,7 @@ async function openHistory() {
   const code = localStorage.getItem('scriptura_code');
   if (code) document.getElementById('historyCodeInput').value = code;
   renderHistory();
+  chargerVideosMonteesDisponibles();
 }
 
 // Synchronise avec le code d'accès saisi
@@ -542,6 +543,7 @@ async function syncHistory() {
     localStorage.setItem('scriptura_code', code);
   }
   renderHistory();
+  chargerVideosMonteesDisponibles();
 }
 
 // Affiche la liste des générations
@@ -1381,4 +1383,62 @@ async function loadGenerations(offset) {
     const data = await r.json();
     return (data && data.ok) ? (data.data || []) : [];
   } catch(e) { console.warn('Chargement échoué', e); return []; }
+}
+
+// ── Vidéos montées à récupérer (retour propriétaire, 27/09) ──
+//
+// Section à part, jamais mêlée aux filtres/favoris/sélection de la liste
+// principale : une vidéo montée n'a ni titre, ni mode, ni suppression
+// manuelle - elle s'efface d'elle-même dès qu'elle est téléchargée (voir
+// confirmerTelechargementVideo, js/montage.js) ou expirée à 3 jours (voir
+// api/cron-nettoyage-montages.js). Sans cette section, une vidéo rendue
+// puis jamais téléchargée dans la même session était perdue pour toujours,
+// alors que le fichier existait encore côté serveur.
+let _videosMonteesCache = [];
+
+async function chargerVideosMonteesDisponibles() {
+  const conteneur = document.getElementById('historyVideosMontees');
+  if (!conteneur) return;
+  try {
+    const params = new URLSearchParams({ resource: 'montages-video', code: getUserRef() });
+    const r = await fetch('/api/data?' + params.toString());
+    const data = await r.json();
+    _videosMonteesCache = (data && data.ok) ? (data.data || []) : [];
+  } catch (e) {
+    _videosMonteesCache = [];
+  }
+  _afficherVideosMontees();
+}
+
+function _afficherVideosMontees() {
+  const conteneur = document.getElementById('historyVideosMontees');
+  if (!conteneur) return;
+  if (!_videosMonteesCache.length) { conteneur.innerHTML = ''; return; }
+  const MS_JOUR = 24 * 60 * 60 * 1000;
+  conteneur.innerHTML = '<p class="hist-videos-titre">Vidéos montées à récupérer</p>' +
+    _videosMonteesCache.map((v, i) => {
+      const expireLe = new Date(v.cree_le).getTime() + 3 * MS_JOUR;
+      const joursRestants = Math.max(0, Math.ceil((expireLe - Date.now()) / MS_JOUR));
+      const delaiTexte = joursRestants <= 0
+        ? 'Expire aujourd’hui'
+        : ('Disponible encore ' + joursRestants + ' jour' + (joursRestants > 1 ? 's' : ''));
+      return '<div class="hist-video-item">'
+        + '<div class="hist-video-info"><span class="hist-video-format">' + (v.format || 'Vidéo montée') + '</span>'
+        + '<span class="hist-video-delai">' + delaiTexte + '</span></div>'
+        + '<button class="btn-generate" style="width:auto;padding:0 20px;margin:0" onclick="partagerVideoMontee(' + i + ', this)">Télécharger</button>'
+        + '</div>';
+    }).join('');
+}
+
+// Pont vers partagerVideoMontage (js/montage.js) : l'URL signée reste dans
+// le cache, jamais dans l'attribut onclick. Une fois le partage/téléchargement
+// tenté (réussi ou non), on recharge la liste depuis le serveur plutôt que de
+// retirer la carte à l'aveugle - la ligne n'est supprimée côté serveur que
+// si le téléchargement a vraiment réussi (voir confirmerTelechargementVideo),
+// une annulation (AbortError) la laisse donc intacte, ce recharge le confirme.
+async function partagerVideoMontee(i, btn) {
+  const v = _videosMonteesCache[i];
+  if (!v) return;
+  await partagerVideoMontage(btn, v.url);
+  chargerVideosMonteesDisponibles();
 }

@@ -33,6 +33,12 @@
       "memory": 1024
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron-nettoyage-montages",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/js/(.*)",

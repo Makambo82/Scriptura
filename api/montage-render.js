@@ -140,6 +140,14 @@ export default async function handler(req, res) {
       musique: !!musicUrl,
       filigrane: watermark
     });
+    // Retour propriétaire (27/09) : sans ça, une vidéo rendue puis jamais
+    // téléchargée dans la même session était perdue - voir
+    // supabase/montages_video.sql. Même règle que journaliserMontage :
+    // jamais attendue, jamais bloquante. Toujours un code_acces ici (le
+    // montage refuse déjà l'accès anonyme, voir verifierAccesMontage).
+    if (body?.code_acces) {
+      enregistrerVideoDisponible({ code_acces: body.code_acces, url: dataProxy.url, format: format || null });
+    }
     return res.status(200).json({ url: dataProxy.url });
   } catch (e) {
     if (quota.consomme) await rembourserUsage(droits, 'montageRendus', body?.code_acces, 1);
@@ -165,6 +173,29 @@ function journaliserMontage(ligne) {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) return;
     fetch(url + '/rest/v1/montages_rendus', {
+      method: 'POST',
+      headers: {
+        apikey: key, Authorization: 'Bearer ' + key,
+        'Content-Type': 'application/json', Prefer: 'return=minimal'
+      },
+      body: JSON.stringify(ligne)
+    }).catch(() => {});
+  } catch (e) { /* jamais bloquant */ }
+}
+
+// Enregistre la vidéo dans `montages_video` (table OPTIONNELLE, voir
+// supabase/montages_video.sql), pour qu'elle apparaisse dans « Mes
+// générations » même si le créateur ne la télécharge jamais dans la même
+// session. La ligne est supprimée dès qu'elle n'a plus lieu d'être :
+// téléchargée (api/montage-media.js, action=confirmer-telechargement) ou
+// expirée à 3 jours (api/cron-nettoyage-montages.js). Même prudence que
+// journaliserMontage : tout est avalé en silence, jamais bloquant.
+function enregistrerVideoDisponible(ligne) {
+  try {
+    const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return;
+    fetch(url + '/rest/v1/montages_video', {
       method: 'POST',
       headers: {
         apikey: key, Authorization: 'Bearer ' + key,

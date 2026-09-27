@@ -10,7 +10,7 @@
 //  d'origine. Voir api/montage-media.js et api/tiktok-video.js, même
 //  logique appliquée aux autres groupes de routes.
 //
-//  resource=generations | series | profil | admin-stats
+//  resource=generations | series | profil | admin-stats | montages-video
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme, verifierAccesMontage, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
@@ -208,6 +208,32 @@ async function handleGenerations(req, res, cfg, body) {
   }
 
   return res.status(400).json({ ok: false, error: 'action inconnue' });
+}
+
+// ═══ MONTAGES-VIDEO (voir supabase/montages_video.sql) ═══
+// Liste les vidéos montées encore récupérables pour « Mes générations »
+// (retour propriétaire, 27/09) : sans ça, une vidéo rendue puis jamais
+// téléchargée dans la même session était perdue. Lecture seulement ici :
+// l'écriture se fait côté render (api/montage-render.js) et la suppression
+// côté téléchargement/purge (api/montage-media.js, api/cron-nettoyage-montages.js),
+// toutes deux avec la clé service_role, jamais depuis le navigateur.
+async function handleMontagesVideo(req, res, cfg, body) {
+  if (req.method !== 'GET') return res.status(405).json({ ok: false, data: [] });
+  const code = (req.query && req.query.code) || '';
+  if (!code) return res.status(200).json({ ok: true, data: [] });
+  // Même garde anti-abus que generations/series (lecture croisée d'un code
+  // qu'on ne possède pas) : un compte anonyme local ne matchera simplement
+  // jamais de ligne, mais la limite protège quand même contre le sondage.
+  const verif = await verifierAppelantAutoriseGenerationsSeries(req, code);
+  if (!verif.ok) return res.status(verif.status).json(verif.body);
+
+  const r = await fetch(
+    cfg.url + '/rest/v1/montages_video?code_acces=eq.' + encodeURIComponent(code) +
+    '&select=id,url,format,cree_le&order=cree_le.desc&limit=20',
+    { headers: entetes(cfg.key) }
+  );
+  const data = await r.json().catch(() => []);
+  return res.status(200).json({ ok: true, data: Array.isArray(data) ? data : [] });
 }
 
 // ═══ SERIES (voir l'ancien api/series.js) ═══
@@ -1386,6 +1412,7 @@ export default async function handler(req, res) {
 
   try {
     if (resource === 'generations') return await handleGenerations(req, res, cfg, body);
+    if (resource === 'montages-video') return await handleMontagesVideo(req, res, cfg, body);
     if (resource === 'series') return await handleSeries(req, res, cfg, body);
     if (resource === 'profil') return await handleProfil(req, res, cfg, body);
     if (resource === 'erreur') return await handleErreur(req, res, cfg, body);

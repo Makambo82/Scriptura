@@ -135,9 +135,13 @@ test('confirmer-telechargement : supprime bien l\'objet visé pour une URL valid
     });
     assert.equal(res._status, 200);
     assert.equal(res._json.ok, true);
-    assert.equal(appels.length, 1, 'un seul appel Storage');
+    assert.equal(appels.length, 2, 'un appel Storage (suppression du fichier) + un appel de retrait de la ligne montages_video');
     assert.ok(appels[0].url.endsWith('/storage/v1/object/remove/montages'));
     assert.deepEqual(appels[0].corps.prefixes, ['rendus/montage-9.mp4']);
+    assert.ok(
+      appels[1].url.includes('/rest/v1/montages_video?url=eq.') && appels[1].url.includes(encodeURIComponent('montages/rendus/montage-9.mp4')),
+      'REGRESSION : la ligne montages_video correspondant à cette vidéo doit être retirée, sinon un lien mort resterait listé dans Mes générations'
+    );
   } finally {
     global.fetch = fetchOriginal;
     delete process.env.SUPABASE_URL;

@@ -173,6 +173,14 @@ async function handleConfirmerTelechargement(req, res) {
       headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({ prefixes: [chemin] })
     });
+    // Retire aussi la ligne « à récupérer » de Mes générations (voir
+    // supabase/montages_video.sql) : le fichier vient d'être supprimé, la
+    // lister encore proposerait un lien mort. Jamais attendue, jamais
+    // bloquante pour la réponse au créateur.
+    fetch(url + '/rest/v1/montages_video?url=eq.' + encodeURIComponent(cible), {
+      method: 'DELETE',
+      headers: { apikey: key, Authorization: 'Bearer ' + key, Prefer: 'return=minimal' }
+    }).catch(() => {});
     return res.status(200).json({ ok: rep.ok });
   } catch (e) {
     return res.status(200).json({ ok: false }); // best-effort : jamais une erreur 5xx pour un simple nettoyage raté
