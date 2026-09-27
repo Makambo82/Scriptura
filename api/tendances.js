@@ -710,23 +710,37 @@ async function avancer(req, res, tikhubKey, elevenKey) {
     return res.status(200).json({ ok: true, statut: job.statut, traitees: job.index_suivant, total: (job.videos || []).length, resultat: job.resultat || null });
   }
 
-  // LOT 4A, audit ID 1 : filet journalier générique déjà existant (A13),
-  // réutilisé tel quel plutôt qu'un 2e système de crédits. Clé = l'id du
-  // job, pas le code : c'est bien LE JOB (la ressource concrètement
-  // avancée) qu'on protège contre le spam.
-  const limite = await verifierLimiteGenerique(req, id, 'tendances-avancer', PLAFOND_AVANCEE_JOUR);
-  if (!limite.ok) {
-    return res.status(403).json({ error: { message: 'Trop de tentatives sur cette analyse aujourd\'hui.', code: 'QUOTA_ATTEINT' } });
-  }
-
   // LOT 4A, audit ID 1 : verrou atomique acquis AVANT tout appel payant (voir
   // supabaseAcquerirVerrou). Si un autre appel traite DÉJÀ ce job (verrou pas
   // encore expiré), on ne déclenche AUCUN appel TikHub/ElevenLabs : le
   // navigateur, qui rappelle avancer en boucle, verra la vraie progression
   // au prochain passage.
+  //
+  // Retour terrain (27/09) : ce verrou est vérifié AVANT le filet
+  // anti-spam ci-dessous, jamais après - un appel qui rebondit sur ce
+  // verrou ne fait STRICTEMENT rien (aucun travail, aucun coût), et ne
+  // doit donc jamais consommer le plafond journalier prévu pour ~17 appels
+  // RÉELS. Avec l'ordre inverse (testé en premier avant ce correctif), une
+  // connexion mobile instable qui fait se chevaucher deux requêtes pour le
+  // MÊME job (retransmission TCP, changement de réseau...) épuisait le
+  // plafond en quelques secondes sur des appels qui n'avançaient rien du
+  // tout, provoquant "Trop de tentatives" sur une utilisation pourtant
+  // normale, en un seul lancement.
   const verrouAcquis = await supabaseAcquerirVerrou(cfg, 'tendances_niche', id, TIMEOUT_VERROU_MS);
   if (!verrouAcquis) {
     return res.status(200).json({ ok: true, statut: 'en_cours', traitees: job.index_suivant, total: (job.videos || []).length, dejaEnCours: true });
+  }
+
+  // LOT 4A, audit ID 1 : filet journalier générique déjà existant (A13),
+  // réutilisé tel quel plutôt qu'un 2e système de crédits. Clé = l'id du
+  // job, pas le code : c'est bien LE JOB (la ressource concrètement
+  // avancée) qu'on protège contre le spam. Vérifié SEULEMENT une fois le
+  // verrou obtenu (voir plus haut) : ne compte que les appels qui vont
+  // réellement traiter un lot.
+  const limite = await verifierLimiteGenerique(req, id, 'tendances-avancer', PLAFOND_AVANCEE_JOUR);
+  if (!limite.ok) {
+    await supabaseUpdate(cfg, 'tendances_niche', id, { verrou_expire_le: null }).catch(() => {});
+    return res.status(403).json({ error: { message: 'Trop de tentatives sur cette analyse aujourd\'hui.', code: 'QUOTA_ATTEINT' } });
   }
 
   try {

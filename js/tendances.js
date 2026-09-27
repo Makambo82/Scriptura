@@ -180,6 +180,15 @@ async function lancerTendances() {
       if (!j2.ok) throw new Error((j2.error && j2.error.message) || 'Erreur pendant la transcription.');
       statut = j2.statut;
       resultat = j2.resultat;
+      // Retour terrain (27/09) : une connexion mobile instable peut faire
+      // se chevaucher deux requêtes pour le même job (retransmission,
+      // changement de réseau…) - le serveur les détecte alors comme
+      // "déjà en cours" (dejaEnCours, voir avancer(), api/tendances.js) et
+      // ne fait rien. Sans pause ici, la boucle rappelait aussitôt, pouvant
+      // épuiser le plafond journalier de l'analyse sur des appels qui
+      // n'avançaient rien - une petite pause laisse le temps au traitement
+      // réel de se terminer avant de redemander.
+      if (j2.dejaEnCours) await new Promise(r => setTimeout(r, 1500));
       const traitees = j2.traitees || 0, tot = j2.total || total || 1;
       _tendancesMajProgres(5 + (traitees / tot) * 90, traitees + ' / ' + tot + ' vidéos transcrites…');
     }

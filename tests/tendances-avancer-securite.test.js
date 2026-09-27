@@ -213,6 +213,66 @@ test('5. deux requêtes VRAIMENT simultanées => un seul traitement externe', as
   } finally { restaurer(); }
 });
 
+test('5b. un appel qui rebondit sur le verrou (dejaEnCours) ne consomme JAMAIS le plafond journalier', async () => {
+  // Retour terrain (27/09) : sur une connexion mobile instable, deux
+  // requêtes peuvent se chevaucher pour le MÊME job (retransmission TCP,
+  // changement de réseau...). Avant ce correctif, le filet anti-spam
+  // (verifierLimiteGenerique) était vérifié AVANT le verrou : un appel qui
+  // ne faisait STRICTEMENT rien (verrou déjà pris) consommait quand même
+  // une unité du plafond de ~17 appels prévus pour une analyse entière,
+  // épuisant "Trop de tentatives" en quelques secondes sur une utilisation
+  // pourtant normale, en un seul lancement.
+  const restaurer = poserEnv();
+  creerBaseMemoire([
+    { id: 'j6b', code_acces: 'CODE-PRO', statut: 'en_cours', niche: 'cuisine', index_suivant: 0, videos: [video('v1'), video('v2'), video('v3')] }
+  ]);
+  const fetchOriginal = global.fetch;
+  let appelsPlafondAvancer = 0;
+  global.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('/rest/v1/rpc/consommer_usage')) {
+      const p = JSON.parse(opts.body);
+      if (p.p_ref.includes('tendances-avancer')) appelsPlafondAvancer++;
+    }
+    return fetchOriginal(url, opts);
+  };
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const res1 = creerRes(), res2 = creerRes();
+    await Promise.all([
+      handler({ method: 'POST', body: { action: 'avancer', id: 'j6b', code_acces: 'CODE-PRO' } }, res1),
+      handler({ method: 'POST', body: { action: 'avancer', id: 'j6b', code_acces: 'CODE-PRO' } }, res2)
+    ]);
+    const dejaEnCours = [res1, res2].filter(r => r.corpsRecu && r.corpsRecu.dejaEnCours);
+    assert.equal(dejaEnCours.length, 1, 'un des deux appels doit rebondir sur le verrou');
+    assert.equal(appelsPlafondAvancer, 1,
+      'REGRESSION : seul l\'appel qui fait RÉELLEMENT le travail doit consommer le plafond journalier, jamais celui qui rebondit sur le verrou (dejaEnCours) : ' + appelsPlafondAvancer + ' appel(s) compté(s)');
+  } finally { global.fetch = fetchOriginal; restaurer(); }
+});
+
+test('5c. plafond déjà atteint APRÈS acquisition du verrou => le verrou est quand même libéré, pas bloqué 3 minutes pour rien', async () => {
+  const restaurer = poserEnv();
+  const { base } = creerBaseMemoire([{ id: 'j6c', code_acces: 'CODE-PRO', statut: 'en_cours', niche: 'cuisine', index_suivant: 0, videos: [video('v1')] }]);
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('/rest/v1/rpc/consommer_usage')) {
+      const p = JSON.parse(opts.body);
+      return { ok: true, json: async () => !p.p_ref.includes('tendances-avancer') };
+    }
+    return fetchOriginal(url, opts);
+  };
+  try {
+    const { default: handler } = await import('../api/tendances.js?t=' + Date.now());
+    const res = creerRes();
+    await handler({ method: 'POST', body: { action: 'avancer', id: 'j6c', code_acces: 'CODE-PRO' } }, res);
+    assert.equal(res.statutRecu, 403);
+    assert.equal(res.corpsRecu.error.code, 'QUOTA_ATTEINT');
+    assert.equal(base.get('j6c').verrou_expire_le, null,
+      'REGRESSION : le verrou acquis juste avant doit être libéré même si le plafond est ensuite atteint, sinon le job resterait bloqué jusqu\'à expiration du verrou (3 min) pour rien');
+  } finally { global.fetch = fetchOriginal; restaurer(); }
+});
+
 test('6. erreur pendant TikHub => le verrou est libéré (un appel suivant peut retraiter)', async () => {
   const restaurer = poserEnv();
   const { base } = creerBaseMemoire([{ id: 'j7', code_acces: 'CODE-PRO', statut: 'en_cours', niche: 'cuisine', index_suivant: 0, videos: [video('v1')] }]);
