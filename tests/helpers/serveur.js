@@ -34,7 +34,25 @@ function demarrerServeur() {
         res.writeHead(403); res.end('Interdit'); return;
       }
       fs.readFile(cheminAbsolu, (err, contenu) => {
-        if (err) { res.writeHead(404); res.end('Introuvable : ' + cheminDemande); return; }
+        if (err) {
+          // Repli SPA (même règle que "rewrites" dans vercel.json, voir
+          // js/app.js ROUTES_PAGES / js/navigation.js synchroniserAdresseEcran) :
+          // un fichier RÉEL (js/css/assets/api) garde toujours la priorité
+          // (déjà géré ci-dessus, on n'atteint ce repli QUE s'il n'existe
+          // pas) ; tout le reste retombe sur index.html, jamais un 404 brut -
+          // sans ça, un test qui recharge la page après une navigation
+          // interne (l'adresse a changé, voir history.replaceState) se
+          // retrouve sur une page vide, aucun script chargé, exactement le
+          // symptôme qui a révélé ce manque (ouvrirTableauDeBord is not
+          // defined après un reload sur /tableau-de-bord).
+          const cheminIndex = path.join(RACINE, 'index.html');
+          fs.readFile(cheminIndex, (err2, contenuIndex) => {
+            if (err2) { res.writeHead(404); res.end('Introuvable : ' + cheminDemande); return; }
+            res.writeHead(200, { 'Content-Type': TYPES_MIME['.html'] });
+            res.end(contenuIndex);
+          });
+          return;
+        }
         const ext = path.extname(cheminAbsolu);
         res.writeHead(200, { 'Content-Type': TYPES_MIME[ext] || 'application/octet-stream' });
         res.end(contenu);
