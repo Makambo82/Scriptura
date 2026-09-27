@@ -387,20 +387,6 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') fermerImageMontage();
 });
 
-async function telechargerImageMontage(i) {
-  const img = montageImages[i];
-  if (!img) return;
-  const err = document.getElementById('montageErreur');
-  if (err) err.style.display = 'none';
-  const format = document.getElementById('montageImgFormatSelect')?.value || 'png';
-  try {
-    const blobConverti = await convertirImageVers(img.blob, format);
-    telechargerBlob(blobConverti, 'scriptura-plan-' + (i + 1) + '.' + format);
-  } catch (e) {
-    if (err) { err.textContent = 'Erreur de téléchargement (plan ' + (i + 1) + ') : ' + e.message; err.style.display = 'block'; }
-  }
-}
-
 function toggleSelectionImage(i) {
   if (montageImagesSelection.has(i)) montageImagesSelection.delete(i);
   else montageImagesSelection.add(i);
@@ -521,10 +507,15 @@ async function creerZip(fichiers) {
 // fichier .zip, les navigateurs mobiles (Safari iOS en tête) bloquent ou
 // perturbent plusieurs téléchargements déclenchés coup sur coup, un seul
 // fichier zip évite le problème complètement.
-async function telechargerImagesSelectionnees() {
+// `forcerToutes` (retour propriétaire) : le bouton "Télécharger toutes les
+// images" (montageDlSelectionBtn) doit toujours tout télécharger, quelle
+// que soit la sélection en cours - distinct de l'icône à côté de
+// "Sélectionner" (montageDlSelectionIconBtn), qui ne télécharge QUE la
+// sélection (et reste grisée tant qu'elle est vide, voir renderMontageEtat).
+async function telechargerImagesSelectionnees(forcerToutes) {
   const err = document.getElementById('montageErreur');
   if (err) err.style.display = 'none';
-  const indices = montageImagesSelection.size
+  const indices = (!forcerToutes && montageImagesSelection.size)
     ? Array.from(montageImagesSelection).sort((a, b) => a - b)
     : montageImages.map((img, i) => img ? i : null).filter(i => i !== null);
   if (!indices.length) return;
@@ -1211,10 +1202,14 @@ function renderMontageEtat() {
       const caseSelection = montageModeSelectionActif
         ? `<input type="checkbox" class="montage-thumb-select" title="Sélectionner" ${montageImagesSelection.has(i) ? 'checked' : ''} onclick="event.stopPropagation();toggleSelectionImage(${i})">`
         : '';
-      if (img) return `<div class="audit-thumb montage-thumb-prete">
-        <img src="${img.apercu}" alt="" style="cursor:zoom-in" onclick="agrandirImageMontage(${i})" title="Agrandir">
+      // Clic sur TOUTE la vignette (retour propriétaire), pas seulement la
+      // case à cocher elle-même : agrandit l'image hors mode sélection,
+      // coche/décoche en mode sélection - la case garde son propre onclick
+      // (stopPropagation) pour ne jamais déclencher les deux à la fois.
+      const clicVignette = montageModeSelectionActif ? `toggleSelectionImage(${i})` : `agrandirImageMontage(${i})`;
+      if (img) return `<div class="audit-thumb montage-thumb-prete" style="cursor:${montageModeSelectionActif ? 'pointer' : 'zoom-in'}" onclick="${clicVignette}" title="${montageModeSelectionActif ? 'Sélectionner' : 'Agrandir'}">
+        <img src="${img.apercu}" alt="">
         ${caseSelection}
-        <button class="montage-thumb-dl" onclick="event.stopPropagation();telechargerImageMontage(${i})" title="Télécharger">${ICO('download')}</button>
       </div>`;
       if (montageImagesEnCours && i >= montageImageIndexEnCours) {
         return `<div class="audit-thumb montage-thumb-attente" title="En attente…"></div>`;
@@ -1285,23 +1280,22 @@ function renderMontageEtat() {
       ? 'Sélectionner'
       : (toutCoche ? 'Tout désélectionner' : 'Tout sélectionner');
   }
+  // "Télécharger toutes les images" (retour propriétaire) : ne varie plus
+  // jamais avec la sélection, ni son texte ni son comportement (voir
+  // telechargerImagesSelectionnees(true), toujours TOUTES les images) -
+  // c'est l'icône ci-dessous qui télécharge la sélection.
   const btnDlSelection = document.getElementById('montageDlSelectionBtn');
-  if (btnDlSelection) {
-    btnDlSelection.disabled = !nbPretes;
-    const nbSelection = montageImagesSelection.size;
-    btnDlSelection.textContent = nbSelection
-      ? `⬇ Télécharger la sélection (${nbSelection}) (.zip)`
-      : '⬇ Télécharger toutes les images (.zip)';
-  }
+  if (btnDlSelection) btnDlSelection.disabled = !nbPretes;
   // Bouton "supprimer la sélection" (retour propriétaire) : actif seulement
   // si au moins une image est cochée, comme les autres actions de sélection.
   const btnDelSelection = document.getElementById('montageDelSelectionBtn');
   if (btnDelSelection) btnDelSelection.disabled = montageImagesSelection.size === 0;
   // Icône de téléchargement (raccourci à côté de "Sélectionner", retour
-  // propriétaire) : même action et même garde que le bouton texte
-  // ci-dessus (montageDlSelectionBtn), juste un accès plus rapide.
+  // propriétaire) : télécharge UNIQUEMENT la sélection (voir
+  // telechargerImagesSelectionnees(false)), grisée tant qu'elle est vide -
+  // contrairement au bouton texte ci-dessus, qui ignore la sélection.
   const btnDlSelectionIcon = document.getElementById('montageDlSelectionIconBtn');
-  if (btnDlSelectionIcon) btnDlSelectionIcon.disabled = !nbPretes;
+  if (btnDlSelectionIcon) btnDlSelectionIcon.disabled = montageImagesSelection.size === 0;
   // Icône "✕ annuler" (retour propriétaire) : n'a de sens QU'EN mode
   // sélection (rien à annuler sinon), indépendamment de savoir si une image
   // est déjà cochée - contrairement à "supprimer", elle doit rester
