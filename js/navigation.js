@@ -226,3 +226,60 @@ function goHome() {
   window.scrollTo({ top: 0, behavior: 'auto' });
   animerEntreeEcran(document.getElementById('homePage'));
 }
+
+// ═══════════════════════════════════════════════════════════
+//  ADRESSE DE LA BARRE DU NAVIGATEUR, TOUJOURS CELLE DE L'ÉCRAN VISIBLE
+//  (retour propriétaire, 27/09 : "quand on clique dans la zone de l'URL,
+//  ça doit être l'url de la page sur laquelle on est")
+// ═══════════════════════════════════════════════════════════
+//
+// Suite logique de ROUTES_PAGES (js/app.js, une adresse propre ouvre le bon
+// écran au chargement) : ici, dans l'AUTRE sens, un écran déjà ouvert doit
+// afficher sa propre adresse.
+//
+// PLUTÔT QU'UN APPEL DANS CHAQUE FONCTION QUI OUVRE UN ÉCRAN (des dizaines,
+// un risque réel d'en oublier une - exactement le défaut qui a justifié
+// TOUS_LES_ECRANS/masquerTousLesEcrans plus haut dans ce même fichier), un
+// seul observateur regarde les conteneurs DÉJÀ listés dans TOUS_LES_ECRANS,
+// seule source de vérité pour "quel écran est affiché" (voir currentScreen
+// ci-dessus) : dès que l'un devient visible, l'adresse se met à jour toute
+// seule, quel que soit le chemin pris pour y arriver - aujourd'hui comme
+// pour un futur écran simplement ajouté à cette même liste.
+//
+// history.replaceState, JAMAIS pushState : la pile "← Retour" de cette app
+// (navStack ci-dessus) gère déjà son propre historique, interne au JS, pas
+// celui du navigateur. Ajouter une entrée d'historique navigateur à chaque
+// écran créerait un DEUXIÈME système de "précédent" non synchronisé avec le
+// premier - le bouton "précédent" du navigateur et le "← Retour" de l'app
+// raconteraient deux histoires différentes. replaceState garde l'adresse
+// honnête sans dupliquer cette mécanique ; les boutons précédent/suivant du
+// navigateur gardent exactement leur comportement d'avant.
+const CHEMIN_PAR_ECRAN = {
+  homePage: '/', heroFocus: '/',
+  ideasFlow: '/idees', flow: '/script', storyFlow: '/recit', serieFlow: '/serie',
+  diagSommaireFlow: '/audit', auditFlow: '/audit',
+  carrouselFlow: '/carrousel', storyboardSeulFlow: '/storyboard',
+  viralFlow: '/analyse-virale', tendancesFlow: '/tendances',
+  montageManuelFlow: '/montage', tiktokOutilsFlow: '/transcrirevideo',
+  historyFlow: '/mes-generations', adminFlow: '/tableau-de-bord'
+};
+function synchroniserAdresseEcran() {
+  const ecran = (typeof currentScreen === 'function') ? currentScreen() : null;
+  const chemin = CHEMIN_PAR_ECRAN[ecran];
+  // Écran sans adresse dédiée (fusionFlow...) : on laisse l'adresse déjà
+  // affichée telle quelle plutôt que d'en montrer une fausse.
+  if (chemin && window.location.pathname !== chemin) {
+    history.replaceState(history.state, '', chemin);
+  }
+}
+if (typeof MutationObserver === 'function') {
+  const _observateurAdresseEcran = new MutationObserver(synchroniserAdresseEcran);
+  TOUS_LES_ECRANS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) _observateurAdresseEcran.observe(el, { attributes: true, attributeFilter: ['style'] });
+  });
+  // État initial : utile quand la page a été ouverte directement sur une
+  // adresse propre (ex. /idees) et qu'un ancien chemin traînait encore
+  // dans l'historique du navigateur (retour d'un premier essai).
+  synchroniserAdresseEcran();
+}
