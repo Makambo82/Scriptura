@@ -47,6 +47,15 @@ function poserFetchStorage({ racine = [], fichiersParDossier = {}, comptes = { '
       const page = fichiers.slice(debut, debut + p.limit).map(nom => ({ name: nom, id: 'x' }));
       return { ok: true, json: async () => page };
     }
+    // DELETE .../object/{bucket} est tentée EN PREMIER (voir
+    // retirerObjetsStorage, api/data.js), POST .../object/remove/{bucket}
+    // seulement en repli si elle échoue.
+    if (u.endsWith('/storage/v1/object/montages') && (opts.method || '').toUpperCase() === 'DELETE') {
+      const p = JSON.parse(opts.body);
+      appelsRemove.push(p.prefixes);
+      if (removeEchoue) return { ok: false, status: 403, text: async () => JSON.stringify({ message: 'row-level security policy' }) };
+      return { ok: true, json: async () => ({}) };
+    }
     if (u.endsWith('/storage/v1/object/remove/montages')) {
       const p = JSON.parse(opts.body);
       appelsRemove.push(p.prefixes);
@@ -214,4 +223,47 @@ test('stockage-montages-purger : distingue un dossier réellement vide (dossiers
     assert.equal(res._json.dossiersVides, 1, 'REGRESSION : montage-vide (0 fichier listé) doit être distingué du reste');
     assert.match(res._json.erreur, /403/, 'REGRESSION : l\'échec du retrait Storage doit être visible, jamais silencieux');
   } finally { restaurer(); retirerEnv(); delete process.env.CODE_ADMIN; }
+});
+
+test('stockage-montages-purger : si DELETE .../object/montages échoue, retente en POST .../object/remove/montages avant d\'abandonner', async () => {
+  // Retour terrain (27/09) : POST .../object/remove/montages a renvoyé
+  // "Bucket not found" en production, alors que list et une suppression
+  // manuelle depuis le dashboard fonctionnaient - suspecté être une
+  // différence de version d'API Storage entre projets. DELETE .../object/
+  // montages (forme du SDK JS officiel) est donc tentée en premier ; ce
+  // test verrouille que l'ancienne forme POST reste bien tentée en repli
+  // si DELETE échoue, plutôt que d'abandonner directement.
+  poserEnv();
+  process.env.CODE_ADMIN = 'ADMIN-TEST';
+  const appelsDelete = [];
+  const appelsPost = [];
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url, opts = {}) => {
+    const u = url.toString();
+    const methode = (opts.method || '').toUpperCase();
+    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    if (u.endsWith('/storage/v1/object/list/montages')) {
+      const p = JSON.parse(opts.body);
+      if (p.prefix === '') return { ok: true, json: async () => (p.offset ? [] : [dossier('montage-1')]) };
+      return { ok: true, json: async () => (p.offset ? [] : [{ name: 'img-0.jpg', id: 'x' }]) };
+    }
+    if (u.endsWith('/storage/v1/object/montages') && methode === 'DELETE') {
+      appelsDelete.push(1);
+      return { ok: false, status: 404, text: async () => JSON.stringify({ error: 'Bucket not found', code: 'NoSuchBucket' }) };
+    }
+    if (u.endsWith('/storage/v1/object/remove/montages')) {
+      appelsPost.push(1);
+      return { ok: true, json: async () => ({}) };
+    }
+    return { ok: true, json: async () => ([]) };
+  };
+  try {
+    const handler = await importerHandler();
+    const res = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-montages-purger', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(appelsDelete.length, 1, 'DELETE doit être tentée en premier');
+    assert.equal(appelsPost.length, 1, 'REGRESSION : le repli POST /object/remove doit être tenté quand DELETE échoue');
+    assert.equal(res._json.fichiers, 1, 'REGRESSION : le repli ayant réussi, le fichier doit compter comme supprimé');
+    assert.equal(res._json.erreur, undefined, 'aucune erreur ne doit remonter puisque le repli a fini par réussir');
+  } finally { global.fetch = fetchOriginal; retirerEnv(); delete process.env.CODE_ADMIN; }
 });

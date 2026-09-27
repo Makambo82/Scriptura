@@ -28,6 +28,23 @@ function cheminDepuisUrlStorage(valeur) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+// Retrait groupé, avec repli (retour terrain, 27/09) : POST
+// .../object/remove/{bucket} a renvoyé "Bucket not found" sur le projet
+// réel, alors que le bucket existe bel et bien (list et suppression
+// manuelle depuis le dashboard Supabase fonctionnent tous les deux) - une
+// différence de version d'API Storage entre projets, pas un bucket
+// manquant. DELETE .../object/{bucket} (forme du SDK JS officiel) tentée en
+// premier, l'ancienne forme POST en repli seulement si elle échoue.
+async function retirerObjetsStorage(url, entetesReq, bucket, chemins) {
+  const corps = JSON.stringify({ prefixes: chemins });
+  let r = await fetch(url + '/storage/v1/object/' + bucket, { method: 'DELETE', headers: entetesReq, body: corps });
+  if (r.ok) return { ok: true };
+  const statutDelete = r.status;
+  r = await fetch(url + '/storage/v1/object/remove/' + bucket, { method: 'POST', headers: entetesReq, body: corps });
+  if (r.ok) return { ok: true };
+  return { ok: false, statutDelete, statutRemove: r.status };
+}
+
 export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -54,16 +71,15 @@ export default async function handler(req, res) {
 
     const chemins = [...new Set(lignes.map(l => cheminDepuisUrlStorage(l.url)).filter(Boolean))];
     if (chemins.length) {
-      const rRemove = await fetch(url + '/storage/v1/object/remove/montages', {
-        method: 'POST',
-        headers: entetes,
-        body: JSON.stringify({ prefixes: chemins })
-      });
       // Le fichier reste dans le Storage tant qu'on n'est pas sûr qu'il ait
       // vraiment été retiré : la ligne DB reste alors en place, retentée au
       // prochain passage plutôt que de perdre la trace d'un fichier orphelin.
-      if (!rRemove.ok) {
-        return res.status(200).json({ ok: false, purgees: 0, erreur: 'retrait Storage échoué (' + rRemove.status + ')' });
+      const resultat = await retirerObjetsStorage(url, entetes, 'montages', chemins);
+      if (!resultat.ok) {
+        return res.status(200).json({
+          ok: false, purgees: 0,
+          erreur: 'retrait Storage échoué (DELETE ' + resultat.statutDelete + ', POST remove ' + resultat.statutRemove + ')'
+        });
       }
     }
 

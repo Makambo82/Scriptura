@@ -456,6 +456,33 @@ async function handlePasses(req, res, cfg, body) {
 // une purge en masse reste une décision du fondateur, jamais silencieuse.
 const MONTAGE_STORAGE_DOSSIER_CONSERVE = 'rendus'; // vidéos finales, jamais touchées ici
 
+// Retrait groupé d'objets Storage, avec repli (retour terrain, 27/09) :
+// POST .../object/remove/{bucket} a renvoyé "Bucket not found" sur le
+// projet réel, alors que le bucket existe bel et bien (list réussit, et une
+// suppression manuelle depuis le dashboard Supabase aussi) - une différence
+// de version d'API Storage entre projets, pas un bucket manquant. DELETE
+// .../object/{bucket} (forme documentée par le SDK JS officiel) est tentée
+// en premier, l'ancienne forme POST en repli seulement si elle échoue.
+// Jamais un échec silencieux : si les deux ratent, les DEUX réponses sont
+// rapportées, pour ne plus jamais avoir à deviner depuis un écran de
+// téléphone sans accès aux logs serveur.
+async function retirerObjetsStorage(cfg, bucket, chemins) {
+  const entetesReq = entetes(cfg.key);
+  const corps = JSON.stringify({ prefixes: chemins });
+  let r = await fetch(cfg.url + '/storage/v1/object/' + bucket, { method: 'DELETE', headers: entetesReq, body: corps });
+  if (r.ok) return { ok: true };
+  const texteDelete = (await r.text().catch(() => '')).slice(0, 150);
+  const statutDelete = r.status;
+  r = await fetch(cfg.url + '/storage/v1/object/remove/' + bucket, { method: 'POST', headers: entetesReq, body: corps });
+  if (r.ok) return { ok: true };
+  const texteRemove = (await r.text().catch(() => '')).slice(0, 150);
+  return {
+    ok: false,
+    erreur: 'DELETE /object/' + bucket + ' (HTTP ' + statutDelete + ') : ' + texteDelete
+      + ' | POST /object/remove/' + bucket + ' (HTTP ' + r.status + ') : ' + texteRemove
+  };
+}
+
 // Liste tous les dossiers de premier niveau du bucket (un par montage),
 // en excluant `rendus/`. Un dossier n'existe pas vraiment pour Supabase
 // Storage (pas de vrai système de fichiers) : il apparaît dans le listage
@@ -550,14 +577,11 @@ async function nettoyageStockagePurger(res, cfg) {
         // allers-retours pour un dossier de quelques fichiers seulement.
         for (let i = 0; i < fichiers.length; i += 200) {
           const lot = fichiers.slice(i, i + 200);
-          const r = await fetch(cfg.url + '/storage/v1/object/remove/montages', {
-            method: 'POST', headers: entetes(cfg.key), body: JSON.stringify({ prefixes: lot })
-          });
-          if (r.ok) {
+          const resultat = await retirerObjetsStorage(cfg, 'montages', lot);
+          if (resultat.ok) {
             fichiersSupprimes += lot.length;
           } else if (!premiereErreur) {
-            const texte = await r.text().catch(() => '');
-            premiereErreur = 'retrait Storage refusé (HTTP ' + r.status + ') : ' + texte.slice(0, 200);
+            premiereErreur = resultat.erreur;
           }
         }
       }

@@ -78,8 +78,11 @@ test('render-service : nettoyerAssetsIntermediaires appelle bien le retrait en m
       '', // valeur vide (ex. pas de musique) : jamais plantée, juste ignorée
       undefined
     ]);
+    // DELETE .../object/montages est tentée en premier (forme du SDK JS
+    // officiel, voir retirerObjetsStorage) : elle réussit ici (mock ok:true),
+    // donc un seul appel groupé, jamais le repli POST /object/remove.
     assert.equal(appels.length, 1, 'un seul appel groupé (bulk remove), pas un par fichier');
-    assert.ok(appels[0].url.endsWith('/storage/v1/object/remove/montages'), 'doit cibler le bon endpoint Storage');
+    assert.ok(appels[0].url.endsWith('/storage/v1/object/montages'), 'doit cibler le bon endpoint Storage');
     assert.deepEqual(
       appels[0].corps.prefixes.sort(),
       ['montage-1/img-0.jpg', 'montage-1/img-1.jpg', 'montage-1/voix-off.mp3'].sort(),
@@ -136,7 +139,9 @@ test('confirmer-telechargement : supprime bien l\'objet visé pour une URL valid
     assert.equal(res._status, 200);
     assert.equal(res._json.ok, true);
     assert.equal(appels.length, 2, 'un appel Storage (suppression du fichier) + un appel de retrait de la ligne montages_video');
-    assert.ok(appels[0].url.endsWith('/storage/v1/object/remove/montages'));
+    // DELETE .../object/montages tentée en premier (voir retirerObjetsStorage,
+    // api/montage-media.js) : réussit ici (mock ok:true), pas de repli POST.
+    assert.ok(appels[0].url.endsWith('/storage/v1/object/montages'));
     assert.deepEqual(appels[0].corps.prefixes, ['rendus/montage-9.mp4']);
     assert.ok(
       appels[1].url.includes('/rest/v1/montages_video?url=eq.') && appels[1].url.includes(encodeURIComponent('montages/rendus/montage-9.mp4')),

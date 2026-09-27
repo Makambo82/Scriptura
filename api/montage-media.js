@@ -148,6 +148,22 @@ function cheminDepuisUrlStorage(valeur) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+// Retrait groupé, avec repli (retour terrain, 27/09) : POST
+// .../object/remove/{bucket} a renvoyé "Bucket not found" sur le projet
+// réel, alors que le bucket existe bel et bien (list et suppression
+// manuelle depuis le dashboard Supabase fonctionnent tous les deux) - une
+// différence de version d'API Storage entre projets, pas un bucket
+// manquant. DELETE .../object/{bucket} (forme du SDK JS officiel) tentée en
+// premier, l'ancienne forme POST en repli seulement si elle échoue.
+async function retirerObjetsStorage(url, key, bucket, chemins) {
+  const entetesReq = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+  const corps = JSON.stringify({ prefixes: chemins });
+  let r = await fetch(url + '/storage/v1/object/' + bucket, { method: 'DELETE', headers: entetesReq, body: corps });
+  if (r.ok) return true;
+  r = await fetch(url + '/storage/v1/object/remove/' + bucket, { method: 'POST', headers: entetesReq, body: corps });
+  return r.ok;
+}
+
 async function handleConfirmerTelechargement(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
 
@@ -168,11 +184,7 @@ async function handleConfirmerTelechargement(req, res) {
   if (!url || !key) return res.status(200).json({ ok: false }); // dégradation silencieuse, jamais bloquant pour le créateur
 
   try {
-    const rep = await fetch(url + '/storage/v1/object/remove/montages', {
-      method: 'POST',
-      headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefixes: [chemin] })
-    });
+    const ok = await retirerObjetsStorage(url, key, 'montages', [chemin]);
     // Retire aussi la ligne « à récupérer » de Mes générations (voir
     // supabase/montages_video.sql) : le fichier vient d'être supprimé, la
     // lister encore proposerait un lien mort. Jamais attendue, jamais
@@ -181,7 +193,7 @@ async function handleConfirmerTelechargement(req, res) {
       method: 'DELETE',
       headers: { apikey: key, Authorization: 'Bearer ' + key, Prefer: 'return=minimal' }
     }).catch(() => {});
-    return res.status(200).json({ ok: rep.ok });
+    return res.status(200).json({ ok });
   } catch (e) {
     return res.status(200).json({ ok: false }); // best-effort : jamais une erreur 5xx pour un simple nettoyage raté
   }

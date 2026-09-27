@@ -674,6 +674,23 @@ function cheminDepuisUrlStorage(valeur) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+// Retrait groupé, avec repli (retour terrain, 27/09) : POST
+// .../object/remove/{bucket} a renvoyé "Bucket not found" sur le projet
+// réel, alors que le bucket existe bel et bien (list et suppression
+// manuelle depuis le dashboard Supabase fonctionnent tous les deux) - une
+// différence de version d'API Storage entre projets, pas un bucket
+// manquant. DELETE .../object/{bucket} (forme du SDK JS officiel) tentée en
+// premier, l'ancienne forme POST en repli seulement si elle échoue.
+async function retirerObjetsStorage(url, key, bucket, chemins) {
+  const entetesReq = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+  const corps = JSON.stringify({ prefixes: chemins });
+  let r = await fetch(url + '/storage/v1/object/' + bucket, { method: 'DELETE', headers: entetesReq, body: corps });
+  if (r.ok) return { ok: true };
+  const statutDelete = r.status;
+  r = await fetch(url + '/storage/v1/object/remove/' + bucket, { method: 'POST', headers: entetesReq, body: corps });
+  return { ok: r.ok, statutDelete, statutRemove: r.status };
+}
+
 // Best-effort, JAMAIS bloquant : un nettoyage raté ne doit jamais faire
 // échouer un rendu qui vient de réussir, ni retarder la réponse au client
 // (appelée sans await depuis /render, voir plus bas) - au pire, ces
@@ -685,13 +702,9 @@ async function nettoyerAssetsIntermediaires(urls) {
   const chemins = [...new Set(urls.map(cheminDepuisUrlStorage).filter(Boolean))];
   if (!chemins.length) return;
   try {
-    const rep = await fetch(url + '/storage/v1/object/remove/montages', {
-      method: 'POST',
-      headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefixes: chemins })
-    });
-    if (!rep.ok) {
-      console.error('[render] nettoyage des assets intermédiaires échoué (' + rep.status + '), ' + chemins.length + ' fichier(s) laissé(s)');
+    const resultat = await retirerObjetsStorage(url, key, 'montages', chemins);
+    if (!resultat.ok) {
+      console.error('[render] nettoyage des assets intermédiaires échoué (DELETE ' + resultat.statutDelete + ', POST remove ' + resultat.statutRemove + '), ' + chemins.length + ' fichier(s) laissé(s)');
     } else {
       console.log('[render] ' + chemins.length + ' asset(s) intermédiaire(s) supprimé(s)');
     }

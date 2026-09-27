@@ -241,6 +241,13 @@ test('cron : purge les vidéos de plus de 3 jours (Storage + ligne), laisse les 
         ])
       };
     }
+    // DELETE .../object/montages est tentée en premier (voir
+    // retirerObjetsStorage, api/cron-nettoyage-montages.js), POST
+    // .../object/remove/montages seulement en repli si elle échoue.
+    if (u.endsWith('/storage/v1/object/montages') && (opts.method || '').toUpperCase() === 'DELETE') {
+      appelsRemove.push(JSON.parse(opts.body));
+      return { ok: true, json: async () => ({}) };
+    }
     if (u.endsWith('/storage/v1/object/remove/montages')) {
       appelsRemove.push(JSON.parse(opts.body));
       return { ok: true, json: async () => ({}) };
