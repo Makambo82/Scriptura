@@ -152,31 +152,58 @@ document.addEventListener('DOMContentLoaded', function() {
   appliquerClasseAdmin();
   if (typeof appliquerClasseMontage === 'function') appliquerClasseMontage();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
-  // Lien direct vers l'outil de transcription TikTok (retour propriétaire :
-  // pouvoir coller UNE adresse simple, scriiptura.vercel.app/transcrirevideo,
-  // dans un navigateur et tomber directement sur cet outil - pas un
-  // paramètre `?...` à construire). Le chemin /transcrirevideo est réécrit
-  // vers index.html côté serveur (voir "rewrites", vercel.json) : ce fichier
-  // JS, une fois chargé, lit ENSUITE le chemin réel dans la barre d'adresse
-  // (resté /transcrirevideo, une réécriture ne redirige pas) pour savoir
-  // quel écran ouvrir. ?ouvrir=tiktok / ?tiktok=<lien encodé> restent
-  // acceptés en plus (utiles pour pré-remplir un lien TikTok précis, chose
-  // qu'une adresse fixe ne peut pas transporter). Fonctionne pour un
-  // visiteur anonyme (voir droitAnalyseVirale, js/historique.js : quelques
-  // analyses gratuites avant de demander un compte), donc un lien partagé
-  // marche vraiment pour n'importe qui, pas seulement pour un abonné déjà
-  // connecté.
-  (function () {
-    const params = new URLSearchParams(window.location.search);
-    const lienTiktok = params.get('tiktok');
-    const cheminDirect = window.location.pathname.replace(/\/+$/, '') === '/transcrirevideo';
-    const veutOuvrirOutil = params.get('ouvrir') === 'tiktok' || cheminDirect;
-    if ((lienTiktok || veutOuvrirOutil) && typeof ouvrirOutilsTikTok === 'function') {
-      ouvrirOutilsTikTok();
-      if (lienTiktok) {
-        const champ = document.getElementById('outilsLien');
-        if (champ) champ.value = lienTiktok;
-      }
+  // Adresse propre pour CHAQUE page de l'app (retour propriétaire, 27/09,
+  // généralisé après un premier essai limité à /transcrirevideo) : coller
+  // scriiptura.vercel.app/audit (ou /idees, /montage...) dans un navigateur
+  // doit tomber directement sur cet écran, pas un paramètre `?...` à
+  // construire. N'IMPORTE QUEL chemin non-fichier est réécrit vers
+  // index.html côté serveur (voir "rewrites", vercel.json, repli SPA
+  // standard) ; ce fichier JS, une fois chargé, lit ENSUITE le chemin réel
+  // dans la barre d'adresse (resté tel quel, une réécriture ne redirige
+  // jamais) pour savoir quel écran ouvrir tout seul.
+  //
+  // SEULS LES ÉCRANS OUVRABLES "À FROID" figurent dans ROUTES_PAGES,
+  // volontairement : un montage précis déjà généré, une série ou une
+  // génération en cours ont besoin de données qu'une adresse toute nue ne
+  // peut pas transporter (le montage assemblé par l'IA, par exemple, part
+  // toujours d'un storyboard déjà en mémoire - ouvrirMontageManuelAccueil,
+  // lui, ouvre un écran vide où l'abonné choisit ses propres images, c'est
+  // celui-là qui est mappé ici). Chaque fonction listée gère déjà elle-même
+  // son propre contrôle d'accès (plan requis, quota...) exactement comme
+  // depuis le menu habituel : une adresse directe ne contourne rien.
+  const ROUTES_PAGES = {
+    '/idees': () => chooseMode('ideas'),
+    '/script': () => chooseMode('script'),
+    '/recit': () => chooseMode('story'),
+    '/serie': () => chooseMode('serie'),
+    '/audit': () => chooseMode('audit'),
+    '/carrousel': () => chooseMode('carrousel'),
+    '/storyboard': () => openStoryboardSeul(),
+    '/analyse-virale': () => ouvrirAnalyseVirale(),
+    '/tendances': () => ouvrirTendances(),
+    '/montage': () => ouvrirMontageManuelAccueil(),
+    '/transcrirevideo': () => ouvrirOutilsTikTok(),
+    '/mes-generations': () => openHistory(),
+    '/tableau-de-bord': () => ouvrirTableauDeBord(),
+    '/abonnement': () => openPlans('abonnement')
+  };
+  (function ouvrirDepuisAdressePropre() {
+    const chemin = window.location.pathname.replace(/\/+$/, '') || '/';
+    const ouvrirEcran = ROUTES_PAGES[chemin];
+    if (ouvrirEcran) {
+      try { ouvrirEcran(); } catch (e) { /* jamais bloquant, l'accueil reste utilisable */ }
+    }
+    // ?tiktok=<lien TikTok encodé> reste utile EN PLUS de /transcrirevideo :
+    // pré-remplit un lien précis, chose qu'une adresse fixe ne peut pas
+    // transporter à elle seule. Fonctionne pour un visiteur anonyme (voir
+    // droitAnalyseVirale, js/historique.js : quelques analyses gratuites
+    // avant de demander un compte), donc un lien partagé marche vraiment
+    // pour n'importe qui.
+    const lienTiktok = new URLSearchParams(window.location.search).get('tiktok');
+    if (lienTiktok) {
+      if (!ouvrirEcran && typeof ouvrirOutilsTikTok === 'function') ouvrirOutilsTikTok();
+      const champ = document.getElementById('outilsLien');
+      if (champ) champ.value = lienTiktok;
     }
   })();
   // Migration : les sessions ouvertes avant la sécurisation des codes
