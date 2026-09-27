@@ -278,8 +278,24 @@ if (typeof MutationObserver === 'function') {
     const el = document.getElementById(id);
     if (el) _observateurAdresseEcran.observe(el, { attributes: true, attributeFilter: ['style'] });
   });
-  // État initial : utile quand la page a été ouverte directement sur une
-  // adresse propre (ex. /idees) et qu'un ancien chemin traînait encore
-  // dans l'historique du navigateur (retour d'un premier essai).
-  synchroniserAdresseEcran();
+  // BUG RÉEL (retour propriétaire, 27/09 : "recharger la page revient
+  // toujours à l'accueil", quel que soit l'écran) : cet appel s'exécutait
+  // SINCHRONE ici, hors DOMContentLoaded - ce fichier est chargé AVANT
+  // app.js (voir l'ordre des <script>, index.html), qui ouvre l'écran
+  // demandé par l'adresse (ouvrirDepuisAdressePropre/ROUTES_PAGES)
+  // seulement une fois le DOM chargé. À ce stade précoce, l'accueil est
+  // encore le SEUL écran visible : currentScreen() renvoyait "homePage",
+  // et cet appel réécrivait alors IMMÉDIATEMENT l'adresse demandée
+  // (ex. /script) en "/", AVANT même qu'app.js ait pu appeler chooseMode.
+  // Un lien direct ou un simple rechargement sur n'importe quelle page
+  // retombait donc toujours à l'accueil.
+  //
+  // setTimeout(0) dans le DOMContentLoaded : s'exécute après TOUS les
+  // écouteurs DOMContentLoaded déjà enregistrés (donc après l'ouverture
+  // réelle de l'écran demandé), quel que soit l'ordre des <script> - un
+  // simple `document.addEventListener('DOMContentLoaded', synchroniserAdresseEcran)`
+  // ne suffit PAS : les écouteurs se déclenchent dans leur ordre
+  // d'enregistrement, et celui-ci serait donc encore appelé avant celui
+  // d'app.js.
+  document.addEventListener('DOMContentLoaded', () => setTimeout(synchroniserAdresseEcran, 0));
 }
