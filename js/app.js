@@ -153,18 +153,24 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof appliquerClasseMontage === 'function') appliquerClasseMontage();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
   // Lien direct vers l'outil de transcription TikTok (retour propriétaire :
-  // pouvoir envoyer un lien à quelqu'un plutôt que "va sur le site, clique
-  // sur Outils TikTok…"). Deux formes : ?ouvrir=tiktok ouvre juste l'outil,
-  // le destinataire colle son propre lien ; ?tiktok=<lien TikTok encodé>
-  // ouvre l'outil ET pré-remplit ce lien précis, un seul tap suffit alors
-  // pour transcrire. Fonctionne pour un visiteur anonyme (voir
-  // droitAnalyseVirale, js/historique.js : quelques analyses gratuites
-  // avant de demander un compte), donc un lien partagé marche vraiment pour
-  // n'importe qui, pas seulement pour un abonné déjà connecté.
+  // pouvoir coller UNE adresse simple, scriiptura.vercel.app/transcrirevideo,
+  // dans un navigateur et tomber directement sur cet outil - pas un
+  // paramètre `?...` à construire). Le chemin /transcrirevideo est réécrit
+  // vers index.html côté serveur (voir "rewrites", vercel.json) : ce fichier
+  // JS, une fois chargé, lit ENSUITE le chemin réel dans la barre d'adresse
+  // (resté /transcrirevideo, une réécriture ne redirige pas) pour savoir
+  // quel écran ouvrir. ?ouvrir=tiktok / ?tiktok=<lien encodé> restent
+  // acceptés en plus (utiles pour pré-remplir un lien TikTok précis, chose
+  // qu'une adresse fixe ne peut pas transporter). Fonctionne pour un
+  // visiteur anonyme (voir droitAnalyseVirale, js/historique.js : quelques
+  // analyses gratuites avant de demander un compte), donc un lien partagé
+  // marche vraiment pour n'importe qui, pas seulement pour un abonné déjà
+  // connecté.
   (function () {
     const params = new URLSearchParams(window.location.search);
     const lienTiktok = params.get('tiktok');
-    const veutOuvrirOutil = params.get('ouvrir') === 'tiktok';
+    const cheminDirect = window.location.pathname.replace(/\/+$/, '') === '/transcrirevideo';
+    const veutOuvrirOutil = params.get('ouvrir') === 'tiktok' || cheminDirect;
     if ((lienTiktok || veutOuvrirOutil) && typeof ouvrirOutilsTikTok === 'function') {
       ouvrirOutilsTikTok();
       if (lienTiktok) {

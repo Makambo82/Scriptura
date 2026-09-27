@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/transcrirevideo",
+      "destination": "/index.html"
+    }
+  ],
   "functions": {
     "api/generate.js": {
       "maxDuration": 60
