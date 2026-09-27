@@ -323,6 +323,24 @@ function prechargerVideoMontage(url) {
     .catch(() => null);
 }
 
+// Signale au serveur que CETTE vidéo a vraiment été récupérée par le
+// créateur (retour propriétaire, 27/09) : la vidéo finale d'un montage
+// n'était jamais supprimée du Storage Supabase, elle s'accumulait pour
+// toujours. Appelée UNIQUEMENT depuis partagerVideoMontage, après un
+// partage/téléchargement RÉUSSI (jamais depuis prechargerVideoMontage, le
+// préchargement automatique dès le rendu prêt : sinon la vidéo serait
+// supprimée avant même que le créateur ait vu le bouton "Télécharger").
+// Fire-and-forget, jamais bloquant : la vidéo est déjà entre les mains du
+// créateur à ce stade, rien ici ne doit pouvoir gêner ce qu'il en fait
+// ensuite (voir le repli silencieux côté serveur, api/montage-media.js).
+function confirmerTelechargementVideo(url) {
+  fetch('/api/montage-media?action=confirmer-telechargement', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  }).catch(() => {});
+}
+
 // « Télécharger la vidéo » : ouvre la feuille de partage native (iOS/Android)
 // via l'API Web Share en partageant le FICHIER vidéo déjà préchargé (voir
 // prechargerVideoMontage), c'est ce qui donne directement « Enregistrer la
@@ -343,10 +361,13 @@ async function partagerVideoMontage(btn, url) {
     } else {
       telechargerBlob(fichier, 'scriptura-montage.mp4');
     }
+    confirmerTelechargementVideo(url);
   } catch (e) {
-    // Annulation du partage par l'utilisateur : on ne fait rien.
+    // Annulation du partage par l'utilisateur : on ne fait rien, surtout
+    // pas confirmer un téléchargement qui n'a pas eu lieu.
     if (!(e && e.name === 'AbortError')) {
       window.open('/api/montage-media?action=download&url=' + encodeURIComponent(url), '_blank');
+      confirmerTelechargementVideo(url);
     }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = libelle; }

@@ -650,6 +650,56 @@ async function uploaderVersSupabase(cheminLocal, nomFichier) {
   return url + '/storage/v1/object/sign/montages/' + chemin + '?token=' + token;
 }
 
+// ── NETTOYAGE DES ASSETS INTERMÉDIAIRES (retour propriétaire, 27/09) ──
+//
+// Rien, nulle part dans le code, ne supprimait jamais les images, la voix
+// off et la musique uploadées par le client pour UN montage (bucket
+// `montages`, dossier `montage-<horodatage>/...`, voir js/montage.js) : ça
+// s'accumule pour toujours, exactement le risque qui a bloqué le projet
+// Supabase gratuit d'un abonné (plan gratuit, 500 Mo/projet, blocage total
+// - y compris l'API - une fois le quota dépassé). Une fois le rendu réussi,
+// ces fichiers ne servent plus à rien (seule la vidéo finale compte) :
+// supprimés ici, juste après l'upload du rendu.
+//
+// Chemin extrait de l'URL SIGNÉE déjà reçue (jamais une confiance aveugle :
+// on ne supprime QUE ce qui matche exactement le format d'URL Storage
+// approuvé, même garde qu'urlAssetApprouvee plus haut) plutôt que reconstruit
+// à la main, pour ne jamais risquer de supprimer autre chose que ce qui a
+// réellement été téléchargé pour CE job.
+function cheminDepuisUrlStorage(valeur) {
+  if (typeof valeur !== 'string' || !valeur) return null;
+  let u;
+  try { u = new URL(valeur); } catch (e) { return null; }
+  const m = /^\/storage\/v1\/object\/(?:sign|public)\/montages\/(.+)$/.exec(u.pathname);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+// Best-effort, JAMAIS bloquant : un nettoyage raté ne doit jamais faire
+// échouer un rendu qui vient de réussir, ni retarder la réponse au client
+// (appelée sans await depuis /render, voir plus bas) - au pire, ces
+// fichiers restent un peu plus longtemps, jamais pire qu'aujourd'hui.
+async function nettoyerAssetsIntermediaires(urls) {
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return;
+  const chemins = [...new Set(urls.map(cheminDepuisUrlStorage).filter(Boolean))];
+  if (!chemins.length) return;
+  try {
+    const rep = await fetch(url + '/storage/v1/object/remove/montages', {
+      method: 'POST',
+      headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: chemins })
+    });
+    if (!rep.ok) {
+      console.error('[render] nettoyage des assets intermédiaires échoué (' + rep.status + '), ' + chemins.length + ' fichier(s) laissé(s)');
+    } else {
+      console.log('[render] ' + chemins.length + ' asset(s) intermédiaire(s) supprimé(s)');
+    }
+  } catch (e) {
+    console.error('[render] nettoyage des assets intermédiaires : erreur réseau, ' + chemins.length + ' fichier(s) laissé(s) :', e.message);
+  }
+}
+
 // Chronométrage et pic de mémoire d'un rendu (retour propriétaire : le coût
 // réel du service, calcul + RAM Railway facturés à la seconde, n'était connu
 // nulle part, seul le déroulé des lots était logué). `process.memoryUsage().rss`
@@ -885,6 +935,10 @@ app.post('/render', async (req, res) => {
     const urlPublique = await uploaderVersSupabase(path.join(dossier, 'out.mp4'), nomFichier);
     noterPic();
     console.log('[render] upload Supabase terminé');
+    // Voir nettoyerAssetsIntermediaires ci-dessus : jamais attendu (pas de
+    // await), pour ne pas retarder la réponse au client - le rendu est
+    // déjà prêt, rien de ce qui suit ne doit pouvoir le retarder.
+    nettoyerAssetsIntermediaires([...images.map(img => img.url), audioUrl, musicUrl].filter(Boolean));
     // Chiffres de coût (retour propriétaire) : durée totale du traitement et
     // pic de mémoire réel, à croiser avec le tableau de bord d'usage de
     // l'hébergeur (vCPU-secondes et Go-RAM-secondes facturés) pour obtenir un
@@ -937,5 +991,6 @@ module.exports = {
   MAX_IMAGES, MAX_OCTETS_IMAGE, MAX_OCTETS_AUDIO, MAX_OCTETS_MUSIQUE,
   MAX_OCTETS_TOTAL, CONCURRENCE_TELECHARGEMENT, TIMEOUT_TELECHARGEMENT_MS, TIMEOUT_JOB_MS,
   jetonValide,
+  cheminDepuisUrlStorage, nettoyerAssetsIntermediaires,
   app
 };

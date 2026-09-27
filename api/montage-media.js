@@ -123,6 +123,62 @@ async function handleDownload(req, res) {
   }
 }
 
+// ═══ CONFIRMATION DE TÉLÉCHARGEMENT (retour propriétaire, 27/09) ═══
+//
+// Rien ne supprimait jamais la vidéo finale du bucket Storage `montages`
+// une fois rendue : elle s'accumulait pour toujours, même risque que les
+// assets intermédiaires (voir nettoyerAssetsIntermediaires,
+// render-service/server.js, nettoyés eux juste après le rendu). Choix du
+// propriétaire pour la vidéo finale, différent : supprimée seulement une
+// fois VRAIMENT téléchargée, pas automatiquement après le rendu (le
+// créateur doit pouvoir encore la récupérer).
+//
+// Appelée UNIQUEMENT par partagerVideoMontage (js/montage.js), jamais par
+// prechargerVideoMontage (le préchargement automatique dès le rendu prêt,
+// voir son propre commentaire) : sinon la vidéo serait supprimée avant
+// même que le créateur ait vu le bouton "Télécharger", en confondant
+// "les octets ont transité par le proxy" avec "le créateur l'a vraiment
+// récupérée". Best-effort, jamais bloquant pour l'utilisateur : un échec
+// ici laisse simplement le fichier en place, jamais pire qu'aujourd'hui.
+function cheminDepuisUrlStorage(valeur) {
+  if (typeof valeur !== 'string' || !valeur) return null;
+  let u;
+  try { u = new URL(valeur); } catch (e) { return null; }
+  const m = /^\/storage\/v1\/object\/(?:sign|public)\/montages\/(.+)$/.exec(u.pathname);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+async function handleConfirmerTelechargement(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+  const cible = body?.url;
+  // Même garde que le téléchargement (urlStorageMontageApprouvee) : on ne
+  // supprime QUE ce qui matche exactement le format d'URL Storage du
+  // bucket montages, jamais autre chose.
+  if (!urlStorageMontageApprouvee(cible)) {
+    return res.status(403).json({ error: { message: 'URL non autorisée' } });
+  }
+  const chemin = cheminDepuisUrlStorage(cible);
+  if (!chemin) return res.status(400).json({ error: { message: 'URL invalide' } });
+
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return res.status(200).json({ ok: false }); // dégradation silencieuse, jamais bloquant pour le créateur
+
+  try {
+    const rep = await fetch(url + '/storage/v1/object/remove/montages', {
+      method: 'POST',
+      headers: { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: [chemin] })
+    });
+    return res.status(200).json({ ok: rep.ok });
+  } catch (e) {
+    return res.status(200).json({ ok: false }); // best-effort : jamais une erreur 5xx pour un simple nettoyage raté
+  }
+}
+
 // ═══ VOIX (partagé entre voices et tts, voir les anciens api/montage-voices.js / api/montage-tts.js) ═══
 
 function obtenirVoixDisponibles() {
@@ -799,6 +855,7 @@ export default async function handler(req, res) {
 
   if (action === 'download') return handleDownload(req, res);
   if (action === 'voices') return handleVoices(req, res);
+  if (action === 'confirmer-telechargement') return handleConfirmerTelechargement(req, res);
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
