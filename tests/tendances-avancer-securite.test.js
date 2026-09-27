@@ -366,3 +366,43 @@ test('10. plusieurs jobs légitimes distincts => fonctionnement indépendant', a
     assert.ok(!resA.corpsRecu.dejaEnCours && !resB.corpsRecu.dejaEnCours, 'deux jobs DIFFÉRENTS ne doivent jamais se bloquer l\'un l\'autre : ' + JSON.stringify([resA.corpsRecu, resB.corpsRecu]));
   } finally { restaurer(); }
 });
+
+// ═══ Invariant de timing (retour terrain, 27/09) ═══
+//
+// Une analyse est restée figée à "0/22" pendant exactement 3 minutes, sans
+// aucune erreur affichée. Cause racine : maxDuration (vercel.json,
+// api/tendances.js) était fixé à 90s, très en-dessous du pire cas réel
+// d'UNE SEULE vidéo dans transcrireVideo() - jusqu'à 3 URLs candidates
+// tentées à la suite, chacune avec detailTikHub (12s) + telechargerMedia
+// (15s) + transcrireEleven (45s) = jusqu'à 12 + 3×(15+45) = 192s. Vercel
+// TUAIT alors la fonction en plein traitement, un kill brutal qui
+// n'exécute JAMAIS le `finally` qui libère le verrou - resté bloqué
+// jusqu'à SA PROPRE expiration (TIMEOUT_VERROU_MS), le navigateur
+// recevant "dejaEnCours" en boucle sans jamais voir d'erreur.
+//
+// Ce test verrouille la RELATION entre ces trois valeurs pour qu'un futur
+// changement (ex. plus de tentatives par vidéo, un timeout ElevenLabs plus
+// long) ne puisse plus jamais recréer ce même piège en silence.
+test('INVARIANT : maxDuration (vercel.json) et TIMEOUT_VERROU_MS dépassent tous deux le pire cas réel de transcrireVideo', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const SOURCE_TENDANCES = fs.readFileSync(path.join(__dirname, '..', 'api', 'tendances.js'), 'utf8');
+  const SOURCE_MEDIA = fs.readFileSync(path.join(__dirname, '..', 'api', '_lib', 'tiktok-media.js'), 'utf8');
+  const vercelJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+
+  // Lit les timeouts RÉELS depuis le code, jamais des valeurs recopiées à la
+  // main ici (qui pourraient diverger silencieusement du vrai code).
+  const timeoutDetail = Number(/detailTikHub[\s\S]*?ctrl\.abort\(\), (\d+)\)/.exec(SOURCE_MEDIA)[1]);
+  const timeoutTelechargement = Number(/telechargerMedia[\s\S]*?ctrl\.abort\(\), (\d+)\)/.exec(SOURCE_MEDIA)[1]);
+  const timeoutEleven = Number(/transcrireEleven[\s\S]*?ctrl\.abort\(\), (\d+)\)/.exec(SOURCE_TENDANCES)[1]);
+  const nbUrlsCandidates = 3; // urlsCandidates.slice(0, 3) dans allegerItem() - voir api/_lib/tiktok-media.js
+  const pireCasUneVideoMs = timeoutDetail + nbUrlsCandidates * (timeoutTelechargement + timeoutEleven);
+
+  const maxDurationS = vercelJson.functions['api/tendances.js'].maxDuration;
+  const timeoutVerrouMs = Number(/const TIMEOUT_VERROU_MS = ([\d*\s]+);/.exec(SOURCE_TENDANCES)[1].replace(/\s/g, '').split('*').reduce((a, b) => a * Number(b), 1));
+
+  assert.ok(maxDurationS * 1000 > pireCasUneVideoMs,
+    `REGRESSION : maxDuration (${maxDurationS}s) doit toujours dépasser le pire cas réel d'une vidéo (${pireCasUneVideoMs / 1000}s), sinon Vercel tue la fonction en plein traitement et le verrou reste bloqué sans qu'aucune erreur ne s'affiche`);
+  assert.ok(timeoutVerrouMs > maxDurationS * 1000,
+    `REGRESSION : TIMEOUT_VERROU_MS (${timeoutVerrouMs / 1000}s) doit toujours dépasser maxDuration (${maxDurationS}s), sinon le verrou n'est plus un dernier filet mais le chemin normal`);
+});

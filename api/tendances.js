@@ -119,13 +119,33 @@ const MAX_TRANSCRIPT = 2000;      // par vidéo, la synthèse porte sur l'ensemb
 // = ceil(50/3) = 17 appels par job, ce plafond reste très largement au-dessus.
 const PLAFOND_AVANCEE_JOUR = 60;
 // Durée max d'un verrou avant expiration automatique (voir
-// supabaseAcquerirVerrou) : large marge au-dessus du pire cas réaliste d'un
-// lot de 3 vidéos (téléchargement + jusqu'à 3 tentatives d'URL par vidéo,
-// chacune bornée à 45s côté ElevenLabs, voir transcrireEleven), pour ne
-// jamais expirer pendant un traitement normal, mais assez court pour qu'un
-// crash ou un timeout ne bloque pas durablement le job (le navigateur
-// rappelle avancer en boucle sans délai, voir js/tendances.js).
-const TIMEOUT_VERROU_MS = 3 * 60 * 1000;
+// supabaseAcquerirVerrou).
+//
+// BUG RÉEL corrigé ici (retour terrain, 27/09 : une analyse restait figée
+// à "0/22" pendant exactement 3 minutes, sans aucune erreur affichée) : le
+// PIRE cas réel d'une vidéo, dans transcrireVideo(), n'est pas "un seul
+// essai borné à 45s" comme le disait ce commentaire avant correction, mais
+// jusqu'à 3 URLs candidates tentées À LA SUITE, chacune avec detailTikHub
+// (12s) + telechargerMedia (15s) + transcrireEleven (45s) = jusqu'à
+// 12 + 3×(15+45) = 192s pour UNE SEULE vidéo (les 3 vidéos du lot tournent
+// en parallèle, le lot entier hérite donc de ce même pire cas). Avec
+// maxDuration=90s (api/tendances.js, vercel.json) sur cette fonction,
+// Vercel TUAIT la requête bien avant que ce pire cas ait une chance de se
+// terminer normalement - un kill brutal du processus n'exécute JAMAIS le
+// `finally` qui libère le verrou plus bas, qui restait donc bloqué
+// jusqu'à SA PROPRE expiration (ces 3 minutes observées). Pendant ce
+// temps, le navigateur (js/tendances.js) rappelait avancer en boucle,
+// recevait "dejaEnCours" à chaque fois (verrou toujours tenu), donc AUCUNE
+// erreur ne remontait jamais à l'écran - juste une barre de progression
+// figée.
+//
+// Corrigé à la racine : maxDuration relevé à 300s (largement au-dessus des
+// 192s), pour que la fonction ait enfin le temps de vraiment se terminer
+// et libérer le verrou elle-même dans l'immense majorité des cas. Ce
+// verrou-ci reste un DERNIER FILET pour un vrai crash imprévu (jamais le
+// chemin normal), remonté à 6 minutes pour rester toujours au-dessus de
+// maxDuration, jamais en-dessous.
+const TIMEOUT_VERROU_MS = 6 * 60 * 1000;
 
 // ── Supabase (service_role, jamais exposé au client) ──
 function supabaseConfig() {

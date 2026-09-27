@@ -172,10 +172,27 @@ async function lancerTendances() {
       const ecran = document.getElementById('tendancesFlow');
       if (!ecran || ecran.style.display === 'none') return;
 
-      const r2 = await fetch('/api/tendances', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'avancer', id, code_acces })
-      });
+      // Filet de sécurité (retour terrain, 27/09 : une analyse restait
+      // figée sans AUCUNE erreur affichée, un appel resté sans réponse -
+      // voir TIMEOUT_VERROU_MS, api/tendances.js, pour la cause racine
+      // déjà corrigée). Un peu au-dessus de maxDuration côté serveur
+      // (300s, vercel.json) : n'interrompt jamais un appel légitime en
+      // train de vraiment travailler, seulement un appel qui ne
+      // répondrait jamais.
+      const ctrl = new AbortController();
+      const minuteur = setTimeout(() => ctrl.abort(), 320000);
+      let r2;
+      try {
+        r2 = await fetch('/api/tendances', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'avancer', id, code_acces }),
+          signal: ctrl.signal
+        });
+      } catch (e) {
+        throw new Error(e.name === 'AbortError' ? 'La transcription met anormalement longtemps, réessaie.' : (e.message || 'Erreur réseau pendant la transcription.'));
+      } finally {
+        clearTimeout(minuteur);
+      }
       const j2 = await _tendancesLireReponse(r2);
       if (!j2.ok) throw new Error((j2.error && j2.error.message) || 'Erreur pendant la transcription.');
       statut = j2.statut;
