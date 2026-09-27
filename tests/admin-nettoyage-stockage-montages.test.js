@@ -30,10 +30,15 @@ function retirerEnv() {
 // contenu de chaque dossier.
 function poserFetchStorage({ racine = [], fichiersParDossier = {}, comptes = { 'ADMIN-TEST': null }, removeEchoue = false } = {}) {
   const appelsRemove = [];
+  const appelsDeleteMontagesVideo = [];
   const fetchOriginal = global.fetch;
   global.fetch = async (url, opts = {}) => {
     const u = url.toString();
     if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    if (u.includes('/rest/v1/montages_video?id=gt.0')) {
+      appelsDeleteMontagesVideo.push(1);
+      return { ok: true, json: async () => ({}) };
+    }
     if (u.endsWith('/storage/v1/object/list/montages')) {
       const p = JSON.parse(opts.body);
       if (p.prefix === '') {
@@ -64,7 +69,7 @@ function poserFetchStorage({ racine = [], fichiersParDossier = {}, comptes = { '
     }
     return { ok: true, json: async () => ([]) };
   };
-  return { appelsRemove, restaurer: () => { global.fetch = fetchOriginal; } };
+  return { appelsRemove, appelsDeleteMontagesVideo, restaurer: () => { global.fetch = fetchOriginal; } };
 }
 
 function dossier(nom) { return { name: nom, id: null, metadata: null }; }
@@ -266,4 +271,65 @@ test('stockage-montages-purger : si DELETE .../object/montages échoue, retente 
     assert.equal(res._json.fichiers, 1, 'REGRESSION : le repli ayant réussi, le fichier doit compter comme supprimé');
     assert.equal(res._json.erreur, undefined, 'aucune erreur ne doit remonter puisque le repli a fini par réussir');
   } finally { global.fetch = fetchOriginal; retirerEnv(); delete process.env.CODE_ADMIN; }
+});
+
+// ═══ Purge des VIDÉOS FINALES (rendus/), demandée explicitement (27/09) ═══
+
+test('non-admin refusé sur les deux actions stockage-rendus', async () => {
+  poserEnv();
+  const { restaurer } = poserFetchStorage({ fichiersParDossier: { rendus: ['montage-1.mp4'] } });
+  try {
+    const handler = await importerHandler();
+    const res1 = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-rendus-etat', code_acces: 'PAS-ADMIN' } }, res1);
+    assert.equal(res1._status, 403);
+    const res2 = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-rendus-purger', code_acces: 'PAS-ADMIN' } }, res2);
+    assert.equal(res2._status, 403);
+  } finally { restaurer(); retirerEnv(); }
+});
+
+test('stockage-rendus-etat : compte les vidéos finales présentes dans rendus/', async () => {
+  poserEnv();
+  process.env.CODE_ADMIN = 'ADMIN-TEST';
+  const { restaurer } = poserFetchStorage({ fichiersParDossier: { rendus: ['montage-1.mp4', 'montage-2.mp4', 'montage-3.mp4'] } });
+  try {
+    const handler = await importerHandler();
+    const res = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-rendus-etat', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._status, 200);
+    assert.equal(res._json.ok, true);
+    assert.equal(res._json.fichiers, 3);
+  } finally { restaurer(); retirerEnv(); delete process.env.CODE_ADMIN; }
+});
+
+test('stockage-rendus-purger : supprime toutes les vidéos de rendus/ ET vide montages_video (sinon des liens morts resteraient dans Mes générations)', async () => {
+  poserEnv();
+  process.env.CODE_ADMIN = 'ADMIN-TEST';
+  const { appelsRemove, appelsDeleteMontagesVideo, restaurer } = poserFetchStorage({
+    fichiersParDossier: { rendus: ['montage-1.mp4', 'montage-2.mp4'] }
+  });
+  try {
+    const handler = await importerHandler();
+    const res = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-rendus-purger', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._status, 200);
+    assert.equal(res._json.ok, true);
+    assert.equal(res._json.fichiers, 2);
+    const tousLesChemins = appelsRemove.flat();
+    assert.deepEqual(tousLesChemins.sort(), ['rendus/montage-1.mp4', 'rendus/montage-2.mp4']);
+    assert.equal(appelsDeleteMontagesVideo.length, 1, 'REGRESSION : montages_video doit être vidée, ses lignes pointent toutes vers rendus/ qui vient d\'être vidé');
+  } finally { restaurer(); retirerEnv(); delete process.env.CODE_ADMIN; }
+});
+
+test('stockage-rendus-etat : aucune vidéo => 0, jamais une erreur', async () => {
+  poserEnv();
+  process.env.CODE_ADMIN = 'ADMIN-TEST';
+  const { restaurer } = poserFetchStorage({});
+  try {
+    const handler = await importerHandler();
+    const res = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-rendus-etat', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._json.fichiers, 0);
+  } finally { restaurer(); retirerEnv(); delete process.env.CODE_ADMIN; }
 });

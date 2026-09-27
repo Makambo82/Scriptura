@@ -596,6 +596,53 @@ async function nettoyageStockagePurger(res, cfg) {
   }
 }
 
+// Lecture seule : nombre de vidéos finales (`rendus/`) actuellement dans le
+// Storage, pour afficher un chiffre avant de proposer le bouton destructeur.
+async function nettoyageRendusEtat(res, cfg) {
+  try {
+    const fichiers = await listerFichiersDossier(cfg, MONTAGE_STORAGE_DOSSIER_CONSERVE);
+    return res.status(200).json({ ok: true, fichiers: fichiers.length });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: { message: e.message || 'inconnue' } });
+  }
+}
+
+// Purge des VIDÉOS FINALES elles-mêmes (retour propriétaire, 27/09 : demandé
+// explicitement après le nettoyage des assets sources, pour vider le passif
+// en une fois pendant la crise de quota). Contrairement à
+// nettoyageStockagePurger ci-dessus, qui épargne toujours `rendus/`, cette
+// action-ci supprime SANS EXCEPTION - y compris une vidéo qu'un abonné n'a
+// pas encore téléchargée. C'est pour ça que c'est une action séparée,
+// jamais mélangée avec la précédente, avec sa propre confirmation explicite
+// côté client (voir js/admin.js) : ce n'est PAS la même gravité.
+//
+// Vide aussi `montages_video` en entier : chaque ligne de cette table pointe
+// exactement vers un fichier de `rendus/` (voir supabase/montages_video.sql),
+// donc une fois `rendus/` vidé, toutes ses lignes sont mortes - les laisser
+// ferait apparaître des liens cassés dans Mes générations.
+async function nettoyageRendusPurger(res, cfg) {
+  try {
+    const fichiers = await listerFichiersDossier(cfg, MONTAGE_STORAGE_DOSSIER_CONSERVE);
+    let fichiersSupprimes = 0;
+    let erreur;
+    for (let i = 0; i < fichiers.length; i += 200) {
+      const lot = fichiers.slice(i, i + 200);
+      const resultat = await retirerObjetsStorage(cfg, 'montages', lot);
+      if (resultat.ok) fichiersSupprimes += lot.length;
+      else if (!erreur) erreur = resultat.erreur;
+    }
+    // Best-effort, jamais bloquant pour la réponse : une ligne orpheline qui
+    // survivrait à un échec réseau ici sera simplement retirée plus tard par
+    // le cron de purge à 3 jours (api/cron-nettoyage-montages.js).
+    fetch(cfg.url + '/rest/v1/montages_video?id=gt.0', {
+      method: 'DELETE', headers: { ...entetes(cfg.key), Prefer: 'return=minimal' }
+    }).catch(() => {});
+    return res.status(200).json({ ok: true, fichiers: fichiersSupprimes, erreur });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: { message: e.message || 'inconnue' } });
+  }
+}
+
 // ═══ ADMIN STATS (voir l'ancien api/admin-stats.js) ═══
 
 async function handleAdminStats(req, res, cfg, body) {
@@ -617,6 +664,8 @@ async function handleAdminStats(req, res, cfg, body) {
   // assets sources, jamais pour les vidéos.
   if (body?.action === 'stockage-montages-etat') return await nettoyageStockageEtat(res, cfg);
   if (body?.action === 'stockage-montages-purger') return await nettoyageStockagePurger(res, cfg);
+  if (body?.action === 'stockage-rendus-etat') return await nettoyageRendusEtat(res, cfg);
+  if (body?.action === 'stockage-rendus-purger') return await nettoyageRendusPurger(res, cfg);
 
   // Bascule actif/inactif d'un code depuis le tableau de bord (interrupteur
   // par ligne, voir toggleActifAbonneAdmin, js/admin.js). Jamais pour le

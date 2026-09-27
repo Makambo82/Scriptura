@@ -45,10 +45,11 @@ async function chargerTableauDeBord() {
   zone.innerHTML = '<div class="ideas-sub">Chargement des statistiques…</div>';
   if (!supabaseClient) { zone.innerHTML = '<div class="ideas-sub">Base de données indisponible.</div>'; return; }
 
-  const [abonnesHTML, modesHTML, nettoyageStockageHTML] = await Promise.all([
+  const [abonnesHTML, modesHTML, nettoyageStockageHTML, nettoyageRendusHTML] = await Promise.all([
     chargerCarteAbonnes(),
     chargerCarteModes(),
-    chargerCarteNettoyageStockage()
+    chargerCarteNettoyageStockage(),
+    chargerCarteNettoyageRendus()
   ]);
 
   // Les échecs de génération passent en premier, avant même "Ajouter un
@@ -56,8 +57,11 @@ async function chargerTableauDeBord() {
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
   // absente tant qu'il n'y a rien à signaler). Le stockage juste après,
   // même logique : un quota Supabase dépassé bloque déjà les nouveaux
-  // envois pour tout le monde (retour propriétaire, 27/09).
-  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + nettoyageStockageHTML + cartePassesAdmin()
+  // envois pour tout le monde (retour propriétaire, 27/09). Les vidéos
+  // finales juste après, plus grave encore (perte possible pour un
+  // créateur) : jamais avant les assets sources, purge la moins risquée
+  // d'abord.
+  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + nettoyageStockageHTML + nettoyageRendusHTML + cartePassesAdmin()
     + '<div id="adminEssaiRecit">' + carteEssaiRecitAdmin() + '</div>'
     + carteImagesConsommeesAdmin() + carteMontagesAdmin()
     + carteCreerAbonne() + carteExpirationsAdmin()
@@ -1478,6 +1482,84 @@ async function purgerStockageMontagesAdmin() {
   } catch (e) {
     const zoneEchec = document.getElementById('adminNettoyageStockage');
     if (zoneEchec) zoneEchec.innerHTML = '<div class="score-title" style="color:#e88">⚠ Stockage Supabase</div><div class="ideas-sub" style="margin-top:6px">Échec : ' + escAdmin(e.message) + '</div>';
+  }
+}
+
+// ── Purge des VIDÉOS FINALES elles-mêmes (retour propriétaire, 27/09 :
+// demandé explicitement après le nettoyage des assets sources, pour vider
+// le passif en une fois pendant la crise de quota) ──
+// Carte SÉPARÉE de celle ci-dessus, volontairement : contrairement aux
+// assets sources (pure perte une fois le rendu produit), une vidéo finale
+// peut ne pas avoir encore été téléchargée par un abonné - la supprimer a
+// donc une vraie conséquence pour lui. Jamais mélangée avec l'autre bouton,
+// jamais le même niveau de confirmation.
+let _nettoyageRendusFichiers = null;
+let _nettoyageRendusErreur = '';
+
+async function chargerCarteNettoyageRendus() {
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'stockage-rendus-etat', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || ('HTTP ' + r.status));
+    _nettoyageRendusFichiers = data.fichiers;
+    _nettoyageRendusErreur = '';
+  } catch (e) {
+    _nettoyageRendusFichiers = null;
+    _nettoyageRendusErreur = (e && e.message) || 'erreur inconnue';
+    console.warn('État des vidéos finales indisponible :', e);
+  }
+  return carteNettoyageRendusAdmin();
+}
+
+function carteNettoyageRendusAdmin() {
+  const n = _nettoyageRendusFichiers;
+  const corps = n === null
+    ? '<div class="ideas-sub" style="margin-top:6px">Donnée indisponible' + (_nettoyageRendusErreur ? ' : ' + escAdmin(_nettoyageRendusErreur) : '') + '.</div>'
+    : n === 0
+      ? '<div class="ideas-sub" style="margin-top:6px;color:var(--emerald-light)">Aucune vidéo finale en attente dans le stockage.</div>'
+      : `<div class="ideas-sub" style="margin-top:6px">${formaterNombre(n)} vidéo${n > 1 ? 's' : ''} finale${n > 1 ? 's' : ''} dans le stockage, téléchargée${n > 1 ? 's' : ''} ou non par leurs créateurs.</div>
+         <button class="btn-generate" style="width:auto;padding:0 20px;margin-top:12px;background:#c0392b" onclick="purgerRendusMontagesAdmin()">Supprimer ${formaterNombre(n)} vidéo${n > 1 ? 's' : ''} finale${n > 1 ? 's' : ''}</button>`;
+  return `<div class="score-card" id="adminNettoyageRendus">
+    <div class="score-title" style="color:#e88">⚠ Vidéos finales (montages)</div>
+    ${corps}
+  </div>`;
+}
+
+async function purgerRendusMontagesAdmin() {
+  const n = _nettoyageRendusFichiers || 0;
+  // Confirmation distincte et plus explicite que celle des assets sources :
+  // ici, un créateur peut littéralement perdre une vidéo qu'il n'a pas
+  // encore récupérée.
+  if (!confirm(
+    'Supprimer DÉFINITIVEMENT ' + n + ' vidéo(s) finale(s) de montage ? '
+    + 'Certaines n\'ont peut-être pas encore été téléchargées par leur créateur : elles disparaîtront pour de bon, sans possibilité de les récupérer. '
+    + 'Cette action est irréversible.'
+  )) return;
+  const zone = document.getElementById('adminNettoyageRendus');
+  if (zone) zone.innerHTML = '<div class="score-title" style="color:#e88">⚠ Vidéos finales (montages)</div><div class="ideas-sub" style="margin-top:6px">Suppression en cours, ne quitte pas cette page…</div>';
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'stockage-rendus-purger', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || 'suppression échouée');
+    await chargerCarteNettoyageRendus();
+    const zoneApres = document.getElementById('adminNettoyageRendus');
+    if (zoneApres) zoneApres.outerHTML = carteNettoyageRendusAdmin();
+    const reste = _nettoyageRendusFichiers > 0 ? ' Il en reste ' + _nettoyageRendusFichiers + ', clique à nouveau pour continuer.' : '';
+    alert(
+      formaterNombre(data.fichiers) + ' vidéo(s) finale(s) supprimée(s).' + reste
+      + (data.erreur ? '\n\nErreur : ' + data.erreur : '')
+    );
+  } catch (e) {
+    const zoneEchec = document.getElementById('adminNettoyageRendus');
+    if (zoneEchec) zoneEchec.innerHTML = '<div class="score-title" style="color:#e88">⚠ Vidéos finales (montages)</div><div class="ideas-sub" style="margin-top:6px">Échec : ' + escAdmin(e.message) + '</div>';
   }
 }
 
