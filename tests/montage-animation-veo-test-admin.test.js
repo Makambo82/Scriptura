@@ -138,6 +138,27 @@ test('animate-create : Together refuse => le texte brut de la réponse remonte (
   } finally { global.fetch = fetchOriginal; retirerEnv(); }
 });
 
+test('animate-create : TOGETHER_VIDEO_ENDPOINT (Vercel) permet de changer l\'adresse sans redéployer, même convention que TOGETHER_IMAGE_MODEL', async () => {
+  poserEnv();
+  process.env.TOGETHER_VIDEO_ENDPOINT = 'https://exemple-autre-adresse.together.xyz/v3/videos';
+  const mod = await import('../api/montage-media.js?t=' + Date.now() + '-' + Math.random());
+  const res = mockRes();
+  const fetchOriginal = global.fetch;
+  const appels = [];
+  global.fetch = async (url) => {
+    const u = url.toString();
+    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    appels.push(u);
+    return { ok: true, status: 200, text: async () => JSON.stringify({ id: 'veo-job-999' }) };
+  };
+  try {
+    await mod.default({ method: 'POST', query: { action: 'animate-create' }, body: { imageUrl: IMAGE_URL_VALIDE, code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._status, 200);
+    assert.equal(appels[0], 'https://exemple-autre-adresse.together.xyz/v3/videos',
+      'REGRESSION : TOGETHER_VIDEO_ENDPOINT doit être respecté, pas l\'adresse codée en dur');
+  } finally { global.fetch = fetchOriginal; retirerEnv(); delete process.env.TOGETHER_VIDEO_ENDPOINT; }
+});
+
 test('animate-poll : refusé pour un non-admin/non-illimité', async () => {
   poserEnv();
   try {

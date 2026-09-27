@@ -884,6 +884,10 @@ async function handleImages(req, res, body) {
 // par le client, qui ferait de Together un relais de requêtes vers n'importe
 // quelle adresse externe aux frais de Scriptura.
 const TOGETHER_VIDEO_MODELE = process.env.TOGETHER_VIDEO_MODEL || 'google/veo-3.1';
+// Même convention que TOGETHER_IMAGE_MODEL/TOGETHER_IMAGE_REF_PARAM plus
+// haut dans ce fichier : réglable depuis Vercel sans redéployer de code, si
+// Together change son adresse ou sa version d'API.
+const TOGETHER_VIDEO_ENDPOINT = process.env.TOGETHER_VIDEO_ENDPOINT || 'https://api.together.xyz/v2/videos';
 
 async function handleAnimateCreate(req, res, body) {
   if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
@@ -901,7 +905,7 @@ async function handleAnimateCreate(req, res, body) {
     ? body.prompt.trim().slice(0, 500)
     : 'Anime cette image avec un mouvement de caméra doux et naturel, sans changer le sujet.';
   try {
-    const rep = await fetch('https://api.together.xyz/v2/videos', {
+    const rep = await fetch(TOGETHER_VIDEO_ENDPOINT, {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -939,7 +943,7 @@ async function handleAnimatePoll(req, res, body) {
   const apiKey = process.env.TOGETHER_API_KEY;
   if (!apiKey) return res.status(500).json({ error: { message: 'TOGETHER_API_KEY absente côté serveur' } });
   try {
-    const rep = await fetch('https://api.together.xyz/v2/videos/' + encodeURIComponent(id), {
+    const rep = await fetch(TOGETHER_VIDEO_ENDPOINT + '/' + encodeURIComponent(id), {
       headers: { Authorization: 'Bearer ' + apiKey }
     });
     const texte = await rep.text();

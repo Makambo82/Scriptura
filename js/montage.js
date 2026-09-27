@@ -880,11 +880,13 @@ async function testerAnimationImage() {
     if (!rCreate.ok || !dataCreate.ok) throw new Error((dataCreate.error && dataCreate.error.message) || 'Création refusée.');
     const id = dataCreate.id;
 
-    // Sondage toutes les 4s jusqu'à 2 minutes : large marge pour un simple
-    // test (les vidéos courtes Veo prennent généralement moins d'une minute).
+    // Sondage toutes les 4s jusqu'à 5 minutes : le premier essai réel a
+    // montré Veo encore "in_progress" après 2 minutes (retour terrain,
+    // 27/09) - la génération vidéo prend visiblement plus longtemps qu'une
+    // simple image, on laisse donc une marge réaliste plutôt qu'optimiste.
     const debut = Date.now();
     let videoUrl = null, dernierStatut = 'inconnu';
-    while (Date.now() - debut < 120000) {
+    while (Date.now() - debut < 300000) {
       await new Promise(r => setTimeout(r, 4000));
       zone.innerHTML = '<p class="ideas-sub">Génération en cours… (' + dernierStatut + ')</p>';
       const rPoll = await fetch('/api/montage-media?action=animate-poll', {
@@ -897,7 +899,7 @@ async function testerAnimationImage() {
       if (dataPoll.erreur) throw new Error('Together : ' + dataPoll.erreur);
       if (dataPoll.videoUrl) { videoUrl = dataPoll.videoUrl; break; }
     }
-    if (!videoUrl) throw new Error('Toujours pas prête après 2 minutes (dernier statut : ' + dernierStatut + ').');
+    if (!videoUrl) throw new Error('Toujours pas prête après 5 minutes (dernier statut : ' + dernierStatut + ').');
     zone.innerHTML = '<video src="' + videoUrl.replace(/"/g, '&quot;') + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
       + '<p class="ideas-sub" style="margin-top:6px">Id Together : ' + id + '</p>';
   } catch (e) {
