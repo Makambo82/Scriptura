@@ -165,3 +165,28 @@ test('stockage-montages-purger : aucun dossier à purger => réponse propre, auc
     assert.equal(appelsRemove.length, 0);
   } finally { restaurer(); retirerEnv(); delete process.env.CODE_ADMIN; }
 });
+
+test('stockage-montages-etat : une erreur Supabase Storage remonte comme une erreur, jamais comme "0 dossier"', async () => {
+  // Bug réel trouvé en diagnostiquant un signalement "je ne vois rien" côté
+  // fondateur : une réponse Supabase en échec (objet d'erreur, pas un
+  // tableau) était avalée en silence et lue comme une liste vide - la carte
+  // affichait alors un rassurant "rien à nettoyer" au lieu du vrai problème.
+  poserEnv();
+  process.env.CODE_ADMIN = 'ADMIN-TEST';
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url) => {
+    const u = url.toString();
+    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    if (u.endsWith('/storage/v1/object/list/montages')) {
+      return { ok: false, status: 401, json: async () => ({ message: 'Invalid Compact JWS' }) };
+    }
+    return { ok: true, json: async () => ([]) };
+  };
+  try {
+    const handler = await importerHandler();
+    const res = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-montages-etat', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._json.ok, false, 'REGRESSION : une panne Storage ne doit jamais se présenter comme "0 dossier", elle doit être visible comme une erreur');
+    assert.match(res._json.error.message, /401/);
+  } finally { global.fetch = fetchOriginal; retirerEnv(); delete process.env.CODE_ADMIN; }
+});

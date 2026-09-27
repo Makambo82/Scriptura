@@ -1409,6 +1409,7 @@ function rafraichirEssaiRecitAdmin() {
 // (dossier `rendus/`, régi par sa propre règle : téléchargement ou 3 jours,
 // voir api/cron-nettoyage-montages.js).
 let _nettoyageStockageDossiers = null; // null = état inconnu (pas encore vérifié, ou vérification échouée)
+let _nettoyageStockageErreur = ''; // message affiché À L'ÉCRAN (pas seulement en console, inutile sur mobile)
 
 async function chargerCarteNettoyageStockage() {
   try {
@@ -1418,10 +1419,12 @@ async function chargerCarteNettoyageStockage() {
       body: JSON.stringify({ resource: 'admin-stats', action: 'stockage-montages-etat', code_acces: localStorage.getItem('scriptura_code') || null })
     });
     const data = await r.json();
-    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || 'indisponible');
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || ('HTTP ' + r.status));
     _nettoyageStockageDossiers = data.dossiers;
+    _nettoyageStockageErreur = '';
   } catch (e) {
     _nettoyageStockageDossiers = null;
+    _nettoyageStockageErreur = (e && e.message) || 'erreur inconnue';
     console.warn('État du stockage montages indisponible :', e);
   }
   return carteNettoyageStockageAdmin();
@@ -1430,7 +1433,7 @@ async function chargerCarteNettoyageStockage() {
 function carteNettoyageStockageAdmin() {
   const n = _nettoyageStockageDossiers;
   const corps = n === null
-    ? '<div class="ideas-sub" style="margin-top:6px">Donnée indisponible.</div>'
+    ? '<div class="ideas-sub" style="margin-top:6px">Donnée indisponible' + (_nettoyageStockageErreur ? ' : ' + escAdmin(_nettoyageStockageErreur) : '') + '.</div>'
     : n === 0
       ? '<div class="ideas-sub" style="margin-top:6px;color:var(--emerald-light)">Rien à nettoyer, le stockage des montages est déjà propre.</div>'
       : `<div class="ideas-sub" style="margin-top:6px">${formaterNombre(n)} dossier${n > 1 ? 's' : ''} d'assets de montage à nettoyer (images, voix off, musique - jamais les vidéos finales).</div>

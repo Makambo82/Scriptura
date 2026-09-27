@@ -470,7 +470,14 @@ async function listerDossiersMontages(cfg) {
       headers: entetes(cfg.key),
       body: JSON.stringify({ prefix: '', limit: LIMITE, offset, sortBy: { column: 'name', order: 'asc' } })
     });
-    const page = await r.json().catch(() => []);
+    const page = await r.json().catch(() => null);
+    // Une erreur Supabase (mauvaise clé, panne, etc.) renvoie un objet, pas
+    // un tableau : sans cette distinction, l'échec se lisait comme "aucun
+    // dossier", une fausse annonce "rien à nettoyer" au lieu de l'erreur
+    // réelle - c'est ce qui a fait chercher un bug côté client pour rien.
+    if (!r.ok && !Array.isArray(page)) {
+      throw new Error('Storage list a échoué (HTTP ' + r.status + ') : ' + JSON.stringify(page).slice(0, 200));
+    }
     if (!Array.isArray(page) || !page.length) break;
     for (const item of page) {
       if (item && item.name && item.id === null && item.name !== MONTAGE_STORAGE_DOSSIER_CONSERVE) {
@@ -493,7 +500,10 @@ async function listerFichiersDossier(cfg, dossier) {
       headers: entetes(cfg.key),
       body: JSON.stringify({ prefix: dossier + '/', limit: LIMITE, offset })
     });
-    const page = await r.json().catch(() => []);
+    const page = await r.json().catch(() => null);
+    if (!r.ok && !Array.isArray(page)) {
+      throw new Error('Storage list (' + dossier + ') a échoué (HTTP ' + r.status + ') : ' + JSON.stringify(page).slice(0, 200));
+    }
     if (!Array.isArray(page) || !page.length) break;
     for (const item of page) { if (item && item.name) fichiers.push(dossier + '/' + item.name); }
     if (page.length < LIMITE) break;
