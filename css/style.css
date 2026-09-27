@@ -2718,6 +2718,12 @@ body.is-admin .sidebar-item.nav-admin-btn{display:flex}
 }
 body.is-admin .montage-trigger-btn,
 body.peut-monter-video .montage-trigger-btn{display:inline-flex;align-items:center;justify-content:center}
+/* Test admin uniquement, animation image -> vidéo (retour propriétaire,
+   27/09) : voir index.html, montageAnimeTestZone. Masqué par défaut ICI
+   (jamais en style inline sur l'élément, qui gagnerait toujours contre
+   cette règle de classe, peu importe body.is-admin). */
+.montage-animer-test{display:none}
+body.is-admin .montage-animer-test{display:block}
 .montage-trigger-btn:hover{
   background:var(--gold-light);color:var(--bg);
   transform:translateY(-1px);box-shadow:0 8px 26px rgba(250,148,16,0.35);

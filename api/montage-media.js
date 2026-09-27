@@ -7,7 +7,7 @@
 //  comportement de chaque route inchangé : un champ `action` (query pour
 //  toutes, GET comme POST) sélectionne la route d'origine.
 //
-//  action=download | voices | tts | images
+//  action=download | voices | tts | images | animate-create | animate-poll
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierAccesMontage, verifierQuota, rembourserUsage } from './_lib/acces.js';
@@ -868,6 +868,94 @@ async function handleImages(req, res, body) {
   return res.status(200).json({ images: resultats, erreurs });
 }
 
+// ═══ ANIMATION IMAGE → VIDÉO, TEST ADMIN (Together AI, google/veo-3.1) ═══
+//
+// Retour propriétaire (27/09) : remplace la piste Agnes AI (retirée plus tôt
+// dans ce même chantier, faute de fiabilité et de quota épuisé) par Together
+// AI / Veo 3.1 - 0,08 $ par animation, image + texte vers vidéo. PHASE 1
+// SEULEMENT, comme pour Agnes en son temps : un bouton de test isolé,
+// réservé admin/illimité, jamais mêlé au rendu final tant que la fiabilité
+// n'est pas vérifiée en conditions réelles. L'intégration dans le montage
+// complet (case "Animer avec l'IA") reste un lot séparé, volontairement,
+// pas avant d'avoir vu ce test tenir la route.
+//
+// image_url doit être une URL Storage DÉJÀ approuvée (urlStorageMontageApprouvee,
+// même garde que le reste de ce fichier) : jamais une URL arbitraire fournie
+// par le client, qui ferait de Together un relais de requêtes vers n'importe
+// quelle adresse externe aux frais de Scriptura.
+const TOGETHER_VIDEO_MODELE = process.env.TOGETHER_VIDEO_MODEL || 'google/veo-3.1';
+
+async function handleAnimateCreate(req, res, body) {
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin && !droits.illimite) {
+    return res.status(403).json({ error: { message: 'Réservé au test admin/illimité (phase 1, pas encore en production)' } });
+  }
+  const imageUrl = typeof body?.imageUrl === 'string' ? body.imageUrl : '';
+  if (!urlStorageMontageApprouvee(imageUrl)) {
+    return res.status(400).json({ error: { message: 'URL image non autorisée (doit être une image déjà générée par Scriptura)' } });
+  }
+  const apiKey = process.env.TOGETHER_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'TOGETHER_API_KEY absente côté serveur' } });
+  const prompt = (typeof body?.prompt === 'string' && body.prompt.trim())
+    ? body.prompt.trim().slice(0, 500)
+    : 'Anime cette image avec un mouvement de caméra doux et naturel, sans changer le sujet.';
+  try {
+    const rep = await fetch('https://api.together.xyz/v2/videos', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: TOGETHER_VIDEO_MODELE,
+        prompt,
+        image_url: imageUrl,
+        duration: 5,
+        aspect_ratio: '9:16'
+      })
+    });
+    const texte = await rep.text();
+    let data = null; try { data = JSON.parse(texte); } catch (e) {}
+    // Le format exact de la réponse Together n'a pas pu être vérifié contre
+    // leur documentation officielle (bloquée depuis cet environnement) :
+    // le texte brut est donc toujours renvoyé en cas d'échec plutôt qu'un
+    // message générique, pour calibrer sur un vrai appel sans deviner deux
+    // fois de suite (leçon tirée d'Agnes AI).
+    if (!rep.ok || !data || !data.id) {
+      return res.status(502).json({ error: { message: 'Together a refusé la création (HTTP ' + rep.status + ') : ' + texte.slice(0, 400) } });
+    }
+    return res.status(200).json({ ok: true, id: data.id, brut: data });
+  } catch (e) {
+    return res.status(502).json({ error: { message: 'Together injoignable : ' + (e.message || 'inconnue') } });
+  }
+}
+
+async function handleAnimatePoll(req, res, body) {
+  if (req.method !== 'POST') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+  const droits = await resoudreDroits(body?.code_acces);
+  if (!droits.isAdmin && !droits.illimite) {
+    return res.status(403).json({ error: { message: 'Réservé au test admin/illimité (phase 1, pas encore en production)' } });
+  }
+  const id = typeof body?.id === 'string' ? body.id.trim() : '';
+  if (!id) return res.status(400).json({ error: { message: 'id manquant' } });
+  const apiKey = process.env.TOGETHER_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'TOGETHER_API_KEY absente côté serveur' } });
+  try {
+    const rep = await fetch('https://api.together.xyz/v2/videos/' + encodeURIComponent(id), {
+      headers: { Authorization: 'Bearer ' + apiKey }
+    });
+    const texte = await rep.text();
+    let data = null; try { data = JSON.parse(texte); } catch (e) {}
+    if (!rep.ok || !data) {
+      return res.status(502).json({ error: { message: 'Consultation Together échouée (HTTP ' + rep.status + ') : ' + texte.slice(0, 400) } });
+    }
+    const statut = data.status || 'inconnu';
+    const videoUrl = (data.outputs && data.outputs.video_url) || null;
+    const erreur = data.error ? (data.error.message || JSON.stringify(data.error)) : null;
+    return res.status(200).json({ ok: true, statut, videoUrl, erreur, brut: data });
+  } catch (e) {
+    return res.status(502).json({ error: { message: 'Together injoignable : ' + (e.message || 'inconnue') } });
+  }
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -884,6 +972,8 @@ export default async function handler(req, res) {
   if (action === 'tts') return handleTts(req, res, body);
   if (action === 'music') return handleMusic(req, res, body);
   if (action === 'images') return handleImages(req, res, body);
+  if (action === 'animate-create') return handleAnimateCreate(req, res, body);
+  if (action === 'animate-poll') return handleAnimatePoll(req, res, body);
 
   return res.status(400).json({ error: { message: 'action inconnue' } });
 }

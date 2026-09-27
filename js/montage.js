@@ -847,6 +847,64 @@ async function genererImagesMontage() {
   renderMontageEtat();
 }
 
+// Test admin uniquement (retour propriétaire, 27/09) : anime la 1ère image
+// prête du montage via Together AI / Veo 3.1, remplace la piste Agnes AI
+// (retirée plus tôt dans ce même chantier, faute de fiabilité et de quota).
+// PHASE 1 SEULEMENT : jamais mêlé au rendu final tant que ce test n'a pas
+// prouvé sa fiabilité en conditions réelles - voir api/montage-media.js,
+// action=animate-create/animate-poll, et le bouton is-admin-only en HTML.
+async function testerAnimationImage() {
+  const zone = document.getElementById('montageAnimeTestZone');
+  if (!zone) return;
+  const premiereImage = montageImages.find(img => img && img.blob);
+  if (!premiereImage) { zone.innerHTML = '<p class="ideas-sub" style="color:#e88">Aucune image prête à animer pour l\'instant.</p>'; return; }
+  const code_acces = localStorage.getItem('scriptura_code') || null;
+  try {
+    zone.innerHTML = '<p class="ideas-sub">Upload de l\'image de test…</p>';
+    // Chemin distinct des vrais montages ("test-anime-..."), pour ne jamais
+    // se confondre avec un dossier de montage réel - il sera nettoyé comme
+    // n'importe quel autre dossier d'assets sources par la purge du
+    // Tableau de bord (voir api/data.js, nettoyageStockagePurger).
+    const chemin = 'test-anime-' + Date.now() + '/image.jpg';
+    await uploaderAssetMontage(chemin, premiereImage.blob, premiereImage.blob.type || 'image/png');
+    const { urls } = await obtenirUrlsLectureMontage([chemin]);
+    const imageUrl = urls[chemin];
+    if (!imageUrl) throw new Error('URL de lecture introuvable après upload.');
+
+    zone.innerHTML = '<p class="ideas-sub">Création de l\'animation (Together / Veo 3.1)…</p>';
+    const rCreate = await fetch('/api/montage-media?action=animate-create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageUrl, code_acces })
+    });
+    const dataCreate = await rCreate.json();
+    if (!rCreate.ok || !dataCreate.ok) throw new Error((dataCreate.error && dataCreate.error.message) || 'Création refusée.');
+    const id = dataCreate.id;
+
+    // Sondage toutes les 4s jusqu'à 2 minutes : large marge pour un simple
+    // test (les vidéos courtes Veo prennent généralement moins d'une minute).
+    const debut = Date.now();
+    let videoUrl = null, dernierStatut = 'inconnu';
+    while (Date.now() - debut < 120000) {
+      await new Promise(r => setTimeout(r, 4000));
+      zone.innerHTML = '<p class="ideas-sub">Génération en cours… (' + dernierStatut + ')</p>';
+      const rPoll = await fetch('/api/montage-media?action=animate-poll', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, code_acces })
+      });
+      const dataPoll = await rPoll.json();
+      if (!rPoll.ok || !dataPoll.ok) throw new Error((dataPoll.error && dataPoll.error.message) || 'Consultation refusée.');
+      dernierStatut = dataPoll.statut;
+      if (dataPoll.erreur) throw new Error('Together : ' + dataPoll.erreur);
+      if (dataPoll.videoUrl) { videoUrl = dataPoll.videoUrl; break; }
+    }
+    if (!videoUrl) throw new Error('Toujours pas prête après 2 minutes (dernier statut : ' + dernierStatut + ').');
+    zone.innerHTML = '<video src="' + videoUrl.replace(/"/g, '&quot;') + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
+      + '<p class="ideas-sub" style="margin-top:6px">Id Together : ' + id + '</p>';
+  } catch (e) {
+    zone.innerHTML = '<p class="ideas-sub" style="color:#e88">Erreur : ' + (e.message || 'inconnue') + '</p>';
+  }
+}
+
 async function regenererImageMontage(i) {
   const plan = montagePlans[i];
   if (!plan || montageImagesEnCours) return;
