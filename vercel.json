@@ -28,6 +28,9 @@
     "api/montage-media.js": {
       "maxDuration": 90
     },
+    "api/data.js": {
+      "maxDuration": 300
+    },
     "api/montage-render.js": {
       "maxDuration": 300,
       "memory": 1024

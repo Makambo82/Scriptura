@@ -45,16 +45,19 @@ async function chargerTableauDeBord() {
   zone.innerHTML = '<div class="ideas-sub">Chargement des statistiques…</div>';
   if (!supabaseClient) { zone.innerHTML = '<div class="ideas-sub">Base de données indisponible.</div>'; return; }
 
-  const [abonnesHTML, modesHTML] = await Promise.all([
+  const [abonnesHTML, modesHTML, nettoyageStockageHTML] = await Promise.all([
     chargerCarteAbonnes(),
-    chargerCarteModes()
+    chargerCarteModes(),
+    chargerCarteNettoyageStockage()
   ]);
 
   // Les échecs de génération passent en premier, avant même "Ajouter un
   // abonné" : un problème qui affecte tous les utilisateurs est plus
   // urgent que la gestion courante des abonnés (voir carteErreursAdmin,
-  // absente tant qu'il n'y a rien à signaler).
-  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + cartePassesAdmin()
+  // absente tant qu'il n'y a rien à signaler). Le stockage juste après,
+  // même logique : un quota Supabase dépassé bloque déjà les nouveaux
+  // envois pour tout le monde (retour propriétaire, 27/09).
+  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + nettoyageStockageHTML + cartePassesAdmin()
     + '<div id="adminEssaiRecit">' + carteEssaiRecitAdmin() + '</div>'
     + carteImagesConsommeesAdmin() + carteMontagesAdmin()
     + carteCreerAbonne() + carteExpirationsAdmin()
@@ -1396,6 +1399,73 @@ function effacerEssaiRecitAdmin() {
 function rafraichirEssaiRecitAdmin() {
   const carte = document.getElementById('adminEssaiRecit');
   if (carte) carte.innerHTML = carteEssaiRecitAdmin();
+}
+
+// ── Nettoyage ponctuel du stockage montages (retour propriétaire, 27/09 :
+// quota Supabase dépassé, 134% du plan gratuit) ──
+// Purge les dossiers d'assets SOURCES (images/voix off/musique) accumulés
+// avant que le nettoyage automatique n'existe (voir render-service/server.js,
+// nettoyerAssetsIntermediaires). Ne touche JAMAIS les vidéos finales
+// (dossier `rendus/`, régi par sa propre règle : téléchargement ou 3 jours,
+// voir api/cron-nettoyage-montages.js).
+let _nettoyageStockageDossiers = null; // null = état inconnu (pas encore vérifié, ou vérification échouée)
+
+async function chargerCarteNettoyageStockage() {
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'stockage-montages-etat', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || 'indisponible');
+    _nettoyageStockageDossiers = data.dossiers;
+  } catch (e) {
+    _nettoyageStockageDossiers = null;
+    console.warn('État du stockage montages indisponible :', e);
+  }
+  return carteNettoyageStockageAdmin();
+}
+
+function carteNettoyageStockageAdmin() {
+  const n = _nettoyageStockageDossiers;
+  const corps = n === null
+    ? '<div class="ideas-sub" style="margin-top:6px">Donnée indisponible.</div>'
+    : n === 0
+      ? '<div class="ideas-sub" style="margin-top:6px;color:var(--emerald-light)">Rien à nettoyer, le stockage des montages est déjà propre.</div>'
+      : `<div class="ideas-sub" style="margin-top:6px">${formaterNombre(n)} dossier${n > 1 ? 's' : ''} d'assets de montage à nettoyer (images, voix off, musique - jamais les vidéos finales).</div>
+         <button class="btn-generate" style="width:auto;padding:0 20px;margin-top:12px;background:#c0392b" onclick="purgerStockageMontagesAdmin()">Purger ${formaterNombre(n)} dossier${n > 1 ? 's' : ''}</button>`;
+  return `<div class="score-card" id="adminNettoyageStockage">
+    <div class="score-title" style="color:#e88">⚠ Stockage Supabase</div>
+    ${corps}
+  </div>`;
+}
+
+async function purgerStockageMontagesAdmin() {
+  const n = _nettoyageStockageDossiers || 0;
+  if (!confirm('Supprimer définitivement ' + n + ' dossier(s) d\'assets de montage (images, voix off, musique) ? Les vidéos finales ne sont jamais touchées. Cette action est irréversible.')) return;
+  const zone = document.getElementById('adminNettoyageStockage');
+  if (zone) zone.innerHTML = '<div class="score-title" style="color:#e88">⚠ Stockage Supabase</div><div class="ideas-sub" style="margin-top:6px">Purge en cours, ne quitte pas cette page…</div>';
+  try {
+    const r = await fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resource: 'admin-stats', action: 'stockage-montages-purger', code_acces: localStorage.getItem('scriptura_code') || null })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error((data && data.error && data.error.message) || 'purge échouée');
+    // Rejoue l'état pour vérifier s'il en reste (un très gros passif peut
+    // dépasser le temps d'un seul appel, voir nettoyageStockagePurger côté
+    // serveur, rejouable sans risque : redemande simplement de purger).
+    await chargerCarteNettoyageStockage();
+    const zoneApres = document.getElementById('adminNettoyageStockage');
+    if (zoneApres) zoneApres.outerHTML = carteNettoyageStockageAdmin();
+    const reste = _nettoyageStockageDossiers > 0 ? ' Il en reste ' + _nettoyageStockageDossiers + ', clique à nouveau sur Purger pour continuer.' : '';
+    alert(formaterNombre(data.fichiers) + ' fichier(s) supprimé(s) dans ' + formaterNombre(data.dossiers) + ' dossier(s).' + reste);
+  } catch (e) {
+    const zoneEchec = document.getElementById('adminNettoyageStockage');
+    if (zoneEchec) zoneEchec.innerHTML = '<div class="score-title" style="color:#e88">⚠ Stockage Supabase</div><div class="ideas-sub" style="margin-top:6px">Échec : ' + escAdmin(e.message) + '</div>';
+  }
 }
 
 function carteMontagesAdmin() {

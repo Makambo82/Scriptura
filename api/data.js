@@ -443,6 +443,110 @@ async function handlePasses(req, res, cfg, body) {
   }
 }
 
+// ═══ NETTOYAGE PONCTUEL DU STOCKAGE MONTAGES (retour propriétaire, 27/09) ═══
+//
+// Le bucket `montages` (voir supabase/montage_storage.sql) n'avait AUCUN
+// nettoyage avant ce lot : chaque montage crée un dossier `<id>/` avec ses
+// images, sa voix off et sa musique, jamais supprimé une fois le rendu
+// produit. render-service/server.js les supprime désormais automatiquement
+// (nettoyerAssetsIntermediaires), mais seulement pour les montages rendus
+// APRÈS ce correctif - tout ce qui s'est accumulé avant reste en place.
+// Ces deux actions (état, purge) permettent de vider ce passif en une fois
+// depuis le Tableau de bord (voir js/admin.js), jamais automatiquement :
+// une purge en masse reste une décision du fondateur, jamais silencieuse.
+const MONTAGE_STORAGE_DOSSIER_CONSERVE = 'rendus'; // vidéos finales, jamais touchées ici
+
+// Liste tous les dossiers de premier niveau du bucket (un par montage),
+// en excluant `rendus/`. Un dossier n'existe pas vraiment pour Supabase
+// Storage (pas de vrai système de fichiers) : il apparaît dans le listage
+// de la racine comme une entrée sans métadonnées (id null).
+async function listerDossiersMontages(cfg) {
+  const dossiers = [];
+  let offset = 0;
+  const LIMITE = 1000;
+  for (;;) {
+    const r = await fetch(cfg.url + '/storage/v1/object/list/montages', {
+      method: 'POST',
+      headers: entetes(cfg.key),
+      body: JSON.stringify({ prefix: '', limit: LIMITE, offset, sortBy: { column: 'name', order: 'asc' } })
+    });
+    const page = await r.json().catch(() => []);
+    if (!Array.isArray(page) || !page.length) break;
+    for (const item of page) {
+      if (item && item.name && item.id === null && item.name !== MONTAGE_STORAGE_DOSSIER_CONSERVE) {
+        dossiers.push(item.name);
+      }
+    }
+    if (page.length < LIMITE) break;
+    offset += LIMITE;
+  }
+  return dossiers;
+}
+
+async function listerFichiersDossier(cfg, dossier) {
+  const fichiers = [];
+  let offset = 0;
+  const LIMITE = 1000;
+  for (;;) {
+    const r = await fetch(cfg.url + '/storage/v1/object/list/montages', {
+      method: 'POST',
+      headers: entetes(cfg.key),
+      body: JSON.stringify({ prefix: dossier + '/', limit: LIMITE, offset })
+    });
+    const page = await r.json().catch(() => []);
+    if (!Array.isArray(page) || !page.length) break;
+    for (const item of page) { if (item && item.name) fichiers.push(dossier + '/' + item.name); }
+    if (page.length < LIMITE) break;
+    offset += LIMITE;
+  }
+  return fichiers;
+}
+
+// Lecture seule : juste le nombre de dossiers à purger, pour afficher un
+// chiffre avant de proposer le bouton destructeur (voir js/admin.js).
+async function nettoyageStockageEtat(res, cfg) {
+  try {
+    const dossiers = await listerDossiersMontages(cfg);
+    return res.status(200).json({ ok: true, dossiers: dossiers.length });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: { message: e.message || 'inconnue' } });
+  }
+}
+
+// Purge réelle. Rejouable sans risque : un dossier déjà supprimé
+// n'apparaît simplement plus au listage suivant, donc un second appel (si
+// le premier a manqué de temps) reprend exactement là où le précédent
+// s'est arrêté, jamais de double traitement.
+async function nettoyageStockagePurger(res, cfg) {
+  try {
+    const dossiers = await listerDossiersMontages(cfg);
+    let fichiersSupprimes = 0;
+    const CONCURRENCE = 6;
+    let curseur = 0;
+    async function travailleur() {
+      while (curseur < dossiers.length) {
+        const dossier = dossiers[curseur++];
+        const fichiers = await listerFichiersDossier(cfg, dossier);
+        if (!fichiers.length) continue;
+        // Lots de 200 : large marge sous les limites habituelles de l'API
+        // Storage pour un retrait groupé, sans démultiplier les
+        // allers-retours pour un dossier de quelques fichiers seulement.
+        for (let i = 0; i < fichiers.length; i += 200) {
+          const lot = fichiers.slice(i, i + 200);
+          const r = await fetch(cfg.url + '/storage/v1/object/remove/montages', {
+            method: 'POST', headers: entetes(cfg.key), body: JSON.stringify({ prefixes: lot })
+          });
+          if (r.ok) fichiersSupprimes += lot.length;
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCE }, travailleur));
+    return res.status(200).json({ ok: true, dossiers: dossiers.length, fichiers: fichiersSupprimes });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: { message: e.message || 'inconnue' } });
+  }
+}
+
 // ═══ ADMIN STATS (voir l'ancien api/admin-stats.js) ═══
 
 async function handleAdminStats(req, res, cfg, body) {
@@ -452,6 +556,18 @@ async function handleAdminStats(req, res, cfg, body) {
   if (!droits.isAdmin) {
     return res.status(403).json({ error: { message: 'Réservé au fondateur', code: 'ACCES_REFUSE' } });
   }
+
+  // Nettoyage ponctuel du stockage (retour propriétaire, 27/09 : quota
+  // Supabase dépassé, 134% du plan gratuit). Purge les assets SOURCES d'un
+  // montage (images, voix off, musique - un dossier par montage,
+  // `<id>/<fichier>`) accumulés avant que le nettoyage automatique
+  // (render-service/server.js, nettoyerAssetsIntermediaires) n'existe.
+  // Ne touche JAMAIS le dossier `rendus/` (vidéos finales, régies par leur
+  // propre règle - téléchargement ou 3 jours, voir
+  // api/cron-nettoyage-montages.js) : demandé explicitement pour les seuls
+  // assets sources, jamais pour les vidéos.
+  if (body?.action === 'stockage-montages-etat') return await nettoyageStockageEtat(res, cfg);
+  if (body?.action === 'stockage-montages-purger') return await nettoyageStockagePurger(res, cfg);
 
   // Bascule actif/inactif d'un code depuis le tableau de bord (interrupteur
   // par ligne, voir toggleActifAbonneAdmin, js/admin.js). Jamais pour le
