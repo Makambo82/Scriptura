@@ -152,6 +152,27 @@ document.addEventListener('DOMContentLoaded', function() {
   appliquerClasseAdmin();
   if (typeof appliquerClasseMontage === 'function') appliquerClasseMontage();
   if (typeof verifierBadgeErreursAdmin === 'function') verifierBadgeErreursAdmin();
+  // Lien direct vers l'outil de transcription TikTok (retour propriétaire :
+  // pouvoir envoyer un lien à quelqu'un plutôt que "va sur le site, clique
+  // sur Outils TikTok…"). Deux formes : ?ouvrir=tiktok ouvre juste l'outil,
+  // le destinataire colle son propre lien ; ?tiktok=<lien TikTok encodé>
+  // ouvre l'outil ET pré-remplit ce lien précis, un seul tap suffit alors
+  // pour transcrire. Fonctionne pour un visiteur anonyme (voir
+  // droitAnalyseVirale, js/historique.js : quelques analyses gratuites
+  // avant de demander un compte), donc un lien partagé marche vraiment pour
+  // n'importe qui, pas seulement pour un abonné déjà connecté.
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const lienTiktok = params.get('tiktok');
+    const veutOuvrirOutil = params.get('ouvrir') === 'tiktok';
+    if ((lienTiktok || veutOuvrirOutil) && typeof ouvrirOutilsTikTok === 'function') {
+      ouvrirOutilsTikTok();
+      if (lienTiktok) {
+        const champ = document.getElementById('outilsLien');
+        if (champ) champ.value = lienTiktok;
+      }
+    }
+  })();
   // Migration : les sessions ouvertes avant la sécurisation des codes
   // admin/illimité (voir api/verify-code.js) sont "unlocked" mais n'ont
   // jamais eu scriptura_illimite/scriptura_is_admin renseignés. On les
