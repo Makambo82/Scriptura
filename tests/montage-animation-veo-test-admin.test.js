@@ -247,6 +247,128 @@ test('animate-poll : un code de la liste CODES_ILLIMITES (pas seulement CODE_ADM
   } finally { global.fetch = fetchOriginal; retirerEnv(); delete process.env.CODES_ILLIMITES; }
 });
 
+// ═══ animate-download : proxy des octets vidéo (retour terrain, 27/09) ═══
+//
+// outputs.video_url est un lien "/shrt/..." (court/de partage) qui échoue
+// dans une balise <video src> (MEDIA_ERR_SRC_NOT_SUPPORTED constaté en test
+// réel). Le serveur récupère donc lui-même les octets (fetch() suit les
+// redirections, une balise <video> moins fiablement) et les republie depuis
+// notre propre domaine - même remède que handleDownload pour les rendus de
+// montage.
+async function appelerAnimateDownload(query, comptes) {
+  const mod = await import('../api/montage-media.js?t=' + Date.now() + '-' + Math.random());
+  const res = mockRes();
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url, opts) => {
+    const u = url.toString();
+    if (u.includes('/rest/v1/abonnes')) {
+      const code = (new URL(u).searchParams.get('code') || '').replace(/^eq\./, '');
+      const compte = comptes && comptes[code];
+      return { ok: true, json: async () => (compte ? [compte] : []) };
+    }
+    return { ok: true, status: 200, json: async () => ({}), text: async () => '{}' };
+  };
+  try {
+    await mod.default({ method: 'GET', query }, res);
+    return res;
+  } finally { global.fetch = fetchOriginal; }
+}
+
+test('animate-download : refusé pour un non-admin/non-illimité', async () => {
+  poserEnv();
+  try {
+    const res = await appelerAnimateDownload({ action: 'animate-download', id: 'veo-job-123', code_acces: 'ABONNE-CREATOR' }, {
+      'ABONNE-CREATOR': { actif: true, plan: 'creator', jetons_audit: 0 }
+    });
+    assert.equal(res._status, 403);
+  } finally { retirerEnv(); }
+});
+
+test('animate-download : id manquant => 400, jamais d\'appel externe', async () => {
+  poserEnv();
+  try {
+    const res = await appelerAnimateDownload({ action: 'animate-download', code_acces: 'ADMIN-TEST' });
+    assert.equal(res._status, 400);
+  } finally { retirerEnv(); }
+});
+
+test('animate-download : job introuvable ou sans video_url côté Together => 502, pas un crash', async () => {
+  poserEnv();
+  const mod = await import('../api/montage-media.js?t=' + Date.now() + '-' + Math.random());
+  const res = mockRes();
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url) => {
+    const u = url.toString();
+    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    if (u === 'https://api.together.xyz/v2/videos/veo-job-999') {
+      return { ok: true, status: 200, json: async () => ({ id: 'veo-job-999', status: 'completed' }) };
+    }
+    return { ok: true, json: async () => ({}), text: async () => '{}' };
+  };
+  try {
+    await mod.default({ method: 'GET', query: { action: 'animate-download', id: 'veo-job-999', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._status, 502);
+  } finally { global.fetch = fetchOriginal; retirerEnv(); }
+});
+
+test('animate-download : le lien court répond en échec => 502, jamais avalé en silence', async () => {
+  poserEnv();
+  const mod = await import('../api/montage-media.js?t=' + Date.now() + '-' + Math.random());
+  const res = mockRes();
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url) => {
+    const u = url.toString();
+    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    if (u === 'https://api.together.xyz/v2/videos/veo-job-321') {
+      return { ok: true, status: 200, json: async () => ({ id: 'veo-job-321', status: 'completed', outputs: { video_url: 'https://api.together.ai/shrt/abc123' } }) };
+    }
+    if (u === 'https://api.together.ai/shrt/abc123') {
+      return { ok: false, status: 404, body: null };
+    }
+    return { ok: true, json: async () => ({}), text: async () => '{}' };
+  };
+  try {
+    await mod.default({ method: 'GET', query: { action: 'animate-download', id: 'veo-job-321', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._status, 502);
+  } finally { global.fetch = fetchOriginal; retirerEnv(); }
+});
+
+test('animate-download : succès => republie les octets avec le bon Content-Type, depuis notre domaine', async () => {
+  poserEnv();
+  const mod = await import('../api/montage-media.js?t=' + Date.now() + '-' + Math.random());
+  const octets = Buffer.from('donnees-video-simulees');
+  const res = {
+    _status: 200, _json: null, _headers: {}, _sent: null,
+    status(c) { this._status = c; return this; },
+    json(o) { this._json = o; return this; },
+    setHeader(k, v) { this._headers[k] = v; },
+    send(b) { this._sent = b; return this; }
+  };
+  const fetchOriginal = global.fetch;
+  global.fetch = async (url) => {
+    const u = url.toString();
+    if (u.includes('/rest/v1/abonnes')) return { ok: true, json: async () => [] };
+    if (u === 'https://api.together.xyz/v2/videos/veo-job-555') {
+      return { ok: true, status: 200, json: async () => ({ id: 'veo-job-555', status: 'completed', outputs: { video_url: 'https://api.together.ai/shrt/xyz789' } }) };
+    }
+    if (u === 'https://api.together.ai/shrt/xyz789') {
+      return {
+        ok: true, status: 200, body: {},
+        headers: { get: (h) => (h === 'content-type' ? 'video/mp4' : null) },
+        arrayBuffer: async () => octets.buffer.slice(octets.byteOffset, octets.byteOffset + octets.byteLength)
+      };
+    }
+    return { ok: true, json: async () => ({}), text: async () => '{}' };
+  };
+  try {
+    await mod.default({ method: 'GET', query: { action: 'animate-download', id: 'veo-job-555', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._status, 200);
+    assert.equal(res._headers['Content-Type'], 'video/mp4');
+    assert.ok(Buffer.isBuffer(res._sent), 'REGRESSION : les octets doivent être republiés tels quels, pas un JSON');
+    assert.equal(res._sent.toString(), 'donnees-video-simulees');
+  } finally { global.fetch = fetchOriginal; retirerEnv(); }
+});
+
 // ═══ Écran réel : le bouton de test doit rester caché pour tout le monde
 // sauf le fondateur (retour propriétaire, 27/09) ═══
 //

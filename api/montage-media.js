@@ -960,6 +960,48 @@ async function handleAnimatePoll(req, res, body) {
   }
 }
 
+// Retour terrain (27/09) : outputs.video_url renvoyé par Together
+// ("https://api.together.ai/shrt/...") a échoué dans une balise <video src>
+// (MEDIA_ERR_SRC_NOT_SUPPORTED) - ressemble à un lien court/de partage,
+// pas au fichier vidéo brut. Même remède que handleDownload plus haut dans
+// ce fichier (déjà utilisé pour proxyer les vidéos de montage rendues,
+// même raison de fond) : le SERVEUR récupère les octets lui-même (fetch()
+// suit les redirections automatiquement, contrairement à une balise
+// <video>) et les republie tels quels, avec un Content-Type correct,
+// depuis notre propre domaine.
+async function handleAnimateDownload(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: { message: 'Méthode non autorisée' } });
+  const droits = await resoudreDroits(req.query?.code_acces);
+  if (!droits.isAdmin && !droits.illimite) {
+    return res.status(403).json({ error: { message: 'Réservé au test admin/illimité (phase 1, pas encore en production)' } });
+  }
+  const id = typeof req.query?.id === 'string' ? req.query.id.trim() : '';
+  if (!id) return res.status(400).json({ error: { message: 'id manquant' } });
+  const apiKey = process.env.TOGETHER_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: { message: 'TOGETHER_API_KEY absente côté serveur' } });
+  try {
+    const repJob = await fetch(TOGETHER_VIDEO_ENDPOINT + '/' + encodeURIComponent(id), {
+      headers: { Authorization: 'Bearer ' + apiKey }
+    });
+    const dataJob = await repJob.json().catch(() => null);
+    const videoUrl = dataJob && dataJob.outputs && dataJob.outputs.video_url;
+    if (!repJob.ok || !videoUrl) {
+      return res.status(502).json({ error: { message: 'Vidéo introuvable côté Together pour cet id.' } });
+    }
+    // L'Authorization est transmise même sur ce lien "court" : inoffensif
+    // s'il n'en a pas besoin, indispensable s'il en a besoin.
+    const repVideo = await fetch(videoUrl, { headers: { Authorization: 'Bearer ' + apiKey } });
+    if (!repVideo.ok || !repVideo.body) {
+      return res.status(502).json({ error: { message: 'Téléchargement de la vidéo échoué (HTTP ' + repVideo.status + ').' } });
+    }
+    res.setHeader('Content-Type', repVideo.headers.get('content-type') || 'video/mp4');
+    const buffer = Buffer.from(await repVideo.arrayBuffer());
+    return res.status(200).send(buffer);
+  } catch (e) {
+    return res.status(502).json({ error: { message: 'Together injoignable : ' + (e.message || 'inconnue') } });
+  }
+}
+
 // ═══ POINT D'ENTRÉE COMMUN ═══
 
 export default async function handler(req, res) {
@@ -968,6 +1010,7 @@ export default async function handler(req, res) {
   if (action === 'download') return handleDownload(req, res);
   if (action === 'voices') return handleVoices(req, res);
   if (action === 'confirmer-telechargement') return handleConfirmerTelechargement(req, res);
+  if (action === 'animate-download') return handleAnimateDownload(req, res);
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }

@@ -907,14 +907,15 @@ async function testerAnimationImage() {
     // avoir à deviner entre une URL invalide, un CORS, ou un format non
     // supporté par Safari.
     const urlEchappee = videoUrl.replace(/"/g, '&quot;');
-    // "/shrt/" dans l'URL (retour terrain, 27/09) : ressemble à un lien
-    // court/de partage plutôt qu'au fichier vidéo brut, d'où le lien
-    // cliquable en plus de la balise <video> - ouvrir un lien suit une
-    // redirection normalement, contrairement à une balise <video src>. La
-    // réponse BRUTE de Together est affichée telle quelle : peut-être
-    // qu'un autre champ (hors "outputs.video_url") pointe directement vers
-    // le fichier.
-    zone.innerHTML = '<video id="montageAnimeTestVideo" src="' + urlEchappee + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
+    // "/shrt/" dans l'URL (retour terrain, 27/09) : c'est un lien court/de
+    // partage, pas le fichier vidéo brut - une balise <video src> ne suit
+    // pas sa redirection correctement (MEDIA_ERR_SRC_NOT_SUPPORTED constaté
+    // en test réel). On fait donc lire la vidéo via notre propre proxy
+    // (handleAnimateDownload, même remède que le téléchargement des rendus
+    // de montage) : le lien Together brut reste affiché en dessous, en
+    // diagnostic, avec la réponse complète de Together.
+    const urlProxy = '/api/montage-media?action=animate-download&id=' + encodeURIComponent(id) + '&code_acces=' + encodeURIComponent(code_acces || '');
+    zone.innerHTML = '<video id="montageAnimeTestVideo" src="' + urlProxy + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
       + '<p class="ideas-sub" style="margin-top:6px;word-break:break-all">Id Together : ' + id + '<br>'
       + 'URL : <a href="' + urlEchappee + '" target="_blank" rel="noopener" style="color:var(--gold-light)">' + urlEchappee + '</a></p>'
       + '<p class="ideas-sub" id="montageAnimeTestVideoErreur" style="margin-top:6px;color:#e88"></p>'
