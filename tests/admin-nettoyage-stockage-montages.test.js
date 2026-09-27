@@ -28,7 +28,7 @@ function retirerEnv() {
 // Simule le bucket `montages` : `racine` = dossiers de premier niveau
 // (+ `rendus`, toujours présent, jamais purgé), `fichiersParDossier` = le
 // contenu de chaque dossier.
-function poserFetchStorage({ racine = [], fichiersParDossier = {}, comptes = { 'ADMIN-TEST': null } } = {}) {
+function poserFetchStorage({ racine = [], fichiersParDossier = {}, comptes = { 'ADMIN-TEST': null }, removeEchoue = false } = {}) {
   const appelsRemove = [];
   const fetchOriginal = global.fetch;
   global.fetch = async (url, opts = {}) => {
@@ -50,6 +50,7 @@ function poserFetchStorage({ racine = [], fichiersParDossier = {}, comptes = { '
     if (u.endsWith('/storage/v1/object/remove/montages')) {
       const p = JSON.parse(opts.body);
       appelsRemove.push(p.prefixes);
+      if (removeEchoue) return { ok: false, status: 403, text: async () => JSON.stringify({ message: 'row-level security policy' }) };
       return { ok: true, json: async () => ({}) };
     }
     return { ok: true, json: async () => ([]) };
@@ -189,4 +190,28 @@ test('stockage-montages-etat : une erreur Supabase Storage remonte comme une err
     assert.equal(res._json.ok, false, 'REGRESSION : une panne Storage ne doit jamais se présenter comme "0 dossier", elle doit être visible comme une erreur');
     assert.match(res._json.error.message, /401/);
   } finally { global.fetch = fetchOriginal; retirerEnv(); delete process.env.CODE_ADMIN; }
+});
+
+test('stockage-montages-purger : distingue un dossier réellement vide (dossiersVides) d\'un retrait qui échoue (erreur)', async () => {
+  // Retour terrain (27/09) : un premier vrai passage a rendu "0 fichier
+  // supprimé dans 79 dossiers" sans aucun détail - impossible de savoir
+  // depuis un téléphone, sans accès aux logs serveur, si les dossiers
+  // étaient vides ou si le retrait Storage était refusé. Les deux compteurs
+  // ci-dessous existent pour ne plus jamais avoir à deviner.
+  poserEnv();
+  process.env.CODE_ADMIN = 'ADMIN-TEST';
+  const { restaurer } = poserFetchStorage({
+    racine: [dossier('montage-vide'), dossier('montage-plein')],
+    fichiersParDossier: { 'montage-plein': ['img-0.jpg'] },
+    removeEchoue: true
+  });
+  try {
+    const handler = await importerHandler();
+    const res = mockRes();
+    await handler({ method: 'POST', body: { resource: 'admin-stats', action: 'stockage-montages-purger', code_acces: 'ADMIN-TEST' } }, res);
+    assert.equal(res._json.ok, true);
+    assert.equal(res._json.fichiers, 0, 'REGRESSION : le retrait a échoué, aucun fichier ne doit être compté comme supprimé');
+    assert.equal(res._json.dossiersVides, 1, 'REGRESSION : montage-vide (0 fichier listé) doit être distingué du reste');
+    assert.match(res._json.erreur, /403/, 'REGRESSION : l\'échec du retrait Storage doit être visible, jamais silencieux');
+  } finally { restaurer(); retirerEnv(); delete process.env.CODE_ADMIN; }
 });

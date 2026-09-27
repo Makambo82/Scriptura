@@ -1464,7 +1464,17 @@ async function purgerStockageMontagesAdmin() {
     const zoneApres = document.getElementById('adminNettoyageStockage');
     if (zoneApres) zoneApres.outerHTML = carteNettoyageStockageAdmin();
     const reste = _nettoyageStockageDossiers > 0 ? ' Il en reste ' + _nettoyageStockageDossiers + ', clique à nouveau sur Purger pour continuer.' : '';
-    alert(formaterNombre(data.fichiers) + ' fichier(s) supprimé(s) dans ' + formaterNombre(data.dossiers) + ' dossier(s).' + reste);
+    // Diagnostic affiché en clair (retour terrain : "0 supprimé" sans plus
+    // de détail ne dit pas POURQUOI) : dossiersVides = dossiers réellement
+    // sans fichier listé, erreur = ce que Storage a répondu au retrait s'il
+    // a échoué. Les deux ensemble disent toujours ce qui s'est vraiment passé.
+    const details = [];
+    if (data.dossiersVides) details.push(formaterNombre(data.dossiersVides) + ' dossier(s) trouvé(s) vide(s) (rien à l\'intérieur)');
+    if (data.erreur) details.push('Erreur : ' + data.erreur);
+    alert(
+      formaterNombre(data.fichiers) + ' fichier(s) supprimé(s) dans ' + formaterNombre(data.dossiers) + ' dossier(s).' + reste
+      + (details.length ? '\n\n' + details.join('\n') : '')
+    );
   } catch (e) {
     const zoneEchec = document.getElementById('adminNettoyageStockage');
     if (zoneEchec) zoneEchec.innerHTML = '<div class="score-title" style="color:#e88">⚠ Stockage Supabase</div><div class="ideas-sub" style="margin-top:6px">Échec : ' + escAdmin(e.message) + '</div>';

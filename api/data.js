@@ -531,13 +531,20 @@ async function nettoyageStockagePurger(res, cfg) {
   try {
     const dossiers = await listerDossiersMontages(cfg);
     let fichiersSupprimes = 0;
+    // Diagnostic (retour terrain : un premier passage a rendu "0 fichier
+    // supprimé dans 79 dossiers" sans aucune erreur visible) : distingue
+    // "le dossier listé est réellement vide" de "le retrait a échoué en
+    // silence", pour ne plus jamais avoir à deviner depuis un écran de
+    // téléphone sans accès aux logs serveur.
+    let dossiersVides = 0;
+    let premiereErreur = null;
     const CONCURRENCE = 6;
     let curseur = 0;
     async function travailleur() {
       while (curseur < dossiers.length) {
         const dossier = dossiers[curseur++];
         const fichiers = await listerFichiersDossier(cfg, dossier);
-        if (!fichiers.length) continue;
+        if (!fichiers.length) { dossiersVides++; continue; }
         // Lots de 200 : large marge sous les limites habituelles de l'API
         // Storage pour un retrait groupé, sans démultiplier les
         // allers-retours pour un dossier de quelques fichiers seulement.
@@ -546,12 +553,20 @@ async function nettoyageStockagePurger(res, cfg) {
           const r = await fetch(cfg.url + '/storage/v1/object/remove/montages', {
             method: 'POST', headers: entetes(cfg.key), body: JSON.stringify({ prefixes: lot })
           });
-          if (r.ok) fichiersSupprimes += lot.length;
+          if (r.ok) {
+            fichiersSupprimes += lot.length;
+          } else if (!premiereErreur) {
+            const texte = await r.text().catch(() => '');
+            premiereErreur = 'retrait Storage refusé (HTTP ' + r.status + ') : ' + texte.slice(0, 200);
+          }
         }
       }
     }
     await Promise.all(Array.from({ length: CONCURRENCE }, travailleur));
-    return res.status(200).json({ ok: true, dossiers: dossiers.length, fichiers: fichiersSupprimes });
+    return res.status(200).json({
+      ok: true, dossiers: dossiers.length, fichiers: fichiersSupprimes, dossiersVides,
+      erreur: premiereErreur || undefined
+    });
   } catch (e) {
     return res.status(502).json({ ok: false, error: { message: e.message || 'inconnue' } });
   }
