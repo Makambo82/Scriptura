@@ -885,7 +885,7 @@ async function testerAnimationImage() {
     // 27/09) - la génération vidéo prend visiblement plus longtemps qu'une
     // simple image, on laisse donc une marge réaliste plutôt qu'optimiste.
     const debut = Date.now();
-    let videoUrl = null, dernierStatut = 'inconnu';
+    let videoUrl = null, dernierStatut = 'inconnu', dernierBrut = null;
     while (Date.now() - debut < 300000) {
       await new Promise(r => setTimeout(r, 4000));
       zone.innerHTML = '<p class="ideas-sub">Génération en cours… (' + dernierStatut + ')</p>';
@@ -896,6 +896,7 @@ async function testerAnimationImage() {
       const dataPoll = await rPoll.json();
       if (!rPoll.ok || !dataPoll.ok) throw new Error((dataPoll.error && dataPoll.error.message) || 'Consultation refusée.');
       dernierStatut = dataPoll.statut;
+      dernierBrut = dataPoll.brut;
       if (dataPoll.erreur) throw new Error('Together : ' + dataPoll.erreur);
       if (dataPoll.videoUrl) { videoUrl = dataPoll.videoUrl; break; }
     }
@@ -906,9 +907,21 @@ async function testerAnimationImage() {
     // avoir à deviner entre une URL invalide, un CORS, ou un format non
     // supporté par Safari.
     const urlEchappee = videoUrl.replace(/"/g, '&quot;');
+    // "/shrt/" dans l'URL (retour terrain, 27/09) : ressemble à un lien
+    // court/de partage plutôt qu'au fichier vidéo brut, d'où le lien
+    // cliquable en plus de la balise <video> - ouvrir un lien suit une
+    // redirection normalement, contrairement à une balise <video src>. La
+    // réponse BRUTE de Together est affichée telle quelle : peut-être
+    // qu'un autre champ (hors "outputs.video_url") pointe directement vers
+    // le fichier.
     zone.innerHTML = '<video id="montageAnimeTestVideo" src="' + urlEchappee + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
-      + '<p class="ideas-sub" style="margin-top:6px;word-break:break-all">Id Together : ' + id + '<br>URL : ' + urlEchappee + '</p>'
-      + '<p class="ideas-sub" id="montageAnimeTestVideoErreur" style="margin-top:6px;color:#e88"></p>';
+      + '<p class="ideas-sub" style="margin-top:6px;word-break:break-all">Id Together : ' + id + '<br>'
+      + 'URL : <a href="' + urlEchappee + '" target="_blank" rel="noopener" style="color:var(--gold-light)">' + urlEchappee + '</a></p>'
+      + '<p class="ideas-sub" id="montageAnimeTestVideoErreur" style="margin-top:6px;color:#e88"></p>'
+      + '<p class="ideas-sub" style="margin-top:10px">Réponse brute Together :</p>'
+      + '<pre style="white-space:pre-wrap;word-break:break-all;font-size:0.7rem;color:rgba(255,255,255,0.6);background:rgba(0,0,0,0.3);padding:8px;border-radius:8px;margin-top:4px">'
+      + (dernierBrut ? JSON.stringify(dernierBrut, null, 2).replace(/</g, '&lt;') : 'indisponible')
+      + '</pre>';
     const videoEl = document.getElementById('montageAnimeTestVideo');
     if (videoEl) {
       videoEl.addEventListener('error', () => {
