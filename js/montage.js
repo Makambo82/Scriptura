@@ -900,8 +900,24 @@ async function testerAnimationImage() {
       if (dataPoll.videoUrl) { videoUrl = dataPoll.videoUrl; break; }
     }
     if (!videoUrl) throw new Error('Toujours pas prête après 5 minutes (dernier statut : ' + dernierStatut + ').');
-    zone.innerHTML = '<video src="' + videoUrl.replace(/"/g, '&quot;') + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
-      + '<p class="ideas-sub" style="margin-top:6px">Id Together : ' + id + '</p>';
+    // Diagnostic complet affiché (retour terrain, 27/09 : "la vidéo ne se
+    // lance pas" sans plus de détail) : URL en clair (copiable) + code
+    // erreur natif du lecteur si la lecture échoue vraiment, pour ne pas
+    // avoir à deviner entre une URL invalide, un CORS, ou un format non
+    // supporté par Safari.
+    const urlEchappee = videoUrl.replace(/"/g, '&quot;');
+    zone.innerHTML = '<video id="montageAnimeTestVideo" src="' + urlEchappee + '" controls playsinline style="width:100%;max-width:280px;border-radius:12px"></video>'
+      + '<p class="ideas-sub" style="margin-top:6px;word-break:break-all">Id Together : ' + id + '<br>URL : ' + urlEchappee + '</p>'
+      + '<p class="ideas-sub" id="montageAnimeTestVideoErreur" style="margin-top:6px;color:#e88"></p>';
+    const videoEl = document.getElementById('montageAnimeTestVideo');
+    if (videoEl) {
+      videoEl.addEventListener('error', () => {
+        const err = videoEl.error;
+        const codes = { 1: 'MEDIA_ERR_ABORTED', 2: 'MEDIA_ERR_NETWORK', 3: 'MEDIA_ERR_DECODE', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED' };
+        const zoneErr = document.getElementById('montageAnimeTestVideoErreur');
+        if (zoneErr) zoneErr.textContent = 'Erreur lecteur vidéo : ' + (err ? (codes[err.code] || err.code) : 'inconnue');
+      });
+    }
   } catch (e) {
     zone.innerHTML = '<p class="ideas-sub" style="color:#e88">Erreur : ' + (e.message || 'inconnue') + '</p>';
   }
