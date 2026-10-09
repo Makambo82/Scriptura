@@ -73,6 +73,9 @@ jobs:
           grep -E -A 30 '^not ok' resultat.tap || echo "(aucun)"
           echo "────────────────────────────────"
           grep -E '^# (tests|pass|fail)' resultat.tap || true
+          # Mêmes échecs en annotations, seule partie lisible par l'API GitHub
+          # (le journal brut ne l'est pas) : voir tests/helpers/annoter-echecs-ci.js.
+          node tests/helpers/annoter-echecs-ci.js resultat.tap || true
           # On refait échouer le job ici : l'étape précédente laisse passer pour
           # que ce résumé s'affiche, mais un test rouge doit rester rouge.
           test "${{ steps.suite.outcome }}" = "success"
