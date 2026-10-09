@@ -1,16 +1,15 @@
 // Regénère TOUS les fichiers de la marque (monogramme S + éclair) depuis une
-// seule source, icon.html (dessin) et og.html (image de partage) :
+// seule source, icon.html (le dessin) :
 //   node outils/marque/generer.js
 // Écrit à la racine du site : favicon.ico (16/32/48), favicon.svg,
 // favicon-96x96.png, apple-touch-icon.png, et dans assets/brand/ : icônes
 // Android (dont maskable), s-mark.svg (le S sans fond de l'interface) et
-// og-image.jpg. Vérifié ensuite par tests/marque-icones-et-partage.test.js.
+// og-image-s.jpg (image de partage). Vérifié ensuite par tests/marque-icones-et-partage.test.js.
 //
 // ATTENTION, cache : assets/ est servi en cache "immutable" un an (voir
 // vercel.json). Si le dessin change, RENOMMER les fichiers de assets/brand/
 // (ex. og-image-2.jpg) et mettre à jour leurs références, sinon les
 // navigateurs et WhatsApp garderont l'ancien.
-// og.html charge ses polices depuis Google Fonts : réseau nécessaire.
 const http = require('http'), fs = require('fs'), path = require('path');
 const { execFileSync } = require('child_process');
 const { lancerNavigateur } = require('../../tests/helpers/navigateur');
@@ -53,12 +52,15 @@ const srv = http.createServer((q, r) => {
     // maskable : contenu réduit à 85 % pour tenir dans le cercle de sécurité Android
     await png('bleed=1&zoom=0.85', 512, 'assets/brand/icon-maskable-512.png');
     fs.writeFileSync(ecrire('assets/brand/s-mark.svg'), await svg('bare=1', '116 92 280 326'));
-    // Image de partage 1200x630, JPG (< 300 Ko exigé par WhatsApp)
-    await p.setViewportSize({ width: 1200, height: 630 });
-    await p.goto(base + 'og.html'); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(300);
+    // Image de partage : le S + éclair SEUL (retour propriétaire du 9 octobre,
+    // « pas tout SCRIPTURA »). Carrée 1200x1200, plein cadre et opaque (une
+    // transparence deviendrait blanche ou noire selon l'appli), en JPG pour
+    // rester sous les 300 Ko au-delà desquels WhatsApp peut ne rien afficher.
+    await p.setViewportSize({ width: 1200, height: 1200 });
     const tmp = ecrire('og.tmp.png');
-    await p.locator('#og').screenshot({ path: tmp });
-    execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-q:v', '3', ecrire('assets/brand/og-image.jpg')]);
+    await p.goto(base + 'icon.html?bleed=1&s=1200');
+    await p.locator('#ic').screenshot({ path: tmp });
+    execFileSync(FF, ['-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-pix_fmt', 'yuvj420p', '-q:v', '3', ecrire('assets/brand/og-image-s.jpg')]);
     fs.unlinkSync(tmp);
     // favicon.ico multi-tailles, entrées PNG (lues par tous les navigateurs actuels)
     const tete = Buffer.alloc(6 + 16 * ico.length);

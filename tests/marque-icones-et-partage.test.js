@@ -82,7 +82,9 @@ test('aperçu de lien (WhatsApp, Facebook, X) : image absolue, existante, légè
   assert.equal(String(l), meta('property', 'og:image:width'));
   assert.equal(String(h), meta('property', 'og:image:height'));
   assert.equal(meta('name', 'twitter:image'), image);
-  assert.equal(meta('name', 'twitter:card'), 'summary_large_image');
+  // Le S seul, carré (choix du propriétaire) : vignette, pas grande bannière
+  assert.equal(l, h, 'image de partage carrée attendue : le S + éclair seul, sans le mot SCRIPTURA');
+  assert.equal(meta('name', 'twitter:card'), 'summary');
   for (const p of ['og:title', 'og:description', 'og:url', 'og:site_name', 'og:image:alt']) assert.ok(meta('property', p), 'balise manquante : ' + p);
   assert.equal(meta('property', 'og:locale'), 'fr_FR');
 });
