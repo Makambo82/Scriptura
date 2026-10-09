@@ -24,8 +24,75 @@
      perçu comme un zoom. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content"/>
 <title>Scriptura, L'OS du créateur TikTok francophone</title>
+<meta name="description" content="Scriptura, l'assistant IA des créateurs TikTok francophones : diagnostic de ton compte, tendances de ta niche, idées, scripts, montage. Gratuit, sans compte."/>
+
+<!-- Marque (monogramme S + éclair). Fichiers à la racine ou dans
+     assets/brand/, générés depuis une seule source (voir
+     tests/marque-icones-et-partage.test.js). Ordre voulu : l'ICO déclaré en
+     32x32 et le SVG ensuite, sinon Chrome préfère l'ICO au SVG. Le PNG 96x96
+     (multiple de 48) est celui que Google peut afficher dans ses résultats. -->
+<link rel="icon" href="/favicon.ico" sizes="32x32"/>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+<link rel="icon" href="/favicon-96x96.png" type="image/png" sizes="96x96"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180"/>
+<link rel="manifest" href="/site.webmanifest"/>
+<meta name="theme-color" content="#1C1C1E"/>
+<meta name="application-name" content="Scriptura"/>
+<meta name="apple-mobile-web-app-title" content="Scriptura"/>
+
+<!-- Aperçu de lien (WhatsApp, Facebook, Messenger, LinkedIn, X...). URL
+     d'image ABSOLUE obligatoire : un chemin relatif n'est jamais résolu par
+     ces robots. Image en JPG < 300 Ko, au-delà WhatsApp peut ne rien afficher. -->
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="Scriptura"/>
+<meta property="og:locale" content="fr_FR"/>
+<meta property="og:url" content="https://scriiptura.vercel.app/"/>
+<meta property="og:title" content="Scriptura, L'OS du créateur TikTok francophone"/>
+<meta property="og:description" content="Idées, scripts et diagnostic pour faire décoller ton TikTok. Commence gratuitement, sans compte."/>
+<meta property="og:image" content="https://scriiptura.vercel.app/assets/brand/og-image.jpg"/>
+<meta property="og:image:type" content="image/jpeg"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:image:alt" content="Logo Scriptura : un S traversé d'un éclair doré, avec le slogan Crée du contenu qui décolle vraiment."/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Scriptura, L'OS du créateur TikTok francophone"/>
+<meta name="twitter:description" content="Idées, scripts et diagnostic pour faire décoller ton TikTok. Commence gratuitement, sans compte."/>
+<meta name="twitter:image" content="https://scriiptura.vercel.app/assets/brand/og-image.jpg"/>
+<meta name="twitter:image:alt" content="Logo Scriptura : un S traversé d'un éclair doré, avec le slogan Crée du contenu qui décolle vraiment."/>
+
+<!-- Données structurées : nom du site et logo de l'organisation, utilisés
+     par Google (nom affiché au-dessus du lien, logo dans le panneau de
+     marque). Aucune note ni avis inventés ici, Google les sanctionne. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://scriiptura.vercel.app/#organisation",
+      "name": "Scriptura",
+      "url": "https://scriiptura.vercel.app/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://scriiptura.vercel.app/assets/brand/icon-512.png",
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://scriiptura.vercel.app/#site",
+      "name": "Scriptura",
+      "alternateName": "Scriptura, L'OS du créateur TikTok francophone",
+      "url": "https://scriiptura.vercel.app/",
+      "inLanguage": "fr",
+      "publisher": { "@id": "https://scriiptura.vercel.app/#organisation" }
+    }
+  ]
+}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Poppins:wght@300;400;500;600;700&family=Russo+One&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="css/style.css?v=20260927-19"/>
+<link rel="stylesheet" href="css/style.css?v=20261009-1"/>
 </head>
 <body>
 <script>
@@ -37,7 +104,7 @@
 
 <!-- NAV -->
 <nav>
-  <div class="logo" onclick="goHome()" style="cursor:pointer"><span class="logo-s">Script</span><em>ura</em></div>
+  <div class="logo" onclick="goHome()" style="cursor:pointer"><img class="logo-mark" src="assets/brand/s-mark.svg" width="280" height="326" alt="" aria-hidden="true"/><span class="logo-s">Script</span><em>ura</em></div>
   <div class="nav-right">
     <button class="nav-subscribe-cta nav-subscribe-btn" onclick="openPlans('abonnement')">S'abonner</button>
     <!-- Raccourci vers "Mes générations", réservé aux abonnés (Creator, Pro) et
@@ -70,7 +137,7 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
-    <span class="sidebar-logo">Script<em>ura</em></span>
+    <span class="sidebar-logo"><img class="logo-mark" src="assets/brand/s-mark.svg" width="280" height="326" alt="" aria-hidden="true"/>Script<em>ura</em></span>
     <button class="sidebar-close" onclick="closeSidebar()" aria-label="Fermer">✕</button>
   </div>
 
@@ -1937,7 +2004,7 @@
     </a>
   </div>
   <div style="margin-bottom:20px;white-space:nowrap;font-size:0.46rem;letter-spacing:0.08em;text-transform:uppercase">
-    <strong style="color:var(--gold);font-family:'Russo One',sans-serif;text-transform:uppercase;display:inline-flex;align-items:center;gap:0;vertical-align:middle"><span style="color:var(--white)">Script</span>ura</strong><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">L'OS du créateur francophone</span><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">© 2026</span>
+    <strong style="color:var(--gold);font-family:'Russo One',sans-serif;text-transform:uppercase;display:inline-flex;align-items:center;gap:0;vertical-align:middle"><img class="logo-mark" src="assets/brand/s-mark.svg" width="280" height="326" alt="" aria-hidden="true"/><span style="color:var(--white)">Script</span>ura</strong><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">L'OS du créateur francophone</span><span style="color:rgba(255,255,255,0.55);margin:0 6px">·</span><span style="color:rgba(255,255,255,0.55)">© 2026</span>
   </div>
 </footer>
 
@@ -1950,37 +2017,37 @@
      conservé (avant js/api.js et js/audit.js qui en dépendent au chargement). -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-<script src="js/modeles.js?v=20260927-19"></script>
+<script src="js/modeles.js?v=20261009-1"></script>
 
-<script src="js/api.js?v=20260927-19"></script>
-<script src="js/profil.js?v=20260927-19"></script>
-<script src="js/recommandations.js?v=20260927-19"></script>
-<script src="js/historique.js?v=20260927-19"></script>
-<script src="js/abonnement.js?v=20260927-19"></script>
-<script src="js/ui.js?v=20260927-19"></script>
-<script src="js/preuve-sociale.js?v=20260927-19"></script>
-<script src="js/auth.js?v=20260927-19"></script>
-<script src="js/state.js?v=20260927-19"></script>
-<script src="js/audit.js?v=20260927-19"></script>
-<script src="js/admin.js?v=20260927-19"></script>
-<script src="js/serie.js?v=20260927-19"></script>
-<script src="js/navigation.js?v=20260927-19"></script>
-<script src="js/storytelling.js?v=20260927-19"></script>
-<script src="js/storyboard.js?v=20260927-19"></script>
-<script src="js/storyboard-seul.js?v=20260927-19"></script>
-<script src="js/viral.js?v=20260927-19"></script>
-<script src="js/tendances.js?v=20260927-19"></script>
-<script src="js/tiktok-outils.js?v=20260927-19"></script>
-<script src="js/voix-enregistree.js?v=20260927-19"></script>
-<script src="js/montage.js?v=20260927-19"></script>
-<script src="js/montage-manuel.js?v=20260927-19"></script>
-<script src="js/montage-guide.js?v=20260927-19"></script>
-<script src="js/diagnostic-sommaire.js?v=20260927-19"></script>
-<script src="js/diagnostic-fusion.js?v=20260927-19"></script>
-<script src="js/carrousel.js?v=20260927-19"></script>
-<script src="js/generation.js?v=20260927-19"></script>
-<script src="js/niche-auto.js?v=20260927-19"></script>
-<script src="js/app.js?v=20260927-19"></script>
+<script src="js/api.js?v=20261009-1"></script>
+<script src="js/profil.js?v=20261009-1"></script>
+<script src="js/recommandations.js?v=20261009-1"></script>
+<script src="js/historique.js?v=20261009-1"></script>
+<script src="js/abonnement.js?v=20261009-1"></script>
+<script src="js/ui.js?v=20261009-1"></script>
+<script src="js/preuve-sociale.js?v=20261009-1"></script>
+<script src="js/auth.js?v=20261009-1"></script>
+<script src="js/state.js?v=20261009-1"></script>
+<script src="js/audit.js?v=20261009-1"></script>
+<script src="js/admin.js?v=20261009-1"></script>
+<script src="js/serie.js?v=20261009-1"></script>
+<script src="js/navigation.js?v=20261009-1"></script>
+<script src="js/storytelling.js?v=20261009-1"></script>
+<script src="js/storyboard.js?v=20261009-1"></script>
+<script src="js/storyboard-seul.js?v=20261009-1"></script>
+<script src="js/viral.js?v=20261009-1"></script>
+<script src="js/tendances.js?v=20261009-1"></script>
+<script src="js/tiktok-outils.js?v=20261009-1"></script>
+<script src="js/voix-enregistree.js?v=20261009-1"></script>
+<script src="js/montage.js?v=20261009-1"></script>
+<script src="js/montage-manuel.js?v=20261009-1"></script>
+<script src="js/montage-guide.js?v=20261009-1"></script>
+<script src="js/diagnostic-sommaire.js?v=20261009-1"></script>
+<script src="js/diagnostic-fusion.js?v=20261009-1"></script>
+<script src="js/carrousel.js?v=20261009-1"></script>
+<script src="js/generation.js?v=20261009-1"></script>
+<script src="js/niche-auto.js?v=20261009-1"></script>
+<script src="js/app.js?v=20261009-1"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">
@@ -2013,7 +2080,7 @@
 <!-- ANIMATION DE GÉNÉRATION -->
 <div class="gen-overlay" id="genOverlay">
   <div class="gen-box">
-    <div class="gen-logo"><span class="logo-s">Script</span><em>ura</em></div>
+    <div class="gen-logo"><img class="logo-mark" src="assets/brand/s-mark.svg" width="280" height="326" alt="" aria-hidden="true"/><span class="logo-s">Script</span><em>ura</em></div>
     <div class="gen-tagline">Ton réalisateur <span class="ia-majuscule">IA</span> au travail</div>
     <div class="gen-steps" id="genSteps">
       <div class="gen-step" data-step="0"><div class="gen-step-icon">1</div><div class="gen-step-text">Analyse stratégique du sujet…</div></div>

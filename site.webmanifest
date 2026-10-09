@@ -1,0 +1,16 @@
+{
+  "name": "Scriptura, L'OS du créateur TikTok francophone",
+  "short_name": "Scriptura",
+  "description": "Diagnostic de ton compte TikTok, tendances de ta niche, idées, scripts, récits, carrousels et montage vidéo, pensés pour les créateurs francophones.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#1C1C1E",
+  "theme_color": "#1C1C1E",
+  "icons": [
+    { "src": "/assets/brand/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/brand/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

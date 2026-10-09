@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:transparent}svg{display:block}
+</style></head><body>
+<div id="host"></div>
+<script>
+const q=new URLSearchParams(location.search);const S=+(q.get('s')||512),small=q.get('small')==='1',bare=q.get('bare')==='1',bleed=q.get('bleed')==='1',zoom=+(q.get('zoom')||1);
+// éclair de l'app (viewBox 24), sommets transformés dans l'espace 512 => découpe d'épaisseur constante
+const P=[[13,2],[5,13],[11,13],[10,22],[19,10],[13,10]];
+const cx=+(q.get('cx')||256),cy=+(q.get('cy')||255),ratio=+(q.get('ratio')||(small?1:0.8)),rot=(+(q.get('r')||(small?12:16)))*Math.PI/180;
+const gap=+(q.get('g')||(small?10:11)),marge=+(q.get('m')||(small?0:2));
+function bolt(k){return P.map(([x,y])=>{const X=(x-12)*k*ratio,Y=(y-12)*k;return[cx+X*Math.cos(rot)-Y*Math.sin(rot),cy+X*Math.sin(rot)+Y*Math.cos(rot)]})}
+function offset(pts,g){ // décalage vers l'extérieur, raccords en pointe (sans limite)
+  let area=0;for(let i=0;i<pts.length;i++){const[a,b]=pts[i],[c,e]=pts[(i+1)%pts.length];area+=a*e-c*b}
+  const sgn=area>0?1:-1,n=pts.length,lines=[];
+  for(let i=0;i<n;i++){const p=pts[i],q2=pts[(i+1)%n];let dx=q2[0]-p[0],dy=q2[1]-p[1];const l=Math.hypot(dx,dy);dx/=l;dy/=l;
+    const nx=-dy*sgn*-1,ny=dx*sgn*-1;lines.push([[p[0]+nx*g,p[1]+ny*g],[dx,dy]])}
+  return pts.map((_,i)=>{const[A,u]=lines[(i-1+n)%n],[B,v]=lines[i];const den=u[0]*v[1]-u[1]*v[0];const t=((B[0]-A[0])*v[1]-(B[1]-A[1])*v[0])/den;return[A[0]+u[0]*t,A[1]+u[1]*t]})}
+const path=pts=>'M'+pts.map(p=>p.map(v=>v.toFixed(2)).join(' ')).join(' L')+' Z';
+let k=+(q.get('k')||0);
+if(!k){let lo=4,hi=30;for(let it=0;it<40;it++){const mid=(lo+hi)/2;const o=offset(bolt(mid),gap);const ys=o.map(p=>p[1]);(Math.min(...ys)>=98+marge&&Math.max(...ys)<=412-marge)?lo=mid:hi=mid}k=lo}
+const pts=bolt(k),d=path(pts),dOff=path(offset(pts,gap));
+const SP='M362 98 L362 162 L186 162 L186 224 L334 224 A56 56 0 0 1 390 280 L390 346 A66 66 0 0 1 324 412 L128 412 L128 348 L326 348 L326 288 L170 288 A48 48 0 0 1 122 240 L122 164 A66 66 0 0 1 188 98 Z';
+document.getElementById('host').innerHTML=`<svg id="ic" width="${S}" height="${S}" viewBox="0 0 512 512">
+<defs>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE6A8"/><stop offset=".45" stop-color="#FDB71E"/><stop offset="1" stop-color="#FA9410"/></linearGradient>
+ <radialGradient id="tile" cx=".5" cy=".36" r=".78"><stop offset="0" stop-color="#2d2d32"/><stop offset="1" stop-color="#141416"/></radialGradient>
+ <radialGradient id="halo" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="rgba(250,148,16,.30)"/><stop offset="1" stop-color="rgba(250,148,16,0)"/></radialGradient>
+ <filter id="close" x="-5%" y="-5%" width="110%" height="110%"><feMorphology operator="dilate" radius="8"/><feMorphology operator="erode" radius="8"/></filter>
+ <mask id="cut"><rect width="512" height="512" fill="#fff"/><path d="${dOff}" fill="#000"/></mask>
+</defs>
+${bare?'':`<rect width="512" height="512" rx="${bleed?0:(small?96:112)}" fill="url(#tile)"/>`}
+${(small||bare)?'':'<circle cx="256" cy="256" r="230" fill="url(#halo)"/>'}
+${(small||bare||bleed)?'':'<rect x="4" y="4" width="504" height="504" rx="108" fill="none" stroke="rgba(250,148,16,.45)" stroke-width="4"/>'}
+<g transform="translate(256 256) scale(${zoom}) translate(-256 -256)"><path d="${SP}" fill="#fff" mask="url(#cut)"/><path d="${d}" fill="url(#gold)"/></g>
+</svg>`;
+</script>
+</body></html>

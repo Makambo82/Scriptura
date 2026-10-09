@@ -36,6 +36,11 @@
 //   5. MISE À JOUR 3 (retour propriétaire) : l'icône S séparée (SVG en
 //      dégradé doré) a été retirée des 4 emplacements. Il ne reste plus que
 //      le mot SCRIPTURA, avec "URA" en doré (voir .logo em et équivalents).
+//   6. MISE À JOUR 4 (retour propriétaire du 9 octobre) : un NOUVEAU
+//      monogramme, le S traversé de l'éclair (même dessin que le favicon,
+//      assets/brand/s-mark.svg), revient devant le mot SCRIPTURA aux 4
+//      emplacements. Toujours aucun SVG en ligne dans le logo : c'est une
+//      image, pour qu'il n'existe qu'un seul fichier source de la marque.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { demarrerServeur } = require('./helpers/serveur');
@@ -137,6 +142,8 @@ test('l\'identité de Scriptura tient au mot SCRIPTURA en Russo One, avec URA do
       return {
         logo: style('.logo'),
         pasIcone: !!(logoEl && !logoEl.querySelector('svg')),
+        monogrammes: Array.from(document.querySelectorAll('.logo, .sidebar-logo, .gen-logo, footer strong'))
+          .map(el => { const i = el.querySelector('img.logo-mark'); return i ? { src: i.getAttribute('src'), alt: i.getAttribute('alt'), premier: el.firstElementChild === i } : null; }),
         uraClipText: !!(emStyle && (emStyle.webkitBackgroundClip === 'text' || emStyle.backgroundClip === 'text')),
         uraColor: em ? emStyle.color : null,
         uraGradientDore: !!(emStyle && /253,\s*183,\s*30/.test(emStyle.backgroundImage)), // --gold-light
@@ -152,8 +159,16 @@ test('l\'identité de Scriptura tient au mot SCRIPTURA en Russo One, avec URA do
       'REGRESSION : le mot "Scriptura" du logo n\'est plus rendu en majuscules, comme sur la capture de '
       + 'référence. Casse calculée : ' + vu.logo.casse);
     assert.ok(vu.pasIcone,
-      'REGRESSION : une icône SVG est réapparue dans le logo, le propriétaire a explicitement demandé de '
-      + 'ne garder que le mot SCRIPTURA.');
+      'REGRESSION : un SVG en ligne est réapparu dans le logo. Le monogramme doit rester une image '
+      + '(assets/brand/s-mark.svg), seule source de la marque, pas une copie du dessin dans le HTML.');
+    assert.equal(vu.monogrammes.length, 4, 'les 4 emplacements du logo doivent exister');
+    vu.monogrammes.forEach((m, i) => {
+      assert.ok(m, 'REGRESSION : le monogramme S + éclair manque devant SCRIPTURA (emplacement ' + (i + 1)
+        + ' sur 4), le propriétaire l\'a demandé partout à côté du mot (9 octobre).');
+      assert.equal(m.src, 'assets/brand/s-mark.svg', 'le monogramme doit pointer vers le fichier de marque unique');
+      assert.equal(m.alt, '', 'alt vide attendu : le mot SCRIPTURA suit, un lecteur d\'écran lirait sinon la marque deux fois');
+      assert.ok(m.premier, 'le monogramme doit précéder le mot, pas le suivre');
+    });
     assert.ok(vu.uraClipText,
       'REGRESSION : "URA" n\'a plus son reflet scintillant (background-clip:text attendu, voir .logo em '
       + 'dans le bloc @supports de css/style.css).');
