@@ -68,7 +68,15 @@ test('les erreurs déjà consultées passent au doré ; une nouvelle erreur repa
     assert.match(premiereVisite.anciennes.couleur, /gold/, 'le nombre d\'anciennes doit être doré');
 
     // ── Deuxième visite, mêmes données (rien de nouveau depuis la 1ère) ──
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    // Chaque visite repart de l'ACCUEIL, jamais d'un page.reload() : depuis que
+    // l'adresse suit l'écran (/tableau-de-bord, voir js/navigation.js),
+    // recharger rouvre le tableau de bord tout seul, et ce chargement
+    // automatique enregistre la visite AVANT le nôtre. La nouvelle erreur de
+    // la 3e visite était alors déjà marquée « vue » quand le test la lisait.
+    // Invisible en local (le CDN de Supabase y est bloqué, ce chargement
+    // échouait avant d'enregistrer quoi que ce soit), rouge en CI où le CDN
+    // répond : vrai échec de CI du 27 septembre et du 9 octobre.
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(300);
     await page.evaluate(() => {
       supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
@@ -84,7 +92,7 @@ test('les erreurs déjà consultées passent au doré ; une nouvelle erreur repa
     await page.waitForTimeout(50); // s'assurer que cree_le est postérieur au dernier horodatage de visite
     const errB = { mode: 'ideas', detail: 'délai dépassé (55s)', code_acces: null, cree_le: new Date().toISOString() };
     recentesActuelles = [errA, errB];
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(300);
     await page.evaluate(() => {
       supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
