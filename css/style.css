@@ -67,3 +67,77 @@
   background:var(--gold-pale);border-color:var(--gold);
 }
 [data-install-app].install-cta .ico{width:14px;height:14px}
+/* ═══════════════════════════════════════════════════════════
+   PWA (Progressive Web App) — bannière de mise à jour + bouton
+   d'installation. Ajouté à la fin du fichier : aucun impact sur
+   les règles existantes (classes nouvelles uniquement).
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── BANNIÈRE DE MISE À JOUR (PWA) ────────────────────────────
+   Apparaît en bas de l'écran quand un nouveau Service Worker est
+   détecté en attente (voir js/pwa.js, afficherBanniereMaj).
+   Volontairement discrète : c'est une information, pas une
+   promotion. Prend toute la largeur sur mobile, se centre sur
+   un écran large, et ne recouvre jamais un CTA principal (elle
+   est au-dessus de la zone de boutons flottants : z-index 280,
+   supérieure à .social-notif qui est à 250, mais inférieure aux
+   modales qui démarrent à 300). */
+.maj-banner{
+  position:fixed;
+  bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+  left:50%;transform:translateX(-50%);
+  z-index:280;
+  display:flex;align-items:center;gap:12px;
+  max-width:calc(100vw - 24px);
+  padding:12px 14px 12px 18px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  box-shadow:0 16px 40px -10px rgba(0,0,0,0.7);
+  font-family:'Poppins',sans-serif;font-size:0.82rem;
+  color:var(--text-secondary);
+  animation:majBannerIn .4s cubic-bezier(.22,.8,.2,1) both;
+}
+@keyframes majBannerIn{
+  from{opacity:0;transform:translate(-50%,20px)}
+  to{opacity:1;transform:translate(-50%,0)}
+}
+@media(prefers-reduced-motion:reduce){
+  .maj-banner{animation:none}
+}
+.maj-banner-txt{flex:1;line-height:1.4;color:#fff}
+.maj-banner-btn{
+  flex:0 0 auto;padding:8px 16px;border-radius:999px;border:none;
+  background:var(--gold);color:var(--bg);
+  font-family:'Poppins',sans-serif;font-size:0.7rem;font-weight:600;
+  letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;
+  transition:background .2s;
+}
+.maj-banner-btn:hover{background:var(--gold-light)}
+.maj-banner-close{
+  flex:0 0 auto;background:transparent;border:none;
+  color:var(--muted);cursor:pointer;padding:6px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:8px;
+}
+.maj-banner-close:hover{color:#fff;background:rgba(255,255,255,0.05)}
+
+/* ── BOUTON D'INSTALLATION (PWA) ──────────────────────────────
+   Masqué par défaut, révélé par js/pwa.js quand beforeinstallprompt
+   est capturé (Android/Chrome/Edge). Reprend l'habillage des
+   .btn-regenerate pour rester dans la famille. Aucune couleur
+   nouvelle. */
+[data-install-app]{display:none}
+[data-install-app].install-cta{
+  display:none;
+  align-items:center;justify-content:center;gap:8px;
+  padding:10px 16px;border-radius:999px;
+  background:transparent;border:1px solid var(--border);
+  color:var(--gold);font-family:'Poppins',sans-serif;
+  font-size:0.62rem;letter-spacing:0.13em;text-transform:uppercase;
+  cursor:pointer;transition:all .2s;
+}
+[data-install-app].install-cta:hover{
+  background:var(--gold-pale);border-color:var(--gold);
+}
+[data-install-app].install-cta .ico{width:14px;height:14px}
