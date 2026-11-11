@@ -3018,10 +3018,6 @@ body.is-unlocked .sidebar-logout{display:block}
 .sb-actions-fin{
   display:flex;gap:12px;justify-content:center;
   margin-top:20px;padding-top:18px;
-  border-top:1px solid var(--border-soft
-                           .sb-actions-fin{
-  display:flex;gap:12px;justify-content:center;
-  margin-top:20px;padding-top:18px;
   border-top:1px solid var(--border-soft);
 }
 /* Régénérer en haut du storyboard (Récit/Script/Série) : pas de "Modifier"
