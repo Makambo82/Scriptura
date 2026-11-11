@@ -4721,3 +4721,6 @@ body.hero-focus .hero-retour::first-letter,
   background:var(--gold-pale);border-color:var(--gold);
 }
 [data-install-app].install-cta .ico{width:14px;height:14px}
+/* Filet : le panneau de montage ne doit jamais apparaître sans clic.
+   Bloque même si un JS pose .active par erreur au chargement. */
+#montageModal:not(.active){display:none !important}
