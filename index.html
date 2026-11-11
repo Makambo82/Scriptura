@@ -39,6 +39,8 @@
 <meta name="theme-color" content="#1C1C1E"/>
 <meta name="application-name" content="Scriptura"/>
 <meta name="apple-mobile-web-app-title" content="Scriptura"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 
 <!-- Aperçu de lien (WhatsApp, Facebook, Messenger, LinkedIn, X...). URL
      d'image ABSOLUE obligatoire : un chemin relatif n'est jamais résolu par
@@ -172,6 +174,14 @@
     <a class="sidebar-item nav-contact-btn" href="https://wa.me/22995056424?text=Bonjour%20!%20J%27ai%20une%20question%20sur%20Scriptura" target="_blank" rel="noopener" onclick="closeSidebar()">
       <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg></span> Nous contacter
     </a>
+    <button type="button" class="sidebar-item install-cta" data-install-app onclick="closeSidebar()">
+      <span class="sidebar-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/>
+        </svg>
+      </span>
+      Installer l'application
+    </button>
   </nav>
 
   <div class="sidebar-logout">
@@ -224,7 +234,6 @@
     <div id="adminStats"></div>
   </div>
 </section>
-
 <div id="homePage">
 <!-- TICKER -->
 <div class="ticker-wrap">
@@ -869,7 +878,6 @@
     <div id="tendancesResults" style="display:none;margin-top:32px"></div>
   </div>
 </section>
-
 <!-- ══ MODULE OUTILS TIKTOK (service annexe : transcription / téléchargement) ══ -->
 <section id="tiktokOutilsFlow" style="display:none">
   <div class="ds-wrap">
@@ -1996,6 +2004,7 @@
       <button type="button" class="footer-link-btn nav-subscribe-btn" onclick="sidebarGo('subscribe')">S'abonner</button>
       <button type="button" class="footer-link-btn nav-code-btn" onclick="sidebarGo('code')">J'ai un code</button>
       <button type="button" class="footer-link-btn nav-admin-btn" onclick="sidebarGo('admin')">Tableau de bord</button>
+      <button type="button" class="footer-link-btn install-cta" data-install-app>Installer l'application</button>
       <a class="footer-link-btn nav-contact-btn" href="https://wa.me/22995056424?text=Bonjour%20!%20J%27ai%20une%20question%20sur%20Scriptura" target="_blank" rel="noopener">Nous contacter</a>
     </div>
   </div>
@@ -2051,6 +2060,7 @@
 <script src="js/generation.js?v=20261009-1"></script>
 <script src="js/niche-auto.js?v=20261009-1"></script>
 <script src="js/app.js?v=20261009-1"></script>
+<script src="js/pwa.js?v=20261009-1"></script>
 
 <!-- POP-UP RAPPEL ABONNEMENT (après 3 générations) -->
 <div class="modal-overlay" id="rappelOverlay">
