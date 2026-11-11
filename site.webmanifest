@@ -3,9 +3,11 @@
   "short_name": "Scriptura",
   "description": "Diagnostic de ton compte TikTok, tendances de ta niche, idées, scripts, récits, carrousels et montage vidéo, pensés pour les créateurs francophones.",
   "lang": "fr",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
-  "display": "browser",
+  "display": "standalone", 
+  "orientation": "portrait-primary",
   "background_color": "#1C1C1E",
   "theme_color": "#1C1C1E",
   "icons": [
