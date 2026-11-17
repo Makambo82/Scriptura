@@ -1,12 +1,15 @@
 // ═══════════════════════════════════════════════════════════
 //  MODULE « OUTILS TIKTOK » (service annexe, hors modes de création)
-//  Deux actions indépendantes à partir d'un même lien : transcription
-//  (texte parlé, via /api/tiktok-video?action=transcription, déjà utilisé
-//  en interne par le mode Analyse vidéo virale) et téléchargement (la
-//  vidéo elle-même, via /api/tiktok-video?action=download, proxy même
-//  origine pour permettre le partage natif). Même quota mensuel que
-//  l'analyse vidéo (droitAnalyseVirale, js/historique.js) : mêmes API
-//  payées mises à contribution.
+//  Deux actions indépendantes à partir d'un même lien OU d'un fichier
+//  uploadé depuis la galerie : transcription (texte parlé, via
+//  /api/tiktok-video?action=transcription pour un lien TikTok, ou
+//  /api/transcribe-upload pour un fichier) et téléchargement (la vidéo
+//  elle-même, via /api/tiktok-video?action=download). Même quota mensuel
+//  que l'analyse vidéo (droitAnalyseVirale, js/historique.js).
+//
+//  Depuis l'ajout du mode fichier : deux modes exclusifs, choisis par
+//  radio button. En mode fichier, le téléchargement n'est pas proposé
+//  (pas de source TikTok à télécharger).
 // ═══════════════════════════════════════════════════════════
 
 function outilsEsc(t) {
@@ -14,8 +17,11 @@ function outilsEsc(t) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
-let _outilsTranscript = ''; // pour les boutons Copier/Partager
-let _outilsVideoBlob = null; // vidéo déjà récupérée, pour le bouton Télécharger (pas de 2e appel serveur)
+let _outilsTranscript = '';        // pour les boutons Copier/Partager
+let _outilsVideoBlob = null;       // vidéo déjà récupérée, pour le bouton Télécharger
+let _outilsMode = 'lien';          // 'lien' | 'fichier'
+let _outilsFichier = null;         // File object si mode fichier
+const OUTILS_TAILLE_MAX_MO = 100;
 
 function ouvrirOutilsTikTok() {
   if (typeof pushNav === 'function') pushNav();
@@ -41,13 +47,51 @@ function resetOutilsTikTok() {
   _outilsMasquerProgBar();
   _outilsTranscript = '';
   _outilsVideoBlob = null;
+  _outilsMode = 'lien';
+  _outilsFichier = null;
+  const info = document.getElementById('outilsFichierInfo');
+  if (info) { info.style.display = 'none'; info.innerHTML = ''; }
+  outilsChoisirMode('lien');
+}
+
+function outilsChoisirMode(mode) {
+  _outilsMode = (mode === 'fichier') ? 'fichier' : 'lien';
+  const btnLien = document.getElementById('outilsModeLienBtn');
+  const btnFichier = document.getElementById('outilsModeFichierBtn');
+  if (btnLien) btnLien.classList.toggle('actif', _outilsMode === 'lien');
+  if (btnFichier) btnFichier.classList.toggle('actif', _outilsMode === 'fichier');
+  const champLien = document.getElementById('outilsChampLien');
+  const champFichier = document.getElementById('outilsChampFichier');
+  if (champLien) champLien.style.display = _outilsMode === 'lien' ? '' : 'none';
+  if (champFichier) champFichier.style.display = _outilsMode === 'fichier' ? '' : 'none';
+  const err = document.getElementById('outilsError');
+  if (err) err.style.display = 'none';
+}
+
+function outilsChargerFichier(files) {
+  const err = document.getElementById('outilsError');
+  const info = document.getElementById('outilsFichierInfo');
+  if (!files || !files.length) return;
+  const f = files[0];
+  if (f.size > OUTILS_TAILLE_MAX_MO * 1024 * 1024) {
+    _outilsFichier = null;
+    if (info) { info.style.display = 'none'; info.innerHTML = ''; }
+    if (err) {
+      err.textContent = 'Fichier trop lourd (max ' + OUTILS_TAILLE_MAX_MO + ' Mo).';
+      err.style.display = 'block';
+    }
+    return;
+  }
+  _outilsFichier = f;
+  if (err) err.style.display = 'none';
+  if (info) {
+    info.style.display = 'block';
+    info.className = 'outils-fichier-info';
+    info.innerHTML = '📎 <strong>' + outilsEsc(f.name) + '</strong> (' + (f.size / 1024 / 1024).toFixed(1) + ' Mo) prêt.';
+  }
 }
 
 // Bande dorée de progression estimée, même moteur que le storyboard
-// (createProgress, js/storyboard.js) : monte de façon crédible pendant que
-// l'API travaille (téléchargement de la vidéo + transcription côté serveur,
-// nettement plus long qu'une génération texte, d'où une durée estimée plus
-// longue), jamais un simple cercle sans indication de progression.
 function _outilsMasquerProgBar() {
   const pb = document.getElementById('outilsProgBar');
   if (pb) pb.style.display = 'none';
@@ -63,10 +107,7 @@ function outilsAutreVideo() {
   if (lien) lien.focus();
 }
 
-// Décompte les compteurs client (affichage seulement, le vrai contrôle est
-// déjà fait côté serveur, voir api/_lib/acces.js) après un succès. Même
-// bookkeeping que lancerAnalyseVirale (js/viral.js), les deux tirent sur le
-// même quota 'analyseVirale'.
+// Décompte les compteurs client après un succès.
 function _outilsDecompteApresSucces() {
   if (unlocked) return;
   usedGen++;
@@ -82,17 +123,26 @@ async function lancerOutilTikTok(type) {
   const err = document.getElementById('outilsError');
   err.style.display = 'none';
 
-  const lien = (document.getElementById('outilsLien').value || '').trim();
-  if (!lien) {
-    err.textContent = "Colle le lien TikTok d'une vidéo.";
-    err.style.display = 'block';
-    return;
+  // Détermine la source : fichier (mode galerie) ou lien (mode TikTok).
+  let lien = '';
+  let fichier = null;
+  if (type === 'transcription' && _outilsMode === 'fichier') {
+    if (!_outilsFichier) {
+      err.textContent = 'Choisis une vidéo dans ta galerie.';
+      err.style.display = 'block';
+      return;
+    }
+    fichier = _outilsFichier;
+  } else {
+    lien = (document.getElementById('outilsLien').value || '').trim();
+    if (!lien) {
+      err.textContent = "Colle le lien TikTok d'une vidéo.";
+      err.style.display = 'block';
+      return;
+    }
   }
 
-  // Même quota dédié que l'analyse vidéo (compteur mensuel séparé de la
-  // création) : non-abonné 1 (sur ses 5 gratuites), Creator 6/mois, Pro
-  // 15/mois. Au-delà, un jeton en débloque une de plus, décompté côté
-  // serveur au moment de l'appel.
+  // Même quota dédié que l'analyse vidéo, fichier ou lien.
   const droit = await droitAnalyseVirale();
   if (!droit.ok) {
     if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
@@ -120,22 +170,14 @@ async function lancerOutilTikTok(type) {
   btn.disabled = true;
   btn.classList.add('actif');
   if (autreBtn) autreBtn.disabled = true;
-  // L'icône laisse place au spinner pendant l'action (échange icône ↔ spinner).
   if (ico) ico.style.display = 'none';
   if (spin) spin.style.display = 'inline-block';
-  // Un seul libellé fixe pendant toute l'action (jamais "Recherche…" PUIS
-  // "Préparation de la vidéo…") : un texte qui change en cours de route peut
-  // changer de largeur et forcer le bouton à passer sur 2 lignes, donc à
-  // grandir, un redimensionnement gênant vu que les deux boutons sont
-  // côte à côte (voir .outils-btn-row, largeur égale flex:1 sur les deux).
   txt.textContent = type === 'transcription' ? 'Transcription…' : 'Téléchargement…';
 
   const progBar = document.getElementById('outilsProgBar');
   const progFill = document.getElementById('outilsProgFill');
   const progPct = document.getElementById('outilsProgPct');
-  // Durée estimée plus longue que pour une génération texte : la vidéo est
-  // téléchargée puis (pour la transcription) transcrite côté serveur.
-  const dureeEstimee = type === 'transcription' ? 16000 : 10000;
+  const dureeEstimee = type === 'transcription' ? (fichier ? 30000 : 16000) : 10000;
   const prog = (typeof createProgress === 'function')
     ? createProgress((p) => { if (progFill) progFill.style.width = p + '%'; if (progPct) progPct.textContent = p + '%'; }, dureeEstimee)
     : null;
@@ -143,7 +185,33 @@ async function lancerOutilTikTok(type) {
   if (prog) prog.start();
 
   try {
-    if (type === 'transcription') {
+    if (fichier) {
+      // Chemin fichier : upload direct Supabase (aucun octet via Vercel,
+      // qui plafonne à 4,5 Mo) puis appel /api/transcribe-upload qui fait
+      // le reste. Voir api/transcribe-upload.js et js/api.js.
+      if (progPct) progPct.textContent = '0%';
+      if (txt) txt.textContent = 'Envoi…';
+      const nomSafe = fichier.name.replace(/[^A-Za-z0-9_.-]/g, '_').slice(-60);
+      const chemin = 'transcriptions/' + Date.now() + '-' + nomSafe;
+      await uploaderAssetMontage(chemin, fichier, fichier.type || 'video/mp4');
+      if (txt) txt.textContent = 'Transcription…';
+      const r = await fetch('/api/transcribe-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chemin, code_acces: localStorage.getItem('scriptura_code') || null })
+      });
+      await _outilsGererErreurReponse(r);
+      const data = await r.json();
+      if (!data.ok || !data.transcript) {
+        throw new Error(data.raison === 'sans_parole'
+          ? "Cette vidéo ne contient pas de parole détectable."
+          : (data.error?.message || "Transcription impossible."));
+      }
+      if (prog) prog.finish();
+      _outilsDecompteApresSucces();
+      if (typeof pushNav === 'function') pushNav();
+      afficherResultatTranscription(data);
+    } else if (type === 'transcription') {
       const data = await _outilsFetchJson('/api/tiktok-video?action=transcription', lien);
       if (!data.ok || !data.transcript) {
         throw new Error(data.raison === 'sans_parole'
@@ -152,10 +220,6 @@ async function lancerOutilTikTok(type) {
       }
       if (prog) prog.finish();
       _outilsDecompteApresSucces();
-      // Empile l'écran nu (formulaire encore visible ici) AVANT de passer
-      // au résultat : un « ← Retour » depuis le résultat retombe ainsi sur
-      // ce même écran, lien encore rempli, jamais sur l'accueil (même
-      // mécanique que lancerAnalyseVirale, js/viral.js).
       if (typeof pushNav === 'function') pushNav();
       afficherResultatTranscription(data);
     } else {
@@ -168,7 +232,7 @@ async function lancerOutilTikTok(type) {
   } catch (e) {
     if (prog) prog.stop();
     _outilsMasquerProgBar();
-    btn.classList.remove('actif'); // échec : pas de résultat à mettre en avant
+    btn.classList.remove('actif');
     err.textContent = e.message || 'Une erreur est survenue, réessaie.';
     err.style.display = 'block';
   } finally {
@@ -187,9 +251,6 @@ async function _outilsGererErreurReponse(r) {
     if (payload && payload.error && payload.error.code === 'QUOTA_ATTEINT') {
       throw new Error(payload.error.message || 'Quota atteint.');
     }
-    // Seule une vraie expiration déconnecte l'abonné (un compte désactivé
-    // ou un accès jamais accordé sont des refus différents, voir
-    // api/_lib/acces.js#codeAccesRefuse).
     if (payload && payload.error && payload.error.code === 'ABONNEMENT_EXPIRE' && typeof gererAbonnementExpire === 'function') {
       gererAbonnementExpire();
     }
@@ -202,7 +263,6 @@ async function _outilsGererErreurReponse(r) {
   }
 }
 
-// Transcription : JSON classique (texte, pas de gros volume).
 async function _outilsFetchJson(route, url) {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 40000);
@@ -217,10 +277,6 @@ async function _outilsFetchJson(route, url) {
   } finally { clearTimeout(minuteur); }
 }
 
-// Téléchargement : la vidéo elle-même (voir api/tiktok-video.js action
-// download, proxy même origine, nécessaire pour le partage natif
-// ci-dessous, un fetch() direct vers le CDN TikTok échouerait la plupart
-// du temps, CORS).
 async function _outilsFetchVideo(url) {
   const ctrl = new AbortController();
   const minuteur = setTimeout(() => ctrl.abort(), 55000);
@@ -228,13 +284,6 @@ async function _outilsFetchVideo(url) {
     const params = new URLSearchParams({ action: 'download', url, code_acces: localStorage.getItem('scriptura_code') || '' });
     const r = await fetch('/api/tiktok-video?' + params.toString(), { signal: ctrl.signal });
     await _outilsGererErreurReponse(r);
-    // Métadonnées (auteur, date, stats) passées par en-tête (voir
-    // handleDownload, api/tiktok-video.js) : le corps reste le flux vidéo
-    // brut. Best-effort, jamais bloquant si absent/illisible. atob() seul
-    // renvoie une chaîne "binaire" (1 caractère = 1 octet) : un JSON.parse
-    // direct dessus donne un texte accentué corrompu (chaque octet UTF-8
-    // lu comme un caractère Latin-1 séparé), d'où le passage par
-    // TextDecoder pour redécoder correctement l'UTF-8 d'origine.
     let meta = null;
     try {
       const brut = r.headers.get('X-Scriptura-Meta');
@@ -248,10 +297,6 @@ async function _outilsFetchVideo(url) {
   } finally { clearTimeout(minuteur); }
 }
 
-// L'API de transcription (ElevenLabs) renvoie un seul bloc de texte continu,
-// sans aucun paragraphe. On le regroupe par phrases (splitIntoSentences,
-// déjà utilisé pour le découpage narratif du storyboard, voir js/storyboard.js)
-// pour une lecture confortable, plutôt qu'un pavé de texte ininterrompu.
 function formaterTranscriptEnParagraphes(texte) {
   if (typeof splitIntoSentences !== 'function') return texte || '';
   const phrases = splitIntoSentences(texte);
@@ -263,9 +308,6 @@ function formaterTranscriptEnParagraphes(texte) {
   return paragraphes.join('\n\n');
 }
 
-// Langue détectée par ElevenLabs Scribe (code ISO 639-1) -> nom affichable.
-// Sert d'étiquette informative seulement, jamais d'un contrôle : un code
-// non répertorié s'affiche tel quel (en majuscules), jamais une erreur.
 const _OUTILS_LANGUES = {
   fr: '🇫🇷 Français', en: '🇬🇧 Anglais', es: '🇪🇸 Espagnol', pt: '🇵🇹 Portugais',
   ar: '🇸🇦 Arabe', de: '🇩🇪 Allemand', it: '🇮🇹 Italien', nl: '🇳🇱 Néerlandais',
@@ -278,8 +320,6 @@ function _outilsNomLangue(code) {
   return _OUTILS_LANGUES[String(code).toLowerCase().slice(0, 2)] || String(code).toUpperCase();
 }
 
-// Nombre de mots du transcript BRUT (avant mise en paragraphes, qui ne
-// touche que les sauts de ligne, jamais les mots eux-mêmes).
 function _outilsCompterMots(texte) {
   return (String(texte || '').trim().match(/\S+/g) || []).length;
 }
@@ -290,12 +330,6 @@ function _outilsTelechargerTxt() {
   telechargerBlob(blob, 'transcription-tiktok.txt');
 }
 
-// Carte "source" de la vidéo (auteur, date, description, stats), commune à
-// la transcription et au téléchargement (même style, retour du
-// propriétaire). Vraie photo de profil (extraireAuteurInfo,
-// api/_lib/tiktok-media.js) quand elle est disponible ; le badge à
-// initiale reste dessous en repli (onerror), au cas où le lien CDN
-// expire, jamais un cadre cassé ou vide.
 function _outilsCarteSourceHtml(meta) {
   meta = meta || {};
   const auteur = meta.auteur || {};
@@ -338,6 +372,10 @@ function afficherResultatTranscription(data) {
 
   const langueTag = _outilsNomLangue(data.langue);
   const nbMots = _outilsCompterMots(data.transcript);
+  // En mode fichier, pas de lien TikTok : le bouton Télécharger n'a rien
+  // à télécharger, on le masque. Le texte « Essayer un autre lien » devient
+  // « Essayer une autre vidéo ».
+  const depuisFichier = _outilsMode === 'fichier';
 
   const res = document.getElementById('outilsResults');
   res.innerHTML = `
@@ -356,21 +394,18 @@ function afficherResultatTranscription(data) {
     </div>
     <div class="err" id="outilsTelechargerDepuisTranscriptionError" style="display:none;margin-top:14px"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:18px">
-      <button class="btn-back" style="margin-bottom:0" onclick="outilsAutreVideo()">← Essayer un autre lien</button>
-      <button class="outils-mini-btn" id="outilsTelechargerDepuisTranscriptionBtn" onclick="outilsTelechargerDepuisTranscription(this)">
-        <span class="sb-gen-spinner" id="outilsTelechargerDepuisTranscriptionSpinner" style="display:none"></span>
-        <span id="outilsTelechargerDepuisTranscriptionTxt" style="display:inline-flex;align-items:center;gap:6px">${ICO('download')} Télécharger</span>
-      </button>
+      <button class="btn-back" style="margin-bottom:0" onclick="outilsAutreVideo()">← Essayer ${depuisFichier ? 'une autre vidéo' : 'un autre lien'}</button>
+      ${depuisFichier ? '' : `
+        <button class="outils-mini-btn" id="outilsTelechargerDepuisTranscriptionBtn" onclick="outilsTelechargerDepuisTranscription(this)">
+          <span class="sb-gen-spinner" id="outilsTelechargerDepuisTranscriptionSpinner" style="display:none"></span>
+          <span id="outilsTelechargerDepuisTranscriptionTxt" style="display:inline-flex;align-items:center;gap:6px">${ICO('download')} Télécharger</span>
+        </button>
+      `}
     </div>
   `;
   res.style.display = 'block';
 }
 
-// Depuis le résultat de la TRANSCRIPTION, télécharge la même vidéo (même
-// lien déjà utilisé) sans quitter cette page (retour du propriétaire) :
-// déclenche directement le partage natif / téléchargement du fichier
-// (voir outilsPartagerVideo), la transcription affichée reste intacte à
-// l'écran, pas de changement d'écran vers le résultat "téléchargement".
 async function outilsTelechargerDepuisTranscription(btn) {
   const lienEl = document.getElementById('outilsLien');
   const lien = (lienEl && lienEl.value || '').trim();
@@ -380,8 +415,6 @@ async function outilsTelechargerDepuisTranscription(btn) {
   if (err) err.style.display = 'none';
   if (!lien) return;
 
-  // Même quota dédié que la transcription (droitAnalyseVirale) : télécharger
-  // après avoir transcrit consomme une 2e unité, une vraie 2e opération.
   const droit = await droitAnalyseVirale();
   if (!droit.ok) {
     if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
@@ -441,12 +474,6 @@ function afficherResultatTelechargement(blob, meta) {
   res.style.display = 'block';
 }
 
-// Symétrique de outilsTelechargerDepuisTranscription (retour du
-// propriétaire) : depuis le résultat du TÉLÉCHARGEMENT, transcrit la même
-// vidéo (même lien déjà utilisé) sans quitter cette page. Contrairement au
-// téléchargement (qui ne change rien à l'écran, juste un partage natif), la
-// transcription produit du texte à afficher : il vient s'ajouter sous le
-// bouton, la carte de téléchargement reste intacte au-dessus.
 async function outilsTranscrireDepuisTelechargement(btn) {
   const lienEl = document.getElementById('outilsLien');
   const lien = (lienEl && lienEl.value || '').trim();
@@ -456,8 +483,6 @@ async function outilsTranscrireDepuisTelechargement(btn) {
   if (err) err.style.display = 'none';
   if (!lien) return;
 
-  // Même quota dédié que le téléchargement (droitAnalyseVirale) : transcrire
-  // après avoir téléchargé consomme une 2e unité, une vraie 2e opération.
   const droit = await droitAnalyseVirale();
   if (!droit.ok) {
     if (droit.raison === 'expire') { gererAbonnementExpire(); return; }
@@ -499,7 +524,7 @@ async function outilsTranscrireDepuisTelechargement(btn) {
           <div class="outils-transcript">${outilsEsc(_outilsTranscript)}</div>
         </div>`;
     }
-    btn.style.display = 'none'; // la transcription est affichée, plus besoin du bouton
+    btn.style.display = 'none';
   } catch (e) {
     if (err) {
       err.textContent = 'Erreur : ' + (e.message || 'réessaie') + '.';
@@ -512,10 +537,6 @@ async function outilsTranscrireDepuisTelechargement(btn) {
   }
 }
 
-// Ouvre la feuille de partage native (fichier déjà en main, pas de nouvel
-// appel serveur) pour enregistrer directement dans la galerie/pellicule.
-// Repli desktop : téléchargement classique (voir telechargerBlob,
-// js/montage.js, même mécanique que « Télécharger la vidéo » du montage).
 async function outilsPartagerVideo() {
   if (!_outilsVideoBlob) return;
   const btn = document.getElementById('outilsDlBtn');
@@ -529,7 +550,6 @@ async function outilsPartagerVideo() {
       telechargerBlob(_outilsVideoBlob, 'scriptura-tiktok.mp4');
     }
   } catch (e) {
-    // Annulation du partage par l'utilisateur : on ne fait rien.
     if (!(e && e.name === 'AbortError') && typeof telechargerBlob === 'function') {
       telechargerBlob(_outilsVideoBlob, 'scriptura-tiktok.mp4');
     }
