@@ -66,7 +66,15 @@ function creditsBarre(pourcent, niveau) {
 function creditsMessageIndisponible(f, d) {
   const detail = d.detail ? ' (' + escAdmin(d.detail) + ')' : '';
   if (d.raison === 'cle_absente') return 'Clé absente côté serveur (variable d\'environnement ' + (f === 'elevenlabs' ? 'ELEVENLABS_API_KEY' : 'TIKHUB_API_KEY') + ' sur Vercel).';
-  if (d.raison === 'droit_lecture') return 'La clé ElevenLabs sert à générer, mais n\'a pas le droit de lire l\'abonnement. Dans ElevenLabs, ouvre la clé et active la permission « User : Read ».' + detail;
+  // Une clé API a des permissions : celle-ci sert à travailler (générer des voix,
+  // lire des profils) mais pas à lire SON PROPRE solde. Ce n'est pas une panne,
+  // c'est un réglage de la clé chez le fournisseur, puis « Actualiser ».
+  if (d.raison === 'droit_lecture' && f === 'elevenlabs') {
+    return 'La clé ElevenLabs sert à générer des voix, mais n\'a pas le droit de lire l\'abonnement. Dans ElevenLabs, ouvre cette clé et active la permission «&nbsp;User&nbsp;: Read&nbsp;», puis clique sur Actualiser.';
+  }
+  if (d.raison === 'droit_lecture' && f === 'tikhub') {
+    return 'La clé TikHub fonctionne pour lire les profils, mais n\'a pas la permission de lire les informations du compte. Dans ton tableau de bord TikHub, ouvre cette clé, ajoute la permission liée au compte utilisateur (souvent nommée «&nbsp;User&nbsp;»), puis clique sur Actualiser.' + (d.detail ? ' Réponse de TikHub&nbsp;: «&nbsp;' + escAdmin(d.detail) + '&nbsp;».' : '');
+  }
   if (d.raison === 'format_inconnu' && f === 'tikhub') {
     const champs = Array.isArray(d.champs) && d.champs.length
       ? ' Champs reçus : ' + d.champs.map(c => escAdmin(c.cle) + ' = ' + escAdmin(c.valeur)).join(' · ') + '.'
@@ -160,7 +168,7 @@ function creditsLigneEstimee(f, d) {
 function carteCreditsApiHTML() {
   const { etat, chargement, erreur } = _creditsApi;
   const enTete = (classe, sous) => `<div class="score-card${classe}" id="adminCreditsApi">
-    <div class="score-title">Crédits API</div>
+    <div class="score-title">Crédits <span class="ia-majuscule">API</span></div>
     ${sous}`;
   if (!etat) {
     return enTete('', `<div class="ideas-sub" style="margin-top:8px">${erreur ? 'Indisponible : ' + escAdmin(erreur) : 'Lecture des soldes en cours…'}</div>
@@ -168,7 +176,9 @@ function carteCreditsApiHTML() {
   }
   const f = etat.fournisseurs;
   const suivis = [f.elevenlabs.disponible, f.tikhub.disponible, !!f.anthropic.estimation, !!f.together.estimation].filter(Boolean).length;
-  const message = {
+  const message = suivis === 0 && etat.niveau === 'ok'
+    ? 'Aucun solde n\'est suivi pour l\'instant&nbsp;: renseigne tes soldes Anthropic et Together, et corrige les clés ci-dessous.'
+    : {
     ok: suivis === 4 ? 'Tout est couvert pour l\'instant.' : 'Rien d\'urgent sur les fournisseurs suivis.',
     bas: 'Un fournisseur sera bientôt à court&nbsp;: recharge avant la panne.',
     critique: 'Un fournisseur est presque à sec&nbsp;: recharge maintenant.',
@@ -182,7 +192,7 @@ function carteCreditsApiHTML() {
     ${creditsLigneReelle('tikhub', f.tikhub)}
     <div class="credits-pied">
       <button type="button" class="credits-btn" onclick="chargerCreditsApi(true)"${chargement ? ' disabled' : ''}>${chargement ? 'Actualisation…' : '↻ Actualiser'}</button>
-      <span>Soldes réels lus ${escAdmin(tempsRelatifCourt(etat.actualiseLe))}.</span>
+      <span>Dernière actualisation ${escAdmin(tempsRelatifCourt(etat.actualiseLe))}.</span>
     </div>
   </div>`);
 }

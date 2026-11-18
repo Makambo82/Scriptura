@@ -283,6 +283,19 @@ test('TikHub : format de réponse inconnu => raison claire ET champs reçus mont
   } finally { restaurer(); retirerEnv(); }
 });
 
+test('TikHub : clé sans la permission de lire le compte (403 réel du 18 novembre) => raison dédiée et message propre, jamais le JSON brut', async () => {
+  poserEnv();
+  const refus = { detail: { code: 403, request_id: '63f581d5-a009-4c1e-8b20-9ec2faeff7d1', message: 'API Token lacks required permissions, please edit the API Token scopes at user dashboard' } };
+  const { restaurer } = poserReseau({ tikhub: () => reponse(refus, 403) });
+  try {
+    const t = (await etat()).fournisseurs.tikhub;
+    assert.equal(t.disponible, false);
+    assert.equal(t.raison, 'droit_lecture', 'REGRESSION : un 403 « permissions » doit être expliqué comme un réglage de clé, pas comme une panne http_403');
+    assert.equal(t.detail, 'API Token lacks required permissions, please edit the API Token scopes at user dashboard',
+      'seul le message du fournisseur remonte, sans les accolades ni le request_id, et sans être coupé en plein mot');
+  } finally { restaurer(); retirerEnv(); }
+});
+
 test('TikHub : niveaux sur le solde en dollars', async () => {
   poserEnv();
   try {

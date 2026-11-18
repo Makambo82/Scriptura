@@ -58,6 +58,14 @@ async function appelExterne(url, entetesExt) {
   } finally { clearTimeout(minuteur); }
 }
 
+// Le message du fournisseur tel qu'il l'écrit, sans le JSON autour : un refus de
+// TikHub arrivait à l'écran sous la forme {"detail":{"code":403,...}} coupée en plein mot.
+function messageFournisseur(data, texte) {
+  const d = data && (data.detail !== undefined ? data.detail : data);
+  const m = (d && typeof d === 'object' && (d.message || d.status)) || (typeof d === 'string' ? d : '') || (data && data.message) || '';
+  return String(m || texte || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
 const niveauParPart = (part) => part <= 0 ? 'epuise' : part <= 0.1 ? 'critique' : part <= 0.2 ? 'bas' : 'ok';
 
 // ── ElevenLabs : point d'accès documenté (GET /v1/user/subscription) ──
@@ -69,8 +77,7 @@ async function lireElevenLabs() {
     if (!ok || !data) {
       // Une clé ElevenLabs peut être restreinte : sans le droit « User : lecture »,
       // elle sert à générer des voix mais pas à lire son propre solde.
-      const detail = String((data && (data.detail && (data.detail.message || data.detail.status) || data.message)) || texte || '').slice(0, 160);
-      return { mode: 'reel', disponible: false, raison: status === 401 || status === 403 ? 'droit_lecture' : 'http_' + status, detail };
+      return { mode: 'reel', disponible: false, raison: status === 401 || status === 403 ? 'droit_lecture' : 'http_' + status, detail: messageFournisseur(data, texte) };
     }
     const utilises = Number(data.character_count), limite = Number(data.character_limit);
     if (!Number.isFinite(utilises) || !Number.isFinite(limite) || limite <= 0) {
@@ -117,7 +124,9 @@ async function lireTikHub() {
   try {
     const { ok, status, data, texte } = await appelExterne('https://api.tikhub.io/api/v1/tikhub/user/get_user_info', { Authorization: 'Bearer ' + key });
     if (!ok || !data) {
-      return { mode: 'reel', disponible: false, raison: 'http_' + status, detail: String(texte || '').replace(/\s+/g, ' ').slice(0, 160) };
+      // 401/403 : le point d'accès existe mais la clé n'a pas la permission de lire le compte
+      // (TikHub répond « API Token lacks required permissions »). Cas réel constaté le 18 novembre.
+      return { mode: 'reel', disponible: false, raison: status === 401 || status === 403 ? 'droit_lecture' : 'http_' + status, detail: messageFournisseur(data, texte) };
     }
     const champs = [];
     aplatir(data, '', champs, 0);

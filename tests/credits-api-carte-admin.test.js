@@ -181,3 +181,43 @@ test('réponse « ok » SANS le détail des fournisseurs : la carte se dégrade,
     assert.ok(await page.evaluate(() => document.querySelectorAll('#adminStats > .score-card').length >= 3), 'le reste du tableau de bord est intact');
   } finally { await navigateur.close(); await arreter(); }
 });
+
+// Capture réelle du propriétaire (18 novembre) : ElevenLabs et TikHub refusent la lecture du solde
+// (clés sans la permission), Anthropic et Together n'ont pas encore de solde saisi.
+test('clés sans permission de lecture : messages en français qui disent quoi faire, aucun JSON brut, pas de « rien d\'urgent » trompeur', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    const erreursJs = [];
+    page.on('pageerror', e => erreursJs.push(e.message));
+    const detailTikHub = 'API Token lacks required permissions, please edit the API Token scopes at user dashboard';
+    await poserMocksReseau(page, { data: (b) => b.action === 'credits-api' ? {
+      ok: true, actualiseLe: new Date().toISOString(), niveau: 'ok',
+      fournisseurs: {
+        elevenlabs: { mode: 'reel', disponible: false, raison: 'droit_lecture', detail: 'The API key you used is missing the permission user_read to execute this operation.' },
+        tikhub: { mode: 'reel', disponible: false, raison: 'droit_lecture', detail: detailTikHub },
+        anthropic: { mode: 'estime', saisie: null, estimation: null, depenseMesureeCentimes: 0, niveau: null },
+        together: { mode: 'estime', saisie: null, estimation: null, depenseMesureeCentimes: 0, niveau: null, prixUsd: { image: 0.04, video: 0.08 }, compte: { image: 0, video: 0 } }
+      } } : (b.resource === 'admin-stats' && !b.action ? { codes: [], parModePlan: {}, erreursParMode: {}, erreursTotal: 0, erreursRecentes: [] } : undefined) });
+    await ouvrirTableau(page, baseUrl);
+    await page.waitForSelector('#adminCreditsApi [data-fournisseur="tikhub"]');
+    const vu = await page.evaluate(() => {
+      const c = document.getElementById('adminCreditsApi');
+      const l = (f) => c.querySelector(`[data-fournisseur="${f}"]`).textContent.replace(/\s+/g, ' ');
+      return { titre: c.querySelector('.score-title').textContent, entete: c.textContent, eleven: l('elevenlabs'), tikhub: l('tikhub') };
+    });
+    assert.equal(vu.titre, 'Crédits API', 'REGRESSION : « API » s\'affichait en minuscules (« Crédits api »)');
+    assert.match(vu.entete, /Aucun solde n'est suivi/, 'REGRESSION : « Rien d\'urgent » alors qu\'aucun fournisseur n\'est suivi');
+    assert.ok(!/Rien d'urgent/.test(vu.entete));
+    assert.match(vu.eleven, /User\s*:\s*Read/, 'ElevenLabs : la permission à activer est nommée');
+    assert.match(vu.eleven, /Actualiser/);
+    assert.ok(!/missing the permission/i.test(vu.eleven), 'l\'anglais brut du fournisseur ne s\'affiche pas quand on a une explication française');
+    assert.match(vu.tikhub, /permission/i, 'TikHub : expliqué comme un réglage de clé');
+    assert.match(vu.tikhub, /tableau de bord TikHub/);
+    assert.ok(vu.tikhub.includes(detailTikHub), 'la réponse de TikHub est citée en entier, sans coupure en plein mot');
+    assert.ok(!/[{}]|request_id|"detail"/.test(vu.tikhub + vu.eleven), 'REGRESSION : du JSON brut s\'affichait à l\'écran');
+    assert.ok(!/non lu.*non lu.*non lu/.test(vu.entete));
+    assert.deepEqual(erreursJs, []);
+  } finally { await navigateur.close(); await arreter(); }
+});
