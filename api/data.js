@@ -14,7 +14,6 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, lireUsageMontageImages, lireUsageImages, lireUsageAnonyme, verifierAccesMontage, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
-import { creditsApiEtat, creditsApiSaisie } from './_lib/credits-api.js';
 
 function config() {
   // Slash final retiré (incident vécu : une variable d'environnement
@@ -667,20 +666,6 @@ async function handleAdminStats(req, res, cfg, body) {
   if (body?.action === 'stockage-montages-purger') return await nettoyageStockagePurger(res, cfg);
   if (body?.action === 'stockage-rendus-etat') return await nettoyageRendusEtat(res, cfg);
   if (body?.action === 'stockage-rendus-purger') return await nettoyageRendusPurger(res, cfg);
-
-  // Carte « Crédits API » (voir api/_lib/credits-api.js) : soldes réels
-  // ElevenLabs/TikHub, solde estimé Anthropic/Together, et saisie du solde
-  // après une recharge. Dans cette fonction-ci : Vercel Hobby plafonne à 12.
-  if (body?.action === 'credits-api') {
-    try { return res.status(200).json(await creditsApiEtat(cfg, { actualiser: body.actualiser === true })); }
-    catch (e) { return res.status(200).json({ indisponible: true }); }
-  }
-  if (body?.action === 'credits-api-solde') {
-    const r = await creditsApiSaisie(cfg, body);
-    if (r.status !== 200) return res.status(r.status).json({ ok: false, error: { message: r.error } });
-    try { return res.status(200).json(await creditsApiEtat(cfg)); }
-    catch (e) { return res.status(200).json({ ok: true, indisponible: true }); }
-  }
 
   // Bascule actif/inactif d'un code depuis le tableau de bord (interrupteur
   // par ligne, voir toggleActifAbonneAdmin, js/admin.js). Jamais pour le

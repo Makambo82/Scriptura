@@ -49,13 +49,7 @@ function poserFetchMock({ abonneRows, quotaOk = true, rpcAppels, usageRows }) {
       return { ok: true, json: async () => (abonneRows != null ? abonneRows : []) };
     }
     if (u.includes('/rest/v1/rpc/consommer_usage')) {
-      // Les refs « depense_* » sont la MESURE DE DÉPENSE du Tableau de bord
-      // (api/_lib/depenses.js), pas un décompte de quota : elles passent par
-      // la même fonction SQL mais ne concernent pas ce que ce test vérifie.
-      if (rpcAppels && opts && opts.body) {
-        const corps = JSON.parse(opts.body);
-        if (!String(corps.p_ref).startsWith('depense_')) rpcAppels.push(corps);
-      }
+      if (rpcAppels && opts && opts.body) rpcAppels.push(JSON.parse(opts.body));
       return { ok: true, json: async () => quotaOk };
     }
     if (u.includes('/rest/v1/usage_serveur')) {

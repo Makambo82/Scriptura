@@ -4,7 +4,6 @@
 // de la résolution des droits (le serveur ne fait plus confiance au client :
 // ni pour le plan, ni pour le quota, ni pour le modèle/nombre de tokens).
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, verifierLimiteGenerique, verifierAccesProOuJeton, rembourserUsage, codeAccesRefuse, MAX_FREE } from './_lib/acces.js';
-import { noterDepenseAnthropic } from './_lib/depenses.js';
 
 // Seuls modèles réellement utilisés par l'app pour ce type d'appel (voir
 // MODEL_CREATIF/MODEL_RAPIDE/MODEL_QUALITE_RECIT/MODEL_JUGE_SECOURS,
@@ -318,10 +317,8 @@ export default async function handler(req, res) {
       // on le jetait : `message_start` porte les jetons d'entrée (et ceux lus
       // en cache), `message_delta` le total de sortie une fois fini.
       const jetons = { entree: 0, sortie: 0, cache_lu: 0, cache_ecrit: 0 };
-      let recherchesWeb = 0; // facturées à part (10 $ les 1 000), voir api/_lib/depenses.js
       const noterUsage = (u) => {
         if (!u) return;
-        if (u.server_tool_use && typeof u.server_tool_use.web_search_requests === 'number') recherchesWeb = u.server_tool_use.web_search_requests;
         if (typeof u.input_tokens === 'number') jetons.entree = u.input_tokens;
         if (typeof u.output_tokens === 'number') jetons.sortie = u.output_tokens;
         if (typeof u.cache_read_input_tokens === 'number') jetons.cache_lu = u.cache_read_input_tokens;
@@ -356,14 +353,6 @@ export default async function handler(req, res) {
       // n'écrit jamais dans du texte ni dans du JSON. callAI le détache avant
       // que quoi que ce soit d'autre ne voie la réponse, aperçu compris.
       res.write(SEPARATEUR_JETONS + JSON.stringify(jetons));
-      // Compté APRÈS l'envoi du relevé au créateur : il a déjà tout son texte,
-      // l'écriture du compteur (plafonnée à 2 s, jamais bloquante) ne retarde
-      // que la fermeture de la connexion.
-      await noterDepenseAnthropic(modeleFinal, {
-        input_tokens: jetons.entree, output_tokens: jetons.sortie,
-        cache_read_input_tokens: jetons.cache_lu, cache_creation_input_tokens: jetons.cache_ecrit,
-        server_tool_use: { web_search_requests: recherchesWeb }
-      });
       return res.end();
     }
 
@@ -383,7 +372,6 @@ export default async function handler(req, res) {
       await rembourserQuotaSiNecessaire();
     }
     const data = await response.json();
-    if (response.ok) await noterDepenseAnthropic(modeleFinal, data && data.usage);
     return res.status(response.status).json(data);
 
   } catch (error) {

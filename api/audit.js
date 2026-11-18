@@ -7,7 +7,6 @@
 //  Fichier INDÉPENDANT : ne touche pas aux autres modes de Scriptura.
 // ═══════════════════════════════════════════════════════════
 import { resoudreDroits, verifierQuota, verifierLimiteAnonyme, codeAccesRefuse } from './_lib/acces.js';
-import { noterDepenseAnthropic } from './_lib/depenses.js';
 
 // Seuls modèles réellement utilisés par cette route (voir MODEL_AUDIT côté
 // client pour l'analyse réelle, 'classify' plus bas utilise Haiku en dur).
@@ -331,7 +330,6 @@ export default async function handler(req, res) {
       });
       const dataC = await repC.json();
       if (!repC.ok) return res.status(repC.status).json(dataC);
-      await noterDepenseAnthropic('claude-haiku-4-5-20251001', dataC && dataC.usage);
       return res.status(200).json(dataC);
     }
 
@@ -406,7 +404,6 @@ export default async function handler(req, res) {
       return res.status(reponse.status).json(data);
     }
 
-    await noterDepenseAnthropic(modeleFinal, data && data.usage);
     return res.status(200).json(data);
 
   } catch (e) {
