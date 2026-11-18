@@ -112,10 +112,11 @@
   // 3bis. NOUVEAU DÉPLOIEMENT VERCEL → même bannière
   // ───────────────────────────────────────────────────────
   // Retour propriétaire (18 novembre) : prévenir les créateurs à CHAQUE mise
-  // en ligne, pas seulement quand sw.js change. On relit la page en ligne et
-  // on compare son ?v= au nôtre : chaque livraison qui touche js/ ou css/ le
-  // change (rituel anti-cache, CLAUDE.md). Un déploiement qui ne touche que
-  // api/ ne le change pas, et c'est voulu : rien à recharger côté navigateur.
+  // en ligne, quel que soit le fichier modifié dans le dépôt. Deux signaux :
+  //  1. le ?v= de la page en ligne comparé au nôtre (livraison qui touche
+  //     js/ ou css/, rituel anti-cache, CLAUDE.md) ;
+  //  2. le SHA du commit déployé (/api/data?resource=version), comparé à
+  //     celui vu à l'ouverture : attrape aussi api/, la doc, les tests.
   // Aucune fonction serveur ajoutée (Vercel Hobby plafonne à 12, on y est).
   const INTERVALLE_VERIF_MS = 3 * 60 * 1000;
   const DELAI_MIN_ENTRE_VERIFS_MS = 45 * 1000;
@@ -123,6 +124,19 @@
   // « Plus tard » sur une version : on ne la repropose plus à chaque passage.
   // Seule une mise en ligne ENCORE plus récente rouvre la bannière.
   let versionProposee = null, versionIgnoree = null;
+  // Identité du déploiement vu à l'ouverture (SHA du commit, via
+  // /api/data?resource=version). Retour propriétaire : prévenir pour N'IMPORTE
+  // QUELLE modification du dépôt, pas seulement quand js/ ou css/ changent.
+  // null = pas encore connue (ou indisponible : on ne compare alors rien).
+  let deploiementLocal = null;
+  async function lireDeploiement() {
+    try {
+      const r = await fetch('/api/data?resource=version', { cache: 'no-store' });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return (j && j.ok && typeof j.deploiement === 'string' && j.deploiement) || null;
+    } catch (e) { return null; }
+  }
   async function verifierNouvelleVersion(force) {
     if (!VERSION_LOCALE || document.getElementById('majBanner')) return;
     if (navigator.onLine === false || document.visibilityState === 'hidden') return;
@@ -133,11 +147,18 @@
       // avec l'ETag, qui répond 304 (quelques octets) tant que rien n'a
       // changé. Même fraîcheur, pour un coût bien plus faible, ce qui permet
       // de vérifier souvent.
-      const r = await fetch('/index.html', { cache: 'no-cache' });
+      const [r, deploiement] = await Promise.all([fetch('/index.html', { cache: 'no-cache' }), lireDeploiement()]);
       if (!r.ok) { derniereVerif = 0; return; }
       const distante = (await r.text()).match(/js\/pwa\.js\?v=([^"'&]+)/)?.[1];
-      if (distante && distante !== VERSION_LOCALE && distante !== versionIgnoree) {
-        versionProposee = distante;
+      // Première réponse : c'est la version qu'on affiche. Les suivantes sont
+      // comparées. (Si la lecture a échoué, on retentera la référence au
+      // prochain passage.)
+      if (deploiementLocal === null && deploiement) deploiementLocal = deploiement;
+      const deploiementChange = !!(deploiement && deploiementLocal && deploiement !== deploiementLocal);
+      const cle = (distante || '') + '|' + (deploiement || '');
+      const versionChange = !!(distante && distante !== VERSION_LOCALE);
+      if ((versionChange || deploiementChange) && cle !== versionIgnoree) {
+        versionProposee = cle;
         // Le nouveau sw.js éventuel s'installe aussi, sinon un service
         // worker resté ancien servirait encore l'ancienne page hors ligne.
         if (registration) registration.update().catch(() => {});
@@ -149,6 +170,10 @@
       derniereVerif = 0;
     }
   }
+  // Référence dès l'ouverture, sans attendre la première vérification : plus
+  // elle est prise tôt, moins un déploiement tout juste passé peut passer
+  // inaperçu.
+  lireDeploiement().then((d) => { if (d && deploiementLocal === null) deploiementLocal = d; });
   // Signaux de vérification : 1 min après l'ouverture, toutes les 3 min,
   // et à CHAQUE retour sur l'app (onglet affiché, app rouverte depuis
   // l'écran d'accueil, réseau revenu, fenêtre reprise). Une app installée

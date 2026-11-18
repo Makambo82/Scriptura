@@ -1611,6 +1611,17 @@ export default async function handler(req, res) {
 
   const resource = req.method === 'GET' ? (req.query && req.query.resource) : body.resource;
 
+  // Identité du déploiement en ligne, pour la bannière « nouvelle version »
+  // (js/pwa.js). Le SHA du commit change dès qu'un fichier du dépôt change
+  // sur main, y compris api/ ou la doc, que le ?v= de index.html ne voit pas.
+  // Public et sans donnée sensible. Jamais mis en cache : c'est le but.
+  if (resource === 'version') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (req.method !== 'GET') return res.status(405).json({ ok: false });
+    const id = process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || null;
+    return res.status(200).json({ ok: true, deploiement: id ? String(id).slice(0, 40) : null });
+  }
+
   if (resource === 'presence') return handlePresence(req, res, body);
   if (resource === 'presence-admin') return handlePresenceAdmin(req, res, body);
   if (resource === 'preuveSociale') return handlePreuveSociale(req, res);
