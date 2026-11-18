@@ -5,7 +5,7 @@
 // différence dans ce fichier et garde l'ancienne version en cache.
 // Commande : sed -i "s|^// VERSION=.*|// VERSION=$(date +%Y%m%d)-1|" sw.js
 // ─────────────────────────────────────────────────────────
-// VERSION=20261111-1
+// VERSION=20261118-1
 
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.0.0/workbox-sw.js');
 
@@ -38,6 +38,15 @@ if (workbox) {
   // 2. Supabase : jamais de cache non plus (session périmée = bug).
   registerRoute(
     ({ url }) => url.hostname.endsWith('.supabase.co'),
+    new NetworkOnly()
+  );
+
+  // 2bis. Page de debug : exclue du cache. Déclarée AVANT la navigation :
+  //    Workbox prend la PREMIÈRE route qui correspond, et la règle de
+  //    navigation ci-dessous attrapait aussi cette page (déclarée en
+  //    dernier, cette exclusion ne s'appliquait jamais).
+  registerRoute(
+    ({ url }) => url.pathname === '/debug-tendances.html',
     new NetworkOnly()
   );
 
@@ -87,11 +96,4 @@ if (workbox) {
     new StaleWhileRevalidate({ cacheName: 'cdn' })
   );
 
-  // 7. Page de debug : on l'exclut explicitement. C'est du noindex,
-  //    aucun intérêt à la mettre en cache, et ça évite qu'un vieux
-  //    debug-tendances.html ne réapparaisse après un nettoyage.
-  registerRoute(
-    ({ url }) => url.pathname === '/debug-tendances.html',
-    new NetworkOnly()
-  );
 }

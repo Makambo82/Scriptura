@@ -48,7 +48,9 @@ test('js/pwa.js : enregistre le SW et gère beforeinstallprompt', () => {
   const fichier = path.join(RACINE, 'js/pwa.js');
   assert.ok(fs.existsSync(fichier));
   const src = fs.readFileSync(fichier, 'utf8');
-  assert.match(src, /serviceWorker\.register\(['"]\/sw\.js['"]\)/);
+  // \s* : js/pwa.js écrit l'appel sur deux lignes (navigator.serviceWorker
+  // puis .register('/sw.js')), ce qui est parfaitement valide.
+  assert.match(src, /serviceWorker\s*\.register\(\s*['"]\/sw\.js['"]\s*\)/);
   assert.match(src, /beforeinstallprompt/);
   assert.match(src, /SKIP_WAITING/);
 });

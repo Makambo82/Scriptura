@@ -62,10 +62,12 @@ test('le manifeste Android est valide et ses icônes existent (dont une maskable
   const man = JSON.parse(fs.readFileSync(path.join(RACINE, 'site.webmanifest'), 'utf8'));
   assert.equal(man.short_name, 'Scriptura');
   assert.equal(man.start_url, '/');
-  // "browser" et pas "standalone" : en mode standalone, iOS isole le
-  // localStorage de celui de Safari, le créateur se retrouverait sans son
-  // code d'accès ni son historique en ouvrant l'icône de l'écran d'accueil.
-  assert.equal(man.display, 'browser', 'REGRESSION : passer en standalone isolerait le localStorage sur iOS');
+  // "standalone" : choix du propriétaire (11 novembre), Scriptura devient
+  // une application installable (voir sw.js, js/pwa.js, tests/pwa.test.js).
+  // Contrepartie connue et acceptée : sur iPhone, l'app installée a son
+  // propre stockage, séparé de Safari. Le créateur y ressaisit une fois son
+  // code d'accès, qui resynchronise ensuite son historique.
+  assert.equal(man.display, 'standalone');
   for (const ic of man.icons) {
     const [l, h] = taillePng(fs.readFileSync(fichier(ic.src)));
     assert.equal(`${l}x${h}`, ic.sizes, 'taille réelle ≠ taille déclarée pour ' + ic.src);
