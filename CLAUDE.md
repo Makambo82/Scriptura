@@ -8,7 +8,7 @@ de moi-même, comme un pro qui possède le produit.
 
 ## Definition of Done (à faire à la fin de CHAQUE tâche, sans qu'on me le demande)
 1. **Casse / erreurs / régressions.** `node --check` sur chaque fichier touché,
-   puis smoke test headless (Chromium `/opt/pw-browsers/chromium-1194`, via
+   puis smoke test headless (Chromium pré-installé sous `/opt/pw-browsers`, via
    `playwright-core`) : la page charge sans erreur console, les fonctions clés
    existent, et JE TESTE LE FLUX IMPACTÉ (pas juste « ça compile »). Je vérifie
    aussi que je n'ai pas cassé un flux voisin (navigation, quotas, score, audit).
@@ -39,6 +39,10 @@ de moi-même, comme un pro qui possède le produit.
   `sed -i "s|?v=[0-9-]*\"|?v=$(date +%Y%m%d)-1\"|g" index.html` (incrémenter le
   suffixe si plusieurs livraisons le même jour). Verrouillé par
   `tests/fichiers-versionnes-anti-cache.test.js`.
+  Ce même numéro déclenche la bannière « Une nouvelle version de Scriptura
+  est prête · Recharger » chez les créateurs qui ont l'app ouverte ou
+  installée (`js/pwa.js`, vérifié toutes les 10 min et au retour sur l'app) :
+  oublier le bump, c'est aussi les priver de la mise à jour.
 - **Scores toujours déterministes** : le CODE calcule les notes à partir des
   chiffres réels, l'IA ne note jamais (elle rédige les constats). Mêmes données
   ⇒ même score. C'est un pilier de crédibilité, ne jamais y déroger.

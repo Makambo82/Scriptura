@@ -21,7 +21,10 @@ let _outilsTranscript = '';        // pour les boutons Copier/Partager
 let _outilsVideoBlob = null;       // vidéo déjà récupérée, pour le bouton Télécharger
 let _outilsMode = 'lien';          // 'lien' | 'fichier'
 let _outilsFichier = null;         // File object si mode fichier
-const OUTILS_TAILLE_MAX_MO = 100;
+// 50 Mo : plafond PAR FICHIER de Supabase Storage sur le plan gratuit du
+// projet. Au-delà, l'envoi direct vers le bucket échoue, même si
+// ElevenLabs accepterait bien plus.
+const OUTILS_TAILLE_MAX_MO = 50;
 
 function ouvrirOutilsTikTok() {
   if (typeof pushNav === 'function') pushNav();
@@ -51,6 +54,9 @@ function resetOutilsTikTok() {
   _outilsFichier = null;
   const info = document.getElementById('outilsFichierInfo');
   if (info) { info.style.display = 'none'; info.innerHTML = ''; }
+  // Sinon re-choisir la MÊME vidéo ne déclenche plus onchange.
+  const input = document.getElementById('outilsFichierInput');
+  if (input) input.value = '';
   outilsChoisirMode('lien');
 }
 
@@ -64,6 +70,10 @@ function outilsChoisirMode(mode) {
   const champFichier = document.getElementById('outilsChampFichier');
   if (champLien) champLien.style.display = _outilsMode === 'lien' ? '' : 'none';
   if (champFichier) champFichier.style.display = _outilsMode === 'fichier' ? '' : 'none';
+  // En mode fichier, rien à télécharger (pas de source TikTok) : le bouton
+  // disparaît, sinon un clic réclamait un lien que l'utilisateur n'a pas.
+  const btnD = document.getElementById('outilsTelechargementBtn');
+  if (btnD) btnD.style.display = _outilsMode === 'fichier' ? 'none' : '';
   const err = document.getElementById('outilsError');
   if (err) err.style.display = 'none';
 }
@@ -87,7 +97,7 @@ function outilsChargerFichier(files) {
   if (info) {
     info.style.display = 'block';
     info.className = 'outils-fichier-info';
-    info.innerHTML = '📎 <strong>' + outilsEsc(f.name) + '</strong> (' + (f.size / 1024 / 1024).toFixed(1) + ' Mo) prêt.';
+    info.innerHTML = '<strong>' + outilsEsc(f.name) + '</strong> (' + (f.size / 1024 / 1024).toFixed(1).replace('.', ',') + ' Mo) prête à transcrire.';
   }
 }
 

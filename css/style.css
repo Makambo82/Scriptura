@@ -4669,7 +4669,10 @@ body.hero-focus .hero-retour::first-letter,
   left:50%;transform:translateX(-50%);
   z-index:280;
   display:flex;align-items:center;gap:12px;
-  max-width:calc(100vw - 24px);
+  /* width:max-content : positionnée à left:50%, la boîte ne disposait que de
+     la MOITIÉ de l'écran pour calculer sa largeur, et le texte s'empilait
+     un mot par ligne sur mobile (constaté au 18 novembre). */
+  width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;
   padding:12px 14px 12px 18px;
   background:var(--bg-card);
   border:1px solid var(--border);
@@ -4721,6 +4724,17 @@ body.hero-focus .hero-retour::first-letter,
   background:var(--gold-pale);border-color:var(--gold);
 }
 [data-install-app].install-cta .ico{width:14px;height:14px}
+
+/* ── TRANSCRIPTION D'UNE VIDÉO DE LA GALERIE (Outils TikTok) ──
+   Bouton de choix du fichier et bloc "prête à transcrire" : doré doux,
+   jamais rouge, ce n'est pas une erreur mais un état prêt à envoyer. */
+.outils-fichier-btn{display:inline-flex;align-items:center;gap:8px}
+.outils-fichier-btn .ico{width:18px;height:18px}
+.outils-fichier-info{
+  padding:10px 14px;border-radius:10px;background:var(--gold-pale);
+  border:1px solid var(--border-soft);font-size:0.85rem;color:var(--gold-light);
+  line-height:1.5;word-break:break-word;
+}
 /* Filet : le panneau de montage ne doit jamais apparaître sans clic.
    Bloque même si un JS pose .active par erreur au chargement. */
 #montageModal:not(.active){display:none !important}

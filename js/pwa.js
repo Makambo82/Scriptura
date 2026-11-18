@@ -7,7 +7,11 @@
 (function () {
   'use strict';
 
-  if (!('serviceWorker' in navigator)) return;
+  // Le numéro de version de CE chargement : le ?v= de ce script, le même
+  // pour tous les fichiers de index.html (voir l'anti-cache, CLAUDE.md).
+  const scriptCourant = document.currentScript;
+  const VERSION_LOCALE = ((scriptCourant && scriptCourant.src) || '').match(/[?&]v=([^&#]+)/)?.[1] || null;
+  const avecSW = 'serviceWorker' in navigator;
 
   // ───────────────────────────────────────────────────────
   // 1. ENREGISTREMENT
@@ -15,7 +19,7 @@
   let registration = null;
   let workerEnAttente = null;
 
-  window.addEventListener('load', () => {
+  if (avecSW) window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((reg) => {
@@ -47,7 +51,7 @@
 
   // Si un SW est déjà en attente au moment du chargement (cas d'une
   // page rechargée pendant qu'une MAJ attendait), on le retrouve.
-  navigator.serviceWorker.ready.then((reg) => {
+  if (avecSW) navigator.serviceWorker.ready.then((reg) => {
     if (reg.waiting && navigator.serviceWorker.controller) {
       workerEnAttente = reg.waiting;
       afficherBanniereMaj(reg.waiting);
@@ -61,7 +65,7 @@
   // UNE fois pour que tous les assets soient réellement à jour (même
   // logique que ton anti-cache : jamais un mélange ancien/nouveau).
   let rechargementEnCours = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
+  if (avecSW) navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (rechargementEnCours) return;
     rechargementEnCours = true;
     window.location.reload();
@@ -85,11 +89,13 @@
     document.body.appendChild(b);
 
     document.getElementById('majRechargerBtn').addEventListener('click', () => {
-      if (workerEnAttente) {
-        workerEnAttente.postMessage({ type: 'SKIP_WAITING' });
-      }
       b.remove();
-      // Le reload se fera via controllerchange ci-dessus.
+      // Un service worker attend : il prend la main, puis controllerchange
+      // recharge. Sinon (nouveau déploiement sans changement de sw.js, ou
+      // navigateur sans service worker), on recharge nous-mêmes : avant,
+      // ce bouton fermait la bannière sans rien recharger dans ce cas.
+      if (workerEnAttente) workerEnAttente.postMessage({ type: 'SKIP_WAITING' });
+      else window.location.reload();
     });
 
     // "Plus tard" : on laisse la bannière se refermer, mais le SW
@@ -97,9 +103,47 @@
     // (le navigateur active le worker en attente quand tous les
     // onglets sont fermés, comportement natif).
     document.getElementById('majFermerBtn').addEventListener('click', () => {
+      versionIgnoree = versionProposee;
       b.remove();
     });
   }
+
+  // ───────────────────────────────────────────────────────
+  // 3bis. NOUVEAU DÉPLOIEMENT VERCEL → même bannière
+  // ───────────────────────────────────────────────────────
+  // Retour propriétaire (18 novembre) : prévenir les créateurs à CHAQUE mise
+  // en ligne, pas seulement quand sw.js change. On relit la page en ligne et
+  // on compare son ?v= au nôtre : chaque livraison qui touche js/ ou css/ le
+  // change (rituel anti-cache, CLAUDE.md). Un déploiement qui ne touche que
+  // api/ ne le change pas, et c'est voulu : rien à recharger côté navigateur.
+  // Aucune fonction serveur ajoutée (Vercel Hobby plafonne à 12, on y est).
+  const INTERVALLE_VERIF_MS = 10 * 60 * 1000;
+  let derniereVerif = 0;
+  // « Plus tard » sur une version : on ne la repropose plus toutes les 10
+  // minutes. Seule une mise en ligne ENCORE plus récente rouvre la bannière.
+  let versionProposee = null, versionIgnoree = null;
+  async function verifierNouvelleVersion(force) {
+    if (!VERSION_LOCALE || document.getElementById('majBanner')) return;
+    if (navigator.onLine === false || document.visibilityState === 'hidden') return;
+    if (force !== true && Date.now() - derniereVerif < 2 * 60 * 1000) return;
+    derniereVerif = Date.now();
+    try {
+      const r = await fetch('/index.html', { cache: 'no-store' });
+      if (!r.ok) return;
+      const distante = (await r.text()).match(/js\/pwa\.js\?v=([^"'&]+)/)?.[1];
+      if (distante && distante !== VERSION_LOCALE && distante !== versionIgnoree) {
+        versionProposee = distante;
+        // Le nouveau sw.js éventuel s'installe aussi, sinon un service
+        // worker resté ancien servirait encore l'ancienne page hors ligne.
+        if (registration) registration.update().catch(() => {});
+        afficherBanniereMaj(null);
+      }
+    } catch (e) { /* réseau capricieux : on réessaiera au prochain passage */ }
+  }
+  window.addEventListener('load', () => setTimeout(() => verifierNouvelleVersion(false), 60 * 1000));
+  setInterval(() => verifierNouvelleVersion(false), INTERVALLE_VERIF_MS);
+  document.addEventListener('visibilitychange', () => verifierNouvelleVersion(false));
+  window.verifierNouvelleVersion = verifierNouvelleVersion; // tests (voir tests/pwa-nouvelle-version.test.js)
 
   // ───────────────────────────────────────────────────────
   // 4. BOUTON D'INSTALLATION (beforeinstallprompt)
