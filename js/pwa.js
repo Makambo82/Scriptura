@@ -202,7 +202,27 @@
     installPrompt = e;
     const btns = document.querySelectorAll('[data-install-app]');
     btns.forEach((btn) => { btn.style.display = 'flex'; });
+    if (delaiInvitationEcoule) proposerInstallation(false);
   });
+
+  // Lance l'installation native (Chrome Android / ordinateur). Le prompt ne
+  // peut être appelé qu'UNE fois par session.
+  async function lancerInstallation() {
+    if (!installPrompt) return false;
+    const promptEnCours = installPrompt;
+    promptEnCours.prompt();
+    const { outcome } = await promptEnCours.userChoice;
+    installPrompt = null;
+    // On cache tous les boutons, quel que soit le choix.
+    document.querySelectorAll('[data-install-app]').forEach((b) => {
+      b.style.display = 'none';
+    });
+    retirerInvitationInstall();
+    if (outcome === 'accepted') {
+      console.log('[pwa] Installation acceptée.');
+    }
+    return outcome === 'accepted';
+  }
 
   // Délégation d'événement : on ne câble pas chaque bouton un par un,
   // on écoute au niveau du document. Ça marche même pour les boutons
@@ -211,8 +231,11 @@
     const btn = e.target.closest('[data-install-app]');
     if (!btn) return;
     if (!installPrompt) {
-      // Le prompt n'est pas dispo (iOS Safari, ou conditions non
-      // remplies). On donne la marche à suivre.
+      // iPhone / iPad : Safari ne propose jamais l'installation, on montre
+      // le geste exact à faire (même bulle que l'invitation automatique).
+      if (modeIOS) { proposerInstallation(true); return; }
+      // Le prompt n'est pas dispo (conditions non remplies). On donne la
+      // marche à suivre.
       alert(
         'Pour installer Scriptura :\n\n' +
         '• Sur iPhone / iPad : bouton Partager, puis « Sur l\'écran d\'accueil ».\n' +
@@ -221,17 +244,7 @@
       );
       return;
     }
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    installPrompt = null;
-    // On cache tous les boutons, quel que soit le choix : le prompt
-    // ne peut être appelé qu'UNE fois par session.
-    document.querySelectorAll('[data-install-app]').forEach((b) => {
-      b.style.display = 'none';
-    });
-    if (outcome === 'accepted') {
-      console.log('[pwa] Installation acceptée.');
-    }
+    await lancerInstallation();
   });
 
   // L'app installée vient d'être lancée ? On n'affiche plus le bouton.
@@ -241,4 +254,88 @@
     });
     installPrompt = null;
   });
+
+  // ───────────────────────────────────────────────────────
+  // 5. INVITATION À INSTALLER (iPhone, Chrome iOS, Chrome Android)
+  // ───────────────────────────────────────────────────────
+  // Retour propriétaire : rien ne disait aux créateurs qu'une app existe.
+  // Chrome Android ne montrait qu'un bouton discret dans le menu, et Safari
+  // sur iPhone ne propose JAMAIS l'installation (le bouton restait caché).
+  // Une petite bulle, une seule fois par session, après un temps de
+  // lecture, jamais si l'app est déjà installée, et une croix qui la
+  // ferme pour de bon (le bouton du menu reste là pour y revenir).
+  const UA = navigator.userAgent || '';
+  const estIOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const estAndroid = /Android/i.test(UA);
+  // Navigateur intégré d'une autre app (TikTok, Instagram, Facebook...) : c'est
+  // par là qu'arrivent les clics « lien en bio ». On ne peut PAS y ajouter à
+  // l'écran d'accueil, la consigne serait fausse : on ne propose rien.
+  const iosIntegre = estIOS && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(UA) && !(/Safari\//.test(UA) && /Version\//.test(UA));
+  const modeIOS = estIOS && !iosIntegre;
+  const dejaInstallee = () => {
+    try { if (navigator.standalone === true) return true; } catch (e) {}
+    try { return window.matchMedia('(display-mode: standalone)').matches; } catch (e) { return false; }
+  };
+  const CLE_INVITATION_FERMEE = 'scriptura_invitation_install_fermee';
+  const CLE_INVITATION_VUE = 'scriptura_invitation_install_vue';
+  let delaiInvitationEcoule = false;
+
+  function lire(stockage, cle) { try { return window[stockage].getItem(cle); } catch (e) { return null; } }
+  function ecrire(stockage, cle, v) { try { window[stockage].setItem(cle, v); } catch (e) {} }
+
+  function retirerInvitationInstall() {
+    const b = document.getElementById('installBanner');
+    if (b) b.remove();
+  }
+
+  // `demande` = true : l'utilisateur a lui-même touché « Installer l'application »,
+  // on montre le guide même s'il avait fermé l'invitation automatique.
+  function proposerInstallation(demande) {
+    if (document.getElementById('installBanner') || dejaInstallee()) return;
+    if (!modeIOS && !(estAndroid && installPrompt)) return;
+    if (!demande) {
+      if (lire('localStorage', CLE_INVITATION_FERMEE) || lire('sessionStorage', CLE_INVITATION_VUE)) return;
+      // Jamais par-dessus la bannière de mise à jour : on repasse plus tard.
+      if (document.getElementById('majBanner')) { setTimeout(() => proposerInstallation(false), 20 * 1000); return; }
+      if (document.visibilityState === 'hidden') return;
+    }
+    ecrire('sessionStorage', CLE_INVITATION_VUE, '1');
+
+    const b = document.createElement('div');
+    b.id = 'installBanner';
+    b.className = 'maj-banner install-banner';
+    b.setAttribute('role', 'status');
+    b.setAttribute('aria-live', 'polite');
+    const icoPartager = '<svg class="install-banner-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M6 11H5a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-1"/></svg>';
+    b.innerHTML = modeIOS
+      ? '<span class="maj-banner-txt">✦ Installe Scriptura sur ton écran d\'accueil : touche ' + icoPartager + ' Partager, puis « Sur l\'écran d\'accueil ».</span>' +
+        '<button type="button" class="maj-banner-close" id="installFermerBtn" aria-label="Fermer">✕</button>'
+      : '<span class="maj-banner-txt">✦ Installe Scriptura sur ton téléphone pour l\'ouvrir en un geste.</span>' +
+        '<button type="button" class="maj-banner-btn" id="installBtn">Installer</button>' +
+        '<button type="button" class="maj-banner-close" id="installFermerBtn" aria-label="Plus tard">✕</button>';
+    document.body.appendChild(b);
+
+    document.getElementById('installFermerBtn').addEventListener('click', () => {
+      ecrire('localStorage', CLE_INVITATION_FERMEE, '1');
+      b.remove();
+    });
+    const installer = document.getElementById('installBtn');
+    if (installer) installer.addEventListener('click', () => { lancerInstallation(); });
+  }
+
+  // iPhone : le bouton « Installer l'application » du menu et du pied de page
+  // reste caché tant qu'on croit que le navigateur ne sait pas installer. Ici
+  // il montre le geste à faire, donc on l'affiche (sauf app déjà installée).
+  if (modeIOS && !dejaInstallee()) {
+    const montrerBoutons = () => document.querySelectorAll('[data-install-app]').forEach((btn) => { btn.style.display = 'flex'; });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', montrerBoutons);
+    else montrerBoutons();
+  }
+
+  // Délai de lecture avant la bulle (réglable pour les tests).
+  const DELAI_INVITATION_MS = Number(window.SCRIPTURA_DELAI_INVITATION_MS) >= 0 ? Number(window.SCRIPTURA_DELAI_INVITATION_MS) : 30 * 1000;
+  window.addEventListener('load', () => setTimeout(() => {
+    delaiInvitationEcoule = true;
+    proposerInstallation(false);
+  }, DELAI_INVITATION_MS));
 })();

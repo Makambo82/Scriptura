@@ -4710,6 +4710,9 @@ body.hero-focus .hero-retour::first-letter,
 /* ── BOUTON D'INSTALLATION ──────────────────────────────────
    Masqué par défaut. js/pwa.js le passe en display:flex quand
    beforeinstallprompt est capturé (Chrome/Edge Android desktop). */
+/* Invitation à installer (iPhone, Chrome Android) : même habillage que la
+   bannière de mise à jour, l'icône Partager est alignée sur le texte. */
+.install-banner-ico{width:15px;height:15px;vertical-align:-2px;color:var(--gold)}
 [data-install-app]{display:none}
 [data-install-app].install-cta{
   display:none;
