@@ -43,7 +43,12 @@ test('badge + carte d\'alerte pour le fondateur quand des échecs existent, rien
       supabaseClient = { from() { return { select() { return { in() { return Promise.resolve({ data: [], error: null }); } }; } }; } };
     });
     await page.evaluate(() => ouvrirTableauDeBord());
-    await page.waitForTimeout(400);
+    // On ATTEND la carte au lieu de dormir 400 ms : sur une machine de CI un peu
+    // lente, le tableau de bord (4 lectures en parallèle) n'était pas encore
+    // rendu, et ce test échouait sur la branche alors que le MÊME code passait
+    // sur main (commit f2d17bf, 18 novembre). Le message d'assertion plus bas
+    // reste celui qui dit ce qui manque, si la carte n'arrive vraiment jamais.
+    await page.waitForSelector('#adminStats .score-card', { timeout: 15000 }).catch(() => {});
     const premiereCarte = await page.evaluate(() => {
       const c = document.querySelector('#adminStats .score-card');
       return c ? { alerte: c.classList.contains('score-card-alerte'), texte: c.textContent } : null;
