@@ -61,12 +61,18 @@ async function chargerTableauDeBord() {
   // finales juste après, plus grave encore (perte possible pour un
   // créateur) : jamais avant les assets sources, purge la moins risquée
   // d'abord.
-  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + nettoyageStockageHTML + nettoyageRendusHTML + cartePassesAdmin()
+  // Carte « Crédits API » juste après les échecs de génération (qui gardent
+  // la tête, règle ci-dessus). Son chargement appelle ElevenLabs et TikHub
+  // (jusqu'à 8 s si l'un d'eux traîne), il ne doit donc JAMAIS retarder le
+  // reste du tableau : elle s'affiche d'abord avec ce qu'on sait déjà, puis se
+  // remplit toute seule (voir js/admin-credits.js).
+  zone.innerHTML = carteSoldeApiAdmin() + carteErreursAdmin() + (typeof carteCreditsApiHTML === 'function' ? carteCreditsApiHTML() : '') + nettoyageStockageHTML + nettoyageRendusHTML + cartePassesAdmin()
     + '<div id="adminEssaiRecit">' + carteEssaiRecitAdmin() + '</div>'
     + carteImagesConsommeesAdmin() + carteMontagesAdmin()
     + carteCreerAbonne() + carteExpirationsAdmin()
     + carteInactifsAdmin() + abonnesHTML + modesHTML;
   demarrerPollNonAbonnesAdmin();
+  if (typeof chargerCreditsApi === 'function') chargerCreditsApi(false);
 
   // Le fondateur vient de voir le détail des échecs (la carte ci-dessus,
   // en tête) : le badge n'a plus lieu d'être tant qu'aucun NOUVEL échec

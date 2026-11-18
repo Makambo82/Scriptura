@@ -30,6 +30,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierQuota, verifierLimiteGenerique, codeAccesRefuse } from './_lib/acces.js';
+import { noterDepenseAnthropic } from './_lib/depenses.js';
 import { urlsVideo, telechargerMedia, detailTikHub, extraireAuteurUsername, extraireAuteurAvatar } from './_lib/tiktok-media.js';
 
 const TIKHUB_BASE = 'https://api.tikhub.io';
@@ -355,6 +356,7 @@ async function appelClaudeDirect(prompt, maxTokens) {
     body: JSON.stringify({ model: MODEL_SYNTHESE, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
   });
   const data = await r.json();
+  if (r.ok) await noterDepenseAnthropic(MODEL_SYNTHESE, data && data.usage);
   const text = data && data.content && data.content[0] && data.content[0].text;
   if (!text) throw new Error('Réponse IA vide ou invalide');
   return text;

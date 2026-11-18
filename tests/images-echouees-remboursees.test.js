@@ -52,7 +52,13 @@ function poserFetchMock({ abonneRows, echecs = [], remboursements, consommations
       return { ok: true, json: async () => (abonneRows != null ? abonneRows : []) };
     }
     if (u.includes('/rest/v1/rpc/consommer_usage')) {
-      if (consommations && opts && opts.body) consommations.push(JSON.parse(opts.body));
+      // Les refs « depense_* » sont la MESURE DE DÉPENSE du Tableau de bord
+      // (api/_lib/depenses.js), pas un décompte de quota : elles passent par
+      // la même fonction SQL mais ne concernent pas ce que ce test vérifie.
+      if (consommations && opts && opts.body) {
+        const corps = JSON.parse(opts.body);
+        if (!String(corps.p_ref).startsWith('depense_')) consommations.push(corps);
+      }
       // Réponse non booléenne = indéterminé côté appelerRpc (fonction SQL pas
       // encore installée, ou panne) : le quota passe SANS rien décompter.
       return { ok: true, json: async () => (quotaIndetermine ? null : true) };

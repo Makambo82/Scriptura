@@ -11,6 +11,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { resoudreDroits, verifierAccesMontage, verifierQuota, rembourserUsage } from './_lib/acces.js';
+import { noterDepenseTogether } from './_lib/depenses.js';
 
 // ══ LIRE UNE RÉPONSE QUI N'EST PAS FORCÉMENT DU JSON ══
 //
@@ -697,6 +698,7 @@ async function genererAvecForme(apiKey, prompt, dims, reference, nomParam) {
       const image = (data.data || [])[0];
       const b64 = image && (image.b64_json || image.base64);
       if (!b64) throw new Error('Aucune image renvoyée par Together AI');
+      await noterDepenseTogether('image', 1); // pour le solde estimé du Tableau de bord
       return { base64: b64, mimeType: 'image/png' };
     }
     const message = data?.error?.message || data?.error || 'Échec de génération (statut ' + rep.status + ')';
@@ -926,6 +928,7 @@ async function handleAnimateCreate(req, res, body) {
     if (!rep.ok || !data || !data.id) {
       return res.status(502).json({ error: { message: 'Together a refusé la création (HTTP ' + rep.status + ') : ' + texte.slice(0, 400) } });
     }
+    await noterDepenseTogether('video', 1); // facturée à la création du job
     return res.status(200).json({ ok: true, id: data.id, brut: data });
   } catch (e) {
     return res.status(502).json({ error: { message: 'Together injoignable : ' + (e.message || 'inconnue') } });

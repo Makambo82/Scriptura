@@ -5,7 +5,7 @@
 // différence dans ce fichier et garde l'ancienne version en cache.
 // Commande : sed -i "s|^// VERSION=.*|// VERSION=$(date +%Y%m%d)-1|" sw.js
 // ─────────────────────────────────────────────────────────
-// VERSION=20261118-1
+// VERSION=20261118-2
 
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/7.0.0/workbox-sw.js');
 
