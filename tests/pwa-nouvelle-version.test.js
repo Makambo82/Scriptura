@@ -46,11 +46,47 @@ test('une mise en ligne affiche la bannière, « Plus tard » la fait taire, « 
     await page.evaluate(() => verifierNouvelleVersion(true));
     assert.ok(await banniere(), 'une mise en ligne encore plus récente rouvre la bannière');
 
+    // Après « Recharger », la page chargée EST la version en ligne.
+    versionEnLigne = VERSION;
     await Promise.all([page.waitForEvent('load'), page.click('#majRechargerBtn')]);
     assert.equal(await banniere(), null,
       'REGRESSION : « Recharger » fermait la bannière sans recharger quand aucun service worker n\'attendait');
 
     if (erreursJs.length) throw new Error('Exceptions JS : ' + erreursJs.join(' | '));
+  } finally {
+    await navigateur.close();
+    await arreter();
+  }
+});
+
+test('une vérification ratée (réseau pas revenu) ne bloque pas la suivante, et un retour sur l\'app relance la vérification', async () => {
+  const { baseUrl, arreter } = await demarrerServeur();
+  const navigateur = await lancerNavigateur();
+  try {
+    const page = await navigateur.newPage();
+    await poserMocksReseau(page);
+    let mode = 'panne';
+    let appels = 0;
+    await page.route('**/index.html', route => {
+      if (route.request().resourceType() !== 'fetch') return route.continue();
+      appels++;
+      if (mode === 'panne') return route.abort('internetdisconnected');
+      return route.fulfill({ status: 200, contentType: 'text/html', body: HTML.replace(/\?v=[0-9-]+"/g, '?v=29991231-9"') });
+    });
+    await page.goto(baseUrl + '/index.html', { waitUntil: 'load' });
+    const banniere = () => page.evaluate(() => !!document.getElementById('majBanner'));
+
+    // Retour d'une app endormie : le réseau n'est pas encore là, la vérification échoue.
+    await page.evaluate(() => verifierNouvelleVersion(false));
+    assert.equal(await banniere(), false);
+    const avant = appels;
+
+    // Le réseau revient quelques secondes plus tard : ce signal NON forcé doit
+    // repartir aussitôt, sans attendre le délai minimal ni les 3 minutes.
+    mode = 'ok';
+    await page.evaluate(() => window.dispatchEvent(new Event('pageshow')));
+    await page.waitForSelector('#majBanner', { timeout: 5000 });
+    assert.ok(appels > avant, 'la vérification doit être repartie après l\'échec');
   } finally {
     await navigateur.close();
     await arreter();

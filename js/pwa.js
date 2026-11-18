@@ -117,19 +117,24 @@
   // change (rituel anti-cache, CLAUDE.md). Un déploiement qui ne touche que
   // api/ ne le change pas, et c'est voulu : rien à recharger côté navigateur.
   // Aucune fonction serveur ajoutée (Vercel Hobby plafonne à 12, on y est).
-  const INTERVALLE_VERIF_MS = 10 * 60 * 1000;
+  const INTERVALLE_VERIF_MS = 3 * 60 * 1000;
+  const DELAI_MIN_ENTRE_VERIFS_MS = 45 * 1000;
   let derniereVerif = 0;
-  // « Plus tard » sur une version : on ne la repropose plus toutes les 10
-  // minutes. Seule une mise en ligne ENCORE plus récente rouvre la bannière.
+  // « Plus tard » sur une version : on ne la repropose plus à chaque passage.
+  // Seule une mise en ligne ENCORE plus récente rouvre la bannière.
   let versionProposee = null, versionIgnoree = null;
   async function verifierNouvelleVersion(force) {
     if (!VERSION_LOCALE || document.getElementById('majBanner')) return;
     if (navigator.onLine === false || document.visibilityState === 'hidden') return;
-    if (force !== true && Date.now() - derniereVerif < 2 * 60 * 1000) return;
+    if (force !== true && Date.now() - derniereVerif < DELAI_MIN_ENTRE_VERIFS_MS) return;
     derniereVerif = Date.now();
     try {
-      const r = await fetch('/index.html', { cache: 'no-store' });
-      if (!r.ok) return;
+      // « no-cache » et non « no-store » : le navigateur redemande à Vercel
+      // avec l'ETag, qui répond 304 (quelques octets) tant que rien n'a
+      // changé. Même fraîcheur, pour un coût bien plus faible, ce qui permet
+      // de vérifier souvent.
+      const r = await fetch('/index.html', { cache: 'no-cache' });
+      if (!r.ok) { derniereVerif = 0; return; }
       const distante = (await r.text()).match(/js\/pwa\.js\?v=([^"'&]+)/)?.[1];
       if (distante && distante !== VERSION_LOCALE && distante !== versionIgnoree) {
         versionProposee = distante;
@@ -138,11 +143,23 @@
         if (registration) registration.update().catch(() => {});
         afficherBanniereMaj(null);
       }
-    } catch (e) { /* réseau capricieux : on réessaiera au prochain passage */ }
+    } catch (e) {
+      // Réseau pas encore revenu (retour d'une app mise en veille, tunnel) :
+      // on ne s'interdit pas de réessayer tout de suite au prochain signal.
+      derniereVerif = 0;
+    }
   }
+  // Signaux de vérification : 1 min après l'ouverture, toutes les 3 min,
+  // et à CHAQUE retour sur l'app (onglet affiché, app rouverte depuis
+  // l'écran d'accueil, réseau revenu, fenêtre reprise). Une app installée
+  // dort en arrière-plan : les minuteurs s'y arrêtent, ce sont ces retours
+  // qui attrapent la mise en ligne.
   window.addEventListener('load', () => setTimeout(() => verifierNouvelleVersion(false), 60 * 1000));
   setInterval(() => verifierNouvelleVersion(false), INTERVALLE_VERIF_MS);
   document.addEventListener('visibilitychange', () => verifierNouvelleVersion(false));
+  window.addEventListener('pageshow', () => verifierNouvelleVersion(false));
+  window.addEventListener('online', () => verifierNouvelleVersion(true));
+  window.addEventListener('focus', () => verifierNouvelleVersion(false));
   window.verifierNouvelleVersion = verifierNouvelleVersion; // tests (voir tests/pwa-nouvelle-version.test.js)
 
   // ───────────────────────────────────────────────────────
